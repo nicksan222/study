@@ -69,6 +69,7 @@ it and the app from zero, and `just desktop-watch` restarts the app on every cha
 | 4 | `study-app` | `crates/study-app` | The `App` service: the one store, runtime and bus, registering the pipeline, conversation and practice agents (titles, answers, quiz questions and grades), search, reviews, installs |
 | 5 | `study` | `apps/desktop` | The desktop app: windows, pages, the microphone |
 | dev | `study-testkit` | `crates/study-testkit` | Real services for tests, run in Docker (a web server, …); a dev-dependency only |
+| dev | `study-showcase` | `crates/study-showcase` | Records the README demo GIF (`just demo`): the app on sample data, driven on a private virtual desktop |
 
 ## Commands
 
@@ -82,6 +83,9 @@ it and the app from zero, and `just desktop-watch` restarts the app on every cha
   (headless sway, a 1080p monitor by default, other screens by name), with `desktop-shot`,
   `desktop-click`, `desktop-record` and `wtype` to see and use it. The
   `.agents/skills/see-the-app` checklist says how.
+- `just demo`: records the README's `assets/demo.gif` from sample data on its own private
+  desktop (no sign-in, no model, not the shared desktop). Edit the tour in
+  `crates/study-showcase/src/tour.rs`.
 - `just agents`: maintainer tooling in the default devcontainer.
   Herdr runs one project-wide team: lead, developer, PM, QA, student, reviewer and pushback,
   using Claude Code with the mounted subscription login. Select roles for smaller work

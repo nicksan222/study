@@ -58,21 +58,11 @@ impl App {
         self.delete(|database| database.delete_material(project, kind))
     }
 
-    /// The one rule for what material can come from: the sources of `project` that the
-    /// user's processing plan reads and whose plan offers `kind`. It goes by the plan alone,
-    /// not the running pipeline, so what can be made is known before background work starts.
+    /// What material can come from, by the user's processing plan: see
+    /// [`Database::sources_offering`], the one rule.
     fn sources_offering(&self, project: ProjectId, kind: ArtifactKind) -> Result<Vec<SourceId>> {
         let processing = self.processing()?;
-        Ok(self
-            .sources()?
-            .into_iter()
-            .filter(|source| source.project_id == Some(project))
-            .filter(|source| {
-                let plan = processing.plan(source.kind, &source.mime);
-                plan.reads() && plan.enhancers.contains(&kind)
-            })
-            .map(|source| source.id)
-            .collect())
+        self.with(|database| database.sources_offering(project, kind, &processing))
     }
 
     /// A project's study material: each piece with its current text and any update.

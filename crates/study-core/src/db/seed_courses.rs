@@ -1,15 +1,17 @@
-//! What the seed data says: three courses as a student would have them, with lectures
+//! What the seed data says: five courses as a student would have them, with lectures
 //! transcribed minute by minute, slides read page by page, articles saved from the web
 //! section by section, and the study material, answers and quiz made from them, each
 //! citing the passages it rests on. The words are written for these samples.
 
-use super::seed::{Attachment, Conversation, Made, MadeBody, Outcome, Web};
+use super::seed::{Attachment, Conversation, Made, MadeBody, Outcome, Sample, Web};
 use crate::processing::ExtractorKind;
 use crate::{ArtifactKind, ErrorKind, PracticeAnswer, PracticeBody, Verdict, WrittenQuestion};
 
 /// The courses, oldest first, so the newest is listed first, with their exams in days
 /// from today.
-pub(super) const COURSES: [(&str, Option<i64>); 3] = [
+pub(super) const COURSES: [(&str, Option<i64>); 5] = [
+    ("Microeconomics", None),
+    ("Organic chemistry", Some(8)),
     ("Linear algebra", Some(5)),
     ("Roman history", None),
     ("Cell biology", Some(12)),
@@ -113,19 +115,245 @@ const EIGEN_CHAPTER: &[&str] = &[
     "6.2 Diagonalizing a matrix\nIf A has n independent eigenvectors, then S⁻¹AS = Λ. Not every matrix can be diagonalized: [[0, 1], [0, 0]] has only one line of eigenvectors.",
 ];
 
-/// The mitosis lecture as a diagram of cards, citing the recording `[1]` and the slides
-/// `[2]` (which the quiz cites too), then each phase.
+const CELL_CYCLE_LECTURE: &[&str] = &[
+    "Welcome back. Before we look at mitosis in detail, the big picture: every cell that divides goes through the cell cycle, a repeating sequence of growth, DNA replication and division.",
+    "The cycle has two big parts. Interphase is when the cell grows and copies its DNA; the M phase is when it divides. Interphase is subdivided into G1, S and G2.",
+    "G1 is the first gap, a period of growth and normal function. S is the synthesis phase, when the DNA is copied. G2 is the second gap, when the cell checks the copy and prepares to divide.",
+    "Cells that stop dividing leave the cycle and enter G0. Most of your neurons are in G0 permanently, while skin cells keep cycling.",
+    "Progress is controlled by checkpoints, at the end of G1, at the end of G2 and during mitosis, driven by proteins called cyclins and the kinases they activate, the CDKs.",
+];
+
+const EARLY_REPUBLIC_LECTURE: &[&str] = &[
+    "Today: how Rome became a republic, and how it was governed once it was. Tradition says the last king, Tarquin the Proud, was expelled in 509 BC.",
+    "Power was split. Two consuls, elected each year, held the highest office, and each could veto the other. The annual term and the colleague were both deliberate limits on power.",
+    "The Senate, made up of former magistrates, advised the consuls and in practice controlled finances and foreign policy. It had no formal power to make law, but its authority was great.",
+    "For the first two centuries the plebeians, the ordinary citizens, struggled with the patricians for political rights. The plebeians' weapon was the secession: they simply walked out.",
+    "This conflict of the orders produced the tribunes of the plebs, with the power to veto magistrates' acts, and in 287 BC the plebiscites passed by the plebeian assembly became binding on everyone.",
+];
+
+const GRACCHI_PODCAST: &[&str] = &[
+    "Welcome to the show. This week: the Gracchi brothers, and why two reforming tribunes ended up dead in the street.",
+    "Tiberius Gracchus wanted public land, which the rich had been occupying, redistributed to poor citizens, who would then be eligible for the army.",
+    "The Senate saw a threat. In 133 BC a mob of senators beat him to death, and the taboo against political violence was broken.",
+    "His brother Gaius tried again a decade later, and he too died, in 121 BC. After that, violence in Roman politics was no longer unthinkable.",
+];
+
+const DETERMINANT_LECTURE: &[&str] = &[
+    "Lecture five. Determinants. A determinant is a single number you can compute from a square matrix, and it tells you a surprising amount about the matrix.",
+    "For a two by two matrix with rows a, b and c, d, the determinant is ad minus bc. For three by three we expand along a row, with alternating signs.",
+    "Geometrically, the absolute value of the determinant is the factor by which the matrix scales areas, or volumes in higher dimensions. A negative sign means orientation is flipped.",
+    "The key fact: a square matrix is invertible exactly when its determinant is not zero. A zero determinant means the columns are linearly dependent and the matrix squashes space into a lower dimension.",
+    "Two rules to remember: the determinant of AB is the determinant of A times the determinant of B, and swapping two rows flips the sign of the determinant.",
+];
+
+const WHITEBOARD: &[&str] = &[
+    "A = [[2, 1], [1, 2]]. det(A − λI) = λ² − 4λ + 3 = (λ − 1)(λ − 3). λ = 1: v = (1, −1). λ = 3: v = (1, 1). Trace 4 = 1 + 3; determinant 3 = 1 × 3.",
+];
+
+const ALKANE_LECTURE: &[&str] = &[
+    "Welcome to organic chemistry. Today: alkanes, the simplest hydrocarbons, and how we name organic compounds so that everyone draws the same molecule from the same name.",
+    "Alkanes contain only carbon and hydrogen, joined by single bonds. They are saturated, with the general formula CnH2n+2: methane CH4, ethane C2H6, propane C3H8, butane C4H10.",
+    "To name a branched alkane, first find the longest continuous carbon chain; that gives the parent name. Number the chain from the end that gives the substituents the lowest numbers.",
+    "Substituents are named as prefixes in alphabetical order, with a number for each position. So a methyl group on carbon 2 of a butane chain makes 2-methylbutane, which is an isomer of pentane.",
+    "Each carbon in an alkane is sp3 hybridized, with bond angles of about 109.5 degrees. Rotation around a carbon–carbon single bond is free, which gives different conformations, such as staggered and eclipsed.",
+    "Staggered conformations are lower in energy than eclipsed ones because the hydrogens on neighboring carbons are as far apart as possible. In butane, the anti conformation, with the two methyl groups opposite each other, is the most stable.",
+];
+
+const ALKANE_SLIDES: &[&str] = &[
+    "Alkanes and nomenclature — CHEM 210, week 2\nGoals: name branched alkanes; draw conformations; relate structure to stability.",
+    "Naming alkanes (IUPAC)\n1. Find the longest carbon chain\n2. Number from the end nearest the first branch\n3. Name substituents alphabetically, with locants\nExample: 2-methylbutane",
+    "Conformations of ethane\nStaggered: lowest energy\nEclipsed: about 12 kJ/mol higher\nRotation about the C–C bond is fast at room temperature.",
+    "Conformations of butane\nAnti: most stable\nGauche: about 3.8 kJ/mol higher\nEclipsed forms are the energy maxima.",
+];
+
+const SUBSTITUTION_LECTURE: &[&str] = &[
+    "Today: nucleophilic substitution. A nucleophile, an electron-rich species, replaces a leaving group on a carbon. There are two mechanisms, SN2 and SN1, and the skill is knowing which one you are looking at.",
+    "SN2 is a single concerted step: the nucleophile attacks from the back side as the leaving group departs. The rate depends on both the substrate and the nucleophile, so it is second order overall.",
+    "Because of the back-side attack, SN2 inverts the stereochemistry at the carbon, like an umbrella turning inside out. It works best on methyl and primary substrates, and is blocked on tertiary ones by steric hindrance.",
+    "SN1 has two steps. First the leaving group leaves, giving a carbocation; then the nucleophile attacks. The first step is slow, so the rate depends only on the substrate: first order.",
+    "The carbocation is planar, so the nucleophile can attack from either face and you get a mixture of both stereoisomers, a racemic product. SN1 favours tertiary substrates because tertiary carbocations are the most stable.",
+    "Solvent matters. Polar protic solvents such as water and ethanol stabilize the carbocation and the leaving group, so they favour SN1. Polar aprotic solvents such as acetone or DMSO leave the nucleophile unsolvated and strong, so they favour SN2.",
+    "A good leaving group is a weak base: iodide, bromide and tosylate are good; hydroxide is terrible. Strong nucleophile plus primary substrate: think SN2. Weak nucleophile plus tertiary substrate in a protic solvent: SN1.",
+];
+
+const SUBSTITUTION_CHAPTER: &[&str] = &[
+    "Chapter 7 — Nucleophilic Substitution\n7.1 Substitution at saturated carbon: a nucleophile replaces a leaving group.",
+    "Comparing the mechanisms\nSN2: rate = k[RX][Nu]; inversion; methyl > primary > secondary\nSN1: rate = k[RX]; racemization; tertiary > secondary",
+    "Leaving groups\nGood: I−, Br−, Cl−, TsO−\nPoor: HO−, RO−, H2N−\nThe stronger a base a species is, the worse it leaves.",
+];
+
+const SN2_ARTICLE: &[&str] = &[
+    "The SN2 reaction is a type of nucleophilic substitution in which a lone pair of electrons on a nucleophile attacks an electron-deficient center and bonds to it, expelling a leaving group.",
+    "Because the nucleophile attacks from the side opposite the leaving group, the reaction proceeds with inversion of configuration, known as the Walden inversion.",
+    "Steric hindrance slows the reaction: methyl and primary halides react fastest, while tertiary halides do not undergo SN2 in practice.",
+];
+
+const ORGANIC_NOTES: &str = "## Alkanes
+- Only C and H, single bonds only: **saturated**, formula **CnH2n+2** [1]
+- Methane, ethane, propane, butane: CH₄, C₂H₆, C₃H₈, C₄H₁₀ [1]
+
+## Naming (IUPAC)
+- Find the **longest chain**: it is the parent [2]
+- Number from the end that gives the **lowest numbers** to substituents [2][6]
+- Prefixes go in **alphabetical order**, each with a position number [3]
+- 2-methylbutane is an isomer of pentane [3]
+
+## Shape and conformations
+- Each carbon is **sp³**, bond angles about **109.5°** [4]
+- Free rotation about C–C gives **staggered** and **eclipsed** conformations [4]
+- Staggered is lower in energy; eclipsed ethane is about **12 kJ/mol** higher [5][7]
+- Butane: **anti** is the most stable [5]; gauche is about 3.8 kJ/mol higher [8]";
+
+const SUPPLY_LECTURE: &[&str] = &[
+    "Welcome to microeconomics. We start with the model that everything else builds on: supply and demand. A market is a place where buyers and sellers meet, and the model asks what price clears it.",
+    "The law of demand says that, other things equal, a higher price lowers the quantity demanded, so the demand curve slopes down. The law of supply says the opposite for sellers: a higher price raises the quantity supplied.",
+    "The market is in equilibrium where the two curves cross. At that price the quantity demanded equals the quantity supplied, and nobody who wants to trade at that price is left out.",
+    "Above the equilibrium price there is a surplus: sellers want to sell more than buyers want to buy, so the price falls. Below it there is a shortage, and the price rises.",
+    "Careful with the difference between a movement along a curve and a shift of the curve. A change in the price moves you along the curve. A change in income, tastes, or the price of a related good shifts the whole curve.",
+    "Example: if a frost destroys part of the coffee harvest, the supply curve shifts left. The equilibrium price rises and the quantity traded falls.",
+];
+
+const SUPPLY_CHART: &[&str] = &[
+    "Supply and demand for coffee. The demand curve D slopes down and the supply curve S slopes up; they cross at the equilibrium, price 6 and quantity 40. A price above 6 leaves a surplus.",
+];
+
+const SUPPLY_NOTES: &str = "## The model
+- **Law of demand**: higher price, lower quantity demanded; **law of supply**: higher price, higher quantity supplied [1]
+- **Equilibrium** where the curves cross: quantity demanded equals quantity supplied [2][6]
+
+## Out of equilibrium
+- **Surplus** above the equilibrium price pushes the price down; **shortage** below it pushes the price up [3]
+
+## Movement or shift?
+- A price change **moves along** a curve [4]
+- Income, tastes, or the price of related goods **shift** the curve [4]
+- Example: a frost cuts the coffee harvest, **supply shifts left**, price rises and quantity falls [5]";
+
+const ELASTICITY_LECTURE: &[&str] = &[
+    "Last time we saw that demand slopes down. Today: by how much? Price elasticity of demand measures how strongly the quantity demanded responds to a change in price.",
+    "It is the percentage change in quantity demanded divided by the percentage change in price. Because demand slopes down it is negative, but we usually quote the absolute value.",
+    "If the elasticity is greater than one, demand is elastic: quantity responds more than proportionally to price. Below one, demand is inelastic. Exactly one is unit elastic.",
+    "What makes demand elastic? Close substitutes, goods that are luxuries rather than necessities, and a long time to adjust. Insulin has inelastic demand; one brand of cereal has elastic demand.",
+    "Elasticity tells you what a price rise does to revenue. If demand is elastic, raising the price lowers total revenue. If it is inelastic, raising the price raises total revenue.",
+    "Income elasticity works the same way: the percentage change in quantity per percentage change in income. Normal goods have positive income elasticity; inferior goods, like instant noodles, have negative.",
+];
+
+const ELASTICITY_ARTICLE: &[&str] = &[
+    "Price elasticity of demand is a measure of the sensitivity of the quantity demanded to a change in the price of a good, other things held constant.",
+    "Demand is called elastic when the absolute value of the elasticity is greater than one, and inelastic when it is less than one.",
+    "When demand is inelastic, a price increase raises total revenue; when it is elastic, a price increase reduces it.",
+];
+
+/// The mitosis lecture as a tree of cards, citing the recording and the slides (which the
+/// quiz cites too: `[1]` the recording, `[2]` the slides), then each phase.
 const MITOSIS_DIAGRAM: &str = r#"flowchart TD
-    cycle(["Cell cycle<br>- Interphase: G1, S, G2 [2]<br>- DNA replicated in S phase [2]"])
-    mitosis["Mitosis<br>- Four phases [1]<br>- Two identical daughter cells [1]"]
-    prophase["Prophase<br>- Chromatin condenses into chromosomes [3]<br>- Spindle forms from the centrosomes [3]"]
-    metaphase["Metaphase<br>- Chromosomes line up on the metaphase plate [4]<br>- Spindle checkpoint waits for every kinetochore [5]"]
-    anaphase["Anaphase<br>- Separase cuts cohesin [6]<br>- Chromatids pulled to opposite poles [6]"]
-    telophase["Telophase<br>- Nuclear envelopes re-form [7]<br>- Chromosomes decondense [7]"]
-    cytokinesis(("Cytokinesis<br>- Animal cells: cleavage furrow [8]<br>- Plant cells: cell plate [8]"))
-    cycle -->|then| mitosis
-    mitosis --> prophase --> metaphase --> anaphase --> telophase
-    telophase -->|overlaps| cytokinesis
+    cycle(["Cell cycle<br>- Interphase, mitosis, cytokinesis [2]"])
+    interphase["Interphase<br>- Most of the cell's time [2]"]
+    mitosis["Mitosis<br>- Four phases [1]<br>- Two identical cells [1]"]
+    cytokinesis["Cytokinesis<br>- Splits the cytoplasm [9]"]
+    g1["G1<br>- Growth"]
+    s["S phase<br>- DNA replicated [10]"]
+    g2["G2<br>- Final checks"]
+    prophase["Prophase<br>- Chromosomes condense [3]<br>- Spindle forms [3]"]
+    metaphase["Metaphase<br>- Chromosomes line up [4]<br>- Spindle checkpoint [5]"]
+    anaphase["Anaphase<br>- Separase cuts cohesin [6]<br>- Chromatids pulled apart [6]"]
+    telophase["Telophase<br>- Envelopes re-form [7]"]
+    animal["Animal cells<br>- Cleavage furrow [8]"]
+    plant["Plant cells<br>- Cell plate [8]"]
+    cycle --> interphase & mitosis & cytokinesis
+    interphase --> g1 & s & g2
+    mitosis --> prophase & metaphase & anaphase & telophase
+    cytokinesis --> animal & plant
+"#;
+
+const MITOSIS_DIAGRAM_CITES: &[(usize, usize)] = &[
+    (0, 2),
+    (1, 1),
+    (0, 3),
+    (0, 5),
+    (0, 6),
+    (0, 7),
+    (0, 8),
+    (1, 5),
+    (0, 9),
+    (0, 1),
+];
+
+/// Nucleophilic substitution as a tree: the two mechanisms and what decides between them.
+const SUBSTITUTION_DIAGRAM: &str = r#"flowchart TD
+    root(["Nucleophilic substitution<br>- A nucleophile replaces a leaving group [1]"])
+    sn2["SN2<br>- One concerted step [2]"]
+    sn1["SN1<br>- Two steps, via a carbocation [4]"]
+    factors["What decides"]
+    sn2rate["Rate<br>- Second order [8]"]
+    sn2stereo["Stereochemistry<br>- Inversion [3]"]
+    sn2substrate["Substrate<br>- Methyl and primary [3]"]
+    sn1rate["Rate<br>- First order [8]"]
+    sn1stereo["Stereochemistry<br>- Racemic product [5]"]
+    sn1substrate["Substrate<br>- Tertiary favoured [5]"]
+    solvent["Solvent<br>- Protic favours SN1 [6]<br>- Aprotic favours SN2 [6]"]
+    leaving["Leaving group<br>- Weak bases leave best [7]<br>- Iodide, bromide, tosylate [9]"]
+    root --> sn2 & sn1 & factors
+    sn2 --> sn2rate & sn2stereo & sn2substrate
+    sn1 --> sn1rate & sn1stereo & sn1substrate
+    factors --> solvent & leaving
+"#;
+
+/// Elasticity as a tree: how it is measured, and what elastic and inelastic demand mean.
+const ELASTICITY_DIAGRAM: &str = r#"flowchart TD
+    root(["Price elasticity of demand<br>- How quantity responds to price [1]"])
+    measure["Measure<br>- Percent change in quantity over percent change in price [2]"]
+    elastic["Elastic<br>- Above one [3]"]
+    inelastic["Inelastic<br>- Below one [3]"]
+    income["Income elasticity<br>- The same idea for income [6]"]
+    elasticwhy["Why<br>- Close substitutes [4]<br>- Long time to adjust [4]"]
+    elasticrevenue["Raise the price<br>- Revenue falls [5]"]
+    inelasticwhy["Why<br>- Necessities, like insulin [4]"]
+    inelasticrevenue["Raise the price<br>- Revenue rises [5]"]
+    normal["Normal goods<br>- Positive [6]"]
+    inferior["Inferior goods<br>- Negative [6]"]
+    root --> measure & elastic & inelastic & income
+    elastic --> elasticwhy & elasticrevenue
+    inelastic --> inelasticwhy & inelasticrevenue
+    income --> normal & inferior
+"#;
+
+/// The road to the Rubicon as a tree.
+const RUBICON_DIAGRAM: &str = r#"flowchart TD
+    root(["First Triumvirate<br>- Pompey, Crassus and Caesar [1]"])
+    breakdown["Personal ties lost"]
+    gaul["Caesar in Gaul<br>- Since 58 BC [3]"]
+    ultimatum["Ultimatum<br>- The Senate backs Pompey [5]"]
+    crassus["Crassus<br>- Dies at Carrhae, 53 BC [2]"]
+    julia["Julia<br>- Caesar's daughter, Pompey's wife [2]"]
+    wealth["Wealth and fame [3]"]
+    army["A loyal army [3]"]
+    prosecution["Fear of prosecution<br>- Acts as consul in 59 BC [4]"]
+    rubicon["The Rubicon, 49 BC<br>- One legion [5]<br>- Treason [6]"]
+    war["Civil war<br>- Pharsalus, 48 BC [7]"]
+    dictator["Dictator<br>- Assassinated in 44 BC [8]"]
+    root --> breakdown & gaul & ultimatum
+    breakdown --> crassus & julia
+    gaul --> wealth & army
+    ultimatum --> prosecution & rubicon
+    rubicon --> war & dictator
+"#;
+
+/// Eigenvalues as a tree.
+const EIGEN_DIAGRAM: &str = r#"flowchart TD
+    root(["Eigenvectors<br>- Av = λv [1]"])
+    finding["Finding them<br>- det(A − λI) = 0 [2]"]
+    checks["Checks"]
+    diag["Diagonalization<br>- A = PDP⁻¹ [6]"]
+    example["Example<br>- λ = 1 and 3 [3]"]
+    vectors["Eigenvectors<br>- (1, 1), (1, −1) [4]"]
+    sums["Sum is the trace<br>- 1 + 3 = 4 [5]"]
+    powers["Powers<br>- A^k = P D^k P⁻¹ [7]"]
+    fails["Not always possible<br>- Needs n eigenvectors [8]"]
+    root --> finding & checks & diag
+    finding --> example & vectors
+    checks --> sums
+    diag --> powers & fails
 "#;
 
 const MEMBRANE_NOTES: &str = "## The membrane
@@ -185,9 +413,326 @@ const EIGEN_NOTES: &str = "## Definition
 - Powers become easy: A^k = P D^k P⁻¹ [9]
 - Not always possible: [[0, 1], [0, 0]] [10]";
 
-/// The sessions of the courses, in no particular order: each dates itself.
-pub(super) fn conversations() -> Vec<Conversation> {
+/// The sessions of the courses, in no particular order: each dates itself. The showcase
+/// sample has every file read and no session left waiting for work.
+pub(super) fn conversations(sample: Sample) -> Vec<Conversation> {
+    let mut all = development_conversations();
+    if sample == Sample::Showcase {
+        showcase(&mut all);
+    }
+    all
+}
+
+/// What the showcase sample changes: nothing failed, stopped or unread, no declined update,
+/// and diagrams for the courses that had none.
+fn showcase(all: &mut Vec<Conversation>) {
+    all.retain(|c| !matches!(c.title, "Exam revision" | "Study plan"));
+    for conversation in all.iter_mut() {
+        conversation.declined = None;
+        match conversation.title {
+            "Fall of the Republic" => {
+                conversation.attachments[1].outcome = Some(Outcome::Done {
+                    blocks: GRACCHI_PODCAST,
+                });
+            }
+            "Eigenvalues" => {
+                conversation.attachments[2] =
+                    Attachment::read("whiteboard-photo.jpg", ExtractorKind::Vision, WHITEBOARD, 9);
+                conversation.answer = Some((
+                    "An eigenvector of a square matrix A is a nonzero vector v with Av = λv for some scalar λ, its eigenvalue [1]: multiplying by A only stretches it, without changing its direction [2]. The whiteboard example shows it: for [[2, 1], [1, 2]] the eigenvalues are 1 and 3 [3].",
+                    &[(0, 1), (1, 0), (2, 0)],
+                ));
+                conversation.made.push(Made {
+                    kind: ArtifactKind::Diagram,
+                    body: MadeBody::Diagram(EIGEN_DIAGRAM),
+                    cites: &[
+                        (0, 1),
+                        (0, 2),
+                        (0, 3),
+                        (0, 4),
+                        (0, 5),
+                        (0, 6),
+                        (0, 7),
+                        (1, 3),
+                    ],
+                });
+            }
+            "Caesar crosses the Rubicon" => conversation.made.push(Made {
+                kind: ArtifactKind::Diagram,
+                body: MadeBody::Diagram(RUBICON_DIAGRAM),
+                cites: &[
+                    (0, 0),
+                    (0, 1),
+                    (0, 2),
+                    (0, 3),
+                    (0, 4),
+                    (1, 1),
+                    (0, 5),
+                    (0, 6),
+                ],
+            }),
+            _ => {}
+        }
+    }
+}
+
+fn development_conversations() -> Vec<Conversation> {
     vec![
+        Conversation {
+            project: "Organic chemistry",
+            title: "Alkanes and naming",
+            text: "Lecture 2 and the slides.",
+            hours_ago: 12 * 24,
+            attachments: vec![
+                Attachment::read(
+                    "lecture-02-alkanes.mp3",
+                    ExtractorKind::Transcription,
+                    ALKANE_LECTURE,
+                    498,
+                ),
+                Attachment::read(
+                    "slides-alkanes.pdf",
+                    ExtractorKind::Vision,
+                    ALKANE_SLIDES,
+                    28,
+                ),
+            ],
+            answer: None,
+            thread: &[],
+            made: vec![Made {
+                kind: ArtifactKind::Notes,
+                body: MadeBody::Text(ORGANIC_NOTES),
+                cites: &[
+                    (0, 1),
+                    (0, 2),
+                    (0, 3),
+                    (0, 4),
+                    (0, 5),
+                    (1, 1),
+                    (1, 2),
+                    (1, 3),
+                ],
+            }],
+            declined: None,
+        },
+        Conversation {
+            project: "Organic chemistry",
+            title: "SN1 and SN2",
+            text: "Lecture 5, the textbook chapter and an article on SN2. @study when does SN2 win over SN1?",
+            hours_ago: 5 * 24,
+            attachments: vec![
+                Attachment::read(
+                    "lecture-05-substitution.mp3",
+                    ExtractorKind::Transcription,
+                    SUBSTITUTION_LECTURE,
+                    571,
+                ),
+                Attachment::read(
+                    "textbook-chapter-7.pdf",
+                    ExtractorKind::Vision,
+                    SUBSTITUTION_CHAPTER,
+                    33,
+                ),
+                Attachment::article(
+                    Web {
+                        title: "SN2 reaction – Wikipedia",
+                        url: "https://en.wikipedia.org/wiki/SN2_reaction",
+                        sections: &["overview", "stereochemistry", "substrate"],
+                    },
+                    SN2_ARTICLE,
+                ),
+            ],
+            answer: Some((
+                "SN2 wins with a strong nucleophile on a methyl or primary substrate, ideally in a polar aprotic solvent [1][2]. It is blocked on tertiary carbons by steric hindrance [3], which is where SN1 takes over.",
+                &[(0, 6), (0, 5), (2, 2)],
+            )),
+            thread: &[],
+            made: vec![
+                Made {
+                    kind: ArtifactKind::Diagram,
+                    body: MadeBody::Diagram(SUBSTITUTION_DIAGRAM),
+                    cites: &[
+                        (0, 0),
+                        (0, 1),
+                        (0, 2),
+                        (0, 3),
+                        (0, 4),
+                        (0, 5),
+                        (0, 6),
+                        (1, 1),
+                        (1, 2),
+                    ],
+                },
+                Made {
+                    kind: ArtifactKind::Flashcards,
+                    body: MadeBody::Cards(&[
+                        (
+                            "What is the rate law of an SN2 reaction?",
+                            "Rate = k[RX][Nu]: second order, depending on substrate and nucleophile.",
+                            &[1, 7],
+                        ),
+                        (
+                            "What happens to stereochemistry in SN2?",
+                            "Inversion at the carbon, from the back-side attack.",
+                            &[2],
+                        ),
+                        (
+                            "How many steps does SN1 have, and which is slow?",
+                            "Two. Loss of the leaving group, forming a carbocation, is the slow step.",
+                            &[3],
+                        ),
+                        (
+                            "Why does SN1 give a racemic product?",
+                            "The carbocation is planar, so the nucleophile attacks either face.",
+                            &[4],
+                        ),
+                        (
+                            "Which substrates favour SN1, and why?",
+                            "Tertiary ones, because tertiary carbocations are the most stable.",
+                            &[4],
+                        ),
+                        (
+                            "Which solvents favour SN2?",
+                            "Polar aprotic ones, such as acetone or DMSO, which leave the nucleophile strong.",
+                            &[5],
+                        ),
+                        (
+                            "Which solvents favour SN1?",
+                            "Polar protic ones, such as water or ethanol, which stabilize the carbocation.",
+                            &[5],
+                        ),
+                        (
+                            "What makes a good leaving group?",
+                            "A weak base, such as iodide, bromide or tosylate.",
+                            &[6],
+                        ),
+                    ]),
+                    cites: &[(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (1, 1)],
+                },
+            ],
+            declined: None,
+        },
+        Conversation {
+            project: "Microeconomics",
+            title: "Supply and demand",
+            text: "Lecture 1 and the chart from the board.",
+            hours_ago: 15 * 24,
+            attachments: vec![
+                Attachment::read(
+                    "lecture-01-markets.m4a",
+                    ExtractorKind::Transcription,
+                    SUPPLY_LECTURE,
+                    455,
+                ),
+                Attachment::read(
+                    "coffee-market-chart.png",
+                    ExtractorKind::Vision,
+                    SUPPLY_CHART,
+                    11,
+                ),
+            ],
+            answer: None,
+            thread: &[],
+            made: vec![Made {
+                kind: ArtifactKind::Notes,
+                body: MadeBody::Text(SUPPLY_NOTES),
+                cites: &[(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (1, 0)],
+            }],
+            declined: None,
+        },
+        Conversation {
+            project: "Microeconomics",
+            title: "Elasticity",
+            text: "Lecture 3 and an overview article. @study what does elasticity measure?",
+            hours_ago: 3 * 24 + 4,
+            attachments: vec![
+                Attachment::read(
+                    "lecture-03-elasticity.mp3",
+                    ExtractorKind::Transcription,
+                    ELASTICITY_LECTURE,
+                    517,
+                ),
+                Attachment::article(
+                    Web {
+                        title: "Price elasticity of demand – Wikipedia",
+                        url: "https://en.wikipedia.org/wiki/Price_elasticity_of_demand",
+                        sections: &["definition", "interpretation", "revenue"],
+                    },
+                    ELASTICITY_ARTICLE,
+                ),
+            ],
+            answer: Some((
+                "Price elasticity of demand measures how much the quantity demanded responds to a change in price: the percentage change in quantity divided by the percentage change in price [1]. Above one in absolute value demand is elastic, below one it is inelastic [2].",
+                &[(0, 1), (1, 1)],
+            )),
+            thread: &[],
+            made: vec![
+                Made {
+                    kind: ArtifactKind::Diagram,
+                    body: MadeBody::Diagram(ELASTICITY_DIAGRAM),
+                    cites: &[(0, 0), (0, 1), (1, 1), (0, 3), (1, 2), (0, 5)],
+                },
+                Made {
+                    kind: ArtifactKind::Flashcards,
+                    body: MadeBody::Cards(&[
+                        (
+                            "What does price elasticity of demand measure?",
+                            "How strongly the quantity demanded responds to a change in price.",
+                            &[1],
+                        ),
+                        (
+                            "How is it calculated?",
+                            "Percentage change in quantity demanded divided by percentage change in price.",
+                            &[1],
+                        ),
+                        (
+                            "When is demand elastic?",
+                            "When the absolute value of the elasticity is greater than one.",
+                            &[2],
+                        ),
+                        (
+                            "What does unit elastic mean?",
+                            "The elasticity is exactly one.",
+                            &[2],
+                        ),
+                        (
+                            "Name two things that make demand more elastic.",
+                            "Close substitutes, and a long time to adjust.",
+                            &[3],
+                        ),
+                        (
+                            "What happens to revenue if you raise the price and demand is elastic?",
+                            "Total revenue falls.",
+                            &[4],
+                        ),
+                        ("And if demand is inelastic?", "Total revenue rises.", &[4]),
+                        (
+                            "What is an inferior good?",
+                            "One with negative income elasticity, such as instant noodles.",
+                            &[5],
+                        ),
+                    ]),
+                    cites: &[(0, 1), (0, 2), (0, 3), (0, 4), (0, 5)],
+                },
+            ],
+            declined: None,
+        },
+        Conversation {
+            project: "Cell biology",
+            title: "The cell cycle",
+            text: "Recording of the first lecture on how cells divide.",
+            hours_ago: 18 * 24,
+            attachments: vec![Attachment::read(
+                "lecture-cell-cycle.mp3",
+                ExtractorKind::Transcription,
+                CELL_CYCLE_LECTURE,
+                389,
+            )],
+            answer: None,
+            thread: &[],
+            made: Vec::new(),
+            declined: None,
+        },
         Conversation {
             project: "Cell biology",
             title: "Mitosis lecture",
@@ -227,16 +772,7 @@ pub(super) fn conversations() -> Vec<Conversation> {
                 Made {
                     kind: ArtifactKind::Diagram,
                     body: MadeBody::Diagram(MITOSIS_DIAGRAM),
-                    cites: &[
-                        (0, 2),
-                        (1, 1),
-                        (0, 3),
-                        (0, 5),
-                        (0, 6),
-                        (0, 7),
-                        (0, 8),
-                        (1, 5),
-                    ],
+                    cites: MITOSIS_DIAGRAM_CITES,
                 },
                 Made {
                     kind: ArtifactKind::Flashcards,
@@ -379,6 +915,22 @@ pub(super) fn conversations() -> Vec<Conversation> {
         },
         Conversation {
             project: "Roman history",
+            title: "The early Republic",
+            text: "Lecture 7 on the consuls, the Senate and the plebeians.",
+            hours_ago: 16 * 24,
+            attachments: vec![Attachment::read(
+                "lecture-07-early-republic.m4a",
+                ExtractorKind::Transcription,
+                EARLY_REPUBLIC_LECTURE,
+                352,
+            )],
+            answer: None,
+            thread: &[],
+            made: Vec::new(),
+            declined: None,
+        },
+        Conversation {
+            project: "Roman history",
             title: "Fall of the Republic",
             text: "My notes from the seminar and the overview article. @study why did Sulla matter?",
             hours_ago: 52,
@@ -486,6 +1038,22 @@ pub(super) fn conversations() -> Vec<Conversation> {
                 ]),
                 cites: &[(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (1, 1)],
             }],
+            declined: None,
+        },
+        Conversation {
+            project: "Linear algebra",
+            title: "Determinants",
+            text: "Recording of lecture 5.",
+            hours_ago: 17 * 24,
+            attachments: vec![Attachment::read(
+                "lecture-05.mp3",
+                ExtractorKind::Transcription,
+                DETERMINANT_LECTURE,
+                402,
+            )],
+            answer: None,
+            thread: &[],
+            made: Vec::new(),
             declined: None,
         },
         Conversation {
@@ -653,7 +1221,7 @@ pub(super) type SeededQuestion = (
 /// The questions of the seeded quiz about mitosis, in the order the quiz asks their kinds:
 /// two answered choices, an open answer graded as partly right, and two waiting. They cite
 /// the mitosis diagram's passages: `[1]` the recording, `[2]` the slides.
-pub(super) fn practice_questions() -> Vec<SeededQuestion> {
+pub(super) fn practice_questions(sample: Sample) -> Vec<SeededQuestion> {
     let written = |gist: &str, body: PracticeBody| WrittenQuestion {
         gist: gist.to_owned(),
         body,
@@ -675,6 +1243,7 @@ pub(super) fn practice_questions() -> Vec<SeededQuestion> {
             },
         )
     };
+    let showcase = sample == Sample::Showcase;
     vec![
         (
             choice(
@@ -696,7 +1265,7 @@ pub(super) fn practice_questions() -> Vec<SeededQuestion> {
                 "The cell cycle slide says about 90% of the time is spent in interphase.",
                 2,
             ),
-            Some((PracticeAnswer::Choice(1), None)),
+            Some((PracticeAnswer::Choice(if showcase { 3 } else { 1 }), None)),
         ),
         (
             written(
@@ -709,13 +1278,26 @@ pub(super) fn practice_questions() -> Vec<SeededQuestion> {
                     cites: vec![1],
                 },
             ),
-            Some((
-                PracticeAnswer::Open("Prophase, metaphase, anaphase, telophase.".to_owned()),
-                Some((
-                    Verdict::Partly,
-                    "Right: those are the four phases, in order. Missing is where prometaphase fits: between prophase and metaphase.",
-                )),
-            )),
+            Some(if showcase {
+                (
+                    PracticeAnswer::Open(
+                        "Prophase, metaphase, anaphase and telophase, with prometaphase between prophase and metaphase."
+                            .to_owned(),
+                    ),
+                    Some((
+                        Verdict::Correct,
+                        "Exactly: the four phases in order, and prometaphase fits between prophase and metaphase, when the nuclear envelope breaks down.",
+                    )),
+                )
+            } else {
+                (
+                    PracticeAnswer::Open("Prophase, metaphase, anaphase, telophase.".to_owned()),
+                    Some((
+                        Verdict::Partly,
+                        "Right: those are the four phases, in order. Missing is where prometaphase fits: between prophase and metaphase.",
+                    )),
+                )
+            }),
         ),
         (
             choice(
@@ -726,7 +1308,7 @@ pub(super) fn practice_questions() -> Vec<SeededQuestion> {
                 "The slide reads: interphase, then mitosis, then cytokinesis.",
                 2,
             ),
-            None,
+            showcase.then_some((PracticeAnswer::Choice(2), None)),
         ),
         (
             choice(

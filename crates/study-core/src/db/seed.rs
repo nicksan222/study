@@ -1,32 +1,36 @@
-//! Sample data for development: three courses as a student would have them, so every screen
-//! has something real to show. What they say is in `seed_courses.rs`; this writes it.
+//! Sample data: five courses as a student would have them, so every screen has something
+//! real to show. What they say is in `seed_courses.rs`; this writes it. There are two
+//! samples, [`Sample`], over the same courses and writers.
 //!
 //! Each session holds a note and its attachments: lectures transcribed minute by minute,
-//! slides and scans read page by page, articles saved from the web section by section, and
-//! files read with other outcomes (failed, stopped, never read). From the read ones come
-//! answers to notes that ask the assistant, and finished notes, flashcards and
-//! diagrams, each citing the passages it rests on. Material belongs to the project, so what
-//! a later session makes of the same kind updates it, and sessions added after a piece was
-//! made leave it out of date. Every status shows: some pieces are up to date, some outdated,
-//! some never made, and one update (cell biology's diagram) was declined by its writer for
-//! having too little to go on, which leaves the diagram before it shown. Some
-//! flashcards were reviewed over the last days, so a streak shows and some cards are due;
-//! two courses have an exam coming. A quiz over cell biology has a few answered questions of
-//! both kinds and the next ones written.
+//! slides and scans read page by page, articles saved from the web section by section. From
+//! the read ones come answers to notes that ask the assistant, and finished notes,
+//! flashcards and diagrams, each citing the passages it rests on. Material belongs to the
+//! project, so what a later session makes of the same kind updates it. Some flashcards were
+//! reviewed over the last days, so a streak shows and some cards are due; some courses have
+//! an exam coming. A quiz over cell biology has answered questions of both kinds and the
+//! next one written.
+//!
+//! The development sample also shows every status: files read with other outcomes (failed,
+//! stopped, never read), sessions added after a piece was made leaving it out of date, some
+//! pieces never made, and one update (cell biology's diagram) declined by its writer for
+//! having too little to go on. The showcase has none of these: every file is read and every
+//! course has up-to-date notes, flashcards and a diagram.
 //!
 //! Only finished, failed, and stopped work is seeded. A queued job would run as soon as the
 //! app opens, so work that was in progress is seeded as stopped instead, ready to start from
 //! the Pipelines page. Every audio file is a real recording, so starting one transcribes
-//! speech. Finished reads leave their documents queued for indexing, so search finds them
-//! once background work starts.
+//! speech. In both samples, finished reads leave their documents queued for indexing (the
+//! passages are written by the pipeline, not here), so search finds them once background
+//! work starts; the showcase's only unfinished work is that indexing.
 
 use super::seed_courses::{COURSES, QUIZ_COURSE, conversations, practice_questions};
-use super::seed_files::sample;
+use super::seed_files::sample as sample_file;
 use super::{
     Answered, Database, JobTarget, MessageRole, NewJob, NewPart, Place, read_nothing,
     unix_timestamp,
 };
-use crate::processing::ExtractorKind;
+use crate::processing::{ExtractorKind, ProcessingPreferences};
 use crate::{
     Anchor, ArtifactBody, ArtifactKind, Block, BlockKind, Citation, Document, DocumentMeta,
     ErrorKind, Flashcard, JobId, JobKind, JobStatus, MessageId, ProjectId, QuestionStatus, Rating,
@@ -37,6 +41,17 @@ use std::path::Path;
 
 const HOUR: i64 = 3600;
 const DAY: i64 = 24 * HOUR;
+
+/// Which sample to write. Both share the courses, content and writers.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Sample {
+    /// For development: every status shows, so failed, stopped and declined work, outdated
+    /// material and unread files are there to look at.
+    Development,
+    /// For showing the app: every read finishes and all material is up to date, so nothing
+    /// looks broken and nothing waits to run.
+    Showcase,
+}
 
 /// How one seeded read ended.
 pub(super) enum Outcome {
@@ -272,8 +287,21 @@ fn citations(conversation: &Conversation, read: &[Read], cites: &[Passage]) -> V
 
 impl Database {
     /// Fills an empty database with sample courses, sessions, files, study material and a
-    /// quiz. Returns `false`, changing nothing, when there are already projects.
+    /// quiz, showing every status. Returns `false`, changing nothing, when there are already
+    /// projects.
     pub fn seed_demo(&self) -> Result<bool> {
+        self.seed(Sample::Development)
+    }
+
+    /// Like [`seed_demo`](Self::seed_demo), but for showing the app: every file is read,
+    /// every course has up-to-date notes, flashcards and a diagram, and no work is left
+    /// to run but the indexing of what was read (the pipeline writes the passages), so no
+    /// screen shows a failure or an update to make.
+    pub fn seed_showcase(&self) -> Result<bool> {
+        self.seed(Sample::Showcase)
+    }
+
+    fn seed(&self, sample: Sample) -> Result<bool> {
         if !self.list_projects()?.is_empty() {
             return Ok(false);
         }
@@ -287,17 +315,32 @@ impl Database {
                 )?;
             }
         }
-        for conversation in conversations() {
-            self.seed_conversation(files.path(), &conversation)?;
+        let scripted = conversations(sample);
+        // Material is written as each session ends, so a later session leaves it out of
+        // date; the showcase writes it once all sessions are in.
+        let mut later = Vec::new();
+        for conversation in &scripted {
+            let read = self.seed_conversation(files.path(), conversation, sample)?;
+            if sample == Sample::Showcase {
+                later.push((conversation, read));
+            }
         }
-        self.seed_reviews()?;
-        self.seed_practice(QUIZ_COURSE)?;
+        for (conversation, read) in later {
+            self.seed_conversation_material(conversation, &read)?;
+        }
+        self.seed_reviews(sample)?;
+        self.seed_practice(QUIZ_COURSE, sample)?;
         Ok(true)
     }
 
     /// A session of `conversation`'s project with its note, attachments read as scripted,
     /// answer, material and thread, dated `hours_ago`.
-    fn seed_conversation(&self, directory: &Path, conversation: &Conversation) -> Result<()> {
+    fn seed_conversation(
+        &self,
+        directory: &Path,
+        conversation: &Conversation,
+        sample: Sample,
+    ) -> Result<Vec<Read>> {
         let project = self.seeded_project(conversation.project)?;
         let session = self.create_session(project, conversation.title)?;
         let mut parts = vec![NewPart::Text(conversation.text.to_owned())];
@@ -308,7 +351,7 @@ impl Database {
             let path = folder.join(attachment.file);
             std::fs::write(
                 &path,
-                sample(attachment.file, attachment.name(), attachment.blocks()),
+                sample_file(attachment.file, attachment.name(), attachment.blocks()),
             )?;
             parts.push(NewPart::File(path));
         }
@@ -365,10 +408,8 @@ impl Database {
             let cited = citations(conversation, &read, cites);
             self.seed_answer(message.id, answer, &cited, posted)?;
         }
-        for (place, made) in (1..).zip(&conversation.made) {
-            let cited = citations(conversation, &read, made.cites);
-            let written = posted + place * 10 * 60;
-            self.seed_material(project, made, &cited, written)?;
+        if sample == Sample::Development {
+            self.seed_conversation_material(conversation, &read)?;
         }
         if let Some((kind, attachment, why)) = conversation.declined {
             let source = message.parts[attachment + 1]
@@ -409,6 +450,19 @@ impl Database {
             "UPDATE sessions SET created_at = ?1, updated_at = ?1 WHERE id = ?2",
             params![posted, session.id],
         )?;
+        Ok(read)
+    }
+
+    /// The material `conversation` makes from what it `read`, each piece the update of its
+    /// kind in the project.
+    fn seed_conversation_material(&self, conversation: &Conversation, read: &[Read]) -> Result<()> {
+        let project = self.seeded_project(conversation.project)?;
+        let posted = unix_timestamp() - conversation.hours_ago * HOUR;
+        for (place, made) in (1..).zip(&conversation.made) {
+            let cited = citations(conversation, read, made.cites);
+            let written = posted + place * 10 * 60;
+            self.seed_material(project, made, &cited, written)?;
+        }
         Ok(())
     }
 
@@ -468,6 +522,17 @@ impl Database {
         Ok(read)
     }
 
+    /// The files of `project` that were read and that the default plan offers `kind` from:
+    /// what material is written from, by the same rule the app counts outdated by.
+    fn offering_read(&self, project: ProjectId, kind: ArtifactKind) -> Result<Vec<SourceId>> {
+        let read = self.read_sources(project)?;
+        let offering = self.sources_offering(project, kind, &ProcessingPreferences::default())?;
+        Ok(offering
+            .into_iter()
+            .filter(|id| read.contains(id))
+            .collect())
+    }
+
     /// `made`, the update of its kind in `project`, finished at `at` from the files
     /// read so far and citing `cited`.
     fn seed_material(
@@ -477,7 +542,7 @@ impl Database {
         cited: &[Citation],
         at: i64,
     ) -> Result<()> {
-        let sources = self.read_sources(project)?;
+        let sources = self.offering_read(project, made.kind)?;
         let (artifact, job) = self.request_update(project, made.kind, &sources)?;
         let job = job.expect("an update is queued");
         let body = match made.body {
@@ -508,15 +573,30 @@ impl Database {
     /// Reviews over the last days: two groups of the mitosis cards went well on consecutive
     /// days, and the first again yesterday, so a streak shows; the eigenvalue cards were
     /// forgotten four days ago, so they are due again.
-    fn seed_reviews(&self) -> Result<()> {
+    fn seed_reviews(&self, sample: Sample) -> Result<()> {
         let now = unix_timestamp();
-        let reviews: [(&str, std::ops::Range<usize>, i64, Rating); 4] = [
-            ("Cell biology", 0..4, 3, Rating::Good),
-            ("Cell biology", 4..8, 2, Rating::Easy),
-            ("Cell biology", 0..4, 1, Rating::Good),
-            ("Linear algebra", 0..5, 4, Rating::Again),
-        ];
-        for (project, cards, days_ago, rating) in reviews {
+        let reviews: &[(&str, std::ops::Range<usize>, i64, Rating)] = match sample {
+            Sample::Development => &[
+                ("Cell biology", 0..4, 3, Rating::Good),
+                ("Cell biology", 4..8, 2, Rating::Easy),
+                ("Cell biology", 0..4, 1, Rating::Good),
+                ("Linear algebra", 0..5, 4, Rating::Again),
+            ],
+            // A streak over six days; the eigenvalue cards were forgotten and a few others are
+            // due again, and the rest are scheduled for later.
+            Sample::Showcase => &[
+                ("Cell biology", 0..4, 6, Rating::Easy),
+                ("Cell biology", 4..8, 5, Rating::Easy),
+                ("Cell biology", 8..12, 4, Rating::Good),
+                ("Linear algebra", 0..5, 4, Rating::Again),
+                ("Linear algebra", 5..10, 2, Rating::Easy),
+                ("Roman history", 0..8, 3, Rating::Easy),
+                ("Organic chemistry", 0..8, 2, Rating::Easy),
+                ("Microeconomics", 0..4, 4, Rating::Good),
+                ("Microeconomics", 4..8, 1, Rating::Easy),
+            ],
+        };
+        for (project, cards, days_ago, rating) in reviews.iter().cloned() {
             let set = self
                 .list_material(self.seeded_project(project)?)?
                 .into_iter()
@@ -534,7 +614,7 @@ impl Database {
     /// [`practice_questions`] in turn: each is written and, when it has one, answered and
     /// graded. The last ones wait for an answer, and every job the practice queued is
     /// finished.
-    fn seed_practice(&self, name: &str) -> Result<()> {
+    fn seed_practice(&self, name: &str, sample: Sample) -> Result<()> {
         let project = self.seeded_project(name)?;
         // The passages the questions cite: those the mitosis diagram cites, the recording
         // `[1]` and the slides `[2]`.
@@ -546,7 +626,7 @@ impl Database {
             .map(|diagram| diagram.citations)
             .unwrap_or_default();
         let practice = self.project_practice(project)?;
-        for (written, answer) in practice_questions() {
+        for (written, answer) in practice_questions(sample) {
             let cited: Vec<Citation> = passages
                 .iter()
                 .filter(|passage| written.body.cites().contains(&passage.marker))
@@ -617,8 +697,9 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::super::seed_courses::conversations;
-    use super::{MadeBody, Outcome, Passage};
+    use super::{MadeBody, Outcome, Passage, Sample};
     use crate::Result;
+    use crate::processing::ProcessingPreferences;
     use crate::{ArtifactKind, ErrorKind, JobKind, JobStatus, SourceKind};
     use std::collections::BTreeSet;
 
@@ -628,7 +709,7 @@ mod tests {
         assert!(db.seed_demo()?);
         assert!(!db.seed_demo()?);
 
-        let scripted = conversations();
+        let scripted = conversations(Sample::Development);
         let attachments = || scripted.iter().flat_map(|c| &c.attachments);
         let outcomes = |pick: fn(&Outcome) -> bool| {
             attachments()
@@ -639,8 +720,8 @@ mod tests {
         let made: usize = scripted.iter().map(|c| c.made.len()).sum();
 
         let projects = db.list_projects()?;
-        assert_eq!(projects.len(), 3);
-        assert_eq!(projects.iter().filter(|p| p.exam_on.is_some()).count(), 2);
+        assert_eq!(projects.len(), 5);
+        assert_eq!(projects.iter().filter(|p| p.exam_on.is_some()).count(), 3);
         let jobs = db.list_job_overviews(500)?;
         let count = |kind, status| {
             jobs.iter()
@@ -658,7 +739,7 @@ mod tests {
         );
         // Every document read waits to be indexed once background work starts.
         assert_eq!(count(JobKind::Index, JobStatus::Queued), done);
-        assert_eq!(count(JobKind::Reply, JobStatus::Succeeded), 3);
+        assert_eq!(count(JobKind::Reply, JobStatus::Succeeded), 5);
         assert_eq!(count(JobKind::Artifact, JobStatus::Succeeded), made);
         // One piece was declined for having too little to go on.
         let declined: Vec<_> = jobs
@@ -790,13 +871,19 @@ mod tests {
     /// read.
     #[test]
     fn seeded_cites_are_distinct_used_and_read() {
+        for sample in [Sample::Development, Sample::Showcase] {
+            cites_are_distinct_used_and_read(sample);
+        }
+    }
+
+    fn cites_are_distinct_used_and_read(sample: Sample) {
         fn markers(text: &str) -> BTreeSet<usize> {
             text.split('[')
                 .skip(1)
                 .filter_map(|rest| rest.split_once(']')?.0.parse().ok())
                 .collect()
         }
-        for conversation in conversations() {
+        for conversation in conversations(sample) {
             let mut citing: Vec<(&str, BTreeSet<usize>, &[Passage])> = Vec::new();
             if let Some((answer, cites)) = conversation.answer {
                 citing.push(("the answer", markers(answer), cites));
@@ -833,5 +920,64 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The showcase shows nothing failed, stopped, declined or out of date; every job
+    /// has succeeded except Index, which is left queued for the app to run at start; every
+    /// course has every kind of material.
+    #[test]
+    fn the_showcase_shows_nothing_wrong() -> Result<()> {
+        let (_dir, db) = crate::db::Database::temporary()?;
+        assert!(db.seed_showcase()?);
+        assert!(!db.seed_showcase()?);
+
+        let jobs = db.list_job_overviews(1000)?;
+        assert!(!jobs.is_empty());
+        // The one thing left to do is indexing, which the pipeline does at start.
+        for overview in &jobs {
+            let job = &overview.job;
+            let expected = if job.kind == JobKind::Index {
+                JobStatus::Queued
+            } else {
+                JobStatus::Succeeded
+            };
+            assert_eq!(job.status, expected, "{overview:?}");
+        }
+        let projects = db.list_projects()?;
+        assert_eq!(projects.len(), 5);
+        for project in &projects {
+            let pieces = db.list_material(project.id)?;
+            for piece in &pieces {
+                assert!(piece.update.is_none(), "{}: a pending update", project.name);
+            }
+            for kind in ArtifactKind::ALL {
+                let current = pieces
+                    .iter()
+                    .filter_map(|piece| piece.current.as_ref())
+                    .find(|artifact| artifact.kind == *kind)
+                    .unwrap_or_else(|| panic!("{}: no {kind:?}", project.name));
+                let offered =
+                    db.sources_offering(project.id, *kind, &ProcessingPreferences::default())?;
+                let changes = db.material_changes(current.id, &offered)?.unwrap();
+                assert_eq!(
+                    (changes.files, changes.notes),
+                    (0, 0),
+                    "{}: {kind:?} is out of date",
+                    project.name
+                );
+            }
+        }
+        // Every file was read.
+        for source in db.list_sources()? {
+            assert!(db.document_of(source.id)?.is_some(), "{}", source.name);
+        }
+        // A quiz mostly answered right.
+        let practices = db.practices()?;
+        let score = practices[0].score;
+        assert_eq!((score.answered, score.correct), (4, 4));
+        // Cards are due, but few.
+        let due = db.count_due_cards(None, crate::db::unix_timestamp(), 0)?;
+        assert!((8..=16).contains(&due), "{due} cards due");
+        Ok(())
     }
 }

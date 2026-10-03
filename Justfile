@@ -162,6 +162,12 @@ test: trim
 docs:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps --document-private-items
 
+# Record the README's demo GIF (assets/demo.gif, or `output`): the built app on sample data, on a private virtual desktop. Needs no sign-in and runs no model.
+[positional-arguments]
+demo output="assets/demo.gif":
+    cargo build --locked -p study
+    cargo run --locked -p study-showcase -- "$1"
+
 # Build the distributable desktop binary.
 build:
     cargo build --locked --release -p study

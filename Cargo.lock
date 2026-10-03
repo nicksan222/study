@@ -9278,6 +9278,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "study-showcase"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "study-core",
+ "study-diagram",
+]
+
+[[package]]
 name = "study-testkit"
 version = "0.1.0"
 dependencies = [

@@ -130,8 +130,8 @@ mod tests {
         let app = TempApp::new();
         assert!(app.seed_demo()?);
         let snapshot = load(&app)?;
-        assert_eq!(snapshot.projects.len(), 3);
-        assert_eq!(snapshot.session_count, 7);
+        assert_eq!(snapshot.projects.len(), 5);
+        assert_eq!(snapshot.session_count, 14);
         assert_eq!(snapshot.recent_sessions.len(), RECENT_SESSIONS);
         // Most recently active first.
         let times: Vec<_> = snapshot

@@ -34,33 +34,93 @@ const RECORDINGS_MP3: &[u8] = include_bytes!("../../tests/fixtures/speech.mp3");
 const RECORDINGS_M4A: &[u8] = include_bytes!("../../tests/fixtures/speech.m4a");
 const RECORDINGS_OGG: &[u8] = include_bytes!("../../tests/fixtures/voice-note.ogg");
 
-/// A 480x300 PNG with soft diagonal bands, its colours picked from the name.
+/// A 480x300 PNG of a whiteboard: marker strokes (two boxes joined by an arrow, a curve over
+/// axes, a circled dot) on a pale board tinted by the name.
 fn picture(name: &str) -> Vec<u8> {
     let seed = name
         .bytes()
         .fold(7u32, |hash, byte| hash.wrapping_mul(31) ^ u32::from(byte));
-    let (r, g, b) = (
-        (seed & 0xff) as f32,
-        ((seed >> 8) & 0xff) as f32,
-        ((seed >> 16) & 0xff) as f32,
-    );
-    let (width, height) = (480u32, 300u32);
-    let mut raw = Vec::with_capacity(((width * 3 + 1) * height) as usize);
+    let tint = (seed % 12) as u8;
+    let (width, height) = (480usize, 300usize);
+    let mut pixels = vec![[236 - tint, 240 - tint / 2, 238]; width * height];
+    // A soft shadow along the bottom edge, as a photo of a board has.
     for y in 0..height {
-        raw.push(0);
+        let shade = (y * 18 / height) as u8;
         for x in 0..width {
-            let band = (((x + y) as f32 / 46.0).sin() * 0.5 + 0.5) * 0.35;
-            let fade = y as f32 / height as f32 * 0.4;
-            let mix = |base: f32, light: f32| {
-                let value = 70.0 + base * 0.45 + light * 120.0 - fade * 60.0;
-                value.clamp(0.0, 255.0) as u8
-            };
-            raw.extend_from_slice(&[mix(r, band), mix(g, band * 0.8), mix(b, band * 1.1)]);
+            let pixel = &mut pixels[y * width + x];
+            *pixel = pixel.map(|c| c - shade);
         }
     }
+    let blue = [30, 70, 170];
+    let red = [200, 50, 45];
+    let green = [30, 130, 70];
+    let mut marker = |points: &[(f32, f32)], colour: [u8; 3]| {
+        for pair in points.windows(2) {
+            let ((x0, y0), (x1, y1)) = (pair[0], pair[1]);
+            let steps = (x1 - x0).abs().max((y1 - y0).abs()).max(1.0) as usize * 2;
+            for step in 0..=steps {
+                let t = step as f32 / steps as f32;
+                let (cx, cy) = (x0 + (x1 - x0) * t, y0 + (y1 - y0) * t);
+                for dy in -2i32..=2 {
+                    for dx in -2i32..=2 {
+                        if dx * dx + dy * dy > 5 {
+                            continue;
+                        }
+                        let (x, y) = (cx as i32 + dx, cy as i32 + dy);
+                        if (0..width as i32).contains(&x) && (0..height as i32).contains(&y) {
+                            pixels[y as usize * width + x as usize] = colour;
+                        }
+                    }
+                }
+            }
+        }
+    };
+    let rectangle =
+        |x: f32, y: f32, w: f32, h: f32| [(x, y), (x + w, y), (x + w, y + h), (x, y + h), (x, y)];
+    // Two boxes and an arrow between them.
+    marker(&rectangle(30.0, 40.0, 130.0, 70.0), blue);
+    marker(&rectangle(250.0, 40.0, 130.0, 70.0), blue);
+    marker(&[(160.0, 75.0), (248.0, 75.0)], red);
+    marker(&[(232.0, 62.0), (248.0, 75.0), (232.0, 88.0)], red);
+    // Short lines of writing inside the boxes.
+    for row in 0..2 {
+        let y = 62.0 + row as f32 * 24.0;
+        marker(&[(46.0, y), (90.0, y + 3.0), (140.0, y - 2.0)], blue);
+        marker(&[(266.0, y), (310.0, y + 3.0), (360.0, y - 2.0)], blue);
+    }
+    // Axes with a curve over them, and a circled point on it.
+    marker(&[(40.0, 150.0), (40.0, 270.0), (250.0, 270.0)], blue);
+    let curve: Vec<(f32, f32)> = (0..=40)
+        .map(|i| {
+            let t = i as f32 / 40.0;
+            (
+                50.0 + t * 190.0,
+                255.0 - 110.0 * (t * std::f32::consts::PI).sin(),
+            )
+        })
+        .collect();
+    marker(&curve, green);
+    let circle: Vec<(f32, f32)> = (0..=24)
+        .map(|i| {
+            let angle = i as f32 / 24.0 * std::f32::consts::TAU;
+            (145.0 + 12.0 * angle.cos(), 145.0 + 12.0 * angle.sin())
+        })
+        .collect();
+    marker(&circle, red);
+    // A list on the right.
+    for row in 0..4 {
+        let y = 160.0 + row as f32 * 28.0;
+        marker(&[(290.0, y), (298.0, y)], red);
+        marker(&[(312.0, y), (360.0, y + 4.0), (420.0, y - 2.0)], blue);
+    }
+    let mut raw = Vec::with_capacity((width * 3 + 1) * height);
+    for row in pixels.chunks(width) {
+        raw.push(0);
+        raw.extend(row.iter().flatten());
+    }
     let mut header = Vec::new();
-    header.extend_from_slice(&width.to_be_bytes());
-    header.extend_from_slice(&height.to_be_bytes());
+    header.extend_from_slice(&(width as u32).to_be_bytes());
+    header.extend_from_slice(&(height as u32).to_be_bytes());
     header.extend_from_slice(&[8, 2, 0, 0, 0]);
     let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
     chunk(&mut png, b"IHDR", &header);
@@ -132,7 +192,7 @@ fn article(title: &str, sections: &[&str]) -> Vec<u8> {
 }
 
 /// Most characters on one line of a sample PDF page.
-const PDF_LINE: usize = 72;
+const PDF_LINE: usize = 52;
 
 /// A PDF with a page for each of `pages` (one titled page when there are none): its first
 /// line large as the page's heading, the rest wrapped below it.
@@ -176,8 +236,9 @@ fn pdf(name: &str, pages: &[&str]) -> Vec<u8> {
         let mut lines = page.lines();
         let heading = plain(lines.next().unwrap_or_default());
         let mut content = format!(
-            "0.93 0.95 1 rg 0 712 612 80 re f\n0.2 0.3 0.6 rg BT /F1 24 Tf 56 740 Td ({heading}) Tj ET\n\
-             0.15 0.15 0.15 rg BT /F1 14 Tf 56 670 Td 20 TL\n"
+            "0.13 0.25 0.55 rg 0 672 612 120 re f\n0.96 0.78 0.2 rg 0 664 612 8 re f\n\
+             1 1 1 rg BT /F1 26 Tf 40 722 Td ({heading}) Tj ET\n\
+             0.1 0.1 0.1 rg BT /F1 17 Tf 40 620 Td 26 TL\n"
         );
         for line in lines {
             let mut current = String::new();

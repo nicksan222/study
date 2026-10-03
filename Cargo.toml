@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop", "crates/study-core", "crates/study-ui", "crates/study-diagram", "crates/study-localization", "crates/study-app", "crates/study-media", "crates/study-ai", "crates/study-pipeline", "crates/study-testkit"]
+members = ["apps/desktop", "crates/study-core", "crates/study-ui", "crates/study-diagram", "crates/study-localization", "crates/study-app", "crates/study-media", "crates/study-ai", "crates/study-pipeline", "crates/study-testkit", "crates/study-showcase"]
 default-members = ["apps/desktop"]
 
 [workspace.package]
