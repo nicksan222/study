@@ -7,8 +7,8 @@ for the assigned work. Graphify maps local code relationships; verify its leads 
 One team works across the project: lead, developer, PM, QA, student, reviewer and pushback.
 The lead coordinates; the developer primarily implements; the other roles contribute
 on assigned questions. Crates are architecture boundaries, not separate workspaces or
-teams. The seven regular roles share one extra slot for scenario preparation or PR
-delivery. Do not create nested agents, per-crate teams, or duplicate sessions for the same task.
+teams. The seven regular roles share one extra slot for scenario preparation, upgrade
+review or PR delivery. Do not create nested agents, per-crate teams, or duplicate sessions for the same task.
 
 Each role has a different lens. Availability does not require every role to inspect every
 change: the lead assigns only useful work, and unassigned agents stay idle. Product and
@@ -43,6 +43,8 @@ aspects of the result. There is no required seven-step approval chain.
   `just check` once the combined change is ready. Do not repeat a passed check unless new
   changes or evidence warrant it. Share log paths and short results, not full output.
 - The code reviewer checks correctness, contracts and missing tests in one pass.
+  The upgrade reviewer, started on demand, asks only whether the change breaks an
+  existing user's data or a contributor's setup on upgrade.
   QA verifies behavior; the student evaluates usability; pushback challenges assumptions.
   Share evidence between roles instead of repeating the same checks.
   Re-review only affected findings after fixes. No chain of overlapping approvals.

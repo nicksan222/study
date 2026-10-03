@@ -403,7 +403,7 @@ class Fleet:
         print(f'Session: {self.session} | workspace: {self.workspace} | maximum agents: {self.maximum}')
         for role, work in items or self.roles.items():
             settings = self.kinds[work]
-            print(f"{role:<12} {settings['harness']:<8} {settings['model']:<24} {settings['effort']}")
+            print(f"{role:<17} {settings['harness']:<8} {settings['model']:<24} {settings['effort']}")
 
 
 def parse():

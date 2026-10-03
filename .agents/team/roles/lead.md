@@ -31,6 +31,10 @@ at “code complete” when the requested outcome includes a pull request.
 Give shared desktop control to one tester at a time. Respect existing authorization and
 unrelated work. Report the result, evidence and meaningful limitations concisely.
 
+When a change touches the schema, stored codes or preferences, serialized values, files
+on disk, dependencies or the toolchain, start `upgrade-reviewer` in the shared optional
+slot before delivery, give it the diff and base, then stop it after its one result.
+
 For missing test or demo data, give `scenario` the required state and acceptance criteria.
 Use the shared optional slot as described in the team brief; pass its verified handoff to
 QA/student and later PR maker. Do not carry stale fixture assumptions into a new request.
