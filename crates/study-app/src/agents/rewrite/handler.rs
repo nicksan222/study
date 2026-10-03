@@ -9,7 +9,7 @@ use study_core::jobs::{BoxFuture, JobHandler, Lane, off_thread, wrong_target};
 use study_core::processing::{Excerpt, citations};
 use study_core::{
     Citation, Failure, JobKind, MessageId, ProjectId, SourceId, VersionId, cited_markers,
-    without_citations,
+    renumber_citations,
 };
 
 use super::{Rewriter, Rewriting};
@@ -126,32 +126,35 @@ fn pending(database: &Database, id: MessageId) -> study_core::Result<Option<Pend
     }))
 }
 
-/// The passages a text cites as numbered sources, with the text to rewrite. They are numbered
-/// as the markers say. When some passage cannot be given (its source was deleted, or a marker
-/// is unused so the numbers would shift), the markers cannot be kept: the text goes without
-/// them, and the passages that remain are numbered anew.
+/// The passages a text cites as numbered sources, with the text to rewrite. The passages
+/// are numbered densely in the order of their stored markers, and the markers in the text
+/// follow: an answer that cited only excerpts 2 and 5 reads `[1]` and `[2]`. A passage whose
+/// source was deleted cannot be given, so its marker leaves the text.
 fn cited_sources(citations: &[Citation], text: String) -> (Vec<Excerpt>, String) {
-    let excerpts: Vec<Excerpt> = citations
+    let mut given: Vec<(u32, Excerpt)> = citations
         .iter()
         .filter_map(|citation| {
-            Some(Excerpt {
-                source_id: citation.source_id?,
-                source_name: citation.source_name.clone(),
-                anchor: citation.anchor.clone(),
-                text: citation.quote.clone(),
-            })
+            Some((
+                citation.marker,
+                Excerpt {
+                    source_id: citation.source_id?,
+                    source_name: citation.source_name.clone(),
+                    anchor: citation.anchor.clone(),
+                    text: citation.quote.clone(),
+                },
+            ))
         })
         .collect();
-    let numbered = excerpts.len() == citations.len()
-        && citations
-            .iter()
-            .zip(1..)
-            .all(|(citation, marker)| citation.marker == marker);
-    if numbered {
-        (excerpts, text)
-    } else {
-        (excerpts, without_citations(&text))
+    given.sort_by_key(|(marker, _)| *marker);
+    if citations.is_empty() {
+        return (Vec::new(), text);
     }
+    let kept: Vec<u32> = given.iter().map(|(marker, _)| *marker).collect();
+    let text = renumber_citations(&text, &kept);
+    (
+        given.into_iter().map(|(_, excerpt)| excerpt).collect(),
+        text,
+    )
 }
 
 impl JobHandler for RewriteHandler {
@@ -201,15 +204,24 @@ mod tests {
     }
 
     #[test]
-    fn a_text_whose_markers_cannot_all_be_kept_goes_without_them() {
-        // A source deleted, or a marker never cited: the numbers would shift.
-        for citations in [
-            vec![cited(1, Some(1)), cited(2, None)],
-            vec![cited(2, Some(2)), cited(3, Some(3))],
-        ] {
-            let (_, text) = cited_sources(&citations, "A [2] and B [3].".into());
-            assert_eq!(text, "A and B.");
-        }
+    fn sparse_markers_are_renumbered_with_their_passages() {
+        let (excerpts, text) = cited_sources(
+            &[cited(2, Some(2)), cited(5, Some(5))],
+            "A [2] and B [5].".into(),
+        );
+        assert_eq!(excerpts[0].text, "passage 2");
+        assert_eq!(excerpts[1].text, "passage 5");
+        assert_eq!(text, "A [1] and B [2].");
+    }
+
+    #[test]
+    fn a_marker_whose_source_is_gone_leaves_the_text() {
+        let (excerpts, text) = cited_sources(
+            &[cited(1, None), cited(2, Some(2))],
+            "A [1] and B [2].".into(),
+        );
+        assert_eq!(excerpts.len(), 1);
+        assert_eq!(text, "A and B [1].");
         let (excerpts, text) = cited_sources(&[], "Plain.".into());
         assert!(excerpts.is_empty());
         assert_eq!(text, "Plain.");

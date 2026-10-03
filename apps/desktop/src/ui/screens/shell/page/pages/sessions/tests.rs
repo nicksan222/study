@@ -1515,6 +1515,66 @@ fn keys_step_versions_after_a_click_and_the_menu_returns_focus(cx: &mut TestAppC
     assert!(back.unwrap(), "focus returned to the AI edit button");
 }
 
+/// A note of only a file that was read offers AI edit, and a rewrite then starts from the
+/// file's text.
+#[gpui_kit::test]
+fn a_read_file_alone_can_be_rewritten(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("lecture.txt");
+    std::fs::write(&file, "lecture").unwrap();
+    let note = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &[NewPart::File(file)],
+            &|_, _| true,
+        )
+        .unwrap();
+    let reading = database.claim_job(&[JobKind::Extract]).unwrap().unwrap();
+    let JobTarget::Source(source) = reading.target else {
+        panic!("reading targets a source");
+    };
+    database
+        .save_document(
+            source,
+            &Document {
+                blocks: vec![Block {
+                    kind: BlockKind::Paragraph,
+                    text: "Mitochondria make ATP.".into(),
+                    anchor: Anchor::Page { page: 1 },
+                }],
+                meta: DocumentMeta::default(),
+            },
+        )
+        .unwrap();
+    database.succeed_job(reading.id, &[]).unwrap();
+
+    let (window, _shell) = open_offline_shell(cx, &app, true);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    let mid = note.id.get() as u64;
+    assert!(shown(cx, window, (ids::AI_EDIT, mid)));
+    assert!(
+        !shown(cx, window, (ids::COPY_MESSAGE, mid)),
+        "no words to copy"
+    );
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_SUMMARIZE, mid));
+    wait_until(cx, |_| {
+        database
+            .message(note.id)
+            .unwrap()
+            .unwrap()
+            .unfinished()
+            .is_some()
+    });
+}
+
 /// What each kind of entry offers on its floating bar.
 #[gpui_kit::test]
 fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {
@@ -1541,6 +1601,37 @@ fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {
             &|_, _| true,
         )
         .unwrap();
+    // A second file, read: its words exist, so there is something to rewrite from.
+    let read_file = dir.path().join("lecture.txt");
+    std::fs::write(&read_file, "lecture").unwrap();
+    let read_only = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &[NewPart::File(read_file)],
+            &|_, _| true,
+        )
+        .unwrap();
+    // The first read stays claimed and unfinished; the second finishes.
+    database.claim_job(&[JobKind::Extract]).unwrap().unwrap();
+    let reading = database.claim_job(&[JobKind::Extract]).unwrap().unwrap();
+    let JobTarget::Source(lecture) = reading.target else {
+        panic!("reading targets a source");
+    };
+    database
+        .save_document(
+            lecture,
+            &Document {
+                blocks: vec![Block {
+                    kind: BlockKind::Paragraph,
+                    text: "Mitochondria make ATP.".into(),
+                    anchor: Anchor::Page { page: 1 },
+                }],
+                meta: DocumentMeta::default(),
+            },
+        )
+        .unwrap();
+    database.succeed_job(reading.id, &[]).unwrap();
     database
         .post_message(
             session.id,
@@ -1587,6 +1678,11 @@ fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {
             "a bare file does not offer {id}"
         );
     }
+
+    // Once read it offers AI edit, which writes from the file; there are still no words to
+    // copy.
+    assert!(has(cx, ids::AI_EDIT, read_only.id));
+    assert!(!has(cx, ids::COPY_MESSAGE, read_only.id));
 
     for id in [
         ids::AI_EDIT,

@@ -16,6 +16,9 @@ use study_app::views::{Job, JobStatus};
 use study_core::job::Requirement;
 use study_ui::{button, palette, scale, units};
 
+/// The sign-in button of a waiting job; it adds the job's id.
+pub(crate) const SIGN_IN_BUTTON: &str = "setup-sign-in";
+
 /// What the card needs to know of the ChatGPT sign-in, read from the shell before drawing
 /// (the shell cannot be read while it draws).
 #[derive(Clone, Copy, Debug, Default)]
@@ -78,7 +81,7 @@ pub(in crate::ui::screens::shell::page) fn sign_in_line(
             .child(study_localization::separator())
             .into_any_element(),
         button(
-            ElementId::from(("setup-sign-in", job.id.get() as u64)),
+            ElementId::from((SIGN_IN_BUTTON, job.id.get() as u64)),
             text(locale, label),
             cx,
         )
@@ -145,7 +148,7 @@ pub(in crate::ui::screens::shell::page) fn setup_card(
         };
         actions = actions.child(
             button(
-                ElementId::from(("setup-sign-in", job_id.get() as u64)),
+                ElementId::from((SIGN_IN_BUTTON, job_id.get() as u64)),
                 text(locale, label),
                 cx,
             )

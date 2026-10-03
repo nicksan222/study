@@ -627,14 +627,26 @@ fn a_message_of_only_files_has_no_text_until_one_is_written() -> Result<()> {
     let posted = db.post_message(session, MessageRole::User, &[notes], &read_nothing)?;
     assert!(posted.versions.is_empty() && posted.active_version.is_none());
     assert_eq!(posted.text(), "");
-    assert_eq!(
-        db.rewrite_message(posted.id, &Rewrite::Improve)?,
-        Asked::Unavailable
-    );
+    // Nothing to answer from: an answer needs words.
+    assert_eq!(db.reanswer(posted.id)?, Asked::Unavailable);
+
+    // A rewrite starts from the files, so its version is based on nothing.
+    let Asked::Queued(_) = db.rewrite_message(posted.id, &Rewrite::Summarize)? else {
+        panic!("a message of only files is written about from them");
+    };
+    let pending = db
+        .begin_version(posted.id, JobKind::Rewrite)?
+        .expect("the version waits to be written");
+    assert_eq!(pending.source_text, "");
+    assert!(pending.citations.is_empty());
+    db.finish_version(pending.id, "A summary of the notes", &[])?;
+    let written = db.message(posted.id)?.unwrap();
+    assert_eq!(written.text(), "A summary of the notes");
+    assert_eq!(written.versions[0].based_on, None);
 
     db.edit_message(posted.id, "Slides from today")?;
     let message = db.message(posted.id)?.unwrap();
-    assert_eq!(message.versions[0].origin, VersionOrigin::Typed);
+    assert_eq!(message.versions[1].origin, VersionOrigin::Edited);
     assert_eq!(message.text(), "Slides from today");
     assert_eq!(message.parts.len(), 1);
     Ok(())

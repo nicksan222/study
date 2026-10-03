@@ -383,11 +383,12 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn actions_of(
 ) -> Vec<Action> {
     let words = !message.text().trim().is_empty();
     if message.unfinished().is_some() {
-        let stopped = message
+        // Stop and Retry act on the job: with none, or one that ended, only Delete is left.
+        let running = message
             .reply
             .as_ref()
-            .is_some_and(|job| job.status.is_stopped());
-        if stopped {
+            .is_some_and(|job| !job.status.is_stopped());
+        if !running {
             return vec![Action::Delete];
         }
         let mut actions = Vec::new();

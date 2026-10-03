@@ -191,7 +191,8 @@ impl Database {
         )
     }
 
-    /// Stores a new unfinished version, based on the active one, and queues its `job`.
+    /// Stores a new unfinished version, based on the active one if there is one, and queues its
+    /// `job`.
     /// Only a message of role `only`, when given, can be asked.
     fn ask(
         &self,
@@ -210,9 +211,14 @@ impl Database {
                 |row| row.get(0),
             )
             .optional()?;
-        let Some(Some(active)) = active else {
+        let Some(active) = active else {
             return Ok(Asked::Unavailable);
         };
+        // Words are not needed to rewrite from: a message of only files, once read, is
+        // written about from those files. The versions of an answer always start from its text.
+        if active.is_none() && (job != JobKind::Rewrite || !has_files(&tx, id)?) {
+            return Ok(Asked::Unavailable);
+        }
         if is_busy(&tx, id)? {
             return Ok(Asked::Busy);
         }
@@ -225,7 +231,7 @@ impl Database {
                 instruction,
                 status: MessageStatus::Pending,
                 text: "",
-                based_on: Some(active),
+                based_on: active,
             },
         )?;
         // The text read from the message's files is what the job cites: wait for it.
@@ -377,6 +383,15 @@ fn written_by(kind: JobKind) -> &'static [VersionOrigin] {
         ],
         _ => &[],
     }
+}
+
+/// Whether message `id` holds any file.
+fn has_files(tx: &Connection, id: MessageId) -> Result<bool> {
+    Ok(tx.query_row(
+        "SELECT EXISTS (SELECT 1 FROM message_parts WHERE message_id = ?1 AND source_id IS NOT NULL)",
+        params![id],
+        |row| row.get(0),
+    )?)
 }
 
 /// Whether a job writing a version of `message` has not ended.
