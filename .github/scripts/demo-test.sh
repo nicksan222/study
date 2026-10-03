@@ -75,6 +75,11 @@ echo 'fn b' >Cargo.toml
 git add Cargo.toml
 git commit -qm cargo
 check "a manifest counts as app code" 0 "$script" touches-app "$app" HEAD
+app=$(git rev-parse HEAD)
+echo 'demo:' >Justfile
+git add Justfile
+git commit -qm recipe
+check "the Justfile, which holds the demo recipe, counts as app code" 0 "$script" touches-app "$app" HEAD
 
 # --- The GIF checks.
 gif "$work/t.gif" 1920 1080

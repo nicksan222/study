@@ -30,6 +30,7 @@ APP_PATHS=(
   ":(exclude)$GIF"
   Cargo.toml
   Cargo.lock
+  Justfile
   rust-toolchain.toml
   .devcontainer/
 )
