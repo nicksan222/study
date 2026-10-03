@@ -16,6 +16,7 @@ use super::citations::{CitedBy, citations_of, replace_citations};
 use super::jobs::{Job, JobTarget, NewJob, enqueue, pending_reads_of};
 use super::messages::project_material_of;
 use super::{Database, MAX_TITLE_CHARS, json_column, unix_timestamp};
+use crate::processing::ProcessingPreferences;
 use crate::text::truncate_chars;
 use crate::{
     ArtifactBody, ArtifactId, ArtifactKind, ArtifactStatus, Citation, JobId, JobKind, PracticeId,
@@ -198,6 +199,27 @@ impl Database {
                 })
             })
             .collect()
+    }
+
+    /// The one rule for what material can come from: the files of `project` that the plan
+    /// in `processing` reads and whose plan offers `kind`. It goes by the plan alone, not
+    /// by what has run, so what can be made is known before background work starts.
+    pub fn sources_offering(
+        &self,
+        project: ProjectId,
+        kind: ArtifactKind,
+        processing: &ProcessingPreferences,
+    ) -> Result<Vec<SourceId>> {
+        Ok(self
+            .list_sources()?
+            .into_iter()
+            .filter(|source| source.project_id == Some(project))
+            .filter(|source| {
+                let plan = processing.plan(source.kind, &source.mime);
+                plan.reads() && plan.enhancers.contains(&kind)
+            })
+            .map(|source| source.id)
+            .collect())
     }
 
     /// How far the project has moved on since material `id` was written: `offered` is what

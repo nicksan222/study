@@ -12,6 +12,10 @@ studying for a certification.
 **Status:** pre-release. Release builds target Linux x64/ARM64, macOS Intel/Apple Silicon,
 and Windows x64. Linux AppImages need glibc 2.41 or newer (Debian 13+, Ubuntu 25.04+).
 
+![A short tour of Study: Home, an answer citing the lecture recording, a diagram, a flashcard review, a quiz and search](assets/demo.gif)
+
+*Sample data, recorded with `just demo`.*
+
 ## Get Study
 
 Download the package for your computer from
@@ -94,7 +98,8 @@ without deleting it.
 This is the Linux app viewed from your browser, including on macOS; it does not validate a
 native macOS build. Host microphones and audio are not forwarded by this desktop connection.
 
-`just check` is what CI runs, and `just --list` shows every other command.
+`just check` is what CI runs, and `just --list` shows every other command. `just demo`
+records the GIF at the top of this file from sample data, on its own private desktop.
 The container installs the agent tools and mounts your AI logins. `just agents-doctor`
 checks subscription access; `just agents` starts one project-wide team: lead, developer, PM, QA, student, reviewer and pushback.
 `just agents-stop` stops that team. Roles wait for concrete assignments; the lead avoids

@@ -1,0 +1,18 @@
+[package]
+name = "study-showcase"
+description = "Records the README demo GIF: Study on sample data, driven on a private virtual desktop"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+serde_json = "1"
+study-core = { workspace = true, features = ["seed"] }
+
+[dev-dependencies]
+study-diagram.workspace = true
+
+[lints]
+workspace = true
