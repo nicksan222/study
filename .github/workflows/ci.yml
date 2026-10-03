@@ -1,7 +1,10 @@
 name: CI
 
 on:
+  # A branch with a pull request is checked by the pull request run; a push run too would start
+  # every job twice.
   push:
+    branches: [main]
   pull_request:
 
 permissions:
