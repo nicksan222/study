@@ -113,41 +113,38 @@ fn note_content(
     cx: &mut Context<AppShell>,
 ) -> Div {
     let mut content = column(cx);
+    if !message.text().is_empty() {
+        let (shown, marks) = marked_note(message.text());
+        content = content.child(Note::new(shown).marks(marks));
+    }
     for part in &message.parts {
-        match &part.content {
-            PartContent::Text(body) => {
-                let (shown, marks) = marked_note(body);
-                content = content.child(Note::new(shown).marks(marks));
-            }
-            PartContent::Source {
-                source_id,
+        let PartContent {
+            source_id,
+            name,
+            kind,
+        } = &part.content;
+        // The file's line, and right under it what was read from it, folded.
+        let job = part.jobs.last();
+        content = content.child(source_card(
+            Attached {
+                part: part.id,
+                source_id: *source_id,
                 name,
-                kind,
-            } => {
-                // The file's line, and right under it what was read from it, folded.
-                let job = part.jobs.last();
-                content = content.child(source_card(
-                    Attached {
-                        part: part.id,
-                        source_id: *source_id,
-                        name,
-                        kind: *kind,
-                        info: source_id.and_then(|id| attachments.get(&id)),
-                        job,
-                        document: part.document.as_ref(),
-                        expanded: job.is_some_and(|job| expanded.contains(&job.id)),
-                        whole: false,
-                        // Threads hang off the timeline only.
-                        thread: message.thread_root.is_none().then_some(ThreadLink {
-                            summary: part.thread,
-                            open: open_thread == Some(part.id),
-                        }),
-                    },
-                    locale,
-                    cx,
-                ));
-            }
-        }
+                kind: *kind,
+                info: source_id.and_then(|id| attachments.get(&id)),
+                job,
+                document: part.document.as_ref(),
+                expanded: job.is_some_and(|job| expanded.contains(&job.id)),
+                whole: false,
+                // Threads hang off the timeline only.
+                thread: message.thread_root.is_none().then_some(ThreadLink {
+                    summary: part.thread,
+                    open: open_thread == Some(part.id),
+                }),
+            },
+            locale,
+            cx,
+        ));
     }
     content.children(recording_link(message, locale, cx))
 }
@@ -359,14 +356,7 @@ fn answer_content(
     );
     if message.status != MessageStatus::Complete {
         // An answer being written again keeps its old words, faded, until the new ones land.
-        let earlier: Vec<String> = message
-            .parts
-            .iter()
-            .filter_map(|part| match &part.content {
-                PartContent::Text(body) => Some(body.clone()),
-                _ => None,
-            })
-            .collect();
+        let earlier = Some(message.text()).filter(|body| !body.is_empty());
         // An answer that failed, or is still being written, can be deleted too, stopping it.
         content = content.children(
             message
@@ -374,24 +364,19 @@ fn answer_content(
                 .as_ref()
                 .map(|job| reply_line(job, chatgpt, locale, cx)),
         );
-        for body in earlier {
-            content = content.child(answer_text(cx).opacity(0.45).child(prose(&body, cx)));
+        if let Some(body) = earlier {
+            content = content.child(answer_text(cx).opacity(0.45).child(prose(body, cx)));
         }
         return content;
     }
-    for part in &message.parts {
-        match &part.content {
-            PartContent::Text(body) => {
-                let cite = cite_handler(message, cx);
-                let id = (ids::ANSWER_TEXT, part.id.get() as u64);
-                content = content.child(answer_text(cx).child(prose_citing(
-                    body,
-                    Some((id.into(), cite)),
-                    cx,
-                )));
-            }
-            PartContent::Source { .. } => {}
-        }
+    if !message.text().is_empty() {
+        let cite = cite_handler(message, cx);
+        let id = (ids::ANSWER_TEXT, message.id.get() as u64);
+        content = content.child(answer_text(cx).child(prose_citing(
+            message.text(),
+            Some((id.into(), cite)),
+            cx,
+        )));
     }
     if !message.citations.is_empty() {
         content = content.child(citations(message, locale, cx));

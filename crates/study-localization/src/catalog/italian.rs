@@ -548,6 +548,7 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::StageEmbed => "Ricerca per significato",
         Message::StageTitle => "Titolo della sessione",
         Message::StageReply => "Risposta",
+        Message::StageRewrite => "Riscrittura",
         Message::StageArtifact => "Materiale di studio",
         Message::StageQuestion => "Domanda di esercitazione",
         Message::StageGrade => "Correzione della risposta",

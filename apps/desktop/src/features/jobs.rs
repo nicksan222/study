@@ -47,6 +47,7 @@ impl Problem {
                 }
                 JobKind::Title
                 | JobKind::Reply
+                | JobKind::Rewrite
                 | JobKind::Artifact
                 | JobKind::Question
                 | JobKind::Grade => Self::Gone,
@@ -102,6 +103,7 @@ pub fn job_label(kind: JobKind, source: Option<SourceKind>) -> Message {
         JobKind::Embed => Message::StageEmbed,
         JobKind::Title => Message::StageTitle,
         JobKind::Reply => Message::StageReply,
+        JobKind::Rewrite => Message::StageRewrite,
         JobKind::Artifact => Message::StageArtifact,
         JobKind::Question => Message::StageQuestion,
         JobKind::Grade => Message::StageGrade,
@@ -116,7 +118,9 @@ fn activity(kind: JobKind, source: Option<SourceKind>) -> Message {
             Some(ExtractorKind::Transcription) => Message::ActivityListening,
             _ => Message::ActivityReading,
         },
-        JobKind::Reply | JobKind::Artifact | JobKind::Question => Message::ActivityWriting,
+        JobKind::Reply | JobKind::Rewrite | JobKind::Artifact | JobKind::Question => {
+            Message::ActivityWriting
+        }
         JobKind::Grade => Message::ActivityChecking,
         JobKind::Title | JobKind::Index | JobKind::Embed | JobKind::Fetch => {
             Message::ActivityWorking

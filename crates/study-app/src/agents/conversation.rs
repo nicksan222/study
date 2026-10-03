@@ -5,7 +5,7 @@
 use std::fmt::Write as _;
 
 use study_ai::agent::{escape, escape_attribute};
-use study_core::db::{ChatMessage, Database, MessageRole, PartContent};
+use study_core::db::{ChatMessage, Database, MessageRole};
 use study_core::text::truncate_chars;
 use study_core::{Result, SessionId};
 
@@ -109,23 +109,16 @@ impl Turn {
             text: String::new(),
             attachments: Vec::new(),
         };
+        turn.text = message.text().trim().to_owned();
         for part in &message.parts {
-            match &part.content {
-                PartContent::Text(text) => {
-                    if !turn.text.is_empty() {
-                        turn.text.push('\n');
-                    }
-                    turn.text.push_str(text.trim());
-                }
-                PartContent::Source { name, .. } => turn.attachments.push(Attachment {
-                    name: name.clone(),
-                    excerpt: part
-                        .document
-                        .as_ref()
-                        .map(|document| document.text())
-                        .filter(|text| !text.trim().is_empty()),
-                }),
-            }
+            turn.attachments.push(Attachment {
+                name: part.content.name.clone(),
+                excerpt: part
+                    .document
+                    .as_ref()
+                    .map(|document| document.text())
+                    .filter(|text| !text.trim().is_empty()),
+            });
         }
         (!turn.text.is_empty() || !turn.attachments.is_empty()).then_some(turn)
     }
@@ -165,10 +158,13 @@ impl Turn {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use study_core::db::{Job, JobTarget, MessagePart, MessageStatus, ThreadSummary};
+    use study_core::db::{
+        Job, JobTarget, MessagePart, MessageStatus, MessageVersion, PartContent, ThreadSummary,
+        VersionOrigin,
+    };
     use study_core::{
         Anchor, Block, BlockKind, Document, JobId, JobKind, JobStatus, MessageId, PartId, SourceId,
-        SourceKind,
+        SourceKind, VersionId,
     };
 
     const ROOMY: Budget = Budget {
@@ -213,7 +209,17 @@ mod tests {
 
     type Part = (PartContent, Vec<Job>, Option<Document>);
 
-    fn message(role: MessageRole, parts: Vec<Part>) -> ChatMessage {
+    fn message(role: MessageRole, text: &str, parts: Vec<Part>) -> ChatMessage {
+        let version = MessageVersion {
+            id: VersionId::new(1),
+            number: 1,
+            origin: VersionOrigin::Typed,
+            instruction: None,
+            status: MessageStatus::Complete,
+            text: text.into(),
+            based_on: None,
+            created_at: 0,
+        };
         ChatMessage {
             id: MessageId::new(1),
             session_id: SessionId::new(1),
@@ -226,6 +232,12 @@ mod tests {
             created_at: 0,
             citations: Vec::new(),
             reply: None,
+            active_version: (!text.is_empty()).then_some(version.id),
+            versions: if text.is_empty() {
+                Vec::new()
+            } else {
+                vec![version]
+            },
             parts: parts
                 .into_iter()
                 .enumerate()
@@ -240,18 +252,14 @@ mod tests {
         }
     }
 
-    fn text(value: &str) -> Part {
-        (PartContent::Text(value.into()), Vec::new(), None)
-    }
-
     #[test]
     fn messages_carry_their_text_and_what_was_read_from_each_file() {
         let conversation = Conversation::from_messages(&[message(
             MessageRole::User,
+            "  can you explain this? ",
             vec![
-                text("  can you explain this? "),
                 (
-                    PartContent::Source {
+                    PartContent {
                         source_id: Some(SourceId::new(3)),
                         name: "lecture 4.mp3".into(),
                         kind: SourceKind::Audio,
@@ -260,7 +268,7 @@ mod tests {
                     Some(transcript("Today: the Krebs cycle.")),
                 ),
                 (
-                    PartContent::Source {
+                    PartContent {
                         source_id: None,
                         name: "notes.pdf".into(),
                         kind: SourceKind::Pdf,
@@ -282,8 +290,9 @@ mod tests {
     fn a_file_not_read_yet_still_counts_as_something_to_read() {
         let conversation = Conversation::from_messages(&[message(
             MessageRole::User,
+            "",
             vec![(
-                PartContent::Source {
+                PartContent {
                     source_id: Some(SourceId::new(1)),
                     name: "talk.mp3".into(),
                     kind: SourceKind::Audio,
@@ -293,13 +302,13 @@ mod tests {
             )],
         )]);
         assert!(!conversation.is_empty());
-        assert!(Conversation::from_messages(&[message(MessageRole::User, vec![])]).is_empty());
+        assert!(Conversation::from_messages(&[message(MessageRole::User, "", vec![])]).is_empty());
     }
 
     #[test]
     fn a_long_conversation_keeps_its_first_and_latest_messages() {
         let messages: Vec<_> = (1..=10)
-            .map(|n| message(MessageRole::User, vec![text(&format!("message {n}"))]))
+            .map(|n| message(MessageRole::User, &format!("message {n}"), vec![]))
             .collect();
         let one = Conversation::from_messages(&messages[..1]).render(ROOMY);
         let budget = Budget {

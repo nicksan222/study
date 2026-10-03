@@ -288,10 +288,7 @@ impl AppShell {
         }
         let state = &self.sessions;
         let thread = state.thread.showing(root);
-        let file_name = thread.and_then(|thread| match &thread.root.content {
-            PartContent::Source { name, .. } => Some(name.clone()),
-            PartContent::Text(_) => None,
-        });
+        let file_name = thread.map(|thread| thread.root.content.name.clone());
 
         // The title bar shows the thread's header, above the panel.
         let mut header = study_ui::PageHeader::new(text(locale, Message::ThreadTitle))
@@ -379,12 +376,12 @@ impl AppShell {
             .gap(unit(16.));
         match thread {
             Some(thread) => {
-                if let PartContent::Source {
-                    source_id,
-                    name,
-                    kind,
-                } = &thread.root.content
                 {
+                    let PartContent {
+                        source_id,
+                        name,
+                        kind,
+                    } = &thread.root.content;
                     // The file and all that was read from it open the thread.
                     let head = &thread.root;
                     body = body.child(source_card(

@@ -1,5 +1,5 @@
 //! Finding things by what was typed: passages by keyword (`chunks_fts`), messages by keyword
-//! (`message_fts`), and projects, sessions and sources by name. Results come back as
+//! (`message_fts`, the active versions), and projects, sessions and sources by name. Results come back as
 //! [`SearchHit`]s ready to show, or as passage ids for the caller to rank.
 
 use super::super::{Database, json_column};
@@ -196,9 +196,9 @@ impl Database {
             return Ok(Vec::new());
         };
         let mut statement = self.connection.prepare(
-            "SELECT part.text, s.id, s.title, p.id, p.name, m.created_at FROM message_fts
-             JOIN message_parts part ON part.id = message_fts.rowid
-             JOIN messages m ON m.id = part.message_id
+            "SELECT v.text, s.id, s.title, p.id, p.name, m.created_at FROM message_fts
+             JOIN message_versions v ON v.id = message_fts.rowid
+             JOIN messages m ON m.id = v.message_id AND m.active_version_id = v.id
              JOIN sessions s ON s.id = m.session_id
              JOIN projects p ON p.id = s.project_id
              WHERE message_fts MATCH ?1

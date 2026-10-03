@@ -653,7 +653,7 @@ mod tests {
                 &read_nothing,
             )
             .unwrap();
-        let PartContent::Source {
+        let PartContent {
             source_id: Some(source),
             ..
         } = message.parts[0].content

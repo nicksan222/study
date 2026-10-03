@@ -481,7 +481,7 @@ impl AppShell {
         let generation = self.sessions.preview_generation;
         let mut wanted = Vec::new();
         for part in self.sessions.shown_parts() {
-            if let PartContent::Source {
+            if let PartContent {
                 source_id: Some(id),
                 ..
             } = &part.content
@@ -1052,7 +1052,13 @@ impl AppShell {
 
     /// Asks for a finished answer again; its job's events show it being written.
     pub(super) fn reanswer(&mut self, id: MessageId, cx: &mut Context<Self>) {
-        self.change_session_job(move |app| app.reanswer(id), cx);
+        self.change_session_job(
+            move |app| {
+                app.reanswer(id)
+                    .map(|asked| matches!(asked, study_app::views::Asked::Queued(_)))
+            },
+            cx,
+        );
     }
 
     /// Deletes a confirmed note or answer; the database deletes what hangs off it (answers,
@@ -1256,7 +1262,7 @@ impl AppShell {
         let attached_here = self
             .sessions
             .shown_parts()
-            .any(|part| part.content.source_id() == Some(source_id));
+            .any(|part| part.content.source_id == Some(source_id));
         if attached_here {
             self.show_attachment(source_id, cx);
             self.sessions.cited = Some((source_id, at));

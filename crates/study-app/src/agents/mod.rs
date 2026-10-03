@@ -11,6 +11,7 @@
 //! | `conversation.rs` | [`Conversation`]: a session as a prompt, within a [`Budget`]     |
 //! | `title/`          | Names sessions from their notes (tiny tier), in the background   |
 //! | `reply/`          | Answers notes that mention the assistant, citing the material    |
+//! | `rewrite/`        | Writes a new version of a message's text: improved, summarized, or as asked |
 //! | `question/`       | Writes a practice's next question from its sessions, citing them |
 //! | `grade/`          | Grades an answer to an open practice question, and says why      |
 //!
@@ -38,6 +39,7 @@ mod conversation;
 pub(crate) mod grade;
 pub(crate) mod question;
 pub(crate) mod reply;
+pub(crate) mod rewrite;
 pub(crate) mod title;
 
 pub(crate) use conversation::{Budget, Conversation};

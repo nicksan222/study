@@ -304,7 +304,7 @@ pub(crate) struct JobScope {
 }
 
 /// Statuses of work not yet ended, as an SQL list.
-const PENDING: &str = "('blocked', 'queued', 'waiting', 'running')";
+pub(in crate::db) const PENDING: &str = "('blocked', 'queued', 'waiting', 'running')";
 
 /// Statuses of work not yet started, as an SQL list; the dedupe index covers exactly these.
 const NOT_STARTED: &str = "('blocked', 'queued', 'waiting')";

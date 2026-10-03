@@ -178,7 +178,7 @@ mod tests {
     /// changes; before the first release `0001_initial.sql` is edited in place, with its pin.
     const SHIPPED: &[(&str, &str)] = &[(
         "0001_initial.sql",
-        "fe604398b58ebcfbc042bd4f45f5b7fee076f22e8d0a6629cc98b2cb6d38c8ca",
+        "7334841bb4dbbcb5121fc083819d73d46cf5cc2d9588b1b6bcd2f6734efdf779",
     )];
 
     /// A later migration for the tests: a new table and a new job kind.
@@ -442,8 +442,7 @@ mod tests {
     /// column is added to `expectations`.
     #[test]
     fn check_lists_match_the_rust_enums() -> Result<()> {
-        use crate::db::messages::PartKind;
-        use crate::db::{MessageRole, MessageStatus, TitleSource};
+        use crate::db::{MessageRole, MessageStatus, TitleSource, VersionOrigin};
         use crate::processing::ExtractorKind;
         use crate::{
             ArtifactKind, ArtifactStatus, BlockKind, ErrorKind, JobKind, JobStatus, QuestionKind,
@@ -473,14 +472,14 @@ mod tests {
                 codes(MessageRole::ALL, MessageRole::code),
             ),
             (
-                "messages",
+                "message_versions",
                 "status",
                 codes(MessageStatus::ALL, MessageStatus::code),
             ),
             (
-                "message_parts",
-                "kind",
-                codes(PartKind::ALL, PartKind::code),
+                "message_versions",
+                "origin",
+                codes(VersionOrigin::ALL, VersionOrigin::code),
             ),
             (
                 "message_parts",

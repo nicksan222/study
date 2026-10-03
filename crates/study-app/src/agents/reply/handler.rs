@@ -6,11 +6,11 @@
 
 use study_ai::agent::AgentRuntime;
 use study_core::Context as _;
-use study_core::db::{ChatMessage, Database, Job, MessageRole, NewJob, PartContent};
+use study_core::db::{ChatMessage, Database, Job, MessageRole, NewJob};
 use study_core::jobs::{BoxFuture, JobHandler, Lane, off_thread, wrong_target};
 use study_core::processing::citations;
 use study_core::{
-    Failure, JobKind, MessageId, ProjectId, SourceId, cited_markers, without_mention,
+    Failure, JobKind, MessageId, ProjectId, SourceId, VersionId, cited_markers, without_mention,
 };
 
 use super::{Answer, Question};
@@ -34,6 +34,8 @@ struct Asked {
     earlier: Conversation,
     /// The note's text, without the mention that asked for an answer.
     text: String,
+    /// The version of the answer being written.
+    version: VersionId,
     /// Every file above the note in its place, the note's own included, oldest first.
     files: Vec<SourceId>,
     project: ProjectId,
@@ -56,6 +58,7 @@ impl ReplyHandler {
         let Some(Asked {
             earlier,
             text,
+            version,
             files,
             project,
         }) = asked
@@ -80,7 +83,7 @@ impl ReplyHandler {
             cited_markers(&text, question.excerpts.len() as u32),
         );
         self.runtime
-            .blocking(move |database| database.finish_reply(id, &text, &citations))
+            .blocking(move |database| database.finish_version(version, &text, &citations))
             .await?;
         Ok(())
     }
@@ -90,9 +93,9 @@ impl ReplyHandler {
 /// finished already or gone.
 fn asked(database: &Database, id: MessageId) -> study_core::Result<Option<Asked>> {
     // A finished answer is kept, whatever reran its job.
-    if !database.begin_reply(id)? {
+    let Some(pending) = database.begin_version(id)? else {
         return Ok(None);
-    }
+    };
     let Some(answer) = database.message(id)? else {
         return Ok(None);
     };
@@ -102,7 +105,7 @@ fn asked(database: &Database, id: MessageId) -> study_core::Result<Option<Asked>
             let thread = database
                 .thread(root)?
                 .context("an answer in a thread has its attachment")?;
-            let about = thread.root.content.source_id();
+            let about = thread.root.content.source_id;
             let mut messages = vec![thread.opening()];
             messages.extend(thread.replies);
             (messages, about)
@@ -121,12 +124,13 @@ fn asked(database: &Database, id: MessageId) -> study_core::Result<Option<Asked>
     // Earlier answers still being written are no context.
     let earlier: Vec<_> = messages[..position]
         .iter()
-        .filter(|message| message.role == MessageRole::User || !message.parts.is_empty())
+        .filter(|message| message.role == MessageRole::User || !message.text().is_empty())
         .cloned()
         .collect();
     Ok(Some(Asked {
         earlier: Conversation::from_messages(&earlier),
         text,
+        version: pending.id,
         files,
         project,
     }))
@@ -134,14 +138,7 @@ fn asked(database: &Database, id: MessageId) -> study_core::Result<Option<Asked>
 
 /// The text of `note`, without the mention that asked for an answer.
 fn note_text(note: &ChatMessage) -> String {
-    note.parts
-        .iter()
-        .filter_map(|part| match &part.content {
-            PartContent::Text(text) => Some(without_mention(text)),
-            PartContent::Source { .. } => None,
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+    without_mention(note.text())
 }
 
 /// The file a thread hangs off (`about`), then every file attached in `messages`, each
@@ -150,7 +147,7 @@ fn files_above(about: Option<SourceId>, messages: &[ChatMessage]) -> Vec<SourceI
     let attached = messages
         .iter()
         .flat_map(|message| &message.parts)
-        .filter_map(|part| part.content.source_id());
+        .filter_map(|part| part.content.source_id);
     let mut files: Vec<SourceId> = Vec::new();
     for source in about.into_iter().chain(attached) {
         if !files.contains(&source) {

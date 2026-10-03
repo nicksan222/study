@@ -1,4 +1,4 @@
-//! Session messages: ordered text and source parts inside a session.
+//! Session messages: what a student wrote, in versions, and the files attached to it.
 //!
 //! A session is a log of what the student writes down and attaches, not a chat: posting a
 //! message queues the reads of its files and, while the session's title is provisional, the
@@ -8,6 +8,9 @@
 //! files are read. Study material is not made from a message: it is made from the whole
 //! project (see `artifacts.rs`).
 //!
+//! A message's text is a list of versions, one of them active: the one shown, searched, read
+//! by the assistant and used as a note (see `versions.rs`). Files are the message's parts.
+//!
 //! Every message lives in one [`Place`]: the session's timeline, or the [`Thread`] under an
 //! attachment of a timeline message, as in a chat app. A thread opens with the attachment
 //! and what was read from it; its replies are ordinary messages, so notes, files and answers
@@ -15,8 +18,9 @@
 //!
 //! | File          | What it holds                                                           |
 //! |---------------|-------------------------------------------------------------------------|
-//! | `mod.rs`      | The records, reading messages by [`Scope`], writing an answer, deleting |
-//! | `post.rs`     | [`Database::post_message`]: parts, attachments and the jobs they need   |
+//! | `mod.rs`      | The records, reading messages by [`Scope`], deleting                    |
+//! | `post.rs`     | [`Database::post_message`]: text, attachments and the jobs they need    |
+//! | `versions.rs` | [`MessageVersion`]s: editing, rewriting, answering again, finishing     |
 //! | `material.rs` | [`ProjectMaterial`]: the files and notes a project's sessions hold      |
 //! | `thread.rs`   | [`Thread`] and [`ThreadSummary`]: the replies under an attachment       |
 
@@ -25,24 +29,24 @@ mod post;
 #[cfg(test)]
 mod tests;
 mod thread;
+mod versions;
 
 pub use material::ProjectMaterial;
 pub(in crate::db) use material::project_material_of;
 pub use thread::{Thread, ThreadSummary};
+pub use versions::{Asked, MessageVersion, PendingVersion, Rewrite, VersionOrigin};
 
 pub(in crate::db) use post::{MAX_NOTES_CHARS, latest_notes};
 
-use super::citations::{CitedBy, replace_citations};
-use super::jobs::{JobTarget, NewJob, enqueue};
 use super::{Database, Job, trimmed};
 use crate::Result;
 use crate::{
-    Citation, Document, JobId, JobKind, MessageId, PartId, RecordingId, SessionId, SourceId,
-    SourceKind,
+    Citation, Document, MessageId, PartId, RecordingId, SessionId, SourceId, SourceKind, VersionId,
 };
 use rusqlite::{Row, params};
 use std::{collections::HashMap, path::PathBuf};
 use thread::thread_summaries_in;
+use versions::VERSION_COLUMNS;
 
 const MAX_TEXT_CHARS: usize = 100_000;
 
@@ -55,19 +59,11 @@ crate::text_enum! {
 
 crate::text_enum! {
     pub enum MessageStatus {
-        /// An answer waiting for its reply job to start.
+        /// A version waiting for its job to start.
         Pending = "pending",
-        /// An answer being written.
+        /// A version being written.
         Writing = "writing",
         Complete = "complete",
-    }
-}
-
-crate::text_enum! {
-    /// Which [`PartContent`] a `message_parts` row holds: the tag its columns are read by.
-    pub(in crate::db) enum PartKind {
-        Text = "text",
-        Source = "source",
     }
 }
 
@@ -77,6 +73,7 @@ pub struct ChatMessage {
     pub id: MessageId,
     pub session_id: SessionId,
     pub role: MessageRole,
+    /// [`Complete`](MessageStatus::Complete), or that of the version being written.
     pub status: MessageStatus,
     /// The user message an assistant message answers.
     pub reply_to: Option<MessageId>,
@@ -88,14 +85,39 @@ pub struct ChatMessage {
     /// The file of that recording, once it was posted.
     pub recorded_in: Option<SourceId>,
     pub created_at: i64,
+    /// The files, in order.
     pub parts: Vec<MessagePart>,
-    /// The passages an assistant message cites, by marker.
+    /// What the message says, in the order the versions were made.
+    pub versions: Vec<MessageVersion>,
+    /// The version shown; `None` for a message with no words, or no answer yet.
+    pub active_version: Option<VersionId>,
+    /// The passages the active version cites, by marker.
     pub citations: Vec<Citation>,
-    /// The latest job writing an assistant message, which says how writing went.
+    /// The latest job writing a version, which says how writing went.
     pub reply: Option<Job>,
 }
 
-/// One part of a message, with the reading of the source it shows.
+impl ChatMessage {
+    /// The version shown.
+    pub fn active(&self) -> Option<&MessageVersion> {
+        let id = self.active_version?;
+        self.versions.iter().find(|version| version.id == id)
+    }
+
+    /// What the message says, in its active version; empty when it has none.
+    pub fn text(&self) -> &str {
+        self.active().map_or("", |version| version.text.as_str())
+    }
+
+    /// The version being written, if any.
+    pub fn unfinished(&self) -> Option<&MessageVersion> {
+        self.versions
+            .iter()
+            .find(|version| version.status != MessageStatus::Complete)
+    }
+}
+
+/// One file of a message, with the reading of the source it shows.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MessagePart {
     pub id: PartId,
@@ -108,26 +130,13 @@ pub struct MessagePart {
     pub thread: ThreadSummary,
 }
 
-/// What a part shows.
+/// The file a part shows.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PartContent {
-    Text(String),
-    /// `source_id` is `None` once the source has been deleted; its name and kind stay.
-    Source {
-        source_id: Option<SourceId>,
-        name: String,
-        kind: SourceKind,
-    },
-}
-
-impl PartContent {
-    /// The source this part shows, while it still exists.
-    pub fn source_id(&self) -> Option<SourceId> {
-        match self {
-            Self::Source { source_id, .. } => *source_id,
-            Self::Text(_) => None,
-        }
-    }
+pub struct PartContent {
+    /// `None` once the source has been deleted; its name and kind stay.
+    pub source_id: Option<SourceId>,
+    pub name: String,
+    pub kind: SourceKind,
 }
 
 /// Whether Study can read a source of a sniffed kind and media type; readable sources get a
@@ -211,8 +220,8 @@ impl Database {
     /// The messages in `scope`, oldest first, with everything a session page shows.
     fn load(&self, scope: Scope) -> Result<Vec<ChatMessage>> {
         let mut statement = self.connection.prepare(&format!(
-            "SELECT m.id, m.session_id, m.role, m.status, m.reply_to, m.thread_root, m.created_at,
-                    m.recording_ms, m.recorded_in
+            "SELECT m.id, m.session_id, m.role, m.reply_to, m.thread_root, m.created_at,
+                    m.recording_ms, m.recorded_in, m.active_version_id
              FROM messages m WHERE {} ORDER BY m.id",
             scope.condition()
         ))?;
@@ -228,7 +237,7 @@ impl Database {
         let parts = self.parts_in(scope)?;
         let sources: Vec<SourceId> = parts
             .iter()
-            .filter_map(|(_, (_, content))| content.source_id())
+            .filter_map(|(_, (_, content))| content.source_id)
             .collect();
         let jobs = self.extract_jobs_by_source(&sources)?;
         let mut threads = thread_summaries_in(&self.connection, scope)?;
@@ -236,7 +245,7 @@ impl Database {
             let Some(&index) = positions.get(&message_id) else {
                 continue;
             };
-            let (jobs, document) = match content.source_id() {
+            let (jobs, document) = match content.source_id {
                 Some(source) => (
                     jobs.get(&source).cloned().unwrap_or_default(),
                     self.document_of(source)?.map(|(_, document)| document),
@@ -253,67 +262,17 @@ impl Database {
         }
 
         let mut replies = self.reply_jobs_in(scope)?;
+        let mut versions = self.versions_in(scope)?;
         let mut citations = self.citations_in(scope)?;
         for message in &mut messages {
             message.reply = replies.remove(&message.id);
+            message.versions = versions.remove(&message.id).unwrap_or_default();
+            message.status = message
+                .unfinished()
+                .map_or(MessageStatus::Complete, |version| version.status);
             message.citations = citations.remove(&message.id).unwrap_or_default();
         }
         Ok(messages)
-    }
-
-    /// Asks for a finished answer in words again: it goes back to pending, keeping its words
-    /// and citations until [`finish_reply`](Self::finish_reply) replaces them, and a new
-    /// reply job writes it. `None` when no finished answer has this id.
-    pub fn reanswer(&self, id: MessageId) -> Result<Option<JobId>> {
-        let tx = self.immediate()?;
-        let changed = tx.execute(
-            "UPDATE messages SET status = 'pending'
-             WHERE id = ?1 AND role = 'assistant' AND status = 'complete'",
-            params![id],
-        )?;
-        if changed == 0 {
-            return Ok(None);
-        }
-        let job = enqueue(&tx, &NewJob::new(JobKind::Reply, JobTarget::Message(id)))?;
-        tx.commit()?;
-        Ok(Some(job))
-    }
-
-    /// Marks an assistant message as being written. What an earlier attempt stored stays
-    /// until [`finish_reply`](Self::finish_reply) replaces it. Returns `false` when there is no
-    /// such answer.
-    pub fn begin_reply(&self, id: MessageId) -> Result<bool> {
-        let changed = self.connection.execute(
-            "UPDATE messages SET status = 'writing'
-             WHERE id = ?1 AND role = 'assistant' AND status != 'complete'",
-            params![id],
-        )?;
-        Ok(changed != 0)
-    }
-
-    /// Stores an assistant message's answer and the passages it cites, and marks it
-    /// complete, in one transaction. Returns `false` when the message is gone.
-    pub fn finish_reply(&self, id: MessageId, text: &str, citations: &[Citation]) -> Result<bool> {
-        let text = normalize_text(text)?;
-        let tx = self.immediate()?;
-        let changed = tx.execute(
-            "UPDATE messages SET status = 'complete' WHERE id = ?1 AND role = 'assistant'",
-            params![id],
-        )?;
-        if changed == 0 {
-            return Ok(false);
-        }
-        tx.execute(
-            "DELETE FROM message_parts WHERE message_id = ?1",
-            params![id],
-        )?;
-        tx.execute(
-            "INSERT INTO message_parts (message_id, ordinal, kind, text) VALUES (?1, 0, ?2, ?3)",
-            params![id, PartKind::Text, text],
-        )?;
-        replace_citations(&tx, CitedBy::Message(id), citations)?;
-        tx.commit()?;
-        Ok(true)
     }
 
     /// Returns `false` when no message has this `id`. Attached sources stay in the Library.
@@ -327,7 +286,7 @@ impl Database {
     /// Every part in `scope`, with its message, in message and part order.
     fn parts_in(&self, scope: Scope) -> Result<Vec<(MessageId, (PartId, PartContent))>> {
         let mut statement = self.connection.prepare(&format!(
-            "SELECT p.message_id, p.id, p.kind, p.text, p.source_id, p.source_name, p.source_kind
+            "SELECT p.message_id, p.id, p.source_id, p.source_name, p.source_kind
              FROM message_parts p
              JOIN messages m ON m.id = p.message_id
              WHERE {}
@@ -342,13 +301,36 @@ impl Database {
         Ok(parts)
     }
 
-    /// Every citation in `scope`, by message, in marker order.
+    /// Every version in `scope`, by message, in order.
+    fn versions_in(&self, scope: Scope) -> Result<HashMap<MessageId, Vec<MessageVersion>>> {
+        let mut statement = self.connection.prepare(&format!(
+            "SELECT v.message_id, {VERSION_COLUMNS}
+             FROM message_versions v JOIN messages m ON m.id = v.message_id
+             WHERE {}
+             ORDER BY v.message_id, v.number",
+            scope.condition()
+        ))?;
+        let mut grouped: HashMap<MessageId, Vec<MessageVersion>> = HashMap::new();
+        let rows = statement.query_map(params![scope.key()], |row| {
+            Ok((
+                row.get::<_, MessageId>(0)?,
+                versions::version_from_row(row, 1)?,
+            ))
+        })?;
+        for row in rows {
+            let (message, version) = row?;
+            grouped.entry(message).or_default().push(version);
+        }
+        Ok(grouped)
+    }
+
+    /// The citations of each message's active version in `scope`, in marker order.
     fn citations_in(&self, scope: Scope) -> Result<HashMap<MessageId, Vec<Citation>>> {
         let mut statement = self.connection.prepare(&format!(
-            "SELECT c.message_id, c.marker, c.source_id, c.source_name, c.anchor, c.quote
-             FROM citations c JOIN messages m ON m.id = c.message_id
+            "SELECT m.id, c.marker, c.source_id, c.source_name, c.anchor, c.quote
+             FROM citations c JOIN messages m ON m.active_version_id = c.version_id
              WHERE {}
-             ORDER BY c.message_id, c.marker",
+             ORDER BY m.id, c.marker",
             scope.condition()
         ))?;
         let mut grouped: HashMap<MessageId, Vec<Citation>> = HashMap::new();
@@ -364,38 +346,38 @@ impl Database {
 }
 
 impl ChatMessage {
-    /// Maps `id, session_id, role, status, reply_to, thread_root, created_at, recording_ms,
-    /// recorded_in`, without parts.
+    /// Maps `id, session_id, role, reply_to, thread_root, created_at, recording_ms,
+    /// recorded_in, active_version_id`, without parts or versions.
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(ChatMessage {
             id: row.get(0)?,
             session_id: row.get(1)?,
             role: row.get(2)?,
-            status: row.get(3)?,
-            reply_to: row.get(4)?,
-            thread_root: row.get(5)?,
-            created_at: row.get(6)?,
-            recording_ms: row.get::<_, Option<i64>>(7)?.map(|ms| ms.max(0) as u64),
-            recorded_in: row.get(8)?,
+            status: MessageStatus::Complete,
+            reply_to: row.get(3)?,
+            thread_root: row.get(4)?,
+            created_at: row.get(5)?,
+            recording_ms: row.get::<_, Option<i64>>(6)?.map(|ms| ms.max(0) as u64),
+            recorded_in: row.get(7)?,
+            active_version: row.get(8)?,
             parts: Vec::new(),
+            versions: Vec::new(),
             citations: Vec::new(),
             reply: None,
         })
     }
 }
 
-/// Maps `id, kind, text, source_id, source_name, source_kind` starting at `offset`.
+/// Maps `id, source_id, source_name, source_kind` starting at `offset`.
 fn part_from_row(row: &Row, offset: usize) -> rusqlite::Result<(PartId, PartContent)> {
-    let id = row.get(offset)?;
-    let content = match row.get(offset + 1)? {
-        PartKind::Text => PartContent::Text(row.get(offset + 2)?),
-        PartKind::Source => PartContent::Source {
-            source_id: row.get(offset + 3)?,
-            name: row.get(offset + 4)?,
-            kind: row.get(offset + 5)?,
+    Ok((
+        row.get(offset)?,
+        PartContent {
+            source_id: row.get(offset + 1)?,
+            name: row.get(offset + 2)?,
+            kind: row.get(offset + 3)?,
         },
-    };
-    Ok((id, content))
+    ))
 }
 
 /// Trims message text and checks its length.

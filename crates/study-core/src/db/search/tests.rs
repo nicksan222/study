@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::Result;
-use crate::db::{Database, MessageRole, NewPart, PartContent, read_nothing};
+use crate::db::{Database, MessageRole, NewPart, read_nothing};
 use crate::{Anchor, Block, BlockKind, Document, DocumentId, DocumentMeta, ProjectId, SourceId};
 
 fn page(page: u32) -> Anchor {
@@ -84,13 +84,7 @@ fn a_passage_of_an_attached_file_leads_to_its_session() -> Result<()> {
         &[NewPart::File(path)],
         &read_nothing,
     )?;
-    let PartContent::Source {
-        source_id: Some(source),
-        ..
-    } = message.parts[0].content
-    else {
-        panic!("expected the attachment");
-    };
+    let source = message.parts[0].content.source_id.expect("the file");
     let document = Document {
         blocks: vec![Block {
             kind: BlockKind::Paragraph,

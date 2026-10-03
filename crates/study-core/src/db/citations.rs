@@ -1,7 +1,7 @@
 //! Citations: the passages an answer, a piece of study material or a practice question cites
 //! as `[marker]`.
 //!
-//! Messages keep theirs in `citations`, artifacts in `artifact_citations` and practice
+//! Message versions keep theirs in `citations`, artifacts in `artifact_citations` and practice
 //! questions in `question_citations`; the tables have the same columns after the owner's id,
 //! so one writer, one reader and one row mapper serve them all.
 //! Each row snapshots the source's name, the place and the quote, so it still reads
@@ -9,13 +9,13 @@
 
 use super::json_column;
 use crate::Result;
-use crate::{ArtifactId, Citation, MessageId, QuestionId};
+use crate::{ArtifactId, Citation, QuestionId, VersionId};
 use rusqlite::{Connection, Row, params};
 
 /// Whose citations these are, which picks the table.
 #[derive(Clone, Copy, Debug)]
 pub(super) enum CitedBy {
-    Message(MessageId),
+    Version(VersionId),
     Artifact(ArtifactId),
     Question(QuestionId),
 }
@@ -24,7 +24,7 @@ impl CitedBy {
     /// The table and its owner column, and the owner's id.
     fn table(self) -> (&'static str, &'static str, i64) {
         match self {
-            Self::Message(id) => ("citations", "message_id", id.get()),
+            Self::Version(id) => ("citations", "version_id", id.get()),
             Self::Artifact(id) => ("artifact_citations", "artifact_id", id.get()),
             Self::Question(id) => ("question_citations", "question_id", id.get()),
         }

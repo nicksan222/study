@@ -3,7 +3,7 @@
 //!
 //! Most kinds are stages of the source pipeline, routed in `study_core::processing`; Fetch
 //! (a link's fetchers) and Artifact (the enhancers) are pipeline work no route lists. All of
-//! them are implemented in `study-pipeline`; the rest (a session's title, a reply, a practice
+//! them are implemented in `study-pipeline`; the rest (a session's title, a reply, a rewrite, a practice
 //! question and its grade) are the agents' in `study-app`. A new
 //! [`JobKind`] is one line here plus its code as a row of `codes_job_kind` (see `db::migrations`
 //! for where); `every_job_kind_has_exactly_one_handler` in `study-app`
@@ -30,6 +30,9 @@ crate::text_enum! {
         Grade = "grade",
         /// Brings in what a link source's address holds.
         Fetch = "fetch",
+        /// Writes a new version of a message: an improvement, a summary or what the student
+        /// asked for.
+        Rewrite = "rewrite",
     }
 }
 
@@ -41,9 +44,12 @@ impl JobKind {
     /// Exhaustive, so a new kind must decide here.
     pub const fn requirement(self) -> Option<Requirement> {
         match self {
-            Self::Title | Self::Reply | Self::Artifact | Self::Question | Self::Grade => {
-                Some(Requirement::LanguageModels)
-            }
+            Self::Title
+            | Self::Reply
+            | Self::Rewrite
+            | Self::Artifact
+            | Self::Question
+            | Self::Grade => Some(Requirement::LanguageModels),
             Self::Embed => Some(Requirement::SearchModel),
             // Splitting a document into passages, or fetching a page, needs no model.
             Self::Index | Self::Extract | Self::Fetch => None,
@@ -58,6 +64,7 @@ impl JobKind {
             Self::Extract
             | Self::Title
             | Self::Reply
+            | Self::Rewrite
             | Self::Artifact
             | Self::Question
             | Self::Grade
@@ -74,6 +81,7 @@ impl JobKind {
             | Self::Index
             | Self::Title
             | Self::Reply
+            | Self::Rewrite
             | Self::Artifact
             | Self::Question
             | Self::Grade

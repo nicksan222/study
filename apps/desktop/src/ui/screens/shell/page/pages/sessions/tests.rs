@@ -125,12 +125,9 @@ fn first_message_creates_a_titled_session_and_follow_ups_store_attachments(
             .iter()
             .all(|message| message.role == MessageRole::User)
     );
-    let PartContent::Source {
+    let PartContent {
         source_id, name, ..
-    } = &messages[1].parts[0].content
-    else {
-        panic!("expected the attachment");
-    };
+    } = &messages[1].parts[0].content;
     assert_eq!(name, "notes.md");
     // The file itself lives in the database, filed under the session's project.
     let media = database.list_sources().unwrap();
@@ -230,10 +227,8 @@ fn stored_results_render_and_sessions_can_be_deleted(cx: &mut TestAppContext) {
     // The recording is one line, its transcript folded under it; its preview button opens
     // the side panel.
     let (part, source) = cx.update(|cx| {
-        let part = &shell.read(cx).sessions.messages[0].parts[1];
-        let PartContent::Source { source_id, .. } = &part.content else {
-            panic!("expected the recording");
-        };
+        let part = &shell.read(cx).sessions.messages[0].parts[0];
+        let PartContent { source_id, .. } = &part.content;
         (part.id, source_id.unwrap())
     });
     // Its buttons show while the pointer is on its line.
@@ -273,7 +268,7 @@ fn an_attachment_opens_a_thread_whose_replies_stay_off_the_timeline(cx: &mut Tes
             &|_, _| false,
         )
         .unwrap();
-    let root = posted.parts[1].id;
+    let root = posted.parts[0].id;
 
     let (window, shell) = open_offline_shell(cx, &app, true);
     click(cx, window, PROJECTS_RAIL);
@@ -317,7 +312,7 @@ fn an_attachment_opens_a_thread_whose_replies_stay_off_the_timeline(cx: &mut Tes
             // The reply is in the thread; the timeline only counts it.
             replies == 1
                 && state.messages.len() == 1
-                && state.messages[0].parts[1].thread.replies == 1
+                && state.messages[0].parts[0].thread.replies == 1
         })
     });
     // On the timeline the reply folds into a faint line under the file, which opens it.
@@ -334,8 +329,8 @@ fn an_attachment_opens_a_thread_whose_replies_stay_off_the_timeline(cx: &mut Tes
     }));
     let thread = database.thread(root).unwrap().expect("a thread");
     assert_eq!(
-        thread.replies[0].parts[0].content,
-        PartContent::Text("Chlorophyll absorbs red and blue light".into())
+        thread.replies[0].text(),
+        "Chlorophyll absorbs red and blue light"
     );
     render(cx, window);
 
@@ -382,12 +377,9 @@ fn a_recording_cut_short_by_a_crash_can_be_sent_or_discarded(cx: &mut TestAppCon
     });
 
     let messages = database.list_messages(session.id).unwrap();
-    let PartContent::Source {
+    let PartContent {
         source_id, name, ..
-    } = &messages[0].parts[0].content
-    else {
-        panic!("expected the recording");
-    };
+    } = &messages[0].parts[0].content;
     assert!(name.ends_with(".wav"), "{name}");
     assert_eq!(messages[0].parts[0].jobs[0].kind, JobKind::Extract);
     let media = database.source(source_id.unwrap()).unwrap().unwrap();
@@ -475,10 +467,7 @@ fn a_typed_mention_becomes_a_chip_and_is_stored_as_written(cx: &mut TestAppConte
         cx.update(|cx| shell.read(cx).sessions.messages.len() >= 3)
     });
     let messages = database.list_messages(session.id).unwrap();
-    assert_eq!(
-        messages[1].parts[0].content,
-        PartContent::Text("@study spiega il ciclo".into())
-    );
+    assert_eq!(messages[1].text(), "@study spiega il ciclo");
 }
 
 #[test]
@@ -1175,7 +1164,7 @@ fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
     let (window, shell) = open_offline_shell(cx, &app, false);
     click(cx, window, PROJECTS_RAIL);
     click(cx, window, (ids::SESSION, session.id.get() as u64));
-    let part = cx.update(|cx| shell.read(cx).sessions.messages[0].parts[1].id);
+    let part = cx.update(|cx| shell.read(cx).sessions.messages[0].parts[0].id);
     click(cx, window, ids::COMPOSER);
 
     // The innermost element holding the keyboard, by its own id.

@@ -86,8 +86,10 @@ id! {
     pub struct SessionId;
     /// One message in a chat.
     pub struct MessageId;
-    /// One part of a message: text, or a reference to a source.
+    /// One part of a message: a reference to a source.
     pub struct PartId;
+    /// One version of what a message says.
+    pub struct VersionId;
     /// The text read from a source.
     pub struct DocumentId;
     /// One unit of background work.

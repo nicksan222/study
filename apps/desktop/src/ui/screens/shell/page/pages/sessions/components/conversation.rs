@@ -242,7 +242,7 @@ impl AppShell {
         let mut jobs = Vec::new();
         let mut document = None;
         for part in state.shown_parts() {
-            if let PartContent::Source {
+            if let PartContent {
                 source_id: Some(id),
                 name,
                 kind,

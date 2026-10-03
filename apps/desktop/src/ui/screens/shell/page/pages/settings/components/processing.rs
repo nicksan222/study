@@ -567,6 +567,7 @@ fn processor_label(processor: Processor) -> Message {
             JobKind::Embed => Message::StageEmbed,
             JobKind::Title => Message::StageTitle,
             JobKind::Reply => Message::StageReply,
+            JobKind::Rewrite => Message::StageRewrite,
             JobKind::Artifact => Message::StageArtifact,
             JobKind::Question => Message::StageQuestion,
             JobKind::Grade => Message::StageGrade,

@@ -840,11 +840,7 @@ mod tests {
         assert_eq!((c.files, c.notes), (1, 0));
 
         // A note edited counts as one gone and one added.
-        db.connection.execute(
-            "UPDATE message_parts SET text = 'Mitochondria make most ATP.'
-             WHERE message_id = ?1",
-            [edited],
-        )?;
+        db.edit_message(edited, "Mitochondria make most ATP.")?;
         let c = changes(&[cells.id, elsewhere.id])?.unwrap();
         assert_eq!((c.files, c.notes), (1, 2));
 

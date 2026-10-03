@@ -20,6 +20,7 @@ use crate::LocalModel;
 use crate::agents::grade::GradeHandler;
 use crate::agents::question::QuestionHandler;
 use crate::agents::reply::ReplyHandler;
+use crate::agents::rewrite::RewriteHandler;
 use crate::agents::title::TitleHandler;
 use crate::search::Retriever;
 
@@ -333,10 +334,12 @@ fn handlers(
         pipeline.sifter().clone(),
     )));
     handlers.push(Arc::new(GradeHandler::new(agents.clone())));
-    handlers.push(Arc::new(ReplyHandler::new(
-        agents,
-        Retriever::new(store.clone(), embedder.clone()),
+    let retriever = Retriever::new(store.clone(), embedder.clone());
+    handlers.push(Arc::new(RewriteHandler::new(
+        agents.clone(),
+        retriever.clone(),
     )));
+    handlers.push(Arc::new(ReplyHandler::new(agents, retriever)));
     handlers
 }
 

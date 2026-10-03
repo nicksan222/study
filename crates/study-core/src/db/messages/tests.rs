@@ -2,10 +2,13 @@
 
 use crate::Result;
 use crate::db::{
-    Database, JobTarget, MessageRole, MessageStatus, NewPart, PartContent, Place, ThreadSummary,
-    read_nothing,
+    Asked, Database, JobTarget, MessageRole, MessageStatus, NewPart, PartContent, Place, Rewrite,
+    VersionOrigin, read_nothing,
 };
-use crate::{Anchor, Citation, JobKind, JobStatus, ProjectId, SessionId, SourceKind};
+use crate::{
+    Anchor, Citation, ErrorKind, Failure, JobKind, JobStatus, MessageId, ProjectId, SessionId,
+    SourceKind,
+};
 use std::fs;
 use std::path::Path;
 
@@ -45,18 +48,15 @@ fn messages_store_text_and_files_in_order_with_their_jobs() -> Result<()> {
     )?;
 
     assert_eq!(posted.status, MessageStatus::Complete);
-    assert_eq!(
-        posted.parts[0].content,
-        PartContent::Text("Summarize this".into())
-    );
-    let PartContent::Source {
+    assert_eq!(posted.text(), "Summarize this");
+    assert_eq!(posted.versions.len(), 1);
+    assert_eq!(posted.versions[0].origin, VersionOrigin::Typed);
+    assert_eq!(posted.parts.len(), 1);
+    let PartContent {
         source_id, name, ..
-    } = &posted.parts[1].content
-    else {
-        panic!("expected a source part");
-    };
+    } = &posted.parts[0].content;
     assert_eq!(name, "notes.txt");
-    assert_eq!(posted.parts[1].jobs[0].status, crate::JobStatus::Queued);
+    assert_eq!(posted.parts[0].jobs[0].status, crate::JobStatus::Queued);
 
     let sources = db.list_sources()?;
     assert_eq!(sources[0].id, source_id.unwrap());
@@ -92,6 +92,31 @@ fn a_note_gets_no_answer_but_the_session_is_named_once_its_files_are_read() -> R
     Ok(())
 }
 
+#[test]
+fn a_rewrite_waits_for_the_files_of_the_message_to_be_read() -> Result<()> {
+    let (dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let notes = attach(dir.path(), "notes.txt", "mitochondria")?;
+    let message = db.post_message(
+        session,
+        MessageRole::User,
+        &[text("Mitochondria power the cell."), notes],
+        &read_everything,
+    )?;
+    let read = message.parts[0].jobs[0].id;
+
+    let Asked::Queued(job) = db.rewrite_message(message.id, &Rewrite::Summarize)? else {
+        panic!("queued");
+    };
+    let waiting = db.job(job)?.expect("the job");
+    assert_eq!(waiting.status, JobStatus::Blocked, "the read is not done");
+
+    db.claim_job(&[JobKind::Extract])?.expect("the read");
+    db.succeed_job(read, &[])?;
+    assert_eq!(db.job(job)?.unwrap().status, JobStatus::Queued);
+    Ok(())
+}
+
 /// Deleting a note takes everything that hangs off it, enforced by the database's foreign
 /// keys: its answer, their citations, threads and jobs. The files it attached stay in the
 /// Library, and so does the project's material.
@@ -106,7 +131,7 @@ fn deleting_a_note_cascades_to_its_answer_threads_and_jobs() -> Result<()> {
         &[text("Lecture 4"), lecture],
         &read_everything,
     )?;
-    let root = note.parts[1].id;
+    let root = note.parts[0].id;
     let reply = db.post_message(
         Place::Thread(root),
         MessageRole::User,
@@ -153,9 +178,7 @@ fn mentioning_the_assistant_gets_an_answer_written_once_the_files_are_read() -> 
         &[text("@study what powers the cell?"), notes],
         &read_everything,
     )?;
-    let PartContent::Source { source_id, .. } = question.parts[1].content else {
-        panic!("expected a source part");
-    };
+    let PartContent { source_id, .. } = question.parts[0].content;
 
     let messages = db.list_messages(session)?;
     let answer = &messages[1];
@@ -170,7 +193,8 @@ fn mentioning_the_assistant_gets_an_answer_written_once_the_files_are_read() -> 
     let reply = answer.reply.as_ref().expect("a reply job");
     assert_eq!(reply.status, JobStatus::Blocked);
 
-    assert!(db.begin_reply(answer.id)?);
+    let pending = db.begin_version(answer.id)?.expect("a version to write");
+    assert_eq!(pending.origin, VersionOrigin::Answer);
     let citation = Citation {
         marker: 1,
         source_id,
@@ -183,17 +207,15 @@ fn mentioning_the_assistant_gets_an_answer_written_once_the_files_are_read() -> 
         },
         quote: "mitochondria".into(),
     };
-    assert!(db.finish_reply(
-        answer.id,
+    assert!(db.finish_version(
+        pending.id,
         "Mitochondria [1].",
         std::slice::from_ref(&citation)
     )?);
     let answer = db.message(answer.id)?.unwrap();
     assert_eq!(answer.status, MessageStatus::Complete);
-    assert_eq!(
-        answer.parts[0].content,
-        PartContent::Text("Mitochondria [1].".into())
-    );
+    assert_eq!(answer.text(), "Mitochondria [1].");
+    assert!(answer.parts.is_empty());
     assert_eq!(answer.citations, std::slice::from_ref(&citation));
 
     // A citation outlives its source.
@@ -214,11 +236,9 @@ fn a_source_deleted_while_the_answer_is_written_is_cited_without_it() -> Result<
         &[text("@study what powers the cell?"), notes],
         &read_everything,
     )?;
-    let PartContent::Source { source_id, .. } = question.parts[1].content else {
-        panic!("expected a source part");
-    };
+    let PartContent { source_id, .. } = question.parts[0].content;
     let answer = db.list_messages(session)?[1].id;
-    assert!(db.begin_reply(answer)?);
+    let pending = db.begin_version(answer)?.expect("a version to write");
     // The excerpts were read; the source goes before the model answers.
     let citation = Citation {
         marker: 1,
@@ -234,7 +254,11 @@ fn a_source_deleted_while_the_answer_is_written_is_cited_without_it() -> Result<
     };
     assert!(db.delete_source(source_id.unwrap())?);
 
-    assert!(db.finish_reply(answer, "Mitochondria [1].", std::slice::from_ref(&citation))?);
+    assert!(db.finish_version(
+        pending.id,
+        "Mitochondria [1].",
+        std::slice::from_ref(&citation)
+    )?);
     let answer = db.message(answer)?.unwrap();
     assert_eq!(answer.status, MessageStatus::Complete);
     let kept = &answer.citations[0];
@@ -320,14 +344,12 @@ fn deleting_a_session_keeps_attachments_and_deleting_a_source_keeps_the_part() -
         std::slice::from_ref(&file),
         &read_nothing,
     )?;
-    let PartContent::Source { source_id, .. } = posted.parts[0].content else {
-        panic!("expected a source part");
-    };
+    let PartContent { source_id, .. } = posted.parts[0].content;
     db.delete_source(source_id.unwrap())?;
     let listed = db.list_messages(session)?;
     assert_eq!(
         listed[0].parts[0].content,
-        PartContent::Source {
+        PartContent {
             source_id: None,
             name: "slides.pdf".into(),
             kind: SourceKind::Pdf,
@@ -341,7 +363,8 @@ fn deleting_a_session_keeps_attachments_and_deleting_a_source_keeps_the_part() -
 }
 
 #[test]
-fn a_finished_answer_is_asked_for_again() -> Result<()> {
+fn a_finished_answer_is_asked_for_again_and_the_old_one_stays_until_the_new_one_is_done()
+-> Result<()> {
     let (_dir, db) = Database::temporary()?;
     let (_, session) = cells(&db)?;
     db.post_message(
@@ -352,32 +375,36 @@ fn a_finished_answer_is_asked_for_again() -> Result<()> {
     )?;
     let answer = db.list_messages(session)?.pop().expect("the answer");
     // Not finished yet: nothing to ask again.
-    assert_eq!(db.reanswer(answer.id)?, None);
+    assert_eq!(db.reanswer(answer.id)?, Asked::Unavailable);
     let job = db.claim_job(&[JobKind::Reply])?.expect("the reply job");
-    db.begin_reply(answer.id)?;
-    db.finish_reply(answer.id, "Mitochondria [1].", &[])?;
+    let first = db.begin_version(answer.id)?.expect("the first version");
+    db.finish_version(first.id, "Mitochondria [1].", &[])?;
     db.succeed_job(job.id, &[])?;
 
-    let again = db.reanswer(answer.id)?.expect("a new job");
+    let Asked::Queued(again) = db.reanswer(answer.id)? else {
+        panic!("a new job");
+    };
     assert_ne!(again, job.id);
     let answer = db.message(answer.id)?.expect("still there");
     assert_eq!(answer.status, MessageStatus::Pending);
     // The old words stay on screen until the new ones replace them.
-    assert_eq!(answer.parts.len(), 1);
+    assert_eq!(answer.text(), "Mitochondria [1].");
+    assert_eq!(answer.versions.len(), 2);
     assert_eq!(answer.reply.map(|job| job.id), Some(again));
+    // Asking while it is being written is refused.
+    assert_eq!(db.reanswer(answer.id)?, Asked::Busy);
 
-    // An answer showing material is written again through its material.
-    db.post_message(
-        session,
-        MessageRole::User,
-        &[text("/flashcards")],
-        &read_nothing,
-    )?;
-    let material = db
-        .list_messages(session)?
-        .pop()
-        .expect("the material answer");
-    assert_eq!(db.reanswer(material.id)?, None);
+    let second = db.begin_version(answer.id)?.expect("the second version");
+    assert_eq!(second.source_text, "Mitochondria [1].");
+    db.finish_version(second.id, "In the mitochondria.", &[])?;
+    let answer = db.message(answer.id)?.unwrap();
+    assert_eq!(answer.status, MessageStatus::Complete);
+    assert_eq!(answer.text(), "In the mitochondria.");
+    assert_eq!(answer.active().map(|version| version.number), Some(2));
+
+    // A message that is not an answer is not answered again.
+    let note = db.post_message(session, MessageRole::User, &[text("hi")], &read_nothing)?;
+    assert_eq!(db.reanswer(note.id)?, Asked::Unavailable);
     Ok(())
 }
 
@@ -404,7 +431,7 @@ fn an_attachment_opens_a_thread_that_stays_off_the_timeline() -> Result<()> {
         &[text("Lecture 4"), lecture],
         &read_everything,
     )?;
-    let root = posted.parts[1].id;
+    let root = posted.parts[0].id;
 
     let slides = attach(dir.path(), "slides.pdf", "%PDF")?;
     let note = db.post_message(
@@ -424,14 +451,13 @@ fn an_attachment_opens_a_thread_that_stays_off_the_timeline() -> Result<()> {
     // The timeline keeps only the opening message, which counts the thread's replies.
     let timeline = db.list_messages(session.id)?;
     assert_eq!(timeline.len(), 1);
-    assert_eq!(timeline[0].parts[0].thread, ThreadSummary::default());
-    let summary = timeline[0].parts[1].thread;
+    let summary = timeline[0].parts[0].thread;
     assert_eq!(summary.replies, 3);
     assert!(summary.last_reply_at.is_some());
 
     // The thread opens with the attachment and its read, then every reply, the answer too.
     let thread = db.thread(root)?.expect("a thread");
-    assert_eq!(thread.root, timeline[0].parts[1]);
+    assert_eq!(thread.root, timeline[0].parts[0]);
     assert_eq!(thread.root.jobs.len(), 1);
     assert_eq!(thread.opening().parts, std::slice::from_ref(&thread.root));
     let roles: Vec<_> = thread
@@ -449,7 +475,7 @@ fn an_attachment_opens_a_thread_that_stays_off_the_timeline() -> Result<()> {
     );
     assert!(thread.replies[2].reply.is_some());
     // A thread's files are read like any other.
-    assert_eq!(thread.replies[0].parts[1].jobs.len(), 1);
+    assert_eq!(thread.replies[0].parts[0].jobs.len(), 1);
     // Only the timeline names the session: one title job, from the opening message.
     assert_eq!(db.jobs_for(JobTarget::Session(session.id))?.len(), 1);
 
@@ -471,7 +497,7 @@ fn threads_hang_only_off_attachments_of_timeline_messages() -> Result<()> {
         &[text("see file"), notes.clone()],
         &read_nothing,
     )?;
-    let (note, file) = (posted.parts[0].id, posted.parts[1].id);
+    let file = posted.parts[0].id;
     let reply = db.post_message(
         Place::Thread(file),
         MessageRole::User,
@@ -480,7 +506,7 @@ fn threads_hang_only_off_attachments_of_timeline_messages() -> Result<()> {
     )?;
     let nested = reply.parts[0].id;
 
-    for root in [note, nested, crate::PartId::new(nested.get() + 100)] {
+    for root in [nested, crate::PartId::new(nested.get() + 100)] {
         assert!(db.thread(root)?.is_none());
         let posted = db.post_message(
             Place::Thread(root),
@@ -527,14 +553,381 @@ fn a_note_written_while_recording_is_marked_with_how_far_in() -> Result<()> {
         posted.recording_ms, None,
         "the recording itself is not a note in it"
     );
-    let PartContent::Source {
-        source_id: Some(file),
-        ..
-    } = posted.parts[0].content
-    else {
-        panic!("the recording's file");
-    };
+    let file = posted.parts[0].content.source_id.expect("the file");
     assert_eq!(db.message(during.id)?.unwrap().recorded_in, Some(file));
     assert_eq!(db.message(before.id)?.unwrap().recorded_in, None);
+    Ok(())
+}
+
+/// A note in a session of `db`.
+fn note(db: &Database, session: SessionId, words: &str) -> Result<MessageId> {
+    Ok(db
+        .post_message(session, MessageRole::User, &[text(words)], &read_nothing)?
+        .id)
+}
+
+fn cited(quote: &str) -> Citation {
+    Citation {
+        marker: 1,
+        source_id: None,
+        source_name: "notes.txt".into(),
+        anchor: Anchor::Text {
+            line_start: 1,
+            line_end: 1,
+            start: 0,
+            end: 1,
+        },
+        quote: quote.into(),
+    }
+}
+
+#[test]
+fn an_edit_adds_an_active_version_and_unchanged_or_empty_text_adds_nothing() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let id = note(&db, session, "Mitochondria make ATP")?;
+
+    assert_eq!(db.edit_message(id, "Mitochondria make ATP  ")?, None);
+    assert_eq!(db.edit_message(id, "   ")?, None);
+    assert_eq!(db.edit_message(MessageId::new(id.get() + 9), "x")?, None);
+    assert_eq!(db.message(id)?.unwrap().versions.len(), 1);
+
+    let edited = db
+        .edit_message(id, " Mitochondria make most ATP ")?
+        .expect("a version");
+    let message = db.message(id)?.unwrap();
+    assert_eq!(message.active_version, Some(edited));
+    assert_eq!(message.text(), "Mitochondria make most ATP");
+    let numbers: Vec<_> = message
+        .versions
+        .iter()
+        .map(|version| (version.number, version.origin))
+        .collect();
+    assert_eq!(
+        numbers,
+        [(1, VersionOrigin::Typed), (2, VersionOrigin::Edited)]
+    );
+    assert_eq!(message.versions[1].based_on, Some(message.versions[0].id));
+    Ok(())
+}
+
+#[test]
+fn a_message_of_only_files_has_no_text_until_one_is_written() -> Result<()> {
+    let (dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let notes = attach(dir.path(), "notes.txt", "mitochondria")?;
+    let posted = db.post_message(session, MessageRole::User, &[notes], &read_nothing)?;
+    assert!(posted.versions.is_empty() && posted.active_version.is_none());
+    assert_eq!(posted.text(), "");
+    assert_eq!(
+        db.rewrite_message(posted.id, &Rewrite::Improve)?,
+        Asked::Unavailable
+    );
+
+    db.edit_message(posted.id, "Slides from today")?;
+    let message = db.message(posted.id)?.unwrap();
+    assert_eq!(message.versions[0].origin, VersionOrigin::Typed);
+    assert_eq!(message.text(), "Slides from today");
+    assert_eq!(message.parts.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn a_rewrite_is_a_version_written_by_a_job_and_active_once_done() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let id = note(&db, session, "mito makes atp")?;
+
+    assert!(
+        db.rewrite_message(id, &Rewrite::Instruction("  ".into()))
+            .is_err()
+    );
+    let Asked::Queued(job) = db.rewrite_message(id, &Rewrite::Instruction(" as a poem ".into()))?
+    else {
+        panic!("queued");
+    };
+    let queued = db.message(id)?.unwrap();
+    assert_eq!(queued.status, MessageStatus::Pending);
+    assert_eq!(queued.text(), "mito makes atp", "the old words stay");
+    let version = queued.unfinished().expect("the version being written");
+    assert_eq!(
+        (
+            version.origin,
+            version.instruction.as_deref(),
+            version.text.as_str()
+        ),
+        (VersionOrigin::Instruction, Some("as a poem"), "")
+    );
+    let reply = queued.reply.as_ref().expect("its job");
+    assert_eq!((reply.id, reply.kind), (job, JobKind::Rewrite));
+    assert_eq!(reply.target, JobTarget::Message(id));
+
+    let claimed = db.claim_job(&[JobKind::Rewrite])?.expect("the job");
+    let pending = db.begin_version(id)?.expect("the version");
+    assert_eq!(pending.source_text, "mito makes atp");
+    assert_eq!(db.message(id)?.unwrap().status, MessageStatus::Writing);
+    assert!(db.finish_version(pending.id, "Mitochondria, small", &[cited("a")])?);
+    db.succeed_job(claimed.id, &[])?;
+
+    let done = db.message(id)?.unwrap();
+    assert_eq!(done.status, MessageStatus::Complete);
+    assert_eq!(done.text(), "Mitochondria, small");
+    assert_eq!(done.citations.len(), 1);
+    // A finished version is finished once.
+    assert!(!db.finish_version(pending.id, "again", &[])?);
+    Ok(())
+}
+
+#[test]
+fn only_one_version_is_written_at_a_time() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let id = note(&db, session, "mito makes atp")?;
+    assert!(matches!(
+        db.rewrite_message(id, &Rewrite::Improve)?,
+        Asked::Queued(_)
+    ));
+    for how in [Rewrite::Summarize, Rewrite::Improve] {
+        assert_eq!(db.rewrite_message(id, &how)?, Asked::Busy);
+    }
+    // Running is busy too.
+    db.claim_job(&[JobKind::Rewrite])?.expect("the job");
+    assert_eq!(db.rewrite_message(id, &Rewrite::Summarize)?, Asked::Busy);
+    assert_eq!(db.message(id)?.unwrap().versions.len(), 2);
+
+    write_version_in_flight(&db, id)?;
+    assert!(matches!(
+        db.rewrite_message(id, &Rewrite::Summarize)?,
+        Asked::Queued(_)
+    ));
+    assert_eq!(
+        db.rewrite_message(MessageId::new(id.get() + 9), &Rewrite::Improve)?,
+        Asked::Unavailable
+    );
+    Ok(())
+}
+
+/// Finishes the version of `message` whose job is already running.
+fn write_version_in_flight(db: &Database, message: MessageId) -> Result<()> {
+    let pending = db.begin_version(message)?.expect("a version to write");
+    assert!(db.finish_version(pending.id, "Done", &[])?);
+    let job = db
+        .jobs_for(JobTarget::Message(message))?
+        .pop()
+        .expect("its job");
+    db.succeed_job(job.id, &[])?;
+    Ok(())
+}
+
+#[test]
+fn a_version_stays_inactive_when_the_one_it_revises_is_no_longer_active() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let id = note(&db, session, "first")?;
+    let second = db.edit_message(id, "second")?.expect("an edit");
+    let first = db.message(id)?.unwrap().versions[0].id;
+
+    db.rewrite_message(id, &Rewrite::Improve)?;
+    // While it is written the student goes back to the first version.
+    assert!(db.set_active_version(id, first)?);
+    let job = db.claim_job(&[JobKind::Rewrite])?.expect("the job");
+    let pending = db.begin_version(id)?.expect("the version");
+    assert_eq!(pending.source_text, "second");
+    assert!(db.finish_version(pending.id, "second, improved", &[])?);
+    db.succeed_job(job.id, &[])?;
+
+    let message = db.message(id)?.unwrap();
+    assert_eq!(
+        message.active_version,
+        Some(first),
+        "the student's choice stands"
+    );
+    assert_eq!(message.versions.len(), 3);
+    assert_eq!(message.versions[2].text, "second, improved");
+    assert_eq!(message.status, MessageStatus::Complete);
+
+    // It is still there to switch to; versions of other messages and unfinished ones are not.
+    assert!(db.set_active_version(id, message.versions[2].id)?);
+    assert!(db.set_active_version(id, second)?);
+    let other = note(&db, session, "other")?;
+    let theirs = db.message(other)?.unwrap().versions[0].id;
+    assert!(!db.set_active_version(id, theirs)?);
+    db.rewrite_message(id, &Rewrite::Summarize)?;
+    let unfinished = db.message(id)?.unwrap().unfinished().unwrap().id;
+    assert!(!db.set_active_version(id, unfinished)?);
+    Ok(())
+}
+
+#[test]
+fn a_failed_version_stays_for_a_retry_and_is_dropped_by_the_next_action() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let id = note(&db, session, "mito makes atp")?;
+    db.rewrite_message(id, &Rewrite::Improve)?;
+    let job = db.claim_job(&[JobKind::Rewrite])?.expect("the job");
+    let pending = db.begin_version(id)?.expect("the version");
+    db.fail_job(job.id, &Failure::new(ErrorKind::Internal, "boom"), None)?;
+
+    let failed = db.message(id)?.unwrap();
+    assert_eq!(
+        failed.unfinished().map(|version| version.id),
+        Some(pending.id)
+    );
+    assert_eq!(
+        failed.reply.as_ref().map(|job| job.status),
+        Some(JobStatus::Failed)
+    );
+    assert_eq!(failed.text(), "mito makes atp");
+
+    // A retry of the same job writes the same version.
+    assert!(db.retry_job(job.id)?);
+    assert_eq!(db.rewrite_message(id, &Rewrite::Summarize)?, Asked::Busy);
+    db.claim_job(&[JobKind::Rewrite])?.expect("the job again");
+    assert_eq!(
+        db.begin_version(id)?.map(|version| version.id),
+        Some(pending.id)
+    );
+    db.fail_job(job.id, &Failure::new(ErrorKind::Internal, "boom"), None)?;
+
+    // Asking for something else drops the failed version and its job.
+    let Asked::Queued(next) = db.rewrite_message(id, &Rewrite::Summarize)? else {
+        panic!("queued");
+    };
+    assert_ne!(next, job.id);
+    let message = db.message(id)?.unwrap();
+    assert_eq!(message.versions.len(), 2);
+    assert_eq!(message.versions[1].origin, VersionOrigin::Summarize);
+    assert_eq!(
+        message.versions[1].number, 2,
+        "the dropped number is reused"
+    );
+    assert_eq!(db.jobs_for(JobTarget::Message(id))?.len(), 1);
+    assert!(!db.finish_version(pending.id, "late", &[])?);
+    Ok(())
+}
+
+#[test]
+fn an_edit_drops_the_version_being_written() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let id = note(&db, session, "mito makes atp")?;
+    db.rewrite_message(id, &Rewrite::Improve)?;
+    db.claim_job(&[JobKind::Rewrite])?.expect("the job");
+    let pending = db.begin_version(id)?.expect("the version");
+
+    db.edit_message(id, "mitochondria make atp")?;
+    let message = db.message(id)?.unwrap();
+    assert!(message.unfinished().is_none());
+    assert_eq!(message.text(), "mitochondria make atp");
+    // The running job finds nothing to finish.
+    assert!(!db.finish_version(pending.id, "stale", &[])?);
+    assert_eq!(db.begin_version(id)?, None);
+    assert_eq!(db.message(id)?.unwrap().text(), "mitochondria make atp");
+    Ok(())
+}
+
+#[test]
+fn edits_and_rewrites_never_start_an_answer_or_a_title() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let project = db.create_project("Biology")?;
+    let session = db.create_untitled_session(project.id, "New session")?;
+    let asked = db.post_message(
+        session.id,
+        MessageRole::User,
+        &[text("what is ATP?")],
+        &read_nothing,
+    )?;
+    db.edit_message(asked.id, "@study what is ATP?")?;
+    db.rewrite_message(asked.id, &Rewrite::Improve)?;
+    // One title job from posting, one rewrite: no reply, no second title.
+    assert_eq!(db.list_messages(session.id)?.len(), 1);
+    assert_eq!(db.jobs_for(JobTarget::Session(session.id))?.len(), 1);
+    assert_eq!(db.jobs_for(JobTarget::Message(asked.id))?.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn each_version_keeps_its_own_citations_and_the_active_ones_are_shown() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    db.post_message(
+        session,
+        MessageRole::User,
+        &[text("@study what makes ATP?")],
+        &read_nothing,
+    )?;
+    let answer = db.list_messages(session)?[1].id;
+    let job = db.claim_job(&[JobKind::Reply])?.expect("the reply job");
+    let first = db.begin_version(answer)?.expect("a version");
+    assert!(db.finish_version(first.id, "Mitochondria [1].", &[cited("one")])?);
+    db.succeed_job(job.id, &[])?;
+    db.reanswer(answer)?;
+    let second = db.begin_version(answer)?.expect("a version");
+    assert!(db.finish_version(second.id, "Inside them [1].", &[cited("two")])?);
+
+    let message = db.message(answer)?.unwrap();
+    assert_eq!(message.citations[0].quote, "two");
+    assert!(db.set_active_version(answer, first.id)?);
+    assert_eq!(db.message(answer)?.unwrap().citations[0].quote, "one");
+    Ok(())
+}
+
+#[test]
+fn search_and_notes_read_the_active_version_only() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (project, session) = cells(&db)?;
+    let id = note(&db, session, "mitochondria power the cell")?;
+    let first = db.message(id)?.unwrap().versions[0].id;
+    let hits = |query: &str| db.message_hits(query, 10).map(|hits| hits.len());
+    assert_eq!(hits("mitochondria")?, 1);
+
+    db.edit_message(id, "ribosomes build proteins")?;
+    assert_eq!(hits("mitochondria")?, 0, "an old version is not found");
+    assert_eq!(hits("ribosomes")?, 1);
+    assert_eq!(
+        db.project_material(project)?.notes,
+        "ribosomes build proteins"
+    );
+
+    // A version being written has no words to find or to read.
+    db.rewrite_message(id, &Rewrite::Instruction("in French".into()))?;
+    assert_eq!(
+        db.project_material(project)?.notes,
+        "ribosomes build proteins"
+    );
+    db.claim_job(&[JobKind::Rewrite])?.expect("the job");
+    let pending = db.begin_version(id)?.expect("the version");
+    assert!(db.finish_version(pending.id, "ribosomes construisent des proteines", &[])?);
+    assert_eq!(hits("construisent")?, 1);
+    assert_eq!(
+        hits("ribosomes")?,
+        1,
+        "one hit for the message, not one per version"
+    );
+
+    assert!(db.set_active_version(id, first)?);
+    assert_eq!(hits("construisent")?, 0);
+    assert_eq!(hits("mitochondria")?, 1);
+    assert_eq!(
+        db.project_material(project)?.notes,
+        "mitochondria power the cell"
+    );
+
+    assert!(db.delete_message(id)?);
+    assert_eq!(hits("mitochondria")?, 0);
+    assert_eq!(hits("ribosomes")?, 0);
+    Ok(())
+}
+
+#[test]
+fn a_hit_beyond_the_limit_is_not_lost_to_inactive_versions() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (_, session) = cells(&db)?;
+    let id = note(&db, session, "krebs krebs krebs krebs")?;
+    db.edit_message(id, "nothing here")?;
+    note(&db, session, "krebs cycle")?;
+    // The old version matches best, but only the other message's words are found, and the
+    // limit counts hits, not rows filtered afterwards.
+    assert_eq!(db.message_hits("krebs", 1)?.len(), 1);
     Ok(())
 }

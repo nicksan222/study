@@ -2,7 +2,7 @@
 //! sessions. Study material and every question of a practice are written from it.
 
 use super::super::Database;
-use super::{MAX_NOTES_CHARS, MessageRole, PartKind, latest_notes};
+use super::{MAX_NOTES_CHARS, MessageRole, latest_notes};
 use crate::{ProjectId, Result, SourceId, without_mention};
 use rusqlite::{Connection, params};
 
@@ -29,22 +29,22 @@ pub(in crate::db) fn project_material_of(
     connection: &Connection,
     project: ProjectId,
 ) -> Result<ProjectMaterial> {
+    // What the student wrote is the active version of a note: an edit replaces the words it
+    // was written with, and a version still being written is not read.
     let mut statement = connection.prepare(&format!(
-        "SELECT p.text
-         FROM message_parts p
-         JOIN messages m ON m.id = p.message_id
+        "SELECT v.text
+         FROM messages m
+         JOIN message_versions v ON v.id = m.active_version_id
          JOIN sessions s ON s.id = m.session_id
-         WHERE s.project_id = ?1 AND p.kind = '{}' AND m.role = '{}'
-         ORDER BY m.id, p.ordinal",
-        PartKind::Text,
+         WHERE s.project_id = ?1 AND m.role = '{}'
+         ORDER BY m.id",
         MessageRole::User,
     ))?;
     // An answer's text is not a note: its `[n]` markers count another list of excerpts.
     let notes: Vec<String> = statement
-        .query_map(params![project], |row| row.get::<_, Option<String>>(0))?
+        .query_map(params![project], |row| row.get::<_, String>(0))?
         .collect::<rusqlite::Result<Vec<_>>>()?
         .into_iter()
-        .flatten()
         .map(|text| without_mention(&text))
         .filter(|text| !text.is_empty())
         .collect();

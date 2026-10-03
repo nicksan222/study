@@ -3,7 +3,7 @@
 //! recognized text), then holds ordinary messages: notes, more files, and answers.
 
 use super::super::Database;
-use super::{ChatMessage, MessagePart, MessageRole, MessageStatus, PartContent, Scope};
+use super::{ChatMessage, MessagePart, MessageRole, MessageStatus, Scope};
 use crate::Result;
 use crate::{MessageId, PartId, SessionId};
 use rusqlite::{Connection, OptionalExtension as _, params};
@@ -46,6 +46,8 @@ impl Thread {
             recording_ms: None,
             recorded_in: None,
             parts: vec![self.root.clone()],
+            versions: Vec::new(),
+            active_version: None,
             citations: Vec::new(),
             reply: None,
         }
@@ -73,9 +75,6 @@ impl Database {
         let Some(part) = message.parts.into_iter().find(|part| part.id == root) else {
             return Ok(None);
         };
-        if !matches!(part.content, PartContent::Source { .. }) {
-            return Ok(None);
-        }
         Ok(Some(Thread {
             session_id: message.session_id,
             message_id: message.id,

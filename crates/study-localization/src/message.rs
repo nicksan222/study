@@ -485,6 +485,7 @@ pub enum Message {
     StageEmbed,
     StageTitle,
     StageReply,
+    StageRewrite,
     StageArtifact,
     StageQuestion,
     StageGrade,

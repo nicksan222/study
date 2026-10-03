@@ -520,6 +520,7 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::StageEmbed => "Search by meaning",
         Message::StageTitle => "Session title",
         Message::StageReply => "Answer",
+        Message::StageRewrite => "Rewrite",
         Message::StageArtifact => "Study material",
         Message::StageQuestion => "Practice question",
         Message::StageGrade => "Grading an answer",

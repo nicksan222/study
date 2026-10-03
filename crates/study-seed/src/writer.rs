@@ -370,11 +370,10 @@ impl Seeder<'_> {
         for (index, (part, attachment)) in message
             .parts
             .iter()
-            .skip(1)
             .zip(&conversation.attachments)
             .enumerate()
         {
-            let source = part.content.source_id().expect("an attachment is a source");
+            let source = part.content.source_id.expect("an attachment is a source");
             if let Some(web) = &attachment.web {
                 // Saved from the web: named for its page, and opening where it came from.
                 self.mark_saved_from_web(source, web.title, web.url)?;
@@ -410,7 +409,7 @@ impl Seeder<'_> {
                 self.date_message(reply.id, posted)?;
             }
         }
-        if let Some(root) = message.parts.get(1) {
+        if let Some(root) = message.parts.first() {
             for (minutes, note) in (10..).step_by(10).zip(conversation.thread) {
                 let reply = self.post_message(
                     Place::Thread(root.id),
@@ -425,8 +424,7 @@ impl Seeder<'_> {
         let sources = message
             .parts
             .iter()
-            .skip(1)
-            .map(|part| part.content.source_id())
+            .map(|part| part.content.source_id)
             .collect();
         Ok(Seeded { read, sources })
     }
@@ -621,8 +619,10 @@ impl Seeder<'_> {
             .find(|message| message.reply_to == Some(question))
             .expect("a question that mentions the assistant gets an answer");
         let job = answer.reply.expect("an answer has a reply job");
-        self.begin_reply(answer.id)?;
-        self.finish_reply(answer.id, text, cited)?;
+        let pending = self
+            .begin_version(answer.id)?
+            .expect("an answer waits to be written");
+        self.finish_version(pending.id, text, cited)?;
         self.settle_job(
             job.id,
             JobStatus::Succeeded,
