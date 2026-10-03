@@ -99,6 +99,12 @@ publish() {
   # changed only docs leaves this demo current, and no run of its own records one.
   git fetch -q origin main
   main=$(git rev-parse FETCH_HEAD)
+  # A run started by hand from another branch would put that branch's unmerged commits under
+  # the GIF, in a pull request that claims to change only the demo.
+  if ! git merge-base --is-ancestor "$source" "$main"; then
+    echo "::error::$short is not on main; only a commit on main gets a demo"
+    return 1
+  fi
   if [ "$main" != "$source" ] && touches_app "$source" "$main"; then
     echo "::notice::main moved on from $short with app changes; the run for the newer commit publishes"
     return 0

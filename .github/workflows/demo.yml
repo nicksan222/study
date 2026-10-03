@@ -31,10 +31,17 @@ jobs:
         id: decide
         env:
           EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
+          # The demo shows `main`. A run started by hand from another branch would record that
+          # branch's unmerged code; `publish` refuses it too.
+          if [ "$REF" != refs/heads/main ]; then
+            echo "::error::Run the Demo workflow from main, not $REF"
+            exit 1
+          fi
           if [ "$EVENT" = workflow_dispatch ] || .github/scripts/demo.sh should-record "$BEFORE" "$AFTER"; then
             echo "record=true" >>"$GITHUB_OUTPUT"
           else

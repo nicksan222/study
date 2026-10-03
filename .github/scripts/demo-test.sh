@@ -213,6 +213,16 @@ expect "the orphan demo branch is deleted" test -z "$(origin_ref demo/orphan1 ||
 expect "the new branch stays" test -n "$(origin_ref "demo/${SOURCE_SHA:0:7}" || true)"
 expect "a branch outside the prefix stays" test -n "$(origin_ref feature/keep || true)"
 
+# A commit that is not on main, as a run started by hand from a feature branch would publish.
+publish_repo
+git checkout -q -b feature
+echo 'fn unmerged' >crates/x/lib.rs
+git commit -qam "unmerged"
+SOURCE_SHA=$(git rev-parse HEAD) \
+  check "publish refuses a commit that is not on main" 1 "$script" publish "$work/new.gif"
+expect "it pushes nothing for it" test -z "$(git --git-dir="$work/origin.git" for-each-ref refs/heads/demo/)"
+expect "it calls no gh for it" test ! -s "$GH_LOG"
+
 publish_repo
 check "publish refuses a bad GIF" 1 "$script" publish "$work/short.gif"
 expect "it pushes nothing for it" test -z "$(origin_ref "demo/${SOURCE_SHA:0:7}" || true)"
