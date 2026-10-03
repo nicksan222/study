@@ -1330,7 +1330,6 @@ fn every_entrys_actions_are_reached_by_tab(cx: &mut TestAppContext) {
     assert!(slots >= 2, "Shift+Tab reaches both AI edit buttons");
 }
 
-/// A session holding one note, opened on the page.
 fn open_note(
     cx: &mut TestAppContext,
     app: &TempApp,
@@ -1357,7 +1356,6 @@ fn text_note(words: &str) -> Vec<NewPart> {
     vec![NewPart::Text(words.into())]
 }
 
-/// Whether the element with `id` is on the page.
 fn shown(
     cx: &mut TestAppContext,
     window: AnyWindowHandle,
@@ -1374,13 +1372,11 @@ fn the_switcher_steps_between_the_versions_of_a_note(cx: &mut TestAppContext) {
     let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
     let database = app.database();
     let mid = note.get() as u64;
-    // One version: nothing to switch.
     assert!(!shown(cx, window, (ids::VERSION_SWITCHER, mid)));
 
     database
         .edit_message(note, "Mitochondria make most ATP")
         .unwrap();
-    // The page reads the session again after any change.
     cx.update(|cx| {
         shell.update(cx, |shell, cx| {
             let session = shell.sessions.session_id().unwrap();
@@ -1443,7 +1439,6 @@ fn an_edit_saves_a_version(cx: &mut TestAppContext) {
     assert_eq!(versions(), 1);
     assert!(!shown(cx, window, (ids::SAVE_EDIT, mid)));
 
-    // Nothing written: Save does nothing.
     hover(cx, window, (ids::EDIT_MESSAGE, mid));
     click(cx, window, (ids::EDIT_MESSAGE, mid));
     set_edit(cx, "   ");
@@ -1612,7 +1607,6 @@ fn keys_step_versions_after_a_click_and_the_menu_returns_focus(cx: &mut TestAppC
     cx.simulate_keystrokes(window, "right");
     wait_until(cx, |cx| active(cx) == "Mitochondria make most ATP");
 
-    // The AI menu: Escape returns focus to the button's slot.
     hover(cx, window, (ids::AI_EDIT, mid));
     click(cx, window, (ids::AI_EDIT, mid));
     assert!(shown(cx, window, (ids::AI_IMPROVE, mid)));
@@ -1629,7 +1623,6 @@ fn keys_step_versions_after_a_click_and_the_menu_returns_focus(cx: &mut TestAppC
             .is_some_and(|focus| focus.ai.is_focused(window))
     });
     assert!(back.unwrap(), "focus returned to the AI edit button");
-    // The bar stays shown while focus is back inside it.
     let in_bar = cx.update_window(window, |_, window, cx| {
         shell
             .read(cx)
@@ -1641,7 +1634,6 @@ fn keys_step_versions_after_a_click_and_the_menu_returns_focus(cx: &mut TestAppC
     });
     assert!(in_bar.unwrap(), "focus is inside the entry's bar");
 
-    // Reopening finds the instruction field empty.
     cx.update_window(window, |_, window, cx| {
         shell.update(cx, |shell, cx| {
             shell
@@ -1768,7 +1760,7 @@ fn a_stopped_version_leaves_the_bar_to_the_finished_one(cx: &mut TestAppContext)
     assert!(!shown(cx, window, ("setup-sign-in", job.get() as u64)));
 }
 
-/// What each kind of entry offers on its floating bar.
+/// What each kind of entry offers on its action bar.
 #[gpui_kit::test]
 fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {
     let app = TempApp::new();

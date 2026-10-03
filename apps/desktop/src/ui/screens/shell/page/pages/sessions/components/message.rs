@@ -2,8 +2,8 @@
 //! `@study` under a faint "Study" label, in words with citation chips or as the study
 //! material or practice a tool made. When it was written and what can be done with it (copy,
 //! answer again, delete) stay out of the way: on the timeline they appear in the margin to
-//! the right while the entry is hovered or has focus, so they never cover its words; in a
-//! thread, the moment shows under it and the actions float above it.
+//! the right while the entry is hovered or has focus; in a thread, they make one line under
+//! it.
 
 use super::super::ids;
 use super::versions::{VersionsState, action_bar, edit_box, version_line};
@@ -62,8 +62,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
         || marks.copied == Some(message.id)
         || marks.focused == Some(message.id)
         || versions.menu == Some(message.id);
-    // The bar follows the content in the tree, so the keyboard reaches an entry's words,
-    // versions, files and folds, then its actions, before the next entry: reading order.
     let bar = (!editing).then(|| {
         action_bar(
             message,
@@ -75,32 +73,24 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
             cx,
         )
     });
-    let content = div()
-        .relative()
-        .flex_1()
-        .min_w_0()
-        .flex()
-        .flex_col()
-        .gap(unit(study_ui::scale::SPACE_XXS))
-        .child(content);
     if message.thread_root.is_some() {
-        // In a narrow thread there is no margin: the bar floats over the entry's top-right
-        // corner, clear of its first line, and the moment stays under the entry, since no day
-        // label names it.
         return div()
             .group(ROW)
-            .relative()
             .w_full()
             .flex()
             .flex_col()
             .gap(unit(study_ui::scale::SPACE_XXS))
             .child(content)
-            .children(bar.map(|bar| div().absolute().top(unit(-30.)).right(unit(0.)).child(bar)))
-            .child(sent_at(message, locale, cx))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(unit(study_ui::scale::SPACE_XS))
+                    .child(sent_at(message, locale, cx))
+                    .children(bar),
+            )
             .into_any_element();
     }
-    // The margin column takes no height of its own: the bar at the entry's top and the time
-    // under it hang in it, beside the words.
     div()
         .group(ROW)
         .w_full()
@@ -117,15 +107,11 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
                 .child(
                     div()
                         .absolute()
-                        .top(unit(-4.))
-                        .right(unit(0.))
-                        .children(bar),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .top(unit(study_ui::scale::SPACE_XXL))
-                        .right(unit(0.))
+                        .top(unit(0.))
+                        .left(unit(study_ui::scale::SPACE_MD))
+                        .flex()
+                        .flex_col()
+                        .items_start()
                         .child(reveal_on_hover(
                             div()
                                 .h(unit(24.))
@@ -133,7 +119,9 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
                                 .items_center()
                                 .child(sent_at(message, locale, cx)),
                             shown,
-                        )),
+                        ))
+                        // The glyphs, not their hit areas, line up with the time.
+                        .children(bar.map(|bar| div().ml(unit(-6.)).child(bar))),
                 ),
         )
         .into_any_element()
@@ -157,8 +145,6 @@ fn note_content(
         let (shown, marks) = marked_note(message.text());
         content = content.child(Note::new(shown).marks(marks));
     }
-    // The versions, right under the words they are of, then a version being written, or one
-    // that failed, saying so.
     content = content.children(version_line(message, locale, versions, cx));
     if message.unfinished().is_some() {
         content = content.children(
@@ -174,7 +160,6 @@ fn note_content(
             name,
             kind,
         } = &part.content;
-        // The file's line, and right under it what was read from it, folded.
         let job = part.jobs.last();
         content = content.child(source_card(
             Attached {
@@ -444,12 +429,9 @@ fn reply_line(
         .gap(unit(study_ui::scale::SPACE_XS))
         .text_size(unit(study_ui::scale::TEXT_CAPTION))
         .text_color(palette.faint);
-    // A version held up by the sign-in says so on this one line, not in a card of its own.
     if let Some(parts) = sign_in_line(job, chatgpt, locale, cx) {
         return line.children(parts).into_any_element();
     }
-    // A version that failed or was stopped says so, with the way to try again, in the same
-    // line: no card per entry.
     if job.status.is_stopped() {
         return line
             .children(stopped_line_parts(

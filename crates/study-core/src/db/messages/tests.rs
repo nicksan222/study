@@ -397,7 +397,6 @@ fn a_finished_answer_is_asked_for_again_and_the_old_one_stays_until_the_new_one_
     assert_eq!(answer.text(), "Mitochondria [1].");
     assert_eq!(answer.versions.len(), 2);
     assert_eq!(answer.reply.map(|job| job.id), Some(again));
-    // Asking while it is being written is refused.
     assert_eq!(db.reanswer(answer.id)?, Asked::Busy);
 
     let second = db
@@ -410,7 +409,6 @@ fn a_finished_answer_is_asked_for_again_and_the_old_one_stays_until_the_new_one_
     assert_eq!(answer.text(), "In the mitochondria.");
     assert_eq!(answer.active().map(|version| version.number), Some(2));
 
-    // A message that is not an answer is not answered again.
     let note = db.post_message(session, MessageRole::User, &[text("hi")], &read_nothing)?;
     assert_eq!(db.reanswer(note.id)?, Asked::Unavailable);
     Ok(())
@@ -627,7 +625,6 @@ fn a_message_of_only_files_has_no_text_until_one_is_written() -> Result<()> {
     let posted = db.post_message(session, MessageRole::User, &[notes], &read_nothing)?;
     assert!(posted.versions.is_empty() && posted.active_version.is_none());
     assert_eq!(posted.text(), "");
-    // Nothing to answer from: an answer needs words.
     assert_eq!(db.reanswer(posted.id)?, Asked::Unavailable);
 
     // A rewrite starts from the files, so its version is based on nothing.
@@ -695,7 +692,6 @@ fn a_rewrite_is_a_version_written_by_a_job_and_active_once_done() -> Result<()> 
     assert_eq!(done.status, MessageStatus::Complete);
     assert_eq!(done.text(), "Mitochondria, small");
     assert_eq!(done.citations.len(), 1);
-    // A finished version is finished once.
     assert!(!db.finish_version(pending.id, "again", &[])?);
     Ok(())
 }
@@ -712,7 +708,6 @@ fn only_one_version_is_written_at_a_time() -> Result<()> {
     for how in [Rewrite::Summarize, Rewrite::Improve] {
         assert_eq!(db.rewrite_message(id, &how)?, Asked::Busy);
     }
-    // Running is busy too.
     db.claim_job(&[JobKind::Rewrite])?.expect("the job");
     assert_eq!(db.rewrite_message(id, &Rewrite::Summarize)?, Asked::Busy);
     assert_eq!(db.message(id)?.unwrap().versions.len(), 2);
@@ -807,7 +802,6 @@ fn a_failed_version_stays_for_a_retry_and_is_dropped_by_the_next_action() -> Res
     );
     assert_eq!(failed.text(), "mito makes atp");
 
-    // A retry of the same job writes the same version.
     assert!(db.retry_job(job.id)?);
     assert_eq!(db.rewrite_message(id, &Rewrite::Summarize)?, Asked::Busy);
     db.claim_job(&[JobKind::Rewrite])?.expect("the job again");
@@ -850,7 +844,6 @@ fn an_edit_drops_the_version_being_written() -> Result<()> {
     let message = db.message(id)?.unwrap();
     assert!(message.unfinished().is_none());
     assert_eq!(message.text(), "mitochondria make atp");
-    // The running job finds nothing to finish.
     assert!(!db.finish_version(pending.id, "stale", &[])?);
     assert_eq!(db.begin_version(id, JobKind::Rewrite)?, None);
     assert_eq!(db.message(id)?.unwrap().text(), "mitochondria make atp");
@@ -986,7 +979,6 @@ fn a_job_never_writes_a_version_of_another_kind_of_job() -> Result<()> {
     assert_eq!(rewriting()?, before);
     assert!(db.begin_version(id, JobKind::Rewrite)?.is_some());
 
-    // And the rewrite's job finds an answer.
     db.post_message(
         session,
         MessageRole::User,

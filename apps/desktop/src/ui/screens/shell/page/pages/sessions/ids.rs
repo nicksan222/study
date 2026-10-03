@@ -77,7 +77,7 @@ pub const COPY_MESSAGE: &str = "copy-message";
 pub const RECORDING_LINK: &str = "recording-link";
 /// Asks for a finished answer again, as a new version; adds the message's id.
 pub const REANSWER: &str = "reanswer";
-/// The floating bar of what can be done with an entry, shown over it; adds the message's id.
+/// The bar of what can be done with an entry, beside it; adds the message's id.
 pub const ACTION_BAR: &str = "action-bar";
 /// The switcher between an entry's versions: its arrows, each adding the message's id.
 pub const VERSION_SWITCHER: &str = "version-switcher";

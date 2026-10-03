@@ -72,7 +72,6 @@ impl AppShell {
         )
         .danger()
         .on_click(cx.listener(move |this, _, _, cx| this.delete_message(id, cx)));
-        // An entry with several versions says they all go.
         let versions = state
             .messages
             .iter()

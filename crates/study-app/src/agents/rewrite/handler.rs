@@ -43,7 +43,6 @@ impl RewriteHandler {
 
     /// Writes the version waiting on message `id`, unless it was dropped.
     async fn rewrite(&self, id: MessageId) -> Result<(), Failure> {
-        // Before any work: without a model there is nothing to write with.
         let agent = self.runtime.required::<Rewriter>().await?;
         let pending = self
             .runtime

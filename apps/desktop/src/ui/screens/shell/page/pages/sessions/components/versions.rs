@@ -1,4 +1,4 @@
-//! The versions of a note or an answer: the switcher under it, the floating bar of what can be
+//! The versions of a note or an answer: the switcher under it, the quiet bar of what can be
 //! done with it, the AI edit menu, and editing its words in place.
 //!
 //! An entry keeps every version of its words (see `study_app::views::MessageVersion`). The
@@ -41,7 +41,7 @@ const MENU_WIDTH: f32 = 280.;
 /// The focus an entry's controls keep, so the keyboard and the pointer meet in the same
 /// places.
 pub(in crate::ui::screens::shell::page::pages::sessions) struct EntryFocus {
-    /// The floating bar: while focus is inside it, it shows.
+    /// The action bar: while focus is inside it, it shows.
     pub(in crate::ui::screens::shell::page::pages::sessions) bar: FocusHandle,
     /// The AI edit button's place: the menu gives focus back to it when it closes.
     pub(in crate::ui::screens::shell::page::pages::sessions) ai: FocusHandle,
@@ -335,10 +335,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
                 previous,
                 cx,
             ))
-            .child(study_localization::joined(&[
-                label,
-                review_progress(locale, position.shown, position.total),
-            ]))
+            .child(review_progress(locale, position.shown, position.total))
             .child(arrow(
                 ids::VERSION_NEXT,
                 Message::VersionNext,
@@ -346,6 +343,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
                 next,
                 cx,
             ))
+            .child(label)
             .when(versions.fresh.contains(&id), |line| {
                 line.child(
                     div()
@@ -388,7 +386,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
     )
 }
 
-/// What an entry's floating bar offers, in the order it shows them.
+/// What an entry's action bar offers, in the order it shows them.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(in crate::ui::screens::shell::page::pages::sessions) enum Action {
     AiEdit,
@@ -443,7 +441,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn actions_of(
     actions
 }
 
-/// The floating bar of an entry, with an icon button for each thing that can be done with it.
+/// The action bar of an entry, with an icon button for each thing that can be done with it.
 /// The caller places it. It shows while the pointer is over the entry (`group`), while focus
 /// is inside it, or while `shown`.
 pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
@@ -457,7 +455,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
 ) -> AnyElement {
     let id = message.id;
     let mid = id.get() as u64;
-    let unit = units(cx);
     let palette = palette(cx);
     let words = crate::features::sessions::message_words(message);
     let job = message.reply.as_ref().map(|job| job.id);
@@ -465,13 +462,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
         .id((ids::ACTION_BAR, mid))
         .flex()
         .items_center()
-        .p(unit(2.))
-        .rounded(unit(study_ui::scale::RADIUS_MD))
-        .border_1()
-        .border_color(palette.border)
-        .bg(palette.raised)
-        .shadow(study_ui::float_shadow(cx))
-        .text_color(palette.muted)
+        .text_color(palette.faint)
         .opacity(if shown { 1. } else { 0. })
         .group_hover(group, |style| style.opacity(1.));
     if let Some(focus) = versions.focus.get(&id) {
@@ -630,7 +621,6 @@ fn ai_edit(
         .open(open)
         .on_open_change(move |open, window, cx| {
             if *open {
-                // Each time the menu opens the field is empty: an earlier try is not offered.
                 field.update(cx, |input, cx| {
                     input.set_value("", window, cx);
                     input.set_placeholder(

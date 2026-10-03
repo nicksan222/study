@@ -47,7 +47,6 @@ async fn a_note_is_summarized_from_its_text_and_files_into_a_version_that_cites_
     assert_eq!(message.text(), "Mitochondria make ATP [1].");
     assert_eq!(message.citations.len(), 1);
     assert_eq!(message.citations[0].source_name, "cells.txt");
-    // The first version is kept, and can be shown again.
     let first = message.versions[0].id;
     assert!(
         fixture
