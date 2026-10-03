@@ -8,12 +8,11 @@
 use super::super::ids;
 use super::versions::{VersionsState, action_bar, edit_box, version_line};
 use super::{Attached, ThreadLink, marked_note, source_card};
-use crate::features::jobs::Problem;
 use crate::features::media::AttachmentInfo;
 use crate::ui::screens::shell::AppShell;
 use crate::ui::screens::shell::page::pages::components::{
-    ChatGptState, OnCite, citation_chip, job_problem_parts, job_status, prose, prose_citing,
-    sign_in_line,
+    ChatGptState, OnCite, citation_chip, job_status, prose, prose_citing, sign_in_line,
+    stopped_line_parts,
 };
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, button::ButtonVariants as _};
@@ -22,7 +21,7 @@ use gpui_kit::{
     Styled as _, div,
 };
 use std::collections::{HashMap, HashSet};
-use study_app::views::{ChatMessage, Job, JobStatus, MessageRole, PartContent};
+use study_app::views::{ChatMessage, Job, MessageRole, PartContent};
 use study_core::{JobId, MessageId, PartId, SourceId};
 use study_localization::{Locale, Message, joined, text};
 use study_ui::{Note, button, units};
@@ -62,8 +61,8 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
     let shown = marks.deleting == Some(message.id)
         || marks.copied == Some(message.id)
         || versions.menu == Some(message.id);
-    // The bar comes first, so the keyboard reaches an entry's actions before the files and
-    // folds inside it, in reading order.
+    // The bar follows the content in the tree, so the keyboard reaches an entry's words,
+    // versions, files and folds, then its actions, before the next entry: reading order.
     let bar = (!editing).then(|| {
         action_bar(
             message,
@@ -94,8 +93,8 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
             .flex()
             .flex_col()
             .gap(unit(study_ui::scale::SPACE_XXS))
-            .children(bar.map(|bar| div().absolute().top(unit(-30.)).right(unit(0.)).child(bar)))
             .child(content)
+            .children(bar.map(|bar| div().absolute().top(unit(-30.)).right(unit(0.)).child(bar)))
             .child(sent_at(message, locale, cx))
             .into_any_element();
     }
@@ -105,8 +104,9 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
         .group(ROW)
         .w_full()
         .flex()
-        .flex_row_reverse()
+        .flex_row()
         .items_start()
+        .child(content)
         .child(
             div()
                 .relative()
@@ -135,7 +135,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
                         )),
                 ),
         )
-        .child(content)
         .into_any_element()
 }
 
@@ -327,7 +326,7 @@ fn answer_content(
         // An answer being written again keeps its newest words, faded, until the new ones
         // land; an older version the student stepped to stays as it is.
         let earlier = Some(message.text()).filter(|body| !body.is_empty());
-        let replaced = VersionsState::shows_latest(message);
+        let replaced = VersionsState::shows_latest(message) && VersionsState::is_writing(message);
         if let Some(body) = earlier {
             let text = answer_text(cx).child(prose(body, cx));
             content = content.child(if replaced { text.opacity(0.45) } else { text });
@@ -434,7 +433,6 @@ fn reply_line(
     let colors = cx.theme().colors;
     let job_id = job.id;
     let (icon, _, status) = job_status(job, None, locale, &colors);
-    let has_problem = matches!(job.status, JobStatus::Failed | JobStatus::Waiting);
     let mut line = div()
         .flex()
         .flex_wrap()
@@ -446,24 +444,19 @@ fn reply_line(
     if let Some(parts) = sign_in_line(job, chatgpt, locale, cx) {
         return line.children(parts).into_any_element();
     }
-    if !has_problem {
-        // A problem says what needs attention instead, below.
-        line = super::attachment::running_words(line, job, icon, status, cx);
-    }
-    if job.status.is_stopped() || job.status == JobStatus::Waiting {
-        let explanation = has_problem.then(|| Problem::of_job(job).explanation());
-        line = line.children(job_problem_parts(
-            (
+    // A version that failed or was stopped says so, with the way to try again, in the same
+    // line: no card per entry.
+    if job.status.is_stopped() {
+        return line
+            .children(stopped_line_parts(
                 (ids::RETRY_JOB, job_id.get() as u64),
-                (ids::ANSWER_SETTINGS, job_id.get() as u64),
-            ),
-            job,
-            chatgpt,
-            explanation,
-            AppShell::retry_job,
-            locale,
-            cx,
-        ));
+                job,
+                AppShell::retry_job,
+                locale,
+                cx,
+            ))
+            .into_any_element();
     }
+    line = super::attachment::running_words(line, job, icon, status, cx);
     line.into_any_element()
 }

@@ -1125,7 +1125,7 @@ fn a_failed_send_stays_off_the_session_opened_meanwhile(cx: &mut TestAppContext)
 }
 
 /// The keyboard walks the notebook in reading order: from the composer, Shift+Tab goes
-/// back through the work folded under a file, the file's buttons and the note's actions,
+/// back through the note's actions, the work folded under a file and the file's buttons,
 /// and Tab comes forward to the composer again; neither indents the note being written.
 #[gpui_kit::test]
 fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
@@ -1184,21 +1184,42 @@ fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
     assert!(composer.is_some(), "the composer has the keyboard");
     let note_id = note.id.get() as u64;
     let part_id = part.get() as u64;
+    // Reading order is the note's files and what is folded under them, then its actions.
     let backwards: Vec<gpui_kit::ElementId> = vec![
+        (ids::DELETE_MESSAGE, note_id).into(),
+        (ids::COPY_MESSAGE, note_id).into(),
+        (ids::EDIT_MESSAGE, note_id).into(),
+        (ids::AI_EDIT_SLOT, note_id).into(),
         (ids::EXPAND_JOB, done.id.get() as u64).into(),
         (ids::ATTACHMENT_DETAILS, part_id).into(),
         (ids::OPEN_ATTACHMENT, part_id).into(),
         (ids::OPEN_THREAD, part_id).into(),
-        (ids::DELETE_MESSAGE, note_id).into(),
-        (ids::COPY_MESSAGE, note_id).into(),
     ];
+    // The AI edit button's slot is a plain focus handle, which the snapshots do not name.
+    let slot: gpui_kit::ElementId = (ids::AI_EDIT_SLOT, note_id).into();
+    let has_keyboard = |cx: &mut TestAppContext, expected: &gpui_kit::ElementId| {
+        if *expected == slot {
+            cx.update_window(window, |_, window, cx| {
+                shell
+                    .read(cx)
+                    .sessions
+                    .versions
+                    .focus
+                    .get(&note.id)
+                    .is_some_and(|focus| focus.ai.is_focused(window))
+            })
+            .unwrap()
+        } else {
+            focused(cx).as_ref() == Some(expected)
+        }
+    };
     for expected in &backwards {
         cx.simulate_keystrokes(window, "shift-tab");
-        assert_eq!(focused(cx).as_ref(), Some(expected));
+        assert!(has_keyboard(cx, expected), "Shift+Tab reaches {expected:?}");
     }
     for expected in backwards.iter().rev().skip(1) {
         cx.simulate_keystrokes(window, "tab");
-        assert_eq!(focused(cx).as_ref(), Some(expected));
+        assert!(has_keyboard(cx, expected), "Tab reaches {expected:?}");
     }
     cx.simulate_keystrokes(window, "tab");
     assert_eq!(focused(cx), composer, "Tab comes back to the composer");
@@ -1513,6 +1534,42 @@ fn keys_step_versions_after_a_click_and_the_menu_returns_focus(cx: &mut TestAppC
             .is_some_and(|focus| focus.ai.is_focused(window))
     });
     assert!(back.unwrap(), "focus returned to the AI edit button");
+    // The bar stays shown while focus is back inside it.
+    let in_bar = cx.update_window(window, |_, window, cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .focus
+            .get(&note)
+            .is_some_and(|focus| focus.bar.contains_focused(window, cx))
+    });
+    assert!(in_bar.unwrap(), "focus is inside the entry's bar");
+
+    // Reopening finds the instruction field empty.
+    cx.update_window(window, |_, window, cx| {
+        shell.update(cx, |shell, cx| {
+            shell
+                .sessions
+                .versions
+                .instruction
+                .update(cx, |field, cx| field.set_value("old try", window, cx));
+        });
+    })
+    .unwrap();
+    click(cx, window, (ids::AI_EDIT, mid));
+    assert!(shown(cx, window, (ids::AI_IMPROVE, mid)));
+    let value = cx.update(|cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .instruction
+            .read(cx)
+            .value()
+            .to_string()
+    });
+    assert_eq!(value, "", "the field starts empty");
 }
 
 /// A note of only a file that was read offers AI edit, and a rewrite then starts from the
@@ -1573,6 +1630,47 @@ fn a_read_file_alone_can_be_rewritten(cx: &mut TestAppContext) {
             .unfinished()
             .is_some()
     });
+}
+
+/// A version that was stopped leaves the entry as it was: the bar follows the finished
+/// version on screen, and one short line names the stop and the way to try again, with no
+/// sign-in card.
+#[gpui_kit::test]
+fn a_stopped_version_leaves_the_bar_to_the_finished_one(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    let study_app::views::Asked::Queued(job) = database
+        .rewrite_message(note, &study_app::views::Rewrite::Improve)
+        .unwrap()
+    else {
+        panic!("the rewrite is queued");
+    };
+    database.cancel_job(job).unwrap();
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            let session = shell.sessions.session_id().unwrap();
+            shell.reload_session(session, cx);
+        })
+    });
+    wait_until(cx, |cx| {
+        render(cx, window);
+        shown(cx, window, (ids::RETRY_JOB, job.get() as u64))
+    });
+    for id in [
+        ids::AI_EDIT,
+        ids::EDIT_MESSAGE,
+        ids::COPY_MESSAGE,
+        ids::DELETE_MESSAGE,
+    ] {
+        assert!(
+            shown(cx, window, (id, mid)),
+            "a stopped version leaves {id}"
+        );
+    }
+    assert!(!shown(cx, window, (ids::STOP_VERSION, mid)));
+    assert!(!shown(cx, window, ("setup-sign-in", job.get() as u64)));
 }
 
 /// What each kind of entry offers on its floating bar.

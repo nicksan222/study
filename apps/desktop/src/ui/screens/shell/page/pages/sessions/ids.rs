@@ -61,7 +61,6 @@ pub const ATTACHMENT: &str = "attachment";
 pub const ANSWER_CITATION: &str = "answer-citation";
 /// An answer's words, whose citation markers open what they cite; adds the part's id.
 pub const ANSWER_TEXT: &str = "answer-text";
-pub const ANSWER_SETTINGS: &str = "answer-settings";
 pub const ATTACHMENT_DETAILS: &str = "attachment-details";
 pub const OPEN_ATTACHMENT: &str = "open-attachment";
 pub const RETRY_JOB: &str = "retry-job";

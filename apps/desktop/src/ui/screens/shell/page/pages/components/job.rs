@@ -176,6 +176,38 @@ pub(in crate::ui::screens::shell::page) fn job_problem_parts(
     parts
 }
 
+/// What a version of an entry that failed or was stopped shows on its one line: what
+/// happened, and the way to try again. Unlike [`job_problem_parts`] it never draws a card, so
+/// an entry stays as short as its words.
+pub(in crate::ui::screens::shell::page) fn stopped_line_parts(
+    retry_id: impl Into<ElementId>,
+    job: &Job,
+    retry: JobAction,
+    locale: Locale,
+    cx: &mut Context<AppShell>,
+) -> Vec<AnyElement> {
+    let colors = cx.theme().colors;
+    let (tint, what) = if job.status == JobStatus::Failed {
+        (colors.danger, Problem::of_job(job).explanation())
+    } else {
+        (colors.muted_foreground, Message::StatusStopped)
+    };
+    vec![
+        div()
+            .text_color(tint)
+            .whitespace_normal()
+            .child(text(locale, what))
+            .into_any_element(),
+        div()
+            .child(study_localization::separator())
+            .into_any_element(),
+        retry_button(retry_id, job, retry, locale, cx)
+            .ghost()
+            .xsmall()
+            .into_any_element(),
+    ]
+}
+
 /// A button to the Settings section that sets up `kind` (read from `source`), when
 /// `problem` is fixed there; `None` when the fix is elsewhere. The caller sizes it.
 pub(in crate::ui::screens::shell::page) fn settings_button(

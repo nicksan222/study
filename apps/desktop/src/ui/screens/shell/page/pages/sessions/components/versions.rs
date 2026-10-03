@@ -151,6 +151,18 @@ impl VersionsState {
         }
     }
 
+    /// Whether a version is being written: waiting, queued or running. One that failed or was
+    /// stopped is not.
+    pub(in crate::ui::screens::shell::page::pages::sessions) fn is_writing(
+        message: &ChatMessage,
+    ) -> bool {
+        message.unfinished().is_some()
+            && message
+                .reply
+                .as_ref()
+                .is_some_and(|job| !job.status.is_stopped())
+    }
+
     /// Whether the version on screen is the newest finished one: the one a new version will
     /// replace.
     pub(in crate::ui::screens::shell::page::pages::sessions) fn shows_latest(
@@ -376,21 +388,16 @@ pub(in crate::ui::screens::shell::page::pages::sessions) enum Action {
 
 /// What can be done with `message`: rewriting needs words (or, for a note, a read file) to
 /// rewrite. While a version is written the words can only be copied, and the version stopped
-/// or the entry deleted; one that failed or was stopped leaves deleting (trying again is in
-/// the line under the words).
+/// or the entry deleted; one that failed or was stopped does not count (trying again is in the
+/// line under the words).
 pub(in crate::ui::screens::shell::page::pages::sessions) fn actions_of(
     message: &ChatMessage,
 ) -> Vec<Action> {
     let words = !message.text().trim().is_empty();
-    if message.unfinished().is_some() {
-        // Stop and Retry act on the job: with none, or one that ended, only Delete is left.
-        let running = message
-            .reply
-            .as_ref()
-            .is_some_and(|job| !job.status.is_stopped());
-        if !running {
-            return vec![Action::Delete];
-        }
+    // Only a version still queued, running or waiting holds the entry back: Edit and AI edit
+    // would race it. One that failed or was stopped leaves the bar to the finished version on
+    // screen; starting anything drops it.
+    if VersionsState::is_writing(message) {
         let mut actions = Vec::new();
         if words {
             actions.push(Action::Copy);
@@ -612,7 +619,9 @@ fn ai_edit(
         .open(open)
         .on_open_change(move |open, window, cx| {
             if *open {
+                // Each time the menu opens the field is empty: an earlier try is not offered.
                 field.update(cx, |input, cx| {
+                    input.set_value("", window, cx);
                     input.set_placeholder(
                         text(locale, Message::RewriteInstructionPlaceholder),
                         window,

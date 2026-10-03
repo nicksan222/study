@@ -40,7 +40,7 @@ pub(in crate::ui::screens::shell::page) use field::named_field;
 pub(super) use file_tile::file_tile;
 pub(super) use job::{
     job_controls, job_problem_parts, job_status, retry_button, settings_button, status_icon,
-    status_look,
+    status_look, stopped_line_parts,
 };
 pub(super) use load::{FirstLoad, status_line};
 pub(in crate::ui::screens::shell::page) use material::kind_icon;
