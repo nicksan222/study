@@ -178,7 +178,7 @@ mod tests {
     /// changes; before the first release `0001_initial.sql` is edited in place, with its pin.
     const SHIPPED: &[(&str, &str)] = &[(
         "0001_initial.sql",
-        "7334841bb4dbbcb5121fc083819d73d46cf5cc2d9588b1b6bcd2f6734efdf779",
+        "042c38438fa4edae71ff339c0064d043f8c85c805faabad2f5d6918d780284ca",
     )];
 
     /// A later migration for the tests: a new table and a new job kind.

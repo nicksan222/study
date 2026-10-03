@@ -10,7 +10,7 @@
 //! only if the version it revises still is: the student may have gone back to another one, or
 //! edited, while the model wrote.
 
-use super::super::citations::{CitedBy, replace_citations};
+use super::super::citations::{CitedBy, citations_of, replace_citations};
 use super::super::jobs::{JobTarget, NewJob, PENDING, enqueue, pending_reads_of};
 use super::super::{Database, unix_timestamp};
 use super::{MessageRole, MessageStatus, normalize_text};
@@ -113,6 +113,8 @@ pub struct PendingVersion {
     pub instruction: Option<String>,
     /// The text of the version it revises; empty for a first answer.
     pub source_text: String,
+    /// The passages the version it revises cites, in marker order; empty when it cites none.
+    pub citations: Vec<Citation>,
 }
 
 impl Database {
@@ -250,27 +252,53 @@ impl Database {
         Ok(changed != 0)
     }
 
-    /// Marks the version being written for `message` as writing, and returns what its job
-    /// needs. `None` when there is nothing to write, such as when the version was dropped.
-    pub fn begin_version(&self, message: MessageId) -> Result<Option<PendingVersion>> {
+    /// Marks the version being written for `message` as writing, and returns what the job of
+    /// `kind` needs. `None` when there is nothing for that job to write: the version was
+    /// dropped, or it is one another kind of job writes, which is then left as it was.
+    pub fn begin_version(
+        &self,
+        message: MessageId,
+        kind: JobKind,
+    ) -> Result<Option<PendingVersion>> {
         let tx = self.immediate()?;
+        let origins = written_by(kind)
+            .iter()
+            .map(|origin| format!("'{origin}'"))
+            .collect::<Vec<_>>()
+            .join(", ");
         let pending = tx
             .query_row(
-                "SELECT v.id, v.origin, v.instruction,
-                        coalesce((SELECT b.text FROM message_versions b WHERE b.id = v.based_on), '')
-                 FROM message_versions v
-                 WHERE v.message_id = ?1 AND v.status != 'complete'",
+                &format!(
+                    "SELECT v.id, v.origin, v.instruction,
+                            coalesce((SELECT b.text FROM message_versions b WHERE b.id = v.based_on), ''),
+                            v.based_on
+                     FROM message_versions v
+                     WHERE v.message_id = ?1 AND v.status != 'complete' AND v.origin IN ({origins})"
+                ),
                 params![message],
                 |row| {
-                    Ok(PendingVersion {
-                        id: row.get(0)?,
-                        origin: row.get(1)?,
-                        instruction: row.get(2)?,
-                        source_text: row.get(3)?,
-                    })
+                    Ok((
+                        PendingVersion {
+                            id: row.get(0)?,
+                            origin: row.get(1)?,
+                            instruction: row.get(2)?,
+                            source_text: row.get(3)?,
+                            citations: Vec::new(),
+                        },
+                        row.get::<_, Option<VersionId>>(4)?,
+                    ))
                 },
             )
             .optional()?;
+        let pending = match pending {
+            Some((mut pending, based_on)) => {
+                if let Some(based_on) = based_on {
+                    pending.citations = citations_of(&tx, CitedBy::Version(based_on))?;
+                }
+                Some(pending)
+            }
+            None => None,
+        };
         if let Some(pending) = &pending {
             tx.execute(
                 "UPDATE message_versions SET status = 'writing' WHERE id = ?1",
@@ -338,6 +366,19 @@ fn text_of(tx: &Connection, version: VersionId) -> Result<String> {
     )?)
 }
 
+/// The origins of the versions a job of `kind` writes.
+fn written_by(kind: JobKind) -> &'static [VersionOrigin] {
+    match kind {
+        JobKind::Reply => &[VersionOrigin::Answer],
+        JobKind::Rewrite => &[
+            VersionOrigin::Improve,
+            VersionOrigin::Summarize,
+            VersionOrigin::Instruction,
+        ],
+        _ => &[],
+    }
+}
+
 /// Whether a job writing a version of `message` has not ended.
 fn is_busy(tx: &Connection, message: MessageId) -> Result<bool> {
     Ok(tx.query_row(
@@ -353,7 +394,7 @@ fn is_busy(tx: &Connection, message: MessageId) -> Result<bool> {
 }
 
 /// Drops the unfinished version of `message`, if any, and the jobs that wrote or would write
-/// it, except one that is running: it finds nothing to finish.
+/// it. One that is running is deleted too, so that its worker can be stopped.
 fn drop_unfinished(tx: &Connection, message: MessageId) -> Result<()> {
     tx.execute(
         "DELETE FROM message_versions WHERE message_id = ?1 AND status != 'complete'",
@@ -361,8 +402,7 @@ fn drop_unfinished(tx: &Connection, message: MessageId) -> Result<()> {
     )?;
     tx.execute(
         &format!(
-            "DELETE FROM jobs WHERE message_id = ?1 AND kind IN ('{}', '{}')
-             AND status != 'running'",
+            "DELETE FROM jobs WHERE message_id = ?1 AND kind IN ('{}', '{}')",
             JobKind::Reply,
             JobKind::Rewrite
         ),

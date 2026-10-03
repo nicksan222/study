@@ -3,7 +3,7 @@
 
 use super::super::Database;
 use super::{MAX_NOTES_CHARS, MessageRole, latest_notes};
-use crate::{ProjectId, Result, SourceId, without_mention};
+use crate::{ProjectId, Result, SourceId, without_citations, without_mention};
 use rusqlite::{Connection, params};
 
 /// What a project holds to study from.
@@ -40,12 +40,13 @@ pub(in crate::db) fn project_material_of(
          ORDER BY m.id",
         MessageRole::User,
     ))?;
-    // An answer's text is not a note: its `[n]` markers count another list of excerpts.
+    // A rewrite of a note may cite the files it read; its `[n]` markers count a list the
+    // notes do not carry.
     let notes: Vec<String> = statement
         .query_map(params![project], |row| row.get::<_, String>(0))?
         .collect::<rusqlite::Result<Vec<_>>>()?
         .into_iter()
-        .map(|text| without_mention(&text))
+        .map(|text| without_citations(&without_mention(&text)))
         .filter(|text| !text.is_empty())
         .collect();
     let sources = connection

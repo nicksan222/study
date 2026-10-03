@@ -188,6 +188,9 @@ CREATE TABLE messages (
 CREATE INDEX messages_session_idx ON messages (session_id, id);
 CREATE INDEX messages_recording_idx ON messages (recording_id) WHERE recording_id IS NOT NULL;
 CREATE INDEX messages_thread_idx ON messages (thread_root, id) WHERE thread_root IS NOT NULL;
+-- Deleting a version finds the messages that show it without scanning them all.
+CREATE INDEX messages_active_version_idx ON messages (active_version_id)
+    WHERE active_version_id IS NOT NULL;
 
 -- A message's files, in order. Each keeps the source's name and kind so the part still reads
 -- sensibly after the source is deleted. The words are not here: they are versions.
@@ -229,6 +232,9 @@ CREATE TABLE message_versions (
 
 CREATE UNIQUE INDEX message_versions_unfinished_idx ON message_versions (message_id)
     WHERE status != 'complete';
+-- Deleting a version finds the versions that were written from it without scanning them all.
+CREATE INDEX message_versions_based_on_idx ON message_versions (based_on)
+    WHERE based_on IS NOT NULL;
 
 -- The passages a version of an assistant message cites as [marker]. Each snapshots its
 -- source's name, the place and the quote, so it still reads correctly after the source is

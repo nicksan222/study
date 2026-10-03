@@ -42,7 +42,7 @@ reviewed and practised their own material, without managing a pile of separate t
 
 - **Projects:** one per course or subject, holding its sources, sessions and material, with
   optional exam dates that Home and the flashcard reviews count down to. A project is a
-  group of sessions: its notes, flashcards, diagram and quiz always cover the
+  group of sessions: its flashcards, diagram and quiz always cover the
   whole project. Each is up to date, out of date (saying what changed since) or not made
   yet; Update rewrites it from the project as it is now, revising what it says.
 - **Sessions are the notebook:** the learner writes, records and attaches as they study.

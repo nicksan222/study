@@ -10,7 +10,8 @@ use study_core::db::{ChatMessage, Database, Job, MessageRole, NewJob};
 use study_core::jobs::{BoxFuture, JobHandler, Lane, off_thread, wrong_target};
 use study_core::processing::citations;
 use study_core::{
-    Failure, JobKind, MessageId, ProjectId, SourceId, VersionId, cited_markers, without_mention,
+    Failure, JobKind, MessageId, ProjectId, SourceId, VersionId, cited_markers, without_citations,
+    without_mention,
 };
 
 use super::{Answer, Question};
@@ -93,7 +94,7 @@ impl ReplyHandler {
 /// finished already or gone.
 fn asked(database: &Database, id: MessageId) -> study_core::Result<Option<Asked>> {
     // A finished answer is kept, whatever reran its job.
-    let Some(pending) = database.begin_version(id)? else {
+    let Some(pending) = database.begin_version(id, JobKind::Reply)? else {
         return Ok(None);
     };
     let Some(answer) = database.message(id)? else {
@@ -138,7 +139,7 @@ fn asked(database: &Database, id: MessageId) -> study_core::Result<Option<Asked>
 
 /// The text of `note`, without the mention that asked for an answer.
 fn note_text(note: &ChatMessage) -> String {
-    without_mention(note.text())
+    without_citations(&without_mention(note.text()))
 }
 
 /// The file a thread hangs off (`about`), then every file attached in `messages`, each

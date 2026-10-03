@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 use study_ai::agent::{escape, escape_attribute};
 use study_core::db::{ChatMessage, Database, MessageRole};
 use study_core::text::truncate_chars;
-use study_core::{Result, SessionId};
+use study_core::{Result, SessionId, without_citations};
 
 /// A session's messages, oldest first.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -21,7 +21,8 @@ pub struct Conversation {
 pub struct Turn {
     /// Who wrote it.
     pub role: MessageRole,
-    /// Its text parts, trimmed, one per line.
+    /// The text of its active version, trimmed, without the `[n]` markers of the sources it
+    /// cites: those sources are not part of the conversation.
     pub text: String,
     /// Its files and material, in the order they appear.
     pub attachments: Vec<Attachment>,
@@ -109,7 +110,7 @@ impl Turn {
             text: String::new(),
             attachments: Vec::new(),
         };
-        turn.text = message.text().trim().to_owned();
+        turn.text = without_citations(message.text().trim());
         for part in &message.parts {
             turn.attachments.push(Attachment {
                 name: part.content.name.clone(),
@@ -250,6 +251,16 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn the_markers_of_cited_sources_are_not_part_of_the_conversation() {
+        let conversation = Conversation::from_messages(&[message(
+            MessageRole::User,
+            "Mitochondria power the cell [1].",
+            Vec::new(),
+        )]);
+        assert_eq!(conversation.turns[0].text, "Mitochondria power the cell.");
     }
 
     #[test]

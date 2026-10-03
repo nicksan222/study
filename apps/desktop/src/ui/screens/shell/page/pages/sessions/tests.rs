@@ -1442,7 +1442,10 @@ fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {
         .claim_job(&[JobKind::Reply])
         .unwrap()
         .expect("the reply job");
-    let first = database.begin_version(answer.id).unwrap().unwrap();
+    let first = database
+        .begin_version(answer.id, JobKind::Reply)
+        .unwrap()
+        .unwrap();
     database
         .finish_version(first.id, "Mitochondria [1].", &[])
         .unwrap();

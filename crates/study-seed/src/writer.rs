@@ -620,7 +620,7 @@ impl Seeder<'_> {
             .expect("a question that mentions the assistant gets an answer");
         let job = answer.reply.expect("an answer has a reply job");
         let pending = self
-            .begin_version(answer.id)?
+            .begin_version(answer.id, JobKind::Reply)?
             .expect("an answer waits to be written");
         self.finish_version(pending.id, text, cited)?;
         self.settle_job(

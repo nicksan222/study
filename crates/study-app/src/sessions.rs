@@ -57,10 +57,11 @@ impl App {
         self.queue(|database| database.rewrite_message(id, how))
     }
 
-    /// Writes `text` as a new version of a message, as the student's edit. `None` when the
-    /// message is gone or the text is empty or unchanged.
+    /// Writes `text` as a new version of a message, as the student's edit. A version still
+    /// being written is dropped and its job stopped, so that it cannot replace the edit.
+    /// `None` when the message is gone or the text is empty or unchanged.
     pub fn edit_message(&self, id: MessageId, text: &str) -> Result<Option<VersionId>> {
-        self.with(|database| database.edit_message(id, text))
+        self.delete(|database| database.edit_message(id, text))
     }
 
     /// Shows another finished version of a message. `false` when it is not one of its.

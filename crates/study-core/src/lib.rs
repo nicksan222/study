@@ -59,7 +59,7 @@ pub mod preferences;
 pub mod processing;
 
 pub use artifact::{ArtifactBody, ArtifactKind, ArtifactStatus, Flashcard};
-pub use citation::{Citation, cited_markers};
+pub use citation::{Citation, cited_markers, without_citations};
 pub use day::Day;
 pub use document::{Anchor, Block, BlockKind, Document, DocumentMeta, Stamp};
 pub use error::{Classify, Context, Error, ErrorKind, Failure, Result};

@@ -42,9 +42,51 @@ pub fn cited_markers(text: &str, max: u32) -> Vec<u32> {
     markers
 }
 
+/// `text` without its `[n]` markers, for reading it where the sources they count are not
+/// shown: as a note, or as what the student said. The space before a marker goes with it.
+pub fn without_citations(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(open) = rest.find('[') {
+        plain.push_str(&rest[..open]);
+        let inside = &rest[open + 1..];
+        let marker_len = inside.find(']').filter(|&close| {
+            let numbers = &inside[..close];
+            numbers.chars().any(|c| c.is_ascii_digit())
+                && numbers
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || matches!(c, ',' | ';' | ' '))
+        });
+        match marker_len {
+            Some(close) => {
+                plain.truncate(plain.trim_end_matches(' ').len());
+                rest = &inside[close + 1..];
+            }
+            None => {
+                plain.push('[');
+                rest = inside;
+            }
+        }
+    }
+    plain.push_str(rest);
+    plain
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn markers_are_removed_with_the_space_before_them() {
+        assert_eq!(
+            without_citations("Cells divide [1]. Mitosis [1, 2][3] has phases."),
+            "Cells divide. Mitosis has phases."
+        );
+        assert_eq!(
+            without_citations("Keep [this] and [] and a [1"),
+            "Keep [this] and [] and a [1"
+        );
+    }
 
     #[test]
     fn markers_are_read_in_order_once_and_within_range() {

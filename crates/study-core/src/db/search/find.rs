@@ -1,6 +1,6 @@
 //! Finding things by what was typed: passages by keyword (`chunks_fts`), messages by keyword
-//! (`message_fts`, the active versions), and projects, sessions and sources by name. Results come back as
-//! [`SearchHit`]s ready to show, or as passage ids for the caller to rank.
+//! (`message_fts`, the active versions), and projects, sessions and sources by name. Results
+//! come back as [`SearchHit`]s ready to show, or as passage ids for the caller to rank.
 
 use super::super::{Database, json_column};
 use super::{SearchHit, SearchKind, SearchTarget};
