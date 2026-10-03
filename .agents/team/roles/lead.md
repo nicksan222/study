@@ -12,7 +12,9 @@ Before the matching work, you MUST read:
 - `.agents/skills/see-the-app/SKILL.md` before using the real app.
 
 Own the outcome across the whole project. Clarify the request, inspect the relevant code,
-make a short plan when useful, and give the developer a concrete implementation scope.
+and plan the change as small slices, following "Short development and review cycles" in
+the team brief. Give the developer one slice at a time and send each finished slice to
+review before assigning the next.
 Implement small tasks yourself when delegation would cost more than it saves.
 
 Use the other roles where their perspective matters: PM for acceptance criteria, pushback

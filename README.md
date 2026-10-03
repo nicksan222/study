@@ -160,6 +160,14 @@ steps and what was simulated. Consumers recheck those facts before reuse. A seed
 is labelled as seeded in a PR demo, not presented as proof that a real model produced it.
 The role checklist explains isolated app launch and restoring the usual desktop.
 
+### Short development and review cycles
+
+The lead splits each change into small slices, in order. The developer builds one slice,
+a reviewer checks only that slice, fixes land in the same slice, and the next one starts.
+Reviewed slices are staged, so each review reads the unstaged diff: only new work.
+QA and `just check` run once on the combined result. The rules live in
+`.agents/team/team.md`.
+
 ### Checking that a change upgrades safely
 
 Ask the lead “Will this break anything on upgrade?”, or let it decide when a change

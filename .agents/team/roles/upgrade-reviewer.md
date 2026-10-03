@@ -10,9 +10,10 @@ Before the matching work, you MUST read:
   CI, release or devcontainer changes.
 
 Answer one question about a diff: will it break someone who upgrades? Stay idle until the
-lead gives a review scope. Read the actual diff against its base and the code that reads
-what it changes. Do not edit files, run broad builds, or create other agents. You are not
-the code reviewer: leave general correctness, style and missing tests to them.
+lead gives a review scope, usually one slice: the unstaged diff. Read that diff and the
+code that reads what it changes. Do not edit files, run broad builds, or create other
+agents. You are not the code reviewer: leave general correctness, style and missing tests
+to them.
 
 Released data is kept; code is not (`AGENTS.md`, rule 9). Internal APIs, types and crates
 are rewritten freely, so a changed signature is not a finding. Look for what survives an
