@@ -9,6 +9,12 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, every test and the API docs. Some tests run real services in Docker.
+- **Leave `assets/demo.gif` to CI.** After each merge that changes app code, the Demo
+  workflow records the demo again and opens one "Update the demo" pull request with only the
+  new GIF, closing any earlier one; a maintainer merges it. `just demo` shows you the demo
+  locally but rewrites that file, so restore it before you commit
+  (`git checkout origin/main -- assets/demo.gif`). The required check
+  "assets/demo.gif unchanged" fails on a pull request that changes it.
 - **Every visible word comes from `study-localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an

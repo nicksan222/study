@@ -1,0 +1,55 @@
+name: Demo GIF checks
+
+# assets/demo.gif belongs to CI: after each merge to `main` the Demo workflow records it again
+# and opens a pull request with only the new GIF. These checks keep it that way. They run on
+# every pull request, with no path filter, so the required check always reports.
+on:
+  pull_request:
+  # The Demo workflow starts this on the `demo/<sha>` branch it pushes with the workflow's own
+  # token, which starts nothing by itself.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-gif-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  untouched:
+    # A required check: keep the name stable.
+    name: assets/demo.gif unchanged
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fail if this pull request edits assets/demo.gif
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # On a dispatch the pull request fields are empty, and the check passes.
+          if ! message=$(.github/scripts/demo.sh check-gif-untouched "$EVENT" "$HEAD_REPO" "$REPO" "$HEAD_REF" "${BASE_SHA:-x}" "${HEAD_SHA:-x}"); then
+            echo "::error file=assets/demo.gif,title=Leave assets/demo.gif to CI::$message"
+            exit 1
+          fi
+
+  scripts:
+    # The Demo workflow's decisions live in .github/scripts/demo.sh; this tests them with git
+    # and bash only, no devcontainer.
+    name: Demo script tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Lint the scripts
+        run: shellcheck .github/scripts/*.sh
+      - name: Test the demo script
+        run: .github/scripts/demo-test.sh

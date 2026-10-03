@@ -3,6 +3,9 @@ name: CI
 on:
   push:
   pull_request:
+  # The Demo workflow starts this by hand on the `demo/<sha>` branch it pushes with the workflow's
+  # own token, and that starts nothing by itself; a person can too.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -34,6 +37,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target/devcontainer"
+          # The Demo workflow restores this same cache and never saves its own.
+          shared-key: devcontainer
       - name: Test and build
         uses: devcontainers/ci@v0.3
         with:
