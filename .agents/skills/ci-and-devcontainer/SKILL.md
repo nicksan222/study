@@ -28,6 +28,9 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
     parallel jobs, with dependencies built unoptimized. `Test and build` is the one required
     check; it passes when both jobs passed. The runner's own Docker runs the tests that need
     real services. Ubuntu 24.04's glibc 2.39 is enough for the prebuilt onnxruntime.
+  - Devcontainer (`devcontainer.yml`): when `.devcontainer/` changes, builds the image,
+    starts the container and runs its lifecycle commands, so a broken environment fails
+    before merge.
   - Demo (`demo.yml`): by hand only. It runs `just demo` and opens a pull request with the
     new `assets/demo.gif`.
   - Releases: Linux x64 and ARM64 build inside the devcontainer; macOS Intel/Apple Silicon

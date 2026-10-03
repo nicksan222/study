@@ -1,0 +1,27 @@
+name: Devcontainer
+
+# CI runs on the runner, so this is what checks the devcontainer: it builds the image, starts
+# the container and runs its lifecycle commands, as `devcontainer up` does for a contributor.
+on:
+  pull_request:
+    paths: ['.devcontainer/**', '.github/workflows/devcontainer.yml']
+  push:
+    branches: [main]
+    paths: ['.devcontainer/**', '.github/workflows/devcontainer.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  devcontainer:
+    name: Build and start the devcontainer
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Install the devcontainer CLI
+        run: npm install --global @devcontainers/cli@0.89.0
+      - name: Build, start and run the lifecycle commands
+        run: devcontainer up --workspace-folder .
+      - name: Run a recipe inside
+        run: devcontainer exec --workspace-folder . just --list
