@@ -7,11 +7,17 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch or pull request replaces the run still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   linux:
     # Every check runs inside the devcontainer, built from .devcontainer/, so CI and the agents
-    # share one toolchain and one package list. The image is cached in GHCR; only main pushes
-    # it.
+    # share one toolchain and one package list. The image's layers are cached in the GitHub
+    # Actions cache after every build, passing or not, so only a changed Dockerfile line
+    # rebuilds; main also pushes the image to GHCR.
     name: Test and build
     runs-on: ubuntu-latest
     permissions:
@@ -34,14 +40,82 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target/devcontainer"
-      - name: Test and build
+          # A failing check still keeps the compiled dependencies for the next run.
+          cache-on-failure: true
+      # The devcontainer CLI builds with buildx; the GitHub Actions cache needs the
+      # docker-container driver and the runtime token in the environment.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Expose the Actions cache to Buildx
+        uses: crazy-max/ghaction-github-runtime@v3
+      # The first step builds the image (from the layer cache), saves its layers back and, on
+      # main, pushes it once the job passes. Every later step reuses the local image and runs
+      # one `just check` recipe in a fresh container on the same workspace, so the summary
+      # shows which check failed and how long each took.
+      - name: Build devcontainer
         uses: devcontainers/ci@v0.3
         with:
           imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
-          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          cacheFrom: |
+            type=gha,scope=devcontainer-${{ runner.arch }}
+            ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          cacheTo: type=gha,scope=devcontainer-${{ runner.arch }},mode=max
           push: filter
           refFilterForPush: refs/heads/main
+          runCmd: just --version
+      - name: Lint shell scripts
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
           env: |
             CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
-          runCmd: just check && just build
-
+          runCmd: just check-shell
+      - name: Check formatting
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just fmt-check
+      - name: Clippy
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just lint
+      - name: Check dependencies
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just deny
+      - name: Test
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just test
+      - name: Build API docs
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just docs
+      - name: Build release
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just build

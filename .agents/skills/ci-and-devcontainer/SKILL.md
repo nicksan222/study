@@ -23,7 +23,9 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 - **CI runs only inside the devcontainer, Linux,** through `devcontainers/ci`: one image, one
   package list, the same as the agents use. No workflow step installs a toolchain, an apt
   package or `just`; checkout, caching and the action are all there is.
-  - The image is cached in GHCR as `study-devcontainer`; only `main` pushes it.
+  - The image's layers are cached in the GitHub Actions cache (Buildx `type=gha`, one scope
+    per runner architecture) after every build, passing or not; `main` also pushes the
+    image to GHCR as `study-devcontainer`.
   - Docker-in-Docker (a devcontainer feature) runs the tests that need real services.
   - The runner's rust-cache keeps the container's `target/devcontainer` and its cargo
     registry, both inside the workspace.

@@ -175,7 +175,8 @@ package platform:
 deny:
     cargo deny --locked check
 
-# Run checks required for pull requests.
+# Run checks required for pull requests. CI runs each one as its own step, in this order;
+# keep .github/workflows/ci.yml in step.
 check: check-shell fmt-check lint deny test docs
 
 # Run the same checks for one package only, e.g. `just check-crate study-core`: a focused development loop.
