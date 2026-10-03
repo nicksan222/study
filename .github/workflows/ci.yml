@@ -23,10 +23,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      # The container's cargo registry lives in the bind-mounted workspace, so the runner's
-      # rust-cache saves it next to the container's target directory.
-      CARGO_HOME: ${{ github.workspace }}/target/cargo-home
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -36,6 +32,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # The container keeps its crate downloads in target/cargo-home, inside the bind-mounted
+      # workspace, so they outlive each step's container. They are cached on their own:
+      # rust-cache keeps compiled dependencies only for crates whose sources sit outside the
+      # workspace, so it reads them from the runner's own ~/.cargo instead.
+      - name: Restore crate downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/cargo-home/registry/index
+            target/cargo-home/registry/cache
+            target/cargo-home/git/db
+          key: cargo-home-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-home-
       - name: Restore build cache
         uses: Swatinem/rust-cache@v2
         with:

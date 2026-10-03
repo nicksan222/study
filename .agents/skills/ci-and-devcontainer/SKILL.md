@@ -27,8 +27,10 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
     per runner architecture) after every build, passing or not; `main` also pushes the
     image to GHCR as `study-devcontainer`.
   - Docker-in-Docker (a devcontainer feature) runs the tests that need real services.
-  - The runner's rust-cache keeps the container's `target/devcontainer` and its cargo
-    registry, both inside the workspace.
+  - The runner's rust-cache keeps the container's `target/devcontainer`; `actions/cache`
+    keeps its crate downloads in `target/cargo-home`. Both sit inside the workspace. Never
+    point the runner's `CARGO_HOME` into the workspace: rust-cache then drops every
+    compiled dependency, since it keeps only crates whose sources sit outside it.
   - Releases are the native-runner exception: Linux x64 and ARM64 use this image;
     macOS Intel/Apple Silicon and Windows x64 use native GitHub runners. They install
     Rust and pinned cargo-packager; they must never require a second devcontainer.
