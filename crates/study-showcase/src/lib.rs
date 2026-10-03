@@ -36,18 +36,7 @@ pub fn run() -> Result<()> {
     let repo = repo_root();
     let work = repo.join("target/showcase");
     let data = work.join("data");
-    let cache = work.join("cache");
-
-    // The app and the seed find their files through these two variables, so a run must
-    // never inherit the real ones: start again with ours.
-    if std::env::var_os("XDG_DATA_HOME").as_deref() != Some(data.as_os_str()) {
-        let error = Command::new(std::env::current_exe()?)
-            .args(std::env::args_os().skip(1))
-            .env("XDG_DATA_HOME", &data)
-            .env("XDG_CACHE_HOME", &cache)
-            .exec();
-        return Err(error.into());
-    }
+    isolate(&data, &work.join("cache"))?;
 
     let output = std::env::args_os()
         .nth(1)
@@ -63,33 +52,54 @@ pub fn run() -> Result<()> {
         )));
     }
 
-    std::fs::remove_dir_all(&data).ok();
-    let path = study_core::db::Database::default_path()?;
-    study_core::db::Database::open(&path)?.seed_showcase()?;
-    eprintln!("seeded {}", path.display());
-
+    let database = seed(&data)?;
     let desktop = desktop::Desktop::start(&repo, &work)?;
     let mut app = desktop.launch(&app, &work)?;
     desktop.wait_until_ready(&mut app, &work)?;
-    wait_for_indexing(&path, &mut app, &work)?;
+    wait_for_indexing(&database, &mut app, &work)?;
     eprintln!("ready; recording");
 
     let raw = work.join("tour.mkv");
     let mut recording = desktop.record(&raw, &work.join("recorder.log"))?;
-    thread::sleep(Duration::from_millis(800)); // the recorder's first frame
+    thread::sleep(desktop::FIRST_FRAME);
     recording.check_running()?;
     let steps = tour::tour();
     eprintln!(
         "tour of about {:.0} s",
         tour::estimate(&steps).as_secs_f64()
     );
-    let played = tour::play(&desktop, &steps);
+    let played = tour::play(&desktop, &steps, || app.check_running(&work));
     recording.stop(&desktop)?;
     played?;
+    app.check_running(&work)?; // never encode what the app's exit cut short
 
-    encode::gif(&raw, &output)?;
-    eprintln!("wrote {} ({} bytes)", output.display(), size(&output));
+    let size = encode::gif(&raw, &output)?;
+    eprintln!("wrote {} ({size} bytes)", output.display());
     Ok(())
+}
+
+/// Makes sure the app and the seed find their files under `data` and `cache`, and never the
+/// real ones: the app and the seed locate them through two variables, so if they are not
+/// ours, this process starts again with ours.
+fn isolate(data: &Path, cache: &Path) -> Result<()> {
+    if std::env::var_os("XDG_DATA_HOME").as_deref() != Some(data.as_os_str()) {
+        let error = Command::new(std::env::current_exe()?)
+            .args(std::env::args_os().skip(1))
+            .env("XDG_DATA_HOME", data)
+            .env("XDG_CACHE_HOME", cache)
+            .exec();
+        return Err(error.into());
+    }
+    Ok(())
+}
+
+/// Fills a new database under `data` with the showcase sample, and returns its path.
+fn seed(data: &Path) -> Result<PathBuf> {
+    std::fs::remove_dir_all(data).ok();
+    let path = study_core::db::Database::default_path()?;
+    study_core::db::Database::open(&path)?.seed_showcase()?;
+    eprintln!("seeded {}", path.display());
+    Ok(path)
 }
 
 /// Waits until the app has indexed what was seeded, so the search in the tour finds it. The
@@ -98,9 +108,10 @@ pub fn run() -> Result<()> {
 fn wait_for_indexing(database: &Path, app: &mut desktop::Guard, work: &Path) -> Result<()> {
     use study_core::{JobKind, JobStatus};
     let log = work.join("app.log");
-    let start = std::time::Instant::now();
-    loop {
-        let jobs = study_core::db::Database::open(database)?.list_job_overviews(1000)?;
+    let store = study_core::db::Database::open(database)?;
+    desktop::wait(Duration::from_secs(300), "the app to index", || {
+        app.check_running(work)?;
+        let jobs = store.list_job_overviews(1000)?;
         let index = || {
             jobs.iter()
                 .filter(|overview| overview.job.kind == JobKind::Index)
@@ -118,21 +129,8 @@ fn wait_for_indexing(database: &Path, app: &mut desktop::Guard, work: &Path) -> 
         }
         let waiting =
             index().any(|o| matches!(o.job.status, JobStatus::Queued | JobStatus::Running));
-        if !waiting && !jobs.is_empty() {
-            return Ok(());
-        }
-        if app.ended().is_some() || start.elapsed() > Duration::from_secs(300) {
-            return Err(study_core::Error::msg(format!(
-                "the app did not finish indexing; see {}",
-                log.display()
-            )));
-        }
-        thread::sleep(Duration::from_millis(500));
-    }
-}
-
-fn size(path: &Path) -> u64 {
-    std::fs::metadata(path).map_or(0, |meta| meta.len())
+        Ok((!waiting && !jobs.is_empty()).then_some(()))
+    })
 }
 
 /// The repository, two levels above this crate.

@@ -192,6 +192,13 @@ pub(super) struct Conversation {
     pub declined: Option<(ArtifactKind, usize, &'static str)>,
 }
 
+/// What seeding a session left behind: what was read, and the source of every attachment, in
+/// order.
+struct Seeded {
+    read: Vec<Read>,
+    sources: Vec<Option<SourceId>>,
+}
+
 /// What a read attachment became: its source and what was read from it.
 struct Read {
     source: SourceId,
@@ -316,17 +323,18 @@ impl Database {
             }
         }
         let scripted = conversations(sample);
-        // Material is written as each session ends, so a later session leaves it out of
-        // date; the showcase writes it once all sessions are in.
+        // Development writes material as each session ends, so a later session leaves it out
+        // of date; the showcase writes it once all sessions are in.
         let mut later = Vec::new();
         for conversation in &scripted {
-            let read = self.seed_conversation(files.path(), conversation, sample)?;
-            if sample == Sample::Showcase {
-                later.push((conversation, read));
+            let seeded = self.seed_conversation(files.path(), conversation)?;
+            match sample {
+                Sample::Development => self.seed_conversation_material(conversation, &seeded)?,
+                Sample::Showcase => later.push((conversation, seeded)),
             }
         }
-        for (conversation, read) in later {
-            self.seed_conversation_material(conversation, &read)?;
+        for (conversation, seeded) in later {
+            self.seed_conversation_material(conversation, &seeded)?;
         }
         self.seed_reviews(sample)?;
         self.seed_practice(QUIZ_COURSE, sample)?;
@@ -334,13 +342,8 @@ impl Database {
     }
 
     /// A session of `conversation`'s project with its note, attachments read as scripted,
-    /// answer, material and thread, dated `hours_ago`.
-    fn seed_conversation(
-        &self,
-        directory: &Path,
-        conversation: &Conversation,
-        sample: Sample,
-    ) -> Result<Vec<Read>> {
+    /// answer and thread, dated `hours_ago`.
+    fn seed_conversation(&self, directory: &Path, conversation: &Conversation) -> Result<Seeded> {
         let project = self.seeded_project(conversation.project)?;
         let session = self.create_session(project, conversation.title)?;
         let mut parts = vec![NewPart::Text(conversation.text.to_owned())];
@@ -408,26 +411,6 @@ impl Database {
             let cited = citations(conversation, &read, cites);
             self.seed_answer(message.id, answer, &cited, posted)?;
         }
-        if sample == Sample::Development {
-            self.seed_conversation_material(conversation, &read)?;
-        }
-        if let Some((kind, attachment, why)) = conversation.declined {
-            let source = message.parts[attachment + 1]
-                .content
-                .source_id()
-                .expect("an attachment is a source");
-            let (artifact, job) = self.request_update(project, kind, &[source])?;
-            let job = job.expect("an update is queued");
-            let at = posted + HOUR;
-            self.finish_seeded_job(
-                job,
-                JobStatus::Failed,
-                Some((ErrorKind::NotEnough, why)),
-                at,
-                at + 40,
-            )?;
-            self.date_artifact(artifact.get(), at)?;
-        }
         self.connection.execute(
             "UPDATE messages SET created_at = ?1 WHERE id = ?2 OR reply_to = ?2",
             params![posted, message.id],
@@ -450,18 +433,42 @@ impl Database {
             "UPDATE sessions SET created_at = ?1, updated_at = ?1 WHERE id = ?2",
             params![posted, session.id],
         )?;
-        Ok(read)
+        let sources = message
+            .parts
+            .iter()
+            .skip(1)
+            .map(|part| part.content.source_id())
+            .collect();
+        Ok(Seeded { read, sources })
     }
 
-    /// The material `conversation` makes from what it `read`, each piece the update of its
-    /// kind in the project.
-    fn seed_conversation_material(&self, conversation: &Conversation, read: &[Read]) -> Result<()> {
+    /// The material `conversation` makes from what it read, each piece the update of its
+    /// kind in the project, and then the update it declined.
+    fn seed_conversation_material(
+        &self,
+        conversation: &Conversation,
+        seeded: &Seeded,
+    ) -> Result<()> {
         let project = self.seeded_project(conversation.project)?;
         let posted = unix_timestamp() - conversation.hours_ago * HOUR;
         for (place, made) in (1..).zip(&conversation.made) {
-            let cited = citations(conversation, read, made.cites);
+            let cited = citations(conversation, &seeded.read, made.cites);
             let written = posted + place * 10 * 60;
             self.seed_material(project, made, &cited, written)?;
+        }
+        if let Some((kind, attachment, why)) = conversation.declined {
+            let source = seeded.sources[attachment].expect("an attachment is a source");
+            let (artifact, job) = self.request_update(project, kind, &[source])?;
+            let job = job.expect("an update is queued");
+            let at = posted + HOUR;
+            self.finish_seeded_job(
+                job,
+                JobStatus::Failed,
+                Some((ErrorKind::NotEnough, why)),
+                at,
+                at + 40,
+            )?;
+            self.date_artifact(artifact.get(), at)?;
         }
         Ok(())
     }
@@ -511,26 +518,17 @@ impl Database {
         Ok(())
     }
 
-    /// The files of `project` that were read, which material is written from.
-    fn read_sources(&self, project: ProjectId) -> Result<Vec<SourceId>> {
+    /// The files of `project` that were read and that the default plan offers `kind` from:
+    /// what material is written from, by the same rule the app counts outdated by.
+    fn offering_read(&self, project: ProjectId, kind: ArtifactKind) -> Result<Vec<SourceId>> {
+        let offering = self.sources_offering(project, kind, &ProcessingPreferences::default())?;
         let mut read = Vec::new();
-        for source in self.project_material(project)?.sources {
+        for source in offering {
             if self.document_of(source)?.is_some() {
                 read.push(source);
             }
         }
         Ok(read)
-    }
-
-    /// The files of `project` that were read and that the default plan offers `kind` from:
-    /// what material is written from, by the same rule the app counts outdated by.
-    fn offering_read(&self, project: ProjectId, kind: ArtifactKind) -> Result<Vec<SourceId>> {
-        let read = self.read_sources(project)?;
-        let offering = self.sources_offering(project, kind, &ProcessingPreferences::default())?;
-        Ok(offering
-            .into_iter()
-            .filter(|id| read.contains(id))
-            .collect())
     }
 
     /// `made`, the update of its kind in `project`, finished at `at` from the files
@@ -570,12 +568,13 @@ impl Database {
         Ok(())
     }
 
-    /// Reviews over the last days: two groups of the mitosis cards went well on consecutive
-    /// days, and the first again yesterday, so a streak shows; the eigenvalue cards were
-    /// forgotten four days ago, so they are due again.
+    /// Reviews over the last days, so a streak shows and some cards are due again; each
+    /// sample's arm says how.
     fn seed_reviews(&self, sample: Sample) -> Result<()> {
         let now = unix_timestamp();
         let reviews: &[(&str, std::ops::Range<usize>, i64, Rating)] = match sample {
+            // Two groups of the mitosis cards went well on consecutive days and the first again
+            // yesterday; the eigenvalue cards were forgotten four days ago, so they are due.
             Sample::Development => &[
                 ("Cell biology", 0..4, 3, Rating::Good),
                 ("Cell biology", 4..8, 2, Rating::Easy),

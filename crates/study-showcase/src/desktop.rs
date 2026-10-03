@@ -16,10 +16,21 @@ use std::{
 use study_core::{Context as _, Error, Result};
 
 /// The output's size; the GIF shows exactly these pixels at scale 1.
-pub const WIDTH: u32 = 1120;
-pub const HEIGHT: u32 = 700;
+pub const WIDTH: u32 = 1920;
+pub const HEIGHT: u32 = 1080;
 
+/// The app's window ID, a copy of the one in `apps/desktop/src/app/desktop.rs`: this crate
+/// cannot depend on the binary. If it changes there, the wait for the window times out here.
 const APP_ID: &str = "io.github.nicksan222.Study";
+
+/// Time for the app to draw before the welcome tour's Skip is pressed, and for the shell to
+/// settle after it.
+const BEFORE_SKIP: Duration = Duration::from_secs(1);
+const AFTER_SKIP: Duration = Duration::from_secs(2);
+/// Time for the recorder to write its first frame before the tour starts.
+pub const FIRST_FRAME: Duration = Duration::from_millis(800);
+/// How long a button is held down.
+pub const PRESS_MS: u64 = 60;
 
 /// Where the welcome tour's "Skip" sits, and the rail's first row once the shell shows.
 const SKIP: Region = Region {
@@ -29,11 +40,17 @@ const SKIP: Region = Region {
     height: 24,
 };
 const RAIL: Region = Region {
-    x: 8,
-    y: 56,
-    width: 244,
+    x: RAIL_X,
+    y: RAIL_FIRST - 14,
+    width: RAIL_WIDTH,
     height: 28,
 };
+/// The rail on the left: where it sits, how wide it is, and the middle of its first row and
+/// the distance to the next.
+pub const RAIL_X: u32 = 8;
+pub const RAIL_WIDTH: u32 = 244;
+pub const RAIL_FIRST: u32 = 70;
+pub const RAIL_STEP: u32 = 34;
 /// Where the pointer rests when the recording starts and ends: on the welcome tour's "Skip".
 pub const START: (u32, u32) = (WIDTH - 40, 22);
 const SKIP_CLICK: (u32, u32) = START;
@@ -56,6 +73,17 @@ impl Guard {
     pub fn ended(&mut self) -> Option<ExitStatus> {
         self.0.try_wait().ok().flatten()
     }
+
+    /// Fails if the process has ended, pointing at its log in `work`.
+    pub fn check_running(&mut self, work: &Path) -> Result<()> {
+        match self.ended() {
+            Some(status) => Err(Error::msg(format!(
+                "the app exited ({status}); see {}",
+                work.join("app.log").display()
+            ))),
+            None => Ok(()),
+        }
+    }
 }
 
 impl Drop for Guard {
@@ -72,17 +100,27 @@ impl Drop for Desktop {
     }
 }
 
+/// Sends the signal `name` (`TERM`, `INT`) to `child`.
+fn signal(child: &Child, name: &str) -> Result<()> {
+    let status = Command::new("kill")
+        .args([&format!("-{name}"), &child.id().to_string()])
+        .stderr(Stdio::null())
+        .status()
+        .context("cannot run kill")?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::msg(format!("cannot send {name} to {}", child.id())))
+    }
+}
+
 /// Asks `child` to end, and kills it if it has not within a few seconds.
 fn stop(child: &mut Child) {
     // An exited child is reaped; its PID may already belong to another process.
     if matches!(child.try_wait(), Ok(Some(_))) {
         return;
     }
-    Command::new("kill")
-        .args(["-TERM", &child.id().to_string()])
-        .stderr(Stdio::null())
-        .status()
-        .ok();
+    signal(child, "TERM").ok();
     let start = Instant::now();
     while start.elapsed() < Duration::from_secs(3) {
         if matches!(child.try_wait(), Ok(Some(_))) {
@@ -110,10 +148,8 @@ impl Desktop {
         fs::remove_dir_all(&runtime).ok();
         fs::create_dir_all(&runtime)?;
         set_private(&runtime)?;
-        let env_file = work.join("sway.env");
-        fs::remove_file(&env_file).ok();
         let config = work.join("sway.config");
-        fs::write(&config, sway_config(&env_file))?;
+        fs::write(&config, sway_config())?;
 
         let log = fs::File::create(work.join("sway.log"))?;
         let sway = Command::new("sway")
@@ -137,7 +173,8 @@ impl Desktop {
             display: String::new(),
             socket: String::new(),
         };
-        // sway's config writes where it lives once it is up (see `sway_config`).
+        // sway names its sockets after the runtime directory it was given and its own PID.
+        let pid = desktop.sway.id();
         wait(Duration::from_secs(20), "sway to start", || {
             if let Some(status) = desktop.sway.try_wait()? {
                 return Err(Error::msg(format!(
@@ -145,12 +182,9 @@ impl Desktop {
                     work.join("sway.log").display()
                 )));
             }
-            Ok(fs::read_to_string(&env_file)
-                .ok()
-                .filter(|text| text.ends_with('\n'))
-                .map(|text| {
-                    (desktop.display, desktop.socket) = parse_env(&text);
-                }))
+            Ok(discover(&runtime, pid).map(|(display, socket)| {
+                (desktop.display, desktop.socket) = (display, socket);
+            }))
         })?;
         // Plugged in once sway is up, and stopped with it: sway's own `exec` would detach them.
         let seat = repo.join(".devcontainer/desktop/seat.py");
@@ -189,7 +223,7 @@ impl Desktop {
     }
 
     /// Runs `program` to completion and fails if it does.
-    pub fn run(&self, program: &str, args: &[String]) -> Result<()> {
+    pub fn run(&self, program: &str, args: &[&str]) -> Result<()> {
         let status = self
             .command(program)
             .args(args)
@@ -197,10 +231,7 @@ impl Desktop {
             .status()
             .with_context(|| format!("cannot run {program}"))?;
         if !status.success() {
-            return Err(Error::msg(format!(
-                "{program} {} failed: {status}",
-                args.join(" ")
-            )));
+            return Err(Error::msg(format!("{program} {args:?} failed: {status}")));
         }
         Ok(())
     }
@@ -236,31 +267,22 @@ impl Desktop {
     /// app itself, and lets it settle. None of this is recorded. Fails at once if the app
     /// ends meanwhile, pointing at its log in `work`.
     pub fn wait_until_ready(&self, app: &mut Guard, work: &Path) -> Result<()> {
-        let alive = |app: &mut Guard| -> Result<()> {
-            match app.ended() {
-                Some(status) => Err(Error::msg(format!(
-                    "the app exited ({status}); see {}",
-                    work.join("app.log").display()
-                ))),
-                None => Ok(()),
-            }
-        };
         wait(Duration::from_secs(120), "the app's window", || {
-            alive(app)?;
+            app.check_running(work)?;
             Ok(self.has_window().then_some(()))
         })?;
         // The measurement screen has no "Skip"; the tour that follows it does.
         wait(Duration::from_secs(600), "the welcome tour", || {
-            alive(app)?;
+            app.check_running(work)?;
             Ok(self.is_lit(SKIP).then_some(()))
         })?;
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(BEFORE_SKIP);
         self.click(SKIP_CLICK.0, SKIP_CLICK.1)?;
         wait(Duration::from_secs(60), "the app's shell", || {
-            alive(app)?;
+            app.check_running(work)?;
             Ok(self.is_lit(RAIL).then_some(()))
         })?;
-        thread::sleep(Duration::from_secs(2));
+        thread::sleep(AFTER_SKIP);
         Ok(())
     }
 
@@ -273,7 +295,7 @@ impl Desktop {
     /// Presses and releases the left button where the pointer is.
     pub fn press(&self) -> Result<()> {
         self.swaymsg(&["seat", "-", "cursor", "press", "button1"])?;
-        thread::sleep(Duration::from_millis(60));
+        thread::sleep(Duration::from_millis(PRESS_MS));
         self.swaymsg(&["seat", "-", "cursor", "release", "button1"])
             .map(drop)
     }
@@ -298,7 +320,7 @@ impl Desktop {
             .spawn()
             .context("cannot start wf-recorder")?;
         Ok(Recording {
-            child,
+            process: Guard(child),
             log: log.to_owned(),
         })
     }
@@ -307,14 +329,14 @@ impl Desktop {
 /// A running screen recording. Dropping it stops the recorder; [`Recording::stop`] ends it
 /// cleanly so the file is complete.
 pub struct Recording {
-    child: Child,
+    process: Guard,
     log: PathBuf,
 }
 
 impl Recording {
     /// Fails if the recorder has already ended, which it only does when it cannot record.
     pub fn check_running(&mut self) -> Result<()> {
-        match self.child.try_wait()? {
+        match self.process.ended() {
             Some(status) => Err(Error::msg(format!(
                 "wf-recorder exited ({status}); see {}",
                 self.log.display()
@@ -327,19 +349,13 @@ impl Recording {
     /// recorder no frame to notice the request on, so the pointer is nudged until it ends,
     /// and comes back to where the recording began.
     pub fn stop(mut self, desktop: &Desktop) -> Result<()> {
-        let status = Command::new("kill")
-            .args(["-INT", &self.child.id().to_string()])
-            .status()
-            .context("cannot stop wf-recorder")?;
-        if !status.success() {
-            return Err(Error::msg("cannot signal wf-recorder"));
-        }
+        signal(&self.process.0, "INT").context("cannot stop wf-recorder")?;
         let ended = wait(Duration::from_secs(10), "wf-recorder to finish", || {
             let moved = desktop
                 .warp(START.0 - 2, START.1)
                 .and_then(|()| desktop.warp(START.0, START.1));
             moved?;
-            Ok(self.child.try_wait()?)
+            Ok(self.process.ended())
         })?;
         if !ended.success() {
             return Err(Error::msg(format!(
@@ -351,14 +367,12 @@ impl Recording {
     }
 }
 
-impl Drop for Recording {
-    fn drop(&mut self) {
-        stop(&mut self.child);
-    }
-}
-
 /// Polls `check` until it returns a value or `limit` passes.
-fn wait<T>(limit: Duration, what: &str, mut check: impl FnMut() -> Result<Option<T>>) -> Result<T> {
+pub(crate) fn wait<T>(
+    limit: Duration,
+    what: &str,
+    mut check: impl FnMut() -> Result<Option<T>>,
+) -> Result<T> {
     let start = Instant::now();
     loop {
         if let Some(value) = check()? {
@@ -378,27 +392,28 @@ fn set_private(dir: &Path) -> Result<()> {
 }
 
 /// sway's configuration: the shared desktop's, with a fixed output.
-fn sway_config(env_file: &Path) -> String {
+fn sway_config() -> String {
     format!(
         "output HEADLESS-1 resolution {WIDTH}x{HEIGHT} scale 1 position 0 0 bg #3b4252 solid_color\n\
          default_border none\n\
          default_floating_border none\n\
          focus_follows_mouse no\n\
-         xwayland disable\n\
-         exec printf 'DISPLAY_NAME=%s\\nSOCKET=%s\\n' \"$WAYLAND_DISPLAY\" \"$SWAYSOCK\" > {env}\n",
-        env = env_file.display(),
+         xwayland disable\n"
     )
 }
 
-/// The Wayland display and sway socket that [`sway_config`] writes.
-fn parse_env(text: &str) -> (String, String) {
-    let value = |key: &str| {
-        text.lines()
-            .find_map(|line| line.strip_prefix(key))
-            .unwrap_or_default()
-            .to_owned()
-    };
-    (value("DISPLAY_NAME="), value("SOCKET="))
+/// The Wayland display name and sway socket of the sway with this `pid` in `runtime`, once it
+/// accepts connections. They are found by name, so no path is ever passed through a shell.
+fn discover(runtime: &Path, pid: u32) -> Option<(String, String)> {
+    use std::os::unix::{fs::MetadataExt as _, net::UnixStream};
+    let uid = fs::metadata(runtime).ok()?.uid();
+    let socket = runtime.join(format!("sway-ipc.{uid}.{pid}.sock"));
+    UnixStream::connect(&socket).ok()?;
+    let display = fs::read_dir(runtime)
+        .ok()?
+        .filter_map(|entry| entry.ok()?.file_name().into_string().ok())
+        .find(|name| name.starts_with("wayland-") && !name.ends_with(".lock"))?;
+    Some((display, socket.to_string_lossy().into_owned()))
 }
 
 /// Whether a binary PPM (`P6`) has a pixel brighter than text on the dark background.
@@ -434,18 +449,34 @@ mod tests {
     }
 
     #[test]
-    fn the_sway_environment_is_read_back() {
-        let (display, socket) = parse_env("DISPLAY_NAME=wayland-1\nSOCKET=/a/b.sock\n");
+    fn the_sway_sockets_are_found_by_name_in_a_path_with_spaces() {
+        use std::os::unix::{fs::MetadataExt as _, net::UnixListener};
+        let dir =
+            std::env::temp_dir().join(format!("study showcase 'x' $y {}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        assert_eq!(discover(&dir, 4242), None);
+        let uid = fs::metadata(&dir).unwrap().uid();
+        let socket = dir.join(format!("sway-ipc.{uid}.4242.sock"));
+        let _listener = UnixListener::bind(&socket).unwrap();
+        assert_eq!(discover(&dir, 4242), None, "no display yet");
+        fs::write(dir.join("wayland-1.lock"), "").unwrap();
+        assert_eq!(discover(&dir, 4242), None, "a lock is not a display");
+        fs::write(dir.join("wayland-1"), "").unwrap();
         assert_eq!(
-            (display.as_str(), socket.as_str()),
-            ("wayland-1", "/a/b.sock")
+            discover(&dir, 4242),
+            Some((
+                "wayland-1".to_owned(),
+                socket.to_string_lossy().into_owned()
+            ))
         );
+        assert_eq!(discover(&dir, 1), None, "another sway's socket");
+        fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
-    fn the_config_pins_the_output_and_names_its_files() {
-        let config = sway_config(Path::new("/work/sway.env"));
-        assert!(config.contains("resolution 1120x700 scale 1"));
-        assert!(config.ends_with("> /work/sway.env\n"));
+    fn the_config_pins_the_output_and_runs_nothing() {
+        let config = sway_config();
+        assert!(config.contains(&format!("resolution {WIDTH}x{HEIGHT} scale 1")));
+        assert!(!config.contains("exec"));
     }
 }

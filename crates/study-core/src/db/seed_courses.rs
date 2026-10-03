@@ -414,7 +414,7 @@ const EIGEN_NOTES: &str = "## Definition
 - Not always possible: [[0, 1], [0, 0]] [10]";
 
 /// The sessions of the courses, in no particular order: each dates itself. The showcase
-/// sample has every file read and no session left waiting for work.
+/// sample has every file read and nothing left waiting but the indexing.
 pub(super) fn conversations(sample: Sample) -> Vec<Conversation> {
     let mut all = development_conversations();
     if sample == Sample::Showcase {
@@ -423,20 +423,38 @@ pub(super) fn conversations(sample: Sample) -> Vec<Conversation> {
     all
 }
 
+/// The titles the showcase sample edits, shared with the sessions themselves.
+const FALL_OF_THE_REPUBLIC: &str = "Fall of the Republic";
+const EIGENVALUES: &str = "Eigenvalues";
+const RUBICON: &str = "Caesar crosses the Rubicon";
+const EXAM_REVISION: &str = "Exam revision";
+const STUDY_PLAN: &str = "Study plan";
+
+/// The attachment of `conversation` named `file`; a rename or removal fails loudly here
+/// instead of editing the wrong file.
+fn attachment_mut<'a>(conversation: &'a mut Conversation, file: &str) -> &'a mut Attachment {
+    conversation
+        .attachments
+        .iter_mut()
+        .find(|attachment| attachment.file == file)
+        .unwrap_or_else(|| panic!("{:?} has no attachment {file:?}", conversation.title))
+}
+
 /// What the showcase sample changes: nothing failed, stopped or unread, no declined update,
 /// and diagrams for the courses that had none.
 fn showcase(all: &mut Vec<Conversation>) {
-    all.retain(|c| !matches!(c.title, "Exam revision" | "Study plan"));
+    all.retain(|c| !matches!(c.title, EXAM_REVISION | STUDY_PLAN));
     for conversation in all.iter_mut() {
         conversation.declined = None;
         match conversation.title {
-            "Fall of the Republic" => {
-                conversation.attachments[1].outcome = Some(Outcome::Done {
-                    blocks: GRACCHI_PODCAST,
-                });
+            FALL_OF_THE_REPUBLIC => {
+                attachment_mut(conversation, "podcast-episode-12.mp3").outcome =
+                    Some(Outcome::Done {
+                        blocks: GRACCHI_PODCAST,
+                    });
             }
-            "Eigenvalues" => {
-                conversation.attachments[2] =
+            EIGENVALUES => {
+                *attachment_mut(conversation, "whiteboard-photo.jpg") =
                     Attachment::read("whiteboard-photo.jpg", ExtractorKind::Vision, WHITEBOARD, 9);
                 conversation.answer = Some((
                     "An eigenvector of a square matrix A is a nonzero vector v with Av = λv for some scalar λ, its eigenvalue [1]: multiplying by A only stretches it, without changing its direction [2]. The whiteboard example shows it: for [[2, 1], [1, 2]] the eigenvalues are 1 and 3 [3].",
@@ -457,7 +475,7 @@ fn showcase(all: &mut Vec<Conversation>) {
                     ],
                 });
             }
-            "Caesar crosses the Rubicon" => conversation.made.push(Made {
+            RUBICON => conversation.made.push(Made {
                 kind: ArtifactKind::Diagram,
                 body: MadeBody::Diagram(RUBICON_DIAGRAM),
                 cites: &[
@@ -931,7 +949,7 @@ fn development_conversations() -> Vec<Conversation> {
         },
         Conversation {
             project: "Roman history",
-            title: "Fall of the Republic",
+            title: FALL_OF_THE_REPUBLIC,
             text: "My notes from the seminar and the overview article. @study why did Sulla matter?",
             hours_ago: 52,
             attachments: vec![
@@ -971,7 +989,7 @@ fn development_conversations() -> Vec<Conversation> {
         },
         Conversation {
             project: "Roman history",
-            title: "Caesar crosses the Rubicon",
+            title: RUBICON,
             text: "Lecture 9, plus a short article on the Rubicon.",
             hours_ago: 20,
             attachments: vec![
@@ -1058,7 +1076,7 @@ fn development_conversations() -> Vec<Conversation> {
         },
         Conversation {
             project: "Linear algebra",
-            title: "Eigenvalues",
+            title: EIGENVALUES,
             text: "Lecture 7, chapter 6 of the textbook and a photo of the whiteboard. @study what is an eigenvector?",
             hours_ago: 2,
             attachments: vec![
@@ -1179,7 +1197,7 @@ fn development_conversations() -> Vec<Conversation> {
         // open, so these show as stopped and can be started from the Pipelines page.
         Conversation {
             project: "Linear algebra",
-            title: "Exam revision",
+            title: EXAM_REVISION,
             text: "Everything for the revision week.",
             hours_ago: 3,
             attachments: ["lecture-08.mp3", "office-hours.m4a"]
@@ -1197,7 +1215,7 @@ fn development_conversations() -> Vec<Conversation> {
         },
         Conversation {
             project: "Linear algebra",
-            title: "Study plan",
+            title: STUDY_PLAN,
             text: "Plan for the exam: chapters 5 to 8, then past papers.",
             hours_ago: 1,
             attachments: ["study-plan.md", "grades.csv"]

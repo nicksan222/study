@@ -9,7 +9,9 @@ use std::{thread, time::Duration};
 
 use study_core::Result;
 
-use crate::desktop::{Desktop, START};
+use crate::desktop::{
+    Desktop, HEIGHT, PRESS_MS, RAIL_FIRST, RAIL_STEP, RAIL_WIDTH, RAIL_X, START, WIDTH,
+};
 
 /// One thing the visitor does.
 #[derive(Debug, Clone, PartialEq)]
@@ -18,17 +20,32 @@ pub enum Step {
     Hover { x: u32, y: u32 },
     /// Glide to the point and press the left button.
     Click { x: u32, y: u32 },
-    /// A key, held with the modifiers (`ctrl`, `shift`, ...).
+    /// A key, held with the modifiers.
     Key {
-        modifiers: &'static [&'static str],
+        modifiers: &'static [Modifier],
         key: &'static str,
     },
     /// Text typed at the speed of a person.
     Type { text: &'static str },
-    /// Wheel notches over a point; positive scrolls down.
-    Scroll { x: u32, y: u32, notches: i32 },
     /// Time to read the screen.
     Pause(u64),
+}
+
+/// A key that is held while another is pressed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Modifier {
+    Ctrl,
+    Shift,
+}
+
+impl Modifier {
+    /// The name `wtype` knows it by.
+    fn wtype_name(self) -> &'static str {
+        match self {
+            Self::Ctrl => "ctrl",
+            Self::Shift => "shift",
+        }
+    }
 }
 
 /// Time between typed characters.
@@ -39,8 +56,27 @@ const HOP_MS: u64 = 25;
 /// Rest after a pointer arrives before it presses, and after a key.
 const AIM_MS: u64 = 200;
 const KEY_MS: u64 = 250;
-/// Time between wheel notches.
-const NOTCH_MS: u64 = 140;
+
+/// A key on its own.
+fn key(key: &'static str) -> Step {
+    Step::Key {
+        modifiers: &[],
+        key,
+    }
+}
+
+/// A key held with `modifiers`.
+fn chord(modifiers: &'static [Modifier], key: &'static str) -> Step {
+    Step::Key { modifiers, key }
+}
+
+/// A click on row `n` of the rail on the left, counting Home as 0.
+fn rail(row: u32) -> Step {
+    Step::Click {
+        x: RAIL_X + RAIL_WIDTH / 2,
+        y: RAIL_FIRST + row * RAIL_STEP,
+    }
+}
 
 /// The tour recorded for the README, in the storyboard's order: Home, a cited answer and
 /// the moment it cites, a diagram, flashcards rated by keyboard, a graded practice answer
@@ -48,81 +84,54 @@ const NOTCH_MS: u64 = 140;
 /// again, Retry or Start, answers or grades a quiz question, or opens Pipelines, because each
 /// of those starts a model job.
 pub fn tour() -> Vec<Step> {
-    use Step::{Click, Hover, Key, Pause, Scroll, Type};
-    // The rail on the left, and the places the pages below put their controls.
-    let rail = |y| Click { x: 70, y };
-    let (home, projects, flashcards, diagrams, practice) = (67, 97, 157, 187, 217);
+    use Modifier::Ctrl;
+    use Step::{Click, Hover, Pause, Type};
+    let (home, projects, flashcards, diagrams, practice) = (0, 1, 3, 4, 5);
     vec![
         Pause(900),
         rail(projects),
-        Pause(500),
-        // Mitosis lecture: the answer, then its first citation opens the cited moment.
-        Click { x: 105, y: 448 },
         Pause(700),
-        Click { x: 370, y: 529 },
+        // Mitosis lecture: the answer, then its first citation opens the cited moment.
+        Click { x: 105, y: 495 },
+        Pause(500),
+        Click { x: 690, y: 558 },
         Pause(1000),
-        // The diagram, fitted to the view.
+        // Diagrams: one that runs past its canvas, then one that fits whole, with the
+        // pointer over it.
         rail(diagrams),
         Pause(1500),
-        Click { x: 87, y: 462 },
+        Click { x: 87, y: 516 },
         Pause(400),
-        Click { x: 1058, y: 213 },
-        Pause(600),
-        // Off the canvas, so no focus border lingers.
-        Click { x: 350, y: 90 },
-        Pause(300),
+        Hover {
+            x: (WIDTH + RAIL_WIDTH) / 2,
+            y: HEIGHT * 2 / 5,
+        },
+        Pause(1200),
         // Due cards of the nearest exam: reveal and rate two with the keyboard.
         rail(flashcards),
         Pause(500),
-        Click { x: 370, y: 327 },
+        Click { x: 688, y: 306 },
         Pause(500),
-        Key {
-            modifiers: &[],
-            key: "space",
-        },
+        key("space"),
         Pause(500),
-        Key {
-            modifiers: &[],
-            key: "3",
-        },
+        key("3"),
         Pause(300),
-        Key {
-            modifiers: &[],
-            key: "space",
-        },
+        key("space"),
         Pause(700),
-        Key {
-            modifiers: &[],
-            key: "3",
-        },
+        key("3"),
         Pause(300),
         // A past answer, graded, with its feedback.
         rail(practice),
-        Pause(500),
-        Click { x: 450, y: 555 },
-        Pause(600),
-        Scroll {
-            x: 700,
-            y: 450,
-            notches: 5,
-        },
-        Pause(2500),
+        Pause(900),
+        Click { x: 770, y: 555 },
+        Pause(2800),
         // One search across recordings, slides and articles.
-        Key {
-            modifiers: &["ctrl"],
-            key: "k",
-        },
+        chord(&[Ctrl], "k"),
         Pause(300),
         Type { text: "prophase" },
         Pause(2500),
-        Key {
-            modifiers: &[],
-            key: "Escape",
-        },
-        Key {
-            modifiers: &[],
-            key: "Escape",
-        },
+        key("Escape"),
+        key("Escape"),
         rail(home),
         Pause(700),
         // Back where the recording began, so the loop closes on its first frame.
@@ -135,9 +144,15 @@ pub fn tour() -> Vec<Step> {
 }
 
 /// Plays `steps` on the desktop, starting from where the pointer is after the warm-up.
-pub fn play(desktop: &Desktop, steps: &[Step]) -> Result<()> {
+/// `still_running` is asked before every step, so a dead app stops the tour.
+pub fn play(
+    desktop: &Desktop,
+    steps: &[Step],
+    mut still_running: impl FnMut() -> Result<()>,
+) -> Result<()> {
     let mut pointer = START;
     for step in steps {
+        still_running()?;
         match step {
             Step::Hover { x, y } => glide_to(desktop, &mut pointer, (*x, *y))?,
             Step::Click { x, y } => {
@@ -146,26 +161,15 @@ pub fn play(desktop: &Desktop, steps: &[Step]) -> Result<()> {
                 desktop.press()?;
             }
             Step::Key { modifiers, key } => {
-                desktop.run("wtype", &wtype_key(modifiers, key))?;
+                let args = wtype_key(modifiers, key);
+                desktop.run(
+                    "wtype",
+                    &args.iter().map(String::as_str).collect::<Vec<_>>(),
+                )?;
                 thread::sleep(Duration::from_millis(KEY_MS));
             }
             Step::Type { text } => {
-                desktop.run(
-                    "wtype",
-                    &["-d".into(), TYPING_MS.to_string(), (*text).into()],
-                )?;
-            }
-            Step::Scroll { x, y, notches } => {
-                desktop.warp(*x, *y)?;
-                pointer = (*x, *y);
-                for _ in 0..notches.unsigned_abs() {
-                    let amount = if *notches > 0 { "10" } else { "-10" };
-                    desktop.run(
-                        "wlrctl",
-                        &["pointer".into(), "scroll".into(), amount.into(), "0".into()],
-                    )?;
-                    thread::sleep(Duration::from_millis(NOTCH_MS));
-                }
+                desktop.run("wtype", &["-d", &TYPING_MS.to_string(), text])?;
             }
             Step::Pause(ms) => thread::sleep(Duration::from_millis(*ms)),
         }
@@ -201,17 +205,17 @@ fn glide(from: (u32, u32), to: (u32, u32)) -> Vec<(u32, u32)> {
 }
 
 /// `wtype` arguments for a key held with modifiers.
-fn wtype_key(modifiers: &[&str], key: &str) -> Vec<String> {
+fn wtype_key(modifiers: &[Modifier], key: &str) -> Vec<String> {
     let mut args: Vec<String> = modifiers
         .iter()
-        .flat_map(|name| ["-M".into(), (*name).into()])
+        .flat_map(|modifier| ["-M".into(), modifier.wtype_name().into()])
         .collect();
     args.extend(["-k".into(), key.into()]);
     args.extend(
         modifiers
             .iter()
             .rev()
-            .flat_map(|name| ["-m".into(), (*name).into()]),
+            .flat_map(|modifier| ["-m".into(), modifier.wtype_name().into()]),
     );
     args
 }
@@ -227,17 +231,13 @@ pub fn estimate(steps: &[Step]) -> Duration {
                 at = (*x, *y);
                 hops * HOP_MS
                     + if matches!(step, Step::Click { .. }) {
-                        AIM_MS + 60
+                        AIM_MS + PRESS_MS
                     } else {
                         0
                     }
             }
             Step::Key { .. } => KEY_MS,
             Step::Type { text } => text.chars().count() as u64 * TYPING_MS,
-            Step::Scroll { x, y, notches } => {
-                at = (*x, *y);
-                u64::from(notches.unsigned_abs()) * NOTCH_MS
-            }
             Step::Pause(ms) => *ms,
         };
     }
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn keys_release_their_modifiers_in_reverse() {
         assert_eq!(
-            wtype_key(&["ctrl", "shift"], "k"),
+            wtype_key(&[Modifier::Ctrl, Modifier::Shift], "k"),
             [
                 "-M", "ctrl", "-M", "shift", "-k", "k", "-m", "shift", "-m", "ctrl"
             ]

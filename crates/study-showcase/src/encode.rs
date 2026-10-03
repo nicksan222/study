@@ -4,6 +4,7 @@
 //! frame so the loop has no seam.
 
 use std::{
+    ffi::OsString,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -18,45 +19,53 @@ const FADE: f64 = 0.4;
 /// How long the first frame then holds still, so the dissolve ends fully on it.
 const HOLD: f64 = 0.3;
 
-/// Encodes `recording` into `output`, replacing it only if the new GIF is within bounds. The
-/// GIF is made next to the recording and copied into place, so a run that dies half way
-/// never leaves a stray file in `output`'s directory.
-pub fn gif(recording: &Path, output: &Path) -> Result<()> {
+/// What every FFmpeg run starts with: no banner or progress, and no reading of the terminal.
+const QUIET: [&str; 5] = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y"];
+
+/// Encodes `recording` into `output`, replacing it only if the new GIF is within bounds, and
+/// returns its size in bytes. The GIF is made next to the recording and copied into place, so
+/// a run that dies half way never leaves a stray file in `output`'s directory.
+pub fn gif(recording: &Path, output: &Path) -> Result<u64> {
     if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let partial = partial_path(recording, output);
     let first = recording.with_file_name("first.png");
-    let grabbed = Command::new("ffmpeg")
-        .args(["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i"])
-        .arg(recording)
-        .args(["-frames:v", "1"])
-        .arg(&first)
-        .status()
-        .context("cannot run ffmpeg")?;
-    if !grabbed.success() {
-        return Err(Error::msg(format!(
-            "ffmpeg cannot read the recording: {grabbed}"
-        )));
-    }
-    let status = Command::new("ffmpeg")
-        .args(arguments(recording, &first, &partial, duration(recording)?))
-        .status()
-        .context("cannot run ffmpeg")?;
+    let mut grab: Vec<OsString> = vec!["-i".into(), recording.into(), "-frames:v".into()];
+    grab.extend(["1".into(), first.clone().into()]);
+    ffmpeg(&grab, "cannot read the recording")?;
+    let encoded = ffmpeg(
+        &arguments(recording, &first, &partial, duration(recording)?),
+        "cannot encode the GIF",
+    );
     let size = std::fs::metadata(&partial).map_or(0, |meta| meta.len());
-    if !status.success() || size == 0 {
+    if let Err(error) = encoded {
         std::fs::remove_file(&partial).ok();
-        return Err(Error::msg(format!("ffmpeg failed: {status}")));
+        return Err(error);
     }
-    if size > MAX_BYTES {
+    if size == 0 || size > MAX_BYTES {
         std::fs::remove_file(&partial).ok();
         return Err(Error::msg(format!(
-            "the GIF is {size} bytes, over the {MAX_BYTES} limit: shorten the tour"
+            "the GIF is {size} bytes, outside 1..={MAX_BYTES}: shorten the tour or lower the frame rate"
         )));
     }
     std::fs::copy(&partial, output)?;
     std::fs::remove_file(&partial).ok();
-    Ok(())
+    Ok(size)
+}
+
+/// Runs FFmpeg with `args`, and fails with `what` and its exit status if it does.
+fn ffmpeg(args: &[OsString], what: &str) -> Result<()> {
+    let status = Command::new("ffmpeg")
+        .args(QUIET)
+        .args(args)
+        .status()
+        .context("cannot run ffmpeg")?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::msg(format!("ffmpeg {what}: {status}")))
+    }
 }
 
 /// Where the GIF is written until it is known to be good: beside the recording.
@@ -81,7 +90,8 @@ fn duration(recording: &Path) -> Result<f64> {
 }
 
 /// The filter graph: the recording at its own size, its last [`FADE`] seconds dissolved into
-/// the still of its first frame (the second input), which then holds for [`HOLD`], and one palette for the whole clip.
+/// the still of its first frame (the second input), which then holds for [`HOLD`], and one
+/// palette for the whole clip.
 fn filter(duration: f64) -> String {
     let offset = (duration - FADE).max(0.0);
     format!(
@@ -93,18 +103,8 @@ fn filter(duration: f64) -> String {
     )
 }
 
-fn arguments(
-    recording: &Path,
-    first: &Path,
-    output: &Path,
-    duration: f64,
-) -> Vec<std::ffi::OsString> {
-    let filter = filter(duration);
-    let mut args: Vec<std::ffi::OsString> =
-        ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i"]
-            .map(Into::into)
-            .into();
-    args.push(recording.into());
+fn arguments(recording: &Path, first: &Path, output: &Path, duration: f64) -> Vec<OsString> {
+    let mut args: Vec<OsString> = vec!["-i".into(), recording.into()];
     args.extend(
         [
             "-loop",
@@ -112,7 +112,7 @@ fn arguments(
             "-framerate",
             &FPS.to_string(),
             "-t",
-            &(FADE + HOLD).to_string(),
+            &format!("{:.3}", FADE + HOLD),
             "-i",
         ]
         .map(Into::into),
@@ -121,7 +121,7 @@ fn arguments(
     args.extend(
         [
             "-filter_complex",
-            &filter,
+            &filter(duration),
             "-an",
             "-map_metadata",
             "-1",
@@ -155,7 +155,15 @@ mod tests {
         let at = |name: &str| args.iter().rposition(|arg| arg == name).unwrap();
         assert_eq!(args[at("-loop") + 1], "0");
         assert!(args[at("-filter_complex") + 1].contains("palettegen"));
-        assert!(!args[at("-filter_complex") + 1].contains("lanczos"));
+        let resized = args[at("-filter_complex") + 1]
+            .split([';', ','])
+            .any(|step| {
+                step.rsplit(']')
+                    .next()
+                    .unwrap_or(step)
+                    .starts_with("scale=")
+            });
+        assert!(!resized, "the GIF keeps the recording's size");
         assert_eq!(args.last().unwrap(), "out.gif.partial");
     }
 
