@@ -22,7 +22,6 @@ use study_ui::units;
 /// What a kind of material is called.
 pub(in crate::ui::screens::shell::page) fn kind_label(kind: ArtifactKind) -> Message {
     match kind {
-        ArtifactKind::Notes => Message::KindNotes,
         ArtifactKind::Flashcards => Message::KindFlashcards,
         ArtifactKind::Diagram => Message::KindDiagram,
     }
@@ -31,7 +30,6 @@ pub(in crate::ui::screens::shell::page) fn kind_label(kind: ArtifactKind) -> Mes
 /// The icon a kind of material is drawn with.
 pub(in crate::ui::screens::shell::page) fn kind_icon(kind: ArtifactKind) -> IconName {
     match kind {
-        ArtifactKind::Notes => IconName::SquarePen,
         ArtifactKind::Flashcards => IconName::Shapes,
         ArtifactKind::Diagram => IconName::Workflow,
     }

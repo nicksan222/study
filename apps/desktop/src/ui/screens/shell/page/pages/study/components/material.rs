@@ -1,12 +1,12 @@
-//! One piece of study material, opened: a header that says what it is, then its text,
+//! One piece of study material, opened: a header that says what it is, then its
 //! flashcards to turn over, or a diagram to move around in, and its sources.
 
 use super::super::ids;
 use super::super::page::Piece;
 use super::card_face::{card_face, progress_bar};
 use crate::ui::screens::shell::page::pages::components::{
-    Alert, OnCite, citation_chip, job_problem_parts, material_status, material_writing,
-    named_field, prose_citing, setup_requirement, status_icon,
+    Alert, citation_chip, job_problem_parts, material_status, material_writing, named_field,
+    setup_requirement, status_icon,
 };
 use crate::ui::screens::shell::page::*;
 use gpui_kit::base::TestSupportExt as _;
@@ -26,7 +26,6 @@ use study_ui::{ContentPage, PageIntro, button, units};
 
 /// The extensions material is saved with.
 const SVG: &str = "svg";
-const MARKDOWN: &str = "md";
 const TEXT: &str = "txt";
 
 /// How tall a flashcard in the set's grid is at least, in units.
@@ -44,9 +43,9 @@ impl AppShell {
         cx: &mut Context<Self>,
     ) -> ContentPage {
         let unit = units(cx);
-        // Text is read, so it sits in the reading column with its header and sources;
+        // What is not written yet sits in the reading column with its header and sources;
         // cards and diagrams spread over the whole width.
-        let reading = matches!(artifact.body, None | Some(ArtifactBody::Text { .. }));
+        let reading = artifact.body.is_none();
         let fit = |element: AnyElement| -> AnyElement {
             if reading {
                 read_column(element)
@@ -74,21 +73,6 @@ impl AppShell {
             return self.unwritten_material(page, artifact, locale, cx);
         };
         match body {
-            // Text reads as the page itself: body type in the reading column, no box.
-            ArtifactBody::Text { text: body } => {
-                page = page.item(fit(div()
-                    .w_full()
-                    .text_size(unit(study_ui::scale::TEXT_BODY))
-                    .child(prose_citing(
-                        body,
-                        Some((
-                            (ids::PROSE, artifact.id.get() as u64).into(),
-                            self.material_cite(artifact, cx),
-                        )),
-                        cx,
-                    ))
-                    .into_any_element()));
-            }
             ArtifactBody::Flashcards { cards } => {
                 page = page.item(self.keyed(self.flashcards(artifact, cards, locale, cx), cx));
             }
@@ -104,35 +88,6 @@ impl AppShell {
             page = page.item(fit(self.material_sources(artifact, locale, cx)));
         }
         page
-    }
-
-    /// What clicking a citation's number in the material's text does: opens the passage it
-    /// cites over the page, as its row under the text would.
-    fn material_cite(&self, artifact: &Artifact, cx: &mut Context<Self>) -> OnCite {
-        let shell = cx.entity().downgrade();
-        let cited: Vec<_> = artifact
-            .citations
-            .iter()
-            .filter_map(|citation| {
-                Some((
-                    citation.marker,
-                    citation.source_id?,
-                    citation.source_name.clone(),
-                    citation.anchor.clone(),
-                ))
-            })
-            .collect();
-        std::rc::Rc::new(move |marker, window, cx| {
-            let Some((_, source, name, anchor)) = cited.iter().find(|(m, ..)| *m == marker) else {
-                return;
-            };
-            let (source, name, anchor) = (*source, name.clone(), anchor.clone());
-            shell
-                .update(cx, |this, cx| {
-                    this.peek_source(source, name, anchor, window, cx)
-                })
-                .ok();
-        })
     }
 
     /// The passages the material cites, each opening where it is in its file: a quiet
@@ -289,7 +244,7 @@ impl AppShell {
     }
 
     /// Saves the material to a file where the student picks: a diagram as an SVG image,
-    /// flashcards as Anki imports them, and text as Markdown.
+    /// and flashcards as Anki imports them.
     fn save_button(
         &self,
         artifact: &Artifact,
@@ -301,7 +256,6 @@ impl AppShell {
         let (label, extension) = match body {
             ArtifactBody::Diagram { .. } => (Message::SaveImage, SVG),
             ArtifactBody::Flashcards { .. } => (Message::SaveForAnki, TEXT),
-            ArtifactBody::Text { .. } => (Message::SaveMarkdown, MARKDOWN),
         };
         let saved = self.study.saved == Some(id);
         study_ui::icon_button(

@@ -4,7 +4,7 @@
 //!
 //! Each session holds a note and its attachments: lectures transcribed minute by minute,
 //! slides and scans read page by page, articles saved from the web section by section. From
-//! the read ones come answers to notes that ask the assistant, and finished notes,
+//! the read ones come answers to notes that ask the assistant, and finished
 //! flashcards and diagrams, each citing the passages it rests on. Material belongs to the
 //! project, so what a later session makes of the same kind updates it. Some flashcards were
 //! reviewed over the last days, so a streak shows and some cards are due; some courses have
@@ -15,7 +15,7 @@
 //! stopped, never read), sessions added after a piece was made leaving it out of date, some
 //! pieces never made, and one update (cell biology's diagram) declined by its writer for
 //! having too little to go on. The showcase has none of these: every file is read and every
-//! course has up-to-date notes, flashcards and a diagram.
+//! course has up-to-date flashcards and a diagram.
 //!
 //! Only finished, failed, and stopped work is seeded. A queued job would run as soon as the
 //! app opens, so work that was in progress is seeded as stopped instead, ready to start from
@@ -157,8 +157,6 @@ pub(crate) type Passage = (usize, usize);
 
 /// What a piece of finished material holds.
 pub(crate) enum MadeBody {
-    /// Notes, in Markdown citing `[n]`.
-    Text(&'static str),
     /// Flashcards: question, answer, and the passages each rests on.
     Cards(&'static [(&'static str, &'static str, &'static [u32])]),
     /// A Mermaid flowchart whose cards cite `[n]`.
@@ -499,9 +497,6 @@ impl Seeder<'_> {
         let (artifact, job) = self.request_update(project, made.kind, &sources)?;
         let job = job.expect("an update is queued");
         let body = match made.body {
-            MadeBody::Text(text) => ArtifactBody::Text {
-                text: text.to_owned(),
-            },
             MadeBody::Diagram(mermaid) => ArtifactBody::Diagram {
                 mermaid: mermaid.to_owned(),
             },
@@ -756,24 +751,24 @@ mod tests {
                 .is_some_and(|job| job.status.is_stopped())
         );
 
-        // Sessions added after linear algebra's notes were made leave them out of date.
+        // Sessions added after linear algebra's flashcards were made leave them out of date.
         let algebra = projects
             .iter()
             .find(|p| p.name == "Linear algebra")
             .unwrap();
-        let notes = db
+        let cards = db
             .list_material(algebra.id)?
             .into_iter()
             .filter_map(|piece| piece.current)
-            .find(|artifact| artifact.kind == ArtifactKind::Notes)
-            .expect("linear algebra's notes");
+            .find(|artifact| artifact.kind == ArtifactKind::Flashcards)
+            .expect("linear algebra's flashcards");
         let read = db
             .project_material(algebra.id)?
             .sources
             .into_iter()
             .filter(|source| db.document_of(*source).unwrap().is_some())
             .collect::<Vec<_>>();
-        let changes = db.material_changes(notes.id, &read)?.unwrap();
+        let changes = db.material_changes(cards.id, &read)?.unwrap();
         assert_eq!((changes.files, changes.notes), (0, 2));
 
         // Some cards are due again, and there is a streak of reviews.
@@ -834,7 +829,7 @@ mod tests {
             }
             for made in &conversation.made {
                 let used = match made.body {
-                    MadeBody::Text(text) | MadeBody::Diagram(text) => markers(text),
+                    MadeBody::Diagram(text) => markers(text),
                     MadeBody::Cards(cards) => cards
                         .iter()
                         .flat_map(|(_, _, cites)| cites.iter().map(|&marker| marker as usize))

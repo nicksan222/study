@@ -7,9 +7,7 @@ use std::sync::Arc;
 use study_core::db::{Database, Job, NewJob, Store};
 use study_core::jobs::{JobHandler, Lane, wrong_target};
 use study_core::processing::{BoxFuture, Enhancer, EnhancerInput, Excerpt};
-use study_core::{
-    ArtifactBody, ArtifactId, ArtifactStatus, Citation, ErrorKind, Failure, JobKind, cited_markers,
-};
+use study_core::{ArtifactBody, ArtifactId, ArtifactStatus, Citation, ErrorKind, Failure, JobKind};
 
 use super::{EnhancerSet, Sifter};
 use crate::index::excerpts_of_sources;
@@ -143,9 +141,7 @@ fn begin(
 
 /// The passages a body cites, each once, in marker order.
 fn citations(body: &ArtifactBody, excerpts: &[Excerpt]) -> Vec<Citation> {
-    let max = excerpts.len() as u32;
     let markers: Vec<u32> = match body {
-        ArtifactBody::Text { text } => cited_markers(text, max),
         ArtifactBody::Flashcards { cards } => {
             cards.iter().flat_map(|card| card.cites.clone()).collect()
         }
@@ -180,17 +176,6 @@ mod tests {
     }
 
     #[test]
-    fn a_text_cites_each_listed_passage_once_in_marker_order() {
-        let body = ArtifactBody::Text {
-            text: "ATP [3]. Membranes [1][3]. Nothing [9].".into(),
-        };
-        let cited = citations(&body, &excerpts(3));
-        assert_eq!(markers(&cited), [1, 3]);
-        assert_eq!(cited[1].quote, "page 3");
-        assert_eq!(cited[1].anchor, Anchor::Page { page: 3 });
-    }
-
-    #[test]
     fn cards_and_diagrams_cite_what_their_items_rest_on() {
         let card = |cites: Vec<u32>| Flashcard {
             front: "Q".into(),
@@ -213,7 +198,7 @@ mod tests {
 
     impl Enhancer for Recording {
         fn kind(&self) -> study_core::ArtifactKind {
-            study_core::ArtifactKind::Notes
+            study_core::ArtifactKind::Diagram
         }
 
         fn enhance<'a>(
@@ -223,8 +208,8 @@ mod tests {
             Box::pin(async move {
                 let mut seen = self.0.lock().unwrap();
                 seen.push(material.clone());
-                Ok(ArtifactBody::Text {
-                    text: format!("version {}", seen.len()),
+                Ok(ArtifactBody::Diagram {
+                    mermaid: format!("version {}", seen.len()),
                 })
             })
         }
@@ -252,7 +237,7 @@ mod tests {
                     &read_nothing,
                 )?;
                 let (first, _) =
-                    database.request_update(project.id, study_core::ArtifactKind::Notes, &[])?;
+                    database.request_update(project.id, study_core::ArtifactKind::Diagram, &[])?;
                 Ok((project.id, first))
             })
             .await
@@ -261,7 +246,7 @@ mod tests {
         let second = store
             .run(move |database| {
                 Ok(database
-                    .request_update(project, study_core::ArtifactKind::Notes, &[])?
+                    .request_update(project, study_core::ArtifactKind::Diagram, &[])?
                     .0)
             })
             .await
@@ -273,8 +258,8 @@ mod tests {
         assert_eq!(seen[0].notes, "Cells burn sugar.");
         assert_eq!(
             seen[1].previous,
-            Some(ArtifactBody::Text {
-                text: "version 1".into()
+            Some(ArtifactBody::Diagram {
+                mermaid: "version 1".into()
             })
         );
         assert!(

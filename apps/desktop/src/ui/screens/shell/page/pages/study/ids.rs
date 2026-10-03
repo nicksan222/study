@@ -32,9 +32,6 @@ pub const MATERIAL_RETRY: &str = "material-retry";
 pub const MATERIAL_SETTINGS: &str = "material-settings";
 /// A source cited by material; the id packs the material's id and the citation's marker.
 pub const CITATION: &str = "material-citation";
-/// The text of a piece of material, whose citation chips open what they cite; with the
-/// material's id.
-pub const PROSE: &str = "material-prose";
 /// A flashcard, turned over by a click and named by its question; the id packs the
 /// material's id and the card.
 pub const FLASHCARD: &str = "material-flashcard";

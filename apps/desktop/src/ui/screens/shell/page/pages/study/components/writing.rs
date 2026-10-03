@@ -14,9 +14,6 @@ use study_ui::{ContentPage, units};
 /// How long one breath of the outline takes.
 const BREATH: std::time::Duration = std::time::Duration::from_millis(1600);
 
-/// The widths of the outline's lines of text, as shares of the column.
-const LINES: [f32; 7] = [0.42, 0.96, 0.88, 0.93, 0.7, 0.9, 0.55];
-
 impl AppShell {
     /// The material being written: what is being made and how far it is, over an outline of
     /// it that breathes until it is done.
@@ -89,14 +86,12 @@ impl AppShell {
 /// What the card above the outline says is being made.
 fn writing_title(kind: ArtifactKind) -> Message {
     match kind {
-        ArtifactKind::Notes => Message::WritingNotes,
         ArtifactKind::Flashcards => Message::WritingFlashcards,
         ArtifactKind::Diagram => Message::DrawingDiagram,
     }
 }
 
-/// The shape of what is coming, in the neutral `tone`: a page of lines, a grid of cards, or
-/// a few joined boxes.
+/// The shape of what is coming, in the neutral `tone`: a grid of cards or a few joined boxes.
 fn outline(kind: ArtifactKind, tone: Hsla, cx: &mut Context<AppShell>) -> AnyElement {
     let unit = units(cx);
     let bar = |share: f32, height: f32| {
@@ -107,26 +102,6 @@ fn outline(kind: ArtifactKind, tone: Hsla, cx: &mut Context<AppShell>) -> AnyEle
             .bg(tone)
     };
     match kind {
-        ArtifactKind::Notes => div()
-            .w_full()
-            .flex()
-            .justify_center()
-            .child(
-                LINES.iter().enumerate().fold(
-                    panel(cx)
-                        .max_w(unit(study_ui::scale::COLUMN_READ))
-                        .gap(unit(study_ui::scale::SPACE_MD)),
-                    |column, (index, &share)| {
-                        // Notes open each topic with a heading.
-                        let heading = kind == ArtifactKind::Notes && index % 3 == 0;
-                        column.child(bar(
-                            if heading { share * 0.5 } else { share },
-                            if heading { 16. } else { 10. },
-                        ))
-                    },
-                ),
-            )
-            .into_any_element(),
         ArtifactKind::Flashcards => (0..4)
             .fold(
                 div().w_full().grid().grid_cols(2).gap(unit(12.)),

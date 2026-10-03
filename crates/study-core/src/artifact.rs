@@ -15,8 +15,6 @@ use serde::{Deserialize, Serialize};
 crate::text_enum! {
     /// What kind of material an artifact is.
     pub enum ArtifactKind {
-        /// Structured study notes: headings and points.
-        Notes = "notes",
         /// Question and answer cards, reviewed with spaced repetition.
         Flashcards = "flashcards",
         /// A hand-drawn diagram of the ideas and how they connect: cards with details,
@@ -38,10 +36,6 @@ crate::text_enum! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ArtifactBody {
-    /// Notes, in Markdown, citing passages as `[n]`.
-    Text {
-        text: String,
-    },
     Flashcards {
         cards: Vec<Flashcard>,
     },
@@ -53,25 +47,23 @@ pub enum ArtifactBody {
 }
 
 impl ArtifactBody {
-    /// Whether this body has the shape `kind` is written in: text for notes,
-    /// cards for flashcards, a diagram for a diagram.
+    /// Whether this body has the shape `kind` is written in: cards for flashcards, a
+    /// diagram for a diagram.
     pub fn fits(&self, kind: ArtifactKind) -> bool {
         // Exhaustive over the kind, so a new kind must name the body it is written as.
         match kind {
-            ArtifactKind::Notes => matches!(self, Self::Text { .. }),
             ArtifactKind::Flashcards => matches!(self, Self::Flashcards { .. }),
             ArtifactKind::Diagram => matches!(self, Self::Diagram { .. }),
         }
     }
 
-    /// The material as plain text to paste elsewhere: text as its Markdown, a diagram as
-    /// its Mermaid flowchart, and flashcards one per line as front, a tab, and back (what
+    /// The material as plain text to paste elsewhere: a diagram as its Mermaid flowchart,
+    /// and flashcards one per line as front, a tab, and back (what
     /// Anki and most flashcard apps import).
     pub fn exported(&self) -> String {
         // A card's own tabs and line breaks would split it in two.
         let field = crate::text::collapse_whitespace;
         match self {
-            Self::Text { text } => text.trim().to_owned(),
             Self::Diagram { mermaid } => mermaid.trim().to_owned(),
             Self::Flashcards { cards } => cards
                 .iter()
@@ -106,15 +98,14 @@ mod tests {
             }],
         };
         assert_eq!(cards.exported(), "What makes ATP?\tMitochondria, mostly");
-        let text = ArtifactBody::Text {
-            text: "\n# Cells\n".into(),
+        let diagram = ArtifactBody::Diagram {
+            mermaid: "\nflowchart TD\n".into(),
         };
-        assert_eq!(text.exported(), "# Cells");
+        assert_eq!(diagram.exported(), "flowchart TD");
     }
 
-    fn bodies() -> [ArtifactBody; 3] {
+    fn bodies() -> [ArtifactBody; 2] {
         [
-            ArtifactBody::Text { text: "t".into() },
             ArtifactBody::Flashcards { cards: Vec::new() },
             ArtifactBody::Diagram {
                 mermaid: "flowchart TD".into(),

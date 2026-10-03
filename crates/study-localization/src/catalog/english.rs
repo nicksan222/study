@@ -23,7 +23,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::MediaList => "Library",
         Message::Projects => "Projects",
         Message::Sessions => "Sessions",
-        Message::StudyNotes => "Notes",
         Message::Flashcards => "Flashcards",
         Message::Diagrams => "Diagrams",
         Message::Practice => "Practice",
@@ -101,11 +100,11 @@ pub(super) fn text(message: Message) -> &'static str {
         }
         Message::OnboardingAskTitle => "Ask when you want",
         Message::OnboardingAskText => {
-            "Type @study to ask a question that cites your own files. Study pages make notes, flashcards and diagrams from a whole project."
+            "Type @study to ask a question that cites your own files. Study pages make flashcards and diagrams from a whole project."
         }
         Message::OnboardingReviewTitle => "Review what matters",
         Message::OnboardingReviewText => {
-            "Notes, flashcards and practice questions from your own material."
+            "Flashcards, diagrams and practice questions from your own material."
         }
         Message::OnboardingLookTitle => "Make it yours",
         Message::OnboardingLookIntro => {
@@ -245,7 +244,7 @@ pub(super) fn text(message: Message) -> &'static str {
             "Everything you study for this course: sessions, files and study material."
         }
         Message::ProjectEmptyDescription => {
-            "Start a session to take notes and add files, then make notes, flashcards and diagrams from it on their pages."
+            "Start a session to take notes and add files, then make flashcards and diagrams from it on their pages."
         }
         Message::ProjectDetails => "Project details",
         Message::ViewProjectFiles => "View files",
@@ -365,9 +364,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::DetailPreview => "Preview",
 
         // Study: material and reviews
-        Message::NotesDescription => {
-            "Study notes made from your sessions: headings, key terms and definitions, each cited."
-        }
         Message::FlashcardsDescription => {
             "Cards made from your sessions, reviewed when they are due."
         }
@@ -398,11 +394,9 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::CardTapToReveal => "Click to see the answer",
         Message::PreviousCard => "Previous card",
         Message::NextCard => "Next card",
-        Message::KindNotes => "Study notes",
         Message::KindFlashcards => "Flashcards",
         Message::KindDiagram => "Diagram",
         Message::WritingMaterial => "Writing…",
-        Message::WritingNotes => "Writing your notes…",
         Message::WritingFlashcards => "Writing your flashcards…",
         Message::DrawingDiagram => "Drawing your diagram…",
         Message::WritingMaterialHint => {
@@ -419,7 +413,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::MaterialCopied => "Copied",
         Message::SaveImage => "Save as image (SVG)",
         Message::SaveForAnki => "Save for Anki",
-        Message::SaveMarkdown => "Save as Markdown",
         Message::MaterialSaved => "Saved",
         Message::UntitledMaterial => "Untitled",
         Message::StartReview => "Review",
@@ -809,7 +802,7 @@ pub(super) fn text(message: Message) -> &'static str {
         }
         Message::HelpStudyTitle => "Review",
         Message::HelpStudyBody => {
-            "To make or update a project's notes, flashcards or diagram, open its page, or the project, and press Make or Update. Each page lists the projects and what was made of its kind from each. Update rewrites it from the project as it is now. Flashcards come back when they are due: the Flashcards page and Home say how many are due today. Edit, add or delete any card."
+            "To make or update a project's flashcards or diagram, open its page, or the project, and press Make or Update. Each page lists the projects and what was made of its kind from each. Update rewrites it from the project as it is now. Flashcards come back when they are due: the Flashcards page and Home say how many are due today. Edit, add or delete any card."
         }
         Message::HelpPracticeTitle => "Practice",
         Message::HelpPracticeBody => {

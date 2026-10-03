@@ -666,7 +666,9 @@ mod tests {
         );
 
         // A body of the wrong shape is refused.
-        let text = ArtifactBody::Text { text: "no".into() };
+        let text = ArtifactBody::Diagram {
+            mermaid: "no".into(),
+        };
         assert!(db.finish_artifact(id, &text, &[]).is_err());
 
         db.begin_artifact(id)?;

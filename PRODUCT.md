@@ -35,7 +35,7 @@ reviewed and practised their own material, without managing a pile of separate t
   learner's own ChatGPT plan.
 - **No extra subscription.** The language models run on the ChatGPT plan the learner already
   has (Plus or Pro), so Study adds no AI bill.
-- **From notes to exam.** The learner's own material becomes study notes, diagrams, flashcards
+- **From notes to exam.** The learner's own material becomes diagrams, flashcards
   on a spaced-repetition schedule, and endless graded practice, counting down to each exam.
 
 ## Operating Context
@@ -56,7 +56,7 @@ reviewed and practised their own material, without managing a pile of separate t
 
 ## Capabilities and Constraints
 
-- Pages today: Home, Projects, Sessions, Study (notes, flashcards, diagrams), Practice, media lists, Pipelines
+- Pages today: Home, Projects, Sessions, Study (flashcards, diagrams), Practice, media lists, Pipelines
   (processing), Settings, Help, and the onboarding tour.
 - Model work (reading pages and PDFs, answers, titles, material, quiz questions and grades)
   runs only on the learner's ChatGPT plan. Speech-to-text and embeddings run locally, and

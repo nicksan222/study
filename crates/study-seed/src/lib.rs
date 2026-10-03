@@ -23,7 +23,7 @@ pub fn demo(database: &Database) -> Result<bool> {
 }
 
 /// Like [`demo`], but for showing the app: every file is read, every course has up-to-date
-/// notes, flashcards and a diagram, and no work is left to run but the indexing of what was
+/// flashcards and a diagram, and no work is left to run but the indexing of what was
 /// read (the pipeline writes the passages), so no screen shows a failure or an update to
 /// make.
 pub fn showcase(database: &Database) -> Result<bool> {

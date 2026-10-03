@@ -1,6 +1,6 @@
 //! The enhancers: one implementation of [`Enhancer`] per [`ArtifactKind`], run when the
-//! user asks to make study material from chosen sources, such as "make notes" or "make
-//! flash cards". The routes say which each kind of source offers. The `Artifact` job runs
+//! user asks to make study material from chosen sources, such as "make flash
+//! cards". The routes say which each kind of source offers. The `Artifact` job runs
 //! the enhancer of its artifact's kind once the sources are read (it waits for them), with
 //! numbered [`Excerpt`](study_core::processing::Excerpt)s it cites: every passage of the
 //! sources, less what the [`Sifter`] (the tiny tier) drops as not worth studying, fitted to
@@ -8,7 +8,6 @@
 //!
 //! | Enhancer          | Module        | Kind         | Made by                                                      |
 //! |-------------------|---------------|--------------|--------------------------------------------------------------|
-//! | [`NotesWriter`]   | `material.rs` | `Notes`      | an agent on the medium tier                                  |
 //! | [`CardWriter`]    | `material.rs` | `Flashcards` | an agent on the medium tier                                  |
 //! | [`DiagramWriter`] | `diagram.rs`  | `Diagram`    | an agent on the smart tier, asked again to fix its flowchart |
 //!
@@ -19,7 +18,7 @@
 //!
 //! - **an agent**: a unit struct implementing [`AgentSpec`] with `Input = EnhancerInput`
 //!   and `Output = ArtifactBody`, plus [`EnhancerAgent`] naming its kind (copy
-//!   [`NotesWriter`] in `material.rs`), and one [`agent`] line in
+//!   [`CardWriter`] in `material.rs`), and one [`agent`] line in
 //!   [`EnhancerSet::builtin`]; or
 //! - **anything else**: a type implementing [`Enhancer`] directly, and one line there.
 //!
@@ -33,7 +32,7 @@ mod sift;
 
 use diagram::DiagramWriter;
 pub(crate) use handler::EnhanceHandler;
-use material::{CardWriter, NotesWriter};
+use material::CardWriter;
 pub use sift::Sifter;
 
 use std::marker::PhantomData;
@@ -90,7 +89,6 @@ impl EnhancerSet {
     /// enhancer is added here.
     pub fn builtin(agents: &AgentRuntime) -> Self {
         Self::new(vec![
-            agent::<NotesWriter>(agents),
             agent::<CardWriter>(agents),
             Arc::new(DiagramWriter::new(agents)),
         ])
@@ -113,12 +111,7 @@ mod tests {
     /// Agents are told apart in logs and traces by name, so a copied writer must be renamed.
     #[test]
     fn every_material_agent_has_its_own_name() {
-        let names = [
-            NotesWriter::NAME,
-            CardWriter::NAME,
-            DiagramDrafter::NAME,
-            PassageSifter::NAME,
-        ];
+        let names = [CardWriter::NAME, DiagramDrafter::NAME, PassageSifter::NAME];
         let distinct: std::collections::BTreeSet<_> = names.iter().collect();
         assert_eq!(distinct.len(), names.len(), "{names:?}");
     }

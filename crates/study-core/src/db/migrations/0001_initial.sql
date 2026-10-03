@@ -39,7 +39,7 @@ CREATE TABLE codes_part_kind (code TEXT PRIMARY KEY) WITHOUT ROWID;
 INSERT INTO codes_part_kind (code) VALUES ('text'), ('source');
 
 CREATE TABLE codes_artifact_kind (code TEXT PRIMARY KEY) WITHOUT ROWID;
-INSERT INTO codes_artifact_kind (code) VALUES ('notes'), ('flashcards'), ('diagram');
+INSERT INTO codes_artifact_kind (code) VALUES ('flashcards'), ('diagram');
 
 CREATE TABLE codes_extractor_kind (code TEXT PRIMARY KEY) WITHOUT ROWID;
 INSERT INTO codes_extractor_kind (code) VALUES ('transcription'), ('vision'), ('office'),

@@ -96,7 +96,7 @@ id! {
     pub struct RecordingId;
     /// A search passage.
     pub struct ChunkId;
-    /// Generated study material: notes, flashcards, a quiz or a diagram.
+    /// Generated study material: flashcards, a quiz or a diagram.
     pub struct ArtifactId;
     /// One flashcard, scheduled for review.
     pub struct CardId;

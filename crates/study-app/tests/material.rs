@@ -4,11 +4,12 @@
 mod common;
 
 use common::{Fixture, eventually};
-use study_app::views::{ArtifactBody, ArtifactKind, ArtifactStatus, JobKind, JobStatus, Rating};
+use study_app::views::{
+    ArtifactBody, ArtifactKind, ArtifactStatus, Flashcard, JobKind, JobStatus, Rating,
+};
 
 /// Words from the flashcard writer's instructions, which tell its requests apart.
 const CARDS: &str = "You write flashcards";
-const NOTES: &str = "You write study notes";
 const DIAGRAM: &str = "You draw diagrams";
 
 #[tokio::test(flavor = "multi_thread")]
@@ -65,17 +66,21 @@ async fn flashcards_from_a_project_are_written_citing_it_and_can_be_reviewed()
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn notes_wait_for_its_file_to_be_read() -> study_core::Result<()> {
+async fn flashcards_wait_for_their_file_to_be_read() -> study_core::Result<()> {
     let fixture = Fixture::start().await?;
     fixture
-        .answer(NOTES, "Mitochondria power the cell [1].")
+        .answer(
+            CARDS,
+            "{\"cards\": [{\"front\": \"What powers the cell?\", \"back\": \
+\"Mitochondria power the cell\", \"cites\": [1]}]}",
+        )
         .await;
     fixture
         .import("cells.txt", "mitochondria power the cell")
         .await?;
     let project = fixture.project;
     let id = fixture
-        .blocking(move |app| app.update_material(project, ArtifactKind::Notes))
+        .blocking(move |app| app.update_material(project, ArtifactKind::Flashcards))
         .await?;
 
     let job = fixture.finished(JobKind::Artifact).await?;
@@ -83,11 +88,15 @@ async fn notes_wait_for_its_file_to_be_read() -> study_core::Result<()> {
     let artifact = fixture.app.artifact(id)?.unwrap();
     assert_eq!(
         artifact.body,
-        Some(ArtifactBody::Text {
-            text: "Mitochondria power the cell [1].".into()
+        Some(ArtifactBody::Flashcards {
+            cards: vec![Flashcard {
+                front: "What powers the cell?".into(),
+                back: "Mitochondria power the cell".into(),
+                cites: vec![1],
+            }]
         })
     );
-    let prompts = fixture.prompts(NOTES).await;
+    let prompts = fixture.prompts(CARDS).await;
     assert!(prompts[0].contains("MITOCHONDRIA POWER THE CELL"));
     Ok(())
 }
@@ -174,7 +183,11 @@ async fn updating_twice_keeps_one_piece_over_the_whole_project_and_the_second_re
 -> study_core::Result<()> {
     let fixture = Fixture::start().await?;
     fixture
-        .answer(NOTES, "Mitochondria power the cell [1].")
+        .answer(
+            CARDS,
+            "{\"cards\": [{\"front\": \"What powers the cell?\", \"back\": \
+\"Mitochondria power the cell\", \"cites\": [1]}]}",
+        )
         .await;
     // A file in no session, and a session with a note and a file.
     fixture.import("history.txt", "the roman senate").await?;
@@ -188,7 +201,7 @@ async fn updating_twice_keeps_one_piece_over_the_whole_project_and_the_second_re
         .await?;
     let project = fixture.project;
     let first = fixture
-        .blocking(move |app| app.update_material(project, ArtifactKind::Notes))
+        .blocking(move |app| app.update_material(project, ArtifactKind::Flashcards))
         .await?;
     fixture.finished(JobKind::Artifact).await?;
     let piece = fixture.app.artifact(first)?.unwrap();
@@ -209,7 +222,7 @@ async fn updating_twice_keeps_one_piece_over_the_whole_project_and_the_second_re
         .await?;
     assert_eq!(changes.unwrap().notes, 1);
     let second = fixture
-        .blocking(move |app| app.update_material(project, ArtifactKind::Notes))
+        .blocking(move |app| app.update_material(project, ArtifactKind::Flashcards))
         .await?;
     assert_ne!(second, first);
     eventually_complete(&fixture, second).await?;
@@ -223,16 +236,16 @@ async fn updating_twice_keeps_one_piece_over_the_whole_project_and_the_second_re
         fixture.app.artifact(first)?.is_none(),
         "the old text is gone"
     );
-    let prompts = fixture.prompts(NOTES).await;
+    let prompts = fixture.prompts(CARDS).await;
     assert_eq!(prompts.len(), 2);
     assert!(!prompts[0].contains("<previous_version>"));
     assert!(prompts[1].contains("<previous_version>"), "{}", prompts[1]);
-    assert!(prompts[1].contains("Mitochondria power the cell."));
+    assert!(prompts[1].contains("Back: Mitochondria power the cell"));
 
     // Deleting the piece deletes it.
     assert!(
         fixture
-            .blocking(move |app| app.delete_material(project, ArtifactKind::Notes))
+            .blocking(move |app| app.delete_material(project, ArtifactKind::Flashcards))
             .await?
     );
     assert!(fixture.app.material(project)?.is_empty());
@@ -260,7 +273,7 @@ async fn notes_alone_are_enough_and_nothing_at_all_is_refused() -> study_core::R
     let fixture = Fixture::start().await?;
     let project = fixture.project;
     let refused = fixture
-        .blocking(move |app| app.update_material(project, ArtifactKind::Notes))
+        .blocking(move |app| app.update_material(project, ArtifactKind::Flashcards))
         .await
         .unwrap_err();
     assert_eq!(refused.kind(), study_core::ErrorKind::Unsupported);
@@ -270,14 +283,14 @@ async fn notes_alone_are_enough_and_nothing_at_all_is_refused() -> study_core::R
         .post(session.id, "Ask about the Krebs cycle", &[])
         .await?;
     let id = fixture
-        .blocking(move |app| app.update_material(project, ArtifactKind::Notes))
+        .blocking(move |app| app.update_material(project, ArtifactKind::Flashcards))
         .await?;
     let update = fixture.app.artifact(id)?.unwrap();
     assert!(update.sources.is_empty());
     assert!(update.notes.contains("Krebs"));
     // Asked again before it is written, it is the same update.
     let again = fixture
-        .blocking(move |app| app.update_material(project, ArtifactKind::Notes))
+        .blocking(move |app| app.update_material(project, ArtifactKind::Flashcards))
         .await?;
     assert_eq!(again, id);
     Ok(())

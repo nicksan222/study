@@ -121,7 +121,7 @@ fn deleting_a_note_cascades_to_its_answer_threads_and_jobs() -> Result<()> {
     )?;
     let answer = db.list_messages(session)?.pop().expect("the answer");
     let source = db.list_sources()?[0].id;
-    let (studied, _) = db.request_update(project, crate::ArtifactKind::Notes, &[source])?;
+    let (studied, _) = db.request_update(project, crate::ArtifactKind::Diagram, &[source])?;
 
     // The answer alone takes its job.
     assert!(db.delete_message(answer.id)?);

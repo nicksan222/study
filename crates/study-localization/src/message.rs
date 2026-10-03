@@ -28,7 +28,6 @@ pub enum Message {
     Projects,
     Sessions,
     /// The pages of study material, one per kind.
-    StudyNotes,
     Flashcards,
     Diagrams,
     Practice,
@@ -331,7 +330,6 @@ pub enum Message {
     DetailPreview,
 
     // Study: material and reviews
-    NotesDescription,
     FlashcardsDescription,
     DiagramsDescription,
     LoadingStudy,
@@ -364,12 +362,10 @@ pub enum Message {
     CardTapToReveal,
     PreviousCard,
     NextCard,
-    KindNotes,
     KindFlashcards,
     KindDiagram,
     WritingMaterial,
     /// A piece of each kind being written, and what to expect meanwhile.
-    WritingNotes,
     WritingFlashcards,
     DrawingDiagram,
     WritingMaterialHint,
@@ -384,7 +380,6 @@ pub enum Message {
     /// Saving a diagram as an image, and when that fails.
     SaveImage,
     SaveForAnki,
-    SaveMarkdown,
     /// What a save button says once it has saved.
     MaterialSaved,
     /// The file name material is saved under when its title leaves no name.

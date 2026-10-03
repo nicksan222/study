@@ -1,4 +1,4 @@
-//! Study material of a project: notes, flashcards and diagrams.
+//! Study material of a project: flashcards and diagrams.
 //!
 //! A piece of material is one project's one kind of it. It has at most one complete artifact,
 //! the one the student sees, and at most one unfinished artifact, the update being written or
@@ -531,7 +531,13 @@ mod tests {
     /// Finishes artifact `id` with a text body.
     fn finish(db: &Database, id: ArtifactId, text: &str) -> Result<()> {
         db.begin_artifact(id)?;
-        db.finish_artifact(id, &ArtifactBody::Text { text: text.into() }, &[])?;
+        db.finish_artifact(
+            id,
+            &ArtifactBody::Diagram {
+                mermaid: text.into(),
+            },
+            &[],
+        )?;
         Ok(())
     }
 
@@ -540,7 +546,7 @@ mod tests {
         let (_dir, db) = Database::temporary()?;
         let project = db.create_project("Biology")?;
         assert!(
-            db.request_update(project.id, ArtifactKind::Notes, &[])
+            db.request_update(project.id, ArtifactKind::Diagram, &[])
                 .is_err()
         );
         assert!(
@@ -549,7 +555,7 @@ mod tests {
         );
 
         note(&db, &project, "Cells burn sugar.")?;
-        let (id, job) = db.request_update(project.id, ArtifactKind::Notes, &[])?;
+        let (id, job) = db.request_update(project.id, ArtifactKind::Diagram, &[])?;
         assert!(job.is_some());
         assert_eq!(db.artifact(id)?.unwrap().notes, "Cells burn sugar.");
         Ok(())
@@ -564,32 +570,32 @@ mod tests {
 
         let mut ids = Vec::new();
         for text in ["one", "two", "three"] {
-            let (id, job) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+            let (id, job) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
             assert!(job.is_some());
             finish(&db, id, text)?;
             ids.push(id);
         }
         let (cards, _) = db.request_update(project.id, ArtifactKind::Flashcards, &[source.id])?;
-        db.request_update(other.id, ArtifactKind::Notes, &[rome.id])?;
+        db.request_update(other.id, ArtifactKind::Diagram, &[rome.id])?;
 
         // Each update replaced the one before: only the last is left.
         assert!(db.artifact(ids[0])?.is_none() && db.artifact(ids[1])?.is_none());
         let kept = db.artifact(ids[2])?.unwrap();
         assert_eq!(
             kept.body,
-            Some(ArtifactBody::Text {
-                text: "three".into()
+            Some(ArtifactBody::Diagram {
+                mermaid: "three".into()
             })
         );
         let complete: i64 = db.connection.query_row(
             "SELECT count(*) FROM artifacts
-             WHERE project_id = ?1 AND kind = 'notes' AND status = 'complete'",
+             WHERE project_id = ?1 AND kind = 'diagram' AND status = 'complete'",
             [project.id],
             |row| row.get(0),
         )?;
         assert_eq!(complete, 1);
 
-        // The pieces of the project, newest first: flashcards (not made yet) then the notes.
+        // The pieces of the project, newest first: flashcards (not made yet) then the diagram.
         let shown: Vec<_> = db
             .list_material(project.id)?
             .iter()
@@ -608,13 +614,13 @@ mod tests {
     fn an_unfinished_update_leaves_the_current_piece_shown() -> Result<()> {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
-        let (first, _) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (first, _) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         let pieces = |db: &Database| db.list_material(project.id);
         let made = &pieces(&db)?[0];
         assert!(made.current.is_none(), "nothing written yet");
         assert_eq!(made.update.as_ref().map(|update| update.id), Some(first));
         finish(&db, first, "one")?;
-        let (second, _) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (second, _) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
 
         let piece = &pieces(&db)?[0];
         assert_eq!(piece.update.as_ref().map(|update| update.id), Some(second));
@@ -623,7 +629,12 @@ mod tests {
                 .current
                 .as_ref()
                 .map(|current| (current.id, current.body.clone())),
-            Some((first, Some(ArtifactBody::Text { text: "one".into() })))
+            Some((
+                first,
+                Some(ArtifactBody::Diagram {
+                    mermaid: "one".into()
+                })
+            ))
         );
         assert_eq!(
             db.current_of(second)?.map(|current| current.id),
@@ -645,13 +656,13 @@ mod tests {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
         let (first, first_job) =
-            db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+            db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         assert_eq!(
             db.claim_job(&[JobKind::Artifact])?.unwrap().id,
             first_job.unwrap()
         );
         finish(&db, first, "one")?;
-        let (second, job) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (second, job) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         let job = job.unwrap();
         assert_eq!(db.claim_job(&[JobKind::Artifact])?.unwrap().id, job);
         db.begin_artifact(second)?;
@@ -674,13 +685,13 @@ mod tests {
     fn only_a_set_of_mistakes_is_deleted_by_itself_and_only_material_has_changes() -> Result<()> {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
-        let (id, _) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (id, _) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         finish(&db, id, "one")?;
 
         assert!(!db.delete_artifact(id)?, "material goes with its piece");
         assert!(db.artifact(id)?.is_some());
         assert!(db.material_changes(id, &[source.id])?.is_some());
-        assert!(db.delete_material(project.id, ArtifactKind::Notes)?);
+        assert!(db.delete_material(project.id, ArtifactKind::Diagram)?);
         Ok(())
     }
 
@@ -688,7 +699,7 @@ mod tests {
     fn asking_while_the_update_failed_starts_over_from_the_project_as_it_is_now() -> Result<()> {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
-        let (id, job) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (id, job) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         let job = job.unwrap();
         assert_eq!(db.claim_job(&[JobKind::Artifact])?.unwrap().id, job);
         db.begin_artifact(id)?;
@@ -700,7 +711,7 @@ mod tests {
         std::fs::write(&extra, "alleles")?;
         let added = db.import_source(&extra, Some(project.id))?;
         let (again, queued) =
-            db.request_update(project.id, ArtifactKind::Notes, &[source.id, added.id])?;
+            db.request_update(project.id, ArtifactKind::Diagram, &[source.id, added.id])?;
         assert_ne!(again, id, "the failed attempt is gone");
         assert!(queued.is_some_and(|queued| queued != job));
         assert!(db.artifact(id)?.is_none());
@@ -712,7 +723,7 @@ mod tests {
         assert_eq!(held, expected);
         // Asked again meanwhile, nothing more is queued.
         assert_eq!(
-            db.request_update(project.id, ArtifactKind::Notes, &[source.id])?,
+            db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?,
             (again, None)
         );
         Ok(())
@@ -722,17 +733,17 @@ mod tests {
     fn finishing_an_update_whose_piece_was_deleted_does_nothing() -> Result<()> {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
-        let (id, job) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (id, job) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         assert_eq!(
             db.claim_job(&[JobKind::Artifact])?.unwrap().id,
             job.unwrap()
         );
         db.begin_artifact(id)?;
-        assert!(db.delete_material(project.id, ArtifactKind::Notes)?);
+        assert!(db.delete_material(project.id, ArtifactKind::Diagram)?);
         assert!(!db.finish_artifact(
             id,
-            &ArtifactBody::Text {
-                text: "late".into()
+            &ArtifactBody::Diagram {
+                mermaid: "late".into()
             },
             &[]
         )?);
@@ -744,16 +755,16 @@ mod tests {
     fn asking_while_an_update_is_unfinished_queues_nothing_more() -> Result<()> {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
-        let (id, job) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (id, job) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         assert!(job.is_some());
 
         assert_eq!(
-            db.request_update(project.id, ArtifactKind::Notes, &[source.id])?,
+            db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?,
             (id, None)
         );
         db.begin_artifact(id)?;
         assert_eq!(
-            db.request_update(project.id, ArtifactKind::Notes, &[source.id])?,
+            db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?,
             (id, None),
             "being written"
         );
@@ -765,7 +776,7 @@ mod tests {
         assert_eq!(jobs, 1);
 
         finish(&db, id, "done")?;
-        let (next, job) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (next, job) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         assert_ne!(next, id, "a finished piece is updated by a new row");
         assert!(job.is_some());
         Ok(())
@@ -788,7 +799,7 @@ mod tests {
         assert_eq!(held.sources, [source.id]);
         assert_eq!(held.notes, "First lecture.\nSecond lecture.");
 
-        let (id, _) = db.request_update(project.id, ArtifactKind::Notes, &held.sources)?;
+        let (id, _) = db.request_update(project.id, ArtifactKind::Diagram, &held.sources)?;
         finish(&db, id, "notes")?;
         let made = db.artifact(id)?.unwrap();
         assert_eq!(made.notes, held.notes);
@@ -810,7 +821,7 @@ mod tests {
         let (project, cells) = cells(&db, dir.path())?;
         let kept = note(&db, &project, "Cells burn sugar.")?;
         let edited = note(&db, &project, "Mitochondria make ATP.")?;
-        let (id, _) = db.request_update(project.id, ArtifactKind::Notes, &[cells.id])?;
+        let (id, _) = db.request_update(project.id, ArtifactKind::Diagram, &[cells.id])?;
         finish(&db, id, "notes")?;
         let changes = |offered: &[crate::SourceId]| db.material_changes(id, offered);
         assert!(changes(&[cells.id])?.unwrap().is_none(), "up to date");
@@ -856,7 +867,7 @@ mod tests {
     fn a_finished_artifact_keeps_its_citations_after_its_source_is_deleted() -> Result<()> {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
-        let (id, _) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (id, _) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         let pending = db.artifact(id)?.unwrap();
         assert_eq!(
             (pending.title.as_str(), pending.status, pending.body),
@@ -870,8 +881,8 @@ mod tests {
             anchor: Anchor::Page { page: 1 },
             quote: "mitochondria".into(),
         };
-        let body = ArtifactBody::Text {
-            text: "Cells burn sugar [1].".into(),
+        let body = ArtifactBody::Diagram {
+            mermaid: "Cells burn sugar [1].".into(),
         };
         assert!(db.begin_artifact(id)?);
         assert!(db.finish_artifact(id, &body, std::slice::from_ref(&citation))?);
@@ -885,9 +896,9 @@ mod tests {
         assert_eq!(orphaned.citations[0].source_id, None);
         assert_eq!(orphaned.citations[0].quote, citation.quote);
 
-        assert!(db.delete_material(project.id, ArtifactKind::Notes)?);
+        assert!(db.delete_material(project.id, ArtifactKind::Diagram)?);
         assert!(!db.finish_artifact(id, &body, &[])?, "gone");
-        assert!(!db.delete_material(project.id, ArtifactKind::Notes)?);
+        assert!(!db.delete_material(project.id, ArtifactKind::Diagram)?);
         Ok(())
     }
 
@@ -895,7 +906,7 @@ mod tests {
     fn deleting_a_project_deletes_its_material_and_cards() -> Result<()> {
         let (dir, db) = Database::temporary()?;
         let (project, source) = cells(&db, dir.path())?;
-        let (id, _) = db.request_update(project.id, ArtifactKind::Notes, &[source.id])?;
+        let (id, _) = db.request_update(project.id, ArtifactKind::Diagram, &[source.id])?;
         finish(&db, id, "x")?;
         assert!(db.delete_project(project.id)?);
         assert!(db.artifact(id)?.is_none());

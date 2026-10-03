@@ -1,4 +1,4 @@
-//! The pages of study material: Notes, Flashcards and Diagrams, one per
+//! The pages of study material: Flashcards and Diagrams, one per
 //! `ArtifactKind`, drawn by this one folder. Each page's sidebar lists the projects: one with
 //! a piece of the kind opens it, one without shows Make. A piece is written from the whole
 //! project and has one status, [`MaterialStatus`]: updating it rewrites it while the current
@@ -233,7 +233,7 @@ pub(in crate::ui::screens::shell::page) struct StudyState {
 impl Default for StudyState {
     fn default() -> Self {
         Self {
-            kind: ArtifactKind::Notes,
+            kind: ArtifactKind::Flashcards,
             chosen: HashMap::new(),
             projects: Vec::new(),
             due: HashMap::new(),
@@ -1111,7 +1111,6 @@ impl AppShell {
 /// What the page of `kind` is for, under its title.
 fn description(kind: ArtifactKind) -> Message {
     match kind {
-        ArtifactKind::Notes => Message::NotesDescription,
         ArtifactKind::Flashcards => Message::FlashcardsDescription,
         ArtifactKind::Diagram => Message::DiagramsDescription,
     }

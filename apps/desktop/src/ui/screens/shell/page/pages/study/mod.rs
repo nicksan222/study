@@ -1,4 +1,4 @@
-//! The pages of study material (Notes, Flashcards, Diagrams); `page.rs` says
+//! The pages of study material (Flashcards, Diagrams); `page.rs` says
 //! what they do.
 
 mod components;
