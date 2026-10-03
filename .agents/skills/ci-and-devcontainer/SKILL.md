@@ -22,8 +22,8 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   the same Python packaging scripts directly; their tools are pinned in the release workflow.
 - **GitHub workflows run on the runner, not in the devcontainer,** except the Linux
   release. `.github/actions/setup` installs the build subset of the Dockerfile's apt
-  packages, Rust from `rust-toolchain.toml` and pinned `just`, and restores a build cache
-  that only `main` saves. Keep its packages and pins aligned with the Dockerfile.
+  packages, Rust from `rust-toolchain.toml` and pinned `just`, and restores the build cache
+  (every branch saves its own; a pull request starts from main's). Keep its packages and pins aligned with the Dockerfile.
   - CI (`ci.yml`): lint (`check-shell fmt-check deny lint docs`) and `just test` run as
     parallel jobs, with dependencies built unoptimized. `Test and build` is the one required
     check; it passes when both jobs passed. The runner's own Docker runs the tests that need

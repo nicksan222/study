@@ -2,7 +2,7 @@ name: Set up the runner
 description: >-
   Installs what the `just` recipes need straight on the GitHub runner: the build subset of
   .devcontainer/Dockerfile's apt packages, Rust from rust-toolchain.toml, pinned just, and a
-  build cache that only main saves. Keep the packages and pins aligned with the Dockerfile.
+  build cache. Keep the packages and pins aligned with the Dockerfile.
 
 inputs:
   packages:
@@ -47,7 +47,6 @@ runs:
     - name: Restore build cache
       uses: Swatinem/rust-cache@v2
       with:
+        # Every branch saves its own cache. A pull request's first run restores main's, so it
+        # recompiles only what it changed; its later runs restore its own.
         key: optimize-dependencies-${{ inputs.optimize-dependencies }}
-        # Pull requests restore main's cache and never save their own, so the cache quota holds
-        # one copy per job.
-        save-if: ${{ github.ref == 'refs/heads/main' }}
