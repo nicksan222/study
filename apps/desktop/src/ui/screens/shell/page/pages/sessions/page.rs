@@ -217,12 +217,15 @@ impl SessionsState {
     pub(in crate::ui::screens::shell::page::pages::sessions) fn row_marks(
         &self,
         chatgpt: crate::ui::screens::shell::page::pages::components::ChatGptState,
+        window: &Window,
+        cx: &gpui_kit::App,
     ) -> super::components::RowMarks<'_> {
         super::components::RowMarks {
             deleting: self.deleting,
             copied: self.copied,
             chatgpt,
             versions: &self.versions,
+            focused: self.versions.focused_bar(window, cx),
         }
     }
 

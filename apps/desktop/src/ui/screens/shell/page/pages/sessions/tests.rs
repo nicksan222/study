@@ -1235,6 +1235,101 @@ fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
     assert_eq!(written, "", "tabbing indents nothing");
 }
 
+/// Every entry's actions are reached by Shift+Tab from the composer, as the real app draws
+/// them: no pointer over anything, nothing focused yet, a note with versions and an answer.
+#[gpui_kit::test]
+fn every_entrys_actions_are_reached_by_tab(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let typed = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("Mitochondria make ATP"),
+            &|_, _| true,
+        )
+        .unwrap();
+    database
+        .edit_message(typed.id, "Mitochondria make most ATP")
+        .unwrap();
+    database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("@study what makes ATP?"),
+            &|_, _| true,
+        )
+        .unwrap();
+    let answer = database.list_messages(session.id).unwrap().pop().unwrap();
+    let job = database.claim_job(&[JobKind::Reply]).unwrap().unwrap();
+    let first = database
+        .begin_version(answer.id, JobKind::Reply)
+        .unwrap()
+        .unwrap();
+    database
+        .finish_version(first.id, "Mitochondria.", &[])
+        .unwrap();
+    database.succeed_job(job.id, &[]).unwrap();
+
+    let (window, shell) = open_offline_shell(cx, &app, false);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    click(cx, window, ids::COMPOSER);
+    let reached = |cx: &mut TestAppContext| -> Vec<gpui_kit::ElementId> {
+        cx.update_window(window, |_, window, cx| {
+            gpui_kit::test::TestWindowExt::render_frame(window, cx);
+            gpui_kit::base::test_support::snapshots(window)
+                .into_iter()
+                .filter(|element| format!("{element:?}").contains("focused: Some(true)"))
+                .filter_map(|element| element.path().last().cloned())
+                .collect()
+        })
+        .unwrap()
+    };
+    let mut seen = Vec::new();
+    let mut slots = 0;
+    for _ in 0..40 {
+        cx.simulate_keystrokes(window, "shift-tab");
+        let now = reached(cx);
+        // The bar shows while a control in it has focus: the entry says so, with no pointer
+        // anywhere, so its ring is not drawn on something invisible.
+        for message in [typed.id, answer.id] {
+            let bar_control = [ids::DELETE_MESSAGE, ids::COPY_MESSAGE, ids::EDIT_MESSAGE]
+                .into_iter()
+                .any(|id| now.contains(&(id, message.get() as u64).into()));
+            if bar_control {
+                let shown = cx
+                    .update_window(window, |_, window, cx| {
+                        shell.read(cx).sessions.versions.focused_bar(window, cx)
+                    })
+                    .unwrap();
+                assert_eq!(shown, Some(message), "the bar shows under focus");
+            }
+        }
+        seen.extend(now);
+        slots += cx
+            .update_window(window, |_, window, cx| {
+                shell
+                    .read(cx)
+                    .sessions
+                    .versions
+                    .focus
+                    .values()
+                    .any(|focus| focus.ai.is_focused(window))
+            })
+            .unwrap() as usize;
+    }
+    for message in [typed.id, answer.id] {
+        for id in [ids::DELETE_MESSAGE, ids::COPY_MESSAGE, ids::EDIT_MESSAGE] {
+            let expected: gpui_kit::ElementId = (id, message.get() as u64).into();
+            assert!(seen.contains(&expected), "Shift+Tab reaches {expected:?}");
+        }
+    }
+    assert!(slots >= 2, "Shift+Tab reaches both AI edit buttons");
+}
+
 /// A session holding one note, opened on the page.
 fn open_note(
     cx: &mut TestAppContext,

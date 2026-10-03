@@ -60,6 +60,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
     let unit = units(cx);
     let shown = marks.deleting == Some(message.id)
         || marks.copied == Some(message.id)
+        || marks.focused == Some(message.id)
         || versions.menu == Some(message.id);
     // The bar follows the content in the tree, so the keyboard reaches an entry's words,
     // versions, files and folds, then its actions, before the next entry: reading order.
@@ -219,6 +220,9 @@ pub(in crate::ui::screens::shell::page::pages::sessions) struct RowMarks<'a> {
     pub(in crate::ui::screens::shell::page::pages::sessions) chatgpt: ChatGptState,
     /// What the entries' versions are doing: edits, menus and switchers.
     pub(in crate::ui::screens::shell::page::pages::sessions) versions: &'a VersionsState,
+    /// The entry whose action bar has focus inside it: its bar shows, so the keyboard sees
+    /// where it is.
+    pub(in crate::ui::screens::shell::page::pages::sessions) focused: Option<MessageId>,
 }
 
 /// The group every message row is, so its time and actions show while it is hovered.

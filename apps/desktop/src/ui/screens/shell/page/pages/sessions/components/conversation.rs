@@ -85,7 +85,7 @@ impl AppShell {
                 &state.expanded,
                 &state.shown,
                 open_thread,
-                state.row_marks(self.chatgpt_state()),
+                state.row_marks(self.chatgpt_state(), window, cx),
                 cx,
             );
             // Notes written together sit close; a new moment starts further down.

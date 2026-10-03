@@ -187,25 +187,30 @@ pub(in crate::ui::screens::shell::page) fn stopped_line_parts(
     cx: &mut Context<AppShell>,
 ) -> Vec<AnyElement> {
     let colors = cx.theme().colors;
-    let (tint, what) = if job.status == JobStatus::Failed {
-        (colors.danger, Problem::of_job(job).explanation())
-    } else {
-        (colors.muted_foreground, Message::StatusStopped)
-    };
-    vec![
-        div()
-            .text_color(tint)
-            .whitespace_normal()
-            .child(text(locale, what))
-            .into_any_element(),
-        div()
-            .child(study_localization::separator())
-            .into_any_element(),
+    let mut parts = Vec::new();
+    // A stopped version says nothing more: the switcher already names it, so only the way to
+    // try again is left. A failed one says why.
+    if job.status == JobStatus::Failed {
+        parts.push(
+            div()
+                .text_color(colors.danger)
+                .whitespace_normal()
+                .child(text(locale, Problem::of_job(job).explanation()))
+                .into_any_element(),
+        );
+        parts.push(
+            div()
+                .child(study_localization::separator())
+                .into_any_element(),
+        );
+    }
+    parts.push(
         retry_button(retry_id, job, retry, locale, cx)
             .ghost()
             .xsmall()
             .into_any_element(),
-    ]
+    );
+    parts
 }
 
 /// A button to the Settings section that sets up `kind` (read from `source`), when

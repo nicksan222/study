@@ -311,7 +311,7 @@ impl AppShell {
             header = header.context(name);
         }
 
-        let body = self.thread_body(thread, locale, cx);
+        let body = self.thread_body(thread, locale, window, cx);
 
         let footer = div()
             .flex_none()
@@ -357,6 +357,7 @@ impl AppShell {
         &self,
         thread: Option<&Thread>,
         locale: Locale,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> gpui_kit::Div {
         let unit = units(cx);
@@ -420,7 +421,7 @@ impl AppShell {
                         &state.expanded,
                         &state.shown,
                         None,
-                        state.row_marks(self.chatgpt_state()),
+                        state.row_marks(self.chatgpt_state(), window, cx),
                         cx,
                     ));
                 }

@@ -16,7 +16,7 @@ use gpui_kit::component::popover::Popover;
 use gpui_kit::component::{Disableable as _, Selectable, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    Anchor, AnyElement, AppContext as _, Context, Entity, FocusHandle, Hsla,
+    Anchor, AnyElement, App, AppContext as _, Context, Entity, FocusHandle, Hsla,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Pixels, RenderOnce,
     StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
 };
@@ -107,6 +107,19 @@ impl VersionsState {
             finished: HashMap::new(),
             _subscriptions: [edited, instructed],
         }
+    }
+
+    /// The entry with focus inside its action bar, if any. The bar shows while it has, so a
+    /// control reached by Tab is seen and its ring is not hidden with it.
+    pub(in crate::ui::screens::shell::page::pages::sessions) fn focused_bar(
+        &self,
+        window: &Window,
+        cx: &App,
+    ) -> Option<MessageId> {
+        self.focus
+            .iter()
+            .find(|(_, focus)| focus.bar.contains_focused(window, cx))
+            .map(|(id, _)| *id)
     }
 
     /// Whether `id` has its words being edited.
@@ -462,9 +475,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
         .opacity(if shown { 1. } else { 0. })
         .group_hover(group, |style| style.opacity(1.));
     if let Some(focus) = versions.focus.get(&id) {
-        bar = bar
-            .track_focus(&focus.bar)
-            .in_focus(|style| style.opacity(1.));
+        bar = bar.track_focus(&focus.bar);
     }
     for action in actions_of(message) {
         let button = match action {
