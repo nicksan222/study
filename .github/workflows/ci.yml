@@ -7,20 +7,39 @@ on:
 permissions:
   contents: read
 
+# Every check runs inside the devcontainer, built from .devcontainer/, so CI and the agents
+# share one toolchain and one package list. The image is cached in GHCR; only the release build
+# on main pushes it.
+env:
+  # The container's cargo registry lives in the bind-mounted workspace, so the runner's
+  # rust-cache saves it next to the container's target directory.
+  CARGO_HOME: ${{ github.workspace }}/target/cargo-home
+
 jobs:
-  linux:
-    # Every check runs inside the devcontainer, built from .devcontainer/, so CI and the agents
-    # share one toolchain and one package list. The image is cached in GHCR; only main pushes
-    # it.
-    name: Test and build
+  test:
+    # `just check-crate` for one package: format, Clippy, tests, doctests and API docs. Each
+    # package runs in parallel, listed in the order of the crate map in AGENTS.md. A new crate
+    # or app needs a line here, or it is not tested.
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-    env:
-      # The container's cargo registry lives in the bind-mounted workspace, so the runner's
-      # rust-cache saves it next to the container's target directory.
-      CARGO_HOME: ${{ github.workspace }}/target/cargo-home
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { package: study-core, title: "🧱 Core" }
+          - { package: study-diagram, title: "📐 Diagram" }
+          - { package: study-ui, title: "🎨 UI" }
+          - { package: study-localization, title: "🌍 Localization" }
+          - { package: study-media, title: "🎞️ Media" }
+          - { package: study-ai, title: "🤖 AI" }
+          - { package: study-pipeline, title: "🏭 Pipeline" }
+          - { package: study-app, title: "⚙️ App service" }
+          - { package: study, title: "🖥️ Desktop app" }
+          - { package: study-testkit, title: "🧰 Testkit" }
+          - { package: study-showcase, title: "🎬 Showcase" }
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -34,7 +53,68 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target/devcontainer"
-      - name: Test and build
+          # One debug cache for every package, saved by the desktop app, which builds nearly all
+          # of them.
+          shared-key: devcontainer
+          save-if: ${{ matrix.package == 'study' }}
+      - name: Check ${{ matrix.package }}
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+            PACKAGE=${{ matrix.package }}
+          runCmd: just check-crate "$PACKAGE"
+
+  workspace:
+    # What is not per package: formatting of the whole tree, shell scripts and dependencies.
+    name: 🧹 Workspace checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Sign in to GitHub Packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Format, shell scripts and dependencies
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just fmt-check check-shell deny
+
+  build:
+    name: 🚀 Release build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Sign in to GitHub Packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target/devcontainer"
+          shared-key: devcontainer-release
+      - name: Build the desktop app
         uses: devcontainers/ci@v0.3
         with:
           imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
@@ -43,5 +123,20 @@ jobs:
           refFilterForPush: refs/heads/main
           env: |
             CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
-          runCmd: just check && just build
+          runCmd: just build
 
+  done:
+    # The one required check: its name is in the `main` ruleset, so keep it. It passes only when
+    # every job above passed, every package included.
+    name: Test and build
+    needs: [test, workspace, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$RESULTS"
+          jq -e 'all(.[]; .result == "success")' <<<"$RESULTS" >/dev/null
