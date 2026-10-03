@@ -78,9 +78,12 @@ reviewer reads in minutes, a few hundred lines at most; split anything larger.
 - The lead sends that slice alone to the reviewer (and to `upgrade-reviewer` when the
   slice touches what it checks). The developer fixes findings in the same slice; the
   reviewer re-checks only those fixes.
-- Once a slice passes, the lead stages its files. The next review scope is the unstaged
-  diff, so every review sees only new work. If the user asked for unstaged delivery, the
-  lead unstages everything at the end.
+- Before review, the lead marks the slice's new files with `git add -N` (intent to add),
+  so the unstaged `git diff` shows their contents too. Once a slice passes, the lead
+  stages its files. The next review scope is the unstaged `git diff`, so every review
+  sees only new work. If the user asked for unstaged delivery, the lead restores only
+  the task's paths with `git restore --staged <paths>` at the end, leaving any staged
+  work recorded at the start untouched.
 - QA, student and the final `just check` run on the combined result, not on every slice.
 - A finding that changes the plan goes back to the lead, who reorders or re-scopes the
   remaining slices instead of growing the current one.

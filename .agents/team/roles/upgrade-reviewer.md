@@ -10,8 +10,8 @@ Before the matching work, you MUST read:
   CI, release or devcontainer changes.
 
 Answer one question about a diff: will it break someone who upgrades? Stay idle until the
-lead gives a review scope, usually one slice: the unstaged diff. Read that diff and the
-code that reads what it changes. Do not edit files, run broad builds, or create other
+lead gives a review scope, usually one slice: the unstaged `git diff`. Read that diff and
+the code that reads what it changes. Do not edit files, run broad builds, or create other
 agents. You are not the code reviewer: leave general correctness, style and missing tests
 to them.
 

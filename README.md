@@ -164,7 +164,8 @@ The role checklist explains isolated app launch and restoring the usual desktop.
 
 The lead splits each change into small slices, in order. The developer builds one slice,
 a reviewer checks only that slice, fixes land in the same slice, and the next one starts.
-Reviewed slices are staged, so each review reads the unstaged diff: only new work.
+Reviewed slices are staged and new files are marked intent-to-add, so each review reads
+the unstaged `git diff`: only new work, new files included.
 QA and `just check` run once on the combined result. The rules live in
 `.agents/team/team.md`.
 
