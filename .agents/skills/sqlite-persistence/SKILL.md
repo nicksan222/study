@@ -13,6 +13,6 @@ description: Use when planning or implementing schema, queries, migrations or da
   write causes in that same transaction. Publish bus events only after the commit.
 - Store enums as text with a `CHECK` list. Keep one Rust mapping per enum and a round-trip
   test against the `CHECK` list.
-- Test against `Database::temporary()` or `Store::temporary()` (the `seed` feature).
+- Test against `Database::temporary()` or `Store::temporary()` (the `testing` feature).
 - Keep blocking database work off the GPUI thread and the async runtime. Don't hold a
   connection across `.await`.

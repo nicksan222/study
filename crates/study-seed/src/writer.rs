@@ -1,6 +1,6 @@
 //! Sample data: five courses as a student would have them, so every screen has something
-//! real to show. What they say is in `seed_courses.rs`; this writes it. There are two
-//! samples, [`Sample`], over the same courses and writers.
+//! real to show. What they say is in `courses.rs`; this writes it. There are two samples,
+//! [`Sample`], over the same courses and writers.
 //!
 //! Each session holds a note and its attachments: lectures transcribed minute by minute,
 //! slides and scans read page by page, articles saved from the web section by section. From
@@ -24,27 +24,27 @@
 //! passages are written by the pipeline, not here), so search finds them once background
 //! work starts; the showcase's only unfinished work is that indexing.
 
-use super::seed_courses::{COURSES, QUIZ_COURSE, conversations, practice_questions};
-use super::seed_files::sample as sample_file;
-use super::{
+use crate::courses::{COURSES, QUIZ_COURSE, conversations, practice_questions};
+use crate::files::sample as sample_file;
+use std::ops::Deref;
+use std::path::Path;
+use study_core::db::{
     Answered, Database, JobTarget, MessageRole, NewJob, NewPart, Place, read_nothing,
     unix_timestamp,
 };
-use crate::processing::{ExtractorKind, ProcessingPreferences};
-use crate::{
+use study_core::processing::{ExtractorKind, ProcessingPreferences};
+use study_core::{
     Anchor, ArtifactBody, ArtifactKind, Block, BlockKind, Citation, Document, DocumentMeta,
-    ErrorKind, Flashcard, JobId, JobKind, JobStatus, MessageId, ProjectId, QuestionStatus, Rating,
-    Result, SessionId, SourceId, SourceKind,
+    ErrorKind, Flashcard, JobKind, JobStatus, MessageId, ProjectId, QuestionStatus, Rating, Result,
+    SessionId, SourceId, SourceKind,
 };
-use rusqlite::params;
-use std::path::Path;
 
 const HOUR: i64 = 3600;
 const DAY: i64 = 24 * HOUR;
 
 /// Which sample to write. Both share the courses, content and writers.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(super) enum Sample {
+pub(crate) enum Sample {
     /// For development: every status shows, so failed, stopped and declined work, outdated
     /// material and unread files are there to look at.
     Development,
@@ -54,7 +54,7 @@ pub(super) enum Sample {
 }
 
 /// How one seeded read ended.
-pub(super) enum Outcome {
+pub(crate) enum Outcome {
     /// Read, into these blocks: a transcript's segments, a document's pages, an article's
     /// sections.
     Done {
@@ -69,13 +69,13 @@ pub(super) enum Outcome {
 
 /// An article saved from the web: its title, its address, and the anchor of each section
 /// it was read into, in order.
-pub(super) struct Web {
+pub(crate) struct Web {
     pub title: &'static str,
     pub url: &'static str,
     pub sections: &'static [&'static str],
 }
 
-pub(super) struct Attachment {
+pub(crate) struct Attachment {
     pub file: &'static str,
     /// How it is read; `None` for a file the samples never read.
     pub extractor: Option<ExtractorKind>,
@@ -153,10 +153,10 @@ impl Attachment {
 }
 
 /// A passage cited: the attachment it is in, and its block there.
-pub(super) type Passage = (usize, usize);
+pub(crate) type Passage = (usize, usize);
 
 /// What a piece of finished material holds.
-pub(super) enum MadeBody {
+pub(crate) enum MadeBody {
     /// Notes, in Markdown citing `[n]`.
     Text(&'static str),
     /// Flashcards: question, answer, and the passages each rests on.
@@ -168,13 +168,13 @@ pub(super) enum MadeBody {
 /// A piece of a project's material, finished once the session's attachments are read, from
 /// every file the project has read so far; marker `[n]` cites `cites[n - 1]`, a passage of
 /// the session's attachments.
-pub(super) struct Made {
+pub(crate) struct Made {
     pub kind: ArtifactKind,
     pub body: MadeBody,
     pub cites: &'static [Passage],
 }
 
-pub(super) struct Conversation {
+pub(crate) struct Conversation {
     pub project: &'static str,
     pub title: &'static str,
     pub text: &'static str,
@@ -216,7 +216,7 @@ fn sample_document(attachment: &Attachment) -> Document {
     let texts = attachment.blocks();
     let count = texts.len() as u64;
     let length_ms = u64::try_from(attachment.took).unwrap_or(0) * 1000;
-    let picture = crate::sniff(attachment.file, &[]).is_raster();
+    let picture = study_core::sniff(attachment.file, &[]).is_raster();
     let blocks: Vec<Block> = texts
         .iter()
         .enumerate()
@@ -292,22 +292,25 @@ fn citations(conversation: &Conversation, read: &[Read], cites: &[Passage]) -> V
         .collect()
 }
 
-impl Database {
-    /// Fills an empty database with sample courses, sessions, files, study material and a
-    /// quiz, showing every status. Returns `false`, changing nothing, when there are already
-    /// projects.
-    pub fn seed_demo(&self) -> Result<bool> {
-        self.seed(Sample::Development)
-    }
+/// Writes `sample` into `database` if it has no projects, and says whether it did.
+pub(crate) fn write(database: &Database, sample: Sample) -> Result<bool> {
+    Seeder { database }.seed(sample)
+}
 
-    /// Like [`seed_demo`](Self::seed_demo), but for showing the app: every file is read,
-    /// every course has up-to-date notes, flashcards and a diagram, and no work is left
-    /// to run but the indexing of what was read (the pipeline writes the passages), so no
-    /// screen shows a failure or an update to make.
-    pub fn seed_showcase(&self) -> Result<bool> {
-        self.seed(Sample::Showcase)
-    }
+/// The writers below, over one database.
+struct Seeder<'a> {
+    database: &'a Database,
+}
 
+impl Deref for Seeder<'_> {
+    type Target = Database;
+
+    fn deref(&self) -> &Database {
+        self.database
+    }
+}
+
+impl Seeder<'_> {
     fn seed(&self, sample: Sample) -> Result<bool> {
         if !self.list_projects()?.is_empty() {
             return Ok(false);
@@ -316,10 +319,7 @@ impl Database {
         for (name, exam_in) in COURSES {
             let project = self.create_project(name)?;
             if let Some(days) = exam_in {
-                self.connection.execute(
-                    "UPDATE projects SET exam_on = date('now', ?1) WHERE id = ?2",
-                    params![format!("+{days} days"), project.id],
-                )?;
+                self.set_exam_in_days(project.id, days)?;
             }
         }
         let scripted = conversations(sample);
@@ -379,12 +379,7 @@ impl Database {
             let source = part.content.source_id().expect("an attachment is a source");
             if let Some(web) = &attachment.web {
                 // Saved from the web: named for its page, and opening where it came from.
-                self.connection.execute(
-                    "UPDATE sources SET name = ?1, kind = ?2, mime = 'text/html', origin = 'web',
-                         uri = ?3
-                     WHERE id = ?4",
-                    params![web.title, SourceKind::Web, web.url, source],
-                )?;
+                self.mark_saved_from_web(source, web.title, web.url)?;
             }
             let (Some(job), Some(outcome)) = (part.jobs.first(), &attachment.outcome) else {
                 continue;
@@ -405,16 +400,18 @@ impl Database {
                 Outcome::Failed { kind, error } => (JobStatus::Failed, Some((*kind, *error))),
                 Outcome::Cancelled => (JobStatus::Cancelled, None),
             };
-            self.finish_seeded_job(job.id, status, failure, posted, finished)?;
+            self.settle_job(job.id, status, failure, posted, finished)?;
         }
         if let Some((answer, cites)) = conversation.answer {
             let cited = citations(conversation, &read, cites);
-            self.seed_answer(message.id, answer, &cited, posted)?;
+            self.seed_answer(session.id, message.id, answer, &cited, posted)?;
         }
-        self.connection.execute(
-            "UPDATE messages SET created_at = ?1 WHERE id = ?2 OR reply_to = ?2",
-            params![posted, message.id],
-        )?;
+        self.date_message(message.id, posted)?;
+        for reply in self.list_messages(session.id)? {
+            if reply.reply_to == Some(message.id) {
+                self.date_message(reply.id, posted)?;
+            }
+        }
         if let Some(root) = message.parts.get(1) {
             for (minutes, note) in (10..).step_by(10).zip(conversation.thread) {
                 let reply = self.post_message(
@@ -423,16 +420,10 @@ impl Database {
                     &[NewPart::Text((*note).to_owned())],
                     &read_nothing,
                 )?;
-                self.connection.execute(
-                    "UPDATE messages SET created_at = ?1 WHERE id = ?2",
-                    params![posted + minutes * 60, reply.id],
-                )?;
+                self.date_message(reply.id, posted + minutes * 60)?;
             }
         }
-        self.connection.execute(
-            "UPDATE sessions SET created_at = ?1, updated_at = ?1 WHERE id = ?2",
-            params![posted, session.id],
-        )?;
+        self.date_session(session.id, posted)?;
         let sources = message
             .parts
             .iter()
@@ -461,14 +452,14 @@ impl Database {
             let (artifact, job) = self.request_update(project, kind, &[source])?;
             let job = job.expect("an update is queued");
             let at = posted + HOUR;
-            self.finish_seeded_job(
+            self.settle_job(
                 job,
                 JobStatus::Failed,
                 Some((ErrorKind::NotEnough, why)),
                 at,
                 at + 40,
             )?;
-            self.date_artifact(artifact.get(), at)?;
+            self.date_artifact(artifact, at)?;
         }
         Ok(())
     }
@@ -480,42 +471,6 @@ impl Database {
             .find(|project| project.name == name)
             .expect("seeded project")
             .id)
-    }
-
-    /// Marks seeded job `id` as ended with `status` (and `failure`), between `started` and
-    /// `finished`.
-    fn finish_seeded_job(
-        &self,
-        id: JobId,
-        status: JobStatus,
-        failure: Option<(ErrorKind, &str)>,
-        started: i64,
-        finished: i64,
-    ) -> Result<()> {
-        self.connection.execute(
-            "UPDATE jobs
-             SET status = ?1, attempts = 1, error_kind = ?2, error = ?3,
-                 created_at = ?4, started_at = ?4, finished_at = ?5, updated_at = ?5
-             WHERE id = ?6",
-            params![
-                status,
-                failure.map(|(kind, _)| kind),
-                failure.map(|(_, error)| error),
-                started,
-                finished,
-                id
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Dates artifact `id` as made at `at`.
-    fn date_artifact(&self, id: i64, at: i64) -> Result<()> {
-        self.connection.execute(
-            "UPDATE artifacts SET created_at = ?1, updated_at = ?1 WHERE id = ?2",
-            params![at, id],
-        )?;
-        Ok(())
     }
 
     /// The files of `project` that were read and that the default plan offers `kind` from:
@@ -563,8 +518,8 @@ impl Database {
         };
         self.begin_artifact(artifact)?;
         self.finish_artifact(artifact, &body, cited)?;
-        self.finish_seeded_job(job, JobStatus::Succeeded, None, at - 50, at)?;
-        self.date_artifact(artifact.get(), at)?;
+        self.settle_job(job, JobStatus::Succeeded, None, at - 50, at)?;
+        self.date_artifact(artifact, at)?;
         Ok(())
     }
 
@@ -653,28 +608,18 @@ impl Database {
             }
         }
         let finished = unix_timestamp() - HOUR;
-        self.connection.execute(
-            "UPDATE jobs SET status = ?1, attempts = 1, started_at = ?2, finished_at = ?2,
-                 updated_at = ?2
-             WHERE question_id IN (SELECT id FROM practice_questions WHERE practice_id = ?3)",
-            params![JobStatus::Succeeded, finished, practice],
-        )?;
-        Ok(())
+        self.settle_practice_jobs(practice, finished)
     }
 
     /// The finished answer to `question`, citing `cited`.
     fn seed_answer(
         &self,
+        session: SessionId,
         question: MessageId,
         text: &str,
         cited: &[Citation],
         posted: i64,
     ) -> Result<()> {
-        let session: SessionId = self.connection.query_row(
-            "SELECT session_id FROM messages WHERE id = ?1",
-            params![question],
-            |row| row.get(0),
-        )?;
         let answer = self
             .list_messages(session)?
             .into_iter()
@@ -683,7 +628,7 @@ impl Database {
         let job = answer.reply.expect("an answer has a reply job");
         self.begin_reply(answer.id)?;
         self.finish_reply(answer.id, text, cited)?;
-        self.finish_seeded_job(
+        self.settle_job(
             job.id,
             JobStatus::Succeeded,
             None,
@@ -695,18 +640,18 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use super::super::seed_courses::conversations;
     use super::{MadeBody, Outcome, Passage, Sample};
-    use crate::Result;
-    use crate::processing::ProcessingPreferences;
-    use crate::{ArtifactKind, ErrorKind, JobKind, JobStatus, SourceKind};
+    use crate::courses::conversations;
     use std::collections::BTreeSet;
+    use study_core::Result;
+    use study_core::processing::ProcessingPreferences;
+    use study_core::{ArtifactKind, ErrorKind, JobKind, JobStatus, SourceKind};
 
     #[test]
     fn seeding_fills_an_empty_database_once() -> Result<()> {
-        let (_dir, db) = crate::db::Database::temporary()?;
-        assert!(db.seed_demo()?);
-        assert!(!db.seed_demo()?);
+        let (_dir, db) = study_core::db::Database::temporary()?;
+        assert!(crate::demo(&db)?);
+        assert!(!crate::demo(&db)?);
 
         let scripted = conversations(Sample::Development);
         let attachments = || scripted.iter().flat_map(|c| &c.attachments);
@@ -832,7 +777,7 @@ mod tests {
         assert_eq!((changes.files, changes.notes), (0, 2));
 
         // Some cards are due again, and there is a streak of reviews.
-        assert!(db.count_due_cards(None, crate::db::unix_timestamp(), 0)? > 0);
+        assert!(db.count_due_cards(None, study_core::db::unix_timestamp(), 0)? > 0);
         assert!(!db.review_times(None, 0)?.is_empty());
 
         // The mitosis recording has notes in its thread.
@@ -926,9 +871,9 @@ mod tests {
     /// course has every kind of material.
     #[test]
     fn the_showcase_shows_nothing_wrong() -> Result<()> {
-        let (_dir, db) = crate::db::Database::temporary()?;
-        assert!(db.seed_showcase()?);
-        assert!(!db.seed_showcase()?);
+        let (_dir, db) = study_core::db::Database::temporary()?;
+        assert!(crate::showcase(&db)?);
+        assert!(!crate::showcase(&db)?);
 
         let jobs = db.list_job_overviews(1000)?;
         assert!(!jobs.is_empty());
@@ -975,7 +920,7 @@ mod tests {
         let score = practices[0].score;
         assert_eq!((score.answered, score.correct), (4, 4));
         // Cards are due, but few.
-        let due = db.count_due_cards(None, crate::db::unix_timestamp(), 0)?;
+        let due = db.count_due_cards(None, study_core::db::unix_timestamp(), 0)?;
         assert!((8..=16).contains(&due), "{due} cards due");
         Ok(())
     }

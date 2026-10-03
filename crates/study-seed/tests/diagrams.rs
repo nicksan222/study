@@ -7,7 +7,7 @@ use study_diagram::mermaid::parse;
 #[test]
 fn seeded_diagrams_parse_and_branch() -> study_core::Result<()> {
     let (_dir, db) = Database::temporary()?;
-    assert!(db.seed_showcase()?);
+    assert!(study_seed::showcase(&db)?);
     let mut seen = 0;
     for project in db.list_projects()? {
         for piece in db.list_material(project.id)? {

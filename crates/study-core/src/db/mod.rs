@@ -26,9 +26,7 @@
 //! | `store.rs`      | [`Store`], the shared pool every caller goes through          |
 //! | `open.rs`       | Locating, opening, and migrating the file                     |
 //! | `migrations/`   | The schema's numbered migrations and the runner that applies them |
-//! | `seed.rs`       | Development sample data, behind the `seed` feature            |
-//! | `seed_courses.rs` | What the sample data says: its courses, files and material  |
-//! | `seed_files.rs` | The small real files that sample data attaches                |
+//! | `staging.rs`    | Backdating and job outcomes for test support, behind the `testing` feature |
 //!
 //! Records that change in the background declare their events beside them with
 //! [`crate::events!`]: [`MessageEvent`] and [`JobEvent`].
@@ -55,20 +53,16 @@ mod practice;
 mod projects;
 mod recordings;
 mod search;
-#[cfg(any(test, feature = "seed"))]
-mod seed;
-#[cfg(any(test, feature = "seed"))]
-mod seed_courses;
-#[cfg(any(test, feature = "seed"))]
-mod seed_files;
 mod sessions;
 mod sources;
+#[cfg(feature = "testing")]
+mod staging;
 mod store;
 
 pub use artifacts::{Artifact, Changes, Material};
 pub use cards::{Card, CardChange, DueCard};
 pub use jobs::{Job, JobEvent, JobOverview, JobTarget, NewJob};
-#[cfg(any(test, feature = "seed"))]
+#[cfg(any(test, feature = "testing"))]
 pub use messages::read_nothing;
 pub use messages::{
     ChatMessage, MessageEvent, MessagePart, MessageRole, MessageStatus, NewPart, PartContent,

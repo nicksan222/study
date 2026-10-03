@@ -189,7 +189,7 @@ mod tests {
     fn home_lists_only_the_work_that_needs_the_learner(cx: &mut TestAppContext) {
         let app = TempApp::new();
         let database = app.database();
-        assert!(database.seed_demo().unwrap());
+        assert!(study_seed::demo(&database).unwrap());
         let overviews = database.list_job_overviews(100).unwrap();
 
         let (window, shell) = open_shell(cx, app.app(), Preferences::default());

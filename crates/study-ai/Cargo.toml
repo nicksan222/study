@@ -48,7 +48,7 @@ testing = ["dep:wiremock"]
 [dev-dependencies]
 minisign = "0.7"
 study-ai = { workspace = true, features = ["testing"] }
-study-core = { workspace = true, features = ["seed"] }
+study-core = { workspace = true, features = ["testing"] }
 tracing-subscriber.workspace = true
 wiremock = "0.6"
 study-testkit.workspace = true

@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn seeded_attachments_get_previews_that_fit_their_kind() -> study_core::Result<()> {
         let app = TempApp::new();
-        assert!(app.seed_demo()?);
+        assert!(study_seed::demo(&app.database())?);
         let preview = |name: &str| -> study_core::Result<AttachmentInfo> {
             let item = app
                 .sources()?

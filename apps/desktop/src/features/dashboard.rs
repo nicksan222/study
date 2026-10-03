@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn the_seeded_workspace_fills_every_part_of_the_dashboard() -> study_core::Result<()> {
         let app = TempApp::new();
-        assert!(app.seed_demo()?);
+        assert!(study_seed::demo(&app.database())?);
         let snapshot = load(&app)?;
         assert_eq!(snapshot.projects.len(), 5);
         assert_eq!(snapshot.session_count, 14);

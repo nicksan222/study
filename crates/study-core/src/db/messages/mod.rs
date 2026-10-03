@@ -135,7 +135,7 @@ impl PartContent {
 pub type Readable<'a> = &'a dyn Fn(SourceKind, &str) -> bool;
 
 /// Reads nothing, for sources that should only be stored: sample data and tests.
-#[cfg(any(test, feature = "seed"))]
+#[cfg(any(test, feature = "testing"))]
 pub fn read_nothing(_: SourceKind, _: &str) -> bool {
     false
 }

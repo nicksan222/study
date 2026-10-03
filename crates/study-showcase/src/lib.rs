@@ -97,7 +97,7 @@ fn isolate(data: &Path, cache: &Path) -> Result<()> {
 fn seed(data: &Path) -> Result<PathBuf> {
     std::fs::remove_dir_all(data).ok();
     let path = study_core::db::Database::default_path()?;
-    study_core::db::Database::open(&path)?.seed_showcase()?;
+    study_seed::showcase(&study_core::db::Database::open(&path)?)?;
     eprintln!("seeded {}", path.display());
     Ok(path)
 }

@@ -17,20 +17,16 @@ rusqlite = { version = "0.32", features = ["bundled", "blob"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-# The temporary directories behind `Store::temporary` and the seed.
+# The temporary directories behind `Store::temporary`.
 tempfile = { version = "3", optional = true }
 thiserror = "2"
 tokio = { workspace = true, features = ["time"] }
 
 [features]
-# Sample projects, chats, and real recordings for development; `just reset-data` seeds with it.
-# Also the helpers other crates' tests use: `Store::temporary`, `Database::temporary`,
-# `claim_job`, `import_source` and `read_nothing`.
-seed = ["dep:tempfile"]
-
-[[example]]
-name = "seed"
-required-features = ["seed"]
+# Helpers for other crates' tests and the sample data: `Store::temporary`,
+# `Database::temporary`, `claim_job`, `import_source`, `read_nothing`, and the backdating and
+# job-outcome writes in `db/staging.rs`.
+testing = ["dep:tempfile"]
 
 [dev-dependencies]
 tempfile = "3"

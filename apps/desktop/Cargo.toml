@@ -24,7 +24,8 @@ cpal = "0.18"
 
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["png"] }
-study-app = { workspace = true, features = ["seed"] }
+study-seed.workspace = true
+study-core = { workspace = true, features = ["testing"] }
 gpui-kit = { workspace = true, features = ["test-support"] }
 
 [lints]

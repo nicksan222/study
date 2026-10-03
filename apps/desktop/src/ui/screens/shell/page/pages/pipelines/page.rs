@@ -357,7 +357,7 @@ mod tests {
     fn the_overview_lists_every_job_and_filters_by_status(cx: &mut TestAppContext) {
         let app = TempApp::new();
         let database = app.database();
-        assert!(database.seed_demo().unwrap());
+        assert!(study_seed::demo(&database).unwrap());
         let overviews = database.list_job_overviews(100).unwrap();
         let failed = overviews
             .iter()

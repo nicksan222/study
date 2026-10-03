@@ -9144,6 +9144,7 @@ dependencies = [
  "study-core",
  "study-diagram",
  "study-localization",
+ "study-seed",
  "study-ui",
  "tempfile",
  "tokio",
@@ -9278,12 +9279,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "study-seed"
+version = "0.1.0"
+dependencies = [
+ "study-core",
+ "study-diagram",
+ "tempfile",
+]
+
+[[package]]
 name = "study-showcase"
 version = "0.1.0"
 dependencies = [
  "serde_json",
  "study-core",
- "study-diagram",
+ "study-seed",
 ]
 
 [[package]]
