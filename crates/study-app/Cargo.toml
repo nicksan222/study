@@ -1,0 +1,34 @@
+[package]
+name = "study-app"
+description = "The service the Study UI talks to: commands, queries, background work"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# Sample data for development and tests.
+seed = ["study-core/seed"]
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+study-ai.workspace = true
+study-core.workspace = true
+study-pipeline.workspace = true
+study-media.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+study-ai = { workspace = true, features = ["testing"] }
+study-core = { workspace = true, features = ["seed"] }
+study-diagram.workspace = true
+study-testkit.workspace = true
+wiremock = "0.6"
+tempfile = "3"
+
+[lints]
+workspace = true

@@ -1,0 +1,78 @@
+// The default development container runs Study and the agent team.
+{
+  "name": "Study",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  // Docker inside the container, for the tests that run real services (study-testkit):
+  // their containers' ports then answer on localhost, as testcontainers expects. Docker CE,
+  // not moby: trixie has no moby packages.
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:4.1.2": {
+      "moby": false
+    }
+  },
+  // Browser desktop (noVNC), reachable only from the host loopback interface.
+  "appPort": [
+    "127.0.0.1:5900:5900"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "DavidAnson.vscode-markdownlint",
+        "GitHub.vscode-github-actions",
+        "ms-azuretools.vscode-containers",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "redhat.vscode-yaml",
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "timonwong.shellcheck",
+        "vadimcn.vscode-lldb"
+      ],
+      "settings": {
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer",
+          "editor.formatOnSave": true
+        },
+        "[yaml]": {
+          "editor.defaultFormatter": "redhat.vscode-yaml"
+        },
+        "files.watcherExclude": {
+          "**/target/**": true
+        },
+        "rust-analyzer.check.command": "check",
+        "rust-analyzer.linkedProjects": [
+          "Cargo.toml"
+        ],
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "remoteEnv": {
+    "CARGO_TARGET_DIR": "${containerWorkspaceFolder}/target/devcontainer",
+    "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}",
+    "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}",
+    "GH_TOKEN": "${localEnv:GH_TOKEN}"
+  },
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
+    "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind",
+    "source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind",
+    "source=${localEnv:HOME}/.config/study-devcontainer,target=/home/vscode/.config/study-devcontainer,type=bind,readonly"
+  ],
+  "initializeCommand": "bash .devcontainer/initialize.sh",
+  "postCreateCommand": "python3 .devcontainer/post-create.py",
+  // Every start serves the browser desktop (without the app: `just run` builds and starts
+  // it); initialize.sh opens it in the host browser.
+  "postStartCommand": {
+    "graphify": "graphify extract . --code-only --cargo --no-cluster --max-workers 4",
+    "desktop": "bash .devcontainer/desktop/attach.sh --serve-only || echo 'desktop: not started; run just desktop'"
+  },
+  "containerEnv": {
+    "RUST_BACKTRACE": "1"
+  }
+}

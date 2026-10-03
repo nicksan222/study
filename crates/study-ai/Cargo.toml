@@ -1,0 +1,57 @@
+[package]
+name = "study-ai"
+description = "Every model provider and all network access: speech-to-text, reading pages, chat and the agent kit, local embeddings, web fetching, and measuring this computer"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+cargo-packager-updater = "=0.2.3"
+cargo-packager-utils = { version = "=0.1.1", default-features = false }
+semver = "1"
+# The hardware benchmark's matrix kernel.
+candle-core = "0.11"
+futures = "0.3"
+# ChatGPT sign-in: PKCE and ID token payloads.
+base64 = "0.22"
+nnnoiseless = { version = "0.5", default-features = false }
+# The version the transcription model already builds, so nothing is compiled twice.
+ort = "=2.0.0-rc.12"
+rand = "0.9"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "form", "stream"] }
+rig-agent = "0.42"
+rig-core = "0.42"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+study-core.workspace = true
+# The sign-in's browser pages.
+study-localization.workspace = true
+study-media.workspace = true
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+tempfile = "3"
+thiserror = "2"
+tokenizers = "0.23"
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "fs", "io-util", "process"] }
+tracing.workspace = true
+transcribe-rs = { version = "0.3.11", features = ["onnx"] }
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+wiremock = { version = "0.6", optional = true }
+
+[features]
+# `study_ai::testing`, a mock of the ChatGPT plan for this crate's tests and the crates above.
+testing = ["dep:wiremock"]
+
+[dev-dependencies]
+minisign = "0.7"
+study-ai = { workspace = true, features = ["testing"] }
+study-core = { workspace = true, features = ["seed"] }
+tracing-subscriber.workspace = true
+wiremock = "0.6"
+study-testkit.workspace = true
+
+[lints]
+workspace = true

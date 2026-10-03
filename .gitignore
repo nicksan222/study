@@ -1,0 +1,44 @@
+/target/
+**/*.rs.bk
+.DS_Store
+
+# Local sample databases.
+/var/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Local agent/tool installations and editor state.
+/.pi/
+/.codex/
+/.idea/
+.claude/settings.local.json
+/.vscode/
+
+# Local development output.
+/graphify-out/
+__pycache__/
+/tmp/
+/coverage/
+*.sqlite3-journal
+*.log
+*.profraw
+*.profdata
+core
+core.*
+.env
+.env.local
+
+# Release packaging output.
+/Study.app/
+/study-*.zip
+/study-*.tar.gz
+
+# Additional local configuration and database variants.
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+/dist/

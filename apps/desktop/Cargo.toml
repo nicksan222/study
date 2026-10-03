@@ -1,0 +1,31 @@
+[package]
+name = "study"
+description = "The Study desktop app: windows, pages and the microphone"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
+default-run = "study"
+publish = false
+
+[dependencies]
+tracing-subscriber.workspace = true
+tracing.workspace = true
+study-app.workspace = true
+study-core.workspace = true
+study-diagram.workspace = true
+gpui-kit.workspace = true
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+study-ui.workspace = true
+study-localization.workspace = true
+tempfile = "3"
+tokio.workspace = true
+cpal = "0.18"
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+study-app = { workspace = true, features = ["seed"] }
+gpui-kit = { workspace = true, features = ["test-support"] }
+
+[lints]
+workspace = true

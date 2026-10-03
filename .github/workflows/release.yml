@@ -1,0 +1,149 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  CARGO_PACKAGER_VERSION: '0.11.8'
+  STUDY_UPDATE_PUBLIC_KEY: ${{ vars.STUDY_UPDATE_PUBLIC_KEY }}
+  STUDY_UPDATE_ENDPOINT: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+
+jobs:
+  # A release is a pushed vX.Y.Z tag on a commit whose workspace version is X.Y.Z.
+  version:
+    name: Check version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Check tag, version and signing keys
+        env:
+          SIGNING_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "study") | .version')
+          test "$GITHUB_REF_NAME" = "v$version" || { echo "Tag $GITHUB_REF_NAME does not match workspace version $version"; exit 1; }
+          test -n "$STUDY_UPDATE_PUBLIC_KEY" || { echo 'Set the STUDY_UPDATE_PUBLIC_KEY repository variable'; exit 1; }
+          test -n "$SIGNING_KEY" || { echo 'Set the CARGO_PACKAGER_SIGN_PRIVATE_KEY repository secret'; exit 1; }
+
+  linux:
+    name: Build ${{ matrix.platform }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+          - platform: linux-aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+      CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Sign in to GitHub Packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test and package
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: never
+          env: |
+            STUDY_UPDATE_PUBLIC_KEY
+            STUDY_UPDATE_ENDPOINT
+            GITHUB_REPOSITORY
+            CARGO_PACKAGER_SIGN_PRIVATE_KEY
+            CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD
+          runCmd: just check && just package ${{ matrix.platform }}
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  native:
+    name: Build ${{ matrix.platform }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-x86_64
+            runner: macos-15-intel
+          - platform: macos-aarch64
+            runner: macos-15
+          - platform: windows-x86_64
+            runner: windows-2022
+    runs-on: ${{ matrix.runner }}
+    env:
+      CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+      CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Restore build cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install build tools
+        if: runner.os == 'macOS'
+        run: brew install cmake pkg-config
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --locked --version "$CARGO_PACKAGER_VERSION"
+      - name: Test and package
+        run: |
+          cargo test --locked -p study-ai --lib updates
+          packaging/release.sh package ${{ matrix.platform }}
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [linux, native]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: study-*
+          path: dist
+          merge-multiple: true
+      - name: Build update feed
+        run: packaging/release.sh feed "$GITHUB_REF_NAME"
+      - name: Publish release
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --generate-notes

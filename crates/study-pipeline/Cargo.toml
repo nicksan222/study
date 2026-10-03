@@ -1,0 +1,30 @@
+[package]
+name = "study-pipeline"
+description = "Processing sources: fetchers, extractors, refiners, indexing and enhancers, and the pipeline that chains them"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+encoding_rs = "0.8"
+futures = "0.3"
+roxmltree = "0.21"
+serde = { version = "1", features = ["derive"] }
+scraper = "0.20"
+study-ai.workspace = true
+study-core.workspace = true
+study-diagram.workspace = true
+tracing.workspace = true
+zip = { version = "8", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+study-ai = { workspace = true, features = ["testing"] }
+study-core = { workspace = true, features = ["seed"] }
+tempfile = "3"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = "0.6"
+
+[lints]
+workspace = true

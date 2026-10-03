@@ -1,0 +1,40 @@
+[package]
+name = "study-core"
+description = "What every Study crate builds on: shared vocabulary, processor interfaces and routes, the database, preferences, the bus and the jobs engine"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+tracing.workspace = true
+directories = "6"
+futures = "0.3"
+# Content sniffing for `sniff`.
+infer = { version = "0.19", default-features = false }
+rusqlite = { version = "0.32", features = ["bundled", "blob"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+# The temporary directories behind `Store::temporary` and the seed.
+tempfile = { version = "3", optional = true }
+thiserror = "2"
+tokio = { workspace = true, features = ["time"] }
+
+[features]
+# Sample projects, chats, and real recordings for development; `just reset-data` seeds with it.
+# Also the helpers other crates' tests use: `Store::temporary`, `Database::temporary`,
+# `claim_job`, `import_source` and `read_nothing`.
+seed = ["dep:tempfile"]
+
+[[example]]
+name = "seed"
+required-features = ["seed"]
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "test-util"] }
+
+[lints]
+workspace = true

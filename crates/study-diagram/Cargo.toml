@@ -1,0 +1,15 @@
+[package]
+name = "study-diagram"
+description = "Diagrams without GPUI: the diagram shape, Mermaid flowcharts in and out, automatic layout and hand-drawn strokes"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+roughr.workspace = true
+rust-sugiyama.workspace = true
+
+[lints]
+workspace = true

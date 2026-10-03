@@ -1,0 +1,44 @@
+# `cargo deny check`, run by `just check`: known vulnerabilities, licenses that fit
+# MIT OR Apache-2.0, and crates only from crates.io.
+
+[graph]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+[advisories]
+# A vulnerability always fails. An unmaintained crate fails only when a Study crate depends on
+# it directly; the deep ones (through gpui, candle and scraper) wait for those to move.
+unmaintained = "workspace"
+yanked = "warn"
+
+[licenses]
+confidence-threshold = 0.9
+allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "BlueOak-1.0.0",
+  "CC0-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "MIT-0",
+  # File-level copyleft (symphonia, cssparser and others), used unmodified.
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+  "bzip2-1.0.6",
+]
+
+[bans]
+# GPUI's tree pulls several versions of many crates; they are not ours to unify.
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

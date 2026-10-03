@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    # Every check runs inside the devcontainer, built from .devcontainer/, so CI and the agents
+    # share one toolchain and one package list. The image is cached in GHCR; only main pushes
+    # it.
+    name: Test and build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # The container's cargo registry lives in the bind-mounted workspace, so the runner's
+      # rust-cache saves it next to the container's target directory.
+      CARGO_HOME: ${{ github.workspace }}/target/cargo-home
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Sign in to GitHub Packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target/devcontainer"
+      - name: Test and build
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
+          push: filter
+          refFilterForPush: refs/heads/main
+          env: |
+            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
+          runCmd: just check && just build
+

@@ -1,0 +1,37 @@
+# One project-wide team. Named sessions isolate unrelated work.
+session = "study"
+workspace = "study-team"
+# Seven regular roles plus one shared slot for scenario preparation or PR delivery.
+max_agents = 8
+# The Herdr plugin that opens the review panel beside the lead.
+reviewr = "persiyanov.reviewr"
+default_agents = ["lead", "developer", "pm", "qa", "student", "reviewer", "pushback"]
+
+# Work kinds select a provider adapter plus its model and effort. A model of "-"
+# keeps that provider CLI's configured default. Role files define responsibilities.
+[kinds.build]
+harness = "claude"
+model = "claude-sonnet-5-5"
+effort = "medium"
+
+# Keep high effort for lead decisions; review uses Opus at medium effort.
+[kinds.reasoning]
+harness = "claude"
+model = "claude-opus-5-5"
+effort = "high"
+
+[kinds.review]
+harness = "claude"
+model = "claude-opus-5-5"
+effort = "medium"
+
+[roles]
+lead = "reasoning"
+developer = "build"
+pm = "build"
+qa = "build"
+student = "build"
+reviewer = "review"
+pushback = "build"
+pr-maker = "build"
+scenario = "build"

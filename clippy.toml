@@ -1,0 +1,10 @@
+# Tests may print progress (the ignored end-to-end runs report timings).
+allow-print-in-tests = true
+
+# Rules the architecture relies on (the golden rules in AGENTS.md). Each allowed exception is
+# marked with `#[allow(clippy::disallowed_methods)]` where it lives.
+disallowed-methods = [
+    { path = "reqwest::Client::new", reason = "build HTTP clients with study_ai::http::client" },
+    { path = "reqwest::Client::builder", reason = "build HTTP clients with study_ai::http::client" },
+    { path = "rusqlite::Connection::open", reason = "open the database through study_core::db::Store" },
+]

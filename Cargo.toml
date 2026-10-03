@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+members = ["apps/desktop", "crates/study-core", "crates/study-ui", "crates/study-diagram", "crates/study-localization", "crates/study-app", "crates/study-media", "crates/study-ai", "crates/study-pipeline", "crates/study-testkit"]
+default-members = ["apps/desktop"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/nicksan222/study"
+
+[workspace.dependencies]
+gpui-kit = "=0.7.0"
+roughr = "0.14"
+rust-sugiyama = "0.4"
+tokio = { version = "1", features = ["sync", "rt", "macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+study-media = { path = "crates/study-media" }
+study-ai = { path = "crates/study-ai" }
+study-pipeline = { path = "crates/study-pipeline" }
+study-core = { path = "crates/study-core" }
+study-app = { path = "crates/study-app" }
+study-ui = { path = "crates/study-ui" }
+study-diagram = { path = "crates/study-diagram" }
+study-testkit = { path = "crates/study-testkit" }
+testcontainers = "0.28"
+study-localization = { path = "crates/study-localization" }
+
+# Shared by every member through `[lints] workspace = true`.
+[workspace.lints.clippy]
+# Libraries and the app log through `tracing`; only CLIs, examples and tests print.
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
+
+# Full debug info made every app and test binary about 1.8 GB. Line tables keep file:line in
+# backtraces; set `CARGO_PROFILE_DEV_DEBUG=true` for a session that needs variables in lldb.
+[profile.dev]
+debug = "line-tables-only"
+
+# Dependencies are always optimized: unoptimized candle runs models (and the first-launch
+# benchmark) about 100 times slower, which would make every machine look too slow.
+[profile.dev.package."*"]
+opt-level = 3
+debug = false
+

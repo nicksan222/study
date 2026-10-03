@@ -1,0 +1,47 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "env": {
+    "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "false",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+    "CAVEMAN_DEFAULT_MODE": "full"
+  },
+  "enabledPlugins": {
+    "impeccable@impeccable": true,
+    "frontend-design@claude-plugins-official": false,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": false,
+    "context7@claude-plugins-official": true,
+    "cozempic@cozempic": true,
+    "caveman@caveman": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    },
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
+    },
+    "cozempic": {
+      "source": {
+        "source": "github",
+        "repo": "Ruya-AI/cozempic"
+      }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  }
+}
