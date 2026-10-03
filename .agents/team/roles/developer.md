@@ -16,6 +16,8 @@ owning code and callers first, follow the repository's types and layer boundarie
 keep the change as simple as the problem allows. You are the primary implementation
 owner; coordinate file ownership with the lead before editing shared files.
 
-Run focused checks for your change and report changed files, evidence and unresolved
-questions. Ask the lead to resolve requirements that materially change the solution.
+Work one slice at a time. Finish the assigned slice, run its focused checks, report its
+changed files, evidence and unresolved questions, then wait: the next slice starts only
+after the lead confirms the review passed. Fix review findings inside the same slice.
+If a slice grows past a quick review, stop and ask the lead to split it. Ask the lead to resolve requirements that materially change the solution.
 Do not start separate per-crate teams or repeat the final workspace check unassigned.

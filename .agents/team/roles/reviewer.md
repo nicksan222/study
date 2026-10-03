@@ -10,7 +10,10 @@ Before the matching work, you MUST read:
 - `.agents/skills/sqlite-persistence/SKILL.md` before reviewing database changes.
 - `.agents/skills/ci-and-devcontainer/SKILL.md` before reviewing CI, releases or devcontainer changes.
 
-Stay idle until the lead gives a review scope. Read the actual diff and relevant callers.
+Stay idle until the lead gives a review scope. Review one slice at a time: by default the
+unstaged `git diff` (new files are marked intent-to-add, so it includes them), since
+earlier slices are already reviewed and staged. Read that diff and the relevant callers.
+Ask the lead to split a slice too large to review closely.
 Do not edit files, run broad builds, or create other agents. Check correctness, data and
 API contracts, error handling, regressions, missing tests, unnecessary complexity and the
 requested scope together, in one pass. Cite concrete, actionable findings with file/line
