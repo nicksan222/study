@@ -11,8 +11,7 @@ use super::{Attached, ThreadLink, marked_note, source_card};
 use crate::features::media::AttachmentInfo;
 use crate::ui::screens::shell::AppShell;
 use crate::ui::screens::shell::page::pages::components::{
-    ChatGptState, OnCite, citation_chip, job_status, prose, prose_citing, sign_in_line,
-    stopped_line_parts,
+    ChatGptState, OnCite, citation_chip, job_status, prose_citing, sign_in_line, stopped_line_parts,
 };
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, button::ButtonVariants as _};
@@ -313,14 +312,17 @@ fn answer_content(
     }
     if message.unfinished().is_some() {
         // An answer being written again keeps its newest words, faded, until the new ones
-        // land; an older version the student stepped to stays as it is.
-        let earlier = Some(message.text()).filter(|body| !body.is_empty());
+        // land; an older version the student stepped to stays as it is. Its citations still
+        // open their passages either way.
         let replaced = VersionsState::shows_latest(message) && VersionsState::is_writing(message);
-        if let Some(body) = earlier {
-            let text = answer_text(cx).child(prose(body, cx));
+        if !message.text().is_empty() {
+            let text = answer_text(cx).child(answer_prose(message, cx));
             content = content.child(if replaced { text.opacity(0.45) } else { text });
         }
         content = content.children(version_line(message, locale, versions, cx));
+        if !message.citations.is_empty() {
+            content = content.child(citations(message, locale, cx));
+        }
         // An answer that failed, or is still being written, can be deleted too, stopping it.
         content = content.children(
             message
@@ -331,19 +333,20 @@ fn answer_content(
         return content;
     }
     if !message.text().is_empty() {
-        let cite = cite_handler(message, cx);
-        let id = (ids::ANSWER_TEXT, message.id.get() as u64);
-        content = content.child(answer_text(cx).child(prose_citing(
-            message.text(),
-            Some((id.into(), cite)),
-            cx,
-        )));
+        content = content.child(answer_text(cx).child(answer_prose(message, cx)));
     }
     content = content.children(version_line(message, locale, versions, cx));
     if !message.citations.is_empty() {
         content = content.child(citations(message, locale, cx));
     }
     content
+}
+
+/// An answer's active words, each marker such as `[2]` opening the passage it cites.
+fn answer_prose(message: &ChatMessage, cx: &mut Context<AppShell>) -> AnyElement {
+    let cite = cite_handler(message, cx);
+    let id = (ids::ANSWER_TEXT, message.id.get() as u64);
+    prose_citing(message.text(), Some((id.into(), cite)), cx)
 }
 
 /// The column an answer's words are set in: no bubble, the notebook's full width.

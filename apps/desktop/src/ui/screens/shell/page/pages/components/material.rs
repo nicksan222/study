@@ -91,16 +91,8 @@ const PROSE_CITATION: &str = "prose-citation";
 
 /// Markdown as the model writes it, read comfortably: headings by level, bullet and
 /// numbered lists, quotes, code blocks, rules, **bold** picked out, and citation markers like
-/// `[2]` as their number alone in a superscript chip ([`citation_mark`]).
-pub(in crate::ui::screens::shell::page) fn prose(
-    markdown: &str,
-    cx: &mut Context<AppShell>,
-) -> AnyElement {
-    prose_citing(markdown, None, cx)
-}
-
-/// [`prose`] whose citation markers open what they cite: each `[n]` a raised chip that
-/// calls `cite` with `n`. `id` names the prose among the page's elements.
+/// `[2]` as their number alone in a superscript chip ([`citation_mark`]). Given `cite`, each
+/// `[n]` chip calls it with `n`, and `id` names the prose among the page's elements.
 pub(in crate::ui::screens::shell::page) fn prose_citing(
     markdown: &str,
     cite: Option<(ElementId, OnCite)>,

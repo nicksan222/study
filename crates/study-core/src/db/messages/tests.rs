@@ -1028,10 +1028,27 @@ fn a_rewrite_that_cites_leaves_no_markers_in_the_notes() -> Result<()> {
         &[cited("mitochondria")]
     )?);
 
-    assert_eq!(db.message(id)?.unwrap().citations.len(), 1);
+    let message = db.message(id)?.unwrap();
+    assert_eq!(message.citations.len(), 1);
+    assert_eq!(message.plain_text(), "Mitochondria power the cell.");
     assert_eq!(
         db.project_material(project)?.notes,
         "Mitochondria power the cell."
+    );
+    Ok(())
+}
+
+#[test]
+fn brackets_in_a_note_without_citations_are_kept() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (project, session) = cells(&db)?;
+    let id = note(&db, session, "why is a[0] not a[1] since [2024]")?;
+
+    let message = db.message(id)?.unwrap();
+    assert_eq!(message.plain_text(), "why is a[0] not a[1] since [2024]");
+    assert_eq!(
+        db.project_material(project)?.notes,
+        "why is a[0] not a[1] since [2024]"
     );
     Ok(())
 }

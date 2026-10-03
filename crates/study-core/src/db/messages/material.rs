@@ -32,7 +32,7 @@ pub(in crate::db) fn project_material_of(
     // What the student wrote is the active version of a note: an edit replaces the words it
     // was written with, and a version still being written is not read.
     let mut statement = connection.prepare(&format!(
-        "SELECT v.text
+        "SELECT v.text, EXISTS (SELECT 1 FROM citations c WHERE c.version_id = v.id)
          FROM messages m
          JOIN message_versions v ON v.id = m.active_version_id
          JOIN sessions s ON s.id = m.session_id
@@ -41,12 +41,21 @@ pub(in crate::db) fn project_material_of(
         MessageRole::User,
     ))?;
     // A rewrite of a note may cite the files it read; its `[n]` markers count a list the
-    // notes do not carry.
+    // notes do not carry. Brackets in a version without citations are the student's own.
     let notes: Vec<String> = statement
-        .query_map(params![project], |row| row.get::<_, String>(0))?
+        .query_map(params![project], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, bool>(1)?))
+        })?
         .collect::<rusqlite::Result<Vec<_>>>()?
         .into_iter()
-        .map(|text| without_citations(&without_mention(&text)))
+        .map(|(text, cited)| {
+            let text = without_mention(&text);
+            if cited {
+                without_citations(&text)
+            } else {
+                text
+            }
+        })
         .filter(|text| !text.is_empty())
         .collect();
     let sources = connection

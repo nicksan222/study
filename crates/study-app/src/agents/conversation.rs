@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 use study_ai::agent::{escape, escape_attribute};
 use study_core::db::{ChatMessage, Database, MessageRole};
 use study_core::text::truncate_chars;
-use study_core::{Result, SessionId, without_citations};
+use study_core::{Result, SessionId};
 
 /// A session's messages, oldest first.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -110,7 +110,7 @@ impl Turn {
             text: String::new(),
             attachments: Vec::new(),
         };
-        turn.text = without_citations(message.text().trim());
+        turn.text = message.plain_text().trim().to_owned();
         for part in &message.parts {
             turn.attachments.push(Attachment {
                 name: part.content.name.clone(),
@@ -164,8 +164,8 @@ mod tests {
         VersionOrigin,
     };
     use study_core::{
-        Anchor, Block, BlockKind, Document, JobId, JobKind, JobStatus, MessageId, PartId, SourceId,
-        SourceKind, VersionId,
+        Anchor, Block, BlockKind, Citation, Document, JobId, JobKind, JobStatus, MessageId, PartId,
+        SourceId, SourceKind, VersionId,
     };
 
     const ROOMY: Budget = Budget {
@@ -255,12 +255,30 @@ mod tests {
 
     #[test]
     fn the_markers_of_cited_sources_are_not_part_of_the_conversation() {
-        let conversation = Conversation::from_messages(&[message(
+        let mut cited = message(
             MessageRole::User,
             "Mitochondria power the cell [1].",
             Vec::new(),
-        )]);
+        );
+        cited.citations = vec![Citation {
+            marker: 1,
+            source_id: Some(SourceId::new(3)),
+            source_name: "biology.pdf".into(),
+            anchor: Anchor::Page { page: 1 },
+            quote: "mitochondria".into(),
+        }];
+        let conversation = Conversation::from_messages(&[cited]);
         assert_eq!(conversation.turns[0].text, "Mitochondria power the cell.");
+    }
+
+    #[test]
+    fn brackets_in_a_message_without_citations_are_kept() {
+        let conversation = Conversation::from_messages(&[message(
+            MessageRole::User,
+            "why is a[0] not a[1]?",
+            Vec::new(),
+        )]);
+        assert_eq!(conversation.turns[0].text, "why is a[0] not a[1]?");
     }
 
     #[test]

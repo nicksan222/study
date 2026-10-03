@@ -44,9 +44,7 @@ pub(super) use job::{
 };
 pub(super) use load::{FirstLoad, status_line};
 pub(in crate::ui::screens::shell::page) use material::kind_icon;
-pub(super) use material::{
-    OnCite, kind_label, material_status, material_writing, prose, prose_citing,
-};
+pub(super) use material::{OnCite, kind_label, material_status, material_writing, prose_citing};
 pub(super) use pill::pill;
 pub(in crate::ui::screens::shell::page) use setup_card::{
     ChatGptState, setup_requirement, sign_in_line,

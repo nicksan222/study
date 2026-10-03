@@ -42,9 +42,10 @@ use super::{Database, Job, trimmed};
 use crate::Result;
 use crate::{
     Citation, Document, MessageId, PartId, RecordingId, SessionId, SourceId, SourceKind, VersionId,
+    without_citations,
 };
 use rusqlite::{Row, params};
-use std::{collections::HashMap, path::PathBuf};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 use thread::thread_summaries_in;
 use versions::VERSION_COLUMNS;
 
@@ -107,6 +108,17 @@ impl ChatMessage {
     /// What the message says, in its active version; empty when it has none.
     pub fn text(&self) -> &str {
         self.active().map_or("", |version| version.text.as_str())
+    }
+
+    /// [`text`](Self::text) without its `[n]` markers, for reading it where its passages are
+    /// not shown. Only a version with citations has markers: brackets in any other, like
+    /// `a[0]` or `[2024]`, are what the student wrote and stay.
+    pub fn plain_text(&self) -> Cow<'_, str> {
+        if self.citations.is_empty() {
+            Cow::Borrowed(self.text())
+        } else {
+            Cow::Owned(without_citations(self.text()))
+        }
     }
 
     /// The version being written, if any.

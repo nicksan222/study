@@ -10,8 +10,7 @@ use study_core::db::{ChatMessage, Database, Job, MessageRole, NewJob};
 use study_core::jobs::{BoxFuture, JobHandler, Lane, off_thread, wrong_target};
 use study_core::processing::citations;
 use study_core::{
-    Failure, JobKind, MessageId, ProjectId, SourceId, VersionId, cited_markers, without_citations,
-    without_mention,
+    Failure, JobKind, MessageId, ProjectId, SourceId, VersionId, cited_markers, without_mention,
 };
 
 use super::{Answer, Question};
@@ -139,7 +138,7 @@ fn asked(database: &Database, id: MessageId) -> study_core::Result<Option<Asked>
 
 /// The text of `note`, without the mention that asked for an answer.
 fn note_text(note: &ChatMessage) -> String {
-    without_citations(&without_mention(note.text()))
+    without_mention(&note.plain_text())
 }
 
 /// The file a thread hangs off (`about`), then every file attached in `messages`, each
