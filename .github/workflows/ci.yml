@@ -1,52 +1,66 @@
 name: CI
 
 on:
+  # A branch with a pull request is checked by the pull request run; a push run too would check
+  # it twice.
   push:
+    branches: [main]
   pull_request:
-  # The Demo workflow starts this by hand on the `demo/<sha>` branch it pushes with the workflow's
-  # own token, and that starts nothing by itself; a person can too.
+  # The Demo workflow starts this on the pull request it opens, which starts nothing by itself.
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# A new push to a pull request replaces its running checks; main checks every commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Straight on the runner, no devcontainer (see .github/actions/setup). Lint and tests run in
+# parallel, each with its own cache.
 jobs:
-  linux:
-    # Every check runs inside the devcontainer, built from .devcontainer/, so CI and the agents
-    # share one toolchain and one package list. The image is cached in GHCR; only main pushes
-    # it.
-    name: Test and build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    env:
-      # The container's cargo registry lives in the bind-mounted workspace, so the runner's
-      # rust-cache saves it next to the container's target directory.
-      CARGO_HOME: ${{ github.workspace }}/target/cargo-home
+  lint:
+    name: Format, Clippy, docs and dependencies
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out
-        uses: actions/checkout@v4
-      - name: Sign in to GitHub Packages
-        uses: docker/login-action@v3
+        uses: actions/checkout@v7
+      - name: Set up
+        uses: ./.github/actions/setup
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Restore build cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> target/devcontainer"
-          # The Demo workflow restores this same cache and never saves its own.
-          shared-key: devcontainer
-      - name: Test and build
-        uses: devcontainers/ci@v0.3
-        with:
-          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
-          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
-          push: filter
-          refFilterForPush: refs/heads/main
-          env: |
-            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
-          runCmd: just check && just build
+          tools: cargo-deny@0.20.2
+      - name: Check
+        run: just check-shell fmt-check deny lint docs
 
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up
+        uses: ./.github/actions/setup
+        with:
+          packages: ffmpeg
+      # The runner's own Docker runs the tests that need real services (study-testkit).
+      - name: Test
+        run: just test
+
+  done:
+    # The one required check: its name is in the `main` ruleset, so keep it.
+    name: Test and build
+    needs: [lint, test]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$RESULTS"
+          jq -e 'all(.[]; .result == "success")' <<<"$RESULTS" >/dev/null

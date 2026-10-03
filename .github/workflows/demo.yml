@@ -1,133 +1,51 @@
 name: Demo
 
-# After a merge to `main` that changes app code, records the README demo and opens a pull
-# request, "Update the demo", on a new branch `demo/<sha>`, then closes the earlier ones: one
-# pending demo pull request, always the newest. Merging it changes only the GIF, which records
-# nothing, so there is no loop. Only code already on `main` runs here.
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+# By hand only: records the README demo (`just demo`) from the branch it runs on and opens a
+# pull request with the new assets/demo.gif.
+on: workflow_dispatch
 
 permissions:
   contents: read
 
 jobs:
-  decide:
-    # Cheap and never cancelled, so that a push that records nothing cannot cancel a recording
-    # that is under way.
-    name: Decide
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      record: ${{ steps.decide.outputs.record }}
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Decide whether the demo changed
-        id: decide
-        env:
-          EVENT: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          # The demo shows `main`. A run started by hand from another branch would record that
-          # branch's unmerged code; `publish` refuses it too.
-          if [ "$REF" != refs/heads/main ]; then
-            echo "::error::Run the Demo workflow from main, not $REF"
-            exit 1
-          fi
-          if [ "$EVENT" = workflow_dispatch ] || .github/scripts/demo.sh should-record "$BEFORE" "$AFTER"; then
-            echo "record=true" >>"$GITHUB_OUTPUT"
-          else
-            echo "record=false" >>"$GITHUB_OUTPUT"
-          fi
-
-  record:
-    name: Record
-    needs: decide
-    if: needs.decide.outputs.record == 'true'
-    runs-on: ubuntu-latest
-    # A newer recording replaces one under way.
-    concurrency:
-      group: demo-record
-      cancel-in-progress: true
-    permissions:
-      contents: read
-      packages: read
-    env:
-      CARGO_HOME: ${{ github.workspace }}/target/cargo-home
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Sign in to GitHub Packages
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-      - name: Restore build cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> target/devcontainer"
-          # CI's cache from `main`: restored here, never saved, so there is one copy in the quota.
-          shared-key: devcontainer
-          save-if: false
-      - name: Record the demo
-        uses: devcontainers/ci@v0.3
-        with:
-          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
-          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
-          push: never
-          env: |
-            CARGO_HOME=/workspaces/${{ github.event.repository.name }}/target/cargo-home
-          runCmd: just demo
-      - name: Check the demo
-        run: .github/scripts/demo.sh validate-gif assets/demo.gif
-      - name: Upload the demo
-        uses: actions/upload-artifact@v4
-        with:
-          name: demo
-          path: assets/demo.gif
-          if-no-files-found: error
-          retention-days: 7
-
-  publish:
-    name: Publish
-    needs: record
-    runs-on: ubuntu-latest
-    # One at a time, none cancelled half way through its pushes: a publish for a commit that
-    # `main` has left stops by itself.
-    concurrency:
-      group: demo-publish
-      cancel-in-progress: false
+  demo:
+    name: Record and open a pull request
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
+      # To start CI on the pull request: one opened with this token starts nothing by itself.
       actions: write
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+      - name: Set up
+        uses: ./.github/actions/setup
         with:
-          # The commit this run is for; the scripts are the ones merged there. The whole history,
-          # to tell whether `main` has moved past it by app changes.
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Download the demo
-        uses: actions/download-artifact@v4
-        with:
-          name: demo
-          path: ${{ runner.temp }}/demo
-      - name: Publish the demo pull request
+          # The private headless desktop the showcase records on, with software Vulkan.
+          packages: >-
+            sway grim wtype wf-recorder ffmpeg
+            libvulkan1 mesa-vulkan-drivers libgl1-mesa-dri libegl-mesa0
+          # The app runs for real here, so it is built as in development.
+          optimize-dependencies: 'true'
+      - name: Record the demo
+        run: just demo
+      - name: Open a pull request
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ github.sha }}
-          GIF: ${{ runner.temp }}/demo/demo.gif
-        # Checks the GIF again, then stops if `main` has moved on, or else pushes `demo/<sha>`,
-        # opens its pull request and closes the older demo pull requests.
-        run: .github/scripts/demo.sh publish "$GIF"
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- assets/demo.gif; then
+            echo "::notice::The demo did not change."
+            exit 0
+          fi
+          branch="demo/$GITHUB_RUN_ID"
+          git switch -c "$branch"
+          git add assets/demo.gif
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Update the demo"
+          git push origin "$branch"
+          gh pr create --base "$GITHUB_REF_NAME" --head "$branch" --title "Update the demo" \
+            --body "Recorded by the Demo workflow from $GITHUB_SHA."
+          gh workflow run ci.yml --ref "$branch"

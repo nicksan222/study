@@ -1,0 +1,53 @@
+name: Set up the runner
+description: >-
+  Installs what the `just` recipes need straight on the GitHub runner: the build subset of
+  .devcontainer/Dockerfile's apt packages, Rust from rust-toolchain.toml, pinned just, and a
+  build cache that only main saves. Keep the packages and pins aligned with the Dockerfile.
+
+inputs:
+  packages:
+    description: More apt packages, space-separated.
+    default: ''
+  tools:
+    description: More tools for taiki-e/install-action, comma-separated.
+    default: ''
+  optimize-dependencies:
+    description: >-
+      'false' builds dependencies unoptimized. Cargo.toml optimizes them even in dev builds so
+      local models run at full speed; checks and tests run no model, and unoptimized
+      dependencies compile several times faster.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Install system packages
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        sudo apt-get update
+        # shellcheck disable=SC2086 # one word per package
+        sudo apt-get install -y --no-install-recommends \
+          pkg-config libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev \
+          libssl-dev libzstd-dev libasound2-dev $PACKAGES
+    - name: Install Rust
+      shell: bash
+      run: rustup toolchain install
+    - name: Install just
+      uses: taiki-e/install-action@v2
+      with:
+        tool: just@1.40.0${{ inputs.tools && format(',{0}', inputs.tools) || '' }}
+    - name: Build dependencies unoptimized
+      if: inputs.optimize-dependencies == 'false'
+      shell: bash
+      run: |
+        mkdir -p ~/.cargo
+        printf '[profile.dev.package."*"]\nopt-level = 0\n' >> ~/.cargo/config.toml
+    - name: Restore build cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: optimize-dependencies-${{ inputs.optimize-dependencies }}
+        # Pull requests restore main's cache and never save their own, so the cache quota holds
+        # one copy per job.
+        save-if: ${{ github.ref == 'refs/heads/main' }}

@@ -17,19 +17,22 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   - the gh token for shells, git pushing through gh, and the exported host author identity;
   - the Claude Code plugins every agent uses, declared in `.claude/settings.json`
     (`extraKnownMarketplaces` and `enabledPlugins`). Add a plugin there, never by hand.
-- **The `Justfile` only runs things.** It assumes the tools are installed; CI and release
-  Linux workflows invoke `just` recipes. Native macOS and Windows release jobs invoke
+- **The `Justfile` only runs things.** It assumes the tools are installed; CI and the release
+  Linux workflow invoke `just` recipes. Native macOS and Windows release jobs invoke
   the same Python packaging scripts directly; their tools are pinned in the release workflow.
-- **CI runs only inside the devcontainer, Linux,** through `devcontainers/ci`: one image, one
-  package list, the same as the agents use. No workflow step installs a toolchain, an apt
-  package or `just`; checkout, caching and the action are all there is.
-  - The image is cached in GHCR as `study-devcontainer`; only `main` pushes it.
-  - Docker-in-Docker (a devcontainer feature) runs the tests that need real services.
-  - The runner's rust-cache keeps the container's `target/devcontainer` and its cargo
-    registry, both inside the workspace.
-  - Releases are the native-runner exception: Linux x64 and ARM64 use this image;
-    macOS Intel/Apple Silicon and Windows x64 use native GitHub runners. They install
-    Rust and pinned cargo-packager; they must never require a second devcontainer.
+- **GitHub workflows run on the runner, not in the devcontainer,** except the Linux
+  release. `.github/actions/setup` installs the build subset of the Dockerfile's apt
+  packages, Rust from `rust-toolchain.toml` and pinned `just`, and restores a build cache
+  that only `main` saves. Keep its packages and pins aligned with the Dockerfile.
+  - CI (`ci.yml`): lint (`check-shell fmt-check deny lint docs`) and `just test` run as
+    parallel jobs, with dependencies built unoptimized. `Test and build` is the one required
+    check; it passes when both jobs passed. The runner's own Docker runs the tests that need
+    real services. Ubuntu 24.04's glibc 2.39 is enough for the prebuilt onnxruntime.
+  - Demo (`demo.yml`): by hand only. It runs `just demo` and opens a pull request with the
+    new `assets/demo.gif`.
+  - Releases: Linux x64 and ARM64 build inside the devcontainer; macOS Intel/Apple Silicon
+    and Windows x64 use native GitHub runners. They install Rust and pinned cargo-packager;
+    they must never require a second devcontainer.
   - Linux AppImages still need glibc 2.41 or newer.
 - **One release pipeline.** `.github/workflows/release.yml` runs on a pushed `vX.Y.Z` tag
   that matches the workspace version, then publishes only when all five signed packages exist.

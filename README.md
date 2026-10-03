@@ -132,7 +132,7 @@ The setup follows this sequence:
    Dockerfile installs tools; `post-create.py` configures hooks, plugins and GitHub access.
    On each container start, Graphify refreshes a local code index ignored by Git.
    Agents use `.agents/skills/graphify/` to query it.
-   Linux CI and releases use the same devcontainer; macOS and Windows releases use native runners.
+   Linux releases use the same devcontainer; CI and the macOS and Windows releases use native runners.
 2. Run `just agents-doctor` to verify tools and subscription login without a model request.
    Preview selected roles with `just agents --dry-run`. Start them with `just agents`.
 3. Give the lead the task. It assigns scoped work across the project, shares evidence,
