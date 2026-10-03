@@ -316,6 +316,10 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::VersionWriting => "Scrittura…",
         Message::VersionFailed => "Non riuscita",
         Message::VersionNew => "Nuova versione",
+        Message::StopVersion => "Ferma la nuova versione",
+        Message::VersionWaitingSignIn => "In attesa dell'accesso a ChatGPT",
+        Message::VersionSignIn => "Accedi",
+        Message::RewriteInstructionHint => "Invio per eseguire",
         Message::AiEdit => "Modifica con IA",
         Message::EditMessage => "Modifica",
         Message::EditMessageHint => "Premi Ctrl+Invio per salvare, Esc per annullare.",
@@ -365,9 +369,7 @@ pub(super) fn text(message: Message) -> &'static str {
         // Sessions: the thread under an attachment
         Message::ReplyInThread => "Rispondi nel thread",
         Message::ThreadTitle => "Thread",
-        Message::ThreadComposerPlaceholder => {
-            "Aggiungi un appunto su questo file, o @study per chiedere"
-        }
+        Message::ThreadComposerPlaceholder => "Un appunto, o @study per chiedere",
         Message::ThreadLoadError => "Impossibile caricare questo thread. Riprova.",
 
         // Sessions: recording from the microphone

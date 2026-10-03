@@ -9,7 +9,6 @@ use super::{
     send_button, source_card, with_context,
 };
 use crate::ui::screens::shell::page::*;
-use gpui_kit::Focusable as _;
 use gpui_kit::base::TestSupportExt as _;
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _,
@@ -20,7 +19,7 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Subscription,
 };
 use std::path::PathBuf;
-use study_app::views::{PartContent, Place, Thread};
+use study_app::views::{ChatMessage, PartContent, Place, Thread};
 use study_core::PartId;
 use study_localization::reply_count;
 use study_ui::{Composer, icon_button, units};
@@ -87,6 +86,11 @@ impl ThreadState {
         self.loaded.as_ref().filter(|thread| thread.root.id == root)
     }
 
+    /// The replies of the loaded thread.
+    pub(in crate::ui::screens::shell::page::pages::sessions) fn replies(&self) -> &[ChatMessage] {
+        self.loaded.as_ref().map_or(&[], |thread| &thread.replies)
+    }
+
     fn can_edit(&self) -> bool {
         !self.sending && !self.picking
     }
@@ -142,7 +146,7 @@ impl AppShell {
                         if before != Some(thread.replies.len()) {
                             state.thread.scroll_to_end = true;
                         }
-                        state.versions.observe(&thread.replies);
+                        state.versions.observe(&thread.replies, cx);
                         state.thread.loaded = Some(thread);
                         if state.error == Some(Message::ThreadLoadError) {
                             state.error = None;
@@ -307,16 +311,7 @@ impl AppShell {
             header = header.context(name);
         }
 
-        // Moving through the thread by keyboard, rather than writing in its composer.
-        let browsing = window.last_input_was_keyboard()
-            && !self
-                .sessions
-                .thread
-                .composer
-                .read(cx)
-                .focus_handle(cx)
-                .is_focused(window);
-        let body = self.thread_body(thread, locale, browsing, cx);
+        let body = self.thread_body(thread, locale, cx);
 
         let footer = div()
             .flex_none()
@@ -362,7 +357,6 @@ impl AppShell {
         &self,
         thread: Option<&Thread>,
         locale: Locale,
-        keyboard: bool,
         cx: &mut Context<Self>,
     ) -> gpui_kit::Div {
         let unit = units(cx);
@@ -426,7 +420,7 @@ impl AppShell {
                         &state.expanded,
                         &state.shown,
                         None,
-                        state.row_marks(keyboard, self.chatgpt_state()),
+                        state.row_marks(self.chatgpt_state()),
                         cx,
                     ));
                 }

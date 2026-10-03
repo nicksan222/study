@@ -2,7 +2,8 @@
 //! `@study` under a faint "Study" label, in words with citation chips or as the study
 //! material or practice a tool made. When it was written and what can be done with it (copy,
 //! answer again, delete) stay out of the way: on the timeline they appear in the margin to
-//! the right while the entry is hovered; in a thread, the moment shows under it.
+//! the right while the entry is hovered or has focus, so they never cover its words; in a
+//! thread, the moment shows under it and the actions float above it.
 
 use super::super::ids;
 use super::versions::{VersionsState, action_bar, edit_box, version_line};
@@ -12,10 +13,10 @@ use crate::features::media::AttachmentInfo;
 use crate::ui::screens::shell::AppShell;
 use crate::ui::screens::shell::page::pages::components::{
     ChatGptState, OnCite, citation_chip, job_problem_parts, job_status, prose, prose_citing,
+    sign_in_line,
 };
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, button::ButtonVariants as _};
-use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, Context, Div, InteractiveElement as _, IntoElement, ParentElement as _,
     Styled as _, div,
@@ -29,7 +30,7 @@ use study_ui::{Note, button, units};
 /// The margin to the right of the notebook's column, in units, where an entry's time and
 /// actions appear while it is hovered. The composer keeps the same margin, so it lines up
 /// with the notes.
-pub(in crate::ui::screens::shell::page::pages::sessions) const META_GUTTER: f32 = 96.;
+pub(in crate::ui::screens::shell::page::pages::sessions) const META_GUTTER: f32 = 168.;
 
 /// One entry: a note with its files, each folding what was read from it; or an answer. On
 /// the timeline each file links to its thread; `open_thread` is the one shown beside it.
@@ -58,13 +59,22 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
         )
     };
     let unit = units(cx);
-    let shown = marks.keyboard
-        || marks.deleting == Some(message.id)
+    let shown = marks.deleting == Some(message.id)
         || marks.copied == Some(message.id)
         || versions.menu == Some(message.id);
-    // The bar comes first, floating over the entry's top-right corner: the keyboard reaches
-    // an entry's actions before the files and folds inside it, in reading order. The switcher
-    // closes the entry.
+    // The bar comes first, so the keyboard reaches an entry's actions before the files and
+    // folds inside it, in reading order.
+    let bar = (!editing).then(|| {
+        action_bar(
+            message,
+            locale,
+            marks.copied == Some(message.id),
+            shown,
+            ROW,
+            versions,
+            cx,
+        )
+    });
     let content = div()
         .relative()
         .flex_1()
@@ -72,31 +82,25 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
         .flex()
         .flex_col()
         .gap(unit(study_ui::scale::SPACE_XXS))
-        .when(!editing, |body| {
-            body.child(action_bar(
-                message,
-                locale,
-                marks.copied == Some(message.id),
-                shown,
-                ROW,
-                versions,
-                cx,
-            ))
-        })
-        .child(content)
-        .children(version_line(message, locale, versions, cx));
+        .child(content);
     if message.thread_root.is_some() {
-        // In a narrow thread: the moment stays under the entry, since no day label names it.
+        // In a narrow thread there is no margin: the bar floats over the entry's top-right
+        // corner, clear of its first line, and the moment stays under the entry, since no day
+        // label names it.
         return div()
             .group(ROW)
+            .relative()
             .w_full()
             .flex()
             .flex_col()
             .gap(unit(study_ui::scale::SPACE_XXS))
+            .children(bar.map(|bar| div().absolute().top(unit(-30.)).right(unit(0.)).child(bar)))
             .child(content)
             .child(sent_at(message, locale, cx))
             .into_any_element();
     }
+    // The margin column takes no height of its own: the bar at the entry's top and the time
+    // under it hang in it, beside the words.
     div()
         .group(ROW)
         .w_full()
@@ -105,20 +109,31 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
         .items_start()
         .child(
             div()
+                .relative()
                 .flex_none()
                 .w(unit(META_GUTTER))
-                .pl(unit(study_ui::scale::SPACE_SM))
-                .flex()
-                .flex_col()
-                .items_end()
-                .child(reveal_on_hover(
+                .h(unit(0.))
+                .child(
                     div()
-                        .h(unit(24.))
-                        .flex()
-                        .items_center()
-                        .child(sent_at(message, locale, cx)),
-                    shown,
-                )),
+                        .absolute()
+                        .top(unit(-4.))
+                        .right(unit(0.))
+                        .children(bar),
+                )
+                .child(
+                    div()
+                        .absolute()
+                        .top(unit(study_ui::scale::SPACE_XXL))
+                        .right(unit(0.))
+                        .child(reveal_on_hover(
+                            div()
+                                .h(unit(24.))
+                                .flex()
+                                .items_center()
+                                .child(sent_at(message, locale, cx)),
+                            shown,
+                        )),
+                ),
         )
         .child(content)
         .into_any_element()
@@ -142,8 +157,10 @@ fn note_content(
         let (shown, marks) = marked_note(message.text());
         content = content.child(Note::new(shown).marks(marks));
     }
-    // A version being written, or one that failed, says so under the words it started from.
-    if versions.shows_writing(message) {
+    // The versions, right under the words they are of, then a version being written, or one
+    // that failed, saying so.
+    content = content.children(version_line(message, locale, versions, cx));
+    if message.unfinished().is_some() {
         content = content.children(
             message
                 .reply
@@ -199,10 +216,6 @@ fn column(cx: &gpui_kit::App) -> Div {
 pub(in crate::ui::screens::shell::page::pages::sessions) struct RowMarks<'a> {
     pub(in crate::ui::screens::shell::page::pages::sessions) deleting: Option<MessageId>,
     pub(in crate::ui::screens::shell::page::pages::sessions) copied: Option<MessageId>,
-    /// Whether the learner is moving through the page by keyboard: then every entry shows
-    /// its time and actions, as a hovered one does, so focus never lands on something
-    /// unseen.
-    pub(in crate::ui::screens::shell::page::pages::sessions) keyboard: bool,
     /// The ChatGPT sign-in, for an answer held up by it.
     pub(in crate::ui::screens::shell::page::pages::sessions) chatgpt: ChatGptState,
     /// What the entries' versions are doing: edits, menus and switchers.
@@ -310,9 +323,16 @@ fn answer_content(
     if versions.editing(message.id) {
         return content.child(edit_box(message, locale, versions, cx));
     }
-    if versions.shows_writing(message) {
-        // An answer being written again keeps its old words, faded, until the new ones land.
+    if message.unfinished().is_some() {
+        // An answer being written again keeps its newest words, faded, until the new ones
+        // land; an older version the student stepped to stays as it is.
         let earlier = Some(message.text()).filter(|body| !body.is_empty());
+        let replaced = VersionsState::shows_latest(message);
+        if let Some(body) = earlier {
+            let text = answer_text(cx).child(prose(body, cx));
+            content = content.child(if replaced { text.opacity(0.45) } else { text });
+        }
+        content = content.children(version_line(message, locale, versions, cx));
         // An answer that failed, or is still being written, can be deleted too, stopping it.
         content = content.children(
             message
@@ -320,9 +340,6 @@ fn answer_content(
                 .as_ref()
                 .map(|job| reply_line(job, chatgpt, locale, cx)),
         );
-        if let Some(body) = earlier {
-            content = content.child(answer_text(cx).opacity(0.45).child(prose(body, cx)));
-        }
         return content;
     }
     if !message.text().is_empty() {
@@ -334,6 +351,7 @@ fn answer_content(
             cx,
         )));
     }
+    content = content.children(version_line(message, locale, versions, cx));
     if !message.citations.is_empty() {
         content = content.child(citations(message, locale, cx));
     }
@@ -424,6 +442,10 @@ fn reply_line(
         .gap(unit(study_ui::scale::SPACE_XS))
         .text_size(unit(study_ui::scale::TEXT_CAPTION))
         .text_color(palette.faint);
+    // A version held up by the sign-in says so on this one line, not in a card of its own.
+    if let Some(parts) = sign_in_line(job, chatgpt, locale, cx) {
+        return line.children(parts).into_any_element();
+    }
     if !has_problem {
         // A problem says what needs attention instead, below.
         line = super::attachment::running_words(line, job, icon, status, cx);

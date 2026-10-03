@@ -188,6 +188,18 @@ pub fn days_in_a_row(locale: Locale, count: usize) -> &'static str {
     }
 }
 
+/// What the confirmation of deleting an entry with several versions says goes with it.
+pub fn delete_entry_versions(locale: Locale, versions: usize) -> String {
+    match locale {
+        Locale::English => format!(
+            "All {versions} versions go with it, and its answers, threads and material. Files stay in the Library."
+        ),
+        Locale::Italian => format!(
+            "Tutte le {versions} versioni vengono eliminate con esso, insieme a risposte, thread e materiale. I file restano nella Libreria."
+        ),
+    }
+}
+
 /// Where a review is: `3 of 12`.
 pub fn review_progress(locale: Locale, done: usize, total: usize) -> String {
     match locale {
@@ -264,6 +276,12 @@ pub enum PracticeFigure {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deleting_an_entry_names_how_many_versions_go() {
+        assert!(delete_entry_versions(Locale::English, 3).starts_with("All 3 versions"));
+        assert!(delete_entry_versions(Locale::Italian, 3).starts_with("Tutte le 3 versioni"));
+    }
 
     #[test]
     fn changes_name_only_what_changed_with_each_locales_plural() {

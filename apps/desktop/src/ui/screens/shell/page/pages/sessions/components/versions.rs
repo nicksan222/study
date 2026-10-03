@@ -2,23 +2,23 @@
 //! done with it, the AI edit menu, and editing its words in place.
 //!
 //! An entry keeps every version of its words (see `study_app::views::MessageVersion`). The
-//! switcher names the one on screen and steps through the others; a version being written
-//! takes the last place in it, as "Writing" or "Failed". The student can look at the finished
-//! versions meanwhile (`VersionsState::away`) and come back to the one being written.
+//! switcher names the finished version on screen and steps through the others; a version
+//! being written is told apart from them, as "Writing…" or "Failed", and cannot be stepped to.
 
 use super::super::ids;
 use crate::ui::screens::shell::AppShell;
 use crate::ui::screens::shell::page::pages::components::named_field;
 use gpui_kit::assets::IconName;
 use gpui_kit::base::TestSupportExt as _;
+use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::popover::Popover;
-use gpui_kit::component::{Disableable as _, Sizable as _, button::ButtonVariants as _};
+use gpui_kit::component::{Disableable as _, Selectable, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    Anchor, AnyElement, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
-    KeyDownEvent, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Subscription,
-    Window, div,
+    Anchor, AnyElement, AppContext as _, Context, Entity, FocusHandle, Hsla,
+    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Pixels, RenderOnce,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
 };
 use std::collections::{HashMap, HashSet};
 use study_app::views::{
@@ -38,6 +38,17 @@ const INSTRUCTION_CHARS: usize = 24;
 /// How wide the AI edit menu is, in units.
 const MENU_WIDTH: f32 = 280.;
 
+/// The focus an entry's controls keep, so the keyboard and the pointer meet in the same
+/// places.
+pub(in crate::ui::screens::shell::page::pages::sessions) struct EntryFocus {
+    /// The floating bar: while focus is inside it, it shows.
+    pub(in crate::ui::screens::shell::page::pages::sessions) bar: FocusHandle,
+    /// The AI edit button's place: the menu gives focus back to it when it closes.
+    pub(in crate::ui::screens::shell::page::pages::sessions) ai: FocusHandle,
+    /// The switcher: a click on an arrow leaves focus here, so the arrow keys keep stepping.
+    pub(in crate::ui::screens::shell::page::pages::sessions) switcher: FocusHandle,
+}
+
 /// What the sessions page remembers about versions: which entry is being edited or has its AI
 /// edit menu open, the instruction being written, and what the switchers should say.
 pub(in crate::ui::screens::shell::page) struct VersionsState {
@@ -46,27 +57,15 @@ pub(in crate::ui::screens::shell::page) struct VersionsState {
     pub(in crate::ui::screens::shell::page::pages::sessions) edit_field: Entity<TextareaState>,
     /// The entry whose AI edit menu is open.
     pub(in crate::ui::screens::shell::page::pages::sessions) menu: Option<MessageId>,
-    instruction: Entity<InputState>,
+    pub(in crate::ui::screens::shell::page::pages::sessions) instruction: Entity<InputState>,
     /// Why the last request on an entry did nothing, shown under it.
     notice: Option<(MessageId, Message)>,
-    /// Entries whose finished versions the student is looking at while another is written.
-    away: HashSet<MessageId>,
+    pub(in crate::ui::screens::shell::page::pages::sessions) focus: HashMap<MessageId, EntryFocus>,
     /// Entries where a version finished while an older one was on screen.
     fresh: HashSet<MessageId>,
     /// How many finished versions each entry had when last loaded.
     finished: HashMap<MessageId, usize>,
     _subscriptions: [Subscription; 2],
-}
-
-/// Where a click on the switcher goes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::ui::screens::shell::page::pages::sessions) enum Step {
-    /// Show this finished version.
-    To(VersionId),
-    /// Show the version being written, in the last place.
-    Writing,
-    /// Leave the version being written, for the finished version on screen before.
-    Finished,
 }
 
 impl VersionsState {
@@ -103,7 +102,7 @@ impl VersionsState {
             menu: None,
             instruction,
             notice: None,
-            away: HashSet::new(),
+            focus: HashMap::new(),
             fresh: HashSet::new(),
             finished: HashMap::new(),
             _subscriptions: [edited, instructed],
@@ -118,19 +117,20 @@ impl VersionsState {
         self.editing.is_some_and(|(editing, _)| editing == id)
     }
 
-    /// Whether `id` shows the version being written rather than a finished one.
-    pub(in crate::ui::screens::shell::page::pages::sessions) fn shows_writing(
-        &self,
-        message: &ChatMessage,
-    ) -> bool {
-        message.unfinished().is_some() && !self.away.contains(&message.id)
-    }
-
     /// Takes in messages just loaded: an entry whose version finished while an older one is on
-    /// screen gets the "new version" cue, and one with nothing being written is no longer
-    /// looked away from.
-    pub(in crate::ui::screens::shell::page) fn observe(&mut self, messages: &[ChatMessage]) {
+    /// screen gets the "new version" cue, and each entry gets the focus places its controls
+    /// keep.
+    pub(in crate::ui::screens::shell::page) fn observe(
+        &mut self,
+        messages: &[ChatMessage],
+        cx: &mut Context<AppShell>,
+    ) {
         for message in messages {
+            self.focus.entry(message.id).or_insert_with(|| EntryFocus {
+                bar: cx.focus_handle(),
+                ai: cx.focus_handle().tab_stop(true),
+                switcher: cx.focus_handle(),
+            });
             let finished = message
                 .versions
                 .iter()
@@ -148,10 +148,21 @@ impl VersionsState {
             } else if before.is_some_and(|before| finished > before) {
                 self.fresh.insert(message.id);
             }
-            if message.unfinished().is_none() {
-                self.away.remove(&message.id);
-            }
         }
+    }
+
+    /// Whether the version on screen is the newest finished one: the one a new version will
+    /// replace.
+    pub(in crate::ui::screens::shell::page::pages::sessions) fn shows_latest(
+        message: &ChatMessage,
+    ) -> bool {
+        message
+            .versions
+            .iter()
+            .rev()
+            .find(|version| version.status == MessageStatus::Complete)
+            .map(|version| version.id)
+            == message.active_version
     }
 }
 
@@ -160,52 +171,35 @@ impl VersionsState {
 struct Position {
     /// Counting from 1.
     shown: usize,
+    /// Every version, the one being written included.
     total: usize,
-    previous: Option<Step>,
-    next: Option<Step>,
+    previous: Option<VersionId>,
+    next: Option<VersionId>,
 }
 
-/// The switcher's position for `message`; `None` when it has fewer than two versions.
-fn position(message: &ChatMessage, writing: bool) -> Option<Position> {
+/// The switcher's position for `message`: the finished version on screen among all of its
+/// versions; `None` when it has fewer than two. A version being written is the last one and
+/// is not stepped to.
+fn position(message: &ChatMessage) -> Option<Position> {
     let versions = &message.versions;
     let total = versions.len();
     if total < 2 {
         return None;
     }
-    let pending = versions
-        .iter()
-        .position(|version| version.status != MessageStatus::Complete);
-    let active = message
+    let shown = message
         .active_version
-        .and_then(|id| versions.iter().position(|version| version.id == id));
-    let shown = match (writing, pending, active) {
-        (true, Some(pending), _) => pending,
-        (_, _, Some(active)) => active,
-        (_, Some(pending), None) => pending,
-        _ => return None,
-    };
-    let previous = if shown == 0 {
-        None
-    } else if Some(shown) == pending {
-        active
-            .filter(|active| *active < shown)
-            .map(|_| Step::Finished)
-    } else {
-        Some(Step::To(versions[shown - 1].id))
-    };
-    let next = match versions.get(shown + 1) {
-        None => None,
-        Some(version) if Some(shown + 1) == pending => {
-            let _ = version;
-            Some(Step::Writing)
-        }
-        Some(version) => Some(Step::To(version.id)),
+        .and_then(|id| versions.iter().position(|version| version.id == id))?;
+    let finished = |at: usize| {
+        versions
+            .get(at)
+            .filter(|version| version.status == MessageStatus::Complete)
+            .map(|version| version.id)
     };
     Some(Position {
         shown: shown + 1,
         total,
-        previous,
-        next,
+        previous: shown.checked_sub(1).and_then(finished),
+        next: finished(shown + 1),
     })
 }
 
@@ -239,8 +233,9 @@ fn writing_label(message: &ChatMessage, locale: Locale) -> String {
     text(locale, message).to_owned()
 }
 
-/// What shows under an entry: the switcher between its versions when it has two or more, with
-/// a cue when a newer one finished meanwhile, and why a request did nothing. `None` when
+/// What shows under an entry's words: the switcher between its versions when it has two or
+/// more, naming the finished one on screen, with a small "Writing…" beside it while a new one
+/// is written and a cue when one finished meanwhile; and why a request did nothing. `None` when
 /// there is neither.
 pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
     message: &ChatMessage,
@@ -256,41 +251,41 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
         .notice
         .filter(|(noticed, _)| *noticed == id)
         .map(|(_, notice)| notice);
-    let switcher = position(message, versions.shows_writing(message)).map(|position| {
-        let label = if Some(position.shown)
-            == message
-                .versions
-                .iter()
-                .position(|v| v.status != MessageStatus::Complete)
-                .map(|at| at + 1)
-        {
-            writing_label(message, locale)
-        } else {
-            message
-                .versions
-                .get(position.shown - 1)
-                .map(|version| origin_label(version, locale))
-                .unwrap_or_default()
-        };
+    let switch_focus = versions.focus.get(&id).map(|focus| focus.switcher.clone());
+    let switcher = position(message).map(|position| {
+        let label = message
+            .versions
+            .get(position.shown - 1)
+            .map(|version| origin_label(version, locale))
+            .unwrap_or_default();
         let (previous, next) = (position.previous, position.next);
         let arrow = |name: &'static str,
                      tip: Message,
                      icon: IconName,
-                     step: Option<Step>,
+                     step: Option<VersionId>,
                      cx: &mut Context<AppShell>| {
+            let focus = switch_focus.clone();
             icon_button((name, mid), text(locale, tip), icon, cx)
                 .xsmall()
                 .disabled(step.is_none())
-                .when_some(step, |button, step| {
-                    button.on_click(
-                        cx.listener(move |this, _, _, cx| this.step_version(id, step, cx)),
-                    )
+                .when_some(step, |button, version| {
+                    button.on_click(cx.listener(move |this, _, window, cx| {
+                        // A click leaves focus on the switcher, so the arrow keys go on
+                        // stepping.
+                        if let Some(focus) = &focus {
+                            window.focus(focus, cx);
+                        }
+                        this.step_version(id, version, cx)
+                    }))
                 })
         };
         div()
             .id((ids::VERSION_SWITCHER, mid))
             .test_support()
             .aria_label(text(locale, Message::VersionSwitcher))
+            .when_some(switch_focus.as_ref(), |line, focus| line.track_focus(focus))
+            // The arrow's glyph, not its hit area, lines up with the words above.
+            .ml(unit(-6.))
             .flex()
             .items_center()
             .gap(unit(study_ui::scale::SPACE_XXS))
@@ -303,8 +298,8 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
                     RIGHT => next,
                     _ => None,
                 };
-                if let Some(step) = step {
-                    this.step_version(id, step, cx);
+                if let Some(version) = step {
+                    this.step_version(id, version, cx);
                     cx.stop_propagation();
                 }
             }))
@@ -334,6 +329,10 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
                 )
             })
     });
+    let writing = switcher
+        .is_some()
+        .then(|| message.unfinished().map(|_| writing_label(message, locale)))
+        .flatten();
     if switcher.is_none() && notice.is_none() {
         return None;
     }
@@ -344,6 +343,14 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn version_line(
             .items_center()
             .gap_x(unit(study_ui::scale::SPACE_SM))
             .children(switcher)
+            .children(writing.map(|writing| {
+                div()
+                    .id((ids::VERSION_WRITING, mid))
+                    .test_support()
+                    .text_size(unit(study_ui::scale::TEXT_CAPTION))
+                    .text_color(palette.muted)
+                    .child(writing)
+            }))
             .children(notice.map(|notice| {
                 div()
                     .id((ids::VERSION_NOTICE, mid))
@@ -364,26 +371,33 @@ pub(in crate::ui::screens::shell::page::pages::sessions) enum Action {
     Edit,
     Copy,
     Stop,
-    Retry,
     Delete,
 }
 
 /// What can be done with `message`: rewriting needs words (or, for a note, a read file) to
-/// rewrite; a version being written can only be stopped, retried and deleted.
+/// rewrite. While a version is written the words can only be copied, and the version stopped
+/// or the entry deleted; one that failed or was stopped leaves deleting (trying again is in
+/// the line under the words).
 pub(in crate::ui::screens::shell::page::pages::sessions) fn actions_of(
     message: &ChatMessage,
 ) -> Vec<Action> {
+    let words = !message.text().trim().is_empty();
     if message.unfinished().is_some() {
         let stopped = message
             .reply
             .as_ref()
             .is_some_and(|job| job.status.is_stopped());
-        return vec![
-            if stopped { Action::Retry } else { Action::Stop },
-            Action::Delete,
-        ];
+        if stopped {
+            return vec![Action::Delete];
+        }
+        let mut actions = Vec::new();
+        if words {
+            actions.push(Action::Copy);
+        }
+        actions.push(Action::Stop);
+        actions.push(Action::Delete);
+        return actions;
     }
-    let words = !message.text().trim().is_empty();
     let readable = message.role == MessageRole::User
         && message.parts.iter().any(|part| {
             part.document
@@ -408,9 +422,9 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn actions_of(
     actions
 }
 
-/// The floating bar over an entry's top-right corner, with an icon button for each thing that
-/// can be done with it. It shows while the pointer is over the entry, or the keyboard is on
-/// the page (`shown`).
+/// The floating bar of an entry, with an icon button for each thing that can be done with it.
+/// The caller places it. It shows while the pointer is over the entry (`group`), while focus
+/// is inside it, or while `shown`.
 pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
     message: &ChatMessage,
     locale: Locale,
@@ -428,9 +442,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
     let job = message.reply.as_ref().map(|job| job.id);
     let mut bar = div()
         .id((ids::ACTION_BAR, mid))
-        .absolute()
-        .top(unit(-14.))
-        .right(unit(0.))
         .flex()
         .items_center()
         .p(unit(2.))
@@ -442,6 +453,11 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
         .text_color(palette.muted)
         .opacity(if shown { 1. } else { 0. })
         .group_hover(group, |style| style.opacity(1.));
+    if let Some(focus) = versions.focus.get(&id) {
+        bar = bar
+            .track_focus(&focus.bar)
+            .in_focus(|style| style.opacity(1.));
+    }
     for action in actions_of(message) {
         let button = match action {
             Action::AiEdit => ai_edit(message, locale, versions, cx),
@@ -451,7 +467,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
                 IconName::RotateCw,
                 cx,
             )
-            .xsmall()
             .on_click(cx.listener(move |this, _, _, cx| this.reanswer(id, cx)))
             .into_any_element(),
             Action::Edit => {
@@ -462,7 +477,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
                     IconName::SquarePen,
                     cx,
                 )
-                .xsmall()
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.start_edit(id, words.clone(), window, cx)
                 }))
@@ -487,7 +501,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
                     },
                     cx,
                 )
-                .xsmall()
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.copy_text(words.clone(), cx);
                     this.sessions.copied = Some(id);
@@ -497,24 +510,12 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
             }
             Action::Stop => icon_button(
                 (ids::STOP_VERSION, mid),
-                text(locale, Message::StopJob),
+                text(locale, Message::StopVersion),
                 IconName::Square,
                 cx,
             )
-            .xsmall()
             .when_some(job, |button, job| {
                 button.on_click(cx.listener(move |this, _, _, cx| this.stop_job(job, cx)))
-            })
-            .into_any_element(),
-            Action::Retry => icon_button(
-                (ids::RETRY_VERSION, mid),
-                text(locale, Message::Retry),
-                IconName::RotateCw,
-                cx,
-            )
-            .xsmall()
-            .when_some(job, |button, job| {
-                button.on_click(cx.listener(move |this, _, _, cx| this.retry_job(job, cx)))
             })
             .into_any_element(),
             Action::Delete => icon_button(
@@ -523,7 +524,6 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
                 IconName::Trash,
                 cx,
             )
-            .xsmall()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.sessions.deleting = Some(id);
                 cx.notify();
@@ -535,8 +535,51 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn action_bar(
     bar.into_any_element()
 }
 
+/// The AI edit button inside the place that keeps its focus: the popover opened from a
+/// pointer click leaves nothing focused, so the place is what the menu returns focus to.
+#[derive(IntoElement)]
+struct AiTrigger {
+    id: u64,
+    button: Button,
+    slot: Option<FocusHandle>,
+    ring: Hsla,
+    radius: Pixels,
+    open: bool,
+}
+
+impl Selectable for AiTrigger {
+    fn selected(mut self, selected: bool) -> Self {
+        self.open = selected;
+        self
+    }
+
+    fn is_selected(&self) -> bool {
+        self.open
+    }
+}
+
+impl RenderOnce for AiTrigger {
+    fn render(self, _: &mut Window, _: &mut gpui_kit::App) -> impl IntoElement {
+        let button = self.button.selected(self.open);
+        let ring = self.ring;
+        match self.slot {
+            Some(slot) => div()
+                .id((ids::AI_EDIT_SLOT, self.id))
+                .track_focus(&slot)
+                .rounded(self.radius)
+                .border_1()
+                .border_color(gpui_kit::transparent_black())
+                .focus_visible(move |style| style.border_color(ring))
+                .child(button)
+                .into_any_element(),
+            None => button.into_any_element(),
+        }
+    }
+}
+
 /// The AI edit button and the menu it opens: two ready-made rewrites, and a field for an
-/// instruction of the student's own. It closes with Escape, giving focus back to the button.
+/// instruction of the student's own. It closes with Escape or a choice, and focus goes back to
+/// the button, which a pointer click would not have focused.
 fn ai_edit(
     message: &ChatMessage,
     locale: Locale,
@@ -549,15 +592,20 @@ fn ai_edit(
     let open = versions.menu == Some(id);
     let instruction = versions.instruction.clone();
     let focus = gpui_kit::Focusable::focus_handle(instruction.read(cx), cx);
+    let slot = versions.focus.get(&id).map(|focus| focus.ai.clone());
     let trigger = icon_button(
         (ids::AI_EDIT, mid),
         text(locale, Message::AiEdit),
         IconName::WandSparkles,
         cx,
     )
-    .xsmall();
+    // The slot around it is the tab stop, so the menu can hand focus back to it.
+    .when(slot.is_some(), |button| button.tab_stop(false));
+    let ring = palette(cx).primary;
+    let radius = units(cx)(study_ui::scale::RADIUS_MD);
     let changed = shell.clone();
     let field = instruction.clone();
+    let returned = slot.clone();
     Popover::new((ids::AI_MENU, mid))
         .anchor(Anchor::TopRight)
         .open(open)
@@ -570,6 +618,8 @@ fn ai_edit(
                         cx,
                     )
                 });
+            } else if let Some(slot) = &returned {
+                slot.focus(window, cx);
             }
             changed
                 .update(cx, |this, cx| {
@@ -578,7 +628,14 @@ fn ai_edit(
                 })
                 .ok();
         })
-        .trigger(trigger)
+        .trigger(AiTrigger {
+            id: mid,
+            button: trigger,
+            slot,
+            ring,
+            radius,
+            open: false,
+        })
         .track_focus(&focus)
         .content(move |_, _, cx| {
             let unit = units(cx);
@@ -615,25 +672,48 @@ fn ai_edit(
                 )
                 .child(
                     div()
-                        .flex()
-                        .items_center()
-                        .gap(unit(study_ui::scale::SPACE_XS))
                         .pt(unit(study_ui::scale::SPACE_XS))
-                        .child(named_field(
-                            (ids::AI_INSTRUCTION, mid),
-                            text(locale, Message::RewriteInstruction),
-                            Input::new(&instruction)
-                                .aria_label(text(locale, Message::RewriteInstruction)),
-                        ))
+                        .flex()
+                        .flex_col()
+                        .gap(unit(study_ui::scale::SPACE_XXS))
                         .child(
-                            button((ids::AI_RUN, mid), text(locale, Message::RewriteRun), cx)
-                                .primary()
-                                .disabled(!typed)
-                                .on_click(move |_, window, cx| {
-                                    instructed
-                                        .update(cx, |this, cx| this.run_instruction(window, cx))
-                                        .ok();
-                                }),
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(unit(study_ui::scale::SPACE_XS))
+                                // Space and Enter belong to the field, not to the popover
+                                // around it (see `bind_shortcuts`).
+                                .key_context(crate::app::desktop::PROMPT_FIELD)
+                                .child(named_field(
+                                    (ids::AI_INSTRUCTION, mid),
+                                    text(locale, Message::RewriteInstruction),
+                                    Input::new(&instruction)
+                                        .aria_label(text(locale, Message::RewriteInstruction)),
+                                ))
+                                .child(
+                                    button(
+                                        (ids::AI_RUN, mid),
+                                        text(locale, Message::RewriteRun),
+                                        cx,
+                                    )
+                                    .primary()
+                                    .disabled(!typed)
+                                    .on_click(
+                                        move |_, window, cx| {
+                                            instructed
+                                                .update(cx, |this, cx| {
+                                                    this.run_instruction(window, cx)
+                                                })
+                                                .ok();
+                                        },
+                                    ),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .text_size(unit(study_ui::scale::TEXT_CAPTION))
+                                .text_color(study_ui::palette(cx).faint)
+                                .child(text(locale, Message::RewriteInstructionHint)),
                         ),
                 )
         })
@@ -699,48 +779,33 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn edit_box(
 }
 
 impl AppShell {
-    /// Shows another version of an entry on the switcher's arrow.
+    /// Shows another finished version of an entry on the switcher's arrow.
     pub(in crate::ui::screens::shell::page::pages::sessions) fn step_version(
         &mut self,
         id: MessageId,
-        step: Step,
+        version: VersionId,
         cx: &mut Context<Self>,
     ) {
         let versions = &mut self.sessions.versions;
         versions.notice = None;
-        match step {
-            Step::Writing => {
-                versions.away.remove(&id);
-                cx.notify();
-            }
-            Step::Finished => {
-                versions.away.insert(id);
-                cx.notify();
-            }
-            Step::To(version) => {
-                versions.fresh.remove(&id);
-                let Some(session_id) = self.sessions.session_id() else {
-                    return;
-                };
-                if !self.workers.allow(&mut self.sessions.error, cx) {
-                    return;
-                }
-                // Choosing a finished version while another is written stays on the finished
-                // ones; with nothing being written this changes nothing.
-                self.sessions.versions.away.insert(id);
-                self.background(
-                    move |app| app.set_active_version(id, version),
-                    move |view, result, cx| {
-                        if let Err(error) = &result {
-                            crate::features::errors::report(error);
-                            view.sessions.fail_in(session_id, Message::JobActionError);
-                        }
-                        view.reload_session(session_id, cx);
-                    },
-                    cx,
-                );
-            }
+        versions.fresh.remove(&id);
+        let Some(session_id) = self.sessions.session_id() else {
+            return;
+        };
+        if !self.workers.allow(&mut self.sessions.error, cx) {
+            return;
         }
+        self.background(
+            move |app| app.set_active_version(id, version),
+            move |view, result, cx| {
+                if let Err(error) = &result {
+                    crate::features::errors::report(error);
+                    view.sessions.fail_in(session_id, Message::JobActionError);
+                }
+                view.reload_session(session_id, cx);
+            },
+            cx,
+        );
     }
 
     /// Opens an entry's words for editing in place, closing any other edit.
@@ -799,7 +864,6 @@ impl AppShell {
                 match result {
                     Ok(saved) => {
                         versions.editing = None;
-                        versions.away.remove(&id);
                         versions.fresh.remove(&id);
                         if saved.is_none() {
                             versions.notice = Some((id, Message::EditUnchanged));
@@ -874,9 +938,7 @@ impl AppShell {
             move |view, asked, cx| {
                 let versions = &mut view.sessions.versions;
                 match asked {
-                    Ok(Asked::Queued(_)) => {
-                        versions.away.remove(&id);
-                    }
+                    Ok(Asked::Queued(_)) => {}
                     Ok(Asked::Busy) => versions.notice = Some((id, Message::RewriteBusy)),
                     Ok(Asked::Unavailable) => {
                         versions.notice = Some((id, Message::RewriteUnavailable))

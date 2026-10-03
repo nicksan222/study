@@ -50,6 +50,48 @@ pub(in crate::ui::screens::shell::page) fn setup_requirement(job: &Job) -> Optio
     })
 }
 
+/// What a version held up by the ChatGPT sign-in shows under its entry, in place of the
+/// [`setup_card`]: one quiet line saying so, and the step that fixes it. `None` when the job
+/// is held up by something else, or there is an account.
+pub(in crate::ui::screens::shell::page) fn sign_in_line(
+    job: &Job,
+    chatgpt: ChatGptState,
+    locale: Locale,
+    cx: &mut Context<AppShell>,
+) -> Option<Vec<AnyElement>> {
+    if !chatgpt.signed_out
+        || job.status != JobStatus::Waiting
+        || setup_requirement(job) != Some(Requirement::LanguageModels)
+    {
+        return None;
+    }
+    let label = if chatgpt.signing_in {
+        Message::LlmChatGptWaiting
+    } else {
+        Message::VersionSignIn
+    };
+    Some(vec![
+        div()
+            .child(text(locale, Message::VersionWaitingSignIn))
+            .into_any_element(),
+        div()
+            .child(study_localization::separator())
+            .into_any_element(),
+        button(
+            ElementId::from(("setup-sign-in", job.id.get() as u64)),
+            text(locale, label),
+            cx,
+        )
+        .ghost()
+        .xsmall()
+        .disabled(chatgpt.busy)
+        .on_click(cx.listener(|this, _, _, cx| {
+            this.run_chatgpt_sign_in(false, cx, |_, _, _| {});
+        }))
+        .into_any_element(),
+    ])
+}
+
 /// The card's look and words for each requirement.
 fn copy(requirement: Requirement) -> (IconName, Message, Message) {
     match requirement {

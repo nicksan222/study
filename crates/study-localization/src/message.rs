@@ -265,6 +265,14 @@ pub enum Message {
     VersionWriting,
     VersionFailed,
     VersionNew,
+    /// What the Stop button of an entry says while a new version is being written.
+    StopVersion,
+    /// The compact line under an entry whose new version waits for the ChatGPT sign-in.
+    VersionWaitingSignIn,
+    /// The short button of that line.
+    VersionSignIn,
+    /// The faint line under the instruction field of the AI edit menu.
+    RewriteInstructionHint,
     /// The hover bar's changes: rewrite with the assistant, or by hand.
     AiEdit,
     EditMessage,

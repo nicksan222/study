@@ -214,16 +214,13 @@ impl SessionsState {
     }
 
     /// What the transcript marks on its rows.
-    /// What the rows mark, given whether the last input was the keyboard.
     pub(in crate::ui::screens::shell::page::pages::sessions) fn row_marks(
         &self,
-        keyboard: bool,
         chatgpt: crate::ui::screens::shell::page::pages::components::ChatGptState,
     ) -> super::components::RowMarks<'_> {
         super::components::RowMarks {
             deleting: self.deleting,
             copied: self.copied,
-            keyboard,
             chatgpt,
             versions: &self.versions,
         }
@@ -581,7 +578,7 @@ impl AppShell {
                         if first_load || messages.len() != state.messages.len() {
                             state.scroll_to_end = true;
                         }
-                        state.versions.observe(&messages);
+                        state.versions.observe(&messages, cx);
                         state.messages = messages;
                         state.messages_for = Some(session_id);
                         if state.error == Some(Message::MessagesLoadError) {

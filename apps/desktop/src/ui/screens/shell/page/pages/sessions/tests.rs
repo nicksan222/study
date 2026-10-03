@@ -1403,6 +1403,118 @@ fn an_ai_edit_queues_a_version_and_a_second_one_is_refused_aloud(cx: &mut TestAp
     assert_eq!(database.message(note).unwrap().unwrap().versions.len(), 2);
 }
 
+/// Space belongs to the instruction field and does not close the menu, an empty instruction
+/// runs nothing, and a written one queues a version and closes the menu.
+#[gpui_kit::test]
+fn the_instruction_field_takes_space_and_enter_without_closing_the_menu(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    cx.update(crate::app::desktop::bind_prompt_field);
+
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_INSTRUCTION, mid));
+    cx.simulate_input(window, "a");
+    cx.simulate_keystrokes(window, "space");
+    cx.simulate_input(window, "b");
+    render(cx, window);
+    assert!(
+        shown(cx, window, (ids::AI_IMPROVE, mid)),
+        "space kept the menu open"
+    );
+    let value = cx.update(|cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .instruction
+            .read(cx)
+            .value()
+            .to_string()
+    });
+    assert_eq!(value, "a b");
+
+    // Enter on an empty instruction does nothing and keeps the menu open.
+    cx.update_window(window, |_, window, cx| {
+        shell.update(cx, |shell, cx| {
+            shell
+                .sessions
+                .versions
+                .instruction
+                .update(cx, |field, cx| field.set_value("", window, cx));
+        });
+    })
+    .unwrap();
+    cx.simulate_keystrokes(window, "enter");
+    render(cx, window);
+    assert!(
+        shown(cx, window, (ids::AI_IMPROVE, mid)),
+        "an empty Enter kept the menu open"
+    );
+    assert_eq!(database.message(note).unwrap().unwrap().versions.len(), 1);
+
+    cx.simulate_input(window, "shorter");
+    cx.simulate_keystrokes(window, "enter");
+    wait_until(cx, |_| {
+        database.message(note).unwrap().unwrap().versions.len() == 2
+    });
+    render(cx, window);
+    assert!(
+        !shown(cx, window, (ids::AI_IMPROVE, mid)),
+        "running closed the menu"
+    );
+}
+
+/// After a click on the switcher the arrow keys keep stepping, and the AI menu hands focus
+/// back to its button when it closes.
+#[gpui_kit::test]
+fn keys_step_versions_after_a_click_and_the_menu_returns_focus(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    database
+        .edit_message(note, "Mitochondria make most ATP")
+        .unwrap();
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            let session = shell.sessions.session_id().unwrap();
+            shell.reload_session(session, cx);
+        })
+    });
+    wait_until(cx, |cx| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].versions.len() == 2)
+    });
+    render(cx, window);
+    let active = |cx: &mut TestAppContext| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].text().to_owned())
+    };
+    click(cx, window, (ids::VERSION_PREVIOUS, mid));
+    wait_until(cx, |cx| active(cx) == "Mitochondria make ATP");
+    cx.simulate_keystrokes(window, "right");
+    wait_until(cx, |cx| active(cx) == "Mitochondria make most ATP");
+
+    // The AI menu: Escape returns focus to the button's slot.
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    assert!(shown(cx, window, (ids::AI_IMPROVE, mid)));
+    cx.simulate_keystrokes(window, "escape");
+    render(cx, window);
+    assert!(!shown(cx, window, (ids::AI_IMPROVE, mid)));
+    let back = cx.update_window(window, |_, window, cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .focus
+            .get(&note)
+            .is_some_and(|focus| focus.ai.is_focused(window))
+    });
+    assert!(back.unwrap(), "focus returned to the AI edit button");
+}
+
 /// What each kind of entry offers on its floating bar.
 #[gpui_kit::test]
 fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {

@@ -1,6 +1,6 @@
 //! Native application actions and menus. GPUI Kit owns their platform behavior.
 
-use gpui_kit::{App, KeyBinding, Menu, MenuItem, actions};
+use gpui_kit::{App, KeyBinding, Menu, MenuItem, NoAction, actions};
 use study_localization::{Locale, Message, text};
 
 /// The id the system knows the app and its windows by.
@@ -37,7 +37,22 @@ pub(crate) fn bind_shortcuts(cx: &mut App) {
         #[cfg(target_os = "macos")]
         KeyBinding::new("ctrl-cmd-f", ToggleFullscreen, None),
     ]);
+    bind_prompt_field(cx);
 }
+
+/// Keeps Space and Enter for a text field set in a popover. The popover binds both to its own
+/// confirm, which toggles it closed; inside a [`PROMPT_FIELD`] a space is a space, and Enter
+/// runs what is typed.
+pub(crate) fn bind_prompt_field(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("space", NoAction, Some(PROMPT_FIELD)),
+        KeyBinding::new("enter", NoAction, Some(PROMPT_FIELD)),
+    ]);
+}
+
+/// The key context of a text field set in a popover, which keeps Space and Enter from
+/// reaching the popover.
+pub(crate) const PROMPT_FIELD: &str = "PromptField";
 
 /// Names the app and installs its menus, native and in the window, in `locale`.
 pub(crate) fn install(locale: Locale, cx: &mut App) {

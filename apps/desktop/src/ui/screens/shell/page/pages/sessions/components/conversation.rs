@@ -5,7 +5,6 @@ use super::super::ids;
 use super::super::page::SidePanel;
 use super::{Detail, META_GUTTER, Panel, detail_panel, message_row};
 use crate::ui::screens::shell::page::*;
-use gpui_kit::Focusable as _;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{AnyElement, StatefulInteractiveElement as _};
@@ -67,9 +66,6 @@ impl AppShell {
         let open_thread = state.open_thread();
         let mut shown_day = None;
         let mut last_written = None;
-        // Moving through the notebook by keyboard, rather than writing in the composer.
-        let browsing = window.last_input_was_keyboard()
-            && !state.composer.read(cx).focus_handle(cx).is_focused(window);
         for message in &state.messages {
             // A label where a new day starts, so a long session reads by when it was written.
             let day = crate::features::clock::local_day(message.created_at);
@@ -89,7 +85,7 @@ impl AppShell {
                 &state.expanded,
                 &state.shown,
                 open_thread,
-                state.row_marks(browsing, self.chatgpt_state()),
+                state.row_marks(self.chatgpt_state()),
                 cx,
             );
             // Notes written together sit close; a new moment starts further down.
