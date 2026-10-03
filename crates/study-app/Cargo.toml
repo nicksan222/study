@@ -7,10 +7,6 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[features]
-# Sample data for development and tests.
-seed = ["study-core/seed"]
-
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 serde = { version = "1", features = ["derive"] }
@@ -24,7 +20,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 study-ai = { workspace = true, features = ["testing"] }
-study-core = { workspace = true, features = ["seed"] }
+study-core = { workspace = true, features = ["testing"] }
 study-diagram.workspace = true
 study-testkit.workspace = true
 wiremock = "0.6"

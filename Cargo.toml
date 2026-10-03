@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop", "crates/study-core", "crates/study-ui", "crates/study-diagram", "crates/study-localization", "crates/study-app", "crates/study-media", "crates/study-ai", "crates/study-pipeline", "crates/study-testkit", "crates/study-showcase"]
+members = ["apps/desktop", "crates/study-core", "crates/study-ui", "crates/study-diagram", "crates/study-localization", "crates/study-app", "crates/study-media", "crates/study-ai", "crates/study-pipeline", "crates/study-testkit", "crates/study-showcase", "crates/study-seed"]
 default-members = ["apps/desktop"]
 
 [workspace.package]
@@ -24,6 +24,7 @@ study-app = { path = "crates/study-app" }
 study-ui = { path = "crates/study-ui" }
 study-diagram = { path = "crates/study-diagram" }
 study-testkit = { path = "crates/study-testkit" }
+study-seed = { path = "crates/study-seed" }
 testcontainers = "0.28"
 study-localization = { path = "crates/study-localization" }
 

@@ -69,6 +69,7 @@ it and the app from zero, and `just desktop-watch` restarts the app on every cha
 | 4 | `study-app` | `crates/study-app` | The `App` service: the one store, runtime and bus, registering the pipeline, conversation and practice agents (titles, answers, quiz questions and grades), search, reviews, installs |
 | 5 | `study` | `apps/desktop` | The desktop app: windows, pages, the microphone |
 | dev | `study-testkit` | `crates/study-testkit` | Real services for tests, run in Docker (a web server, …); a dev-dependency only |
+| dev | `study-seed` | `crates/study-seed` | Sample courses, sessions, files and study material written into a database, for `just reset-data`, tests and the showcase; never a normal dependency of the app |
 | dev | `study-showcase` | `crates/study-showcase` | Records the README demo GIF (`just demo`): the app on sample data, driven on a private virtual desktop |
 
 ## Commands

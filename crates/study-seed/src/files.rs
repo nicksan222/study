@@ -3,7 +3,7 @@
 //! articles, text, and real recordings of speech (two seconds of John F. Kennedy's 1961
 //! inaugural address, which is public domain).
 
-use crate::{SourceKind, mime, sniff};
+use study_core::{SourceKind, mime, sniff};
 
 /// The bytes of a sample file called `name`, chosen by the kind its name sniffs as. A PDF
 /// has a page for each of `pages`, and a web article (titled `title`) a section for each.
@@ -30,9 +30,9 @@ pub(super) fn sample(name: &str, title: &str, pages: &[&str]) -> Vec<u8> {
 }
 
 // Copies of study-media's format fixtures, transcoded with FFmpeg.
-const RECORDINGS_MP3: &[u8] = include_bytes!("../../tests/fixtures/speech.mp3");
-const RECORDINGS_M4A: &[u8] = include_bytes!("../../tests/fixtures/speech.m4a");
-const RECORDINGS_OGG: &[u8] = include_bytes!("../../tests/fixtures/voice-note.ogg");
+const RECORDINGS_MP3: &[u8] = include_bytes!("../tests/fixtures/speech.mp3");
+const RECORDINGS_M4A: &[u8] = include_bytes!("../tests/fixtures/speech.m4a");
+const RECORDINGS_OGG: &[u8] = include_bytes!("../tests/fixtures/voice-note.ogg");
 
 /// A 480x300 PNG of a whiteboard: marker strokes (two boxes joined by an arrow, a curve over
 /// axes, a circled dot) on a pale board tinted by the name.

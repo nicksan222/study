@@ -125,7 +125,7 @@ impl Database {
 
     /// Streams a local file into the Library, optionally inside a project, without reading
     /// it; for tests. Nothing is stored unless the whole file is copied.
-    #[cfg(any(test, feature = "seed"))]
+    #[cfg(any(test, feature = "testing"))]
     pub fn import_source(&self, path: &Path, project_id: Option<ProjectId>) -> Result<Source> {
         let tx = self.immediate()?;
         let source = insert_file(&tx, path, project_id, SourceOrigin::Import)?;

@@ -6,7 +6,7 @@
 fn main() -> study_core::Result<()> {
     let path = study_core::db::Database::default_path()?;
     let database = study_core::db::Database::open(&path)?;
-    if database.seed_demo()? {
+    if study_seed::demo(&database)? {
         eprintln!("seeded {}", path.display());
     } else {
         eprintln!("{} already has projects; left as it is", path.display());

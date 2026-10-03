@@ -14,4 +14,4 @@ fi
 rm -rf -- "$repo/target/dev-data"
 export XDG_DATA_HOME="$repo/target/dev-data"
 cd "$repo"
-cargo run --locked -q -p study-core --features seed --example seed
+cargo run --locked -q -p study-seed

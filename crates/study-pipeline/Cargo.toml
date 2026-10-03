@@ -21,7 +21,7 @@ zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 study-ai = { workspace = true, features = ["testing"] }
-study-core = { workspace = true, features = ["seed"] }
+study-core = { workspace = true, features = ["testing"] }
 tempfile = "3"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 wiremock = "0.6"

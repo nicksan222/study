@@ -49,7 +49,7 @@ impl Store {
 
     /// A fresh store in a temporary directory, for tests. Keep the directory alive while the
     /// store is used.
-    #[cfg(any(test, feature = "seed"))]
+    #[cfg(any(test, feature = "testing"))]
     pub fn temporary() -> Result<(tempfile::TempDir, Self)> {
         let dir = tempfile::tempdir()?;
         let store = Self::open(dir.path().join(super::open::DATABASE_FILE))?;

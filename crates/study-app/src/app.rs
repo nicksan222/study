@@ -130,11 +130,4 @@ impl App {
     ) -> JoinHandle<T> {
         self.inner.handle.spawn(future)
     }
-
-    /// Fills an empty database with sample projects, sessions, files, and results, for
-    /// development and tests. Returns `false`, changing nothing, when there is data already.
-    #[cfg(feature = "seed")]
-    pub fn seed_demo(&self) -> Result<bool> {
-        self.with(|database| database.seed_demo())
-    }
 }

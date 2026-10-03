@@ -3,9 +3,9 @@
 //! section by section, and the study material, answers and quiz made from them, each
 //! citing the passages it rests on. The words are written for these samples.
 
-use super::seed::{Attachment, Conversation, Made, MadeBody, Outcome, Sample, Web};
-use crate::processing::ExtractorKind;
-use crate::{ArtifactKind, ErrorKind, PracticeAnswer, PracticeBody, Verdict, WrittenQuestion};
+use crate::writer::{Attachment, Conversation, Made, MadeBody, Outcome, Sample, Web};
+use study_core::processing::ExtractorKind;
+use study_core::{ArtifactKind, ErrorKind, PracticeAnswer, PracticeBody, Verdict, WrittenQuestion};
 
 /// The courses, oldest first, so the newest is listed first, with their exams in days
 /// from today.

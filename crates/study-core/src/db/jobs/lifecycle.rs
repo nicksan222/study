@@ -209,7 +209,7 @@ impl Database {
 
     /// Marks the oldest queued job of one of `kinds` that is due as running, and returns it;
     /// for tests, which have no engine to stop.
-    #[cfg(any(test, feature = "seed"))]
+    #[cfg(any(test, feature = "testing"))]
     pub fn claim_job(&self, kinds: &[JobKind]) -> Result<Option<Job>> {
         self.claim_job_unless(kinds, || false)
     }

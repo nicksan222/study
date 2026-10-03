@@ -32,7 +32,7 @@ impl Database {
 
     /// A fresh database in a temporary directory, for tests. Keep the directory alive while
     /// the database is used. Prefer [`Store::temporary`](super::Store::temporary).
-    #[cfg(any(test, feature = "seed"))]
+    #[cfg(any(test, feature = "testing"))]
     pub fn temporary() -> Result<(tempfile::TempDir, Self)> {
         let dir = tempfile::tempdir()?;
         let database = Self::open(dir.path().join(DATABASE_FILE))?;
