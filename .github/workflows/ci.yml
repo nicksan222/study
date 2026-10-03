@@ -42,6 +42,7 @@ jobs:
           - { package: study-app, title: "⚙️ App service" }
           - { package: study, title: "🖥️ Desktop app" }
           - { package: study-testkit, title: "🧰 Testkit" }
+          - { package: study-seed, title: "🌱 Seed" }
           - { package: study-showcase, title: "🎬 Showcase" }
     steps:
       - name: Check out
