@@ -1,7 +1,8 @@
 # One project-wide team. Named sessions isolate unrelated work.
 session = "study"
 workspace = "study-team"
-# Seven regular roles plus one shared slot for scenario preparation or PR delivery.
+# Seven regular roles plus one shared slot for scenario preparation, upgrade review or
+# PR delivery.
 max_agents = 8
 # The Herdr plugin that opens the review panel beside the lead.
 reviewr = "persiyanov.reviewr"
@@ -33,5 +34,6 @@ qa = "build"
 student = "build"
 reviewer = "review"
 pushback = "build"
+upgrade-reviewer = "build"
 pr-maker = "build"
 scenario = "build"

@@ -104,10 +104,10 @@ The container installs the agent tools and mounts your AI logins. `just agents-d
 checks subscription access; `just agents` starts one project-wide team: lead, developer, PM, QA, student, reviewer and pushback.
 `just agents-stop` stops that team. Roles wait for concrete assignments; the lead avoids
 sending the same work to multiple roles. For a smaller task, start selected roles with
-`just agents lead developer --no-attach`; an eighth slot is shared by on-demand scenario preparation and PR delivery.
+`just agents lead developer --no-attach`; an eighth slot is shared by on-demand scenario preparation, upgrade review and PR delivery.
 `just agents-usage --hours 24` reports local Claude token counts, including cache usage,
 not remaining subscription allowance. Provider/model choices live in `.agents/team/fleet.toml`: the lead uses Opus 5.5
-at high effort, the reviewer uses Opus 5.5 at medium, and other roles use Sonnet 5.5 at medium. Existing conversations
+at high effort, the reviewer uses Opus 5.5 at medium, the upgrade reviewer uses Sonnet 5.5 at medium, and other roles use Sonnet 5.5 at medium. Existing conversations
 keep their settings until restarted.
 
 For daily use, these are the commands to remember:
@@ -159,6 +159,25 @@ your regular development data stays intact. Handoffs identify code, inputs, repr
 steps and what was simulated. Consumers recheck those facts before reuse. A seeded screen
 is labelled as seeded in a PR demo, not presented as proof that a real model produced it.
 The role checklist explains isolated app launch and restoring the usual desktop.
+
+### Short development and review cycles
+
+The lead splits each change into small slices, in order. The developer builds one slice,
+a reviewer checks only that slice, fixes land in the same slice, and the next one starts.
+Reviewed slices are staged and new files are marked intent-to-add, so each review reads
+the unstaged `git diff`: only new work, new files included.
+QA and `just check` run once on the combined result. The rules live in
+`.agents/team/team.md`.
+
+### Checking that a change upgrades safely
+
+Ask the lead “Will this break anything on upgrade?”, or let it decide when a change
+touches the schema, stored codes, serialized data, files on disk, dependencies or the
+toolchain. It starts `upgrade-reviewer`, a Sonnet reviewer that checks only whether an
+existing database, data directory, checkout or container still works after the change.
+Internal API changes are not findings: only released data is kept. For manual startup:
+`just agents upgrade-reviewer --no-attach`. It shares the optional slot with scenario
+and PR maker. The checklist lives in `.agents/team/roles/upgrade-reviewer.md`.
 
 ### From a request to a PR
 

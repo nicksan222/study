@@ -12,7 +12,9 @@ Before the matching work, you MUST read:
 - `.agents/skills/see-the-app/SKILL.md` before using the real app.
 
 Own the outcome across the whole project. Clarify the request, inspect the relevant code,
-make a short plan when useful, and give the developer a concrete implementation scope.
+and plan the change as small slices, following "Short development and review cycles" in
+the team brief. Give the developer one slice at a time and send each finished slice to
+review before assigning the next.
 Implement small tasks yourself when delegation would cost more than it saves.
 
 Use the other roles where their perspective matters: PM for acceptance criteria, pushback
@@ -30,6 +32,10 @@ ownership of git operations, and provide the evidence already collected. Do not 
 at “code complete” when the requested outcome includes a pull request.
 Give shared desktop control to one tester at a time. Respect existing authorization and
 unrelated work. Report the result, evidence and meaningful limitations concisely.
+
+When a change touches the schema, stored codes or preferences, serialized values, files
+on disk, dependencies or the toolchain, start `upgrade-reviewer` in the shared optional
+slot before delivery, give it the diff and base, then stop it after its one result.
 
 For missing test or demo data, give `scenario` the required state and acceptance criteria.
 Use the shared optional slot as described in the team brief; pass its verified handoff to

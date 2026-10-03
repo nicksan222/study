@@ -7,8 +7,8 @@ for the assigned work. Graphify maps local code relationships; verify its leads 
 One team works across the project: lead, developer, PM, QA, student, reviewer and pushback.
 The lead coordinates; the developer primarily implements; the other roles contribute
 on assigned questions. Crates are architecture boundaries, not separate workspaces or
-teams. The seven regular roles share one extra slot for scenario preparation or PR
-delivery. Do not create nested agents, per-crate teams, or duplicate sessions for the same task.
+teams. The seven regular roles share one extra slot for scenario preparation, upgrade
+review or PR delivery. Do not create nested agents, per-crate teams, or duplicate sessions for the same task.
 
 Each role has a different lens. Availability does not require every role to inspect every
 change: the lead assigns only useful work, and unassigned agents stay idle. Product and
@@ -43,6 +43,8 @@ aspects of the result. There is no required seven-step approval chain.
   `just check` once the combined change is ready. Do not repeat a passed check unless new
   changes or evidence warrant it. Share log paths and short results, not full output.
 - The code reviewer checks correctness, contracts and missing tests in one pass.
+  The upgrade reviewer, started on demand, asks only whether the change breaks an
+  existing user's data or a contributor's setup on upgrade.
   QA verifies behavior; the student evaluates usability; pushback challenges assumptions.
   Share evidence between roles instead of repeating the same checks.
   Re-review only affected findings after fixes. No chain of overlapping approvals.
@@ -62,9 +64,33 @@ aspects of the result. There is no required seven-step approval chain.
 - `just agents-usage` reads local token records without model calls. It does not know the
   remaining subscription allowance; `/usage` in Claude Code is the authority for that.
 
+## Short development and review cycles
+
+Build a change as a sequence of small slices, each reviewed before the next begins.
+A slice is one coherent step that builds warning-free and passes its focused tests: a
+type and its callers, a migration and its queries, one screen state. Aim for a diff a
+reviewer reads in minutes, a few hundred lines at most; split anything larger.
+
+- The lead plans the slices up front in `task.md`, in dependency order, each with its
+  files, acceptance check and which reviewer it needs.
+- The developer implements one slice, runs its focused tests, and reports. It does not
+  start the next slice until the lead says so.
+- The lead sends that slice alone to the reviewer (and to `upgrade-reviewer` when the
+  slice touches what it checks). The developer fixes findings in the same slice; the
+  reviewer re-checks only those fixes.
+- Before review, the lead marks the slice's new files with `git add -N` (intent to add),
+  so the unstaged `git diff` shows their contents too. Once a slice passes, the lead
+  stages its files. The next review scope is the unstaged `git diff`, so every review
+  sees only new work. If the user asked for unstaged delivery, the lead restores only
+  the task's paths with `git restore --staged <paths>` at the end, leaving any staged
+  work recorded at the start untouched.
+- QA, student and the final `just check` run on the combined result, not on every slice.
+- A finding that changes the plan goes back to the lead, who reorders or re-scopes the
+  remaining slices instead of growing the current one.
+
 ## From a request to a pull request
 
-The lead takes a request through implementation, appropriate review and QA, `just check`,
+The lead takes a request through slice-by-slice implementation and review, QA, `just check`,
 then hands the verified result to `pr-maker`. This is a task-completion handoff, not a
 file watcher: do not wake an agent on every edit. For an implementation request, delivery
 normally means a pull request; an explicit request to keep changes local or unstaged wins.
