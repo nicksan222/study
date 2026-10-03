@@ -1039,6 +1039,41 @@ fn a_rewrite_that_cites_leaves_no_markers_in_the_notes() -> Result<()> {
 }
 
 #[test]
+fn an_edit_keeps_the_citations_of_the_markers_it_keeps() -> Result<()> {
+    let (_dir, db) = Database::temporary()?;
+    let (project, session) = cells(&db)?;
+    let id = note(&db, session, "mitochondria power the cell")?;
+    db.rewrite_message(id, &Rewrite::Improve)?;
+    db.claim_job(&[JobKind::Rewrite])?.expect("the job");
+    let pending = db
+        .begin_version(id, JobKind::Rewrite)?
+        .expect("the version");
+    assert!(db.finish_version(
+        pending.id,
+        "Mitochondria [1] power the cell [2].",
+        &[
+            cited("one"),
+            Citation {
+                marker: 2,
+                ..cited("two")
+            }
+        ]
+    )?);
+
+    db.edit_message(id, "Mitochondria [1] power cells.")?
+        .expect("an edit");
+    let message = db.message(id)?.unwrap();
+    let markers: Vec<u32> = message.citations.iter().map(|c| c.marker).collect();
+    assert_eq!(markers, [1]);
+    assert_eq!(message.plain_text(), "Mitochondria power cells.");
+    assert_eq!(
+        db.project_material(project)?.notes,
+        "Mitochondria power cells."
+    );
+    Ok(())
+}
+
+#[test]
 fn brackets_in_a_note_without_citations_are_kept() -> Result<()> {
     let (_dir, db) = Database::temporary()?;
     let (project, session) = cells(&db)?;

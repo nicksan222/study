@@ -140,11 +140,17 @@ fn note_content(
     let mut content = column(cx);
     if versions.editing(message.id) {
         content = content.child(edit_box(message, locale, versions, cx));
+    } else if !message.citations.is_empty() {
+        // A rewrite that read the note's files cites them, as an answer does.
+        content = content.child(answer_text(cx).child(cited_prose(message, cx)));
     } else if !message.text().is_empty() {
         let (shown, marks) = marked_note(message.text());
         content = content.child(Note::new(shown).marks(marks));
     }
     content = content.children(version_line(message, locale, versions, cx));
+    if !versions.editing(message.id) && !message.citations.is_empty() {
+        content = content.child(citations(message, locale, cx));
+    }
     if message.unfinished().is_some() {
         content = content.children(
             message
@@ -316,7 +322,7 @@ fn answer_content(
         // open their passages either way.
         let replaced = VersionsState::shows_latest(message) && VersionsState::is_writing(message);
         if !message.text().is_empty() {
-            let text = answer_text(cx).child(answer_prose(message, cx));
+            let text = answer_text(cx).child(cited_prose(message, cx));
             content = content.child(if replaced { text.opacity(0.45) } else { text });
         }
         content = content.children(version_line(message, locale, versions, cx));
@@ -333,7 +339,7 @@ fn answer_content(
         return content;
     }
     if !message.text().is_empty() {
-        content = content.child(answer_text(cx).child(answer_prose(message, cx)));
+        content = content.child(answer_text(cx).child(cited_prose(message, cx)));
     }
     content = content.children(version_line(message, locale, versions, cx));
     if !message.citations.is_empty() {
@@ -342,14 +348,15 @@ fn answer_content(
     content
 }
 
-/// An answer's active words, each marker such as `[2]` opening the passage it cites.
-fn answer_prose(message: &ChatMessage, cx: &mut Context<AppShell>) -> AnyElement {
+/// A message's active words, each marker such as `[2]` opening the passage it cites.
+fn cited_prose(message: &ChatMessage, cx: &mut Context<AppShell>) -> AnyElement {
     let cite = cite_handler(message, cx);
     let id = (ids::ANSWER_TEXT, message.id.get() as u64);
     prose_citing(message.text(), Some((id.into(), cite)), cx)
 }
 
-/// The column an answer's words are set in: no bubble, the notebook's full width.
+/// The column an answer's words, or a cited note's, are set in: no bubble, the notebook's full
+/// width.
 fn answer_text(cx: &gpui_kit::App) -> Div {
     div()
         .w_full()
@@ -387,7 +394,7 @@ fn cite_handler(message: &ChatMessage, cx: &mut Context<AppShell>) -> OnCite {
     })
 }
 
-/// The passages an answer cites, as chips under its words: each names its source and
+/// The passages a message cites, as chips under its words: each names its source and
 /// place, and opens the source there.
 fn citations(message: &ChatMessage, locale: Locale, cx: &mut Context<AppShell>) -> AnyElement {
     let unit = units(cx);

@@ -14,7 +14,7 @@ use super::super::citations::{CitedBy, citations_of, replace_citations};
 use super::super::jobs::{JobTarget, NewJob, PENDING, enqueue, pending_reads_of};
 use super::super::{Database, unix_timestamp};
 use super::{MessageRole, MessageStatus, normalize_text};
-use crate::{Citation, JobId, JobKind, MessageId, Result, SourceId, VersionId};
+use crate::{Citation, JobId, JobKind, MessageId, Result, SourceId, VersionId, cited_markers};
 use rusqlite::{Connection, OptionalExtension as _, params};
 
 crate::text_enum! {
@@ -121,7 +121,8 @@ impl Database {
     /// Writes `text` as the message's new active version, as the student's edit. Returns
     /// `None`, and changes nothing, when the message does not exist or the text is empty or
     /// equal to the active one. A version still being written is dropped with its job, so
-    /// that it cannot replace the edit.
+    /// that it cannot replace the edit. The edit keeps the active version's citations whose
+    /// markers it still has.
     pub fn edit_message(&self, id: MessageId, text: &str) -> Result<Option<VersionId>> {
         let text = text.trim();
         if text.is_empty() {
@@ -155,6 +156,15 @@ impl Database {
                 based_on: active,
             },
         )?;
+        // The markers the edit kept still cite what they cited.
+        if let Some(active) = active {
+            let markers = cited_markers(&text, u32::MAX);
+            let kept: Vec<Citation> = citations_of(&tx, CitedBy::Version(active))?
+                .into_iter()
+                .filter(|citation| markers.contains(&citation.marker))
+                .collect();
+            replace_citations(&tx, CitedBy::Version(version), &kept)?;
+        }
         tx.execute(
             "UPDATE messages SET active_version_id = ?2 WHERE id = ?1",
             params![id, version],
