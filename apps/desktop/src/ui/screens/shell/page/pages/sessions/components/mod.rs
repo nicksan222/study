@@ -13,6 +13,7 @@
 //! | `panel.rs` | how a side panel appears beside the conversation |
 //! | `detail.rs` | the side panel for one file, where its read text is corrected |
 //! | `thread.rs` | the side panel for an attachment's thread, with its own composer |
+//! | `versions.rs` | an entry's versions: the switcher, the floating action bar, the AI edit menu, editing in place |
 
 mod attachment;
 mod composer;
@@ -25,6 +26,7 @@ mod notices;
 mod panel;
 mod recording;
 mod thread;
+mod versions;
 
 pub(super) use attachment::{Attached, ThreadLink, nothing_read, source_card};
 pub(super) use composer::{pending_files, send_button, with_context};
@@ -36,3 +38,4 @@ pub(super) use message::{META_GUTTER, RowMarks, message_row};
 pub(super) use panel::{Panel, reveal};
 pub(super) use recording::RecordingState;
 pub(super) use thread::ThreadState;
+pub(super) use versions::VersionsState;

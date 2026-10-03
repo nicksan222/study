@@ -5,6 +5,7 @@
 //! the right while the entry is hovered; in a thread, the moment shows under it.
 
 use super::super::ids;
+use super::versions::{VersionsState, action_bar, edit_box, version_line};
 use super::{Attached, ThreadLink, marked_note, source_card};
 use crate::features::jobs::Problem;
 use crate::features::media::AttachmentInfo;
@@ -13,20 +14,17 @@ use crate::ui::screens::shell::page::pages::components::{
     ChatGptState, OnCite, citation_chip, job_problem_parts, job_status, prose, prose_citing,
 };
 use gpui_kit::assets::IconName;
-use gpui_kit::component::{
-    ActiveTheme as _, Sizable as _,
-    button::{Button, ButtonVariants as _},
-};
+use gpui_kit::component::{ActiveTheme as _, Sizable as _, button::ButtonVariants as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, Context, Div, InteractiveElement as _, IntoElement, ParentElement as _,
     Styled as _, div,
 };
 use std::collections::{HashMap, HashSet};
-use study_app::views::{ChatMessage, Job, JobStatus, MessageRole, MessageStatus, PartContent};
+use study_app::views::{ChatMessage, Job, JobStatus, MessageRole, PartContent};
 use study_core::{JobId, MessageId, PartId, SourceId};
 use study_localization::{Locale, Message, joined, text};
-use study_ui::{Note, button, icon_button, units};
+use study_ui::{Note, button, units};
 
 /// The margin to the right of the notebook's column, in units, where an entry's time and
 /// actions appear while it is hovered. The composer keeps the same margin, so it lines up
@@ -44,18 +42,51 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
     marks: RowMarks,
     cx: &mut Context<AppShell>,
 ) -> AnyElement {
+    let versions = marks.versions;
+    let editing = versions.editing(message.id);
     let content = if message.role == MessageRole::Assistant {
-        answer_content(message, marks.chatgpt, locale, cx)
+        answer_content(message, marks.chatgpt, marks.versions, locale, cx)
     } else {
-        note_content(message, expanded, attachments, open_thread, locale, cx)
+        note_content(
+            message,
+            expanded,
+            attachments,
+            open_thread,
+            marks,
+            locale,
+            cx,
+        )
     };
     let unit = units(cx);
-    let shown =
-        marks.keyboard || marks.deleting == Some(message.id) || marks.copied == Some(message.id);
-    let actions = actions(message, locale, marks, shown, cx);
+    let shown = marks.keyboard
+        || marks.deleting == Some(message.id)
+        || marks.copied == Some(message.id)
+        || versions.menu == Some(message.id);
+    // The bar comes first, floating over the entry's top-right corner: the keyboard reaches
+    // an entry's actions before the files and folds inside it, in reading order. The switcher
+    // closes the entry.
+    let content = div()
+        .relative()
+        .flex_1()
+        .min_w_0()
+        .flex()
+        .flex_col()
+        .gap(unit(study_ui::scale::SPACE_XXS))
+        .when(!editing, |body| {
+            body.child(action_bar(
+                message,
+                locale,
+                marks.copied == Some(message.id),
+                shown,
+                ROW,
+                versions,
+                cx,
+            ))
+        })
+        .child(content)
+        .children(version_line(message, locale, versions, cx));
     if message.thread_root.is_some() {
-        // In a narrow thread: the moment stays under the entry, since no day label names
-        // it; the actions show beside it on hover.
+        // In a narrow thread: the moment stays under the entry, since no day label names it.
         return div()
             .group(ROW)
             .w_full()
@@ -63,18 +94,9 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
             .flex_col()
             .gap(unit(study_ui::scale::SPACE_XXS))
             .child(content)
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(unit(study_ui::scale::SPACE_XS))
-                    .child(sent_at(message, locale, cx))
-                    .child(actions),
-            )
+            .child(sent_at(message, locale, cx))
             .into_any_element();
     }
-    // The margin comes first, drawn on the right: the keyboard reaches an entry's actions
-    // before the files and folds inside it, in reading order.
     div()
         .group(ROW)
         .w_full()
@@ -96,8 +118,7 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
                         .items_center()
                         .child(sent_at(message, locale, cx)),
                     shown,
-                ))
-                .child(actions),
+                )),
         )
         .child(content)
         .into_any_element()
@@ -109,13 +130,26 @@ fn note_content(
     expanded: &HashSet<JobId>,
     attachments: &HashMap<SourceId, AttachmentInfo>,
     open_thread: Option<PartId>,
+    marks: RowMarks,
     locale: Locale,
     cx: &mut Context<AppShell>,
 ) -> Div {
+    let (versions, chatgpt) = (marks.versions, marks.chatgpt);
     let mut content = column(cx);
-    if !message.text().is_empty() {
+    if versions.editing(message.id) {
+        content = content.child(edit_box(message, locale, versions, cx));
+    } else if !message.text().is_empty() {
         let (shown, marks) = marked_note(message.text());
         content = content.child(Note::new(shown).marks(marks));
+    }
+    // A version being written, or one that failed, says so under the words it started from.
+    if versions.shows_writing(message) {
+        content = content.children(
+            message
+                .reply
+                .as_ref()
+                .map(|job| reply_line(job, chatgpt, locale, cx)),
+        );
     }
     for part in &message.parts {
         let PartContent {
@@ -160,9 +194,9 @@ fn column(cx: &gpui_kit::App) -> Div {
 }
 
 /// What the transcript marks on a row: the message whose deletion waits for a
-/// confirmation, and the one just copied.
-#[derive(Clone, Copy, Debug, Default)]
-pub(in crate::ui::screens::shell::page::pages::sessions) struct RowMarks {
+/// confirmation, the one just copied, and their versions.
+#[derive(Clone, Copy)]
+pub(in crate::ui::screens::shell::page::pages::sessions) struct RowMarks<'a> {
     pub(in crate::ui::screens::shell::page::pages::sessions) deleting: Option<MessageId>,
     pub(in crate::ui::screens::shell::page::pages::sessions) copied: Option<MessageId>,
     /// Whether the learner is moving through the page by keyboard: then every entry shows
@@ -171,6 +205,8 @@ pub(in crate::ui::screens::shell::page::pages::sessions) struct RowMarks {
     pub(in crate::ui::screens::shell::page::pages::sessions) keyboard: bool,
     /// The ChatGPT sign-in, for an answer held up by it.
     pub(in crate::ui::screens::shell::page::pages::sessions) chatgpt: ChatGptState,
+    /// What the entries' versions are doing: edits, menus and switchers.
+    pub(in crate::ui::screens::shell::page::pages::sessions) versions: &'a VersionsState,
 }
 
 /// The group every message row is, so its time and actions show while it is hovered.
@@ -182,90 +218,6 @@ fn reveal_on_hover(element: Div, shown: bool) -> Div {
     element
         .opacity(if shown { 1. } else { 0. })
         .group_hover(ROW, |style| style.opacity(1.))
-}
-
-/// A row's action button, hidden like [`reveal_on_hover`] until its row is hovered, and
-/// shown too while the keyboard is on it, so tabbing never lands on something invisible.
-fn revealed(button: Button, shown: bool) -> Button {
-    button
-        .opacity(if shown { 1. } else { 0. })
-        .group_hover(ROW, |style| style.opacity(1.))
-        .focus_visible(|style| style.opacity(1.))
-}
-
-/// What can be done with a message: copy its words, ask a finished answer again, delete it.
-fn actions(
-    message: &ChatMessage,
-    locale: Locale,
-    marks: RowMarks,
-    shown: bool,
-    cx: &mut Context<AppShell>,
-) -> Div {
-    let id = message.id;
-    let words = crate::features::sessions::message_words(message);
-    let copy = (!words.is_empty()).then(|| {
-        let words = words.clone();
-        let copied = marks.copied == Some(id);
-        icon_button(
-            (ids::COPY_MESSAGE, id.get() as u64),
-            text(
-                locale,
-                if copied {
-                    Message::MaterialCopied
-                } else {
-                    Message::CopyText
-                },
-            ),
-            if copied {
-                IconName::Check
-            } else {
-                IconName::Copy
-            },
-            cx,
-        )
-        .xsmall()
-        .map(|button| revealed(button, shown))
-        .on_click(cx.listener(move |this, _, _, cx| {
-            this.copy_text(words.clone(), cx);
-            this.sessions.copied = Some(id);
-            cx.notify();
-        }))
-    });
-    // A finished answer in words can be asked for again.
-    let again = (message.role == MessageRole::Assistant
-        && message.status == MessageStatus::Complete
-        && !words.is_empty())
-    .then(|| {
-        icon_button(
-            (ids::REANSWER, id.get() as u64),
-            text(locale, Message::AnswerAgain),
-            IconName::RotateCw,
-            cx,
-        )
-        .xsmall()
-        .map(|button| revealed(button, shown))
-        .on_click(cx.listener(move |this, _, _, cx| this.reanswer(id, cx)))
-    });
-    div()
-        .flex()
-        .items_center()
-        .text_color(study_ui::palette(cx).faint)
-        .children(copy)
-        .children(again)
-        .child(
-            icon_button(
-                (ids::DELETE_MESSAGE, id.get() as u64),
-                text(locale, Message::DeleteMessage),
-                IconName::Trash,
-                cx,
-            )
-            .xsmall()
-            .map(|button| revealed(button, shown))
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.sessions.deleting = Some(id);
-                cx.notify();
-            })),
-        )
 }
 
 /// When a message was sent, as a faint caption: the time on the timeline, whose day labels
@@ -338,6 +290,7 @@ fn recording_link(
 fn answer_content(
     message: &ChatMessage,
     chatgpt: ChatGptState,
+    versions: &VersionsState,
     locale: Locale,
     cx: &mut Context<AppShell>,
 ) -> Div {
@@ -354,7 +307,10 @@ fn answer_content(
             .child(study_ui::icon(IconName::Sparkles).size(unit(12.)))
             .child(text(locale, Message::AnswerAuthor)),
     );
-    if message.status != MessageStatus::Complete {
+    if versions.editing(message.id) {
+        return content.child(edit_box(message, locale, versions, cx));
+    }
+    if versions.shows_writing(message) {
         // An answer being written again keeps its old words, faded, until the new ones land.
         let earlier = Some(message.text()).filter(|body| !body.is_empty());
         // An answer that failed, or is still being written, can be deleted too, stopping it.

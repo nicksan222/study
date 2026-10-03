@@ -142,6 +142,7 @@ impl AppShell {
                         if before != Some(thread.replies.len()) {
                             state.thread.scroll_to_end = true;
                         }
+                        state.versions.observe(&thread.replies);
                         state.thread.loaded = Some(thread);
                         if state.error == Some(Message::ThreadLoadError) {
                             state.error = None;

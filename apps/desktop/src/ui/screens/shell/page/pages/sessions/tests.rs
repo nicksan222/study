@@ -1213,3 +1213,273 @@ fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
     });
     assert_eq!(written, "", "tabbing indents nothing");
 }
+
+/// A session holding one note, opened on the page.
+fn open_note(
+    cx: &mut TestAppContext,
+    app: &TempApp,
+    parts: &[NewPart],
+) -> (
+    AnyWindowHandle,
+    gpui_kit::Entity<AppShell>,
+    study_core::MessageId,
+) {
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let note = database
+        .post_message(session.id, MessageRole::User, parts, &|_, _| true)
+        .unwrap();
+    // Offline: model work waits for a sign-in, so what is queued stays unfinished.
+    let (window, shell) = open_offline_shell(cx, app, true);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    (window, shell, note.id)
+}
+
+fn text_note(words: &str) -> Vec<NewPart> {
+    vec![NewPart::Text(words.into())]
+}
+
+/// Whether the element with `id` is on the page.
+fn shown(
+    cx: &mut TestAppContext,
+    window: AnyWindowHandle,
+    id: impl Into<gpui_kit::ElementId>,
+) -> bool {
+    find(cx, window, id).is_some()
+}
+
+/// The switcher shows once a note has two versions, steps between the finished ones and
+/// stops at each end.
+#[gpui_kit::test]
+fn the_switcher_steps_between_the_versions_of_a_note(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    // One version: nothing to switch.
+    assert!(!shown(cx, window, (ids::VERSION_SWITCHER, mid)));
+
+    database
+        .edit_message(note, "Mitochondria make most ATP")
+        .unwrap();
+    // The page reads the session again after any change.
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            let session = shell.sessions.session_id().unwrap();
+            shell.reload_session(session, cx);
+        })
+    });
+    wait_until(cx, |cx| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].versions.len() == 2)
+    });
+    render(cx, window);
+    assert!(shown(cx, window, (ids::VERSION_SWITCHER, mid)));
+    let active = |cx: &mut TestAppContext| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].text().to_owned())
+    };
+    assert_eq!(active(cx), "Mitochondria make most ATP");
+
+    click(cx, window, (ids::VERSION_PREVIOUS, mid));
+    wait_until(cx, |cx| active(cx) == "Mitochondria make ATP");
+    assert_eq!(
+        database.message(note).unwrap().unwrap().text(),
+        "Mitochondria make ATP"
+    );
+    click(cx, window, (ids::VERSION_NEXT, mid));
+    wait_until(cx, |cx| active(cx) == "Mitochondria make most ATP");
+}
+
+/// Editing in place saves the words as a new version; empty words cannot be saved, and words
+/// left as they were add nothing.
+#[gpui_kit::test]
+fn an_edit_saves_a_version(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    let versions = || database.message(note).unwrap().unwrap().versions.len();
+    let set_edit = |cx: &mut TestAppContext, words: &str| {
+        let words = words.to_owned();
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell
+                    .sessions
+                    .versions
+                    .edit_field
+                    .update(cx, |field, cx| field.set_value(words, window, cx));
+            });
+        })
+        .unwrap();
+    };
+
+    hover(cx, window, (ids::EDIT_MESSAGE, mid));
+    click(cx, window, (ids::EDIT_MESSAGE, mid));
+    assert!(shown(cx, window, (ids::SAVE_EDIT, mid)));
+
+    // Words left as they were: nothing is added, and the page says so.
+    click(cx, window, (ids::SAVE_EDIT, mid));
+    wait_until(cx, |cx| {
+        render(cx, window);
+        shown(cx, window, (ids::VERSION_NOTICE, mid))
+    });
+    assert_eq!(versions(), 1);
+    assert!(!shown(cx, window, (ids::SAVE_EDIT, mid)));
+
+    // Nothing written: Save does nothing.
+    hover(cx, window, (ids::EDIT_MESSAGE, mid));
+    click(cx, window, (ids::EDIT_MESSAGE, mid));
+    set_edit(cx, "   ");
+    render(cx, window);
+    click(cx, window, (ids::SAVE_EDIT, mid));
+    assert_eq!(versions(), 1);
+    assert!(shown(cx, window, (ids::SAVE_EDIT, mid)));
+
+    set_edit(cx, "Mitochondria make most ATP");
+    render(cx, window);
+    click(cx, window, (ids::SAVE_EDIT, mid));
+    wait_until(cx, |_| versions() == 2);
+    let saved = database.message(note).unwrap().unwrap();
+    assert_eq!(saved.text(), "Mitochondria make most ATP");
+    assert_eq!(
+        saved.versions[1].origin,
+        study_app::views::VersionOrigin::Edited
+    );
+    render(cx, window);
+    assert!(!shown(cx, window, (ids::SAVE_EDIT, mid)));
+}
+
+/// AI edit offers rewrites from a menu; choosing one queues a version being written, which
+/// can only be stopped or deleted, and a second request while it is written says so.
+#[gpui_kit::test]
+fn an_ai_edit_queues_a_version_and_a_second_one_is_refused_aloud(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    assert!(shown(cx, window, (ids::AI_IMPROVE, mid)));
+    assert!(shown(cx, window, (ids::AI_SUMMARIZE, mid)));
+    click(cx, window, (ids::AI_IMPROVE, mid));
+    wait_until(cx, |_| {
+        database
+            .message(note)
+            .unwrap()
+            .unwrap()
+            .unfinished()
+            .is_some()
+    });
+    let queued = database.message(note).unwrap().unwrap();
+    assert_eq!(queued.versions.len(), 2);
+    assert_eq!(
+        queued.versions[1].origin,
+        study_app::views::VersionOrigin::Improve
+    );
+    // The menu closed, and the entry now offers only what a version being written allows.
+    render(cx, window);
+    assert!(!shown(cx, window, (ids::AI_IMPROVE, mid)));
+    assert!(shown(cx, window, (ids::STOP_VERSION, mid)));
+    assert!(shown(cx, window, (ids::DELETE_MESSAGE, mid)));
+    assert!(!shown(cx, window, (ids::EDIT_MESSAGE, mid)));
+    assert!(!shown(cx, window, (ids::AI_EDIT, mid)));
+
+    // Another request meanwhile gets a visible answer, not silence.
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            shell.ask_version(
+                note,
+                move |app| app.rewrite_message(note, &study_app::views::Rewrite::Summarize),
+                cx,
+            )
+        })
+    });
+    wait_until(cx, |cx| {
+        render(cx, window);
+        shown(cx, window, (ids::VERSION_NOTICE, mid))
+    });
+    assert_eq!(database.message(note).unwrap().unwrap().versions.len(), 2);
+}
+
+/// What each kind of entry offers on its floating bar.
+#[gpui_kit::test]
+fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("slides.txt");
+    std::fs::write(&file, "slides").unwrap();
+    let typed = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("Mitochondria make ATP"),
+            &|_, _| true,
+        )
+        .unwrap();
+    let file_only = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &[NewPart::File(file)],
+            &|_, _| true,
+        )
+        .unwrap();
+    database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("@study what makes ATP?"),
+            &|_, _| true,
+        )
+        .unwrap();
+    let answer = database.list_messages(session.id).unwrap().pop().unwrap();
+    let job = database
+        .claim_job(&[JobKind::Reply])
+        .unwrap()
+        .expect("the reply job");
+    let first = database.begin_version(answer.id).unwrap().unwrap();
+    database
+        .finish_version(first.id, "Mitochondria [1].", &[])
+        .unwrap();
+    database.succeed_job(job.id, &[]).unwrap();
+
+    let (window, _shell) = open_offline_shell(cx, &app, false);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    let has = |cx: &mut TestAppContext, id: &'static str, message: study_core::MessageId| {
+        shown(cx, window, (id, message.get() as u64))
+    };
+    for id in [
+        ids::AI_EDIT,
+        ids::EDIT_MESSAGE,
+        ids::COPY_MESSAGE,
+        ids::DELETE_MESSAGE,
+    ] {
+        assert!(has(cx, id, typed.id), "a typed note offers {id}");
+    }
+    assert!(!has(cx, ids::REANSWER, typed.id));
+
+    // A file nothing was read from has no words to rewrite, edit or copy.
+    assert!(has(cx, ids::DELETE_MESSAGE, file_only.id));
+    for id in [ids::AI_EDIT, ids::EDIT_MESSAGE, ids::COPY_MESSAGE] {
+        assert!(
+            !has(cx, id, file_only.id),
+            "a bare file does not offer {id}"
+        );
+    }
+
+    for id in [
+        ids::AI_EDIT,
+        ids::REANSWER,
+        ids::EDIT_MESSAGE,
+        ids::COPY_MESSAGE,
+        ids::DELETE_MESSAGE,
+    ] {
+        assert!(has(cx, id, answer.id), "a finished answer offers {id}");
+    }
+}
