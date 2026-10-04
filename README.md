@@ -9,8 +9,9 @@ into study material, flashcards on a spaced-repetition schedule, and practice. I
 serious learners: university students taking several courses, self-learners, and people
 studying for a certification.
 
-**Status:** pre-release. Release builds target Linux x64/ARM64, macOS Intel/Apple Silicon,
-and Windows x64. Linux AppImages need glibc 2.41 or newer (Debian 13+, Ubuntu 25.04+).
+**Status:** pre-release. Release builds target Linux x64/ARM64, macOS on Apple Silicon and
+Windows x64. Intel Macs are not supported: ONNX Runtime ships no build for them. Linux AppImages
+need glibc 2.39 or newer (Debian 13+, Ubuntu 24.04+).
 
 ![A short tour of Study: Home, an answer citing the lecture recording, a diagram, a flashcard review, a quiz and search](assets/demo.gif)
 
@@ -23,7 +24,7 @@ Download the package for your computer from
 
 - Linux: `study-linux-x86_64.AppImage` or `study-linux-aarch64.AppImage`.
   Make it executable (`chmod +x study-linux-*.AppImage`) and launch it.
-- macOS: `study-macos-x86_64.dmg` or `study-macos-aarch64.dmg`; copy Study to Applications.
+- macOS (Apple Silicon): `study-macos-aarch64.dmg`; copy Study to Applications.
 - Windows: run `study-windows-x86_64.exe`, the installer for your user account.
 
 In Settings, check for updates and choose when to install them. Updates are downloaded from
@@ -259,7 +260,7 @@ files and their licenses.
 
 To release, bump `version` in the workspace `Cargo.toml`, commit, then push a matching tag:
 `git tag v0.2.0 && git push origin v0.2.0`. The workflow refuses a tag that does not match the
-workspace version, builds all five signed packages, and publishes the release only when every
+workspace version, builds all four signed packages, and publishes the release only when every
 one exists, with package signatures, `SHA256SUMS` and the `latest.json` update feed. A failed
 build can be rerun from Actions.
 
