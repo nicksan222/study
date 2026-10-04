@@ -33,7 +33,9 @@ study-media.workspace = true
 sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 tempfile = "3"
 thiserror = "2"
-tokenizers = "0.23"
+# Without the default esaxx_fast: its C++ links the static CRT, which collides with the
+# dynamic one on Windows, and only speeds up training, which this crate never does.
+tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "time", "fs", "io-util", "process"] }
 tracing.workspace = true
 transcribe-rs = { version = "0.3.11", features = ["onnx"] }

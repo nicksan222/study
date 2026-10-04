@@ -9,14 +9,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PLATFORMS=(linux-x86_64 linux-aarch64 macos-x86_64 macos-aarch64 windows-x86_64)
+PLATFORMS=(linux-x86_64 linux-aarch64 macos-aarch64 windows-x86_64)
 
 # Sets target, format and suffix (the updater's package) for a platform.
 platform() {
     case "$1" in
         linux-x86_64) target=x86_64-unknown-linux-gnu format=appimage suffix=.AppImage ;;
         linux-aarch64) target=aarch64-unknown-linux-gnu format=appimage suffix=.AppImage ;;
-        macos-x86_64) target=x86_64-apple-darwin format=app suffix=.app.tar.gz ;;
         macos-aarch64) target=aarch64-apple-darwin format=app suffix=.app.tar.gz ;;
         windows-x86_64) target=x86_64-pc-windows-msvc format=nsis suffix=.exe ;;
         *) echo "unknown platform: $1 (one of ${PLATFORMS[*]})" >&2; exit 1 ;;
