@@ -83,11 +83,12 @@ Both follow `XDG_DATA_HOME` and `XDG_CACHE_HOME`. `just run` uses `target/dev-da
 
 ## Captures of the app
 
-The README's demo GIF and every still and clip on the website are made from the code, never
-committed. The Landing workflow makes them all on every push to main, from sample data on a
-private virtual desktop, and publishes them with the site; the README shows the GIF from
-there. Locally, `just landing` and `just landing-build` make any that are missing, and
-`just docs-media` and `just demo` make them again after a change. Edit the GIF's tour in
+The README's demo GIF and every still and clip on the website are made from the code, on
+sample data on a private virtual desktop, and committed; the Landing workflow publishes them
+with the site as they are, and the README shows the GIF from there. When the app's look
+changes, run the Captures workflow by hand: it makes them all again and opens a pull request
+with them to look over and merge. Locally, `just captures` does the same, `just docs-media`
+and `just demo` make one kind, and `just docs-media missing` makes only a new scene's. Edit the GIF's tour in
 `crates/study-showcase/src/tour.rs` and the docs' scenes in `crates/study-showcase/src/docs.rs`.
 
 ## The agent team

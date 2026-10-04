@@ -448,8 +448,8 @@ fn reset() -> Vec<Step> {
     vec![key("Escape"), key("Escape"), rail(HOME), Step::Pause(800)]
 }
 
-/// The argument that makes only the scenes with a file missing, in every variant: what a
-/// fresh checkout runs before building the site, so it never starts a desktop for nothing.
+/// The argument that makes only the scenes with a file missing, in every variant: a new
+/// scene's, without making again the ones already committed.
 pub const MISSING: &str = "missing";
 
 /// Makes every scene whose name is in `only` (all if it is empty, or those with a file
@@ -656,6 +656,36 @@ mod tests {
                 "no page of the website shows the scene {}: drop it, or show it",
                 scene.name
             );
+        }
+    }
+
+    #[test]
+    fn the_committed_captures_are_every_scenes_files_and_no_others() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let expected: HashSet<PathBuf> = scenes()
+            .iter()
+            .flat_map(|scene| {
+                Variant::all()
+                    .into_iter()
+                    .flat_map(|variant| scene.files(&repo, variant))
+            })
+            .collect();
+        for file in &expected {
+            assert!(
+                file.is_file(),
+                "{} is missing: make it with `just docs-media missing`",
+                file.display()
+            );
+        }
+        for dir in [SHOTS, CLIPS] {
+            for entry in std::fs::read_dir(repo.join(dir)).unwrap() {
+                let file = entry.unwrap().path();
+                assert!(
+                    expected.contains(&file),
+                    "{} is no scene's capture: delete it",
+                    file.display()
+                );
+            }
         }
     }
 

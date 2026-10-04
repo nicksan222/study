@@ -33,12 +33,13 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
     starts the container and runs its lifecycle commands, so a broken environment fails
     before merge.
   - Landing (`landing.yml`): on every push to main, or by hand, runs `just landing-build`
-    and deploys `apps/landing/dist` to GitHub Pages under `/study/`. A fresh checkout has
-    no captures of the app, so the recipe first makes all of them (`just docs-media`,
-    `just demo`) on the showcase's private desktop with software Vulkan, as the setup
-    action's extra packages provide, then builds the site with Bun, pinned by
-    `packageManager` in `apps/landing/package.json` to the Dockerfile's `BUN_VERSION`. The
-    README's demo GIF is published with the site; nothing it makes is committed.
+    and deploys `apps/landing/dist` to GitHub Pages under `/study/`. It builds no Rust: the
+    captures of the app are committed, and the site builds with Bun alone, pinned by
+    `packageManager` in `apps/landing/package.json` to the Dockerfile's `BUN_VERSION`.
+  - Captures (`captures.yml`): by hand only. Runs `just captures` on the showcase's private
+    desktop with software Vulkan, as the setup action's extra packages provide, and opens
+    (or updates) a pull request from the `captures` branch with what changed, then starts
+    CI on it, since a pull request a workflow opens starts none itself.
   - Releases: Linux x64 and ARM64 build inside the devcontainer; macOS Intel/Apple Silicon
     and Windows x64 use native GitHub runners. They install Rust and pinned cargo-packager;
     they must never require a second devcontainer.

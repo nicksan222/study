@@ -52,8 +52,3 @@ core.*
 /apps/landing/dist/
 /apps/landing/.astro/
 
-# Captures of the app, made from sample data on every website build (`just docs-media`,
-# `just demo`), never committed.
-/apps/landing/src/assets/shots/
-/apps/landing/src/assets/clips/
-/apps/landing/public/demo.gif

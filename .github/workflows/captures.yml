@@ -1,0 +1,61 @@
+name: Captures
+
+# Makes every capture of the app the website shows again, from the code on the branch it runs
+# on: the docs' stills and clips and the README's demo GIF (`just captures`), on the
+# showcase's private desktop with software Vulkan. It takes a while, so it runs only by hand,
+# when the app's look has changed.
+#
+# What changed goes to a pull request from the `captures` branch, opened or updated here, to
+# look over and merge; nothing is pushed to main. A pull request a workflow opens starts no
+# workflow itself, so this starts CI on it.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: captures
+  cancel-in-progress: true
+
+jobs:
+  captures:
+    name: Make the captures
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up
+        uses: ./.github/actions/setup
+        with:
+          # The private headless desktop the showcase records on, with software Vulkan.
+          packages: >-
+            sway grim wtype wf-recorder ffmpeg
+            libvulkan1 mesa-vulkan-drivers libgl1-mesa-dri libegl-mesa0
+          # The app runs for real here, so it is built as in development.
+          optimize-dependencies: 'true'
+      - name: Capture the app
+        run: just captures
+      - name: Open a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.ref_name }}
+        run: |
+          git add --all apps/landing/src/assets/shots apps/landing/src/assets/clips apps/landing/public/demo.gif
+          if git diff --cached --quiet; then
+            echo "The captures are current."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c captures
+          git commit -m "Make the website's captures again" -m "Made by the Captures workflow from $BASE at $GITHUB_SHA."
+          git push --force origin captures
+          if [ "$(gh pr view captures --json state -q .state 2>/dev/null)" != OPEN ]; then
+            gh pr create --base "$BASE" --head captures \
+              --title "Make the website's captures again" \
+              --body "The Captures workflow made every still, clip and the demo GIF again from \`$BASE\` at $GITHUB_SHA. Look them over before merging."
+          fi
+          gh workflow run ci.yml --ref captures
