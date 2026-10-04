@@ -25,9 +25,9 @@ mod time;
 pub use anchors::{anchor_label, citation_label};
 pub use counts::{
     PracticeFigure, card_count, cards_due, cards_due_noun, cards_reviewed, cards_turned, copies,
-    cpu_thread_count, days_in_a_row, exam_countdown, file_count, outdated, practice_figure,
-    practice_score, project_count, question_number, reply_count, results_ready, review_progress,
-    reviews_this_week, session_count, source_count, step_of, steps_on,
+    cpu_thread_count, days_in_a_row, delete_entry_versions, exam_countdown, file_count, outdated,
+    practice_figure, practice_score, project_count, question_number, reply_count, results_ready,
+    review_progress, reviews_this_week, session_count, source_count, step_of, steps_on,
 };
 pub use mentions::{mention_label, mention_suggestions};
 pub use quantities::{

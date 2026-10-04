@@ -60,16 +60,16 @@ pub use previews::{Preview, has_preview};
 /// The data the UI renders.
 pub mod views {
     pub use study_core::db::{
-        Answered, Artifact, CardChange, Changes, ChatMessage, ChatSession, DueCard, Job,
+        Answered, Artifact, Asked, CardChange, Changes, ChatMessage, ChatSession, DueCard, Job,
         JobOverview, JobTarget, MAX_RECORDING_SAMPLES, MessagePart, MessageRole, MessageStatus,
-        PartContent, Place, Practice, PracticeQuestion, PracticeScore, PracticeSummary, Project,
-        RECORDING_SAMPLE_RATE, Recording, SearchHit, SearchKind, SearchTarget, Source, Thread,
-        ThreadSummary, TitleSource,
+        MessageVersion, PartContent, Place, Practice, PracticeQuestion, PracticeScore,
+        PracticeSummary, Project, RECORDING_SAMPLE_RATE, Recording, Rewrite, SearchHit, SearchKind,
+        SearchTarget, Source, Thread, ThreadSummary, TitleSource, VersionOrigin,
     };
     pub use study_core::{
         Anchor, ArtifactBody, ArtifactKind, ArtifactStatus, Block, BlockKind, Citation, Document,
         DocumentMeta, Flashcard, JobKind, JobStatus, Memory, PracticeAnswer, PracticeBody,
-        QuestionKind, QuestionStatus, Rating, Verdict, WrittenQuestion,
+        QuestionKind, QuestionStatus, Rating, Verdict, VersionId, WrittenQuestion,
     };
 }
 

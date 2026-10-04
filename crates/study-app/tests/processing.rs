@@ -257,7 +257,7 @@ async fn material_switched_off_is_not_made() -> study_core::Result<()> {
     // What is still offered is made.
     fixture
         .app
-        .update_material(fixture.project, ArtifactKind::Notes)?;
+        .update_material(fixture.project, ArtifactKind::Flashcards)?;
     assert_eq!(fixture.app.material(fixture.project)?.len(), 1);
     Ok(())
 }

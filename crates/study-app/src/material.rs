@@ -1,4 +1,4 @@
-//! Study material and reviewing it: making notes, flashcards and diagrams from
+//! Study material and reviewing it: making flashcards and diagrams from
 //! everything in a project, and spaced repetition over the flashcards.
 
 use study_core::db::{Artifact, CardChange, Changes, Database, DueCard, Material, unix_timestamp};

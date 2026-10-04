@@ -4,9 +4,10 @@
 use super::super::recordings::{live_recording_ms, move_recording_to_source};
 use super::super::sources::{insert_file, queue_read};
 use super::super::{Database, JobTarget, NewJob, Source, jobs::enqueue, unix_timestamp};
+use super::versions::{Fresh, VERSION_COLUMNS, insert_version, version_from_row};
 use super::{
-    ChatMessage, MessagePart, MessageRole, MessageStatus, NewPart, PartContent, PartKind, Place,
-    Readable, ThreadSummary, normalize_text,
+    ChatMessage, MessagePart, MessageRole, MessageStatus, MessageVersion, NewPart, PartContent,
+    Place, Readable, ThreadSummary, VersionOrigin, normalize_text,
 };
 use crate::text::truncate_chars;
 use crate::{ErrorKind, Result, bail, err};
@@ -21,7 +22,8 @@ pub(in crate::db) const MAX_NOTES_CHARS: usize = 12_000;
 
 impl Database {
     /// Stores a complete message and its files as sources in the session's project, all in
-    /// one transaction, on the timeline or in a thread (`place` takes a
+    /// one transaction, its text as the message's first version (the parts of
+    /// [`NewPart::Text`], joined by blank lines), on the timeline or in a thread (`place` takes a
     /// [`SessionId`] for the timeline). It queues a job that reads each [`Readable`] source
     /// and, while the session's title is provisional, one that names it once those are read.
     /// A user message that mentions the assistant also gets a pending answer, in the same
@@ -36,6 +38,7 @@ impl Database {
         if parts.is_empty() {
             bail!(ErrorKind::InvalidInput, "a message needs at least one part");
         }
+        let text = message_text(parts)?;
         let timestamp = unix_timestamp();
 
         let tx = self.immediate()?;
@@ -56,9 +59,9 @@ impl Database {
         };
         let recording_ms = recording.map(|(_, ms)| ms);
         tx.execute(
-            "INSERT INTO messages (session_id, role, status, thread_root, recording_ms,
+            "INSERT INTO messages (session_id, role, thread_root, recording_ms,
                  recording_id, created_at)
-             VALUES (?1, ?2, 'complete', ?3, ?4, ?5, ?6)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 session_id,
                 role,
@@ -70,8 +73,12 @@ impl Database {
         )?;
         let message_id = MessageId::new(tx.last_insert_rowid());
         let stored = insert_parts(&tx, &located, message_id, parts, readable)?;
+        let version = text
+            .as_deref()
+            .map(|text| insert_first_version(&tx, message_id, role, text))
+            .transpose()?;
         if role == MessageRole::User {
-            queue_follow_ups(&tx, &located, message_id, &stored)?;
+            queue_follow_ups(&tx, &located, message_id, text.as_deref(), &stored)?;
         }
         tx.execute(
             "UPDATE sessions SET updated_at = ?1 WHERE id = ?2",
@@ -94,6 +101,8 @@ impl Database {
             recording_ms,
             recorded_in: None,
             parts,
+            active_version: version.as_ref().map(|version| version.id),
+            versions: version.into_iter().collect(),
             citations: Vec::new(),
             reply: None,
         })
@@ -114,6 +123,56 @@ impl Database {
             thread: ThreadSummary::default(),
         })
     }
+}
+
+/// The words of `parts`, joined, or `None` when it has no text part. Only a message with
+/// words has a first version.
+fn message_text(parts: &[NewPart]) -> Result<Option<String>> {
+    let texts: Vec<&str> = parts
+        .iter()
+        .filter_map(|part| match part {
+            NewPart::Text(text) => Some(text.as_str()),
+            NewPart::File(_) | NewPart::Recording { .. } => None,
+        })
+        .collect();
+    if texts.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(normalize_text(&texts.join("\n\n"))?))
+}
+
+/// Stores `text` as the first version of a message, and makes it the active one.
+fn insert_first_version(
+    tx: &Connection,
+    message: MessageId,
+    role: MessageRole,
+    text: &str,
+) -> Result<MessageVersion> {
+    let origin = match role {
+        MessageRole::User => VersionOrigin::Typed,
+        MessageRole::Assistant => VersionOrigin::Answer,
+    };
+    let id = insert_version(
+        tx,
+        message,
+        Fresh {
+            origin,
+            instruction: None,
+            status: MessageStatus::Complete,
+            text,
+            based_on: None,
+        },
+    )?;
+    tx.execute(
+        "UPDATE messages SET active_version_id = ?2 WHERE id = ?1",
+        params![message, id],
+    )?;
+    let version = tx.query_row(
+        &format!("SELECT {VERSION_COLUMNS} FROM message_versions v WHERE v.id = ?1"),
+        params![id],
+        |row| version_from_row(row, 0),
+    )?;
+    Ok(version)
 }
 
 /// Where a message goes, resolved from its [`Place`].
@@ -144,19 +203,19 @@ fn locate(tx: &Connection, place: Place) -> Result<Located> {
             })
         }
         Place::Thread(root) => {
-            let (session_id, project_id, on_timeline, kind): (_, _, bool, PartKind) = tx
+            let (session_id, project_id, on_timeline): (_, _, bool) = tx
                 .query_row(
-                    "SELECT m.session_id, s.project_id, m.thread_root IS NULL, p.kind
+                    "SELECT m.session_id, s.project_id, m.thread_root IS NULL
                      FROM message_parts p
                      JOIN messages m ON m.id = p.message_id
                      JOIN sessions s ON s.id = m.session_id
                      WHERE p.id = ?1",
                     params![root],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
                 )
                 .optional()?
                 .ok_or_else(|| err!(ErrorKind::NotFound, "attachment {root} does not exist"))?;
-            if !on_timeline || kind != PartKind::Source {
+            if !on_timeline {
                 bail!(
                     ErrorKind::InvalidInput,
                     "only an attachment of a timeline message starts a thread"
@@ -178,8 +237,8 @@ struct StoredPart {
     jobs: Vec<JobId>,
 }
 
-/// Stores `parts` in order under `message_id`. Files and recordings become sources of the
-/// place's project, and each [`Readable`] one gets a job that reads it.
+/// Stores the files of `parts` in order under `message_id`. Files and recordings become
+/// sources of the place's project, and each [`Readable`] one gets a job that reads it.
 fn insert_parts(
     tx: &Connection,
     located: &Located,
@@ -188,44 +247,21 @@ fn insert_parts(
     readable: Readable<'_>,
 ) -> Result<Vec<StoredPart>> {
     let project = Some(located.project_id);
-    let mut stored = Vec::with_capacity(parts.len());
-    for (ordinal, part) in parts.iter().enumerate() {
+    let mut stored = Vec::new();
+    for part in parts {
         let source = match part {
-            NewPart::Text(text) => {
-                stored.push(insert_text_part(tx, message_id, ordinal, text)?);
-                continue;
-            }
+            NewPart::Text(_) => continue,
             NewPart::File(path) => insert_file(tx, path, project, SourceOrigin::Attachment)?,
             NewPart::Recording { id, name } => {
                 move_recording_to_source(tx, *id, located.session_id, name, project)?
             }
         };
         let reading = queue_read(tx, &source, readable)?;
-        let mut part = insert_source_part(tx, message_id, ordinal, source)?;
+        let mut part = insert_source_part(tx, message_id, stored.len(), source)?;
         part.jobs.extend(reading);
         stored.push(part);
     }
     Ok(stored)
-}
-
-/// Stores a text part.
-fn insert_text_part(
-    tx: &Connection,
-    message_id: MessageId,
-    ordinal: usize,
-    text: &str,
-) -> Result<StoredPart> {
-    let text = normalize_text(text)?;
-    tx.execute(
-        "INSERT INTO message_parts (message_id, ordinal, kind, text)
-         VALUES (?1, ?2, ?3, ?4)",
-        params![message_id, ordinal as i64, PartKind::Text, text],
-    )?;
-    Ok(StoredPart {
-        id: PartId::new(tx.last_insert_rowid()),
-        content: PartContent::Text(text),
-        jobs: Vec::new(),
-    })
 }
 
 /// Stores a part that shows a source.
@@ -236,12 +272,11 @@ fn insert_source_part(
     source: Source,
 ) -> Result<StoredPart> {
     tx.execute(
-        "INSERT INTO message_parts (message_id, ordinal, kind, source_id, source_name, source_kind)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO message_parts (message_id, ordinal, source_id, source_name, source_kind)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
             message_id,
             ordinal as i64,
-            PartKind::Source,
             source.id,
             source.name,
             source.kind
@@ -249,7 +284,7 @@ fn insert_source_part(
     )?;
     Ok(StoredPart {
         id: PartId::new(tx.last_insert_rowid()),
-        content: PartContent::Source {
+        content: PartContent {
             source_id: Some(source.id),
             name: source.name,
             kind: source.kind,
@@ -265,6 +300,7 @@ fn queue_follow_ups(
     tx: &Connection,
     located: &Located,
     message_id: MessageId,
+    text: Option<&str>,
     stored: &[StoredPart],
 ) -> Result<()> {
     let reads: Vec<JobId> = stored
@@ -276,14 +312,13 @@ fn queue_follow_ups(
         queue_title_if_provisional(tx, located.session_id, &reads)?;
     }
     // Notes are only written down; the assistant answers only when asked by name.
-    let asked = stored.iter().any(|part| match &part.content {
-        PartContent::Text(text) => mentions(text)
+    let asked = text.is_some_and(|text| {
+        mentions(text)
             .iter()
-            .any(|(_, mention)| *mention == Mention::Assistant),
-        PartContent::Source { .. } => false,
+            .any(|(_, mention)| *mention == Mention::Assistant)
     });
     if asked {
-        let answer = insert_reply(tx, located, message_id, MessageStatus::Pending)?;
+        let answer = insert_reply(tx, located, message_id)?;
         enqueue(
             tx,
             &NewJob::new(JobKind::Reply, JobTarget::Message(answer)).after(reads),
@@ -311,25 +346,32 @@ fn queue_title_if_provisional(
     Ok(())
 }
 
-/// Stores an assistant message with `status` answering `asked`, beside it.
-fn insert_reply(
-    tx: &Connection,
-    located: &Located,
-    asked: MessageId,
-    status: MessageStatus,
-) -> Result<MessageId> {
+/// Stores an assistant message answering `asked`, beside it, with its first version waiting
+/// to be written.
+fn insert_reply(tx: &Connection, located: &Located, asked: MessageId) -> Result<MessageId> {
     tx.execute(
-        "INSERT INTO messages (session_id, role, status, reply_to, thread_root, created_at)
-         VALUES (?1, 'assistant', ?2, ?3, ?4, ?5)",
+        "INSERT INTO messages (session_id, role, reply_to, thread_root, created_at)
+         VALUES (?1, 'assistant', ?2, ?3, ?4)",
         params![
             located.session_id,
-            status,
             asked,
             located.thread_root,
             unix_timestamp()
         ],
     )?;
-    Ok(MessageId::new(tx.last_insert_rowid()))
+    let answer = MessageId::new(tx.last_insert_rowid());
+    insert_version(
+        tx,
+        answer,
+        Fresh {
+            origin: VersionOrigin::Answer,
+            instruction: None,
+            status: MessageStatus::Pending,
+            text: "",
+            based_on: None,
+        },
+    )?;
+    Ok(answer)
 }
 
 /// The latest `notes` that fit in `budget` characters, oldest first, one per line. The

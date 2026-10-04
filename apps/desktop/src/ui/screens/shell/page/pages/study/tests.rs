@@ -15,7 +15,6 @@ use study_core::db::Database;
 use study_core::{ArtifactId, ProjectId, SourceId};
 
 /// The rail buttons of the pages of material.
-const NOTES_RAIL: usize = Page::Notes as usize;
 const FLASHCARDS_RAIL: usize = Page::Flashcards as usize;
 const DIAGRAMS_RAIL: usize = Page::Diagrams as usize;
 
@@ -78,7 +77,7 @@ fn a_load_reads_every_projects_material_and_due_cards() -> study_core::Result<()
     let (biology, source) = project_with_file(&app, "Biology");
     let (history, other) = project_with_file(&app, "History");
     write_flashcards(&database, biology, source, &CELL_CARDS);
-    database.request_update(history, ArtifactKind::Notes, &[other])?;
+    database.request_update(history, ArtifactKind::Diagram, &[other])?;
 
     let read = StudyRead::read(&app)?;
     assert_eq!(read.projects.len(), 2);
@@ -297,20 +296,16 @@ fn each_page_lists_its_own_kind(cx: &mut TestAppContext) {
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
     let make = |kind| database.request_update(project, kind, &[source]).unwrap().0;
-    let notes = make(ArtifactKind::Notes);
+    let cards = make(ArtifactKind::Flashcards);
     let diagram = make(ArtifactKind::Diagram);
 
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
     let shown = |cx: &mut TestAppContext, id: ArtifactId| find(cx, window, row(id)).is_some();
-    click(cx, window, NOTES_RAIL);
-    assert!(shown(cx, notes) && !shown(cx, diagram));
-    assert_eq!(
-        cx.update(|cx| shell.read(cx).study.shown()),
-        Shown::Material(notes)
-    );
+    click(cx, window, FLASHCARDS_RAIL);
+    assert!(shown(cx, cards) && !shown(cx, diagram));
     click(cx, window, DIAGRAMS_RAIL);
-    assert!(!shown(cx, notes) && shown(cx, diagram));
+    assert!(!shown(cx, cards) && shown(cx, diagram));
 
     // Each page keeps what its sidebar picked.
     click(cx, window, DIAGRAMS_RAIL);
@@ -332,7 +327,7 @@ fn material_is_made_from_the_whole_project(cx: &mut TestAppContext) {
     for (session, note) in [(cells.id, "ATP"), (mitosis.id, "Spindles")] {
         app.post_message(session, note, &[]).unwrap();
     }
-    click(cx, window, Page::Notes as usize);
+    click(cx, window, Page::Diagrams as usize);
     wait_until(cx, |cx| {
         cx.update(|cx| !shell.read(cx).study.projects.is_empty())
     });
@@ -344,7 +339,7 @@ fn material_is_made_from_the_whole_project(cx: &mut TestAppContext) {
         .as_ref()
         .or(material[0].current.as_ref())
         .unwrap();
-    assert_eq!(made.kind, ArtifactKind::Notes);
+    assert_eq!(made.kind, ArtifactKind::Diagram);
     assert_eq!(made.notes.lines().collect::<Vec<_>>(), ["ATP", "Spindles"]);
     wait_until(cx, |cx| {
         cx.update(|cx| shell.read(cx).study.shown()) == Shown::Material(made.id)
@@ -384,11 +379,11 @@ fn deleting_material_asks_first(cx: &mut TestAppContext) {
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
     let (id, _) = database
-        .request_update(project, ArtifactKind::Notes, &[source])
+        .request_update(project, ArtifactKind::Diagram, &[source])
         .unwrap();
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     click(cx, window, row(id));
     click(cx, window, ids::DELETE);
     assert!(database.artifact(id).unwrap().is_some(), "only asked");
@@ -537,7 +532,7 @@ fn opening_another_piece_drops_what_was_under_way(cx: &mut TestAppContext) {
         cx.update(|cx| {
             shell.update(cx, |shell, cx| match to {
                 Some(to) => shell.show_material(ArtifactKind::Flashcards, to, cx),
-                None => shell.navigate(Page::Notes, cx),
+                None => shell.navigate(Page::Diagrams, cx),
             })
         });
         cx.run_until_parked();
@@ -639,7 +634,7 @@ fn a_late_review_does_not_open_over_what_was_picked_meanwhile(cx: &mut TestAppCo
         shell.update(cx, |shell, cx| {
             shell.choose_material(Shown::Reviews, cx);
             shell.review_due(None, cx);
-            shell.navigate(Page::Notes, cx);
+            shell.navigate(Page::Diagrams, cx);
         })
     });
     cx.run_until_parked();
@@ -680,7 +675,7 @@ fn a_citation_opens_its_passage_over_the_page(cx: &mut TestAppContext) {
         )
         .unwrap();
     let (id, _) = database
-        .request_update(project, ArtifactKind::Notes, &[source])
+        .request_update(project, ArtifactKind::Diagram, &[source])
         .unwrap();
     let job = database.claim_job(&[JobKind::Artifact]).unwrap().unwrap();
     database.begin_artifact(id).unwrap();
@@ -694,8 +689,8 @@ fn a_citation_opens_its_passage_over_the_page(cx: &mut TestAppContext) {
     database
         .finish_artifact(
             id,
-            &ArtifactBody::Text {
-                text: "Mitosis has four phases [1].".into(),
+            &ArtifactBody::Diagram {
+                mermaid: "Mitosis has four phases [1].".into(),
             },
             &[cited],
         )
@@ -704,7 +699,7 @@ fn a_citation_opens_its_passage_over_the_page(cx: &mut TestAppContext) {
 
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     // What the citation's chip does when clicked.
     let cited = cx.update(|cx| shell.read(cx).study.open_artifact().unwrap().citations[0].clone());
     cx.update_window(window, |_, window, cx| {
@@ -720,7 +715,7 @@ fn a_citation_opens_its_passage_over_the_page(cx: &mut TestAppContext) {
     })
     .unwrap();
     wait_until(cx, |cx| cx.update(|cx| shell.read(cx).peek.loaded()));
-    assert_eq!(cx.update(|cx| shell.read(cx).active), Page::Notes);
+    assert_eq!(cx.update(|cx| shell.read(cx).active), Page::Diagrams);
     assert_eq!(
         cx.update(|cx| shell.read(cx).peek.marked()),
         ["Mitosis has four phases.".to_owned()]
@@ -734,7 +729,7 @@ fn material_waiting_for_sign_in_offers_settings(cx: &mut TestAppContext) {
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
     let (id, _) = database
-        .request_update(project, ArtifactKind::Notes, &[source])
+        .request_update(project, ArtifactKind::Diagram, &[source])
         .unwrap();
     let job = database.claim_job(&[JobKind::Artifact]).unwrap().unwrap();
     database
@@ -750,26 +745,32 @@ fn material_waiting_for_sign_in_offers_settings(cx: &mut TestAppContext) {
     );
 
     let (window, _shell) = open_offline_shell(cx, &app, false);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     click(cx, window, row(id));
     assert!(find(cx, window, (ids::MATERIAL_SETTINGS, id.get() as u64)).is_some());
     assert!(find(cx, window, (ids::MATERIAL_RETRY, id.get() as u64)).is_none());
 }
 
-/// Writes notes from `source`, as its writer would, and returns its id.
-fn write_notes(
+/// Writes a diagram from `source`, as its writer would, and returns its id.
+fn write_diagram(
     database: &Database,
     project: ProjectId,
     source: SourceId,
     text: &str,
 ) -> ArtifactId {
     let (id, _) = database
-        .request_update(project, ArtifactKind::Notes, &[source])
+        .request_update(project, ArtifactKind::Diagram, &[source])
         .unwrap();
     let job = database.claim_job(&[JobKind::Artifact]).unwrap().unwrap();
     database.begin_artifact(id).unwrap();
     database
-        .finish_artifact(id, &ArtifactBody::Text { text: text.into() }, &[])
+        .finish_artifact(
+            id,
+            &ArtifactBody::Diagram {
+                mermaid: text.into(),
+            },
+            &[],
+        )
         .unwrap();
     database.succeed_job(job.id, &[]).unwrap();
     id
@@ -794,10 +795,10 @@ fn a_piece_says_one_status_in_the_same_words_everywhere(cx: &mut TestAppContext)
     let app = TempApp::new();
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
-    let first = write_notes(&database, project, source, "one");
+    let first = write_diagram(&database, project, source, "one");
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     let status = |cx: &mut TestAppContext| {
         find(cx, window, ids::STATUS).and_then(|status| status.label().map(str::to_owned))
     };
@@ -819,7 +820,7 @@ fn a_piece_says_one_status_in_the_same_words_everywhere(cx: &mut TestAppContext)
 
     // The update is on its way: the current text stays, and there is nothing to click twice.
     let (second, job) = database
-        .request_update(project, ArtifactKind::Notes, &[source])
+        .request_update(project, ArtifactKind::Diagram, &[source])
         .unwrap();
     reload(cx, &shell, |state| {
         state.open_piece().is_some_and(|piece| piece.updating())
@@ -842,7 +843,7 @@ fn a_piece_says_one_status_in_the_same_words_everywhere(cx: &mut TestAppContext)
     assert!(find(cx, window, ids::UPDATE).is_none());
     assert_eq!(
         database
-            .request_update(project, ArtifactKind::Notes, &[source])
+            .request_update(project, ArtifactKind::Diagram, &[source])
             .unwrap()
             .0,
         second,
@@ -879,10 +880,10 @@ fn an_update_keeps_the_current_text_until_it_is_done(cx: &mut TestAppContext) {
     let app = TempApp::new();
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
-    let first = write_notes(&database, project, source, "one");
+    let first = write_diagram(&database, project, source, "one");
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     let body = |cx: &mut TestAppContext| {
         cx.update(|cx| {
             shell
@@ -892,11 +893,13 @@ fn an_update_keeps_the_current_text_until_it_is_done(cx: &mut TestAppContext) {
                 .and_then(|artifact| artifact.body.clone())
         })
     };
-    let one = Some(ArtifactBody::Text { text: "one".into() });
+    let one = Some(ArtifactBody::Diagram {
+        mermaid: "one".into(),
+    });
     assert_eq!(body(cx), one);
 
     let (second, job) = database
-        .request_update(project, ArtifactKind::Notes, &[source])
+        .request_update(project, ArtifactKind::Diagram, &[source])
         .unwrap();
     reload(cx, &shell, |state| {
         state.open_piece().is_some_and(|piece| piece.updating())
@@ -910,13 +913,24 @@ fn an_update_keeps_the_current_text_until_it_is_done(cx: &mut TestAppContext) {
     database.claim_job(&[JobKind::Artifact]).unwrap().unwrap();
     database.begin_artifact(second).unwrap();
     database
-        .finish_artifact(second, &ArtifactBody::Text { text: "two".into() }, &[])
+        .finish_artifact(
+            second,
+            &ArtifactBody::Diagram {
+                mermaid: "two".into(),
+            },
+            &[],
+        )
         .unwrap();
     database.succeed_job(job.unwrap(), &[]).unwrap();
     reload(cx, &shell, |state| {
         state.open_piece().is_some_and(|piece| !piece.updating())
     });
-    assert_eq!(body(cx), Some(ArtifactBody::Text { text: "two".into() }));
+    assert_eq!(
+        body(cx),
+        Some(ArtifactBody::Diagram {
+            mermaid: "two".into()
+        })
+    );
     assert!(
         database.artifact(first).unwrap().is_none(),
         "nothing old is kept"
@@ -930,10 +944,10 @@ fn the_header_facts_leave_out_a_project_that_the_title_already_names(cx: &mut Te
     let app = TempApp::new();
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
-    write_notes(&database, project, source, "one");
+    write_diagram(&database, project, source, "one");
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     cx.update(|cx| {
         let shell = shell.read(cx);
         let mut artifact = shell.study.open_artifact().unwrap().clone();
@@ -962,7 +976,7 @@ fn a_project_with_nothing_to_offer_has_no_make(cx: &mut TestAppContext) {
     let project = app.database().create_project("Biology").unwrap().id;
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     assert_eq!(
         cx.update(|cx| shell.read(cx).study.shown()),
         Shown::Empty(Some(project))
@@ -976,13 +990,13 @@ fn deleting_a_piece_removes_its_update(cx: &mut TestAppContext) {
     let app = TempApp::new();
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
-    let first = write_notes(&database, project, source, "one");
+    let first = write_diagram(&database, project, source, "one");
     let (second, _) = database
-        .request_update(project, ArtifactKind::Notes, &[source])
+        .request_update(project, ArtifactKind::Diagram, &[source])
         .unwrap();
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     click(cx, window, ids::DELETE);
     click(cx, window, ids::CONFIRM_DELETE);
     wait_until(cx, |_| {
@@ -996,13 +1010,13 @@ fn update_is_reached_from_the_keyboard(cx: &mut TestAppContext) {
     let app = TempApp::new();
     let database = app.database();
     let (project, source) = project_with_file(&app, "Biology");
-    write_notes(&database, project, source, "one");
+    write_diagram(&database, project, source, "one");
     let extra = app.dir().join("Genetics.txt");
     std::fs::write(&extra, "alleles").unwrap();
     database.import_source(&extra, Some(project)).unwrap();
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
     without_workers(cx, &shell);
-    click(cx, window, NOTES_RAIL);
+    click(cx, window, DIAGRAMS_RAIL);
     reload(cx, &shell, |state| {
         state
             .open_piece()
@@ -1051,7 +1065,7 @@ fn a_piece_reads_each_status_from_its_current_text_and_its_update() {
     };
     let ask = |project, source| {
         database
-            .request_update(project, ArtifactKind::Notes, &[source])
+            .request_update(project, ArtifactKind::Diagram, &[source])
             .unwrap()
     };
 
@@ -1060,20 +1074,20 @@ fn a_piece_reads_each_status_from_its_current_text_and_its_update() {
     let (id, job) = ask(write_failed, source);
     fail(id, job);
     let (update_failed, source) = project_with_file(&app, "UpdateFailed");
-    write_notes(&database, update_failed, source, "one");
+    write_diagram(&database, update_failed, source, "one");
     let (id, job) = ask(update_failed, source);
     fail(id, job);
     let (writing, source) = project_with_file(&app, "Writing");
     ask(writing, source);
     let (up_to_date, source) = project_with_file(&app, "UpToDate");
-    write_notes(&database, up_to_date, source, "one");
+    write_diagram(&database, up_to_date, source, "one");
     let (outdated, source) = project_with_file(&app, "Outdated");
-    write_notes(&database, outdated, source, "one");
+    write_diagram(&database, outdated, source, "one");
     let extra = app.dir().join("More.txt");
     std::fs::write(&extra, "alleles").unwrap();
     database.import_source(&extra, Some(outdated)).unwrap();
     let (updating, source) = project_with_file(&app, "Updating");
-    write_notes(&database, updating, source, "one");
+    write_diagram(&database, updating, source, "one");
     ask(updating, source);
 
     let read = StudyRead::read(&app.app()).unwrap();

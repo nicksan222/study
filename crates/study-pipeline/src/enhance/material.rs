@@ -1,6 +1,6 @@
 //! The material agents. Each is an agent on the medium tier that reads numbered passages
-//! of the chosen sources and cites them: notes in Markdown with `[n]`
-//! markers, and flashcards as JSON items with the markers they rest on.
+//! of the chosen sources and cites them: flashcards as JSON items with the markers they
+//! rest on.
 //!
 //! Every one keeps to what its sources specifically teach (`on_the_sources!`) and
 //! [declines](AgentSpec::MAY_DECLINE) when they hold too little, rather than fall back on
@@ -9,7 +9,7 @@
 use std::fmt::Write as _;
 
 use serde::Deserialize;
-use study_ai::agent::{AgentSpec, escape, json_answer, numbered_sources, plain_answer};
+use study_ai::agent::{AgentSpec, escape, json_answer, numbered_sources};
 use study_ai::chat::Tier;
 use study_core::processing::EnhancerInput;
 use study_core::{ArtifactBody, ArtifactKind, Flashcard};
@@ -38,7 +38,7 @@ pub(super) const ON_THE_SOURCES: &str = on_the_sources!();
 /// it rather than starting over.
 const REVISE: &str = "A previous version of this material follows in <previous_version>. \
 Revise it: keep what the sources still support, keep the wording of every flashcard front \
-and the structure of every note and diagram when they are still valid, add what is new in \
+and the structure of every diagram when they are still valid, add what is new in \
 the sources, and drop what they no longer support. Cite only the numbered sources above: \
 the previous version's citations were removed, because the numbers may now mean other \
 sources.";
@@ -71,11 +71,10 @@ but they have no number to cite.\n<notes>\n{}\n</notes>",
     prompt
 }
 
-/// `body` as a model reads it: Markdown, a card per line with its sides apart, or Mermaid,
+/// `body` as a model reads it: a card per line with its sides apart, or Mermaid,
 /// without its `[n]` markers, which counted the excerpts of the version it was written from.
 fn previous_text(body: &ArtifactBody) -> String {
     match body {
-        ArtifactBody::Text { text } => without_markers(text),
         ArtifactBody::Flashcards { cards } => cards
             .iter()
             .map(|card| format!("Front: {}\nBack: {}", card.front, card.back))
@@ -112,38 +111,6 @@ fn without_markers(text: &str) -> String {
     }
     kept.push_str(rest);
     kept
-}
-
-/// Structured study notes.
-pub(super) struct NotesWriter;
-
-impl EnhancerAgent for NotesWriter {
-    const KIND: ArtifactKind = ArtifactKind::Notes;
-}
-
-impl AgentSpec for NotesWriter {
-    const NAME: &'static str = "notes";
-    const TIER: Tier = Tier::Medium;
-    const INSTRUCTIONS: &'static str = concat!(
-        "You write study notes for students. Turn the sources into clear notes: a \
-heading per topic they cover, short bullet points under it, key terms in bold, and \
-definitions and formulas exactly as given. Cover every topic of the sources, from first to \
-last, not just the start. After each point, cite the passage it comes from as [n], or \
-several as [1][3]. Reply with the notes only, in Markdown. ",
-        on_the_sources!()
-    );
-    const MAY_DECLINE: bool = true;
-
-    type Input = EnhancerInput;
-    type Output = ArtifactBody;
-
-    fn prompt(material: &EnhancerInput) -> String {
-        render(material)
-    }
-
-    fn parse(answer: &str) -> Option<ArtifactBody> {
-        text_body(answer)
-    }
 }
 
 /// Most flashcards one set keeps; the writer is asked for no more.
@@ -194,28 +161,6 @@ card rests on; a card that rests on no passage is not one to write. ",
     }
 }
 
-/// A Markdown answer as a text body, without the code fence models sometimes wrap it in,
-/// which would show the whole of it as code.
-fn text_body(answer: &str) -> Option<ArtifactBody> {
-    let answer = plain_answer(answer)?;
-    let text = unfenced(&answer).unwrap_or(&answer).trim();
-    (!text.is_empty()).then(|| ArtifactBody::Text {
-        text: text.to_owned(),
-    })
-}
-
-/// What is inside `answer` when the whole of it is one ```` ``` ```` or ```` ```markdown ````
-/// block.
-fn unfenced(answer: &str) -> Option<&str> {
-    let (opening, rest) = answer.split_once('\n')?;
-    let language = opening.strip_prefix("```")?.trim();
-    if !matches!(language, "" | "markdown" | "md") {
-        return None;
-    }
-    let inside = rest.strip_suffix("```")?;
-    (!inside.contains("\n```")).then_some(inside)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,8 +190,8 @@ mod tests {
     #[test]
     fn the_previous_version_loses_its_citation_markers() {
         let material = EnhancerInput {
-            previous: Some(ArtifactBody::Text {
-                text: "ATP is made in mitochondria [3]. Cells [1, 2] divide [x].".into(),
+            previous: Some(ArtifactBody::Diagram {
+                mermaid: "ATP is made in mitochondria [3]. Cells [1, 2] divide [x].".into(),
             }),
             ..EnhancerInput::default()
         };
@@ -301,33 +246,12 @@ mod tests {
     }
 
     #[test]
-    fn every_writer_keeps_to_its_sources_and_may_decline() {
-        for (instructions, may_decline) in [
-            (NotesWriter::INSTRUCTIONS, NotesWriter::MAY_DECLINE),
-            (CardWriter::INSTRUCTIONS, CardWriter::MAY_DECLINE),
-        ] {
-            assert!(instructions.ends_with(ON_THE_SOURCES), "{instructions}");
-            assert!(may_decline);
-        }
-    }
-
-    #[test]
-    fn notes_lose_a_fence_around_the_whole_of_them_only() {
-        let text = |answer| match NotesWriter::parse(answer) {
-            Some(ArtifactBody::Text { text }) => text,
-            other => panic!("{other:?}"),
-        };
-        assert_eq!(
-            text("```markdown\n# Cells\n- ATP [1]\n```"),
-            "# Cells\n- ATP [1]"
+    fn every_writer_keeps_to_its_sources() {
+        assert!(
+            CardWriter::INSTRUCTIONS.ends_with(ON_THE_SOURCES),
+            "{}",
+            CardWriter::INSTRUCTIONS
         );
-        assert_eq!(text("```\n# Cells\n```\n"), "# Cells");
-        let code = "# Code\n```\nlet x = 1;\n```";
-        assert_eq!(text(code), code);
-        let two = "```\na\n```\ntext\n```\nb\n```";
-        assert_eq!(text(two), two);
-        assert_eq!(text("```python\nx = 1\n```"), "```python\nx = 1\n```");
-        assert_eq!(NotesWriter::parse("```markdown\n```"), None);
     }
 
     #[test]

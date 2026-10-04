@@ -20,7 +20,7 @@ crate::text_enum! {
     pub enum SearchKind {
         Project = "project",
         Session = "session",
-        /// A text part of a chat message.
+        /// The text of a chat message: its active version, not the versions it replaced.
         Message = "message",
         /// A source, found by its name or by a passage of its text.
         Source = "source",

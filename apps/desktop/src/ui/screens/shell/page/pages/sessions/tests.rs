@@ -125,12 +125,9 @@ fn first_message_creates_a_titled_session_and_follow_ups_store_attachments(
             .iter()
             .all(|message| message.role == MessageRole::User)
     );
-    let PartContent::Source {
+    let PartContent {
         source_id, name, ..
-    } = &messages[1].parts[0].content
-    else {
-        panic!("expected the attachment");
-    };
+    } = &messages[1].parts[0].content;
     assert_eq!(name, "notes.md");
     // The file itself lives in the database, filed under the session's project.
     let media = database.list_sources().unwrap();
@@ -230,10 +227,8 @@ fn stored_results_render_and_sessions_can_be_deleted(cx: &mut TestAppContext) {
     // The recording is one line, its transcript folded under it; its preview button opens
     // the side panel.
     let (part, source) = cx.update(|cx| {
-        let part = &shell.read(cx).sessions.messages[0].parts[1];
-        let PartContent::Source { source_id, .. } = &part.content else {
-            panic!("expected the recording");
-        };
+        let part = &shell.read(cx).sessions.messages[0].parts[0];
+        let PartContent { source_id, .. } = &part.content;
         (part.id, source_id.unwrap())
     });
     // Its buttons show while the pointer is on its line.
@@ -273,7 +268,7 @@ fn an_attachment_opens_a_thread_whose_replies_stay_off_the_timeline(cx: &mut Tes
             &|_, _| false,
         )
         .unwrap();
-    let root = posted.parts[1].id;
+    let root = posted.parts[0].id;
 
     let (window, shell) = open_offline_shell(cx, &app, true);
     click(cx, window, PROJECTS_RAIL);
@@ -317,7 +312,7 @@ fn an_attachment_opens_a_thread_whose_replies_stay_off_the_timeline(cx: &mut Tes
             // The reply is in the thread; the timeline only counts it.
             replies == 1
                 && state.messages.len() == 1
-                && state.messages[0].parts[1].thread.replies == 1
+                && state.messages[0].parts[0].thread.replies == 1
         })
     });
     // On the timeline the reply folds into a faint line under the file, which opens it.
@@ -334,8 +329,8 @@ fn an_attachment_opens_a_thread_whose_replies_stay_off_the_timeline(cx: &mut Tes
     }));
     let thread = database.thread(root).unwrap().expect("a thread");
     assert_eq!(
-        thread.replies[0].parts[0].content,
-        PartContent::Text("Chlorophyll absorbs red and blue light".into())
+        thread.replies[0].text(),
+        "Chlorophyll absorbs red and blue light"
     );
     render(cx, window);
 
@@ -382,12 +377,9 @@ fn a_recording_cut_short_by_a_crash_can_be_sent_or_discarded(cx: &mut TestAppCon
     });
 
     let messages = database.list_messages(session.id).unwrap();
-    let PartContent::Source {
+    let PartContent {
         source_id, name, ..
-    } = &messages[0].parts[0].content
-    else {
-        panic!("expected the recording");
-    };
+    } = &messages[0].parts[0].content;
     assert!(name.ends_with(".wav"), "{name}");
     assert_eq!(messages[0].parts[0].jobs[0].kind, JobKind::Extract);
     let media = database.source(source_id.unwrap()).unwrap().unwrap();
@@ -475,10 +467,7 @@ fn a_typed_mention_becomes_a_chip_and_is_stored_as_written(cx: &mut TestAppConte
         cx.update(|cx| shell.read(cx).sessions.messages.len() >= 3)
     });
     let messages = database.list_messages(session.id).unwrap();
-    assert_eq!(
-        messages[1].parts[0].content,
-        PartContent::Text("@study spiega il ciclo".into())
-    );
+    assert_eq!(messages[1].text(), "@study spiega il ciclo");
 }
 
 #[test]
@@ -1136,7 +1125,7 @@ fn a_failed_send_stays_off_the_session_opened_meanwhile(cx: &mut TestAppContext)
 }
 
 /// The keyboard walks the notebook in reading order: from the composer, Shift+Tab goes
-/// back through the work folded under a file, the file's buttons and the note's actions,
+/// back through the note's actions, the work folded under a file and the file's buttons,
 /// and Tab comes forward to the composer again; neither indents the note being written.
 #[gpui_kit::test]
 fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
@@ -1175,7 +1164,7 @@ fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
     let (window, shell) = open_offline_shell(cx, &app, false);
     click(cx, window, PROJECTS_RAIL);
     click(cx, window, (ids::SESSION, session.id.get() as u64));
-    let part = cx.update(|cx| shell.read(cx).sessions.messages[0].parts[1].id);
+    let part = cx.update(|cx| shell.read(cx).sessions.messages[0].parts[0].id);
     click(cx, window, ids::COMPOSER);
 
     // The innermost element holding the keyboard, by its own id.
@@ -1195,21 +1184,42 @@ fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
     assert!(composer.is_some(), "the composer has the keyboard");
     let note_id = note.id.get() as u64;
     let part_id = part.get() as u64;
+    // Reading order is the note's files and what is folded under them, then its actions.
     let backwards: Vec<gpui_kit::ElementId> = vec![
+        (ids::DELETE_MESSAGE, note_id).into(),
+        (ids::COPY_MESSAGE, note_id).into(),
+        (ids::EDIT_MESSAGE, note_id).into(),
+        (ids::AI_EDIT_SLOT, note_id).into(),
         (ids::EXPAND_JOB, done.id.get() as u64).into(),
         (ids::ATTACHMENT_DETAILS, part_id).into(),
         (ids::OPEN_ATTACHMENT, part_id).into(),
         (ids::OPEN_THREAD, part_id).into(),
-        (ids::DELETE_MESSAGE, note_id).into(),
-        (ids::COPY_MESSAGE, note_id).into(),
     ];
+    // The AI edit button's slot is a plain focus handle, which the snapshots do not name.
+    let slot: gpui_kit::ElementId = (ids::AI_EDIT_SLOT, note_id).into();
+    let has_keyboard = |cx: &mut TestAppContext, expected: &gpui_kit::ElementId| {
+        if *expected == slot {
+            cx.update_window(window, |_, window, cx| {
+                shell
+                    .read(cx)
+                    .sessions
+                    .versions
+                    .focus
+                    .get(&note.id)
+                    .is_some_and(|focus| focus.ai.is_focused(window))
+            })
+            .unwrap()
+        } else {
+            focused(cx).as_ref() == Some(expected)
+        }
+    };
     for expected in &backwards {
         cx.simulate_keystrokes(window, "shift-tab");
-        assert_eq!(focused(cx).as_ref(), Some(expected));
+        assert!(has_keyboard(cx, expected), "Shift+Tab reaches {expected:?}");
     }
     for expected in backwards.iter().rev().skip(1) {
         cx.simulate_keystrokes(window, "tab");
-        assert_eq!(focused(cx).as_ref(), Some(expected));
+        assert!(has_keyboard(cx, expected), "Tab reaches {expected:?}");
     }
     cx.simulate_keystrokes(window, "tab");
     assert_eq!(focused(cx), composer, "Tab comes back to the composer");
@@ -1223,4 +1233,649 @@ fn the_keyboard_walks_the_notebook_in_reading_order(cx: &mut TestAppContext) {
             .to_string()
     });
     assert_eq!(written, "", "tabbing indents nothing");
+}
+
+/// Every entry's actions are reached by Shift+Tab from the composer, as the real app draws
+/// them: no pointer over anything, nothing focused yet, a note with versions and an answer.
+#[gpui_kit::test]
+fn every_entrys_actions_are_reached_by_tab(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let typed = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("Mitochondria make ATP"),
+            &|_, _| true,
+        )
+        .unwrap();
+    database
+        .edit_message(typed.id, "Mitochondria make most ATP")
+        .unwrap();
+    database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("@study what makes ATP?"),
+            &|_, _| true,
+        )
+        .unwrap();
+    let answer = database.list_messages(session.id).unwrap().pop().unwrap();
+    let job = database.claim_job(&[JobKind::Reply]).unwrap().unwrap();
+    let first = database
+        .begin_version(answer.id, JobKind::Reply)
+        .unwrap()
+        .unwrap();
+    database
+        .finish_version(first.id, "Mitochondria.", &[])
+        .unwrap();
+    database.succeed_job(job.id, &[]).unwrap();
+
+    let (window, shell) = open_offline_shell(cx, &app, false);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    click(cx, window, ids::COMPOSER);
+    let reached = |cx: &mut TestAppContext| -> Vec<gpui_kit::ElementId> {
+        cx.update_window(window, |_, window, cx| {
+            gpui_kit::test::TestWindowExt::render_frame(window, cx);
+            gpui_kit::base::test_support::snapshots(window)
+                .into_iter()
+                .filter(|element| format!("{element:?}").contains("focused: Some(true)"))
+                .filter_map(|element| element.path().last().cloned())
+                .collect()
+        })
+        .unwrap()
+    };
+    let mut seen = Vec::new();
+    let mut slots = 0;
+    for _ in 0..40 {
+        cx.simulate_keystrokes(window, "shift-tab");
+        let now = reached(cx);
+        // The bar shows while a control in it has focus: the entry says so, with no pointer
+        // anywhere, so its ring is not drawn on something invisible.
+        for message in [typed.id, answer.id] {
+            let bar_control = [ids::DELETE_MESSAGE, ids::COPY_MESSAGE, ids::EDIT_MESSAGE]
+                .into_iter()
+                .any(|id| now.contains(&(id, message.get() as u64).into()));
+            if bar_control {
+                let shown = cx
+                    .update_window(window, |_, window, cx| {
+                        shell.read(cx).sessions.versions.focused_bar(window, cx)
+                    })
+                    .unwrap();
+                assert_eq!(shown, Some(message), "the bar shows under focus");
+            }
+        }
+        seen.extend(now);
+        slots += cx
+            .update_window(window, |_, window, cx| {
+                shell
+                    .read(cx)
+                    .sessions
+                    .versions
+                    .focus
+                    .values()
+                    .any(|focus| focus.ai.is_focused(window))
+            })
+            .unwrap() as usize;
+    }
+    for message in [typed.id, answer.id] {
+        for id in [ids::DELETE_MESSAGE, ids::COPY_MESSAGE, ids::EDIT_MESSAGE] {
+            let expected: gpui_kit::ElementId = (id, message.get() as u64).into();
+            assert!(seen.contains(&expected), "Shift+Tab reaches {expected:?}");
+        }
+    }
+    assert!(slots >= 2, "Shift+Tab reaches both AI edit buttons");
+}
+
+fn open_note(
+    cx: &mut TestAppContext,
+    app: &TempApp,
+    parts: &[NewPart],
+) -> (
+    AnyWindowHandle,
+    gpui_kit::Entity<AppShell>,
+    study_core::MessageId,
+) {
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let note = database
+        .post_message(session.id, MessageRole::User, parts, &|_, _| true)
+        .unwrap();
+    // Offline: model work waits for a sign-in, so what is queued stays unfinished.
+    let (window, shell) = open_offline_shell(cx, app, true);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    (window, shell, note.id)
+}
+
+fn text_note(words: &str) -> Vec<NewPart> {
+    vec![NewPart::Text(words.into())]
+}
+
+fn shown(
+    cx: &mut TestAppContext,
+    window: AnyWindowHandle,
+    id: impl Into<gpui_kit::ElementId>,
+) -> bool {
+    find(cx, window, id).is_some()
+}
+
+/// The switcher shows once a note has two versions, steps between the finished ones and
+/// stops at each end.
+#[gpui_kit::test]
+fn the_switcher_steps_between_the_versions_of_a_note(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    assert!(!shown(cx, window, (ids::VERSION_SWITCHER, mid)));
+
+    database
+        .edit_message(note, "Mitochondria make most ATP")
+        .unwrap();
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            let session = shell.sessions.session_id().unwrap();
+            shell.reload_session(session, cx);
+        })
+    });
+    wait_until(cx, |cx| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].versions.len() == 2)
+    });
+    render(cx, window);
+    assert!(shown(cx, window, (ids::VERSION_SWITCHER, mid)));
+    let active = |cx: &mut TestAppContext| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].text().to_owned())
+    };
+    assert_eq!(active(cx), "Mitochondria make most ATP");
+
+    click(cx, window, (ids::VERSION_PREVIOUS, mid));
+    wait_until(cx, |cx| active(cx) == "Mitochondria make ATP");
+    assert_eq!(
+        database.message(note).unwrap().unwrap().text(),
+        "Mitochondria make ATP"
+    );
+    click(cx, window, (ids::VERSION_NEXT, mid));
+    wait_until(cx, |cx| active(cx) == "Mitochondria make most ATP");
+}
+
+/// Editing in place saves the words as a new version; empty words cannot be saved, and words
+/// left as they were add nothing.
+#[gpui_kit::test]
+fn an_edit_saves_a_version(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    let versions = || database.message(note).unwrap().unwrap().versions.len();
+    let set_edit = |cx: &mut TestAppContext, words: &str| {
+        let words = words.to_owned();
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell
+                    .sessions
+                    .versions
+                    .edit_field
+                    .update(cx, |field, cx| field.set_value(words, window, cx));
+            });
+        })
+        .unwrap();
+    };
+
+    hover(cx, window, (ids::EDIT_MESSAGE, mid));
+    click(cx, window, (ids::EDIT_MESSAGE, mid));
+    assert!(shown(cx, window, (ids::SAVE_EDIT, mid)));
+
+    // Words left as they were: nothing is added, and the page says so.
+    click(cx, window, (ids::SAVE_EDIT, mid));
+    wait_until(cx, |cx| {
+        render(cx, window);
+        shown(cx, window, (ids::VERSION_NOTICE, mid))
+    });
+    assert_eq!(versions(), 1);
+    assert!(!shown(cx, window, (ids::SAVE_EDIT, mid)));
+
+    hover(cx, window, (ids::EDIT_MESSAGE, mid));
+    click(cx, window, (ids::EDIT_MESSAGE, mid));
+    set_edit(cx, "   ");
+    render(cx, window);
+    click(cx, window, (ids::SAVE_EDIT, mid));
+    assert_eq!(versions(), 1);
+    assert!(shown(cx, window, (ids::SAVE_EDIT, mid)));
+
+    set_edit(cx, "Mitochondria make most ATP");
+    render(cx, window);
+    click(cx, window, (ids::SAVE_EDIT, mid));
+    wait_until(cx, |_| versions() == 2);
+    let saved = database.message(note).unwrap().unwrap();
+    assert_eq!(saved.text(), "Mitochondria make most ATP");
+    assert_eq!(
+        saved.versions[1].origin,
+        study_app::views::VersionOrigin::Edited
+    );
+    render(cx, window);
+    assert!(!shown(cx, window, (ids::SAVE_EDIT, mid)));
+}
+
+/// AI edit offers rewrites from a menu; choosing one queues a version being written, which
+/// can only be stopped or deleted, and a second request while it is written says so.
+#[gpui_kit::test]
+fn an_ai_edit_queues_a_version_and_a_second_one_is_refused_aloud(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    assert!(shown(cx, window, (ids::AI_IMPROVE, mid)));
+    assert!(shown(cx, window, (ids::AI_SUMMARIZE, mid)));
+    click(cx, window, (ids::AI_IMPROVE, mid));
+    wait_until(cx, |_| {
+        database
+            .message(note)
+            .unwrap()
+            .unwrap()
+            .unfinished()
+            .is_some()
+    });
+    let queued = database.message(note).unwrap().unwrap();
+    assert_eq!(queued.versions.len(), 2);
+    assert_eq!(
+        queued.versions[1].origin,
+        study_app::views::VersionOrigin::Improve
+    );
+    // The menu closed, and the entry now offers only what a version being written allows.
+    render(cx, window);
+    assert!(!shown(cx, window, (ids::AI_IMPROVE, mid)));
+    assert!(shown(cx, window, (ids::STOP_VERSION, mid)));
+    assert!(shown(cx, window, (ids::DELETE_MESSAGE, mid)));
+    assert!(!shown(cx, window, (ids::EDIT_MESSAGE, mid)));
+    assert!(!shown(cx, window, (ids::AI_EDIT, mid)));
+
+    // Another request meanwhile gets a visible answer, not silence.
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            shell.ask_version(
+                note,
+                move |app| app.rewrite_message(note, &study_app::views::Rewrite::Summarize),
+                cx,
+            )
+        })
+    });
+    wait_until(cx, |cx| {
+        render(cx, window);
+        shown(cx, window, (ids::VERSION_NOTICE, mid))
+    });
+    assert_eq!(database.message(note).unwrap().unwrap().versions.len(), 2);
+}
+
+/// Space belongs to the instruction field and does not close the menu, an empty instruction
+/// runs nothing, and a written one queues a version and closes the menu.
+#[gpui_kit::test]
+fn the_instruction_field_takes_space_and_enter_without_closing_the_menu(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    cx.update(crate::app::desktop::bind_prompt_field);
+
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_INSTRUCTION, mid));
+    cx.simulate_input(window, "a");
+    cx.simulate_keystrokes(window, "space");
+    cx.simulate_input(window, "b");
+    render(cx, window);
+    assert!(
+        shown(cx, window, (ids::AI_IMPROVE, mid)),
+        "space kept the menu open"
+    );
+    let value = cx.update(|cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .instruction
+            .read(cx)
+            .value()
+            .to_string()
+    });
+    assert_eq!(value, "a b");
+
+    // Enter on an empty instruction does nothing and keeps the menu open.
+    cx.update_window(window, |_, window, cx| {
+        shell.update(cx, |shell, cx| {
+            shell
+                .sessions
+                .versions
+                .instruction
+                .update(cx, |field, cx| field.set_value("", window, cx));
+        });
+    })
+    .unwrap();
+    cx.simulate_keystrokes(window, "enter");
+    render(cx, window);
+    assert!(
+        shown(cx, window, (ids::AI_IMPROVE, mid)),
+        "an empty Enter kept the menu open"
+    );
+    assert_eq!(database.message(note).unwrap().unwrap().versions.len(), 1);
+
+    cx.simulate_input(window, "shorter");
+    cx.simulate_keystrokes(window, "enter");
+    wait_until(cx, |_| {
+        database.message(note).unwrap().unwrap().versions.len() == 2
+    });
+    render(cx, window);
+    assert!(
+        !shown(cx, window, (ids::AI_IMPROVE, mid)),
+        "running closed the menu"
+    );
+}
+
+/// After a click on the switcher the arrow keys keep stepping, and the AI menu hands focus
+/// back to its button when it closes.
+#[gpui_kit::test]
+fn keys_step_versions_after_a_click_and_the_menu_returns_focus(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    database
+        .edit_message(note, "Mitochondria make most ATP")
+        .unwrap();
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            let session = shell.sessions.session_id().unwrap();
+            shell.reload_session(session, cx);
+        })
+    });
+    wait_until(cx, |cx| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].versions.len() == 2)
+    });
+    render(cx, window);
+    let active = |cx: &mut TestAppContext| {
+        cx.update(|cx| shell.read(cx).sessions.messages[0].text().to_owned())
+    };
+    click(cx, window, (ids::VERSION_PREVIOUS, mid));
+    wait_until(cx, |cx| active(cx) == "Mitochondria make ATP");
+    cx.simulate_keystrokes(window, "right");
+    wait_until(cx, |cx| active(cx) == "Mitochondria make most ATP");
+
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    assert!(shown(cx, window, (ids::AI_IMPROVE, mid)));
+    cx.simulate_keystrokes(window, "escape");
+    render(cx, window);
+    assert!(!shown(cx, window, (ids::AI_IMPROVE, mid)));
+    let back = cx.update_window(window, |_, window, cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .focus
+            .get(&note)
+            .is_some_and(|focus| focus.ai.is_focused(window))
+    });
+    assert!(back.unwrap(), "focus returned to the AI edit button");
+    let in_bar = cx.update_window(window, |_, window, cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .focus
+            .get(&note)
+            .is_some_and(|focus| focus.bar.contains_focused(window, cx))
+    });
+    assert!(in_bar.unwrap(), "focus is inside the entry's bar");
+
+    cx.update_window(window, |_, window, cx| {
+        shell.update(cx, |shell, cx| {
+            shell
+                .sessions
+                .versions
+                .instruction
+                .update(cx, |field, cx| field.set_value("old try", window, cx));
+        });
+    })
+    .unwrap();
+    click(cx, window, (ids::AI_EDIT, mid));
+    assert!(shown(cx, window, (ids::AI_IMPROVE, mid)));
+    let value = cx.update(|cx| {
+        shell
+            .read(cx)
+            .sessions
+            .versions
+            .instruction
+            .read(cx)
+            .value()
+            .to_string()
+    });
+    assert_eq!(value, "", "the field starts empty");
+}
+
+/// A note of only a file that was read offers AI edit, and a rewrite then starts from the
+/// file's text.
+#[gpui_kit::test]
+fn a_read_file_alone_can_be_rewritten(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("lecture.txt");
+    std::fs::write(&file, "lecture").unwrap();
+    let note = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &[NewPart::File(file)],
+            &|_, _| true,
+        )
+        .unwrap();
+    let reading = database.claim_job(&[JobKind::Extract]).unwrap().unwrap();
+    let JobTarget::Source(source) = reading.target else {
+        panic!("reading targets a source");
+    };
+    database
+        .save_document(
+            source,
+            &Document {
+                blocks: vec![Block {
+                    kind: BlockKind::Paragraph,
+                    text: "Mitochondria make ATP.".into(),
+                    anchor: Anchor::Page { page: 1 },
+                }],
+                meta: DocumentMeta::default(),
+            },
+        )
+        .unwrap();
+    database.succeed_job(reading.id, &[]).unwrap();
+
+    let (window, _shell) = open_offline_shell(cx, &app, true);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    let mid = note.id.get() as u64;
+    assert!(shown(cx, window, (ids::AI_EDIT, mid)));
+    assert!(
+        !shown(cx, window, (ids::COPY_MESSAGE, mid)),
+        "no words to copy"
+    );
+    hover(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_EDIT, mid));
+    click(cx, window, (ids::AI_SUMMARIZE, mid));
+    wait_until(cx, |_| {
+        database
+            .message(note.id)
+            .unwrap()
+            .unwrap()
+            .unfinished()
+            .is_some()
+    });
+}
+
+/// A version that was stopped leaves the entry as it was: the bar follows the finished
+/// version on screen, and one short line names the stop and the way to try again, with no
+/// sign-in card.
+#[gpui_kit::test]
+fn a_stopped_version_leaves_the_bar_to_the_finished_one(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let (window, shell, note) = open_note(cx, &app, &text_note("Mitochondria make ATP"));
+    let database = app.database();
+    let mid = note.get() as u64;
+    let study_app::views::Asked::Queued(job) = database
+        .rewrite_message(note, &study_app::views::Rewrite::Improve)
+        .unwrap()
+    else {
+        panic!("the rewrite is queued");
+    };
+    database.cancel_job(job).unwrap();
+    cx.update(|cx| {
+        shell.update(cx, |shell, cx| {
+            let session = shell.sessions.session_id().unwrap();
+            shell.reload_session(session, cx);
+        })
+    });
+    wait_until(cx, |cx| {
+        render(cx, window);
+        shown(cx, window, (ids::RETRY_JOB, job.get() as u64))
+    });
+    for id in [
+        ids::AI_EDIT,
+        ids::EDIT_MESSAGE,
+        ids::COPY_MESSAGE,
+        ids::DELETE_MESSAGE,
+    ] {
+        assert!(
+            shown(cx, window, (id, mid)),
+            "a stopped version leaves {id}"
+        );
+    }
+    assert!(!shown(cx, window, (ids::STOP_VERSION, mid)));
+    assert!(!shown(cx, window, ("setup-sign-in", job.get() as u64)));
+}
+
+/// What each kind of entry offers on its action bar.
+#[gpui_kit::test]
+fn the_bar_offers_what_each_entry_can_do(cx: &mut TestAppContext) {
+    let app = TempApp::new();
+    let database = app.database();
+    let project = database.create_project("Biology").unwrap();
+    let session = database.create_session(project.id, "Cells").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("slides.txt");
+    std::fs::write(&file, "slides").unwrap();
+    let typed = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("Mitochondria make ATP"),
+            &|_, _| true,
+        )
+        .unwrap();
+    let file_only = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &[NewPart::File(file)],
+            &|_, _| true,
+        )
+        .unwrap();
+    // A second file, read: its words exist, so there is something to rewrite from.
+    let read_file = dir.path().join("lecture.txt");
+    std::fs::write(&read_file, "lecture").unwrap();
+    let read_only = database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &[NewPart::File(read_file)],
+            &|_, _| true,
+        )
+        .unwrap();
+    // The first read stays claimed and unfinished; the second finishes.
+    database.claim_job(&[JobKind::Extract]).unwrap().unwrap();
+    let reading = database.claim_job(&[JobKind::Extract]).unwrap().unwrap();
+    let JobTarget::Source(lecture) = reading.target else {
+        panic!("reading targets a source");
+    };
+    database
+        .save_document(
+            lecture,
+            &Document {
+                blocks: vec![Block {
+                    kind: BlockKind::Paragraph,
+                    text: "Mitochondria make ATP.".into(),
+                    anchor: Anchor::Page { page: 1 },
+                }],
+                meta: DocumentMeta::default(),
+            },
+        )
+        .unwrap();
+    database.succeed_job(reading.id, &[]).unwrap();
+    database
+        .post_message(
+            session.id,
+            MessageRole::User,
+            &text_note("@study what makes ATP?"),
+            &|_, _| true,
+        )
+        .unwrap();
+    let answer = database.list_messages(session.id).unwrap().pop().unwrap();
+    let job = database
+        .claim_job(&[JobKind::Reply])
+        .unwrap()
+        .expect("the reply job");
+    let first = database
+        .begin_version(answer.id, JobKind::Reply)
+        .unwrap()
+        .unwrap();
+    database
+        .finish_version(first.id, "Mitochondria [1].", &[])
+        .unwrap();
+    database.succeed_job(job.id, &[]).unwrap();
+
+    let (window, _shell) = open_offline_shell(cx, &app, false);
+    click(cx, window, PROJECTS_RAIL);
+    click(cx, window, (ids::SESSION, session.id.get() as u64));
+    let has = |cx: &mut TestAppContext, id: &'static str, message: study_core::MessageId| {
+        shown(cx, window, (id, message.get() as u64))
+    };
+    for id in [
+        ids::AI_EDIT,
+        ids::EDIT_MESSAGE,
+        ids::COPY_MESSAGE,
+        ids::DELETE_MESSAGE,
+    ] {
+        assert!(has(cx, id, typed.id), "a typed note offers {id}");
+    }
+    assert!(!has(cx, ids::REANSWER, typed.id));
+
+    // A file nothing was read from has no words to rewrite, edit or copy.
+    assert!(has(cx, ids::DELETE_MESSAGE, file_only.id));
+    for id in [ids::AI_EDIT, ids::EDIT_MESSAGE, ids::COPY_MESSAGE] {
+        assert!(
+            !has(cx, id, file_only.id),
+            "a bare file does not offer {id}"
+        );
+    }
+
+    // Once read it offers AI edit, which writes from the file; there are still no words to
+    // copy.
+    assert!(has(cx, ids::AI_EDIT, read_only.id));
+    assert!(!has(cx, ids::COPY_MESSAGE, read_only.id));
+
+    for id in [
+        ids::AI_EDIT,
+        ids::REANSWER,
+        ids::EDIT_MESSAGE,
+        ids::COPY_MESSAGE,
+        ids::DELETE_MESSAGE,
+    ] {
+        assert!(has(cx, id, answer.id), "a finished answer offers {id}");
+    }
 }

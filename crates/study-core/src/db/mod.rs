@@ -10,7 +10,7 @@
 //! | `documents.rs`  | `documents`, `blocks`                    | a source's [`Document`](crate::Document) |
 //! | `search/`       | `chunks`, `chunks_fts`, `embeddings`, `message_fts` | [`SearchHit`]                |
 //! | `sessions.rs`   | `sessions`                               | [`ChatSession`]                        |
-//! | `messages/`     | `messages`, `message_parts`              | [`ChatMessage`], [`MessagePart`], [`Thread`], [`ProjectMaterial`] |
+//! | `messages/`     | `messages`, `message_versions`, `message_parts` | [`ChatMessage`], [`MessagePart`], [`Thread`], [`ProjectMaterial`] |
 //! | `citations.rs`  | `citations`, `artifact_citations`, `question_citations` | shared by messages, artifacts and questions |
 //! | `recordings.rs` | `recordings`, `recording_chunks`         | [`Recording`]                          |
 //! | `artifacts.rs`  | `artifacts`, `artifact_sources`          | [`Artifact`], [`Material`], [`Changes`] |
@@ -65,8 +65,9 @@ pub use jobs::{Job, JobEvent, JobOverview, JobTarget, NewJob};
 #[cfg(any(test, feature = "testing"))]
 pub use messages::read_nothing;
 pub use messages::{
-    ChatMessage, MessageEvent, MessagePart, MessageRole, MessageStatus, NewPart, PartContent,
-    Place, ProjectMaterial, Readable, Thread, ThreadSummary,
+    Asked, ChatMessage, MessageEvent, MessagePart, MessageRole, MessageStatus, MessageVersion,
+    NewPart, PartContent, PendingVersion, Place, ProjectMaterial, Readable, Rewrite, Thread,
+    ThreadSummary, VersionOrigin,
 };
 pub use practice::{Answered, Practice, PracticeQuestion, PracticeScore, PracticeSummary};
 pub use projects::Project;

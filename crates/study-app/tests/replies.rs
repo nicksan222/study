@@ -5,7 +5,7 @@ mod common;
 
 use common::Fixture;
 use study_ai::testing::RESPONSES_PATH;
-use study_app::views::{JobKind, JobStatus, MessageRole, MessageStatus, PartContent, Place};
+use study_app::views::{Asked, JobKind, JobStatus, MessageRole, MessageStatus, Place};
 use study_core::{ErrorKind, Requirement};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
@@ -58,10 +58,7 @@ async fn a_mention_is_answered_from_the_attached_file_and_cites_it() -> study_co
             Some(messages[0].id)
         )
     );
-    assert_eq!(
-        answer.parts[0].content,
-        PartContent::Text("Mitochondria make the cell's energy [1].".into())
-    );
+    assert_eq!(answer.text(), "Mitochondria make the cell's energy [1].");
     assert_eq!(answer.citations.len(), 1);
     assert_eq!(answer.citations[0].source_name, "cells.txt");
     let prompts = fixture.prompts(ANSWER).await;
@@ -152,7 +149,10 @@ async fn a_finished_answer_is_written_again_when_asked() -> study_core::Result<(
     fixture.finished(JobKind::Reply).await?;
     let answer = fixture.app.messages(session.id)?[1].id;
 
-    assert!(fixture.blocking(move |app| app.reanswer(answer)).await?);
+    assert!(matches!(
+        fixture.blocking(move |app| app.reanswer(answer)).await?,
+        Asked::Queued(_)
+    ));
     let id = session.id;
     fixture
         .blocking(move |app| {
@@ -166,5 +166,8 @@ async fn a_finished_answer_is_written_again_when_asked() -> study_core::Result<(
         })
         .await?;
     assert_eq!(fixture.prompts(ANSWER).await.len(), 2, "written twice");
+    let answer = &fixture.app.messages(id)?[1];
+    assert_eq!(answer.versions.len(), 2, "the new answer is a version");
+    assert_eq!(answer.active().map(|version| version.number), Some(2));
     Ok(())
 }

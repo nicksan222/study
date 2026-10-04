@@ -72,9 +72,20 @@ impl AppShell {
         )
         .danger()
         .on_click(cx.listener(move |this, _, _, cx| this.delete_message(id, cx)));
+        let versions = state
+            .messages
+            .iter()
+            .chain(state.thread.replies())
+            .find(|message| message.id == id)
+            .map_or(0, |message| message.versions.len());
+        let consequence = if versions > 1 {
+            study_localization::delete_entry_versions(locale, versions)
+        } else {
+            text(locale, Message::ConfirmDeleteMessage).to_owned()
+        };
         Some(Alert::new(
             text(locale, Message::AlertDeleteMessage),
-            text(locale, Message::ConfirmDeleteMessage),
+            consequence,
             confirm,
             (ids::CANCEL_DELETE_MESSAGE, id.get() as u64),
             |this, cx| {

@@ -40,15 +40,15 @@ pub(in crate::ui::screens::shell::page) use field::named_field;
 pub(super) use file_tile::file_tile;
 pub(super) use job::{
     job_controls, job_problem_parts, job_status, retry_button, settings_button, status_icon,
-    status_look,
+    status_look, stopped_line_parts,
 };
 pub(super) use load::{FirstLoad, status_line};
 pub(in crate::ui::screens::shell::page) use material::kind_icon;
-pub(super) use material::{
-    OnCite, kind_label, material_status, material_writing, prose, prose_citing,
-};
+pub(super) use material::{OnCite, kind_label, material_status, material_writing, prose_citing};
 pub(super) use pill::pill;
-pub(in crate::ui::screens::shell::page) use setup_card::{ChatGptState, setup_requirement};
+pub(in crate::ui::screens::shell::page) use setup_card::{
+    ChatGptState, setup_requirement, sign_in_line,
+};
 pub(in crate::ui::screens::shell::page) use source_peek::SourcePeek;
 pub(super) use surface::{feature_card, panel, surface};
 pub(super) use text::{code_block, quiet, section_heading};

@@ -81,7 +81,6 @@ enum Page {
     Settings,
     Help,
     Pipelines,
-    Notes,
     /// The flashcard sets, and reviewing the cards that are due.
     Flashcards,
     Diagrams,
@@ -90,24 +89,22 @@ enum Page {
 
 impl Page {
     /// Every page, in declaration order, so `ALL[page as usize] == page`.
-    const ALL: [Self; 10] = [
+    const ALL: [Self; 9] = [
         Self::Home,
         Self::MediaList,
         Self::Projects,
         Self::Settings,
         Self::Help,
         Self::Pipelines,
-        Self::Notes,
         Self::Flashcards,
         Self::Diagrams,
         Self::Practice,
     ];
 
     /// Every page, in the order the navigation shows them; `is_utility` picks the group.
-    const RAIL: [Self; 10] = [
+    const RAIL: [Self; 9] = [
         Self::Home,
         Self::Projects,
-        Self::Notes,
         Self::Flashcards,
         Self::Diagrams,
         Self::Practice,
@@ -120,7 +117,6 @@ impl Page {
     /// The kind of study material the page holds, for the pages of material.
     fn material(self) -> Option<ArtifactKind> {
         match self {
-            Self::Notes => Some(ArtifactKind::Notes),
             Self::Flashcards => Some(ArtifactKind::Flashcards),
             Self::Diagrams => Some(ArtifactKind::Diagram),
             Self::Home
@@ -136,7 +132,6 @@ impl Page {
     /// The page that holds study material of `kind`.
     fn of_material(kind: ArtifactKind) -> Self {
         match kind {
-            ArtifactKind::Notes => Self::Notes,
             ArtifactKind::Flashcards => Self::Flashcards,
             ArtifactKind::Diagram => Self::Diagrams,
         }
@@ -150,7 +145,6 @@ impl Page {
             Self::Settings => Message::Settings,
             Self::Help => Message::Help,
             Self::Pipelines => Message::Pipelines,
-            Self::Notes => Message::StudyNotes,
             Self::Flashcards => Message::Flashcards,
             Self::Diagrams => Message::Diagrams,
             Self::Practice => Message::Practice,
@@ -164,7 +158,6 @@ impl Page {
             | Self::Projects
             | Self::Settings
             | Self::Pipelines
-            | Self::Notes
             | Self::Flashcards
             | Self::Diagrams
             | Self::Practice => true,
@@ -178,7 +171,6 @@ impl Page {
             Self::Projects
             | Self::Settings
             | Self::Pipelines
-            | Self::Notes
             | Self::Flashcards
             | Self::Diagrams
             | Self::Practice => true,
@@ -194,7 +186,6 @@ impl Page {
             | Self::MediaList
             | Self::Projects
             | Self::Pipelines
-            | Self::Notes
             | Self::Flashcards
             | Self::Diagrams
             | Self::Practice => false,
@@ -209,7 +200,6 @@ impl Page {
             Self::Settings => IconName::Settings,
             Self::Help => IconName::CircleQuestionMark,
             Self::Pipelines => IconName::Workflow,
-            Self::Notes => pages::kind_icon(ArtifactKind::Notes),
             Self::Flashcards => pages::kind_icon(ArtifactKind::Flashcards),
             Self::Diagrams => pages::kind_icon(ArtifactKind::Diagram),
             Self::Practice => IconName::ListChecks,
@@ -512,7 +502,7 @@ impl AppShell {
                 self.start_workers(cx);
                 self.load_pipelines(cx);
             }
-            Page::Notes | Page::Flashcards | Page::Diagrams => {
+            Page::Flashcards | Page::Diagrams => {
                 self.start_workers(cx);
                 if let Some(kind) = page.material() {
                     self.enter_material(kind, cx);
@@ -614,12 +604,7 @@ impl Render for AppShell {
             Page::Projects => self.sync_projects(window, cx),
             Page::Practice => self.sync_practice(locale, window, cx),
             // The pages of material sync as they are drawn, in `workspace`.
-            Page::MediaList
-            | Page::Help
-            | Page::Pipelines
-            | Page::Notes
-            | Page::Flashcards
-            | Page::Diagrams => {}
+            Page::MediaList | Page::Help | Page::Pipelines | Page::Flashcards | Page::Diagrams => {}
         }
         // The welcome tour takes the whole window while it is open.
         let (body, alert) = match self.onboarding_view(locale, cx) {
@@ -693,7 +678,7 @@ impl AppShell {
                 .projects_alert(locale, cx)
                 .or_else(|| self.sessions_alert(locale, cx)),
             Page::MediaList => self.media_alert(locale, cx),
-            Page::Notes | Page::Flashcards | Page::Diagrams => self.study_alert(locale, cx),
+            Page::Flashcards | Page::Diagrams => self.study_alert(locale, cx),
             Page::Practice => self.practice_alert(locale, cx),
             Page::Home | Page::Help | Page::Pipelines | Page::Settings => None,
         }
@@ -714,7 +699,7 @@ impl AppShell {
             Page::MediaList => Some(self.media_sidebar(locale, cx)),
             Page::Projects => Some(self.project_sidebar(locale, cx)),
             Page::Pipelines => Some(self.pipelines_sidebar(locale, cx)),
-            Page::Notes | Page::Flashcards | Page::Diagrams => Some(self.study_sidebar(locale, cx)),
+            Page::Flashcards | Page::Diagrams => Some(self.study_sidebar(locale, cx)),
             Page::Practice => Some(self.practice_sidebar(locale, cx)),
             Page::Settings => Some(self.settings_sidebar(locale, cx)),
             Page::Home | Page::Help => None,
@@ -728,7 +713,7 @@ impl AppShell {
                 Page::MediaList => self.media_page(locale, cx),
                 Page::Projects => self.projects_page(locale, window, cx),
                 Page::Pipelines => self.pipelines_page(locale, cx),
-                Page::Notes | Page::Flashcards | Page::Diagrams => {
+                Page::Flashcards | Page::Diagrams => {
                     self.sync_study(locale, window, cx);
                     self.study_page(locale, cx)
                 }

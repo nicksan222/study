@@ -16,6 +16,9 @@ use study_app::views::{Job, JobStatus};
 use study_core::job::Requirement;
 use study_ui::{button, palette, scale, units};
 
+/// The sign-in button of a waiting job; it adds the job's id.
+pub(crate) const SIGN_IN_BUTTON: &str = "setup-sign-in";
+
 /// What the card needs to know of the ChatGPT sign-in, read from the shell before drawing
 /// (the shell cannot be read while it draws).
 #[derive(Clone, Copy, Debug, Default)]
@@ -48,6 +51,48 @@ pub(in crate::ui::screens::shell::page) fn setup_requirement(job: &Job) -> Optio
             .then(|| study_core::processing::requirement(job.kind, None))
             .flatten()
     })
+}
+
+/// What a version held up by the ChatGPT sign-in shows under its entry, in place of the
+/// [`setup_card`]: one quiet line saying so, and the step that fixes it. `None` when the job
+/// is held up by something else, or there is an account.
+pub(in crate::ui::screens::shell::page) fn sign_in_line(
+    job: &Job,
+    chatgpt: ChatGptState,
+    locale: Locale,
+    cx: &mut Context<AppShell>,
+) -> Option<Vec<AnyElement>> {
+    if !chatgpt.signed_out
+        || job.status != JobStatus::Waiting
+        || setup_requirement(job) != Some(Requirement::LanguageModels)
+    {
+        return None;
+    }
+    let label = if chatgpt.signing_in {
+        Message::LlmChatGptWaiting
+    } else {
+        Message::VersionSignIn
+    };
+    Some(vec![
+        div()
+            .child(text(locale, Message::VersionWaitingSignIn))
+            .into_any_element(),
+        div()
+            .child(study_localization::separator())
+            .into_any_element(),
+        button(
+            ElementId::from((SIGN_IN_BUTTON, job.id.get() as u64)),
+            text(locale, label),
+            cx,
+        )
+        .ghost()
+        .xsmall()
+        .disabled(chatgpt.busy)
+        .on_click(cx.listener(|this, _, _, cx| {
+            this.run_chatgpt_sign_in(false, cx, |_, _, _| {});
+        }))
+        .into_any_element(),
+    ])
 }
 
 /// The card's look and words for each requirement.
@@ -103,7 +148,7 @@ pub(in crate::ui::screens::shell::page) fn setup_card(
         };
         actions = actions.child(
             button(
-                ElementId::from(("setup-sign-in", job_id.get() as u64)),
+                ElementId::from((SIGN_IN_BUTTON, job_id.get() as u64)),
                 text(locale, label),
                 cx,
             )

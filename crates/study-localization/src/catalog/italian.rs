@@ -23,7 +23,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::MediaList => "Libreria",
         Message::Projects => "Progetti",
         Message::Sessions => "Sessioni",
-        Message::StudyNotes => "Appunti",
         Message::Flashcards => "Flashcard",
         Message::Diagrams => "Schemi",
         Message::Practice => "Esercitazioni",
@@ -105,11 +104,11 @@ pub(super) fn text(message: Message) -> &'static str {
         }
         Message::OnboardingAskTitle => "Chiedi quando vuoi",
         Message::OnboardingAskText => {
-            "Scrivi @study per fare una domanda che cita i tuoi file. Le pagine di studio creano appunti, flashcard e schemi da un intero progetto."
+            "Scrivi @study per fare una domanda che cita i tuoi file. Le pagine di studio creano flashcard e schemi da un intero progetto."
         }
         Message::OnboardingReviewTitle => "Ripassa ciò che conta",
         Message::OnboardingReviewText => {
-            "Appunti, flashcard e domande di esercitazione dal tuo materiale."
+            "Flashcard, schemi e domande di esercitazione dal tuo materiale."
         }
         Message::OnboardingLookTitle => "Fallo tuo",
         Message::OnboardingLookIntro => {
@@ -261,7 +260,7 @@ pub(super) fn text(message: Message) -> &'static str {
             "Tutto ciò che studi per questo corso: sessioni, file e materiale di studio."
         }
         Message::ProjectEmptyDescription => {
-            "Avvia una sessione per prendere appunti e aggiungere file, poi crea appunti di studio, flashcard e schemi dalle loro pagine."
+            "Avvia una sessione per prendere appunti e aggiungere file, poi crea flashcard e schemi dalle loro pagine."
         }
         Message::ProjectDetails => "Dettagli del progetto",
         Message::ViewProjectFiles => "Mostra file",
@@ -305,7 +304,33 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::ConfirmDeleteMessage => {
             "Risposte, thread e materiale vengono eliminati con esso. I file restano nella Libreria."
         }
-        Message::AnswerAgain => "Rispondi di nuovo",
+        Message::Regenerate => "Rigenera",
+        Message::VersionOriginTyped => "Scritta",
+        Message::VersionOriginEdited => "Modificata",
+        Message::VersionOriginAnswer => "Risposta",
+        Message::VersionOriginImproved => "Migliorata",
+        Message::VersionOriginSummarized => "Riassunta",
+        Message::VersionPrevious => "Versione precedente",
+        Message::VersionNext => "Versione successiva",
+        Message::VersionSwitcher => "Versioni",
+        Message::VersionWriting => "Scrittura…",
+        Message::VersionFailed => "Non riuscita",
+        Message::VersionNew => "Nuova versione",
+        Message::StopVersion => "Ferma la nuova versione",
+        Message::VersionWaitingSignIn => "In attesa dell'accesso a ChatGPT",
+        Message::VersionSignIn => "Accedi",
+        Message::RewriteInstructionHint => "Invio per eseguire",
+        Message::AiEdit => "Modifica con IA",
+        Message::EditMessage => "Modifica",
+        Message::EditMessageHint => "Premi Ctrl+Invio per salvare, Esc per annullare.",
+        Message::RewriteImprove => "Migliora",
+        Message::RewriteSummarize => "Riassumi",
+        Message::RewriteInstruction => "Dì all'assistente cosa cambiare",
+        Message::RewriteInstructionPlaceholder => "Rendila più breve…",
+        Message::RewriteRun => "Esegui",
+        Message::RewriteBusy => "Una versione è ancora in scrittura. Aspetta o fermala prima.",
+        Message::RewriteUnavailable => "Al momento non si può riscrivere.",
+        Message::EditUnchanged => "Nulla è cambiato, quindi non c'è una nuova versione.",
         Message::RegenerateTitle => "Rigenera il titolo dagli appunti",
         Message::RegeneratingTitle => "Generazione del nuovo titolo…",
         Message::TitleGenerationError => {
@@ -344,9 +369,7 @@ pub(super) fn text(message: Message) -> &'static str {
         // Sessions: the thread under an attachment
         Message::ReplyInThread => "Rispondi nel thread",
         Message::ThreadTitle => "Thread",
-        Message::ThreadComposerPlaceholder => {
-            "Aggiungi un appunto su questo file, o @study per chiedere"
-        }
+        Message::ThreadComposerPlaceholder => "Un appunto, o @study per chiedere",
         Message::ThreadLoadError => "Impossibile caricare questo thread. Riprova.",
 
         // Sessions: recording from the microphone
@@ -387,9 +410,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::DetailPreview => "Anteprima",
 
         // Study: material and reviews
-        Message::NotesDescription => {
-            "Appunti di studio creati dalle tue sessioni: titoli, termini chiave e definizioni, ognuno con il suo riferimento."
-        }
         Message::FlashcardsDescription => {
             "Flashcard create dalle tue sessioni, da ripassare quando scadono."
         }
@@ -420,11 +440,9 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::CardTapToReveal => "Clicca per vedere la risposta",
         Message::PreviousCard => "Flashcard precedente",
         Message::NextCard => "Flashcard successiva",
-        Message::KindNotes => "Appunti",
         Message::KindFlashcards => "Flashcard",
         Message::KindDiagram => "Schema",
         Message::WritingMaterial => "Scrittura…",
-        Message::WritingNotes => "Sto scrivendo gli appunti…",
         Message::WritingFlashcards => "Sto scrivendo le flashcard…",
         Message::DrawingDiagram => "Sto disegnando lo schema…",
         Message::WritingMaterialHint => {
@@ -443,7 +461,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::MaterialCopied => "Copiato",
         Message::SaveImage => "Salva come immagine (SVG)",
         Message::SaveForAnki => "Salva per Anki",
-        Message::SaveMarkdown => "Salva come Markdown",
         Message::MaterialSaved => "Salvato",
         Message::UntitledMaterial => "Senza titolo",
         Message::StartReview => "Ripassa",
@@ -555,6 +572,7 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::StageEmbed => "Ricerca per significato",
         Message::StageTitle => "Titolo della sessione",
         Message::StageReply => "Risposta",
+        Message::StageRewrite => "Riscrittura",
         Message::StageArtifact => "Materiale di studio",
         Message::StageQuestion => "Domanda di esercitazione",
         Message::StageGrade => "Correzione della risposta",
@@ -857,7 +875,7 @@ pub(super) fn text(message: Message) -> &'static str {
         }
         Message::HelpStudyTitle => "Ripassa",
         Message::HelpStudyBody => {
-            "Per creare o aggiornare gli appunti, le flashcard o il diagramma di un progetto, apri la sua pagina, o il progetto, e premi Crea o Aggiorna. Ogni pagina elenca i progetti e ciò che è stato creato del suo tipo da ciascuno. Aggiorna lo riscrive dal progetto com'è ora. Le flashcard tornano quando è il momento: la pagina Flashcard e la Home dicono quante ne hai da ripassare oggi. Modifica, aggiungi o elimina qualsiasi flashcard."
+            "Per creare o aggiornare le flashcard o il diagramma di un progetto, apri la sua pagina, o il progetto, e premi Crea o Aggiorna. Ogni pagina elenca i progetti e ciò che è stato creato del suo tipo da ciascuno. Aggiorna lo riscrive dal progetto com'è ora. Le flashcard tornano quando è il momento: la pagina Flashcard e la Home dicono quante ne hai da ripassare oggi. Modifica, aggiungi o elimina qualsiasi flashcard."
         }
         Message::HelpPracticeTitle => "Esercitazioni",
         Message::HelpPracticeBody => {

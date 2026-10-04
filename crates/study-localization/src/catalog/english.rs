@@ -23,7 +23,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::MediaList => "Library",
         Message::Projects => "Projects",
         Message::Sessions => "Sessions",
-        Message::StudyNotes => "Notes",
         Message::Flashcards => "Flashcards",
         Message::Diagrams => "Diagrams",
         Message::Practice => "Practice",
@@ -101,11 +100,11 @@ pub(super) fn text(message: Message) -> &'static str {
         }
         Message::OnboardingAskTitle => "Ask when you want",
         Message::OnboardingAskText => {
-            "Type @study to ask a question that cites your own files. Study pages make notes, flashcards and diagrams from a whole project."
+            "Type @study to ask a question that cites your own files. Study pages make flashcards and diagrams from a whole project."
         }
         Message::OnboardingReviewTitle => "Review what matters",
         Message::OnboardingReviewText => {
-            "Notes, flashcards and practice questions from your own material."
+            "Flashcards, diagrams and practice questions from your own material."
         }
         Message::OnboardingLookTitle => "Make it yours",
         Message::OnboardingLookIntro => {
@@ -245,7 +244,7 @@ pub(super) fn text(message: Message) -> &'static str {
             "Everything you study for this course: sessions, files and study material."
         }
         Message::ProjectEmptyDescription => {
-            "Start a session to take notes and add files, then make notes, flashcards and diagrams from it on their pages."
+            "Start a session to take notes and add files, then make flashcards and diagrams from it on their pages."
         }
         Message::ProjectDetails => "Project details",
         Message::ViewProjectFiles => "View files",
@@ -289,7 +288,33 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::ConfirmDeleteMessage => {
             "Its answers, threads and material go with it. Files stay in the Library."
         }
-        Message::AnswerAgain => "Answer again",
+        Message::Regenerate => "Regenerate",
+        Message::VersionOriginTyped => "Typed",
+        Message::VersionOriginEdited => "Edited",
+        Message::VersionOriginAnswer => "Answer",
+        Message::VersionOriginImproved => "Improved",
+        Message::VersionOriginSummarized => "Summarized",
+        Message::VersionPrevious => "Previous version",
+        Message::VersionNext => "Next version",
+        Message::VersionSwitcher => "Versions",
+        Message::VersionWriting => "Writing…",
+        Message::VersionFailed => "Failed",
+        Message::VersionNew => "New version",
+        Message::StopVersion => "Stop the new version",
+        Message::VersionWaitingSignIn => "Waiting for ChatGPT sign-in",
+        Message::VersionSignIn => "Sign in",
+        Message::RewriteInstructionHint => "Enter to run",
+        Message::AiEdit => "AI edit",
+        Message::EditMessage => "Edit",
+        Message::EditMessageHint => "Press Ctrl+Enter to save, Esc to cancel.",
+        Message::RewriteImprove => "Improve",
+        Message::RewriteSummarize => "Summarize",
+        Message::RewriteInstruction => "Tell the assistant what to change",
+        Message::RewriteInstructionPlaceholder => "Make it shorter…",
+        Message::RewriteRun => "Run",
+        Message::RewriteBusy => "A version is still being written. Wait for it or stop it first.",
+        Message::RewriteUnavailable => "This cannot be rewritten right now.",
+        Message::EditUnchanged => "Nothing changed, so there is no new version.",
         Message::RegenerateTitle => "Regenerate title from the notes",
         Message::RegeneratingTitle => "Generating a new title…",
         Message::TitleGenerationError => {
@@ -365,9 +390,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::DetailPreview => "Preview",
 
         // Study: material and reviews
-        Message::NotesDescription => {
-            "Study notes made from your sessions: headings, key terms and definitions, each cited."
-        }
         Message::FlashcardsDescription => {
             "Cards made from your sessions, reviewed when they are due."
         }
@@ -398,11 +420,9 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::CardTapToReveal => "Click to see the answer",
         Message::PreviousCard => "Previous card",
         Message::NextCard => "Next card",
-        Message::KindNotes => "Study notes",
         Message::KindFlashcards => "Flashcards",
         Message::KindDiagram => "Diagram",
         Message::WritingMaterial => "Writing…",
-        Message::WritingNotes => "Writing your notes…",
         Message::WritingFlashcards => "Writing your flashcards…",
         Message::DrawingDiagram => "Drawing your diagram…",
         Message::WritingMaterialHint => {
@@ -419,7 +439,6 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::MaterialCopied => "Copied",
         Message::SaveImage => "Save as image (SVG)",
         Message::SaveForAnki => "Save for Anki",
-        Message::SaveMarkdown => "Save as Markdown",
         Message::MaterialSaved => "Saved",
         Message::UntitledMaterial => "Untitled",
         Message::StartReview => "Review",
@@ -527,6 +546,7 @@ pub(super) fn text(message: Message) -> &'static str {
         Message::StageEmbed => "Search by meaning",
         Message::StageTitle => "Session title",
         Message::StageReply => "Answer",
+        Message::StageRewrite => "Rewrite",
         Message::StageArtifact => "Study material",
         Message::StageQuestion => "Practice question",
         Message::StageGrade => "Grading an answer",
@@ -809,7 +829,7 @@ pub(super) fn text(message: Message) -> &'static str {
         }
         Message::HelpStudyTitle => "Review",
         Message::HelpStudyBody => {
-            "To make or update a project's notes, flashcards or diagram, open its page, or the project, and press Make or Update. Each page lists the projects and what was made of its kind from each. Update rewrites it from the project as it is now. Flashcards come back when they are due: the Flashcards page and Home say how many are due today. Edit, add or delete any card."
+            "To make or update a project's flashcards or diagram, open its page, or the project, and press Make or Update. Each page lists the projects and what was made of its kind from each. Update rewrites it from the project as it is now. Flashcards come back when they are due: the Flashcards page and Home say how many are due today. Edit, add or delete any card."
         }
         Message::HelpPracticeTitle => "Practice",
         Message::HelpPracticeBody => {

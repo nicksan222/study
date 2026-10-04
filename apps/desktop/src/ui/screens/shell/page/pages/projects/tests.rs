@@ -217,12 +217,18 @@ fn a_project_lists_its_material_and_opens_each_piece(cx: &mut TestAppContext) {
     std::fs::write(&file, "mitochondria").unwrap();
     let source = database.import_source(&file, Some(project.id)).unwrap();
     let (notes, _) = database
-        .request_update(project.id, ArtifactKind::Notes, &[source.id])
+        .request_update(project.id, ArtifactKind::Diagram, &[source.id])
         .unwrap();
     let job = database.claim_job(&[JobKind::Artifact]).unwrap().unwrap();
     database.begin_artifact(notes).unwrap();
     database
-        .finish_artifact(notes, &ArtifactBody::Text { text: "one".into() }, &[])
+        .finish_artifact(
+            notes,
+            &ArtifactBody::Diagram {
+                mermaid: "one".into(),
+            },
+            &[],
+        )
         .unwrap();
     database.succeed_job(job.id, &[]).unwrap();
 
@@ -245,7 +251,7 @@ fn a_project_lists_its_material_and_opens_each_piece(cx: &mut TestAppContext) {
         cx.update(|cx| {
             shell
                 .read(cx)
-                .material_line(project.id, ArtifactKind::Notes)
+                .material_line(project.id, ArtifactKind::Diagram)
                 .is_some()
         })
     });
@@ -254,7 +260,7 @@ fn a_project_lists_its_material_and_opens_each_piece(cx: &mut TestAppContext) {
         .update(|cx| {
             shell
                 .read(cx)
-                .material_line(project.id, ArtifactKind::Notes)
+                .material_line(project.id, ArtifactKind::Diagram)
         })
         .unwrap();
     assert_eq!(line.status, MaterialStatus::UpToDate);
@@ -271,11 +277,11 @@ fn a_project_lists_its_material_and_opens_each_piece(cx: &mut TestAppContext) {
     }
 
     // The piece opens on its page.
-    click(cx, window, row(ArtifactKind::Notes));
+    click(cx, window, row(ArtifactKind::Diagram));
     cx.run_until_parked();
     assert_eq!(
         cx.update(|cx| shell.read(cx).active),
-        Page::Notes,
+        Page::Diagrams,
         "the piece opens on its page"
     );
 
@@ -287,9 +293,9 @@ fn a_project_lists_its_material_and_opens_each_piece(cx: &mut TestAppContext) {
         })
     });
     render(cx, window);
-    click(cx, window, row(ArtifactKind::Notes));
+    click(cx, window, row(ArtifactKind::Diagram));
     cx.run_until_parked();
-    assert_eq!(cx.update(|cx| shell.read(cx).active), Page::Notes);
+    assert_eq!(cx.update(|cx| shell.read(cx).active), Page::Diagrams);
 
     // The quiz opens on the quiz page.
     cx.update(|cx| {
@@ -318,16 +324,22 @@ fn a_project_row_says_how_the_update_is_going(cx: &mut TestAppContext) {
     std::fs::write(&file, "mitochondria").unwrap();
     let source = database.import_source(&file, Some(project.id)).unwrap();
     let (first, _) = database
-        .request_update(project.id, ArtifactKind::Notes, &[source.id])
+        .request_update(project.id, ArtifactKind::Diagram, &[source.id])
         .unwrap();
     let job = database.claim_job(&[JobKind::Artifact]).unwrap().unwrap();
     database.begin_artifact(first).unwrap();
     database
-        .finish_artifact(first, &ArtifactBody::Text { text: "one".into() }, &[])
+        .finish_artifact(
+            first,
+            &ArtifactBody::Diagram {
+                mermaid: "one".into(),
+            },
+            &[],
+        )
         .unwrap();
     database.succeed_job(job.id, &[]).unwrap();
     let (_, next) = database
-        .request_update(project.id, ArtifactKind::Notes, &[source.id])
+        .request_update(project.id, ArtifactKind::Diagram, &[source.id])
         .unwrap();
 
     let (window, shell) = open_shell(cx, app.app(), Preferences::default());
@@ -338,7 +350,7 @@ fn a_project_row_says_how_the_update_is_going(cx: &mut TestAppContext) {
         cx.update(|cx| {
             shell
                 .read(cx)
-                .material_line(project.id, ArtifactKind::Notes)
+                .material_line(project.id, ArtifactKind::Diagram)
                 .map(|line| line.status)
         })
     };
@@ -360,9 +372,13 @@ fn a_project_row_says_how_the_update_is_going(cx: &mut TestAppContext) {
     cx.update(|cx| shell.update(cx, |shell, cx| shell.load_study(cx)));
     wait_until(cx, |cx| status(cx) == Some(MaterialStatus::UpdateFailed));
     render(cx, window);
-    click(cx, window, (ids::MATERIAL_ROW, 0u64));
+    let place = ArtifactKind::ALL
+        .iter()
+        .position(|kind| *kind == ArtifactKind::Diagram)
+        .unwrap();
+    click(cx, window, (ids::MATERIAL_ROW, place as u64));
     cx.run_until_parked();
-    assert_eq!(cx.update(|cx| shell.read(cx).active), Page::Notes);
+    assert_eq!(cx.update(|cx| shell.read(cx).active), Page::Diagrams);
 }
 
 /// A project's row says a first write that stopped could not be written.
@@ -378,7 +394,7 @@ fn a_project_row_says_a_first_write_failed(cx: &mut TestAppContext) {
     std::fs::write(&file, "mitochondria").unwrap();
     let source = database.import_source(&file, Some(project.id)).unwrap();
     let (id, job) = database
-        .request_update(project.id, ArtifactKind::Notes, &[source.id])
+        .request_update(project.id, ArtifactKind::Diagram, &[source.id])
         .unwrap();
     database.claim_job(&[JobKind::Artifact]).unwrap().unwrap();
     database.begin_artifact(id).unwrap();
@@ -403,7 +419,7 @@ fn a_project_row_says_a_first_write_failed(cx: &mut TestAppContext) {
         cx.update(|cx| {
             shell
                 .read(cx)
-                .material_line(project.id, ArtifactKind::Notes)
+                .material_line(project.id, ArtifactKind::Diagram)
         })
     };
     wait_until(cx, |cx| line(cx).is_some());

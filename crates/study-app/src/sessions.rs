@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 use study_core::Result;
 use study_core::db::{
-    ChatMessage, ChatSession, MessageEvent, MessageRole, NewPart, Place, Recording, Thread,
+    Asked, ChatMessage, ChatSession, MessageEvent, MessageRole, NewPart, Place, Recording, Rewrite,
+    Thread,
 };
-use study_core::{JobId, JobKind, MessageId, PartId, ProjectId, RecordingId, SessionId};
+use study_core::{JobId, JobKind, MessageId, PartId, ProjectId, RecordingId, SessionId, VersionId};
 
 use crate::App;
 use crate::agents::title::TitleHandler;
@@ -42,10 +43,30 @@ impl App {
         self.delete(|database| database.delete_session(id))
     }
 
-    /// Asks for a finished answer again, from what the session holds now. `false` when it is
-    /// gone, still being written, or shows material (which is written again on its page).
-    pub fn reanswer(&self, id: MessageId) -> Result<bool> {
-        Ok(self.queue(|database| database.reanswer(id))?.is_some())
+    /// Asks for a finished answer again, from what the session holds now. The new answer is a
+    /// version of the message, shown once written. [`Asked::Unavailable`] when it is gone,
+    /// is not an answer, or shows material (which is written again on its page).
+    pub fn reanswer(&self, id: MessageId) -> Result<Asked> {
+        self.queue(|database| database.reanswer(id))
+    }
+
+    /// Asks for a new version of a message's text, improved, summarized or changed as `how`
+    /// says, from its active version and what was read from its files. It is shown once
+    /// written, unless the student has chosen another version meanwhile.
+    pub fn rewrite_message(&self, id: MessageId, how: &Rewrite) -> Result<Asked> {
+        self.queue(|database| database.rewrite_message(id, how))
+    }
+
+    /// Writes `text` as a new version of a message, as the student's edit. A version still
+    /// being written is dropped and its job stopped, so that it cannot replace the edit.
+    /// `None` when the message is gone or the text is empty or unchanged.
+    pub fn edit_message(&self, id: MessageId, text: &str) -> Result<Option<VersionId>> {
+        self.delete(|database| database.edit_message(id, text))
+    }
+
+    /// Shows another finished version of a message. `false` when it is not one of its.
+    pub fn set_active_version(&self, message: MessageId, version: VersionId) -> Result<bool> {
+        self.with(|database| database.set_active_version(message, version))
     }
 
     /// Deletes a note or an answer, and what the database cascades from it: an answer to the

@@ -35,11 +35,12 @@ INSERT INTO codes_message_role (code) VALUES ('user'), ('assistant');
 CREATE TABLE codes_message_status (code TEXT PRIMARY KEY) WITHOUT ROWID;
 INSERT INTO codes_message_status (code) VALUES ('pending'), ('writing'), ('complete');
 
-CREATE TABLE codes_part_kind (code TEXT PRIMARY KEY) WITHOUT ROWID;
-INSERT INTO codes_part_kind (code) VALUES ('text'), ('source');
+CREATE TABLE codes_version_origin (code TEXT PRIMARY KEY) WITHOUT ROWID;
+INSERT INTO codes_version_origin (code) VALUES ('typed'), ('edited'), ('answer'),
+    ('improve'), ('summarize'), ('instruction');
 
 CREATE TABLE codes_artifact_kind (code TEXT PRIMARY KEY) WITHOUT ROWID;
-INSERT INTO codes_artifact_kind (code) VALUES ('notes'), ('flashcards'), ('diagram');
+INSERT INTO codes_artifact_kind (code) VALUES ('flashcards'), ('diagram');
 
 CREATE TABLE codes_extractor_kind (code TEXT PRIMARY KEY) WITHOUT ROWID;
 INSERT INTO codes_extractor_kind (code) VALUES ('transcription'), ('vision'), ('office'),
@@ -67,7 +68,7 @@ INSERT INTO codes_verdict (code) VALUES ('correct'), ('partly'), ('incorrect');
 
 CREATE TABLE codes_job_kind (code TEXT PRIMARY KEY) WITHOUT ROWID;
 INSERT INTO codes_job_kind (code) VALUES ('extract'), ('index'), ('embed'), ('title'),
-    ('reply'), ('artifact'), ('question'), ('grade'), ('fetch');
+    ('reply'), ('artifact'), ('question'), ('grade'), ('fetch'), ('rewrite');
 
 CREATE TABLE codes_job_status (code TEXT PRIMARY KEY) WITHOUT ROWID;
 INSERT INTO codes_job_status (code) VALUES ('blocked'), ('queued'), ('waiting'), ('running'),
@@ -157,14 +158,13 @@ CREATE TABLE sessions (
 CREATE INDEX sessions_project_idx ON sessions (project_id, updated_at DESC);
 
 -- A session is a log of the student's notes. Only a note that mentions the assistant gets an
--- answer: an assistant message that answers the user message in `reply_to`. It is 'pending'
--- until its reply job starts, 'writing' while it runs, and 'complete' once the answer is
--- stored; how the job ended is on the job.
+-- answer: an assistant message that answers the user message in `reply_to`. What a message
+-- says is its versions (`message_versions`): `active_version_id` is the one shown and read by
+-- everything else, and NULL while a message has no text yet or only a file.
 CREATE TABLE messages (
     id INTEGER PRIMARY KEY,
     session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     role TEXT NOT NULL REFERENCES codes_message_role(code),
-    status TEXT NOT NULL REFERENCES codes_message_status(code),
     reply_to INTEGER REFERENCES messages(id) ON DELETE CASCADE,
     -- The attachment whose thread holds this message, or NULL for the session's timeline.
     -- Only an attachment of a timeline message starts a thread, so threads never nest.
@@ -177,6 +177,9 @@ CREATE TABLE messages (
     recording_id INTEGER REFERENCES recordings(id) ON DELETE SET NULL,
     -- The recording's file, once that recording is posted.
     recorded_in INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+    -- The version shown. Deleting a version leaves the message without one rather than
+    -- deleting the message.
+    active_version_id INTEGER REFERENCES message_versions(id) ON DELETE SET NULL,
     created_at INTEGER NOT NULL,
     CHECK ((reply_to IS NULL) OR (role = 'assistant')),
     CHECK (recording_id IS NULL OR recording_ms IS NOT NULL)
@@ -185,39 +188,65 @@ CREATE TABLE messages (
 CREATE INDEX messages_session_idx ON messages (session_id, id);
 CREATE INDEX messages_recording_idx ON messages (recording_id) WHERE recording_id IS NOT NULL;
 CREATE INDEX messages_thread_idx ON messages (thread_root, id) WHERE thread_root IS NOT NULL;
+-- Deleting a version finds the messages that show it without scanning them all.
+CREATE INDEX messages_active_version_idx ON messages (active_version_id)
+    WHERE active_version_id IS NOT NULL;
 
--- A message is an ordered list of text and source parts. Source parts keep the source's
--- name and kind so the message still reads sensibly after the source is deleted.
+-- A message's files, in order. Each keeps the source's name and kind so the part still reads
+-- sensibly after the source is deleted. The words are not here: they are versions.
 CREATE TABLE message_parts (
     id INTEGER PRIMARY KEY,
     message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
-    kind TEXT NOT NULL REFERENCES codes_part_kind(code),
-    text TEXT,
     source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
-    source_name TEXT,
-    source_kind TEXT REFERENCES codes_source_kind(code),
-    UNIQUE (message_id, ordinal),
-    CHECK (
-        (kind = 'text' AND text IS NOT NULL
-            AND source_id IS NULL AND source_name IS NULL AND source_kind IS NULL)
-        OR (kind = 'source' AND text IS NULL
-            AND source_name IS NOT NULL AND source_kind IS NOT NULL)
-    )
+    source_name TEXT NOT NULL,
+    source_kind TEXT NOT NULL REFERENCES codes_source_kind(code),
+    UNIQUE (message_id, ordinal)
 );
 
 CREATE INDEX message_parts_source_idx ON message_parts (source_id);
 
--- The passages an assistant message cites as [marker]. Each snapshots its source's name,
--- the place and the quote, so it still reads correctly after the source is gone.
-CREATE TABLE citations (
+-- What a message says, as a numbered list of versions in the order they were made: what the
+-- student typed, each edit, each answer, each rewrite. `text` is Markdown. A version is
+-- 'pending' or 'writing' while the job that writes it (a reply or a rewrite) has not stored
+-- it and 'complete' after, when its text never changes again; a message has at most one
+-- unfinished version. `based_on` is the version a written one revises, so finishing it
+-- makes it active only if that one is still the active one. `instruction` is what the
+-- student asked for, for an 'instruction' rewrite only.
+CREATE TABLE message_versions (
+    -- AUTOINCREMENT: an id is never reused, so a job that outlives its dropped version never
+    -- finishes another.
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    number INTEGER NOT NULL CHECK (number >= 1),
+    origin TEXT NOT NULL REFERENCES codes_version_origin(code),
+    instruction TEXT,
+    status TEXT NOT NULL REFERENCES codes_message_status(code),
+    text TEXT NOT NULL DEFAULT '',
+    based_on INTEGER REFERENCES message_versions(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE (message_id, number),
+    CHECK ((origin = 'instruction') = (instruction IS NOT NULL)),
+    CHECK (status = 'complete' OR text = '')
+);
+
+CREATE UNIQUE INDEX message_versions_unfinished_idx ON message_versions (message_id)
+    WHERE status != 'complete';
+-- Deleting a version finds the versions that were written from it without scanning them all.
+CREATE INDEX message_versions_based_on_idx ON message_versions (based_on)
+    WHERE based_on IS NOT NULL;
+
+-- The passages a version of an assistant message cites as [marker]. Each snapshots its
+-- source's name, the place and the quote, so it still reads correctly after the source is
+-- gone.
+CREATE TABLE citations (
+    version_id INTEGER NOT NULL REFERENCES message_versions(id) ON DELETE CASCADE,
     marker INTEGER NOT NULL CHECK (marker > 0),
     source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
     source_name TEXT NOT NULL,
     anchor TEXT NOT NULL CHECK (json_valid(anchor)),
     quote TEXT NOT NULL,
-    PRIMARY KEY (message_id, marker)
+    PRIMARY KEY (version_id, marker)
 ) WITHOUT ROWID;
 
 CREATE INDEX citations_source_idx ON citations (source_id);
@@ -325,24 +354,25 @@ CREATE TABLE embeddings (
     PRIMARY KEY (content_hash, model)
 ) WITHOUT ROWID;
 
--- Keyword search over what people wrote in chats: only `text` parts, as the triggers'
--- WHEN clauses keep the others out.
+-- Keyword search over what people wrote in chats: the finished versions of messages. The
+-- text of a finished version never changes, so the index needs no update trigger; search
+-- keeps only the hits that are their message's active version.
 CREATE VIRTUAL TABLE message_fts USING fts5 (
     text,
-    content = 'message_parts',
+    content = 'message_versions',
     content_rowid = 'id',
     tokenize = 'unicode61 remove_diacritics 2'
 );
 
-CREATE TRIGGER message_fts_ai AFTER INSERT ON message_parts WHEN new.kind = 'text' BEGIN
+CREATE TRIGGER message_fts_ai AFTER INSERT ON message_versions WHEN new.status = 'complete' BEGIN
     INSERT INTO message_fts (rowid, text) VALUES (new.id, new.text);
 END;
-CREATE TRIGGER message_fts_ad AFTER DELETE ON message_parts WHEN old.kind = 'text' BEGIN
-    INSERT INTO message_fts (message_fts, rowid, text) VALUES ('delete', old.id, old.text);
-END;
-CREATE TRIGGER message_fts_au AFTER UPDATE OF text ON message_parts WHEN new.kind = 'text' BEGIN
-    INSERT INTO message_fts (message_fts, rowid, text) VALUES ('delete', old.id, old.text);
+CREATE TRIGGER message_fts_finish AFTER UPDATE OF status ON message_versions
+WHEN old.status != 'complete' AND new.status = 'complete' BEGIN
     INSERT INTO message_fts (rowid, text) VALUES (new.id, new.text);
+END;
+CREATE TRIGGER message_fts_ad AFTER DELETE ON message_versions WHEN old.status = 'complete' BEGIN
+    INSERT INTO message_fts (message_fts, rowid, text) VALUES ('delete', old.id, old.text);
 END;
 
 -- =========================================================================================

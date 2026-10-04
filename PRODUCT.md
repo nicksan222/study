@@ -35,14 +35,14 @@ reviewed and practised their own material, without managing a pile of separate t
   learner's own ChatGPT plan.
 - **No extra subscription.** The language models run on the ChatGPT plan the learner already
   has (Plus or Pro), so Study adds no AI bill.
-- **From notes to exam.** The learner's own material becomes study notes, diagrams, flashcards
+- **From notes to exam.** The learner's own material becomes diagrams, flashcards
   on a spaced-repetition schedule, and endless graded practice, counting down to each exam.
 
 ## Operating Context
 
 - **Projects:** one per course or subject, holding its sources, sessions and material, with
   optional exam dates that Home and the flashcard reviews count down to. A project is a
-  group of sessions: its notes, flashcards, diagram and quiz always cover the
+  group of sessions: its flashcards, diagram and quiz always cover the
   whole project. Each is up to date, out of date (saying what changed since) or not made
   yet; Update rewrites it from the project as it is now, revising what it says.
 - **Sessions are the notebook:** the learner writes, records and attaches as they study.
@@ -56,7 +56,7 @@ reviewed and practised their own material, without managing a pile of separate t
 
 ## Capabilities and Constraints
 
-- Pages today: Home, Projects, Sessions, Study (notes, flashcards, diagrams), Practice, media lists, Pipelines
+- Pages today: Home, Projects, Sessions, Study (flashcards, diagrams), Practice, media lists, Pipelines
   (processing), Settings, Help, and the onboarding tour.
 - Model work (reading pages and PDFs, answers, titles, material, quiz questions and grades)
   runs only on the learner's ChatGPT plan. Speech-to-text and embeddings run locally, and

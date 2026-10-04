@@ -174,14 +174,15 @@ impl Database {
         Ok(grouped)
     }
 
-    /// The latest reply job of each assistant message in `scope`.
+    /// The latest job writing a version, a reply or a rewrite, of each message in `scope`.
     pub(in crate::db) fn reply_jobs_in(&self, scope: Scope) -> Result<HashMap<MessageId, Job>> {
         let mut statement = self.connection.prepare(&format!(
             "SELECT {JOB_COLUMNS} FROM jobs j
              JOIN messages m ON m.id = j.message_id
-             WHERE j.kind = '{}' AND {}
+             WHERE j.kind IN ('{}', '{}') AND {}
              ORDER BY j.id",
             JobKind::Reply,
+            JobKind::Rewrite,
             scope.condition()
         ))?;
         let mut latest = HashMap::new();

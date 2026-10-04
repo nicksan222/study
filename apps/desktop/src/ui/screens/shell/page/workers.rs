@@ -188,7 +188,7 @@ impl AppShell {
             // New jobs and finished results change what the Library shows too.
             Page::MediaList => self.load_media(cx),
             // Material being written, and cards it adds.
-            Page::Notes | Page::Flashcards | Page::Diagrams => self.load_study(cx),
+            Page::Flashcards | Page::Diagrams => self.load_study(cx),
             // Questions being written, and answers being graded.
             Page::Practice => self.load_practice(cx),
             _ => {}

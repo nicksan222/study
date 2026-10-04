@@ -115,25 +115,16 @@ const HEARD: &[Step<RefinerKind>] = &[on(RefinerKind::Transcript), on(RefinerKin
 const CODE_REFINERS: &[Step<RefinerKind>] = &[off(RefinerKind::Whitespace)];
 const SEARCHABLE: &[Step<JobKind>] = &[on(JobKind::Index), on(JobKind::Embed)];
 /// Material for lessons: everything.
-const LESSON_MATERIAL: &[Step<ArtifactKind>] = &[
-    on(ArtifactKind::Notes),
-    on(ArtifactKind::Flashcards),
-    on(ArtifactKind::Diagram),
-];
+const LESSON_MATERIAL: &[Step<ArtifactKind>] =
+    &[on(ArtifactKind::Flashcards), on(ArtifactKind::Diagram)];
 /// Material for pictures: a diagram off by default, as one picture rarely holds enough
 /// for one.
-const PICTURE_MATERIAL: &[Step<ArtifactKind>] = &[
-    on(ArtifactKind::Notes),
-    on(ArtifactKind::Flashcards),
-    off(ArtifactKind::Diagram),
-];
+const PICTURE_MATERIAL: &[Step<ArtifactKind>] =
+    &[on(ArtifactKind::Flashcards), off(ArtifactKind::Diagram)];
 /// Material for reference more than lesson, such as code and tables: drilling off by
 /// default, while a diagram of how the parts fit is useful.
-const REFERENCE_MATERIAL: &[Step<ArtifactKind>] = &[
-    on(ArtifactKind::Notes),
-    off(ArtifactKind::Flashcards),
-    on(ArtifactKind::Diagram),
-];
+const REFERENCE_MATERIAL: &[Step<ArtifactKind>] =
+    &[off(ArtifactKind::Flashcards), on(ArtifactKind::Diagram)];
 
 /// What happens to each kind of source; the first route that covers a source is its route.
 pub const ROUTES: &[Route] = &[

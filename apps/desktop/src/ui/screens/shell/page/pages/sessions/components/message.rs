@@ -2,36 +2,33 @@
 //! `@study` under a faint "Study" label, in words with citation chips or as the study
 //! material or practice a tool made. When it was written and what can be done with it (copy,
 //! answer again, delete) stay out of the way: on the timeline they appear in the margin to
-//! the right while the entry is hovered; in a thread, the moment shows under it.
+//! the right while the entry is hovered or has focus; in a thread, they make one line under
+//! it.
 
 use super::super::ids;
+use super::versions::{VersionsState, action_bar, edit_box, version_line};
 use super::{Attached, ThreadLink, marked_note, source_card};
-use crate::features::jobs::Problem;
 use crate::features::media::AttachmentInfo;
 use crate::ui::screens::shell::AppShell;
 use crate::ui::screens::shell::page::pages::components::{
-    ChatGptState, OnCite, citation_chip, job_problem_parts, job_status, prose, prose_citing,
+    ChatGptState, OnCite, citation_chip, job_status, prose_citing, sign_in_line, stopped_line_parts,
 };
 use gpui_kit::assets::IconName;
-use gpui_kit::component::{
-    ActiveTheme as _, Sizable as _,
-    button::{Button, ButtonVariants as _},
-};
-use gpui_kit::prelude::FluentBuilder as _;
+use gpui_kit::component::{ActiveTheme as _, Sizable as _, button::ButtonVariants as _};
 use gpui_kit::{
     AnyElement, Context, Div, InteractiveElement as _, IntoElement, ParentElement as _,
     Styled as _, div,
 };
 use std::collections::{HashMap, HashSet};
-use study_app::views::{ChatMessage, Job, JobStatus, MessageRole, MessageStatus, PartContent};
+use study_app::views::{ChatMessage, Job, MessageRole, PartContent};
 use study_core::{JobId, MessageId, PartId, SourceId};
 use study_localization::{Locale, Message, joined, text};
-use study_ui::{Note, button, icon_button, units};
+use study_ui::{Note, button, units};
 
 /// The margin to the right of the notebook's column, in units, where an entry's time and
 /// actions appear while it is hovered. The composer keeps the same margin, so it lines up
 /// with the notes.
-pub(in crate::ui::screens::shell::page::pages::sessions) const META_GUTTER: f32 = 96.;
+pub(in crate::ui::screens::shell::page::pages::sessions) const META_GUTTER: f32 = 168.;
 
 /// One entry: a note with its files, each folding what was read from it; or an answer. On
 /// the timeline each file links to its thread; `open_thread` is the one shown beside it.
@@ -44,18 +41,38 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
     marks: RowMarks,
     cx: &mut Context<AppShell>,
 ) -> AnyElement {
+    let versions = marks.versions;
+    let editing = versions.editing(message.id);
     let content = if message.role == MessageRole::Assistant {
-        answer_content(message, marks.chatgpt, locale, cx)
+        answer_content(message, marks.chatgpt, marks.versions, locale, cx)
     } else {
-        note_content(message, expanded, attachments, open_thread, locale, cx)
+        note_content(
+            message,
+            expanded,
+            attachments,
+            open_thread,
+            marks,
+            locale,
+            cx,
+        )
     };
     let unit = units(cx);
-    let shown =
-        marks.keyboard || marks.deleting == Some(message.id) || marks.copied == Some(message.id);
-    let actions = actions(message, locale, marks, shown, cx);
+    let shown = marks.deleting == Some(message.id)
+        || marks.copied == Some(message.id)
+        || marks.focused == Some(message.id)
+        || versions.menu == Some(message.id);
+    let bar = (!editing).then(|| {
+        action_bar(
+            message,
+            locale,
+            marks.copied == Some(message.id),
+            shown,
+            ROW,
+            versions,
+            cx,
+        )
+    });
     if message.thread_root.is_some() {
-        // In a narrow thread: the moment stays under the entry, since no day label names
-        // it; the actions show beside it on hover.
         return div()
             .group(ROW)
             .w_full()
@@ -69,37 +86,43 @@ pub(in crate::ui::screens::shell::page::pages::sessions) fn message_row(
                     .items_center()
                     .gap(unit(study_ui::scale::SPACE_XS))
                     .child(sent_at(message, locale, cx))
-                    .child(actions),
+                    .children(bar),
             )
             .into_any_element();
     }
-    // The margin comes first, drawn on the right: the keyboard reaches an entry's actions
-    // before the files and folds inside it, in reading order.
     div()
         .group(ROW)
         .w_full()
         .flex()
-        .flex_row_reverse()
+        .flex_row()
         .items_start()
+        .child(content)
         .child(
             div()
+                .relative()
                 .flex_none()
                 .w(unit(META_GUTTER))
-                .pl(unit(study_ui::scale::SPACE_SM))
-                .flex()
-                .flex_col()
-                .items_end()
-                .child(reveal_on_hover(
+                .h(unit(0.))
+                .child(
                     div()
-                        .h(unit(24.))
+                        .absolute()
+                        .top(unit(0.))
+                        .left(unit(study_ui::scale::SPACE_MD))
                         .flex()
-                        .items_center()
-                        .child(sent_at(message, locale, cx)),
-                    shown,
-                ))
-                .child(actions),
+                        .flex_col()
+                        .items_start()
+                        .child(reveal_on_hover(
+                            div()
+                                .h(unit(24.))
+                                .flex()
+                                .items_center()
+                                .child(sent_at(message, locale, cx)),
+                            shown,
+                        ))
+                        // The glyphs, not their hit areas, line up with the time.
+                        .children(bar.map(|bar| div().ml(unit(-6.)).child(bar))),
+                ),
         )
-        .child(content)
         .into_any_element()
 }
 
@@ -109,45 +132,63 @@ fn note_content(
     expanded: &HashSet<JobId>,
     attachments: &HashMap<SourceId, AttachmentInfo>,
     open_thread: Option<PartId>,
+    marks: RowMarks,
     locale: Locale,
     cx: &mut Context<AppShell>,
 ) -> Div {
+    let (versions, chatgpt) = (marks.versions, marks.chatgpt);
     let mut content = column(cx);
-    for part in &message.parts {
-        match &part.content {
-            PartContent::Text(body) => {
-                let (shown, marks) = marked_note(body);
-                content = content.child(Note::new(shown).marks(marks));
-            }
-            PartContent::Source {
-                source_id,
-                name,
-                kind,
-            } => {
-                // The file's line, and right under it what was read from it, folded.
-                let job = part.jobs.last();
-                content = content.child(source_card(
-                    Attached {
-                        part: part.id,
-                        source_id: *source_id,
-                        name,
-                        kind: *kind,
-                        info: source_id.and_then(|id| attachments.get(&id)),
-                        job,
-                        document: part.document.as_ref(),
-                        expanded: job.is_some_and(|job| expanded.contains(&job.id)),
-                        whole: false,
-                        // Threads hang off the timeline only.
-                        thread: message.thread_root.is_none().then_some(ThreadLink {
-                            summary: part.thread,
-                            open: open_thread == Some(part.id),
-                        }),
-                    },
-                    locale,
-                    cx,
-                ));
-            }
+    if versions.editing(message.id) {
+        // The edit revises the version it opened on, so the versions stay put until it ends.
+        content = content.child(edit_box(message, locale, versions, cx));
+    } else {
+        if !message.citations.is_empty() {
+            // A rewrite that read the note's files cites them, as an answer does.
+            content = content.child(answer_text(cx).child(cited_prose(message, cx)));
+        } else if !message.text().is_empty() {
+            let (shown, marks) = marked_note(message.text());
+            content = content.child(Note::new(shown).marks(marks));
         }
+        content = content.children(version_line(message, locale, versions, cx));
+        if !message.citations.is_empty() {
+            content = content.child(citations(message, locale, cx));
+        }
+    }
+    if message.unfinished().is_some() {
+        content = content.children(
+            message
+                .reply
+                .as_ref()
+                .map(|job| reply_line(job, chatgpt, locale, cx)),
+        );
+    }
+    for part in &message.parts {
+        let PartContent {
+            source_id,
+            name,
+            kind,
+        } = &part.content;
+        let job = part.jobs.last();
+        content = content.child(source_card(
+            Attached {
+                part: part.id,
+                source_id: *source_id,
+                name,
+                kind: *kind,
+                info: source_id.and_then(|id| attachments.get(&id)),
+                job,
+                document: part.document.as_ref(),
+                expanded: job.is_some_and(|job| expanded.contains(&job.id)),
+                whole: false,
+                // Threads hang off the timeline only.
+                thread: message.thread_root.is_none().then_some(ThreadLink {
+                    summary: part.thread,
+                    open: open_thread == Some(part.id),
+                }),
+            },
+            locale,
+            cx,
+        ));
     }
     content.children(recording_link(message, locale, cx))
 }
@@ -163,17 +204,18 @@ fn column(cx: &gpui_kit::App) -> Div {
 }
 
 /// What the transcript marks on a row: the message whose deletion waits for a
-/// confirmation, and the one just copied.
-#[derive(Clone, Copy, Debug, Default)]
-pub(in crate::ui::screens::shell::page::pages::sessions) struct RowMarks {
+/// confirmation, the one just copied, and their versions.
+#[derive(Clone, Copy)]
+pub(in crate::ui::screens::shell::page::pages::sessions) struct RowMarks<'a> {
     pub(in crate::ui::screens::shell::page::pages::sessions) deleting: Option<MessageId>,
     pub(in crate::ui::screens::shell::page::pages::sessions) copied: Option<MessageId>,
-    /// Whether the learner is moving through the page by keyboard: then every entry shows
-    /// its time and actions, as a hovered one does, so focus never lands on something
-    /// unseen.
-    pub(in crate::ui::screens::shell::page::pages::sessions) keyboard: bool,
     /// The ChatGPT sign-in, for an answer held up by it.
     pub(in crate::ui::screens::shell::page::pages::sessions) chatgpt: ChatGptState,
+    /// What the entries' versions are doing: edits, menus and switchers.
+    pub(in crate::ui::screens::shell::page::pages::sessions) versions: &'a VersionsState,
+    /// The entry whose action bar has focus inside it: its bar shows, so the keyboard sees
+    /// where it is.
+    pub(in crate::ui::screens::shell::page::pages::sessions) focused: Option<MessageId>,
 }
 
 /// The group every message row is, so its time and actions show while it is hovered.
@@ -185,90 +227,6 @@ fn reveal_on_hover(element: Div, shown: bool) -> Div {
     element
         .opacity(if shown { 1. } else { 0. })
         .group_hover(ROW, |style| style.opacity(1.))
-}
-
-/// A row's action button, hidden like [`reveal_on_hover`] until its row is hovered, and
-/// shown too while the keyboard is on it, so tabbing never lands on something invisible.
-fn revealed(button: Button, shown: bool) -> Button {
-    button
-        .opacity(if shown { 1. } else { 0. })
-        .group_hover(ROW, |style| style.opacity(1.))
-        .focus_visible(|style| style.opacity(1.))
-}
-
-/// What can be done with a message: copy its words, ask a finished answer again, delete it.
-fn actions(
-    message: &ChatMessage,
-    locale: Locale,
-    marks: RowMarks,
-    shown: bool,
-    cx: &mut Context<AppShell>,
-) -> Div {
-    let id = message.id;
-    let words = crate::features::sessions::message_words(message);
-    let copy = (!words.is_empty()).then(|| {
-        let words = words.clone();
-        let copied = marks.copied == Some(id);
-        icon_button(
-            (ids::COPY_MESSAGE, id.get() as u64),
-            text(
-                locale,
-                if copied {
-                    Message::MaterialCopied
-                } else {
-                    Message::CopyText
-                },
-            ),
-            if copied {
-                IconName::Check
-            } else {
-                IconName::Copy
-            },
-            cx,
-        )
-        .xsmall()
-        .map(|button| revealed(button, shown))
-        .on_click(cx.listener(move |this, _, _, cx| {
-            this.copy_text(words.clone(), cx);
-            this.sessions.copied = Some(id);
-            cx.notify();
-        }))
-    });
-    // A finished answer in words can be asked for again.
-    let again = (message.role == MessageRole::Assistant
-        && message.status == MessageStatus::Complete
-        && !words.is_empty())
-    .then(|| {
-        icon_button(
-            (ids::REANSWER, id.get() as u64),
-            text(locale, Message::AnswerAgain),
-            IconName::RotateCw,
-            cx,
-        )
-        .xsmall()
-        .map(|button| revealed(button, shown))
-        .on_click(cx.listener(move |this, _, _, cx| this.reanswer(id, cx)))
-    });
-    div()
-        .flex()
-        .items_center()
-        .text_color(study_ui::palette(cx).faint)
-        .children(copy)
-        .children(again)
-        .child(
-            icon_button(
-                (ids::DELETE_MESSAGE, id.get() as u64),
-                text(locale, Message::DeleteMessage),
-                IconName::Trash,
-                cx,
-            )
-            .xsmall()
-            .map(|button| revealed(button, shown))
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.sessions.deleting = Some(id);
-                cx.notify();
-            })),
-        )
 }
 
 /// When a message was sent, as a faint caption: the time on the timeline, whose day labels
@@ -341,6 +299,7 @@ fn recording_link(
 fn answer_content(
     message: &ChatMessage,
     chatgpt: ChatGptState,
+    versions: &VersionsState,
     locale: Locale,
     cx: &mut Context<AppShell>,
 ) -> Div {
@@ -357,16 +316,22 @@ fn answer_content(
             .child(study_ui::icon(IconName::Sparkles).size(unit(12.)))
             .child(text(locale, Message::AnswerAuthor)),
     );
-    if message.status != MessageStatus::Complete {
-        // An answer being written again keeps its old words, faded, until the new ones land.
-        let earlier: Vec<String> = message
-            .parts
-            .iter()
-            .filter_map(|part| match &part.content {
-                PartContent::Text(body) => Some(body.clone()),
-                _ => None,
-            })
-            .collect();
+    if versions.editing(message.id) {
+        return content.child(edit_box(message, locale, versions, cx));
+    }
+    if message.unfinished().is_some() {
+        // An answer being written again keeps its newest words, faded, until the new ones
+        // land; an older version the student stepped to stays as it is. Its citations still
+        // open their passages either way.
+        let replaced = VersionsState::shows_latest(message) && VersionsState::is_writing(message);
+        if !message.text().is_empty() {
+            let text = answer_text(cx).child(cited_prose(message, cx));
+            content = content.child(if replaced { text.opacity(0.45) } else { text });
+        }
+        content = content.children(version_line(message, locale, versions, cx));
+        if !message.citations.is_empty() {
+            content = content.child(citations(message, locale, cx));
+        }
         // An answer that failed, or is still being written, can be deleted too, stopping it.
         content = content.children(
             message
@@ -374,32 +339,27 @@ fn answer_content(
                 .as_ref()
                 .map(|job| reply_line(job, chatgpt, locale, cx)),
         );
-        for body in earlier {
-            content = content.child(answer_text(cx).opacity(0.45).child(prose(&body, cx)));
-        }
         return content;
     }
-    for part in &message.parts {
-        match &part.content {
-            PartContent::Text(body) => {
-                let cite = cite_handler(message, cx);
-                let id = (ids::ANSWER_TEXT, part.id.get() as u64);
-                content = content.child(answer_text(cx).child(prose_citing(
-                    body,
-                    Some((id.into(), cite)),
-                    cx,
-                )));
-            }
-            PartContent::Source { .. } => {}
-        }
+    if !message.text().is_empty() {
+        content = content.child(answer_text(cx).child(cited_prose(message, cx)));
     }
+    content = content.children(version_line(message, locale, versions, cx));
     if !message.citations.is_empty() {
         content = content.child(citations(message, locale, cx));
     }
     content
 }
 
-/// The column an answer's words are set in: no bubble, the notebook's full width.
+/// A message's active words, each marker such as `[2]` opening the passage it cites.
+fn cited_prose(message: &ChatMessage, cx: &mut Context<AppShell>) -> AnyElement {
+    let cite = cite_handler(message, cx);
+    let id = (ids::ANSWER_TEXT, message.id.get() as u64);
+    prose_citing(message.text(), Some((id.into(), cite)), cx)
+}
+
+/// The column an answer's words, or a cited note's, are set in: no bubble, the notebook's full
+/// width.
 fn answer_text(cx: &gpui_kit::App) -> Div {
     div()
         .w_full()
@@ -437,7 +397,7 @@ fn cite_handler(message: &ChatMessage, cx: &mut Context<AppShell>) -> OnCite {
     })
 }
 
-/// The passages an answer cites, as chips under its words: each names its source and
+/// The passages a message cites, as chips under its words: each names its source and
 /// place, and opens the source there.
 fn citations(message: &ChatMessage, locale: Locale, cx: &mut Context<AppShell>) -> AnyElement {
     let unit = units(cx);
@@ -475,7 +435,6 @@ fn reply_line(
     let colors = cx.theme().colors;
     let job_id = job.id;
     let (icon, _, status) = job_status(job, None, locale, &colors);
-    let has_problem = matches!(job.status, JobStatus::Failed | JobStatus::Waiting);
     let mut line = div()
         .flex()
         .flex_wrap()
@@ -483,24 +442,20 @@ fn reply_line(
         .gap(unit(study_ui::scale::SPACE_XS))
         .text_size(unit(study_ui::scale::TEXT_CAPTION))
         .text_color(palette.faint);
-    if !has_problem {
-        // A problem says what needs attention instead, below.
-        line = super::attachment::running_words(line, job, icon, status, cx);
+    if let Some(parts) = sign_in_line(job, chatgpt, locale, cx) {
+        return line.children(parts).into_any_element();
     }
-    if job.status.is_stopped() || job.status == JobStatus::Waiting {
-        let explanation = has_problem.then(|| Problem::of_job(job).explanation());
-        line = line.children(job_problem_parts(
-            (
+    if job.status.is_stopped() {
+        return line
+            .children(stopped_line_parts(
                 (ids::RETRY_JOB, job_id.get() as u64),
-                (ids::ANSWER_SETTINGS, job_id.get() as u64),
-            ),
-            job,
-            chatgpt,
-            explanation,
-            AppShell::retry_job,
-            locale,
-            cx,
-        ));
+                job,
+                AppShell::retry_job,
+                locale,
+                cx,
+            ))
+            .into_any_element();
     }
+    line = super::attachment::running_words(line, job, icon, status, cx);
     line.into_any_element()
 }

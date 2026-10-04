@@ -28,7 +28,6 @@ pub enum Message {
     Projects,
     Sessions,
     /// The pages of study material, one per kind.
-    StudyNotes,
     Flashcards,
     Diagrams,
     Practice,
@@ -252,8 +251,40 @@ pub enum Message {
     DeleteMessage,
     AlertDeleteMessage,
     ConfirmDeleteMessage,
-    /// Asks for a finished answer again.
-    AnswerAgain,
+    /// Asks for a finished answer again, as a new version.
+    Regenerate,
+    /// A note or answer's versions: the switcher, and what made each one.
+    VersionOriginTyped,
+    VersionOriginEdited,
+    VersionOriginAnswer,
+    VersionOriginImproved,
+    VersionOriginSummarized,
+    VersionPrevious,
+    VersionNext,
+    VersionSwitcher,
+    VersionWriting,
+    VersionFailed,
+    VersionNew,
+    /// What the Stop button of an entry says while a new version is being written.
+    StopVersion,
+    /// The compact line under an entry whose new version waits for the ChatGPT sign-in.
+    VersionWaitingSignIn,
+    /// The short button of that line.
+    VersionSignIn,
+    /// The faint line under the instruction field of the AI edit menu.
+    RewriteInstructionHint,
+    /// The hover bar's changes: rewrite with the assistant, or by hand.
+    AiEdit,
+    EditMessage,
+    EditMessageHint,
+    RewriteImprove,
+    RewriteSummarize,
+    RewriteInstruction,
+    RewriteInstructionPlaceholder,
+    RewriteRun,
+    RewriteBusy,
+    RewriteUnavailable,
+    EditUnchanged,
     RegenerateTitle,
     RegeneratingTitle,
     TitleGenerationError,
@@ -331,7 +362,6 @@ pub enum Message {
     DetailPreview,
 
     // Study: material and reviews
-    NotesDescription,
     FlashcardsDescription,
     DiagramsDescription,
     LoadingStudy,
@@ -364,12 +394,10 @@ pub enum Message {
     CardTapToReveal,
     PreviousCard,
     NextCard,
-    KindNotes,
     KindFlashcards,
     KindDiagram,
     WritingMaterial,
     /// A piece of each kind being written, and what to expect meanwhile.
-    WritingNotes,
     WritingFlashcards,
     DrawingDiagram,
     WritingMaterialHint,
@@ -384,7 +412,6 @@ pub enum Message {
     /// Saving a diagram as an image, and when that fails.
     SaveImage,
     SaveForAnki,
-    SaveMarkdown,
     /// What a save button says once it has saved.
     MaterialSaved,
     /// The file name material is saved under when its title leaves no name.
@@ -490,6 +517,7 @@ pub enum Message {
     StageEmbed,
     StageTitle,
     StageReply,
+    StageRewrite,
     StageArtifact,
     StageQuestion,
     StageGrade,

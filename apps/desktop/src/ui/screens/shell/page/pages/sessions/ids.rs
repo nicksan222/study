@@ -61,7 +61,6 @@ pub const ATTACHMENT: &str = "attachment";
 pub const ANSWER_CITATION: &str = "answer-citation";
 /// An answer's words, whose citation markers open what they cite; adds the part's id.
 pub const ANSWER_TEXT: &str = "answer-text";
-pub const ANSWER_SETTINGS: &str = "answer-settings";
 pub const ATTACHMENT_DETAILS: &str = "attachment-details";
 pub const OPEN_ATTACHMENT: &str = "open-attachment";
 pub const RETRY_JOB: &str = "retry-job";
@@ -76,8 +75,37 @@ pub const CANCEL_DELETE_MESSAGE: &str = "cancel-delete-message";
 pub const COPY_MESSAGE: &str = "copy-message";
 /// Where a note fell in its session's recording, opening it there; adds the message's id.
 pub const RECORDING_LINK: &str = "recording-link";
-/// Asks for a finished answer again; adds the message's id.
+/// Asks for a finished answer again, as a new version; adds the message's id.
 pub const REANSWER: &str = "reanswer";
+/// The bar of what can be done with an entry, beside it; adds the message's id.
+pub const ACTION_BAR: &str = "action-bar";
+/// The switcher between an entry's versions: its arrows, each adding the message's id.
+pub const VERSION_SWITCHER: &str = "version-switcher";
+pub const VERSION_PREVIOUS: &str = "version-previous";
+pub const VERSION_NEXT: &str = "version-next";
+/// The AI edit menu: its button, the two ready-made rewrites, the instruction, and running
+/// it; each adds the message's id.
+pub const AI_EDIT: &str = "ai-edit";
+/// The place around the AI edit button that takes focus back when its menu closes.
+pub const AI_EDIT_SLOT: &str = "ai-edit-slot";
+/// The AI edit menu's own popover.
+pub const AI_MENU: &str = "ai-menu";
+pub const AI_IMPROVE: &str = "ai-improve";
+pub const AI_SUMMARIZE: &str = "ai-summarize";
+pub const AI_INSTRUCTION: &str = "ai-instruction";
+pub const AI_RUN: &str = "ai-run";
+/// Editing an entry's text in place: opening it, its text, and saving or cancelling; each
+/// adds the message's id.
+pub const EDIT_MESSAGE: &str = "edit-message";
+pub const EDIT_TEXT: &str = "edit-text";
+pub const SAVE_EDIT: &str = "save-edit";
+pub const CANCEL_EDIT: &str = "cancel-edit";
+/// Stops the version being written; adds the message's id.
+pub const STOP_VERSION: &str = "stop-version";
+/// The version being written, named beside the switcher; adds the message's id.
+pub const VERSION_WRITING: &str = "version-writing";
+/// Why a version could not be asked for, or what an edit left unchanged; adds the message's id.
+pub const VERSION_NOTICE: &str = "version-notice";
 pub const COPY_JOB: &str = "copy-job";
 
 // The Projects sidebar, where sessions are listed under their project.

@@ -294,12 +294,9 @@ mod tests {
             &[recording_part(recording.id, "lecture.wav")],
             &transcription,
         )?;
-        let PartContent::Source {
+        let PartContent {
             source_id, name, ..
-        } = &posted.parts[0].content
-        else {
-            panic!("expected a source part");
-        };
+        } = &posted.parts[0].content;
         assert_eq!(name, "lecture.wav");
         assert_eq!(posted.parts[0].jobs.len(), 1);
 
@@ -326,13 +323,7 @@ mod tests {
             &[recording_part(id, "lecture.wav")],
             &transcription,
         )?;
-        let PartContent::Source {
-            source_id: Some(file),
-            ..
-        } = posted.parts[0].content
-        else {
-            panic!("the recording's file");
-        };
+        let file = posted.parts[0].content.source_id.expect("the file");
         Ok(file)
     }
 

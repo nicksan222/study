@@ -8,7 +8,7 @@
 //! (see `workers.rs` in the shell). The pieces it draws live in `components/`.
 
 use super::components::{
-    CorrectionState, MentionPicker, RecordingState, ThreadState, chip_mentions,
+    CorrectionState, MentionPicker, RecordingState, ThreadState, VersionsState, chip_mentions,
 };
 use super::ids;
 use crate::features::media::{AttachmentInfo, PastedImages, prepare_attachment};
@@ -111,6 +111,8 @@ pub(in crate::ui::screens::shell::page) struct SessionsState {
     pub(in crate::ui::screens::shell::page) thread: ThreadState,
     /// A block of a file's read text being corrected in its side panel.
     pub(in crate::ui::screens::shell::page) correction: CorrectionState,
+    /// Entries' versions: the AI edit menu, editing in place, what the switchers say.
+    pub(in crate::ui::screens::shell::page) versions: VersionsState,
     /// Sessions whose title is being generated anew at the user's request.
     pub(in crate::ui::screens::shell::page) titling: HashSet<SessionId>,
     /// The mentions offered while one is typed in `composer`.
@@ -194,6 +196,7 @@ impl SessionsState {
             panel: None,
             thread: ThreadState::new(window, cx),
             correction: CorrectionState::new(window, cx),
+            versions: VersionsState::new(window, cx),
             titling: HashSet::new(),
             picker: MentionPicker::default(),
             cited: None,
@@ -211,17 +214,18 @@ impl SessionsState {
     }
 
     /// What the transcript marks on its rows.
-    /// What the rows mark, given whether the last input was the keyboard.
     pub(in crate::ui::screens::shell::page::pages::sessions) fn row_marks(
         &self,
-        keyboard: bool,
         chatgpt: crate::ui::screens::shell::page::pages::components::ChatGptState,
-    ) -> super::components::RowMarks {
+        window: &Window,
+        cx: &gpui_kit::App,
+    ) -> super::components::RowMarks<'_> {
         super::components::RowMarks {
             deleting: self.deleting,
             copied: self.copied,
-            keyboard,
             chatgpt,
+            versions: &self.versions,
+            focused: self.versions.focused_bar(window, cx),
         }
     }
 
@@ -481,7 +485,7 @@ impl AppShell {
         let generation = self.sessions.preview_generation;
         let mut wanted = Vec::new();
         for part in self.sessions.shown_parts() {
-            if let PartContent::Source {
+            if let PartContent {
                 source_id: Some(id),
                 ..
             } = &part.content
@@ -577,6 +581,7 @@ impl AppShell {
                         if first_load || messages.len() != state.messages.len() {
                             state.scroll_to_end = true;
                         }
+                        state.versions.observe(&messages, cx);
                         state.messages = messages;
                         state.messages_for = Some(session_id);
                         if state.error == Some(Message::MessagesLoadError) {
@@ -1050,9 +1055,10 @@ impl AppShell {
         self.sessions.pasted.save(image.id, &name, &image.bytes)
     }
 
-    /// Asks for a finished answer again; its job's events show it being written.
+    /// Asks for a finished answer again, as a new version; its job's events show it being
+    /// written.
     pub(super) fn reanswer(&mut self, id: MessageId, cx: &mut Context<Self>) {
-        self.change_session_job(move |app| app.reanswer(id), cx);
+        self.ask_version(id, move |app| app.reanswer(id), cx);
     }
 
     /// Deletes a confirmed note or answer; the database deletes what hangs off it (answers,
@@ -1256,7 +1262,7 @@ impl AppShell {
         let attached_here = self
             .sessions
             .shown_parts()
-            .any(|part| part.content.source_id() == Some(source_id));
+            .any(|part| part.content.source_id == Some(source_id));
         if attached_here {
             self.show_attachment(source_id, cx);
             self.sessions.cited = Some((source_id, at));

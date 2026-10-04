@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use study_app::views::{ChatMessage, PartContent};
+use study_app::views::ChatMessage;
 
 /// Longest provisional title derived from a first message, shown until the title agent
 /// names the session.
@@ -24,18 +24,10 @@ pub fn derive_title(text: &str, files: &[PathBuf]) -> Option<String> {
     study_core::text::title_from(&source, MAX_DERIVED_TITLE_CHARS)
 }
 
-/// What a message says, to copy: its words, a blank line between parts as in the
-/// transcript. Empty when it holds only files or study material.
+/// What a message says, to copy: the text of its active version. Empty when it holds only
+/// files or study material.
 pub fn message_words(message: &ChatMessage) -> String {
-    let words: Vec<&str> = message
-        .parts
-        .iter()
-        .filter_map(|part| match &part.content {
-            PartContent::Text(body) => Some(body.as_str()),
-            _ => None,
-        })
-        .collect();
-    words.join("\n\n")
+    message.text().to_owned()
 }
 
 #[cfg(test)]

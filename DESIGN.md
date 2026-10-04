@@ -428,7 +428,7 @@ drawings at 16px (14px inline), coloured `ink-2`, or `ink` when active.
   ahead. While the action runs, Cancel is disabled and the alert stays.
 
 ### Navigation
-- **Sidebar, top to bottom:** labelled destination rows (Home, Projects, Notes, Flashcards,
+- **Sidebar, top to bottom:** labelled destination rows (Home, Projects, Flashcards,
   Diagrams, Practice, Library, Activity), then the page's own list (the projects
   tree on Projects), then Settings and Help pinned to the bottom. Labels and icons together,
   as Codex does: no unlabelled icon rail. Search stays in the title bar with its shortcut.

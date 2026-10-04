@@ -188,22 +188,6 @@ const SN2_ARTICLE: &[&str] = &[
     "Steric hindrance slows the reaction: methyl and primary halides react fastest, while tertiary halides do not undergo SN2 in practice.",
 ];
 
-const ORGANIC_NOTES: &str = "## Alkanes
-- Only C and H, single bonds only: **saturated**, formula **CnH2n+2** [1]
-- Methane, ethane, propane, butane: CH₄, C₂H₆, C₃H₈, C₄H₁₀ [1]
-
-## Naming (IUPAC)
-- Find the **longest chain**: it is the parent [2]
-- Number from the end that gives the **lowest numbers** to substituents [2][6]
-- Prefixes go in **alphabetical order**, each with a position number [3]
-- 2-methylbutane is an isomer of pentane [3]
-
-## Shape and conformations
-- Each carbon is **sp³**, bond angles about **109.5°** [4]
-- Free rotation about C–C gives **staggered** and **eclipsed** conformations [4]
-- Staggered is lower in energy; eclipsed ethane is about **12 kJ/mol** higher [5][7]
-- Butane: **anti** is the most stable [5]; gauche is about 3.8 kJ/mol higher [8]";
-
 const SUPPLY_LECTURE: &[&str] = &[
     "Welcome to microeconomics. We start with the model that everything else builds on: supply and demand. A market is a place where buyers and sellers meet, and the model asks what price clears it.",
     "The law of demand says that, other things equal, a higher price lowers the quantity demanded, so the demand curve slopes down. The law of supply says the opposite for sellers: a higher price raises the quantity supplied.",
@@ -216,18 +200,6 @@ const SUPPLY_LECTURE: &[&str] = &[
 const SUPPLY_CHART: &[&str] = &[
     "Supply and demand for coffee. The demand curve D slopes down and the supply curve S slopes up; they cross at the equilibrium, price 6 and quantity 40. A price above 6 leaves a surplus.",
 ];
-
-const SUPPLY_NOTES: &str = "## The model
-- **Law of demand**: higher price, lower quantity demanded; **law of supply**: higher price, higher quantity supplied [1]
-- **Equilibrium** where the curves cross: quantity demanded equals quantity supplied [2][6]
-
-## Out of equilibrium
-- **Surplus** above the equilibrium price pushes the price down; **shortage** below it pushes the price up [3]
-
-## Movement or shift?
-- A price change **moves along** a curve [4]
-- Income, tastes, or the price of related goods **shift** the curve [4]
-- Example: a frost cuts the coffee harvest, **supply shifts left**, price rises and quantity falls [5]";
 
 const ELASTICITY_LECTURE: &[&str] = &[
     "Last time we saw that demand slopes down. Today: by how much? Price elasticity of demand measures how strongly the quantity demanded responds to a change in price.",
@@ -356,63 +328,6 @@ const EIGEN_DIAGRAM: &str = r#"flowchart TD
     diag --> powers & fails
 "#;
 
-const MEMBRANE_NOTES: &str = "## The membrane
-- **Fluid mosaic model**: a phospholipid bilayer with proteins floating in it [1]
-- Small nonpolar molecules (O₂, CO₂) cross directly; ions and glucose cannot [2]
-
-## Passive transport
-- **Diffusion**: down the concentration gradient, no ATP [3]
-- **Facilitated diffusion**: still passive, through a **channel** or **carrier** protein [3][9]
-- **Osmosis**: water moves towards the side with more solute [4]; **aquaporins** speed it up [4]
-
-## Tonicity
-- **Hypotonic**: animal cells swell and may burst; plant cells become **turgid** [5]
-- **Hypertonic**: cells shrivel [5]
-
-## Active transport
-- Against the gradient, so it costs energy [6]
-- **Na⁺/K⁺ pump**: 3 Na⁺ out, 2 K⁺ in, per ATP [6]
-- **Secondary active transport**: the Na⁺–glucose cotransporter rides the sodium gradient [7]
-
-## Bulk transport
-- **Endocytosis** brings material in by vesicle; **exocytosis** releases it, as with neurotransmitters [8]";
-
-const REPUBLIC_NOTES: &str = "## Why the Republic was in crisis
-- A long period of instability, about **134–44 BC**, ending in the Principate [3]
-- Slave-worked estates pushed small farmers off the land, shrinking the pool of soldiers [4]
-
-## Violence enters politics
-- **Tiberius Gracchus** (tribune, 133 BC): land reform; killed by senators [1]
-
-## Armies loyal to generals
-- **Marius** (consul 107 BC) recruits landless volunteers paid by the state [2]
-- Soldiers depend on their commander for pay and land [2][5]
-
-## Sulla's precedent
-- Marches on Rome in **88 BC**; dictator **82–80 BC**; proscriptions [6]
-- Shows an army can be used against the state [6]
-
-## The First Triumvirate
-- **60 BC**: Pompey, Crassus and Caesar ally against the Senate [7]";
-
-const EIGEN_NOTES: &str = "## Definition
-- A nonzero **eigenvector** v of a square matrix A satisfies **Av = λv**; λ is its **eigenvalue** [1][5]
-- Eigenvectors keep their direction; λ says how much they stretch [5]
-
-## Finding them
-- Solve the **characteristic equation** det(A − λI) = 0 [2]
-- It is a polynomial of degree n; its roots are the eigenvalues [6]
-- Example: A = [[2, 1], [1, 2]] gives λ² − 4λ + 3 = 0, so **λ = 1, 3** [3]
-
-## Checks
-- **Sum of eigenvalues = trace**; **product = determinant** [4][7]
-- Triangular matrices: eigenvalues on the diagonal [7]
-
-## Diagonalization
-- n independent eigenvectors ⇒ **A = PDP⁻¹** [8]
-- Powers become easy: A^k = P D^k P⁻¹ [9]
-- Not always possible: [[0, 1], [0, 0]] [10]";
-
 /// The sessions of the courses, in no particular order: each dates itself. The showcase
 /// sample has every file read and nothing left waiting but the indexing.
 pub(super) fn conversations(sample: Sample) -> Vec<Conversation> {
@@ -517,20 +432,7 @@ fn development_conversations() -> Vec<Conversation> {
             ],
             answer: None,
             thread: &[],
-            made: vec![Made {
-                kind: ArtifactKind::Notes,
-                body: MadeBody::Text(ORGANIC_NOTES),
-                cites: &[
-                    (0, 1),
-                    (0, 2),
-                    (0, 3),
-                    (0, 4),
-                    (0, 5),
-                    (1, 1),
-                    (1, 2),
-                    (1, 3),
-                ],
-            }],
+            made: vec![],
             declined: None,
         },
         Conversation {
@@ -651,11 +553,7 @@ fn development_conversations() -> Vec<Conversation> {
             ],
             answer: None,
             thread: &[],
-            made: vec![Made {
-                kind: ArtifactKind::Notes,
-                body: MadeBody::Text(SUPPLY_NOTES),
-                cites: &[(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (1, 0)],
-            }],
+            made: vec![],
             declined: None,
         },
         Conversation {
@@ -909,21 +807,7 @@ fn development_conversations() -> Vec<Conversation> {
             ],
             answer: None,
             thread: &[],
-            made: vec![Made {
-                kind: ArtifactKind::Notes,
-                body: MadeBody::Text(MEMBRANE_NOTES),
-                cites: &[
-                    (0, 0),
-                    (0, 1),
-                    (0, 2),
-                    (0, 3),
-                    (0, 4),
-                    (0, 5),
-                    (0, 6),
-                    (0, 7),
-                    (2, 2),
-                ],
-            }],
+            made: vec![],
             // Giulia's voice note alone holds nothing to draw: the writer said so.
             declined: Some((
                 ArtifactKind::Diagram,
@@ -980,11 +864,7 @@ fn development_conversations() -> Vec<Conversation> {
                 &[(0, 2), (2, 2)],
             )),
             thread: &[],
-            made: vec![Made {
-                kind: ArtifactKind::Notes,
-                body: MadeBody::Text(REPUBLIC_NOTES),
-                cites: &[(0, 0), (0, 1), (2, 0), (2, 1), (2, 2), (0, 2), (2, 3)],
-            }],
+            made: vec![],
             declined: None,
         },
         Conversation {
@@ -1108,89 +988,71 @@ fn development_conversations() -> Vec<Conversation> {
                 &[(0, 1), (1, 0)],
             )),
             thread: &[],
-            made: vec![
-                Made {
-                    kind: ArtifactKind::Notes,
-                    body: MadeBody::Text(EIGEN_NOTES),
-                    cites: &[
-                        (0, 1),
-                        (0, 2),
-                        (0, 3),
-                        (0, 5),
-                        (1, 0),
-                        (1, 1),
-                        (1, 2),
-                        (0, 6),
-                        (0, 7),
-                        (1, 3),
-                    ],
-                },
-                Made {
-                    kind: ArtifactKind::Flashcards,
-                    body: MadeBody::Cards(&[
-                        (
-                            "What is an eigenvector of A?",
-                            "A nonzero vector v with Av = λv for some scalar λ.",
-                            &[1],
-                        ),
-                        (
-                            "What equation gives the eigenvalues?",
-                            "The characteristic equation, det(A − λI) = 0.",
-                            &[2],
-                        ),
-                        (
-                            "Why must A − λI be singular?",
-                            "(A − λI)v = 0 needs a nonzero solution v.",
-                            &[2],
-                        ),
-                        (
-                            "What are the eigenvalues of [[2, 1], [1, 2]]?",
-                            "1 and 3.",
-                            &[3],
-                        ),
-                        (
-                            "What is an eigenvector of [[2, 1], [1, 2]] for λ = 3?",
-                            "(1, 1).",
-                            &[4],
-                        ),
-                        (
-                            "What do the eigenvalues add up to?",
-                            "The trace of A.",
-                            &[5],
-                        ),
-                        (
-                            "What do the eigenvalues multiply to?",
-                            "The determinant of A.",
-                            &[5],
-                        ),
-                        (
-                            "When is an n×n matrix diagonalizable?",
-                            "When it has n linearly independent eigenvectors.",
-                            &[6],
-                        ),
-                        (
-                            "How does diagonalization make A^k easy?",
-                            "A^k = P D^k P⁻¹, and D^k raises each eigenvalue to the k.",
-                            &[7],
-                        ),
-                        (
-                            "Give a matrix that cannot be diagonalized.",
-                            "[[0, 1], [0, 0]].",
-                            &[8],
-                        ),
-                    ]),
-                    cites: &[
-                        (0, 1),
-                        (0, 2),
-                        (0, 3),
-                        (0, 4),
-                        (0, 5),
-                        (0, 6),
-                        (0, 7),
-                        (1, 3),
-                    ],
-                },
-            ],
+            made: vec![Made {
+                kind: ArtifactKind::Flashcards,
+                body: MadeBody::Cards(&[
+                    (
+                        "What is an eigenvector of A?",
+                        "A nonzero vector v with Av = λv for some scalar λ.",
+                        &[1],
+                    ),
+                    (
+                        "What equation gives the eigenvalues?",
+                        "The characteristic equation, det(A − λI) = 0.",
+                        &[2],
+                    ),
+                    (
+                        "Why must A − λI be singular?",
+                        "(A − λI)v = 0 needs a nonzero solution v.",
+                        &[2],
+                    ),
+                    (
+                        "What are the eigenvalues of [[2, 1], [1, 2]]?",
+                        "1 and 3.",
+                        &[3],
+                    ),
+                    (
+                        "What is an eigenvector of [[2, 1], [1, 2]] for λ = 3?",
+                        "(1, 1).",
+                        &[4],
+                    ),
+                    (
+                        "What do the eigenvalues add up to?",
+                        "The trace of A.",
+                        &[5],
+                    ),
+                    (
+                        "What do the eigenvalues multiply to?",
+                        "The determinant of A.",
+                        &[5],
+                    ),
+                    (
+                        "When is an n×n matrix diagonalizable?",
+                        "When it has n linearly independent eigenvectors.",
+                        &[6],
+                    ),
+                    (
+                        "How does diagonalization make A^k easy?",
+                        "A^k = P D^k P⁻¹, and D^k raises each eigenvalue to the k.",
+                        &[7],
+                    ),
+                    (
+                        "Give a matrix that cannot be diagonalized.",
+                        "[[0, 1], [0, 0]].",
+                        &[8],
+                    ),
+                ]),
+                cites: &[
+                    (0, 1),
+                    (0, 2),
+                    (0, 3),
+                    (0, 4),
+                    (0, 5),
+                    (0, 6),
+                    (0, 7),
+                    (1, 3),
+                ],
+            }],
             declined: None,
         },
         // What was queued or running when the app last closed. Nothing runs until the app is

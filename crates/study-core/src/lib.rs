@@ -59,13 +59,13 @@ pub mod preferences;
 pub mod processing;
 
 pub use artifact::{ArtifactBody, ArtifactKind, ArtifactStatus, Flashcard};
-pub use citation::{Citation, cited_markers};
+pub use citation::{Citation, cited_markers, renumber_citations, without_citations};
 pub use day::Day;
 pub use document::{Anchor, Block, BlockKind, Document, DocumentMeta, Stamp};
 pub use error::{Classify, Context, Error, ErrorKind, Failure, Result};
 pub use id::{
     ArtifactId, CardId, ChunkId, DocumentId, JobId, MessageId, PartId, PracticeId, ProjectId,
-    QuestionId, RecordingId, SessionId, SourceId,
+    QuestionId, RecordingId, SessionId, SourceId, VersionId,
 };
 pub use job::{JobKind, JobStatus, Requirement};
 pub use language::{Language, LanguagePreferences};
