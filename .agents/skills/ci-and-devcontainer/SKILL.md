@@ -39,7 +39,7 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   - Linux AppImages still need glibc 2.41 or newer.
 - **One release pipeline.** `.github/workflows/release.yml` runs on a pushed `vX.Y.Z` tag
   that matches the workspace version, then publishes only when all five signed packages exist.
-  `packaging/packager.json` and `packaging/release.sh` own packaging and the
+  `apps/desktop/packaging/packager.json` and `apps/desktop/packaging/release.sh` own packaging and the
   static `latest.json` updater feed; keep the platform keys aligned with cargo-packager-updater.
   Keep `cargo-packager` pinned identically in the Dockerfile and release workflow.
   Never put signing keys in the image or repository. Releases require the public-key

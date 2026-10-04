@@ -175,7 +175,7 @@ build:
 # Build and sign the native installer/AppImage (see CONTRIBUTING.md for signing setup).
 [positional-arguments]
 package platform:
-    packaging/release.sh package "$1"
+    apps/desktop/packaging/release.sh package "$1"
 
 # Check dependencies for known vulnerabilities, licenses and sources (deny.toml).
 deny:
@@ -235,7 +235,7 @@ agents-usage *args:
 
 # Lint the devcontainer and packaging shell scripts.
 check-shell:
-    shellcheck -x .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh packaging/release.sh
+    shellcheck -x .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/release.sh
 
 # Prepare a recording for a PR: first 15 seconds, no audio, at most 8 MB. Use .mp4 or .gif.
 [positional-arguments]

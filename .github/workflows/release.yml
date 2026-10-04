@@ -107,7 +107,7 @@ jobs:
       - name: Test and package
         run: |
           cargo test --locked -p study-ai --lib updates
-          packaging/release.sh package ${{ matrix.platform }}
+          apps/desktop/packaging/release.sh package ${{ matrix.platform }}
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
@@ -133,6 +133,6 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Build update feed
-        run: packaging/release.sh feed "$GITHUB_REF_NAME"
+        run: apps/desktop/packaging/release.sh feed "$GITHUB_REF_NAME"
       - name: Publish release
         run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
