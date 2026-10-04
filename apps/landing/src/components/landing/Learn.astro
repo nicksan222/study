@@ -50,6 +50,14 @@ const phaseQuote = around(s.transcript[0], p.p1);
 type Box = { x: number; y: number; w: number; h: number };
 const crop = (d: Box, m: Box = d) =>
   `--dx:${d.x};--dy:${d.y};--dw:${d.w};--dh:${d.h};--mx:${m.x};--my:${m.y};--mw:${m.w};--mh:${m.h}`;
+// How wide the whole page renders inside a crop, for `sizes`: the crop scales its box up to
+// fill a panel column, at most 1.25 times the app's size. On wide screens a panel is the
+// frame (1200px) less its padding (2 × 48px) and the columns' gap (24px), split 5 to 7; on
+// narrower ones the crop takes no more than the viewport.
+const panel = 1200 - 2 * 48 - 24;
+const sizes = (column: 5 | 7, d: Box, m: Box = d) =>
+  `(min-width: 1101px) ${Math.round((1440 / d.w) * Math.min((panel * column) / 12, d.w * 1.25))}px, ` +
+  `${Math.round((1440 / m.w) * 100)}vw`;
 const spot = ({ x, y, w, h }: Box) => `--tx:${x};--ty:${y};--tw:${w};--th:${h}`;
 const crops = {
   passage: { x: 1052, y: 262, w: 372, h: 341 },
@@ -146,7 +154,7 @@ const diagram = {
           <figure class="shot">
             <div class="crop-wrap" data-ink-scope>
               <div class="crop" style={crop(crops.passage)}>
-                <Shot name="citation" lang={lang} alt={s.answers.shotAlt} sizes="(min-width: 1101px) 1742px, 387vw" />
+                <Shot name="citation" lang={lang} alt={s.answers.shotAlt} sizes={sizes(5, crops.passage)} />
                 <span class="spot" id="learn-passage-spot" style={spot(spots.passage)}></span>
               </div>
               <svg class="ink-mark" data-mark="bracket" data-to="#learn-passage-spot" aria-hidden="true"></svg>
@@ -206,7 +214,7 @@ const diagram = {
           <figure class="shot">
             <div class="crop-wrap" data-ink-scope>
               <div class="crop crop-cut" style={crop(crops.graded, crops.gradedNarrow)}>
-                <Shot name="graded" lang={lang} alt={s.quiz.shotAlt} sizes="(min-width: 1101px) 1292px, 424vw" />
+                <Shot name="graded" lang={lang} alt={s.quiz.shotAlt} sizes={sizes(7, crops.graded, crops.gradedNarrow)} />
                 <span class="spot" id="learn-correct-spot" style={spot(spots.correct)}></span>
               </div>
               <svg class="ink-mark" data-mark="ring" data-to="#learn-correct-spot" aria-hidden="true"></svg>
@@ -264,7 +272,7 @@ const diagram = {
             <figure class="shot shot-wide">
               <div class="crop-wrap" data-ink-scope>
                 <div class="crop" style={crop(crops.ratings, crops.ratingsNarrow)}>
-                  <Shot name="flashcard" lang={lang} alt={s.card.shotAlt} sizes="(min-width: 1101px) 1300px, 416vw" />
+                  <Shot name="flashcard" lang={lang} alt={s.card.shotAlt} sizes={sizes(7, crops.ratings, crops.ratingsNarrow)} />
                   <span class="spot" id="learn-good-spot" style={spot(spots.good)}></span>
                 </div>
                 <svg class="ink-mark" data-mark="ring" data-to="#learn-good-spot" aria-hidden="true"></svg>
