@@ -89,8 +89,9 @@ it and the app from zero, and `just desktop-watch` restarts the app on every cha
 - `just demo`: records the README's demo GIF from sample data on its own private desktop
   (no sign-in, no model, not the shared desktop), into `apps/landing/public/demo.gif`; the
   site publishes it and the README shows it from there. `just docs-media` makes the docs'
-  stills and clips the same way. None of them is committed: the Landing workflow makes all
-  of them on every deploy, and `just landing` makes any that are missing. Edit the tour in
+  stills and clips the same way, and `just captures` makes both. They are committed: the
+  website deploys them as they are, and the Captures workflow, run by hand, makes them all
+  again and opens a pull request with them. Edit the tour in
   `crates/study-showcase/src/tour.rs`, the docs' scenes in `src/docs.rs`.
 - `just agents`: maintainer tooling in the default devcontainer.
   Herdr runs one project-wide team: lead, developer, PM, QA, student, reviewer and pushback,

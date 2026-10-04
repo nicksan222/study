@@ -168,22 +168,23 @@ demo output="apps/landing/public/demo.gif":
     cargo build --locked -p study
     cargo run --locked -p study-showcase -- "$1"
 
-# Make the website's docs stills and clips (apps/landing/src/assets/shots and clips) in every language and theme, the same way; name scenes or variants (`search it-dark`) to make only those, or `missing` for those not made yet.
+# Make the website's docs stills and clips (apps/landing/src/assets/shots and clips) in every language and theme, the same way; name scenes or variants (`search it-dark`) to make only those, or `missing` for those not made yet, as for a new scene.
 docs-media *only:
     cargo build --locked -p study
     cargo run --locked -p study-showcase -- docs {{only}}
 
-# Make the website's captures of the app that are missing: none is committed, so a fresh checkout (and every Landing workflow run) makes them all, and a new scene only its own. `just docs-media` and `just demo` make them again after a change.
-landing-media:
-    just docs-media missing
-    [ -s apps/landing/public/demo.gif ] || just demo
+# Make every capture of the app the website shows again, as the Captures workflow does: the docs' stills and clips, then the demo GIF. The old files go first, so a scene dropped from docs.rs leaves none behind.
+captures:
+    rm -f apps/landing/src/assets/shots/* apps/landing/src/assets/clips/*
+    just docs-media
+    just demo
 
 # Serve the website (apps/landing: the landing page and docs) with live reload at localhost:4321/study/.
-landing: landing-media
+landing:
     cd apps/landing && bun install --frozen-lockfile && bun run dev --host
 
-# Build the website into apps/landing/dist, as the Landing workflow publishes it, with every capture of the app.
-landing-build: landing-media
+# Build the website into apps/landing/dist, as the Landing workflow publishes it, from the committed captures; it fails if one is missing.
+landing-build:
     cd apps/landing && bun install --frozen-lockfile && bun run build
 
 # Type-check the website's pages, components and content without building it, so it needs no captures.

@@ -3,10 +3,8 @@ name: Landing
 # Builds the website in apps/landing/ (Astro, static) and publishes it to GitHub Pages at
 # https://nicksan222.github.io/study/, so astro.config sets `base: '/study'`.
 #
-# Every capture of the app on the site is made here, from the code being deployed: the docs'
-# stills and clips (`just docs-media`) and the README's demo GIF (`just demo`), which the
-# site publishes at /study/demo.gif. None of them is committed, so any change to the app
-# runs this to keep them current.
+# It builds no Rust: the captures of the app the site shows are committed, so a deploy takes
+# about a minute. The Captures workflow makes them again, by hand, in a pull request.
 on:
   push:
     branches: [main]
@@ -27,21 +25,16 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Set up
-        uses: ./.github/actions/setup
+      # The same pin as the setup action's, which this job does not otherwise need.
+      - name: Install just
+        uses: taiki-e/install-action@v2
         with:
-          # The private headless desktop the showcase records on, with software Vulkan.
-          packages: >-
-            sway grim wtype wf-recorder ffmpeg
-            libvulkan1 mesa-vulkan-drivers libgl1-mesa-dri libegl-mesa0
-          # The app runs for real here, so it is built as in development.
-          optimize-dependencies: 'true'
+          tool: just@1.40.0
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: apps/landing/package.json
-      # A fresh checkout has no captures, so this makes every one, then builds.
-      - name: Capture the app and build
+      - name: Build
         run: just landing-build
       - name: Upload
         uses: actions/upload-pages-artifact@v5

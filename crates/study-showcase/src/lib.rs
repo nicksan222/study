@@ -1,6 +1,7 @@
 //! Records the demo GIF in the README (`just demo`) and the website's docs media
-//! (`just docs-media`). Both are build output, not sources: the Landing workflow makes them
-//! again on every deploy and publishes the GIF with the site, where the README shows it.
+//! (`just docs-media`). Both are output, not sources: they are committed so the website deploys
+//! without building the app, and the Captures workflow makes them all again, by hand, in a
+//! pull request. The site publishes the GIF, and the README shows it from there.
 //!
 //! The binary starts a private headless desktop (its own sway under `target/showcase`, never
 //! the shared one from `just desktop`), seeds a fresh database with the sample data, opens

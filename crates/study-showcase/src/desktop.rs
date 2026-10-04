@@ -435,10 +435,11 @@ impl Recording {
 
     /// Asks the recorder to finish the file and waits for it. A still screen sends the
     /// recorder no frame to notice the request on, so the pointer, resting at `at`, is
-    /// nudged until it ends and comes back there.
+    /// nudged until it ends and comes back there. On a small machine rendering in software
+    /// (a CI runner) it may still be encoding the frames it holds, so it gets a minute.
     pub fn stop(mut self, desktop: &Desktop, at: (u32, u32)) -> Result<()> {
         signal(&self.process.0, "INT").context("cannot stop wf-recorder")?;
-        let ended = wait(Duration::from_secs(10), "wf-recorder to finish", || {
+        let ended = wait(Duration::from_secs(60), "wf-recorder to finish", || {
             let moved = desktop
                 .warp(at.0.saturating_sub(2), at.1)
                 .and_then(|()| desktop.warp(at.0, at.1));

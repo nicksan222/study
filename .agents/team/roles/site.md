@@ -35,8 +35,8 @@ Then update what they affect:
   name in both languages (`.mdx` when it shows captures, `.md` otherwise);
 - the captures of the app: scenes in `crates/study-showcase/src/docs.rs`, made by
   `just docs-media` into `apps/landing/src/assets/shots/` and `clips/` as
-  `{scene}-{en|it}-{light|dark}`. They are never committed; the Landing workflow makes them
-  again on every deploy, so change the scene, never the file.
+  `{scene}-{en|it}-{light|dark}`. They are committed, but only as the scene makes them: change
+  the scene and make them again, never edit the file.
 
 ## Rules
 
