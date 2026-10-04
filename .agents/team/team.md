@@ -8,7 +8,8 @@ One team works across the project: lead, developer, PM, QA, student, reviewer an
 The lead coordinates; the developer primarily implements; the other roles contribute
 on assigned questions. Crates are architecture boundaries, not separate workspaces or
 teams. The seven regular roles share one extra slot for scenario preparation, upgrade
-review or PR delivery. Do not create nested agents, per-crate teams, or duplicate sessions for the same task.
+review, PR delivery or the website. Do not create nested agents, per-crate teams, or
+duplicate sessions for the same task.
 
 Each role has a different lens. Availability does not require every role to inspect every
 change: the lead assigns only useful work, and unassigned agents stay idle. Product and
@@ -132,3 +133,13 @@ information as unknown; never invent a model response and report it as observed 
 Keep task-specific sample content and assumptions out of permanent agent memory. Store
 reproducible setup and limitations in the session handoff, and do not load old scenarios
 merely because their files survived a reset. Durable fixtures belong in code and tests.
+
+## Keeping the website in sync
+
+The website in `apps/landing/` follows the app. When a delivered change or a release alters
+what a visitor would see or read (features, behaviour, UI copy, the README pitch, platforms),
+the lead starts `site` in the shared optional slot with
+`just agents site --session "$session" --no-attach`, sends it the change and base through
+`agent prompt site` using the report-file pattern above, and stops it after its one result.
+It writes only under `apps/landing/` and the docs' scenes, keeps English and Italian equal
+and invents no claims.
