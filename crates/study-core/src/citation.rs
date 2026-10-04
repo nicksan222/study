@@ -43,8 +43,10 @@ pub fn cited_markers(text: &str, max: u32) -> Vec<u32> {
 }
 
 /// `text` without its `[n]` markers, for reading it where the sources they count are not
-/// shown: as a note, or as what the student said. The space before a marker goes with it.
-pub fn without_citations(text: &str) -> String {
+/// shown: as a note, or as what the student said. Only a bracket whose every number is in
+/// `cited`, the markers its version has passages for, is a marker: any other, like `a[0]`
+/// or `[2024]`, is the text's own. The space before a marker goes with it.
+pub fn without_citations(text: &str, cited: &[u32]) -> String {
     let mut plain = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(open) = rest.find('[') {
@@ -54,8 +56,13 @@ pub fn without_citations(text: &str) -> String {
             let numbers = &inside[..close];
             numbers.chars().any(|c| c.is_ascii_digit())
                 && numbers
-                    .chars()
-                    .all(|c| c.is_ascii_digit() || matches!(c, ',' | ';' | ' '))
+                    .split([',', ';', ' '])
+                    .filter(|number| !number.is_empty())
+                    .all(|number| {
+                        number
+                            .parse::<u32>()
+                            .is_ok_and(|marker| cited.contains(&marker))
+                    })
         });
         match marker_len {
             Some(close) => {
@@ -119,13 +126,25 @@ mod tests {
     #[test]
     fn markers_are_removed_with_the_space_before_them() {
         assert_eq!(
-            without_citations("Cells divide [1]. Mitosis [1, 2][3] has phases."),
+            without_citations(
+                "Cells divide [1]. Mitosis [1, 2][3] has phases.",
+                &[1, 2, 3]
+            ),
             "Cells divide. Mitosis has phases."
         );
         assert_eq!(
-            without_citations("Keep [this] and [] and a [1"),
+            without_citations("Keep [this] and [] and a [1", &[1]),
             "Keep [this] and [] and a [1"
         );
+    }
+
+    #[test]
+    fn only_brackets_of_cited_markers_are_removed() {
+        assert_eq!(
+            without_citations("ATP [1] results from [2024] and a[0] [1, 7].", &[1]),
+            "ATP results from [2024] and a[0] [1, 7]."
+        );
+        assert_eq!(without_citations("a[0] and [1]", &[]), "a[0] and [1]");
     }
 
     #[test]

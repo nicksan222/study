@@ -45,7 +45,7 @@ use crate::{
     without_citations,
 };
 use rusqlite::{Row, params};
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 use thread::thread_summaries_in;
 use versions::VERSION_COLUMNS;
 
@@ -111,14 +111,11 @@ impl ChatMessage {
     }
 
     /// [`text`](Self::text) without its `[n]` markers, for reading it where its passages are
-    /// not shown. Only a version with citations has markers: brackets in any other, like
-    /// `a[0]` or `[2024]`, are what the student wrote and stay.
-    pub fn plain_text(&self) -> Cow<'_, str> {
-        if self.citations.is_empty() {
-            Cow::Borrowed(self.text())
-        } else {
-            Cow::Owned(without_citations(self.text()))
-        }
+    /// not shown. Brackets that cite none of [`citations`](Self::citations), like `a[0]` or
+    /// `[2024]`, are what the student wrote and stay.
+    pub fn plain_text(&self) -> String {
+        let cited: Vec<u32> = self.citations.iter().map(|c| c.marker).collect();
+        without_citations(self.text(), &cited)
     }
 
     /// The version being written, if any.
