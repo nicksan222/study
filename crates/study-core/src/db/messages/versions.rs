@@ -419,7 +419,8 @@ fn is_busy(tx: &Connection, message: MessageId) -> Result<bool> {
 }
 
 /// Drops the unfinished version of `message`, if any, and the jobs that wrote or would write
-/// it. One that is running is deleted too, so that its worker can be stopped.
+/// it. One that is running is deleted too, so that its worker can be stopped. The jobs that
+/// wrote its finished versions stay, as their history.
 fn drop_unfinished(tx: &Connection, message: MessageId) -> Result<()> {
     tx.execute(
         "DELETE FROM message_versions WHERE message_id = ?1 AND status != 'complete'",
@@ -427,7 +428,8 @@ fn drop_unfinished(tx: &Connection, message: MessageId) -> Result<()> {
     )?;
     tx.execute(
         &format!(
-            "DELETE FROM jobs WHERE message_id = ?1 AND kind IN ('{}', '{}')",
+            "DELETE FROM jobs
+             WHERE message_id = ?1 AND kind IN ('{}', '{}') AND status != 'succeeded'",
             JobKind::Reply,
             JobKind::Rewrite
         ),

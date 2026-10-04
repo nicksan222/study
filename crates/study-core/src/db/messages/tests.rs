@@ -391,6 +391,10 @@ fn a_finished_answer_is_asked_for_again_and_the_old_one_stays_until_the_new_one_
         panic!("a new job");
     };
     assert_ne!(again, job.id);
+    assert!(
+        db.job(job.id)?.is_some(),
+        "the job that wrote the first version stays in its history"
+    );
     let answer = db.message(answer.id)?.expect("still there");
     assert_eq!(answer.status, MessageStatus::Pending);
     // The old words stay on screen until the new ones replace them.
