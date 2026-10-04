@@ -29,6 +29,8 @@ jobs:
           test -n "$STUDY_UPDATE_PUBLIC_KEY" || { echo 'Set the STUDY_UPDATE_PUBLIC_KEY repository variable'; exit 1; }
           test -n "$SIGNING_KEY" || { echo 'Set the CARGO_PACKAGER_SIGN_PRIVATE_KEY repository secret'; exit 1; }
 
+  # Straight on the runner, like CI (see .github/actions/setup): an older glibc than the
+  # devcontainer's makes an AppImage that runs on more distributions.
   linux:
     name: Build ${{ matrix.platform }}
     needs: version
@@ -41,34 +43,23 @@ jobs:
           - platform: linux-aarch64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    permissions:
-      contents: read
-      packages: read
     env:
       CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
       CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Sign in to GitHub Packages
-        uses: docker/login-action@v4
+      - name: Set up
+        uses: ./.github/actions/setup
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          packages: patchelf file
+          optimize-dependencies: 'true'
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --locked --version "$CARGO_PACKAGER_VERSION"
       - name: Test and package
-        uses: devcontainers/ci@v0.3
-        with:
-          imageName: ghcr.io/${{ github.repository_owner }}/study-devcontainer
-          cacheFrom: ghcr.io/${{ github.repository_owner }}/study-devcontainer
-          push: never
-          env: |
-            STUDY_UPDATE_PUBLIC_KEY
-            STUDY_UPDATE_ENDPOINT
-            GITHUB_REPOSITORY
-            CARGO_PACKAGER_SIGN_PRIVATE_KEY
-            CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD
-          runCmd: just check && just package ${{ matrix.platform }}
+        run: |
+          cargo test --locked -p study-ai --lib updates
+          just package ${{ matrix.platform }}
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
