@@ -798,6 +798,10 @@ impl AppShell {
         cx: &mut Context<Self>,
     ) {
         let versions = &mut self.sessions.versions;
+        // An open edit revises the version it opened on.
+        if versions.editing(id) {
+            return;
+        }
         versions.notice = None;
         versions.fresh.remove(&id);
         let Some(session_id) = self.sessions.session_id() else {

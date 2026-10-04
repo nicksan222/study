@@ -139,17 +139,20 @@ fn note_content(
     let (versions, chatgpt) = (marks.versions, marks.chatgpt);
     let mut content = column(cx);
     if versions.editing(message.id) {
+        // The edit revises the version it opened on, so the versions stay put until it ends.
         content = content.child(edit_box(message, locale, versions, cx));
-    } else if !message.citations.is_empty() {
-        // A rewrite that read the note's files cites them, as an answer does.
-        content = content.child(answer_text(cx).child(cited_prose(message, cx)));
-    } else if !message.text().is_empty() {
-        let (shown, marks) = marked_note(message.text());
-        content = content.child(Note::new(shown).marks(marks));
-    }
-    content = content.children(version_line(message, locale, versions, cx));
-    if !versions.editing(message.id) && !message.citations.is_empty() {
-        content = content.child(citations(message, locale, cx));
+    } else {
+        if !message.citations.is_empty() {
+            // A rewrite that read the note's files cites them, as an answer does.
+            content = content.child(answer_text(cx).child(cited_prose(message, cx)));
+        } else if !message.text().is_empty() {
+            let (shown, marks) = marked_note(message.text());
+            content = content.child(Note::new(shown).marks(marks));
+        }
+        content = content.children(version_line(message, locale, versions, cx));
+        if !message.citations.is_empty() {
+            content = content.child(citations(message, locale, cx));
+        }
     }
     if message.unfinished().is_some() {
         content = content.children(
