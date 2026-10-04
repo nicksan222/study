@@ -172,7 +172,7 @@ demo output="assets/demo.gif":
 build:
     cargo build --locked --release -p study
 
-# Build and sign the native installer/AppImage (see README for signing setup).
+# Build and sign the native installer/AppImage (see CONTRIBUTING.md for signing setup).
 [positional-arguments]
 package platform:
     packaging/release.sh package "$1"

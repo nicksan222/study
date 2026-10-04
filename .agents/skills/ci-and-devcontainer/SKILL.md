@@ -43,7 +43,7 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   static `latest.json` updater feed; keep the platform keys aligned with cargo-packager-updater.
   Keep `cargo-packager` pinned identically in the Dockerfile and release workflow.
   Never put signing keys in the image or repository. Releases require the public-key
-  repository variable and private-key secret described in README; normal development
+  repository variable and private-key secret described in CONTRIBUTING.md; normal development
   builds work without them. Published assets are immutable to workflow retries.
 - Keep CI tests headless. In the container, `just run` connects to or starts `just desktop`
   automatically and serves noVNC. `.devcontainer/desktop/run.sh` keeps host viewer opening
@@ -59,7 +59,7 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   `$HOME`-relative.
 - Commit `Cargo.lock` and run CI with `--locked` so builds are reproducible.
 - Keep `rust-toolchain.toml` and the components the Dockerfile installs aligned.
-- Update `README.md` when build or run steps change.
+- Update `CONTRIBUTING.md` when build or run steps change.
 
 - **Keep one project-wide team**, as `.agents/team/team.md` and `fleet.toml` describe: no
   per-crate squads or status-triggered model prompts. `just check-shell` lints the
