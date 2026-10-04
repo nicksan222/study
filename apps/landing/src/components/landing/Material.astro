@@ -110,14 +110,13 @@ const pencil = draw(ink.pencil(2, 4, 44));
 </section>
 
 <script>
-  import { ink, live, wait } from '../../scripts/ink';
+  import { ink, live, relayout, wait } from '../../scripts/ink';
 
   const section = document.querySelector<HTMLElement>('#material');
   const library = section?.querySelector<HTMLElement>('#material-library');
   const arrive = section?.querySelector<HTMLElement>('[data-arrive]');
   const lines = section?.querySelector<HTMLElement>('#material-lines');
   const margin = section?.querySelector<HTMLElement>('#material-margin');
-  const relayout = () => document.dispatchEvent(new Event('ink:relayout'));
   // What this section writes, it writes quickly: the transcript a word every few
   // milliseconds, the note a word at a time in the hand.
   const quick = async (text: HTMLElement, step: number) => {

@@ -348,10 +348,9 @@ const diagram = {
 </section>
 
 <script>
-  import { clear, ink, live, play, type, wait, PIECE_MS, STAGGER_MS, STEP_MS } from '../../scripts/ink';
+  import { clear, ink, live, play, relayout, type, wait, PIECE_MS, STAGGER_MS, STEP_MS } from '../../scripts/ink';
 
   // Anchored arrows and marks redraw on this, once what they point at has moved.
-  const relayout = () => document.dispatchEvent(new Event('ink:relayout'));
   const settle = () => {
     relayout();
     window.setTimeout(relayout, STEP_MS + STAGGER_MS);

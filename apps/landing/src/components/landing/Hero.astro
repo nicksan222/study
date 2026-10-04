@@ -113,7 +113,7 @@ const heroNext = heroWords.pop();
 </section>
 
 <script>
-  import { clear, live, play } from '../../scripts/ink';
+  import { clear, live, play, relayout } from '../../scripts/ink';
 
   // The highlighter pass: pointing at, focusing or choosing a phrase draws its wash and swaps
   // in what it became, which writes itself out. It moves through the three slowly until the
@@ -138,7 +138,7 @@ const heroNext = heroWords.pop();
         if (on) void play(item);
         else clear(item);
       });
-      document.dispatchEvent(new Event('ink:relayout'));
+      relayout();
     };
     const stop = () => {
       window.clearInterval(timer);

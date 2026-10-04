@@ -82,7 +82,7 @@ const docs = (slug: string) => href(lang, `docs/${slug}/`);
 </script>
 
 <script>
-  import { live, wait } from '../../scripts/ink';
+  import { live, relayout, wait } from '../../scripts/ink';
 
   // The note writes, quickly, as soon as the Download it points at is in view, without waiting
   // its turn behind the section's other ink: the call's whole drawing settles within about a
@@ -118,7 +118,7 @@ const docs = (slug: string) => href(lang, `docs/${slug}/`);
   const bow = () => {
     if (!arrow) return;
     arrow.dataset.bow = narrow.matches ? '0.15' : '-0.35';
-    document.dispatchEvent(new Event('ink:relayout'));
+    relayout();
   };
   narrow.addEventListener('change', bow);
   bow();
