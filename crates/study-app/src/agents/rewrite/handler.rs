@@ -148,8 +148,9 @@ fn cited_sources(citations: &[Citation], text: String) -> (Vec<Excerpt>, String)
     if citations.is_empty() {
         return (Vec::new(), text);
     }
+    let cited: Vec<u32> = citations.iter().map(|citation| citation.marker).collect();
     let kept: Vec<u32> = given.iter().map(|(marker, _)| *marker).collect();
-    let text = renumber_citations(&text, &kept);
+    let text = renumber_citations(&text, &cited, &kept);
     (
         given.into_iter().map(|(_, excerpt)| excerpt).collect(),
         text,
@@ -211,6 +212,12 @@ mod tests {
         assert_eq!(excerpts[0].text, "passage 2");
         assert_eq!(excerpts[1].text, "passage 5");
         assert_eq!(text, "A [1] and B [2].");
+    }
+
+    #[test]
+    fn brackets_that_cite_nothing_stay_as_written() {
+        let (_, text) = cited_sources(&[cited(2, Some(2))], "ATP [2] results from [2024].".into());
+        assert_eq!(text, "ATP [1] results from [2024].");
     }
 
     #[test]

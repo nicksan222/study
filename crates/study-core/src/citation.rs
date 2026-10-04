@@ -47,62 +47,33 @@ pub fn cited_markers(text: &str, max: u32) -> Vec<u32> {
 /// `cited`, the markers its version has passages for, is a marker: any other, like `a[0]`
 /// or `[2024]`, is the text's own. The space before a marker goes with it.
 pub fn without_citations(text: &str, cited: &[u32]) -> String {
-    let mut plain = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(open) = rest.find('[') {
-        plain.push_str(&rest[..open]);
-        let inside = &rest[open + 1..];
-        let marker_len = inside.find(']').filter(|&close| {
-            let numbers = &inside[..close];
-            numbers.chars().any(|c| c.is_ascii_digit())
-                && numbers
-                    .split([',', ';', ' '])
-                    .filter(|number| !number.is_empty())
-                    .all(|number| {
-                        number
-                            .parse::<u32>()
-                            .is_ok_and(|marker| cited.contains(&marker))
-                    })
-        });
-        match marker_len {
-            Some(close) => {
-                plain.truncate(plain.trim_end_matches(' ').len());
-                rest = &inside[close + 1..];
-            }
-            None => {
-                plain.push('[');
-                rest = inside;
-            }
-        }
-    }
-    plain.push_str(rest);
-    plain
+    renumber_citations(text, cited, &[])
 }
 
 /// `text` with its markers renumbered to follow `kept`, the markers it still has passages
-/// for, in ascending order: `kept[0]` becomes `[1]`, `kept[1]` becomes `[2]`, and so on. Any
-/// other marker is removed, with the space before it.
-pub fn renumber_citations(text: &str, kept: &[u32]) -> String {
+/// for, in ascending order: `kept[0]` becomes `[1]`, `kept[1]` becomes `[2]`, and so on. A
+/// marker is a bracket whose every number is in `cited`, as in [`without_citations`]; one
+/// not kept is removed, with the space before it, and other brackets stay as they are.
+pub fn renumber_citations(text: &str, cited: &[u32], kept: &[u32]) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(open) = rest.find('[') {
         out.push_str(&rest[..open]);
         let inside = &rest[open + 1..];
-        let group = inside.find(']').filter(|&close| {
-            let numbers = &inside[..close];
-            numbers.chars().any(|c| c.is_ascii_digit())
-                && numbers
-                    .chars()
-                    .all(|c| c.is_ascii_digit() || matches!(c, ',' | ';' | ' '))
+        let group = inside.find(']').and_then(|close| {
+            let markers = markers_in(&inside[..close])?;
+            markers
+                .iter()
+                .all(|marker| cited.contains(marker))
+                .then_some((close, markers))
         });
-        let Some(close) = group else {
+        let Some((close, markers)) = group else {
             out.push('[');
             rest = inside;
             continue;
         };
-        let renumbered: Vec<String> = inside[..close]
-            .split([',', ';', ' '])
-            .filter_map(|number| number.parse::<u32>().ok())
+        let renumbered: Vec<String> = markers
+            .into_iter()
             .filter_map(|marker| kept.iter().position(|&k| k == marker))
             .map(|index| (index + 1).to_string())
             .collect();
@@ -117,6 +88,23 @@ pub fn renumber_citations(text: &str, kept: &[u32]) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// The numbers of what is between a marker's brackets, such as `1, 3`; `None` when it is
+/// not a list of numbers.
+fn markers_in(numbers: &str) -> Option<Vec<u32>> {
+    let markers: Vec<u32> = numbers
+        .split([',', ';', ' '])
+        .filter(|number| !number.is_empty())
+        .map(|number| {
+            number
+                .bytes()
+                .all(|byte| byte.is_ascii_digit())
+                .then(|| number.parse().ok())
+                .flatten()
+        })
+        .collect::<Option<_>>()?;
+    (!markers.is_empty()).then_some(markers)
 }
 
 #[cfg(test)]
@@ -150,14 +138,29 @@ mod tests {
     #[test]
     fn markers_are_renumbered_densely_and_unkept_ones_removed() {
         assert_eq!(
-            renumber_citations("ATP forms [2], via the chain [5][2, 9].", &[2, 5]),
+            renumber_citations(
+                "ATP forms [2], via the chain [5][2, 9].",
+                &[2, 5, 9],
+                &[2, 5]
+            ),
             "ATP forms [1], via the chain [2][1]."
         );
         assert_eq!(
-            renumber_citations("Gone [3]. Kept [4].", &[4]),
+            renumber_citations("Gone [3]. Kept [4].", &[3, 4], &[4]),
             "Gone. Kept [1]."
         );
-        assert_eq!(renumber_citations("Keep [this].", &[1]), "Keep [this].");
+        assert_eq!(
+            renumber_citations("Keep [this].", &[1], &[1]),
+            "Keep [this]."
+        );
+    }
+
+    #[test]
+    fn brackets_that_cite_nothing_are_not_renumbered() {
+        assert_eq!(
+            renumber_citations("ATP [2] results from [2024] and a[+1].", &[1, 2], &[2]),
+            "ATP [1] results from [2024] and a[+1]."
+        );
     }
 
     #[test]
