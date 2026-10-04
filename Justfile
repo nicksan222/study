@@ -162,11 +162,16 @@ test: trim
 docs:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps --document-private-items
 
-# Record the README's demo GIF (assets/demo.gif, or `output`): the built app on sample data, on a private virtual desktop. Needs no sign-in and runs no model.
+# Record the README's demo GIF (apps/landing/public/demo.gif, which the website publishes, or `output`): the built app on sample data, on a private virtual desktop. Needs no sign-in and runs no model.
 [positional-arguments]
-demo output="assets/demo.gif":
+demo output="apps/landing/public/demo.gif":
     cargo build --locked -p study
     cargo run --locked -p study-showcase -- "$1"
+
+# Make the website's docs stills and clips (apps/landing/src/assets/shots and clips) in every language and theme, the same way; name scenes or variants (`search it-dark`) to make only those, or `missing` for those not made yet.
+docs-media *only:
+    cargo build --locked -p study
+    cargo run --locked -p study-showcase -- docs {{only}}
 
 # Build the distributable desktop binary.
 build:

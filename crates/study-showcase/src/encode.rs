@@ -1,7 +1,18 @@
-//! Turns the screen recording into the README's GIF with FFmpeg: one palette made from the
-//! clip, so text stays readable in few colors, and a loop that never ends. The recording keeps
-//! its own size, so small text is not softened, and its last moments dissolve into its first
-//! frame so the loop has no seam.
+//! Turns screen recordings and stills into what is published, with FFmpeg.
+//!
+//! - [`gif`] makes the README's GIF: one palette made from the clip, so text stays readable
+//!   in few colors, and a loop that never ends. The recording keeps its own size, so small
+//!   text is not softened, and its last moments dissolve into its first frame so the loop
+//!   has no seam.
+//! - [`clip`] makes a docs clip: H.264 in MP4 that every browser plays, without sound, with
+//!   its index at the front so it starts before it has fully loaded, at the smallest quality
+//!   loss that keeps it under [`MAX_CLIP_BYTES`].
+//! - [`still`] makes a docs still or a clip's poster: lossless WebP, half the bytes of the
+//!   PNG it comes from and not one pixel different, so text stays crisp. The site makes
+//!   its smaller sizes from it.
+//!
+//! Each writes its file next to its input first and copies it into place only once it is
+//! known to be good, so a run that dies half way never leaves a stray file behind.
 
 use std::{
     ffi::OsString,
@@ -13,6 +24,12 @@ use study_core::{Context as _, Error, Result};
 
 /// What GitHub shows inline without trouble.
 const MAX_BYTES: u64 = 10_000_000;
+/// What a docs clip may weigh, and the frame rate and width it plays at.
+pub const MAX_CLIP_BYTES: u64 = 1_500_000;
+const CLIP_FPS: u32 = 30;
+const CLIP_WIDTH: u32 = 1440;
+/// The H.264 qualities tried in turn, best first, until the clip is small enough.
+const CLIP_QUALITIES: [u32; 7] = [20, 24, 27, 30, 33, 36, 39];
 const FPS: u32 = 11;
 /// How long the end of the clip dissolves into its first frame, so the loop has no seam.
 const FADE: f64 = 0.4;
@@ -54,6 +71,133 @@ pub fn gif(recording: &Path, output: &Path) -> Result<u64> {
     Ok(size)
 }
 
+/// Encodes `length` seconds of `recording`, after its first `skip`, into the MP4 `output`,
+/// and returns its size in bytes. The recorder writes a frame only when the screen changes,
+/// so the recording stops at the last change: its last frame is held until `length`.
+pub fn clip(recording: &Path, output: &Path, skip: f64, length: f64) -> Result<u64> {
+    let partial = partial_path(recording, output);
+    for quality in CLIP_QUALITIES {
+        let encoded = ffmpeg(
+            &clip_arguments(recording, &partial, skip, length, quality),
+            "cannot encode the clip",
+        );
+        if let Err(error) = encoded {
+            std::fs::remove_file(&partial).ok();
+            return Err(error);
+        }
+        let size = std::fs::metadata(&partial).map_or(0, |meta| meta.len());
+        if size > 0 && size <= MAX_CLIP_BYTES {
+            return place(&partial, output, size);
+        }
+    }
+    std::fs::remove_file(&partial).ok();
+    Err(Error::msg(format!(
+        "{} stays over {MAX_CLIP_BYTES} bytes at every quality: shorten its steps",
+        output.display()
+    )))
+}
+
+/// Encodes the PNG `png` into the lossless WebP `output`, `width` pixels wide (its own
+/// width if `None`), and returns its size in bytes.
+pub fn still(png: &Path, output: &Path, width: Option<u32>) -> Result<u64> {
+    let partial = partial_path(png, output);
+    let encoded = ffmpeg(
+        &still_arguments(png, &partial, width),
+        "cannot encode the still",
+    );
+    let size = std::fs::metadata(&partial).map_or(0, |meta| meta.len());
+    if encoded.is_err() || size == 0 {
+        std::fs::remove_file(&partial).ok();
+        return Err(encoded
+            .err()
+            .unwrap_or_else(|| Error::msg("the still is empty")));
+    }
+    place(&partial, output, size)
+}
+
+/// Copies the finished `partial` file to `output`, removes it, and passes `size` on.
+fn place(partial: &Path, output: &Path, size: u64) -> Result<u64> {
+    if let Some(parent) = output.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::copy(partial, output)?;
+    std::fs::remove_file(partial).ok();
+    Ok(size)
+}
+
+fn clip_arguments(
+    recording: &Path,
+    output: &Path,
+    skip: f64,
+    length: f64,
+    quality: u32,
+) -> Vec<OsString> {
+    let mut args: Vec<OsString> = vec!["-i".into(), recording.into()];
+    args.extend(
+        [
+            "-vf",
+            &clip_filter(skip, length),
+            "-t",
+            &format!("{length:.3}"),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            &quality.to_string(),
+            "-movflags",
+            "+faststart",
+            "-an",
+            "-map_metadata",
+            "-1",
+            "-f",
+            "mp4",
+        ]
+        .map(Into::into),
+    );
+    args.push(output.into());
+    args
+}
+
+/// The recording's last frame held for `length` (padding first: `tpad` after `fps` stops at
+/// the last frame and adds nothing), then a steady frame rate made from its changes, its
+/// first `skip` seconds cut, and the docs' width in the pixel format and video range every
+/// browser decodes alike (the recording is full range).
+fn clip_filter(skip: f64, length: f64) -> String {
+    format!(
+        "tpad=stop_mode=clone:stop_duration={length:.3},\
+         fps={CLIP_FPS},trim=start={skip:.3},setpts=PTS-STARTPTS,\
+         scale={CLIP_WIDTH}:-2:flags=lanczos:out_range=tv,format=yuv420p"
+    )
+}
+
+fn still_arguments(png: &Path, output: &Path, width: Option<u32>) -> Vec<OsString> {
+    let mut args: Vec<OsString> = vec!["-i".into(), png.into()];
+    if let Some(width) = width {
+        args.extend([
+            "-vf".into(),
+            format!("scale={width}:-2:flags=lanczos").into(),
+        ]);
+    }
+    args.extend(
+        [
+            "-c:v",
+            "libwebp",
+            "-lossless",
+            "1",
+            "-compression_level",
+            "6",
+            "-map_metadata",
+            "-1",
+            "-f",
+            "webp",
+        ]
+        .map(Into::into),
+    );
+    args.push(output.into());
+    args
+}
+
 /// Runs FFmpeg with `args`, and fails with `what` and its exit status if it does.
 fn ffmpeg(args: &[OsString], what: &str) -> Result<()> {
     let status = Command::new("ffmpeg")
@@ -68,7 +212,7 @@ fn ffmpeg(args: &[OsString], what: &str) -> Result<()> {
     }
 }
 
-/// Where the GIF is written until it is known to be good: beside the recording.
+/// Where a file is written until it is known to be good: beside its input.
 fn partial_path(recording: &Path, output: &Path) -> PathBuf {
     let mut name = output.file_name().unwrap_or_default().to_owned();
     name.push(".partial");
@@ -174,10 +318,59 @@ mod tests {
         assert!(filter(0.2).contains("offset=0.000"));
     }
 
+    fn strings(args: &[OsString]) -> Vec<String> {
+        args.iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn a_clip_plays_in_every_browser_and_starts_at_once() {
+        let args = strings(&clip_arguments(
+            Path::new("in.mkv"),
+            Path::new("out.mp4.partial"),
+            0.5,
+            4.0,
+            27,
+        ));
+        let after = |name: &str| &args[args.iter().position(|arg| arg == name).unwrap() + 1];
+        assert_eq!(after("-t"), "4.000");
+        assert!(after("-vf").contains("trim=start=0.500"));
+        assert!(after("-vf").starts_with("tpad=stop_mode=clone"));
+        assert_eq!(after("-c:v"), "libx264");
+        assert_eq!(after("-crf"), "27");
+        assert_eq!(after("-movflags"), "+faststart");
+        assert!(after("-vf").contains("out_range=tv,format=yuv420p"));
+        assert!(after("-vf").contains("fps=30"));
+        assert!(args.iter().any(|arg| arg == "-an"), "no sound");
+    }
+
+    #[test]
+    fn a_still_is_lossless_and_resized_only_when_asked() {
+        let full = strings(&still_arguments(
+            Path::new("a.png"),
+            Path::new("a.webp"),
+            None,
+        ));
+        assert!(full.windows(2).any(|pair| pair == ["-lossless", "1"]));
+        assert!(!full.iter().any(|arg| arg == "-vf"));
+        let poster = strings(&still_arguments(
+            Path::new("a.png"),
+            Path::new("a.webp"),
+            Some(1440),
+        ));
+        assert!(poster.iter().any(|arg| arg.starts_with("scale=1440:")));
+    }
+
+    #[test]
+    fn every_quality_is_tried_from_the_best() {
+        assert!(CLIP_QUALITIES.is_sorted());
+    }
+
     #[test]
     fn the_partial_file_sits_beside_the_recording() {
         assert_eq!(
-            partial_path(Path::new("work/tour.mkv"), Path::new("assets/demo.gif")),
+            partial_path(Path::new("work/tour.mkv"), Path::new("site/demo.gif")),
             Path::new("work/demo.gif.partial")
         );
     }
