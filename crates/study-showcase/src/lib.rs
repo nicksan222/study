@@ -8,9 +8,9 @@
 //! the screen while [`tour`] plays a scripted visit, and [`encode`] turns the recording into
 //! a looping GIF. With `docs` as its first argument it makes the stills and clips of
 //! [`docs`] instead, once per language and theme; any further arguments name the scenes or
-//! variants (`it-dark`) to make, for a quicker loop, or ask only for the missing ones. No model runs and nobody signs in:
-//! every result on screen comes from the seed. Everything it starts is stopped on every
-//! exit path.
+//! variants (`it-dark`) to make, for a quicker loop, or ask only for the `missing` ones. No
+//! model runs and nobody signs in: every result on screen comes from the seed. Everything it
+//! starts is stopped on every exit path.
 //!
 //! Not `just showcase`, which converts a clip for a pull request: this makes the README's
 //! GIF and the docs' media from nothing.
