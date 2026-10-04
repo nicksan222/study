@@ -69,9 +69,9 @@ const heroNext = heroWords.pop();
         <span class="pass-time" id="hero-time">{p.time}</span>
       </p>
       <p class="pass-text">
-        {p.before}<span class="mark" id="hero-p1" role="button" tabindex="0" data-phrase="answer" aria-controls="made-answer" aria-pressed="true">{p.p1}</span
-        >{p.mid1}<span class="mark" id="hero-p2" role="button" tabindex="0" data-phrase="question" aria-controls="made-question" aria-pressed="false">{p.p2}</span
-        >{p.mid2}<span class="mark" id="hero-p3" role="button" tabindex="0" data-phrase="card" aria-controls="made-card" aria-pressed="false">{p.p3}</span
+        {p.before}<span class="mark" id="hero-p1" data-phrase="answer" aria-controls="made-answer">{p.p1}</span
+        >{p.mid1}<span class="mark" id="hero-p2" data-phrase="question" aria-controls="made-question">{p.p2}</span
+        >{p.mid2}<span class="mark" id="hero-p3" data-phrase="card" aria-controls="made-card">{p.p3}</span
         >{p.after}
       </p>
       <p class="pass-hint">{p.hint}</p>
@@ -149,6 +149,10 @@ const heroNext = heroWords.pop();
       made?.setAttribute('aria-live', 'polite');
     };
     marks.forEach((mark, i) => {
+      // Buttons only once they work: without this script they are plain highlighted words.
+      mark.setAttribute('role', 'button');
+      mark.tabIndex = 0;
+      mark.setAttribute('aria-pressed', String(i === index));
       const pick = () => {
         stop();
         if (index !== i) show(i);

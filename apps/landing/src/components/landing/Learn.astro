@@ -108,7 +108,7 @@ const diagram = {
     </div>
 
     <div class="panels" data-panels>
-      <div class="panel tint-green is-active" id="answers" role="tabpanel" aria-labelledby="tab-answers" tabindex="0" data-ink-later data-ink-scope>
+      <div class="panel tint-green is-active" id="answers" data-ink-later data-ink-scope>
         <div class="panel-head">
           <div class="panel-copy">
             <h3>{s.answers.title}</h3>
@@ -158,7 +158,7 @@ const diagram = {
         <svg class="ink-arrow" data-arrow data-from="#learn-answers-tap" data-to="#learn-chip-2" data-bow="-0.3" aria-hidden="true"></svg>
       </div>
 
-      <div class="panel tint-purple" id="quiz" role="tabpanel" aria-labelledby="tab-quiz" tabindex="0" data-ink-later data-ink-scope>
+      <div class="panel tint-purple" id="quiz" data-ink-later data-ink-scope>
         <div class="panel-head">
           <div class="panel-copy">
             <h3>{s.quiz.title}</h3>
@@ -217,7 +217,7 @@ const diagram = {
         <svg class="ink-arrow" data-arrow data-from="#learn-quiz-note" data-to="#learn-quiz-question" data-bow="0.3" aria-hidden="true"></svg>
       </div>
 
-      <div class="panel tint-orange" id="card" role="tabpanel" aria-labelledby="tab-card" tabindex="0" data-ink-later data-ink-scope>
+      <div class="panel tint-orange" id="card" data-ink-later data-ink-scope>
         <div class="panel-head">
           <div class="panel-copy">
             <h3>{s.card.title}</h3>
@@ -284,7 +284,7 @@ const diagram = {
         <svg class="ink-arrow" data-arrow data-from="#learn-card-from" data-to="#learn-card-phrase" data-bow="0.3" aria-hidden="true"></svg>
       </div>
 
-      <div class="panel tint-pink" id="diagram" role="tabpanel" aria-labelledby="tab-diagram" tabindex="0" data-ink-later data-ink-scope>
+      <div class="panel tint-pink" id="diagram" data-ink-later data-ink-scope>
         <div class="panel-head">
           <div class="panel-copy">
             <h3>{s.diagram.title}</h3>
@@ -404,6 +404,12 @@ const diagram = {
       window.clearInterval(timer);
       timer = undefined;
     };
+    // Tabs only once they work: without this script every panel shows, one after another.
+    panels.forEach((panel, i) => {
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', tabs[i].id);
+      panel.tabIndex = 0;
+    });
     stage.classList.add('is-live');
     select(0);
     tabs.forEach((tab, i) => {
