@@ -24,7 +24,7 @@ pub(super) enum Filter {
     #[default]
     All,
     Running,
-    /// Queued, or blocked until the jobs it waits for end.
+    /// Queued, blocked until the jobs it waits for end, or waiting for setup.
     Queued,
     Failed,
     /// Cancelled.
@@ -65,7 +65,10 @@ impl Filter {
         match self {
             Self::All => true,
             Self::Running => status == JobStatus::Running,
-            Self::Queued => matches!(status, JobStatus::Queued | JobStatus::Blocked),
+            Self::Queued => matches!(
+                status,
+                JobStatus::Queued | JobStatus::Blocked | JobStatus::Waiting
+            ),
             Self::Failed => status == JobStatus::Failed,
             Self::Stopped => status == JobStatus::Cancelled,
             Self::Done => status == JobStatus::Succeeded,
@@ -352,6 +355,17 @@ mod tests {
     };
     use crate::ui::screens::shell::page::workers::WorkersState;
     use gpui_kit::TestAppContext;
+
+    #[test]
+    fn every_status_shows_in_one_group() {
+        for status in JobStatus::ALL {
+            let groups = Filter::GROUPS
+                .iter()
+                .filter(|group| group.matches(*status))
+                .count();
+            assert_eq!(groups, 1, "{status:?}");
+        }
+    }
 
     #[gpui_kit::test]
     fn the_overview_lists_every_job_and_filters_by_status(cx: &mut TestAppContext) {
