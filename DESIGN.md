@@ -698,7 +698,9 @@ close) the runtime hides it and says why in `data-ink-hidden`.
 - **Durations come from `scripts/pace.ts`** (`DRAW_MS` 300, `HEAD_MS` 90, `FADE_MS` 160,
   `STAGGER_MS` 50, `STEP_MS` 120, `PIECE_MS` 800, `CHAR_MS` 10 to 14, `WORD_MS` 20 to 28,
   `HAND_WORD_MS` 20), or in CSS from the `--pace-draw`, `--pace-fade` and `--pace-step`
-  properties it sets on the root. No other duration is written down.
+  properties it sets on the root. That covers every inked or typed sequence. Interface feedback
+  (hover, press, a tab or panel switching, 100 to 260ms) and ambient loops (the typing dots,
+  the listening bars, the caret) keep their own short durations in the component's CSS.
 - A piece (`[data-ink]`) inks once, when 15% of it is in view; pieces arriving together start
   100ms apart. Strokes draw along their length in 300ms ease-out, 50ms apart (the last by
   240ms); the text starts within 120ms, while they finish. Anchored arrows draw two at a time

@@ -1,7 +1,8 @@
 // The landing page's pace, quick rather than slow: how long ink and type take, shared by
 // scripts/ink.ts, scripts/anchor.ts, the sections' own scripts (through ink.ts) and the
-// stylesheets (through the `--pace-*` properties set on the root below). Every duration on the
-// page comes from here; a piece, from its first ink to its last, stays under about 1.2s.
+// stylesheets (through the `--pace-*` properties set on the root below). Every inked or typed
+// sequence takes its durations from here; a piece, from its first ink to its last, stays under
+// about 1.2s. Hover and press feedback and ambient loops keep their own, in their CSS.
 
 /** One stroke drawing along its length. */
 export const DRAW_MS = 300;
