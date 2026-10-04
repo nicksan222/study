@@ -13,6 +13,7 @@ study-diagram.workspace = true
 
 [dev-dependencies]
 gpui-kit = { workspace = true, features = ["test-support"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [lints]
 workspace = true

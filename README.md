@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/logo/study.svg" width="88" height="88" alt="">
+
 # Study
 
 **A calm place for everything you learn.**
@@ -11,7 +13,7 @@ citations, and turns them into flashcards and practice.
 [Contribute](CONTRIBUTING.md) ·
 [Report a bug](https://github.com/nicksan222/study/issues)
 
-![A short tour of Study: Home, an answer citing the lecture recording, a diagram, a flashcard review, a quiz and search](assets/demo.gif)
+![A short tour of Study: Home, an answer citing the lecture recording, a diagram, a flashcard review, a quiz and search](https://nicksan222.github.io/study/demo.gif)
 
 </div>
 

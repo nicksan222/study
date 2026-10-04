@@ -1,0 +1,25 @@
+---
+// One of the app's own glyphs (study-ui's icons), drawn inline in currentColor; the few the
+// app has no use for are Lucide glyphs in the site's src/icons. A name in both is an error.
+const app = import.meta.glob<string>('../../../../crates/study-ui/assets/icons/*.svg', { eager: true, query: '?raw', import: 'default' });
+const site = import.meta.glob<string>('../icons/*.svg', { eager: true, query: '?raw', import: 'default' });
+const byName = (files: Record<string, string>) => Object.entries(files).map(([path, svg]) => [path.replace(/^.*\/|\.svg$/g, ''), svg] as const);
+const svgs = new Map(byName(app));
+for (const [name, svg] of byName(site)) {
+  if (svgs.has(name)) throw new Error(`src/icons/${name}.svg is one of the app's icons already: delete it`);
+  svgs.set(name, svg);
+}
+
+interface Props {
+  name: string;
+  size?: number;
+}
+const { name, size = 16 } = Astro.props;
+const raw = svgs.get(name);
+if (!raw) throw new Error(`no icon named ${name}`);
+const svg = raw
+  .replace(/\s(width|height)="24"/g, '')
+  .replace('<svg', `<svg width="${size}" height="${size}" aria-hidden="true" focusable="false"`);
+---
+
+<Fragment set:html={svg} />

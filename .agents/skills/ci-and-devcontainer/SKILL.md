@@ -7,8 +7,8 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 
 - **One complete devcontainer.** `.devcontainer/Dockerfile` installs Study's build,
   rendering and PDF dependencies, the browser desktop, Rust tools, and the agent
-  tools (Node, pinned Claude Code, Herdr and reviewr, Codex, basedpyright and
-  GitHub CLI). `.devcontainer/devcontainer.json` is the only configuration.
+  tools (Node, Bun for the website, pinned Claude Code, Herdr and reviewr, Codex,
+  basedpyright and GitHub CLI). `.devcontainer/devcontainer.json` is the only configuration.
   `just agents` must work there after a rebuild. Linux CI and Linux releases use it too.
   Add tools to the Dockerfile, never in a recipe.
 - **`post-create.py` configures mounted host credentials** at runtime:
@@ -24,22 +24,28 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   release. `.github/actions/setup` installs the build subset of the Dockerfile's apt
   packages, Rust from `rust-toolchain.toml` and pinned `just`, and restores the build cache
   (every branch saves its own; a pull request starts from main's). Keep its packages and pins aligned with the Dockerfile.
-  - CI (`ci.yml`): lint (`check-shell fmt-check deny lint docs`) and `just test` run as
-    parallel jobs, with dependencies built unoptimized. `Test and build` is the one required
-    check; it passes when both jobs passed. The runner's own Docker runs the tests that need
+  - CI (`ci.yml`): lint (`check-shell fmt-check deny lint docs`), `just test` and the
+    website's type check (`landing-check`, with Bun alone) run as parallel jobs, with
+    dependencies built unoptimized. `Test and build` is the one required check; it passes
+    when every job passed. The runner's own Docker runs the tests that need
     real services. Ubuntu 24.04's glibc 2.39 is enough for the prebuilt onnxruntime.
   - Devcontainer (`devcontainer.yml`): when `.devcontainer/` changes, builds the image,
     starts the container and runs its lifecycle commands, so a broken environment fails
     before merge.
-  - Demo (`demo.yml`): by hand only. It runs `just demo` and opens a pull request with the
-    new `assets/demo.gif`.
+  - Landing (`landing.yml`): on every push to main, or by hand, runs `just landing-build`
+    and deploys `apps/landing/dist` to GitHub Pages under `/study/`. A fresh checkout has
+    no captures of the app, so the recipe first makes all of them (`just docs-media`,
+    `just demo`) on the showcase's private desktop with software Vulkan, as the setup
+    action's extra packages provide, then builds the site with Bun, pinned by
+    `packageManager` in `apps/landing/package.json` to the Dockerfile's `BUN_VERSION`. The
+    README's demo GIF is published with the site; nothing it makes is committed.
   - Releases: Linux x64 and ARM64 build inside the devcontainer; macOS Intel/Apple Silicon
     and Windows x64 use native GitHub runners. They install Rust and pinned cargo-packager;
     they must never require a second devcontainer.
   - Linux AppImages still need glibc 2.41 or newer.
 - **One release pipeline.** `.github/workflows/release.yml` runs on a pushed `vX.Y.Z` tag
   that matches the workspace version, then publishes only when all five signed packages exist.
-  `packaging/packager.json` and `packaging/release.sh` own packaging and the
+  `apps/desktop/packaging/packager.json` and `apps/desktop/packaging/release.sh` own packaging and the
   static `latest.json` updater feed; keep the platform keys aligned with cargo-packager-updater.
   Keep `cargo-packager` pinned identically in the Dockerfile and release workflow.
   Never put signing keys in the image or repository. Releases require the public-key

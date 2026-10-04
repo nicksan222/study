@@ -1,6 +1,6 @@
 [package]
 name = "study-showcase"
-description = "Records the README demo GIF: Study on sample data, driven on a private virtual desktop"
+description = "Records the README demo GIF and the website's docs media: Study on sample data, driven on a private virtual desktop"
 edition.workspace = true
 version.workspace = true
 license.workspace = true

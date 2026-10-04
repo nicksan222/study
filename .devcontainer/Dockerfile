@@ -43,6 +43,7 @@ USER root
 
 ARG GH_VERSION=2.102.0
 ARG NODE_VERSION=22.23.3
+ARG BUN_VERSION=1.4.2
 ARG HERDR_VERSION=0.9.3
 ARG CLAUDE_VERSION=2.1.287
 ARG CODEX_VERSION=0.159.3
@@ -64,6 +65,22 @@ printf '%s  /tmp/gh.deb\n' "$checksum" | sha256sum --check
 dpkg -i /tmp/gh.deb
 rm /tmp/gh.deb
 gh pr create --help | grep -q -- --attach
+SH
+
+# Bun builds and serves the website in apps/landing.
+RUN <<'SH'
+set -eu
+case "$(uname -m)" in
+  aarch64) arch=aarch64; checksum=54328bbc2d9c8e0c9f892c544d66c57a83b84139e34909e5ee81758f1ac8fda7 ;;
+  x86_64) arch=x64; checksum=36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913 ;;
+  *) echo "Unsupported Bun architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${arch}.zip"
+printf '%s  /tmp/bun.zip\n' "$checksum" | sha256sum --check
+python3 -c "import zipfile; zipfile.ZipFile('/tmp/bun.zip').extract('bun-linux-${arch}/bun', '/tmp')"
+install -m 755 "/tmp/bun-linux-${arch}/bun" /usr/local/bin/bun
+rm -r /tmp/bun.zip "/tmp/bun-linux-${arch}"
+bun --version
 SH
 
 # Node for the npm-installed agents.

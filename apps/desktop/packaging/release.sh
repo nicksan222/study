@@ -7,7 +7,8 @@
 #
 # Platform keys must match cargo-packager-updater's: they are the keys of latest.json.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# From the repository root, where Cargo and dist/ live.
+cd "$(dirname "$0")/../../.."
 
 PLATFORMS=(linux-x86_64 linux-aarch64 macos-aarch64 windows-x86_64)
 
@@ -39,7 +40,7 @@ package() {
         --arg identity "${APPLE_SIGNING_IDENTITY:-}" \
         '. + {version: $version, targetTriple: $target, binariesDir: $bins, outDir: $out}
          | if $identity != "" then .macos.signingIdentity = $identity else . end' \
-        packaging/packager.json)
+        apps/desktop/packaging/packager.json)
     local formats=("$format")
     [[ $format == app ]] && formats=(app dmg)
     export APPIMAGE_EXTRACT_AND_RUN=1

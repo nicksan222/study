@@ -6,7 +6,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  # The Demo workflow starts this on the pull request it opens, which starts nothing by itself.
   workflow_dispatch:
 
 permissions:
@@ -20,8 +19,8 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
-# Straight on the runner, no devcontainer (see .github/actions/setup). Lint and tests run in
-# parallel, each with its own cache.
+# Straight on the runner, no devcontainer (see .github/actions/setup). Lint, tests and the
+# website run in parallel, each with its own cache.
 jobs:
   lint:
     name: Format, Clippy, docs and dependencies
@@ -50,10 +49,24 @@ jobs:
       - name: Test
         run: just test
 
+  site:
+    name: Website
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      # Types and content only: the captures it shows are made when it is published.
+      - name: Check
+        run: cd apps/landing && bun install --frozen-lockfile && bun run check
+
   done:
     # The one required check: its name is in the `main` ruleset, so keep it.
     name: Test and build
-    needs: [lint, test]
+    needs: [lint, test, site]
     if: always()
     runs-on: ubuntu-24.04
     steps:

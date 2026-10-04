@@ -11,7 +11,7 @@ use gpui_kit::{
 };
 
 use crate::button::title_bar_sized;
-use crate::chrome::{inset_surface, title_bar, window_root};
+use crate::chrome::{TITLE_BAR_MARK, inset_surface, title_bar, window_root};
 use crate::ids;
 
 /// A full window for one step of a guided tour.
@@ -252,7 +252,7 @@ fn stage(column: Div, cx: &App) -> impl IntoElement {
         .child(column)
 }
 
-/// The title bar: the app's name, and the way out of the tour.
+/// The title bar: the app's mark and name, and the way out of the tour.
 fn title_bar_row(brand: SharedString, skip: Option<Button>, cx: &App) -> impl IntoElement {
     let unit = crate::theme::units(cx);
     title_bar(cx).child(
@@ -264,6 +264,7 @@ fn title_bar_row(brand: SharedString, skip: Option<Button>, cx: &App) -> impl In
             .flex()
             .items_center()
             .gap(unit(8.))
+            .child(crate::logo(TITLE_BAR_MARK, cx))
             .child(
                 div()
                     .flex_1()

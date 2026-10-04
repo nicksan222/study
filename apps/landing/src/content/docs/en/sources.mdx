@@ -1,0 +1,62 @@
+---
+title: Sources
+description: The kinds of files and links Study can read, and how each one is read.
+section: learn
+order: 2
+shot: library
+shotAlt: The Library, with recordings, PDFs, pictures and web pages from several projects.
+---
+
+A source is anything you give Study to learn from: a recording, a PDF, slides, a web page, a note. Study keeps every file in your Library and reads the ones it understands into text that answers, search and study material can point back to.
+
+## Adding sources
+
+You can add sources in a few places:
+
+- in a [session](../sessions/), with **Attach files**, by dropping files, or by pasting
+- from Home or the Library, with **Add files**
+- in the Library, with **New note**, which needs a title and some text
+- in the Library, with **Add link**, for a web page or a YouTube video
+
+![The Add files dialog in the Library, with a place to drop files and a Choose files button.](shot:add-files "Drop files on the dialog, or choose them from your computer.")
+
+Each file must be under 512 MiB and not empty. Study looks at a file's contents to tell what it is, rather than trusting its name.
+
+## What Study reads, and how
+
+| Kind | How it's read |
+|---|---|
+| Recordings and audio | Transcribed on your computer |
+| Videos | The sound is transcribed on your computer |
+| PDFs | Pages read with AI |
+| Pictures (PNG, JPEG, WebP, GIF, BMP, TIFF) | Read with AI |
+| Documents (`.docx`) | Office reader |
+| Slides (`.pptx`) | Office reader |
+| Web pages | Web page reader |
+| Code and web files, including HTML | Plain text reader |
+| Text files and notes | Plain text reader |
+| Spreadsheets saved as text, such as CSV | Plain text reader |
+
+Some files are kept but not read: archives, other office formats such as `.doc`, `.odt` and `.rtf`, e-books, SVG and HEIC pictures, and anything else Study doesn't recognise. They stay in your Library. If you need one read, saving it again as PDF, PNG, MP3 or M4A usually works.
+
+![A PDF open in the Library: its first page beside its project, and the text read from each page below.](shot:source-details "Each file shows what was read from it, page by page.")
+
+## Links
+
+**Add link** saves a web page and reads it. A YouTube link (including Shorts, live videos and `youtu.be` links) is handled like a recording: Study takes its sound with yt-dlp and transcribes it. yt-dlp has to be installed for that; see [install](../install/).
+
+![The Add link dialog, with a field for the address and a note about YouTube videos.](shot:add-link "A web page is saved and read; a YouTube video is transcribed.")
+
+## After reading
+
+Recordings go through two more steps. **Correct transcripts with AI** fixes words the transcription misheard, and **Tidy spacing** cleans up the spacing. Then every read source is added to the **Search index** and to **Search by meaning**, so [search](../search/) and [answers](../answers/) can find it.
+
+Read sources also feed the project's study material: [flashcards](../flashcards/) and the [diagram](../notes-and-diagrams/). Some kinds leave out a piece by default. Code and spreadsheets don't make flashcards, and pictures don't feed the diagram.
+
+## Changing what runs
+
+Open **Settings › Processing** to see every kind of source in a table with the columns **Reading**, **Tidying**, **Search** and **Study material**. Each step can be turned on or off for each kind, and every change is saved as you make it.
+
+![Settings › Processing: a table of every kind of source, with a switch for each step.](shot:settings-processing "Each step can be turned on or off for each kind of source.")
+
+If you correct a file's text by hand, with **Correct this text** in **File details**, search and answers use your version.

@@ -30,6 +30,36 @@ colors:
   danger-light: "#c4302b"
   highlighter-fill: "#f2d24b"
   on-highlighter: "#1a1600"
+  site-blue-bg-light: "#ebf3f8"
+  site-blue-chip-light: "#d3e5ef"
+  site-blue-ink-light: "#24516e"
+  site-green-bg-light: "#edf4ee"
+  site-green-chip-light: "#d5e9d8"
+  site-green-ink-light: "#2c5a37"
+  site-orange-bg-light: "#fbf0e4"
+  site-orange-chip-light: "#f7dcc2"
+  site-orange-ink-light: "#7a4519"
+  site-purple-bg-light: "#f4f0f8"
+  site-purple-chip-light: "#e3d8ee"
+  site-purple-ink-light: "#57397a"
+  site-pink-bg-light: "#faeff4"
+  site-pink-chip-light: "#f2d6e3"
+  site-pink-ink-light: "#7d3256"
+  site-blue-bg-dark: "#1b252c"
+  site-blue-chip-dark: "#23394a"
+  site-blue-ink-dark: "#a9cde3"
+  site-green-bg-dark: "#1c261f"
+  site-green-chip-dark: "#25392b"
+  site-green-ink-dark: "#a8d3b1"
+  site-orange-bg-dark: "#2a2219"
+  site-orange-chip-dark: "#45311f"
+  site-orange-ink-dark: "#eec39c"
+  site-purple-bg-dark: "#241f2b"
+  site-purple-chip-dark: "#392d48"
+  site-purple-ink-dark: "#cfb8ea"
+  site-pink-bg-dark: "#2a1e24"
+  site-pink-chip-dark: "#45293a"
+  site-pink-ink-dark: "#ebb5cd"
 typography:
   display:
     fontFamily: "Inter, system-ui, sans-serif"
@@ -66,6 +96,33 @@ typography:
     fontSize: "16px"
     fontWeight: 400
     lineHeight: "22px"
+  site-display:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(44px, 5.4vw, 76px)"
+    fontWeight: 600
+    lineHeight: 1.02
+    letterSpacing: "-0.035em"
+  site-heading:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(32px, 3.6vw, 48px)"
+    fontWeight: 600
+    lineHeight: 1.08
+    letterSpacing: "-0.03em"
+  site-lead:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "19px"
+    fontWeight: 400
+    lineHeight: 1.55
+  site-body:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.6
+  site-hand:
+    fontFamily: "Excalifont, Inter, system-ui, sans-serif"
+    fontSize: "23px"
+    fontWeight: 400
+    lineHeight: 1.25
 rounded:
   sm: "6px"
   md: "8px"
@@ -154,6 +211,35 @@ components:
     width: "680px"
   page-column:
     width: "960px"
+  site-tile:
+    rounded: "{rounded.xl}"
+    padding: "clamp(16px, 2vw, 32px)"
+  site-paper-light:
+    backgroundColor: "{colors.canvas-light}"
+    rounded: "{rounded.lg}"
+    padding: "24px"
+  site-paper-dark:
+    backgroundColor: "{colors.canvas-dark}"
+    rounded: "{rounded.lg}"
+    padding: "24px"
+  site-tab-chip:
+    rounded: "{rounded.md}"
+    size: "40px"
+  site-button-large:
+    backgroundColor: "{colors.highlighter-fill}"
+    textColor: "{colors.on-highlighter}"
+    rounded: "{rounded.md}"
+    height: "48px"
+    padding: "0 24px"
+  site-frame:
+    width: "1200px"
+  site-docs-sidebar:
+    rounded: "{rounded.xl}"
+    width: "260px"
+  site-docs-page:
+    width: "760px"
+  site-reading-measure:
+    width: "680px"
 ---
 
 # Design System: Study
@@ -180,7 +266,7 @@ six sizes; diagrams keep their hand-drawn Excalifont. The interface scales as on
 
 **Key Characteristics:**
 - Neutral tonal surfaces: sidebar, canvas and raised layers, with hairlines only where tone can't separate.
-- One accent, the highlighter, used for learning moments, never for decoration or brand.
+- One accent, the highlighter, used for learning moments, never for decoration or brand; the logo is its one exception.
 - A notebook, not a chat: the learner's notes are the page, read at a comfortable measure.
 - Background work folds into one quiet line that opens on demand.
 - Six type sizes, a 4-point spacing scale, four radii.
@@ -225,6 +311,14 @@ failure.
 **The One Highlighter Rule.** The highlighter marks learning, nothing else: due cards, exam
 countdowns, `@study`, citations, practice and focus. If a use isn't about remembering,
 understanding or practising, it's neutral. At most one highlighter-filled control per screen.
+
+**The Highlighter's Tile Rule.** The logo is the highlighter's own tile: a `highlighter-fill`
+rounded square (radius 15 on a 64 grid) holding an open book in `#1a1600` ink on `#fffdf4`
+pages, one line of the right page washed yellow. It is the one place the highlighter means
+the brand, and it stays yellow in both themes. The masters are
+`assets/logo/study.svg` and, under 40px (title bars, favicons), `study-small.svg`, the
+same book without text lines; the app, the website, the favicon and the installers' icons
+are all made from them. It is never recoloured, outlined or set on a yellow ground.
 
 **The Quiet Success Rule.** Done is normal, so it isn't coloured: finished work is an `ink-3`
 line with a check. Running is a shimmer, waiting is `ink-3` text. Only failure gets colour,
@@ -510,3 +604,129 @@ bubble.
 - **Don't** colour a learner's wrong answer `danger`: it is a result, not a failure.
   Failure is the app's, and comes with a fix.
 - **Don't** introduce a type size, radius or colour outside this file; change this file first.
+
+## Website
+
+The website (`apps/landing`, landing and docs, English and Italian) is the Highlighted
+Notebook at marketing scale: the app's tokens, fonts, radii and spacing in both themes
+(`src/styles/global.css`), warmed by two things the app does not have, notebook-tab tints
+and a hand-drawn margin. Everything above holds on the site except where this section says
+otherwise. The site follows the reader's `prefers-color-scheme`.
+
+### Colour
+- **Notebook tabs** (`site-<hue>-bg`, `-chip`, `-ink`, blue, green, orange, purple, pink, in
+  both themes): one soft tint per story section, set by a `tint-<hue>` class. The `bg` is the
+  section's tile, the `chip` its icon chip (40px, medium radius, at the section's lead; 24 to
+  32px inside its tiles), the `ink` the chip's glyph and short labels in that tile. Never on a
+  paragraph, a heading or a button. Each tint means one thing wherever it appears, in its own
+  section and in the hero's previews of it: green is Answers, purple is Quizzes, orange is
+  Flashcards, pink is Diagrams, blue is the material and its home (the Material and Yours
+  sections). A tint names a section, not a kind of thing: the files in the material tile all
+  take the section's blue. This is the site's one exception to the No Rainbow Rule; the app
+  keeps it.
+- **Highlighter** yellow is not a tab. It keeps its reserved uses: learning moments (the
+  phrase washes in the hero passage, the `@study` mention, cited passages, a right answer, a
+  pressed rating, the caret), focus, and Download.
+  Download is the one section without a hue: its tile is `sidebar`, so the only yellow in it
+  is the app's icon (the logo, large and tilted a little, as it sits in a dock) and the
+  Download button. The other platforms are one line of links, never a table. One
+  highlighter button per screen: Download in the hero; the nav's Download is quiet there.
+- A diagram's node fills use tab chip tones, as content (the No Rainbow Rule's drawing
+  exemption).
+
+### Type
+Inter at display scale with tight tracking: `site-display` for the one hero headline,
+`site-heading` for section titles (docs H1 is 34 to 48px, same tracking), `site-lead` for
+section and docs leads in `ink-2`, `site-body` (17/1.6) for page text and docs prose (17/1.7).
+Tile titles are 19px 600; product pieces inside tiles keep the app's sizes (13 to 17px).
+Excalifont (`site-hand`, 21 to 24px, `ink-2`) is for margin notes and inside diagrams only.
+Sentence case throughout.
+
+### Layout
+- A 1200px frame with a `clamp(16px, 4vw, 48px)` gutter. Sections sit 96 to 168px apart
+  (`clamp(96px, 11vw, 168px)`); no rules between them.
+- **Hero:** five columns of headline, lead and Download beside seven of the source passage
+  (`5fr 7fr`), stacking under 1080px.
+- **Story section:** a 12-column grid, 24px gaps: the lead (tab chip, heading, body,
+  `arrow-right` links to its docs pages) over columns 1 to 7 at the 680px measure, a margin
+  note in 8 to 12, then tiles. Paired tiles split 5/7 or 7/5 and stretch to the same height.
+  Under 900px everything takes the full width and wide captures drop out.
+- **Docs:** a 260px tonal sidebar (`sidebar` tone, extra-large radius, sticky under the bar)
+  beside a page of at most 760px whose lead, prose and previous/next links stop at the 680px
+  measure. Groups are caption `ink-3` labels; the current page is a `selected` pill in 500
+  weight. Under 900px the sidebar becomes a disclosure above the page. Tables are the only
+  ruled thing.
+- **Bar and footer:** a 64px sticky bar on canvas at 88% with a background blur; the footer
+  is a `sidebar` band.
+
+### Tiles and captures
+- **Tile** (`site-tile`): extra-large radius, the section's tint (or `fill`), no border, no
+  shadow. Product pieces sit on it as `site-paper-*`: `canvas`, large radius, 24px padding.
+  The passage and the data sketch use `sidebar` instead of a tint.
+- **Built pieces, not pictures:** the passage, cited answer, quiz question, flashcard and
+  diagram are working HTML in the app's components (citation chip, mention, quiet rating
+  buttons, choices on `hover`).
+- **Captures** (`Shot.astro`) are real app pages, 1440 by 900 points, in the reader's theme
+  and language. Each is cropped in those points to the part that proves the point and shown
+  at no less than the app's own size, so no app text renders under about 11px; a crop sits in
+  a large-radius `canvas` frame with an `ink-3` caption, the first naming the sample course. A rough mark (bracket, loop) may
+  sit on a crop where a learner would circle it.
+
+### Hand-drawn margin
+- **Notes** are `.hand .hand-note`: Excalifont in `ink-2`, rotated within -3 to +3 degrees
+  (set per note with `--r`), short, pointing at the product with a stroke. They annotate;
+  they never carry a label or a heading.
+- **Strokes** come from `rough.ts`'s seeded pen (each build draws the same): arrows with
+  open two-flick heads, loose rings, drifting underlines, brackets, checks, a star, a pencil.
+  Every line bows slightly and is drawn twice; the second `.thin` pass is 1.1px at 55%,
+  0.8px off the 2px first. Round caps and joins, `currentColor`, usually `ink-2`.
+
+### Anchored ink
+Arrows and marks that point at something are empty `svg`s inside a `[data-ink-scope]`:
+`data-arrow` with `data-from` (the note) and `data-to` (the target), or `data-mark` (`ring`,
+`underline`, `double`, `bracket`, `check`, `star`) with `data-to`. `scripts/anchor.ts` measures
+and draws them, and redraws them on resize, font load and `relayout`; they are never placed by
+hand. A ring is sized to its letters' ink, not the line box, and stops halfway to the next
+line, so it never crosses a neighbouring line. An arrow takes the cleanest route that crosses
+no text or picture; when there is none (or the ends are missing, hidden, overlapping or too
+close) the runtime hides it and says why in `data-ink-hidden`.
+
+### Motion
+- **Every sequence finishes within about 1.2s** of coming into view, its first ink to its last;
+  slower ones read as far too long. The text in one piece shares a budget of `PIECE_MS` (800ms)
+  and types faster when it has more units.
+- **Durations come from `scripts/pace.ts`** (`DRAW_MS` 300, `HEAD_MS` 90, `FADE_MS` 160,
+  `STAGGER_MS` 50, `STEP_MS` 120, `PIECE_MS` 800, `CHAR_MS` 10 to 14, `WORD_MS` 20 to 28,
+  `HAND_WORD_MS` 20), or in CSS from the `--pace-draw`, `--pace-fade` and `--pace-step`
+  properties it sets on the root. That covers every inked or typed sequence. Interface feedback
+  (hover, press, a tab or panel switching, 100 to 260ms) and ambient loops (the typing dots,
+  the listening bars, the caret) keep their own short durations in the component's CSS.
+- A piece (`[data-ink]`) inks once, when 15% of it is in view; pieces arriving together start
+  100ms apart. Strokes draw along their length in 300ms ease-out, 50ms apart (the last by
+  240ms); the text starts within 120ms, while they finish. Anchored arrows draw two at a time
+  after their note has written, the shaft then a 90ms head.
+- **Handwriting** reveals word by word, 20ms apart, each word wiping in from the left; the
+  note settles into its rotation over 300ms. **Typing** is what the app writes: 10 to 14ms a
+  letter or 20 to 28ms a word, with the `highlighter-ink` caret on the newest unit only.
+  Citations and steps fade or pop in 160ms.
+- Loops run only while in view and stop once touched: the hero's marks change every 3.5s, the
+  Learn tabs every 9s.
+- **Reduced motion and no script show the final state.** Text is always in the DOM; the
+  `js-ink` class, set before first paint only with script and motion allowed, hides what has
+  not been set down. Without it every piece, text and anchored mark is complete at once.
+
+### Named Rules
+**The Tab Not Paint Rule.** A section's tint lives on its tiles and chips. If it touches a
+paragraph, heading or button, it's decoration; take it off.
+
+**The Margin Is Not Chrome Rule.** Excalifont and rough strokes annotate the product. They are
+never a label, a heading, a button or an icon.
+
+**The Measured Ink Rule.** An arrow or mark that points at something is anchored and measured
+by the runtime. If it is positioned by hand, it will miss at some width; anchor it.
+
+**The Quick Ink Rule.** A sequence is done within about 1.2s, on `pace.ts` durations. If it
+needs a number of its own, it is too slow or off the pace.
+
+**The Readable Capture Rule.** A capture shows app text at the app's size or not at all: crop
+it, don't shrink it.

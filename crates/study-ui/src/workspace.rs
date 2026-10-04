@@ -1,8 +1,8 @@
-//! The main window: title bar (menu, toolbar, the page's header), then the sidebar (the
-//! [`NavigationRail`]'s destinations with the page's section sidebar between them) beside the
-//! inset canvas holding the page. Application chrome and resizing belong to the design
-//! system, not feature screens. Shared chrome pieces are in `chrome.rs`;
-//! what a page hands the shell is [`PageView`] in `page/view.rs`, and how its header is drawn
+//! The main window: title bar (the app's mark and menu, toolbar, the page's header), then
+//! the sidebar (the [`NavigationRail`]'s destinations with the page's section sidebar between
+//! them) beside the inset canvas holding the page. Application chrome and resizing belong to
+//! the design system, not feature screens. Shared chrome pieces are in `chrome.rs`; what a
+//! page hands the shell is [`PageView`] in `page/view.rs`, and how its header is drawn
 //! is in `page/header.rs`.
 
 use std::rc::Rc;
@@ -16,7 +16,7 @@ use gpui_kit::{
 };
 
 use crate::button::title_bar_sized;
-use crate::chrome::{INSET_RADIUS, inset_surface, title_bar, window_root};
+use crate::chrome::{INSET_RADIUS, TITLE_BAR_MARK, inset_surface, title_bar, window_root};
 use crate::motion::FadeIn;
 use crate::page::{
     ASIDE_GUTTER, HeaderScale, PAGE_GUTTER, PageHeader, header_contents, header_row,
@@ -153,10 +153,20 @@ impl RenderOnce for WorkspaceShell {
             .items_center()
             .gap(unit(8.))
             .px(unit(8.))
-            .children(
-                self.menu
-                    .map(|menu| div().w(unit(120.)).h_full().flex_none().child(menu)),
-            )
+            .children(self.menu.map(|menu| {
+                // The app's mark leads the in-window menu, the way the system menu sits
+                // under the app's name elsewhere; with the menu's own padding, the title
+                // bar's gap sets it apart.
+                div()
+                    .h_full()
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(unit(2.))
+                    .pl(unit(4.))
+                    .child(crate::logo(TITLE_BAR_MARK, cx))
+                    .child(div().w(unit(120.)).h_full().flex_none().child(menu))
+            }))
             .children(toolbar);
         let header = header_row(header, cx);
         let trailing = match aside {

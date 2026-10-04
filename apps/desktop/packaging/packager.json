@@ -5,12 +5,12 @@
   "homepage": "https://github.com/nicksan222/study",
   "publisher": "Study",
   "category": "Education",
-  "icons": ["packaging/icon.png"],
+  "icons": ["apps/desktop/packaging/icon.png"],
   "binaries": [{"path": "study", "main": true}],
   "macos": {
     "minimumSystemVersion": "12.0",
-    "infoPlistPath": "packaging/Info.plist",
-    "entitlements": "packaging/Entitlements.plist"
+    "infoPlistPath": "apps/desktop/packaging/Info.plist",
+    "entitlements": "apps/desktop/packaging/Entitlements.plist"
   },
   "nsis": {"installMode": "currentUser"}
 }

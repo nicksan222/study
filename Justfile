@@ -162,11 +162,33 @@ test: trim
 docs:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps --document-private-items
 
-# Record the README's demo GIF (assets/demo.gif, or `output`): the built app on sample data, on a private virtual desktop. Needs no sign-in and runs no model.
+# Record the README's demo GIF (apps/landing/public/demo.gif, which the website publishes, or `output`): the built app on sample data, on a private virtual desktop. Needs no sign-in and runs no model.
 [positional-arguments]
-demo output="assets/demo.gif":
+demo output="apps/landing/public/demo.gif":
     cargo build --locked -p study
     cargo run --locked -p study-showcase -- "$1"
+
+# Make the website's docs stills and clips (apps/landing/src/assets/shots and clips) in every language and theme, the same way; name scenes or variants (`search it-dark`) to make only those, or `missing` for those not made yet.
+docs-media *only:
+    cargo build --locked -p study
+    cargo run --locked -p study-showcase -- docs {{only}}
+
+# Make the website's captures of the app that are missing: none is committed, so a fresh checkout (and every Landing workflow run) makes them all, and a new scene only its own. `just docs-media` and `just demo` make them again after a change.
+landing-media:
+    just docs-media missing
+    [ -s apps/landing/public/demo.gif ] || just demo
+
+# Serve the website (apps/landing: the landing page and docs) with live reload at localhost:4321/study/.
+landing: landing-media
+    cd apps/landing && bun install --frozen-lockfile && bun run dev --host
+
+# Build the website into apps/landing/dist, as the Landing workflow publishes it, with every capture of the app.
+landing-build: landing-media
+    cd apps/landing && bun install --frozen-lockfile && bun run build
+
+# Type-check the website's pages, components and content without building it, so it needs no captures.
+landing-check:
+    cd apps/landing && bun install --frozen-lockfile && bun run check
 
 # Build the distributable desktop binary.
 build:
@@ -175,14 +197,14 @@ build:
 # Build and sign the native installer/AppImage (see CONTRIBUTING.md for signing setup).
 [positional-arguments]
 package platform:
-    packaging/release.sh package "$1"
+    apps/desktop/packaging/release.sh package "$1"
 
 # Check dependencies for known vulnerabilities, licenses and sources (deny.toml).
 deny:
     cargo deny --locked check
 
 # Run checks required for pull requests.
-check: check-shell fmt-check lint deny test docs
+check: check-shell fmt-check lint deny test docs landing-check
 
 # Run the same checks for one package only, e.g. `just check-crate study-core`: a focused development loop.
 [positional-arguments]
@@ -208,7 +230,7 @@ test-transcription-e2e:
 # Both spellings start the same team; neither resets existing conversations.
 alias agent := agents
 
-# Start the project-wide seven-role team, or selected roles, in Herdr's study session. Options: --session NAME, --fresh, --no-attach, --dry-run.
+# Start the project-wide seven-role team, or selected roles (the on-demand scenario, upgrade-reviewer, pr-maker and site start only by name), in Herdr's study session. Options: --session NAME, --fresh, --no-attach, --dry-run.
 [positional-arguments]
 agents *args:
     python3 .agents/team/agents.py up "$@"
@@ -235,7 +257,7 @@ agents-usage *args:
 
 # Lint the devcontainer and packaging shell scripts.
 check-shell:
-    shellcheck -x .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh packaging/release.sh
+    shellcheck -x .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/release.sh
 
 # Prepare a recording for a PR: first 15 seconds, no audio, at most 8 MB. Use .mp4 or .gif.
 [positional-arguments]

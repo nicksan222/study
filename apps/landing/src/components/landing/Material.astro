@@ -1,0 +1,498 @@
+---
+// What Study reads: the Cell biology sample's library, one row per file with its kind's glyph
+// and its size, and the lecture that drops into it, is listened to, and becomes a transcript
+// whose lines type in.
+import Icon from '../Icon.astro';
+import { pen } from '../rough';
+import { draw, keyed, words } from './text';
+import { href, t, type Lang } from '../../i18n/strings';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const s = t(lang);
+const m = s.material;
+const docs = (slug: string) => href(lang, `docs/${slug}/`);
+
+// Each listed file's kind glyph, in the order of `material.files`: Audio, PDF and Web, as the
+// app draws them.
+const kindIcons = ['audio-lines', 'file-text', 'file-text'];
+
+const ink = pen(63);
+const pencil = draw(ink.pencil(2, 4, 44));
+---
+
+<section class="sec material frame" id="material" aria-labelledby="material-title" data-ink-scope>
+  <div class="lead">
+    <span class="chip chip-lg tint-blue"><Icon name="library-big" size={20} /></span>
+    <h2 id="material-title" data-ink set:html={keyed(m.title, m.key, 'under', 71)} />
+    <p>{m.body}</p>
+    <p class="links">
+      <a class="more" href={docs('sources')}>{m.more}<Icon name="arrow-right" size={14} /></a>
+      <a class="more" href={docs('sessions')}>{m.sessions}<Icon name="arrow-right" size={14} /></a>
+    </p>
+  </div>
+
+  <div class="tile tint-blue lib" id="material-library">
+    <p class="lib-head">
+      <span class="lib-title">{m.library}</span>
+      <span class="lib-course">{m.course}</span>
+    </p>
+    <ul class="files" aria-label={`${m.library}, ${m.course}`}>
+      <li class="arrive" data-arrive>
+        <div class="slot">
+        <div class="file is-open">
+          <span class="chip bars"><Icon name="audio-lines" size={16} /></span>
+          <span class="file-name">{m.arriving.name}</span>
+          <span class="file-size">
+            {m.arriving.size}
+            <span class="status">
+              <span class="st-working">{m.arriving.working}<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
+              <span class="st-done"><Icon name="check" size={13} />{m.arriving.done}</span>
+            </span>
+          </span>
+        </div>
+        </div>
+      </li>
+      {
+        m.files.map((name, i) => {
+          const icon = kindIcons[i];
+          return (
+            <li>
+              <div class="file">
+                <span class="chip">
+                  <Icon name={icon} size={16} />
+                </span>
+                <span class="file-name">{name}</span>
+                <span class="file-size">{m.sizes[i]}</span>
+              </div>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+
+  <div class="margin" data-ink data-manual id="material-margin">
+    <svg class="ink margin-pencil" viewBox="0 0 50 50" aria-hidden="true" set:html={pencil} />
+    <span class="hand hand-note" id="material-note" style="--r:-2deg" data-type="hand" set:html={words(m.note)} />
+  </div>
+
+  <div class="tile tint-blue transcript-tile" id="material-transcript">
+    <div class="paper transcript" data-ink data-manual id="material-lines">
+      <p class="paper-head"><Icon name="audio-lines" size={14} />{m.arriving.name} · {m.transcript}</p>
+      <p class="line">
+        <span class="time" id="material-time">2:02</span>
+        <span data-type="w" set:html={words(s.transcript[0])} />
+      </p>
+      <p class="line">
+        <span class="time">3:03</span>
+        <span data-type="w" set:html={words(s.transcript[1])} />
+      </p>
+    </div>
+  </div>
+
+  <!--
+    Each gate is a `[data-manual]` root the script opens (`is-inked`) when its ink may draw:
+    the arrows once the note has written, the ring once the line it rings has typed. Wide, the
+    arrow points from the note at that line's minute; stacked, down at the transcript.
+  -->
+  <span class="gate" data-manual data-gate="note">
+    <svg class="ink-arrow" data-arrow data-from="#material-note" data-to="#material-time" data-bow="-0.25" data-arrow-min="900" aria-hidden="true"></svg>
+  </span>
+  <span class="gate narrow" data-manual data-gate="note">
+    <svg class="ink-arrow" data-arrow data-from="#material-note" data-to="#material-transcript" data-bow="0.3" aria-hidden="true"></svg>
+  </span>
+  <span class="gate" data-manual data-gate="ring">
+    <svg class="ink-mark" data-mark="ring" data-to="#material-time" aria-hidden="true"></svg>
+  </span>
+</section>
+
+<script>
+  import { ink, live, relayout, wait } from '../../scripts/ink';
+
+  const section = document.querySelector<HTMLElement>('#material');
+  const library = section?.querySelector<HTMLElement>('#material-library');
+  const arrive = section?.querySelector<HTMLElement>('[data-arrive]');
+  const lines = section?.querySelector<HTMLElement>('#material-lines');
+  const margin = section?.querySelector<HTMLElement>('#material-margin');
+  // What this section writes, it writes quickly: the transcript a word every few
+  // milliseconds, the note a word at a time in the hand.
+  const quick = async (text: HTMLElement, step: number) => {
+    const hand = text.dataset.type === 'hand';
+    let last: HTMLElement | undefined;
+    text.classList.remove('typed');
+    for (const unit of text.querySelectorAll<HTMLElement>('.t')) {
+      if (hand) unit.style.setProperty('--dur', `${step + 60}ms`);
+      unit.classList.add('on');
+      if (!hand) {
+        last?.classList.remove('at');
+        unit.classList.add('at');
+        last = unit;
+      }
+      await wait(step);
+    }
+    last?.classList.remove('at');
+    text.classList.add('typed');
+  };
+  const set = async (piece: HTMLElement, step: number, each?: (index: number) => void) => {
+    await ink(piece, false);
+    const texts = [...piece.querySelectorAll<HTMLElement>('[data-type]')];
+    if (!live) return texts.forEach((text) => text.classList.add('typed'));
+    for (const [index, text] of texts.entries()) {
+      await quick(text, step);
+      each?.(index);
+    }
+  };
+  const open = (gate: string) => {
+    for (const el of section?.querySelectorAll(`[data-gate="${gate}"]`) ?? []) el.classList.add('is-inked');
+  };
+  // Resolves once `el` is well in view.
+  const seen = (el: Element) =>
+    new Promise<void>((resolve) => {
+      const watch = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          watch.disconnect();
+          resolve();
+        },
+        { rootMargin: '0px 0px -12% 0px', threshold: 0.45 },
+      );
+      watch.observe(el);
+    });
+
+  // The lecture drops into the library and is listened to; the note writes as listening begins,
+  // once the transcript beside it is in view too. When the lecture is transcribed and the
+  // transcript is in view, its lines type in, and the minute of the first is ringed: under a
+  // second in all.
+  const run = async (transcriptSeen: Promise<void>) => {
+    if (!arrive || !lines || !margin) return;
+    arrive.dataset.state = 'open';
+    await wait(90);
+    relayout();
+    arrive.dataset.state = 'working';
+    const note = transcriptSeen.then(() => set(margin, 40)).then(() => open('note'));
+    await wait(240);
+    arrive.dataset.state = 'done';
+    await transcriptSeen;
+    await wait(30);
+    await set(lines, 6, (index) => index === 0 && open('ring'));
+    await note;
+    relayout();
+  };
+
+  if (section && library && arrive && lines && margin) {
+    if (!live) {
+      void set(lines, 0);
+      void set(margin, 0);
+      open('note');
+      open('ring');
+    } else {
+      const transcript = section.querySelector('#material-transcript') ?? lines;
+      const transcriptSeen = seen(transcript);
+      void seen(library).then(() => run(transcriptSeen));
+    }
+  }
+</script>
+
+<style>
+  /*
+   * Twelve columns. The lead sits beside the library, in five beside seven; the margin note
+   * sits beside the transcript under it, so the lecture reads down the right: into the
+   * library, then out as a transcript.
+   */
+  .material {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--s-7) var(--s-5);
+  }
+  .lead {
+    grid-column: 1 / span 5;
+    grid-row: 1;
+    align-self: center;
+    max-width: var(--measure);
+    padding-right: var(--s-4);
+  }
+  h2 {
+    font-size: clamp(32px, 3.6vw, 48px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+  }
+  .lead p {
+    margin-top: var(--s-4);
+    color: var(--ink-2);
+    font-size: 19px;
+    line-height: 1.55;
+  }
+  .lead .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--s-5);
+    margin-top: 0;
+  }
+
+  /* The library: a glyph in the kind's chip, the name, and faint under it the size. */
+  .lib {
+    grid-column: 6 / -1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .lib-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    padding: 0 var(--s-2) var(--s-3);
+  }
+  .lib-title {
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 24px;
+  }
+  .lib-course {
+    color: var(--t-ink);
+    font-size: 13px;
+  }
+  .files {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .file {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 var(--s-3);
+    align-items: center;
+    padding: var(--s-2) var(--s-3) var(--s-2) var(--s-2);
+    border-radius: var(--r-md);
+  }
+  .file.is-open {
+    background: var(--canvas);
+  }
+  .file .chip {
+    grid-row: 1 / 3;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-md);
+  }
+  .file-name {
+    overflow: hidden;
+    font-size: 15px;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-size {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 var(--s-2);
+    color: var(--ink-3);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    line-height: 18px;
+  }
+  .status {
+    color: var(--ink-3);
+  }
+  .status::before {
+    content: '·';
+    margin-right: var(--s-2);
+  }
+  .st-working {
+    display: none;
+  }
+  .st-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /*
+   * The lecture arriving. With the script and motion, its row starts folded away; the list
+   * opens a space, the file drops into it, is listened to (its bars move), and settles as
+   * transcribed. Without them it is simply there, done.
+   */
+  .arrive {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 160ms var(--ease-out);
+  }
+  .slot {
+    min-height: 0;
+  }
+  .arrive .file {
+    transition:
+      opacity 140ms ease-out,
+      translate 240ms var(--ease-out),
+      rotate 240ms var(--ease-out),
+      filter 160ms ease-out;
+  }
+  :global(.js-ink) .arrive:not([data-state]) {
+    grid-template-rows: 0fr;
+    overflow: hidden;
+  }
+  :global(.js-ink) .arrive:not([data-state]) .file,
+  :global(.js-ink) .arrive[data-state='open'] .file {
+    opacity: 0;
+    translate: 0 -44px;
+    rotate: -3deg;
+    filter: blur(3px);
+  }
+  :global(.js-ink) .arrive:not([data-state='done']) .st-done {
+    display: none;
+  }
+  :global(.js-ink) .arrive:not([data-state='done']) .st-working {
+    display: inline;
+  }
+  .arrive[data-state='done'] .st-done {
+    animation: settle 150ms var(--ease-out);
+  }
+  .dots i {
+    font-style: normal;
+    animation: dot 420ms ease-in-out infinite;
+  }
+  .dots i:nth-child(2) {
+    animation-delay: 70ms;
+  }
+  .dots i:nth-child(3) {
+    animation-delay: 140ms;
+  }
+  .arrive .bars :global(svg path) {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .arrive[data-state='working'] .bars :global(svg path) {
+    animation: listen 260ms ease-in-out infinite alternate;
+  }
+  .arrive[data-state='working'] .bars :global(svg path:nth-child(2n)) {
+    animation-delay: -130ms;
+  }
+  .arrive[data-state='working'] .bars :global(svg path:nth-child(3n)) {
+    animation-duration: 190ms;
+  }
+  @keyframes listen {
+    from {
+      scale: 1 0.35;
+    }
+  }
+  @keyframes dot {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+  @keyframes settle {
+    from {
+      opacity: 0;
+      translate: 0 3px;
+    }
+  }
+
+  /* The margin note, beside the transcript it names. */
+  .margin {
+    grid-column: 1 / span 5;
+    grid-row: 2;
+    align-self: start;
+    justify-self: end;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-2);
+    margin-top: var(--s-7);
+    color: var(--ink-2);
+  }
+  .margin .hand {
+    max-width: 13ch;
+    font-size: 23px;
+    line-height: 1.25;
+  }
+  .margin-pencil {
+    flex: none;
+    width: 34px;
+    margin-top: -4px;
+  }
+
+  /* The gates hold their ink at the section's corner, out of the grid. */
+  .gate {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  @media (min-width: 900px) {
+    .gate.narrow {
+      display: none;
+    }
+  }
+
+  /* The transcript the lecture became. */
+  .transcript-tile {
+    grid-column: 6 / -1;
+    grid-row: 2;
+  }
+  .transcript {
+    display: grid;
+    gap: var(--s-3);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .transcript .paper-head {
+    margin-bottom: var(--s-1);
+  }
+  .line {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    gap: var(--s-2);
+  }
+  .time {
+    align-self: start;
+    justify-self: start;
+    padding: 0 2px;
+    color: var(--ink-3);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    line-height: 24px;
+  }
+
+  /* Wide enough for the lead beside the library down to 900; under that, one column. */
+  @media (max-width: 899px) {
+    .lead,
+    .lib,
+    .margin,
+    .transcript-tile {
+      grid-column: 1 / -1;
+      grid-row: auto;
+    }
+    .material {
+      row-gap: var(--s-5);
+    }
+    .lead {
+      padding-right: 0;
+      margin-bottom: var(--s-4);
+    }
+    .margin {
+      justify-self: start;
+      margin: var(--s-2) 0 var(--s-7) var(--s-2);
+    }
+    .margin .hand {
+      max-width: 15ch;
+      text-wrap: balance;
+    }
+  }
+  @media (max-width: 480px) {
+    .file {
+      gap: 0 var(--s-3);
+      padding: var(--s-2) 10px var(--s-2) 6px;
+    }
+    .line {
+      grid-template-columns: 2.6rem minmax(0, 1fr);
+    }
+  }
+</style>

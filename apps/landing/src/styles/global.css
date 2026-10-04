@@ -1,0 +1,450 @@
+/* The Highlighted Notebook at website scale: the app's tokens (DESIGN.md) in both themes,
+   its fonts (study-ui's own files), and the browser's own surfaces themed from them. */
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../../../../crates/study-ui/assets/fonts/Inter-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../../../../crates/study-ui/assets/fonts/Inter-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../../../../crates/study-ui/assets/fonts/Inter-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Excalifont';
+  src: url('../../../../crates/study-ui/assets/fonts/Excalifont-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+
+  --canvas: #ffffff;
+  --sidebar: #f3f3f3;
+  --raised: #ffffff;
+  --fill: #f3f3f3;
+  --hover: #ededed;
+  --selected: #e7e7e7;
+  --line: #e4e4e4;
+  --ink: #111111;
+  --ink-2: #4f4f4f;
+  --ink-3: #686868;
+  --hl-ink: #806200;
+  --hl-wash: #fff0a1;
+  --hl-fill: #f2d24b;
+  --on-hl: #1a1600;
+  --shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+
+  /* Notebook tabs: one soft tint per story section, on its tile and icon chip only. */
+  --blue-bg: #ebf3f8;
+  --blue-chip: #d3e5ef;
+  --blue-ink: #24516e;
+  --green-bg: #edf4ee;
+  --green-chip: #d5e9d8;
+  --green-ink: #2c5a37;
+  --orange-bg: #fbf0e4;
+  --orange-chip: #f7dcc2;
+  --orange-ink: #7a4519;
+  --purple-bg: #f4f0f8;
+  --purple-chip: #e3d8ee;
+  --purple-ink: #57397a;
+  --pink-bg: #faeff4;
+  --pink-chip: #f2d6e3;
+  --pink-ink: #7d3256;
+
+  --font: 'Inter', system-ui, sans-serif;
+  --font-hand: 'Excalifont', 'Inter', system-ui, sans-serif;
+
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 20px;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 144px;
+
+  --frame: 1200px;
+  --gutter: clamp(16px, 4vw, 48px);
+  --measure: 680px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #1a1a1a;
+    --sidebar: #0e0e0e;
+    --raised: #222222;
+    --fill: #222222;
+    --hover: #262626;
+    --selected: #2e2e2e;
+    --line: #2c2c2c;
+    --ink: #ececec;
+    --ink-2: #ababab;
+    --ink-3: #858585;
+    --hl-ink: #f2d24b;
+    --hl-wash: #3b3416;
+    --shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+
+    --blue-bg: #1b252c;
+    --blue-chip: #23394a;
+    --blue-ink: #a9cde3;
+    --green-bg: #1c261f;
+    --green-chip: #25392b;
+    --green-ink: #a8d3b1;
+    --orange-bg: #2a2219;
+    --orange-chip: #45311f;
+    --orange-ink: #eec39c;
+    --purple-bg: #241f2b;
+    --purple-chip: #392d48;
+    --purple-ink: #cfb8ea;
+    --pink-bg: #2a1e24;
+    --pink-chip: #45293a;
+    --pink-ink: #ebb5cd;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--selected) var(--canvas);
+  scroll-padding-top: 80px;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.6;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  text-decoration-color: var(--ink-3);
+}
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+::selection {
+  background: var(--hl-wash);
+  color: var(--ink);
+}
+
+input,
+textarea {
+  caret-color: var(--hl-ink);
+}
+
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--hl-ink);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--selected);
+  border: 3px solid var(--canvas);
+  border-radius: 9999px;
+}
+
+code,
+kbd {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--selected);
+  color: var(--ink);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A margin note, in the diagrams' hand. */
+.hand {
+  font-family: var(--font-hand);
+  font-weight: 400;
+  color: var(--ink-2);
+  letter-spacing: 0;
+}
+.hand-note {
+  display: inline-block;
+  rotate: var(--r, -2deg);
+  transition: rotate var(--pace-draw, 300ms) var(--ease-out);
+}
+.ink {
+  display: block;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The second, lighter pass of a stroke, a hair off the first, as a pen leaves it. */
+.ink .thin {
+  stroke-width: 1.1;
+  opacity: 0.55;
+  translate: 0.8px 0.6px;
+}
+
+/*
+ * Ink and type, set down once as they come into view. Strokes draw along their length,
+ * notes write word by word, and what the app writes types with a caret. The text is in the
+ * page from the start; `js-ink` (absent without the script, or with reduced motion) only
+ * hides what has not been set down yet.
+ */
+.js-ink [data-ink]:not(.is-inked) .draw {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+}
+.js-ink [data-ink]:not(.is-inked) .fade {
+  opacity: 0;
+}
+.js-ink .is-inked .draw {
+  stroke-dasharray: 1 1;
+  transition: stroke-dashoffset var(--pace-draw, 300ms) var(--ease-out) var(--d, 0ms);
+}
+.js-ink .is-inked .fade {
+  transition: opacity var(--pace-draw, 300ms) var(--ease-out) var(--d, 0ms);
+}
+.js-ink [data-type]:not(.typed) .t:not(.on) {
+  opacity: 0;
+}
+.js-ink [data-type]:not(.typed) tspan.t:not(.on) {
+  opacity: 1;
+  fill-opacity: 0;
+}
+.js-ink [data-type='w'] .t {
+  transition: opacity var(--pace-fade, 160ms) ease-out;
+}
+.js-ink [data-type='hand'] .t {
+  display: inline-block;
+  transition: clip-path var(--dur, var(--pace-step, 120ms)) linear;
+}
+.js-ink [data-type='hand']:not(.typed) .t:not(.on) {
+  opacity: 1;
+  clip-path: inset(-30% 100% -30% -10%);
+}
+.js-ink [data-type='hand'] .t.on {
+  clip-path: inset(-30% -10% -30% -10%);
+}
+.js-ink .hand-note[data-type]:not(.typed) {
+  rotate: calc(var(--r, -2deg) + 2.5deg);
+}
+.js-ink [data-type]:not(.typed) .wash {
+  background-size: 0% 88%;
+}
+.js-ink [data-type] .wash {
+  transition: background-size var(--pace-draw, 300ms) var(--ease-out);
+}
+.js-ink .cite.t {
+  transition: opacity var(--pace-fade, 160ms) ease-out, scale var(--pace-draw, 300ms) var(--ease-out);
+}
+.js-ink [data-type]:not(.typed) .cite.t:not(.on) {
+  scale: 0.6;
+}
+.js-ink [data-seq]:not(.done) .pop {
+  opacity: 0;
+  translate: 0 4px;
+}
+.js-ink [data-seq] .pop {
+  transition: opacity var(--pace-fade, 160ms) ease-out, translate var(--pace-draw, 300ms) var(--ease-out);
+}
+/* The caret, only while something is typing. */
+.t.at {
+  position: relative;
+}
+.t.at::after {
+  content: '';
+  position: absolute;
+  left: calc(100% + 1px);
+  top: 0.12em;
+  width: 2px;
+  height: 1.05em;
+  border-radius: 1px;
+  background: var(--hl-ink);
+  animation: caret 900ms steps(1) infinite;
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The page frame: centred, with the gutter on each side. */
+.frame {
+  width: 100%;
+  max-width: calc(var(--frame) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Buttons, as in the app: 8px radius, no border; one highlighter button per screen. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 40px;
+  padding: 0 var(--s-4);
+  border-radius: var(--r-md);
+  font: 500 15px/1 var(--font);
+  text-decoration: none;
+  transition: background-color 100ms;
+  white-space: nowrap;
+}
+.button svg {
+  width: 16px;
+  height: 16px;
+}
+.button-highlighter {
+  background: var(--hl-fill);
+  color: var(--on-hl);
+}
+.button-highlighter:hover {
+  background: color-mix(in oklab, var(--hl-fill), #000 8%);
+}
+.button-highlighter:active {
+  background: color-mix(in oklab, var(--hl-fill), #000 14%);
+}
+.button-quiet {
+  background: var(--hover);
+  color: var(--ink);
+}
+.button-quiet:hover {
+  background: var(--selected);
+}
+.button-ghost {
+  color: var(--ink-2);
+}
+.button-ghost:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.button-large {
+  min-height: 48px;
+  padding: 0 var(--s-5);
+  font-size: 16px;
+}
+
+/* The marker stroke: a wash behind ink, slightly ragged at its ends like a real one. */
+.wash {
+  background: linear-gradient(var(--hl-wash), var(--hl-wash)) no-repeat 0 55% / 100% 88%;
+  border-radius: 3px 5px 4px 6px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+
+/* A citation, as the app draws it: the source's number as a raised chip. */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 2px;
+  border-radius: var(--r-sm);
+  background: var(--selected);
+  color: var(--ink-2);
+  font: 500 11px/1 var(--font);
+  vertical-align: 0.45em;
+  text-decoration: none;
+}
+a.cite:hover {
+  background: var(--hl-wash);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.hand-note[hidden] {
+  display: none;
+}
+
+/* A headline's one key phrase, underlined or ringed by hand (components/landing/text.ts). */
+.key {
+  position: relative;
+  white-space: nowrap;
+}

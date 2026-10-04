@@ -6,7 +6,6 @@ pub(super) fn text(message: Message) -> &'static str {
     match message {
         // App and window: menus, shortcuts and the title bar
         Message::AppName => "Study",
-        Message::BrandMark => "S",
         Message::CloseWindow => "Chiudi finestra",
         Message::Quit => "Esci da Study",
         Message::ViewMenu => "Vista",

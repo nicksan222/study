@@ -40,3 +40,6 @@ slot before delivery, give it the diff and base, then stop it after its one resu
 For missing test or demo data, give `scenario` the required state and acceptance criteria.
 Use the shared optional slot as described in the team brief; pass its verified handoff to
 QA/student and later PR maker. Do not carry stale fixture assumptions into a new request.
+
+When a delivered change or release alters what the website says or shows, start `site`
+in the shared optional slot as the team brief describes, then stop it after its result.

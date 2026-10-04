@@ -1,0 +1,18 @@
+---
+import { render } from 'astro:content';
+import Media from '../../../components/Media.astro';
+import Docs from '../../../layouts/Docs.astro';
+import { docsIn, slug } from '../../../i18n/docs';
+
+export async function getStaticPaths() {
+  const docs = await docsIn('it');
+  return docs.map((doc) => ({ params: { slug: slug(doc) }, props: { doc } }));
+}
+
+const { doc } = Astro.props;
+const { Content } = await render(doc);
+---
+
+<Docs lang="it" doc={doc}>
+  <Content components={{ img: Media }} />
+</Docs>

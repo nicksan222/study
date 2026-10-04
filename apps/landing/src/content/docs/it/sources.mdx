@@ -1,0 +1,62 @@
+---
+title: Fonti
+description: I tipi di file e di link che Study sa leggere, e come legge ciascuno.
+section: learn
+order: 2
+shot: library
+shotAlt: La Libreria, con registrazioni, PDF, immagini e pagine web di diversi progetti.
+---
+
+Una fonte è qualsiasi cosa dai a Study per imparare: una registrazione, un PDF, delle slide, una pagina web, una nota. Study conserva ogni file nella tua Libreria e trasforma in testo quelli che capisce, così risposte, ricerca e materiale di studio possono rimandare al punto da cui viene ogni cosa.
+
+## Aggiungere fonti
+
+Puoi aggiungere fonti in più punti:
+
+- in una [sessione](../sessions/), con **Allega file**, trascinando i file o incollandoli
+- dalla home o dalla Libreria, con **Aggiungi file**
+- nella Libreria, con **Nuova nota**, che richiede un titolo e del testo
+- nella Libreria, con **Aggiungi link**, per una pagina web o un video di YouTube
+
+![La finestra Aggiungi file nella Libreria, con uno spazio dove trascinare i file e un pulsante per sceglierli.](shot:add-files "Trascina i file nella finestra, o sceglili dal tuo computer.")
+
+Ogni file deve essere sotto i 512 MiB e non vuoto. Study guarda il contenuto di un file per capire cos'è, invece di fidarsi del nome.
+
+## Cosa legge Study, e come
+
+| Tipo | Come viene letto |
+|---|---|
+| Registrazioni e audio | Trascritte sul tuo computer |
+| Video | L'audio viene trascritto sul tuo computer |
+| PDF | Pagine lette con l'IA |
+| Immagini (PNG, JPEG, WebP, GIF, BMP, TIFF) | Lette con l'IA |
+| Documenti (`.docx`) | Lettore Office |
+| Presentazioni (`.pptx`) | Lettore Office |
+| Pagine web | Lettore di pagine web |
+| Codice e file web, HTML compreso | Lettore di testo semplice |
+| File di testo e note | Lettore di testo semplice |
+| Fogli di calcolo salvati come testo, per esempio CSV | Lettore di testo semplice |
+
+Alcuni file vengono conservati ma non letti: archivi, altri formati per ufficio come `.doc`, `.odt` e `.rtf`, e-book, immagini SVG e HEIC, e tutto ciò che Study non riconosce. Restano nella tua Libreria. Se ti serve leggerne uno, di solito funziona salvarlo di nuovo come PDF, PNG, MP3 o M4A.
+
+![Un PDF aperto nella Libreria: la prima pagina accanto al progetto, e sotto il testo letto da ogni pagina.](shot:source-details "Ogni file mostra cosa è stato letto, pagina per pagina.")
+
+## Link
+
+**Aggiungi link** salva una pagina web e la legge. Un link di YouTube (compresi Shorts, dirette e link `youtu.be`) viene trattato come una registrazione: Study ne prende l'audio con yt-dlp e lo trascrive. Per questo yt-dlp deve essere installato; vedi [installazione](../install/).
+
+![La finestra Aggiungi link, con un campo per l'indirizzo e una nota sui video di YouTube.](shot:add-link "Una pagina web viene salvata e letta; un video di YouTube viene trascritto.")
+
+## Dopo la lettura
+
+Le registrazioni passano per altri due passaggi. **Correggi le trascrizioni con l'IA** sistema le parole che la trascrizione ha capito male, e **Riordina gli spazi** mette in ordine la spaziatura. Poi ogni fonte letta entra nell'**Indice di ricerca** e nella **Ricerca per significato**, così la [ricerca](../search/) e le [risposte](../answers/) possono trovarla.
+
+Le fonti lette alimentano anche il materiale di studio del progetto: le [flashcard](../flashcards/) e lo [schema](../notes-and-diagrams/). Alcuni tipi lasciano fuori una parte in modo predefinito. Codice e fogli di calcolo non producono flashcard, e le immagini non entrano nello schema.
+
+## Cambiare cosa viene eseguito
+
+Apri **Impostazioni › Elaborazione** per vedere ogni tipo di fonte in una tabella con le colonne **Lettura**, **Riordino del testo**, **Ricerca** e **Materiale di studio**. Ogni passaggio si può attivare o disattivare per ogni tipo, e ogni modifica viene salvata subito.
+
+![Impostazioni › Elaborazione: una tabella di ogni tipo di fonte, con un interruttore per ogni passaggio.](shot:settings-processing "Puoi attivare o disattivare ogni passaggio per ogni tipo di fonte.")
+
+Se correggi a mano il testo di un file, con **Correggi questo testo** in **Dettagli del file**, ricerca e risposte usano la tua versione.
