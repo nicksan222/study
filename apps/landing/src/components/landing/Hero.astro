@@ -1,0 +1,560 @@
+---
+// The first viewport: the headline and download beside a passage of a sample lecture with three
+// phrases highlighted. Choosing one shows what Study made of it (an answer that cites it, a
+// practice question, a flashcard), which writes itself out; it cycles until touched. The margin
+// note's arrow and the timestamp's ring are anchored marks (`data-ink-scope`, see ink.ts).
+import Icon from '../Icon.astro';
+import { pen } from '../rough';
+import { chars, words } from './text';
+import { t, type Lang } from '../../i18n/strings';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const s = t(lang);
+const p = s.passage;
+const b = s.became;
+
+// The headline's last word gets one sweep of the highlighter: a band and a second, shorter
+// drag of the nib, both roughened at the edges as a chisel tip leaves them.
+const ink = pen(62);
+const swash = [ink.swash(200, 40), ink.swash(200, 40)];
+const heroWords = s.hero.title.split(' ');
+const heroLast = heroWords.pop();
+const heroNext = heroWords.pop();
+---
+
+<section class="hero frame" aria-labelledby="hero-title" data-ink-scope>
+  <div class="hero-copy">
+    <h1 id="hero-title">
+      {heroWords.join(' ')}{' '}<span class="hero-tail"
+        >{heroNext}{' '}<span class="hl-word"
+          ><svg class="swash" viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"
+            ><defs
+              ><filter id="hero-rough" x="-6%" y="-30%" width="112%" height="160%"
+                ><feTurbulence type="fractalNoise" baseFrequency="0.07 0.45" numOctaves="2" seed="7" /><feDisplacementMap
+                  in="SourceGraphic"
+                  scale="4"
+                /></filter
+              ></defs
+            ><g filter="url(#hero-rough)"
+              ><path d={swash[0]} /><path class="swash-drag" d={swash[1]} /></g
+            ></svg
+          >{heroLast}</span
+        ></span
+      >
+    </h1>
+    <p class="hero-lead">{s.hero.lead}</p>
+    <div class="hero-actions">
+      <a class="button button-highlighter button-large" href="#download" data-download>
+        <span data-download-label>{s.hero.download}</span>
+        <Icon name="arrow-right" />
+      </a>
+      <a class="button button-ghost button-large hero-other" href="#download">{s.hero.other}</a>
+    </div>
+    <p class="hero-terms">{s.hero.terms}<span class="hero-other-inline"> <a href="#download">{s.hero.other}</a></span></p>
+  </div>
+
+  <div class="hero-stage">
+    <p class="hero-note" data-ink>
+      <span id="hero-note" class="hand hand-note" style="--r:-3deg" data-type="hand" set:html={words(s.hero.note)} />
+    </p>
+
+    <div class="pass" data-pass>
+      <p class="pass-source">
+        <span>{p.label}</span>
+        <span aria-hidden="true">·</span>
+        <span>{p.source}</span>
+        <span class="pass-time" id="hero-time">{p.time}</span>
+      </p>
+      <p class="pass-text">
+        {p.before}<span class="mark" id="hero-p1" role="button" tabindex="0" data-phrase="answer" aria-controls="made-answer" aria-pressed="true">{p.p1}</span
+        >{p.mid1}<span class="mark" id="hero-p2" role="button" tabindex="0" data-phrase="question" aria-controls="made-question" aria-pressed="false">{p.p2}</span
+        >{p.mid2}<span class="mark" id="hero-p3" role="button" tabindex="0" data-phrase="card" aria-controls="made-card" aria-pressed="false">{p.p3}</span
+        >{p.after}
+      </p>
+      <p class="pass-hint">{p.hint}</p>
+
+      <div class="made">
+        <article class="made-item" id="made-answer" data-made="answer" data-manual data-seq data-on>
+          <h2 class="made-tab"><span class="chip tint-green"><Icon name="wand-sparkles" size={14} /></span>{b.answer.tab}</h2>
+          <p class="made-ask"><span class="mention">@study</span> {b.answer.ask.replace('@study ', '')}</p>
+          <p class="made-body" data-type="w" set:html={`${words(b.answer.text)}<span class="cite t">1</span>`} />
+          <p class="made-source pop"><span class="cite">1</span> {p.source} <span>{b.answer.cite}</span></p>
+          <a class="made-more pop" href="#answers">{b.answer.more}<Icon name="arrow-right" size={14} /></a>
+        </article>
+        <article class="made-item" id="made-question" data-made="question" data-manual data-seq>
+          <h2 class="made-tab"><span class="chip tint-purple"><Icon name="list-checks" size={14} /></span>{b.question.tab}</h2>
+          <p class="made-body">{b.question.text}</p>
+          <p class="made-grade"><Icon name="check" size={14} /><span>{b.question.grade}</span></p>
+          <p class="made-feedback" data-type="w" set:html={words(b.question.feedback)} />
+          <a class="made-more pop" href="#quiz">{b.question.more}<Icon name="arrow-right" size={14} /></a>
+        </article>
+        <article class="made-item" id="made-card" data-made="card" data-manual data-seq>
+          <h2 class="made-tab"><span class="chip tint-orange"><Icon name="shapes" size={14} /></span>{b.card.tab}</h2>
+          <p class="made-body made-front">{b.card.front}</p>
+          <p class="made-back" data-type="ch" set:html={chars(b.card.back)} />
+          <ul class="made-ratings pop" aria-hidden="true">
+            {b.card.ratings.map((r) => <li>{r}</li>)}
+          </ul>
+          <a class="made-more pop" href="#card">{b.card.more}<Icon name="arrow-right" size={14} /></a>
+        </article>
+      </div>
+    </div>
+    <!-- Before first paint: with a script the three pieces share one reserved space. -->
+    <script is:inline>document.currentScript.previousElementSibling.classList.add('is-live');</script>
+  </div>
+
+  <svg class="ink-arrow" data-arrow data-from="#hero-note" data-to="#hero-p1" data-bow="-0.3" data-arrow-min="768" aria-hidden="true"></svg>
+  <svg class="ink-mark" data-mark="ring" data-to="#hero-time" aria-hidden="true"></svg>
+  <!-- Where the arrow is hidden, the note's phrase is underlined instead, on its first line. -->
+  <svg class="ink-mark hero-under" data-mark="underline" data-lines="first" data-to="#hero-p1" aria-hidden="true"></svg>
+</section>
+
+<script>
+  import { clear, live, play } from '../../scripts/ink';
+
+  // The highlighter pass: pointing at, focusing or choosing a phrase draws its wash and swaps
+  // in what it became, which writes itself out. It moves through the three slowly until the
+  // visitor touches it.
+  const pass = document.querySelector<HTMLElement>('[data-pass]');
+  if (pass) {
+    const marks = [...pass.querySelectorAll<HTMLElement>('[data-phrase]')];
+    const items = [...pass.querySelectorAll<HTMLElement>('[data-made]')];
+    const made = pass.querySelector<HTMLElement>('.made');
+    let index = 0;
+    let seen = false;
+    let touched = false;
+    let timer: number | undefined;
+
+    const show = (next: number) => {
+      index = next;
+      const key = marks[next].dataset.phrase;
+      marks.forEach((m, i) => m.setAttribute('aria-pressed', String(i === next)));
+      items.forEach((item) => {
+        const on = item.dataset.made === key;
+        item.toggleAttribute('data-on', on);
+        if (on) void play(item);
+        else clear(item);
+      });
+      document.dispatchEvent(new Event('ink:relayout'));
+    };
+    const stop = () => {
+      window.clearInterval(timer);
+      timer = undefined;
+      if (touched) return;
+      touched = true;
+      // Only what the visitor chose is announced, never the slow cycle.
+      made?.setAttribute('aria-live', 'polite');
+    };
+    marks.forEach((mark, i) => {
+      const pick = () => {
+        stop();
+        if (index !== i) show(i);
+      };
+      let intent: number | undefined;
+      mark.addEventListener('click', pick);
+      mark.addEventListener('focus', pick);
+      mark.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        pick();
+      });
+      // A short wait, so a pointer crossing the passage on its way elsewhere switches nothing.
+      mark.addEventListener('pointerenter', (event) => {
+        if (event.pointerType === 'touch') return;
+        intent = window.setTimeout(pick, 90);
+      });
+      mark.addEventListener('pointerleave', () => window.clearTimeout(intent));
+    });
+    pass.addEventListener('pointerdown', stop);
+
+    pass.classList.add('is-live');
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !seen) {
+        seen = true;
+        // The first answer starts writing as the headline's sweep lands.
+        window.setTimeout(() => {
+          if (index === 0) void play(items[0]);
+        }, live ? 150 : 0);
+      }
+      if (!live || touched) return;
+      if (entry.isIntersecting && timer === undefined) {
+        timer = window.setInterval(() => show((index + 1) % marks.length), 3500);
+      } else if (!entry.isIntersecting && timer !== undefined) {
+        window.clearInterval(timer);
+        timer = undefined;
+      }
+    }).observe(pass);
+  }
+</script>
+
+<style>
+  /* The first viewport: five columns of headline beside the passage. */
+  .hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: 5fr 7fr;
+    gap: var(--s-8);
+    align-items: start;
+    padding-top: clamp(84px, 11vh, 120px);
+  }
+  .hero-copy {
+    padding-top: var(--s-3);
+  }
+  h1 {
+    font-size: clamp(44px, 5.4vw, 68px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  /* The last two words never part, so the highlighted one is never alone on its line. */
+  .hero-tail {
+    white-space: nowrap;
+  }
+  /* One sweep of the highlighter behind the headline's last word, once, on load. */
+  .hl-word {
+    position: relative;
+    isolation: isolate;
+  }
+  .swash {
+    position: absolute;
+    z-index: -1;
+    left: -0.1em;
+    top: 0.44em;
+    width: calc(100% + 0.2em);
+    height: 0.6em;
+    overflow: visible;
+    fill: var(--hl-wash);
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .swash {
+      fill: color-mix(in oklab, var(--hl-ink) 35%, var(--hl-wash));
+    }
+  }
+  :global(:root[data-theme='dark']) .swash {
+    fill: color-mix(in oklab, var(--hl-ink) 35%, var(--hl-wash));
+  }
+  .swash-drag {
+    opacity: 0.7;
+    transform: translate(10px, 4px) scale(0.93, 0.82);
+  }
+  /* Drawn left to right in 350ms, its leading edge soft as the nib's ink thins. */
+  :global(.js-ink) .swash {
+    mask-image: linear-gradient(90deg, #000 44%, transparent 50%);
+    mask-size: 250% 100%;
+    mask-repeat: no-repeat;
+    animation: sweep 350ms cubic-bezier(0.45, 0.05, 0.25, 1) 120ms both;
+  }
+  @keyframes sweep {
+    from {
+      mask-position: 100% 0;
+    }
+    to {
+      mask-position: 0 0;
+    }
+  }
+  .hero-lead {
+    max-width: 30ch;
+    margin-top: var(--s-5);
+    color: var(--ink-2);
+    font-size: clamp(18px, 1.5vw, 20px);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-top: var(--s-6);
+  }
+  .hero-terms {
+    margin-top: var(--s-4);
+    color: var(--ink-3);
+    font-size: 14px;
+    text-wrap: pretty;
+  }
+  /* On a phone, other platforms is a link at the end of the terms, not a second button. */
+  .hero-other-inline {
+    display: none;
+  }
+  .hero-other-inline a {
+    color: var(--ink-2);
+    font-weight: 500;
+    text-underline-offset: 3px;
+  }
+
+  /* The margin note sits above the passage's top edge, its arrow landing on the first phrase. */
+  .hero-stage {
+    position: relative;
+  }
+  .hero-note {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 9%;
+    margin: 0;
+    color: var(--ink-2);
+    line-height: 1.1;
+  }
+  .hero-note .hand {
+    font-size: 24px;
+  }
+  .ink-arrow,
+  .ink-mark {
+    position: absolute;
+    pointer-events: none;
+    color: var(--ink-2);
+  }
+  @media (min-width: 768px) {
+    .hero-under {
+      display: none;
+    }
+  }
+
+  /* The passage: a page of the lecture's transcript, in the app's reading type. */
+  .pass {
+    padding: var(--s-6) clamp(var(--s-4), 3vw, var(--s-7)) var(--s-5);
+    border-radius: var(--r-xl);
+    background: var(--sidebar);
+  }
+  .pass-source {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+  .pass-time {
+    margin-left: var(--s-2);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+  }
+  .pass-text {
+    margin-top: var(--s-4);
+    font-size: clamp(19px, 1.65vw, 23px);
+    line-height: 1.6;
+    letter-spacing: -0.006em;
+  }
+  .pass-hint {
+    margin-top: var(--s-4);
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+  .mark {
+    cursor: pointer;
+    box-decoration-break: slice;
+    border-radius: 3px 6px 4px 7px;
+    background-image: linear-gradient(var(--hl-wash), var(--hl-wash));
+    background-repeat: no-repeat;
+    background-position: 0 60%;
+    background-size: 100% 86%;
+    padding: 0 2px;
+    margin: 0 -2px;
+    transition: background-size 240ms var(--ease-out), opacity 160ms;
+  }
+  /* Before the script runs every phrase is washed; after, only the chosen one is full. */
+  .is-live .mark {
+    background-image: linear-gradient(
+      color-mix(in oklab, var(--hl-wash) 42%, transparent),
+      color-mix(in oklab, var(--hl-wash) 42%, transparent)
+    );
+  }
+  .is-live .mark[aria-pressed='true'] {
+    background-image: linear-gradient(var(--hl-wash), var(--hl-wash));
+    animation: wash-in 160ms var(--ease-out);
+  }
+  .mark:focus-visible {
+    outline: 2px solid var(--hl-ink);
+    outline-offset: 2px;
+  }
+
+  /*
+   * What the phrase became, set into the passage's page like an opened fold. Without a script
+   * all three show, one under another; with one they share a single cell sized by the tallest,
+   * so switching never moves the page and the paper always fills it.
+   */
+  .made {
+    display: grid;
+    gap: var(--s-3);
+    margin-top: var(--s-5);
+  }
+  .is-live .made-item {
+    grid-area: 1 / 1;
+  }
+  .is-live .made-item:not([data-on]) {
+    visibility: hidden;
+  }
+  .is-live .made-item[data-on] {
+    animation: arrive 180ms var(--ease-out) both;
+  }
+  .made-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--s-5);
+    border-radius: var(--r-lg);
+    background: var(--canvas);
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  .made-tab {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    color: var(--ink-2);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .made-ask {
+    margin-top: var(--s-3);
+    color: var(--ink-2);
+  }
+  .mention {
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    background: var(--hl-wash);
+    color: var(--ink);
+    font-size: 14px;
+  }
+  .made-body {
+    margin-top: var(--s-3);
+  }
+  .made-source {
+    display: flex;
+    gap: var(--s-2);
+    align-items: center;
+    margin-top: var(--s-3);
+    color: var(--ink);
+    font-size: 14px;
+  }
+  .made-source .cite {
+    vertical-align: 0;
+    margin: 0;
+  }
+  .made-source span:last-child {
+    color: var(--ink-3);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .made-grade {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: var(--s-4);
+    font-weight: 500;
+    font-size: 15px;
+  }
+  .made-grade :global(svg) {
+    color: var(--ink-2);
+  }
+  .made-feedback {
+    margin-top: var(--s-1);
+    color: var(--ink-2);
+    font-size: 15px;
+  }
+  .made-front {
+    font-weight: 500;
+  }
+  .made-back {
+    margin-top: var(--s-3);
+    color: var(--ink-2);
+  }
+  .made-ratings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin: var(--s-4) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .made-ratings li {
+    padding: 6px var(--s-3);
+    border-radius: var(--r-md);
+    background: var(--hover);
+    font-size: 14px;
+  }
+  /* The link onward rests at the foot of the paper, whatever the piece's length. */
+  .made-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: var(--s-4);
+    color: var(--ink-2);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .made-more:hover {
+    color: var(--ink);
+  }
+  .made-more :global(svg) {
+    transition: transform 160ms var(--ease-out);
+  }
+  .made-more:hover :global(svg) {
+    transform: translateX(3px);
+  }
+
+  /* A narrow two-column hero: the note moves right, so its arrow clears the source line. */
+  @media (min-width: 900px) and (max-width: 1279px) {
+    .hero-note {
+      right: 1%;
+    }
+  }
+  @media (max-width: 899px) {
+    .hero {
+      grid-template-columns: 1fr;
+      gap: var(--s-6);
+      padding-top: clamp(var(--s-7), 8vh, var(--s-9));
+    }
+    .hero-lead {
+      max-width: 40ch;
+    }
+    h1 {
+      max-width: 14ch;
+    }
+    .pass-text {
+      max-width: 64ch;
+    }
+    /* Stacked, the note takes its own line above the passage, toward its right side. */
+    .hero-note {
+      position: static;
+      display: flex;
+      justify-content: flex-end;
+      padding-right: 12%;
+      margin-bottom: var(--s-5);
+    }
+  }
+  @media (max-width: 767px) {
+    .hero-note {
+      padding-right: var(--s-4);
+      margin-bottom: var(--s-3);
+    }
+  }
+  @media (max-width: 480px) {
+    .hero {
+      gap: var(--s-5);
+      padding-top: var(--s-6);
+    }
+    .hero-lead {
+      margin-top: var(--s-4);
+    }
+    .hero-actions {
+      margin-top: var(--s-5);
+    }
+    .hero-actions .button {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+    .hero-actions .hero-other {
+      display: none;
+    }
+    .hero-other-inline {
+      display: inline;
+    }
+    .made-item {
+      padding: var(--s-4);
+    }
+  }
+</style>

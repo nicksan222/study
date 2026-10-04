@@ -1,0 +1,450 @@
+---
+// A docs page: the app's own shape at reading size, a tonal sidebar of every page beside
+// one reading column. On a narrow screen the sidebar folds into a menu above the page.
+import Base from './Base.astro';
+import Icon from '../components/Icon.astro';
+import Shot from '../components/Shot.astro';
+import { docsIn, sections, slug, type Doc } from '../i18n/docs';
+import { href, repo, t, type Lang } from '../i18n/strings';
+
+interface Props {
+  lang: Lang;
+  /** The page shown, or none for the docs' index. */
+  doc?: Doc;
+}
+const { lang, doc } = Astro.props;
+const s = t(lang);
+const all = await docsIn(lang);
+const current = doc ? slug(doc) : undefined;
+const at = doc ? all.findIndex((d) => slug(d) === current) : -1;
+const previous = at > 0 ? all[at - 1] : undefined;
+const next = at >= 0 && at < all.length - 1 ? all[at + 1] : undefined;
+const path = doc ? `docs/${current}/` : 'docs/';
+const title = doc ? `${doc.data.title} · ${s.docs.title} · Study` : `${s.docs.title} · Study`;
+const description = doc ? doc.data.description : s.docs.lead;
+const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
+---
+
+<Base lang={lang} title={title} description={description} path={path}>
+  <div class="docs frame">
+    <details class="side" open data-side>
+      <summary class="side-toggle">
+        <Icon name="panel-left" />
+        <span>{s.docs.menu}</span>
+      </summary>
+      <nav class="side-nav" aria-label={s.docs.title}>
+        <a class="side-link side-home" href={href(lang, 'docs/')} aria-current={doc ? undefined : 'page'}>{s.docs.title}</a>
+        {
+          sections.map((section) => (
+            <div class="side-group">
+              <p class="side-label">{s.docs.sections[section]}</p>
+              <ul>
+                {all
+                  .filter((d) => d.data.section === section)
+                  .map((d) => (
+                    <li>
+                      <a class="side-link" href={link(d)} aria-current={slug(d) === current ? 'page' : undefined}>
+                        {d.data.title}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+    </details>
+
+    <main id="main" class="page">
+      {
+        doc ? (
+          <article>
+            <h1>{doc.data.title}</h1>
+            <p class="lead">{doc.data.description}</p>
+            {doc.data.shot && (
+              <div class="shot">
+                <Shot name={doc.data.shot} lang={lang} alt={doc.data.shotAlt ?? doc.data.title} sizes="(min-width: 1100px) 760px, 100vw" loading="eager" />
+              </div>
+            )}
+            <div class="prose">
+              <slot />
+            </div>
+            <nav class="turn" aria-label={s.docs.turn}>
+              {previous ? (
+                <a href={link(previous)} class="turn-prev">
+                  <span>{s.docs.previous}</span>
+                  {previous.data.title}
+                </a>
+              ) : (
+                <span />
+              )}
+              {next && (
+                <a href={link(next)} class="turn-next">
+                  <span>{s.docs.next}</span>
+                  {next.data.title}
+                </a>
+              )}
+            </nav>
+            <p class="edit">
+              <a href={`${repo}/edit/main/apps/landing/${doc.filePath}`}>{s.docs.edit}</a>
+            </p>
+          </article>
+        ) : (
+          <div>
+            <h1>{s.docs.title}</h1>
+            <p class="lead">{s.docs.lead}</p>
+            {sections.map((section) => (
+              <section class="index-group">
+                <h2>{s.docs.sections[section]}</h2>
+                <ul>
+                  {all
+                    .filter((d) => d.data.section === section)
+                    .map((d) => (
+                      <li>
+                        <a href={link(d)}>
+                          <span class="index-title">
+                            {d.data.title}
+                            <Icon name="arrow-right" size={14} />
+                          </span>
+                          <span class="index-desc">{d.data.description}</span>
+                        </a>
+                      </li>
+                    ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )
+      }
+    </main>
+  </div>
+</Base>
+
+<script>
+  // The sidebar starts folded on a narrow screen, open beside the page on a wide one.
+  const side = document.querySelector<HTMLDetailsElement>('[data-side]');
+  const wide = matchMedia('(min-width: 900px)');
+  const fit = () => side && (side.open = wide.matches);
+  fit();
+  wide.addEventListener('change', fit);
+</script>
+
+<style>
+  .docs {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: clamp(var(--s-6), 5vw, var(--s-8));
+    align-items: start;
+    padding-top: var(--s-6);
+  }
+
+  .side {
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    padding: var(--s-3);
+    border-radius: var(--r-xl);
+    background: var(--sidebar);
+  }
+  .side-toggle {
+    display: none;
+  }
+  .side-nav ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .side-group {
+    margin-top: var(--s-4);
+  }
+  .side-label {
+    padding: 0 var(--s-3) var(--s-1);
+    color: var(--ink-3);
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .side-link {
+    display: block;
+    padding: 6px var(--s-3);
+    border-radius: var(--r-md);
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 20px;
+    text-decoration: none;
+    transition: background-color 100ms, color 100ms;
+  }
+  .side-link:hover {
+    background: var(--hover);
+    color: var(--ink);
+  }
+  .side-link[aria-current='page'] {
+    background: var(--selected);
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .side-home {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .page {
+    max-width: 760px;
+    min-width: 0;
+    padding-top: var(--s-3);
+  }
+  h1 {
+    font-size: clamp(34px, 4vw, 48px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+  }
+  .lead {
+    margin-top: var(--s-3);
+    color: var(--ink-2);
+    font-size: 19px;
+    line-height: 1.5;
+    max-width: var(--measure);
+  }
+  .shot {
+    margin-top: var(--s-6);
+    padding: clamp(8px, 1.4vw, 16px);
+    border-radius: var(--r-xl);
+    background: var(--fill);
+  }
+  .shot :global(img) {
+    width: 100%;
+    border-radius: var(--r-lg);
+  }
+
+  .prose {
+    max-width: var(--measure);
+    margin-top: var(--s-7);
+    font-size: 17px;
+    line-height: 1.7;
+  }
+  .prose :global(> * + *) {
+    margin-top: var(--s-4);
+  }
+  .prose :global(h2) {
+    margin-top: var(--s-7);
+    font-size: 24px;
+    line-height: 1.25;
+    letter-spacing: -0.018em;
+  }
+  .prose :global(h3) {
+    margin-top: var(--s-6);
+    font-size: 18px;
+    line-height: 1.35;
+  }
+  .prose :global(h2 + *),
+  .prose :global(h3 + *) {
+    margin-top: var(--s-3);
+  }
+  .prose :global(ul),
+  .prose :global(ol) {
+    padding-left: 1.3em;
+  }
+  .prose :global(li + li) {
+    margin-top: var(--s-2);
+  }
+  .prose :global(li::marker) {
+    color: var(--ink-3);
+  }
+  .prose :global(strong) {
+    font-weight: 600;
+  }
+  .prose :global(blockquote) {
+    margin-inline: 0;
+    padding: var(--s-4) var(--s-5);
+    border-radius: var(--r-md);
+    background: var(--fill);
+    color: var(--ink-2);
+  }
+  .prose :global(blockquote > * + *) {
+    margin-top: var(--s-2);
+  }
+  .prose :global(code) {
+    padding: 1px 5px;
+    border-radius: var(--r-sm);
+    background: var(--selected);
+  }
+  .prose :global(pre) {
+    overflow-x: auto;
+    padding: var(--s-4);
+    border-radius: var(--r-md);
+    background: var(--fill) !important;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .prose :global(pre code) {
+    padding: 0;
+    background: none;
+  }
+  .prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+  .prose :global(th) {
+    color: var(--ink-3);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+  }
+  .prose :global(th),
+  .prose :global(td) {
+    padding: var(--s-2) var(--s-3) var(--s-2) 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .prose :global(.table-wrap) {
+    overflow-x: auto;
+  }
+  /* A capture in the text (Media.astro): framed like the one at the top, with its caption. */
+  .prose :global(figure.media) {
+    margin: var(--s-6) 0;
+  }
+  .prose :global(figure.media > picture),
+  .prose :global(figure.media > video) {
+    padding: clamp(6px, 1vw, 12px);
+    border-radius: var(--r-xl);
+    background: var(--fill);
+  }
+  .prose :global(figure.media img),
+  .prose :global(figure.media > video) {
+    width: 100%;
+    height: auto;
+  }
+  .prose :global(figure.media img) {
+    display: block;
+    border-radius: var(--r-lg);
+  }
+  .prose :global(figure.media > picture) {
+    display: block;
+  }
+  .prose :global(figure.media figcaption) {
+    margin-top: var(--s-2);
+    padding-inline: var(--s-1);
+    color: var(--ink-3);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .prose :global(figure.media + *) {
+    margin-top: var(--s-5);
+  }
+
+  .turn {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-4);
+    max-width: var(--measure);
+    margin-top: var(--s-8);
+  }
+  .turn a {
+    display: grid;
+    gap: 2px;
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--r-md);
+    background: var(--fill);
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 100ms;
+  }
+  .turn a:hover {
+    background: var(--hover);
+  }
+  .turn span {
+    color: var(--ink-3);
+    font-size: 13px;
+    font-weight: 400;
+  }
+  .turn-next {
+    grid-column: 2;
+    text-align: right;
+  }
+  .edit {
+    margin-top: var(--s-5);
+    font-size: 14px;
+  }
+  .edit a {
+    color: var(--ink-3);
+  }
+
+  .index-group {
+    margin-top: var(--s-7);
+  }
+  .index-group h2 {
+    font-size: 20px;
+    letter-spacing: -0.012em;
+  }
+  .index-group ul {
+    display: grid;
+    gap: var(--s-1);
+    margin: var(--s-3) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .index-group a {
+    display: grid;
+    gap: 2px;
+    margin-inline: calc(-1 * var(--s-3));
+    padding: var(--s-3);
+    border-radius: var(--r-md);
+    text-decoration: none;
+    transition: background-color 100ms;
+  }
+  .index-group a:hover {
+    background: var(--hover);
+  }
+  .index-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+  }
+  .index-title :global(svg) {
+    color: var(--ink-3);
+  }
+  .index-desc {
+    color: var(--ink-2);
+    font-size: 15px;
+  }
+
+  @media (max-width: 899px) {
+    .docs {
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+      padding-top: var(--s-4);
+    }
+    .side {
+      position: static;
+      max-height: none;
+      padding: var(--s-1);
+      border-radius: var(--r-lg);
+    }
+    .side-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--s-2);
+      padding: var(--s-2) var(--s-3);
+      border-radius: var(--r-md);
+      color: var(--ink-2);
+      font-size: 15px;
+      cursor: pointer;
+      list-style: none;
+    }
+    .side-toggle::-webkit-details-marker {
+      display: none;
+    }
+    .side[open] .side-nav {
+      padding: 0 var(--s-2) var(--s-3);
+    }
+    .turn {
+      grid-template-columns: 1fr;
+    }
+    .turn-next {
+      grid-column: 1;
+    }
+  }
+</style>

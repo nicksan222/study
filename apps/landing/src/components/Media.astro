@@ -1,0 +1,31 @@
+---
+// A docs page's picture or clip, written in its Markdown as an image:
+// `![What it shows](shot:search "Caption")` for a still and `![…](clip:search-typing "…")`
+// for a clip. The docs pages render every Markdown image through this, so the alt text and
+// the caption are translated with the page, and the capture comes in the page's language and
+// the reader's theme. Anything else written as an image fails the build: the docs show only
+// captures of the app.
+import Clip from './Clip.astro';
+import Shot from './Shot.astro';
+import type { Lang } from '../i18n/strings';
+
+interface Props {
+  src: string;
+  /** What it shows, for a reader who cannot see it: the image's alt text, required. */
+  alt?: string;
+  /** The caption, from the image's title. */
+  title?: string;
+}
+const { src, alt, title } = Astro.props;
+const lang = (Astro.currentLocale ?? 'en') as Lang;
+const [kind, name] = src.split(':', 2);
+if ((kind !== 'shot' && kind !== 'clip') || !name) {
+  throw new Error(`docs media must be shot:<name> or clip:<name>, not ${src}`);
+}
+if (!alt?.trim()) throw new Error(`${src} has no alt text: say what it shows in its ![…]`);
+---
+
+<figure class:list={['media', kind]}>
+  {kind === 'shot' ? <Shot name={name} lang={lang} alt={alt} sizes="(min-width: 1100px) 760px, 100vw" /> : <Clip name={name} lang={lang} alt={alt} />}
+  {title && <figcaption>{title}</figcaption>}
+</figure>

@@ -1,0 +1,216 @@
+---
+// Every page's frame: the head, the slim bar (wordmark, Docs, GitHub, language, Download)
+// and the footer. `path` is the page's address without its language, for the switch.
+import '../styles/global.css';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+import { href, repo, releases, t, type Lang } from '../i18n/strings';
+
+interface Props {
+  lang: Lang;
+  title: string;
+  description: string;
+  path: string;
+  /** The landing shows its own Download in the hero, so the bar's stays quiet there. */
+  quietDownload?: boolean;
+}
+const { lang, title, description, path, quietDownload = false } = Astro.props;
+const s = t(lang);
+const other: Lang = lang === 'en' ? 'it' : 'en';
+const canonical = new URL(href(lang, path), Astro.site);
+const ogImage = new URL(href(lang, 'og.png'), Astro.site);
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={new URL(href('en', path), Astro.site)} />
+    <link rel="alternate" hreflang="it" href={new URL(href('it', path), Astro.site)} />
+    <link rel="alternate" hreflang="x-default" href={new URL(href('en', path), Astro.site)} />
+    <link rel="icon" href={href('en', 'favicon.svg')} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={href('en', 'apple-touch-icon.png')} />
+    <!-- The page's --canvas in each theme (global.css), which a meta tag cannot read. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content={lang === 'en' ? 'en_US' : 'it_IT'} />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <a class="skip button button-quiet" href="#main">{s.skip}</a>
+    <header class="bar">
+      <div class="bar-inner frame">
+        <a class="wordmark" href={href(lang)}>
+          <Logo size={24} />
+          <span>Study</span>
+        </a>
+        <nav class="bar-nav" aria-label="Study">
+          <a href={href(lang, 'docs/')} aria-current={path.startsWith('docs') ? 'page' : undefined}>{s.nav.docs}</a>
+          <a href={repo}>{s.nav.github}</a>
+          <a href={href(other, path)} hreflang={other} lang={other}>
+            <Icon name="languages" />
+            <span>{s.otherLang}</span>
+          </a>
+        </nav>
+        <a class:list={['button', quietDownload ? 'button-quiet' : 'button-highlighter', 'bar-download']} href={quietDownload ? '#download' : releases}>
+          {s.nav.download}
+        </a>
+      </div>
+    </header>
+    <slot />
+    <footer class="footer">
+      <div class="frame footer-inner">
+        <a class="wordmark" href={href(lang)}>
+          <Logo size={24} />
+          <span>Study</span>
+        </a>
+        <p class="footer-sample">{s.footer.sample}</p>
+        <ul class="footer-links">
+          <li><a href={href(lang, 'docs/')}>{s.nav.docs}</a></li>
+          <li><a href={releases}>{s.nav.download}</a></li>
+          <li><a href={`${repo}/blob/main/CONTRIBUTING.md`}>{s.footer.contribute}</a></li>
+          <li><a href={`${repo}/issues`}>{s.footer.bug}</a></li>
+          <li><a href={repo}>{s.nav.github}</a></li>
+          <li><a href={href(other, path)} hreflang={other} lang={other}>{s.otherLang}</a></li>
+        </ul>
+        <p class="footer-license">{s.footer.license}</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .skip {
+    position: fixed;
+    top: var(--s-2);
+    left: var(--s-2);
+    z-index: 20;
+    transform: translateY(-200%);
+  }
+  .skip:focus-visible {
+    transform: none;
+  }
+
+  .bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in oklab, var(--canvas) 88%, transparent);
+    backdrop-filter: saturate(1.4) blur(14px);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  }
+  .bar-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--s-5);
+    height: 64px;
+  }
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+  .bar-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+    margin-left: auto;
+  }
+  .bar-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 var(--s-3);
+    border-radius: var(--r-md);
+    color: var(--ink-2);
+    font-size: 15px;
+    text-decoration: none;
+    transition: background-color 100ms, color 100ms;
+  }
+  .bar-nav a:hover,
+  .bar-nav a[aria-current='page'] {
+    background: var(--hover);
+    color: var(--ink);
+  }
+  .bar-download {
+    min-height: 36px;
+  }
+
+  @media (max-width: 640px) {
+    .bar-inner {
+      gap: var(--s-2);
+    }
+    .bar-nav a:nth-child(2) {
+      display: none;
+    }
+    .bar-nav a {
+      padding: 0 var(--s-2);
+    }
+  }
+  @media (max-width: 400px) {
+    .bar-nav a span {
+      display: none;
+    }
+  }
+
+  .footer {
+    margin-top: var(--s-10);
+    background: var(--sidebar);
+    color: var(--ink-2);
+    font-size: 14px;
+  }
+  .footer-inner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--s-4) var(--s-6);
+    align-items: center;
+    padding-block: var(--s-7);
+  }
+  .footer .wordmark {
+    color: var(--ink);
+  }
+  .footer-sample {
+    color: var(--ink-3);
+  }
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .footer-links a {
+    text-decoration: none;
+  }
+  .footer-links a:hover {
+    color: var(--ink);
+  }
+  .footer-license {
+    color: var(--ink-3);
+  }
+  @media (max-width: 720px) {
+    .footer-inner {
+      grid-template-columns: 1fr;
+    }
+    .footer-links {
+      grid-row: auto;
+    }
+  }
+</style>

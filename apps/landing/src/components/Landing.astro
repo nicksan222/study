@@ -1,0 +1,35 @@
+---
+// The landing page, in either language: the sections in components/landing/, in order. It
+// opens on a passage of a sample lecture with three phrases highlighted, shows what Study reads,
+// lets the visitor try four pieces of the app, says where the data lives, then Download.
+import Base from '../layouts/Base.astro';
+import Hero from './landing/Hero.astro';
+import Material from './landing/Material.astro';
+import Learn from './landing/Learn.astro';
+import Yours from './landing/Yours.astro';
+import Download from './landing/Download.astro';
+import { t, type Lang } from '../i18n/strings';
+import '../styles/landing.css';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const s = t(lang);
+---
+
+<Base lang={lang} title={s.meta.title} description={s.meta.description} path="" quietDownload>
+  <!-- Ink and type animate only with a script and motion allowed; set before first paint. -->
+  <script is:inline>
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+      document.documentElement.classList.add('js-ink');
+    }
+  </script>
+  <main id="main" class="landing">
+    <Hero lang={lang} />
+    <Material lang={lang} />
+    <Learn lang={lang} />
+    <Yours lang={lang} />
+    <Download lang={lang} />
+  </main>
+</Base>

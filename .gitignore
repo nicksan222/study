@@ -42,3 +42,18 @@ core.*
 *.sqlite
 *.sqlite-*
 /dist/
+
+# Design tool working files; its settings in .impeccable/config.json are kept.
+**/.impeccable/*
+!/.impeccable/config.json
+
+# Website dependencies and build output.
+/apps/landing/node_modules/
+/apps/landing/dist/
+/apps/landing/.astro/
+
+# Captures of the app, made from sample data on every website build (`just docs-media`,
+# `just demo`), never committed.
+/apps/landing/src/assets/shots/
+/apps/landing/src/assets/clips/
+/apps/landing/public/demo.gif

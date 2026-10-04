@@ -173,6 +173,23 @@ docs-media *only:
     cargo build --locked -p study
     cargo run --locked -p study-showcase -- docs {{only}}
 
+# Make the website's captures of the app that are missing: none is committed, so a fresh checkout (and every Landing workflow run) makes them all, and a new scene only its own. `just docs-media` and `just demo` make them again after a change.
+landing-media:
+    just docs-media missing
+    [ -s apps/landing/public/demo.gif ] || just demo
+
+# Serve the website (apps/landing: the landing page and docs) with live reload at localhost:4321/study/.
+landing: landing-media
+    cd apps/landing && bun install --frozen-lockfile && bun run dev --host
+
+# Build the website into apps/landing/dist, as the Landing workflow publishes it, with every capture of the app.
+landing-build: landing-media
+    cd apps/landing && bun install --frozen-lockfile && bun run build
+
+# Type-check the website's pages, components and content without building it, so it needs no captures.
+landing-check:
+    cd apps/landing && bun install --frozen-lockfile && bun run check
+
 # Build the distributable desktop binary.
 build:
     cargo build --locked --release -p study
@@ -187,7 +204,7 @@ deny:
     cargo deny --locked check
 
 # Run checks required for pull requests.
-check: check-shell fmt-check lint deny test docs
+check: check-shell fmt-check lint deny test docs landing-check
 
 # Run the same checks for one package only, e.g. `just check-crate study-core`: a focused development loop.
 [positional-arguments]
@@ -213,7 +230,7 @@ test-transcription-e2e:
 # Both spellings start the same team; neither resets existing conversations.
 alias agent := agents
 
-# Start the project-wide seven-role team, or selected roles, in Herdr's study session. Options: --session NAME, --fresh, --no-attach, --dry-run.
+# Start the project-wide seven-role team, or selected roles (the on-demand scenario, upgrade-reviewer, pr-maker and site start only by name), in Herdr's study session. Options: --session NAME, --fresh, --no-attach, --dry-run.
 [positional-arguments]
 agents *args:
     python3 .agents/team/agents.py up "$@"

@@ -68,14 +68,16 @@ it and the app from zero, and `just desktop-watch` restarts the app on every cha
 | 3 | `study-pipeline` | `crates/study-pipeline` | One implementation per processor kind (fetchers, extractors, refiners, stages, enhancers), and the `Pipeline` that hands them to the jobs engine |
 | 4 | `study-app` | `crates/study-app` | The `App` service: the one store, runtime and bus, registering the pipeline, conversation and practice agents (titles, answers, quiz questions and grades), search, reviews, installs |
 | 5 | `study` | `apps/desktop` | The desktop app: windows, pages, the microphone |
+| web | `study-landing` | `apps/landing` | The website (Astro on Bun, GitHub Pages): the landing page and one docs page per feature, in English and Italian, with captures of the app on the showcase sample; no Rust |
 | dev | `study-testkit` | `crates/study-testkit` | Real services for tests, run in Docker (a web server, …); a dev-dependency only |
 | dev | `study-seed` | `crates/study-seed` | Sample courses, sessions, files and study material written into a database, for `just reset-data`, tests and the showcase; never a normal dependency of the app |
-| dev | `study-showcase` | `crates/study-showcase` | Records the README demo GIF (`just demo`): the app on sample data, driven on a private virtual desktop |
+| dev | `study-showcase` | `crates/study-showcase` | Records the README demo GIF (`just demo`) and the docs' stills and clips (`just docs-media`): the app on sample data, driven on a private virtual desktop |
 
 ## Commands
 
-- `just check`: fmt, Clippy with `-D warnings`, every test and doctest, and the API docs with
-  broken links denied. Run it before you call a change done.
+- `just check`: fmt, Clippy with `-D warnings`, every test and doctest, the API docs with
+  broken links denied, and the website's type check (`just landing-check`). Run it before
+  you call a change done.
 - `just run`: starts the app and browser desktop in the container, keeping the development
   database. VS Code opens the host viewer; plain container shells print its URL.
   In the devcontainer it connects to the virtual desktop automatically.
@@ -84,9 +86,12 @@ it and the app from zero, and `just desktop-watch` restarts the app on every cha
   (headless sway, a 1080p monitor by default, other screens by name), with `desktop-shot`,
   `desktop-click`, `desktop-record` and `wtype` to see and use it. The
   `.agents/skills/see-the-app` checklist says how.
-- `just demo`: records the README's `assets/demo.gif` from sample data on its own private
-  desktop (no sign-in, no model, not the shared desktop). Edit the tour in
-  `crates/study-showcase/src/tour.rs`.
+- `just demo`: records the README's demo GIF from sample data on its own private desktop
+  (no sign-in, no model, not the shared desktop), into `apps/landing/public/demo.gif`; the
+  site publishes it and the README shows it from there. `just docs-media` makes the docs'
+  stills and clips the same way. None of them is committed: the Landing workflow makes all
+  of them on every deploy, and `just landing` makes any that are missing. Edit the tour in
+  `crates/study-showcase/src/tour.rs`, the docs' scenes in `src/docs.rs`.
 - `just agents`: maintainer tooling in the default devcontainer.
   Herdr runs one project-wide team: lead, developer, PM, QA, student, reviewer and pushback,
   using Claude Code with the mounted subscription login. Select roles for smaller work
@@ -98,6 +103,8 @@ it and the app from zero, and `just desktop-watch` restarts the app on every cha
   Herdr workspace menu offers the same reset and a stop action. Code and logins are kept.
   `just agents-doctor` checks setup and `just agents-usage` reports recorded local tokens.
   Keep the handoff in `target/agents/<session>/task.md`, not tracked design documents.
+- `just landing`: serves the website with live reload; `just landing-build` builds it as the
+  Landing workflow publishes it. It uses Bun, never npm.
 - `just check-crate <package>`: `just check` for one package, a focused development loop.
 - `just test`, `just lint`, `just fmt`, `just docs`: the individual steps. Tests use real
   files and real services where CI can run them: services run in Docker through

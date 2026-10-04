@@ -1,0 +1,26 @@
+---
+// Study's logo: the highlighter's own tile with an open book, one line highlighted. The
+// masters live in the repository's assets/logo; under 40px the simpler mark reads better,
+// as in the app (`FULL_MARK_FROM` in crates/study-ui/src/logo.rs).
+import full from '../../../../assets/logo/study.svg?raw';
+import small from '../../../../assets/logo/study-small.svg?raw';
+
+interface Props {
+  size?: number;
+  class?: string;
+}
+const { size = 24, class: className } = Astro.props;
+const svg = (size >= 40 ? full : small).replace('<svg ', `<svg width="${size}" height="${size}" aria-hidden="true" focusable="false" `);
+---
+
+<span class:list={['logo', className]} set:html={svg} />
+
+<style>
+  .logo {
+    display: inline-flex;
+    flex: none;
+  }
+  .logo :global(svg) {
+    display: block;
+  }
+</style>

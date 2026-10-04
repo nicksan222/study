@@ -597,6 +597,68 @@ mod tests {
         assert_eq!(names, ["en-light", "en-dark", "it-light", "it-dark"]);
     }
 
+    /// Every capture the website's source names, as (name, is a clip), from what it writes
+    /// to name one: `![…](shot:name …)` and `clip:` in the docs' Markdown, `shot: name` in
+    /// their frontmatter, `<Shot name="name"` in its components and `assets/shots/name-…`
+    /// where it reads a file itself.
+    fn site_references(dir: &Path, found: &mut Vec<(String, bool)>) {
+        const MARKERS: [(&str, bool); 6] = [
+            ("](shot:", false),
+            ("](clip:", true),
+            ("\nshot: ", false),
+            ("<Shot name=\"", false),
+            ("<Clip name=\"", true),
+            ("/shots/", false),
+        ];
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                if !path.ends_with("assets") {
+                    site_references(&path, found);
+                }
+                continue;
+            }
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            for (marker, clip) in MARKERS {
+                for (at, _) in text.match_indices(marker) {
+                    let rest = &text[at + marker.len()..];
+                    let end = rest
+                        .find(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'))
+                        .unwrap_or(rest.len());
+                    let name = rest[..end].trim_end_matches('-');
+                    if !name.is_empty() {
+                        found.push((name.to_owned(), clip));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_website_shows_every_scene_and_only_scenes() {
+        let site = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/landing/src");
+        let mut references = Vec::new();
+        site_references(&site, &mut references);
+        let scenes = scenes();
+        for (name, clip) in &references {
+            let scene = scenes.iter().find(|scene| scene.name == name);
+            let kind = if *clip { "clip" } else { "still" };
+            assert!(
+                scene.is_some_and(|scene| matches!(scene.take, Take::Clip(_)) == *clip),
+                "the website shows the {kind} {name}, which is no {kind} scene in docs.rs"
+            );
+        }
+        for scene in &scenes {
+            assert!(
+                references.iter().any(|(name, _)| name == scene.name),
+                "no page of the website shows the scene {}: drop it, or show it",
+                scene.name
+            );
+        }
+    }
+
     #[test]
     fn the_theme_codes_are_the_desktops() {
         let source = include_str!("../../../apps/desktop/src/app/preferences.rs");

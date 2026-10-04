@@ -1,0 +1,64 @@
+name: Landing
+
+# Builds the website in apps/landing/ (Astro, static) and publishes it to GitHub Pages at
+# https://nicksan222.github.io/study/, so astro.config sets `base: '/study'`.
+#
+# Every capture of the app on the site is made here, from the code being deployed: the docs'
+# stills and clips (`just docs-media`) and the README's demo GIF (`just demo`), which the
+# site publishes at /study/demo.gif. None of them is committed, so any change to the app
+# runs this to keep them current.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits instead of cancelling one in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up
+        uses: ./.github/actions/setup
+        with:
+          # The private headless desktop the showcase records on, with software Vulkan.
+          packages: >-
+            sway grim wtype wf-recorder ffmpeg
+            libvulkan1 mesa-vulkan-drivers libgl1-mesa-dri libegl-mesa0
+          # The app runs for real here, so it is built as in development.
+          optimize-dependencies: 'true'
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      # A fresh checkout has no captures, so this makes every one, then builds.
+      - name: Capture the app and build
+        run: just landing-build
+      - name: Upload
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/landing/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -9,7 +9,8 @@ Thank you for helping with Study.
   `src/lib.rs`.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
-  denied, every test and the API docs. Some tests run real services in Docker.
+  denied, every test, the API docs and the website's type check. Some tests run real
+  services in Docker.
 - **Every visible word comes from `study-localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an
@@ -80,11 +81,14 @@ Close Study before `just reset-data`; a shared data lock keeps app runs and rese
 
 Both follow `XDG_DATA_HOME` and `XDG_CACHE_HOME`. `just run` uses `target/dev-data` instead.
 
-## The README demo
+## Captures of the app
 
-The demo GIF is recorded by hand. Run the Demo workflow from the Actions tab; it records
-`assets/demo.gif` with `just demo` from sample data and opens a pull request with the new GIF.
-Edit the tour in `crates/study-showcase/src/tour.rs`.
+The README's demo GIF and every still and clip on the website are made from the code, never
+committed. The Landing workflow makes them all on every push to main, from sample data on a
+private virtual desktop, and publishes them with the site; the README shows the GIF from
+there. Locally, `just landing` and `just landing-build` make any that are missing, and
+`just docs-media` and `just demo` make them again after a change. Edit the GIF's tour in
+`crates/study-showcase/src/tour.rs` and the docs' scenes in `crates/study-showcase/src/docs.rs`.
 
 ## The agent team
 
@@ -103,7 +107,8 @@ maintainers: lead, developer, PM, QA, student, reviewer and pushback.
 Give the lead the task. It splits the change into small slices, each built and reviewed on
 its own; QA and `just check` run once on the result. On demand it starts `scenario` (seeded
 test states), `upgrade-reviewer` (does an existing install still work?) and `pr-maker`
-(commits, pushes and opens the pull request, never merges). These three share one slot.
+(commits, pushes and opens the pull request, never merges), and `site` keeps the website in
+`apps/landing/` in step with the app, in English and Italian. These four share one slot.
 
 Models and roles live in `.agents/team/fleet.toml`, the working agreement in
 `.agents/team/team.md`, and each role's checklist in `.agents/team/roles/`. The handoff is

@@ -1,0 +1,146 @@
+/* The landing page's shared pieces, used by more than one section in components/landing/:
+ * the page's rhythm, the notebook tints and their chips, links onward, tiles and paper.
+ * Anything only one section uses lives in that section's scoped style. */
+
+.landing {
+  display: grid;
+  gap: clamp(var(--s-8), 8.25vw, 126px);
+}
+
+/* Notebook tabs: a section's tint on its tiles and icon chips. */
+.tint-blue {
+  --t-bg: var(--blue-bg);
+  --t-chip: var(--blue-chip);
+  --t-ink: var(--blue-ink);
+}
+.tint-green {
+  --t-bg: var(--green-bg);
+  --t-chip: var(--green-chip);
+  --t-ink: var(--green-ink);
+}
+.tint-orange {
+  --t-bg: var(--orange-bg);
+  --t-chip: var(--orange-chip);
+  --t-ink: var(--orange-ink);
+}
+.tint-purple {
+  --t-bg: var(--purple-bg);
+  --t-chip: var(--purple-chip);
+  --t-ink: var(--purple-ink);
+}
+.tint-pink {
+  --t-bg: var(--pink-bg);
+  --t-chip: var(--pink-chip);
+  --t-ink: var(--pink-ink);
+}
+.chip {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-sm);
+  background: var(--t-chip, var(--selected));
+  color: var(--t-ink, var(--ink-2));
+}
+.chip-lg {
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--s-5);
+  border-radius: var(--r-md);
+}
+
+/* A link onward, to the docs or the code. */
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s-4);
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.more:hover {
+  color: var(--ink);
+}
+.more svg {
+  transition: transform 160ms var(--ease-out);
+}
+.more:hover svg {
+  transform: translateX(3px);
+}
+
+/* A tile in its section's tint, and a sheet of paper laid on one. */
+.tile {
+  position: relative;
+  margin: 0;
+  padding: clamp(var(--s-4), 2vw, var(--s-6));
+  border-radius: var(--r-xl);
+  background: var(--t-bg, var(--fill));
+}
+.paper {
+  padding: var(--s-5);
+  border-radius: var(--r-lg);
+  background: var(--canvas);
+  font-size: 16px;
+  line-height: 1.55;
+}
+.paper-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink-3);
+  font-size: 13px;
+}
+@media (max-width: 480px) {
+  .paper {
+    padding: var(--s-4);
+  }
+}
+
+/* Something the app shows arriving, and a marker wash drawn across. */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(2px);
+  }
+}
+@keyframes wash-in {
+  from {
+    background-size: 0% 86%;
+  }
+}
+
+/* Anchored ink (scripts/anchor.ts): an arrow or mark measured against what it names. Each is a
+ * point at its scope's corner that draws outside itself, so it adds nothing to the layout and
+ * never catches the pointer. Without the script it stays empty. */
+:where([data-ink-scope]) {
+  position: relative;
+}
+svg[data-arrow],
+svg[data-mark] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  color: var(--ink-2);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The pen's second, lighter pass, a hair off the first. */
+svg[data-arrow] .pass,
+svg[data-mark] .pass {
+  stroke-width: 1.1;
+  opacity: 0.5;
+}
+svg[data-ink-hidden] {
+  display: none;
+}
