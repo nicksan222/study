@@ -248,7 +248,7 @@ impl AppShell {
     ) -> Option<OnboardingFrame> {
         let step = self.onboarding.step?;
         let hero = match step {
-            Step::Welcome => brand_tile(locale, cx),
+            Step::Welcome => brand_tile(cx),
             Step::Look => hero_badge(IconName::Palette, cx),
             Step::Notes => hero_badge(IconName::NotebookPen, cx),
             Step::Ai => hero_badge(IconName::Cpu, cx),

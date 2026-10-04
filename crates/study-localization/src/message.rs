@@ -10,7 +10,6 @@
 pub enum Message {
     // App and window: menus, shortcuts and the title bar
     AppName,
-    BrandMark,
     CloseWindow,
     Quit,
     ViewMenu,

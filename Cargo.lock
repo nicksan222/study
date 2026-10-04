@@ -9274,6 +9274,7 @@ name = "study-ui"
 version = "0.1.0"
 dependencies = [
  "gpui-kit",
+ "image",
  "study-diagram",
 ]
 

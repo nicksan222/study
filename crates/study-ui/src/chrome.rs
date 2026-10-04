@@ -1,5 +1,6 @@
 //! The window chrome both full windows share: a root painted in the title-bar color, the
-//! title bar itself, and the rounded surface the content sits in, set apart by tone alone. The windows are
+//! title bar itself and the size of the app's mark in it, and the rounded surface the
+//! content sits in, set apart by tone alone. The windows are
 //! [`WorkspaceShell`](crate::WorkspaceShell) (`workspace.rs`) and
 //! [`OnboardingFrame`](crate::OnboardingFrame) (`onboarding.rs`).
 
@@ -10,6 +11,10 @@ use crate::theme::unit;
 
 /// Corner radius of the inset content surface, in design pixels.
 pub(crate) const INSET_RADIUS: f32 = crate::scale::RADIUS_LG;
+
+/// The app's mark in the title bar, at the title bar's glyph size (`DESIGN.md`, Shapes), in
+/// design pixels.
+pub(crate) const TITLE_BAR_MARK: f32 = 16.;
 
 /// The window's root: a full-size column in the title-bar color.
 pub(crate) fn window_root(cx: &App) -> Div {

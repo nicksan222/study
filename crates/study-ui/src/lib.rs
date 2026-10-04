@@ -7,6 +7,7 @@
 //! |---|---|
 //! | `theme` | [`configure_theme`], [`set_appearance`], [`set_zoom`], [`ZOOM_RANGE`], [`scaled_px`], [`units`], [`scale`], [`palette()`], [`Palette`], [`float_shadow`]: colors, fonts, the size scales, zoom |
 //! | `icon` | [`icon()`]: Study's own SVG drawings, falling back to GPUI Kit's |
+//! | `logo` | [`logo()`]: the app's mark, in full colour |
 //! | `button` | [`button()`], [`highlighter_button`], [`icon_button`]: the standard button sizes, and the one learning action a screen may fill with the highlighter |
 //! | `workspace` | [`WorkspaceShell`]: the main window |
 //! | `onboarding` | [`OnboardingFrame`]: the first-run tour's window |
@@ -56,6 +57,7 @@ mod gallery;
 mod icon;
 mod ids;
 mod keys;
+mod logo;
 mod menu;
 mod motion;
 mod navigation;
@@ -76,6 +78,7 @@ pub use diagram_canvas::{DiagramCanvas, DiagramLabels};
 pub use gallery::Gallery;
 pub use icon::icon;
 pub use keys::is_shortcut;
+pub use logo::logo;
 pub use menu::{MenuItem, MenuSection};
 pub use motion::{Rise, Shimmer};
 pub use navigation::{NavigationRail, navigation_row};

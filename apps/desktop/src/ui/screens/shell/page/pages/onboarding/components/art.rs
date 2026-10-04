@@ -1,4 +1,4 @@
-//! The welcome tour's pictures: the brand tile, the three things Study does, and a sample
+//! The welcome tour's pictures: the app's mark, the three things Study does, and a sample
 //! session that shows notes being written down and one note asking the assistant. Glyphs are
 //! monochrome (`DESIGN.md`, the No Rainbow Rule); only the `@study` mention is highlighted.
 
@@ -10,23 +10,8 @@ use study_localization::{Locale, Message, text};
 use study_ui::units;
 
 /// The app's mark, large, for the first step.
-pub(in crate::ui::screens::shell::page::pages::onboarding) fn brand_tile(
-    locale: Locale,
-    cx: &App,
-) -> Div {
-    let unit = units(cx);
-    let colors = cx.theme().colors;
-    div()
-        .size(unit(76.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(unit(study_ui::scale::RADIUS_XL))
-        .bg(colors.primary)
-        .text_color(colors.primary_foreground)
-        .text_size(unit(study_ui::scale::TEXT_DISPLAY))
-        .font_weight(FontWeight::SEMIBOLD)
-        .child(text(locale, Message::BrandMark))
+pub(in crate::ui::screens::shell::page::pages::onboarding) fn brand_tile(cx: &App) -> Div {
+    div().child(study_ui::logo(76., cx))
 }
 
 /// The step's glyph above its title, in the secondary ink.
