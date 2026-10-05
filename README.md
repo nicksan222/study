@@ -9,6 +9,7 @@
 Bring your lectures, slides and PDFs. Study reads them, answers your questions with
 citations, and turns them into flashcards and practice.
 
+[Website](https://nicksan222.github.io/study/) ·
 [Download](https://github.com/nicksan222/study/releases) ·
 [Contribute](CONTRIBUTING.md) ·
 [Report a bug](https://github.com/nicksan222/study/issues)
