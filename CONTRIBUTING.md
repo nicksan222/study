@@ -141,8 +141,11 @@ One-time repository setup, using the pinned `cargo packager` in the devcontainer
 
 For notarized macOS packages, also set `APPLE_SIGNING_IDENTITY`, `APPLE_CERTIFICATE` (base64
 P12), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` (app-specific password) and
-`APPLE_TEAM_ID`. Without them macOS packages are unsigned. Windows installers are unsigned
-and can trigger SmartScreen. Intel Macs are not supported: ONNX Runtime ships no build for
+`APPLE_TEAM_ID`. Without them macOS bundles receive an ad-hoc signature: no Apple account
+is needed, but users must approve the app with **Open Anyway** in **System Settings › Privacy
+& Security**. The release verifies the bundle signatures inside both the DMG and updater
+archive; updater `.sig` files are a separate signature, not Apple signing. Windows installers
+are unsigned and can trigger SmartScreen. Intel Macs are not supported: ONNX Runtime ships no build for
 them.
 
 For a local signed package, export the variables above, set

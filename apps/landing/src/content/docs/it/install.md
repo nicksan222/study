@@ -25,7 +25,7 @@ chmod +x study-linux-x86_64.AppImage
 
 Le versioni per Linux sono compilate su Ubuntu 24.04, quindi serve una distribuzione di quell'epoca o più recente.
 
-Su **macOS** apri il `.dmg` e trascina Study in Applicazioni. Study richiede macOS 12 o successivo su un Mac con Apple Silicon. Non esiste una versione per i Mac Intel.
+Su **macOS** apri il `.dmg` e trascina Study in Applicazioni. Study richiede macOS 12 o successivo su un Mac con Apple Silicon. Non esiste una versione per i Mac Intel. Se macOS blocca Study perché non può verificare lo sviluppatore, prova prima ad aprirlo, poi vai in **Impostazioni di Sistema › Privacy e sicurezza**, scegli **Apri comunque** e conferma. Autorizza solo una copia scaricata dalle release di questo progetto.
 
 Su **Windows** avvia l'installer `.exe` e segui i passaggi.
 

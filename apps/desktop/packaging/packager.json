@@ -8,6 +8,7 @@
   "icons": ["apps/desktop/packaging/icon.png"],
   "binaries": [{"path": "study", "main": true}],
   "macos": {
+    "signingIdentity": "-",
     "minimumSystemVersion": "12.0",
     "infoPlistPath": "apps/desktop/packaging/Info.plist",
     "entitlements": "apps/desktop/packaging/Entitlements.plist"

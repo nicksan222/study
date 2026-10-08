@@ -258,7 +258,7 @@ agents-usage *args:
 
 # Lint the devcontainer and packaging shell scripts.
 check-shell:
-    shellcheck -x .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/release.sh
+    shellcheck -x .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh
 
 # Prepare a recording for a PR: first 15 seconds, no audio, at most 8 MB. Use .mp4 or .gif.
 [positional-arguments]

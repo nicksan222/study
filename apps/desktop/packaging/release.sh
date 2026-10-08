@@ -46,6 +46,11 @@ package() {
     export APPIMAGE_EXTRACT_AND_RUN=1
     cargo build --locked --release -p study --target "$target"
     cargo packager --config "$config" --formats "$(IFS=,; echo "${formats[*]}")"
+    # Updater signatures do not validate Apple bundle signatures. Check the distributed
+    # bundles, not the executable (which can run even when Finder rejects the app).
+    if [[ $format == app ]]; then
+        bash apps/desktop/packaging/verify-macos.sh "$out"/*.app.tar.gz "$out"/*.dmg
+    fi
     local extensions=("$suffix")
     [[ $format == app ]] && extensions+=(.dmg)
     for extension in "${extensions[@]}"; do
