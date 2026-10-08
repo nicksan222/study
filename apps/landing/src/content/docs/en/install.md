@@ -25,7 +25,7 @@ chmod +x study-linux-x86_64.AppImage
 
 The Linux builds are made on Ubuntu 24.04, so they need a distribution of about that age or newer.
 
-On **macOS**, open the `.dmg` and drag Study into Applications. Study needs macOS 12 or later on an Apple Silicon Mac. There is no build for Intel Macs.
+On **macOS**, open the `.dmg` and drag Study into Applications. Study needs macOS 12 or later on an Apple Silicon Mac. There is no build for Intel Macs. If macOS blocks Study because the developer cannot be verified, first try opening it, then go to **System Settings › Privacy & Security**, choose **Open Anyway**, and confirm. Only approve a copy you downloaded from this project's releases.
 
 On **Windows**, run the `.exe` installer and follow its steps.
 

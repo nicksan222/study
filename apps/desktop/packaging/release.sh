@@ -28,6 +28,16 @@ package() {
     : "${CARGO_PACKAGER_SIGN_PRIVATE_KEY:?is required for signed packages}"
     : "${STUDY_UPDATE_PUBLIC_KEY:?is required in release binaries}"
     : "${STUDY_UPDATE_ENDPOINT:?is required in release binaries}"
+    if [[ $format == app ]]; then
+        # GitHub exports missing secrets as empty strings; packager checks their presence.
+        if [[ -z ${APPLE_CERTIFICATE:-} ]]; then
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD
+        fi
+        local credential
+        for credential in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            [[ -n ${!credential:-} ]] || unset "$credential"
+        done
+    fi
     local target_dir out version config
     target_dir=${CARGO_TARGET_DIR:-target}
     out="$target_dir/packages/$1"
@@ -46,6 +56,11 @@ package() {
     export APPIMAGE_EXTRACT_AND_RUN=1
     cargo build --locked --release -p study --target "$target"
     cargo packager --config "$config" --formats "$(IFS=,; echo "${formats[*]}")"
+    # Updater signatures do not validate Apple bundle signatures. Check the distributed
+    # bundles, not the executable (which can run even when Finder rejects the app).
+    if [[ $format == app ]]; then
+        bash apps/desktop/packaging/verify-macos.sh "$out"/*.app.tar.gz "$out"/*.dmg
+    fi
     local extensions=("$suffix")
     [[ $format == app ]] && extensions+=(.dmg)
     for extension in "${extensions[@]}"; do
