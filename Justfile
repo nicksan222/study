@@ -287,4 +287,4 @@ check-shell:
 
 # Prepare a PR recording: at most 15 seconds and 8 MB; MP4 or GIF.
 showcase input output:
-    python3 .devcontainer/desktop/showcase.py "$1" "$2"
+    cargo run --locked -q -p study-showcase -- convert "$1" "$2"

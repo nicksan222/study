@@ -6811,7 +6811,10 @@ dependencies = [
 name = "study-showcase"
 version = "0.1.1"
 dependencies = [
+ "serde_json",
  "study-core",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

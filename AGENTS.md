@@ -74,7 +74,7 @@ it and the app from zero, and `just desktop-watch` follows its Tauri/Vite rebuil
 | dev | `study-testkit` | `crates/study-testkit` | Real services for tests, run in Docker (a web server, …); a dev-dependency only |
 | dev | `study-seed` | `crates/study-seed` | Sample courses, sessions, files and study material written into a database, for `just reset-data`, tests and the showcase; never a normal dependency of the app |
 | dev | `study-dev` | `tooling/dev` | Development-only workspace commands: protocol and catalog generation |
-| dev | `study-showcase` | `crates/study-showcase` | Runs the production React capture consumer (`tooling/e2e`), using isolated real gRPC fixtures |
+| dev | `study-showcase` | `crates/study-showcase` | Runs production React captures on isolated real RPC fixtures and prepares bounded PR recordings |
 
 The React UI consumes only generated protobuf messages and the typed client. The native shell and
 development HTTP bridge forward binary envelopes through the generated tonic client; they own no

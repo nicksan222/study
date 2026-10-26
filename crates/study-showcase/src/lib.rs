@@ -1,9 +1,13 @@
-//! Capture entry point for the production React frontend on isolated real RPC fixtures.
+//! Production browser captures and bounded local recording conversion for PR attachments.
 //!
-//! [`run`] delegates to the `just demo` and `just docs-media` recipes, which uses the same browser transport,
+//! [`run`] delegates to the `just demo` and `just docs-media` recipes, which use the same browser transport,
 //! generated gRPC client and components as consumer E2E. Capture scenes and translations
 //! live beside those tests, never in a second desktop implementation. The shared native
 //! desktop and the user's development database are untouched.
+
+mod media;
+
+pub use media::convert;
 
 use std::{path::Path, process::Command};
 use study_core::{Context as _, Result};
