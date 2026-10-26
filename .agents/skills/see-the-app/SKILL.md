@@ -54,7 +54,7 @@ On Wayland the native executable uses `app_id=study`; the bundle identifier rema
   vertical values scroll down; negative values scroll up. Sway cursor button events do
   not deliver scrolling to the app.
 - Hover with `swaymsg seat - cursor set X Y`, using screen coordinates. Obtain the window
-  offset with `python3 .devcontainer/desktop/window.py position` when converting from a
+  offset with `just desktop-query position` when converting from a
   window screenshot. The same helper provides `geometry` and `scale`.
 - Let the app finish rendering before capturing evidence. Move the pointer away from the
   content being inspected when hover highlights or tooltips obscure it.

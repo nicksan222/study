@@ -6726,9 +6726,12 @@ dependencies = [
 name = "study-dev"
 version = "0.1.1"
 dependencies = [
+ "serde",
  "serde_json",
+ "shlex",
  "syn 2.0.119",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]

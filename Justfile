@@ -68,7 +68,7 @@ desktop-shot what="window" path=(desk / "window.png") scale="1":
     if [ "$1" = screen ]; then
       grim -s "$3" "$2"
     else
-      geometry=$(python3 .devcontainer/desktop/window.py geometry)
+      geometry=$(cargo run --locked -q -p study-dev -- desktop query geometry)
       grim -s "$3" -g "$geometry" "$2"
     fi
     echo "$2"
@@ -78,7 +78,7 @@ desktop-click x y button="left":
     #!/usr/bin/env bash
     set -euo pipefail
     . "{{justfile_directory()}}/target/desktop.env"
-    position=$(python3 .devcontainer/desktop/window.py position)
+    position=$(cargo run --locked -q -p study-dev -- desktop query position)
     read -r window_x window_y <<< "$position"
     case "$3" in
       left|middle|right) button="$3" ;;
@@ -96,8 +96,8 @@ desktop-record seconds="5" path=(desk / "clip.mp4"):
     #!/usr/bin/env bash
     set -euo pipefail
     . "{{justfile_directory()}}/target/desktop.env"
-    geometry=$(python3 .devcontainer/desktop/window.py geometry)
-    scale=$(python3 .devcontainer/desktop/window.py scale)
+    geometry=$(cargo run --locked -q -p study-dev -- desktop query geometry)
+    scale=$(cargo run --locked -q -p study-dev -- desktop query scale)
     # Recorded in logical pixels, as screenshots are.
     # H.264 requires even pixel dimensions. SIGINT gives the recorder time to
     # finish its output; timeout's 124 exit means the requested duration elapsed.
@@ -124,13 +124,17 @@ desktop-browser *args:
 desktop-stop:
     bash .devcontainer/desktop/stop.sh
 
+# Inspect a native window value: exists, geometry, position, or scale.
+desktop-query value:
+    cargo run --locked -q -p study-dev -- desktop query "$1"
+
 # Read-only native app/desktop status as JSON.
 desktop-status:
-    python3 tooling/development/desktop.py status
+    cargo run --locked -q -p study-dev -- desktop status
 
 # Wait for the managed native Study window without restarting or taking control.
 desktop-wait timeout="120":
-    python3 tooling/development/desktop.py wait --timeout "$1"
+    cargo run --locked -q -p study-dev -- desktop wait --timeout "$1"
 
 # Start the web app and RPC backend; accepts --port and --production.
 web *args:

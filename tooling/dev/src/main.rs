@@ -1,22 +1,28 @@
 //! Development-only workspace commands. Never a dependency of the application.
 #![allow(clippy::print_stderr)]
 
+mod desktop;
 mod generate;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn main() -> std::process::ExitCode {
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> std::process::ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
-    let check = match args.as_slice() {
-        [command] if command == "generate" => false,
-        [command, flag] if command == "generate" && flag == "--check" => true,
+    let result = match args.as_slice() {
+        [command] if command == "generate" => generate::run(false).map(|()| true),
+        [command, flag] if command == "generate" && flag == "--check" => {
+            generate::run(true).map(|()| true)
+        }
+        [command, rest @ ..] if command == "desktop" => desktop::run(rest).await,
         _ => {
-            eprintln!("usage: study-dev generate [--check]");
+            eprintln!("usage: study-dev {{generate [--check]|desktop ...}}");
             return std::process::ExitCode::from(2);
         }
     };
-    match generate::run(check) {
-        Ok(()) => std::process::ExitCode::SUCCESS,
+    match result {
+        Ok(true) => std::process::ExitCode::SUCCESS,
+        Ok(false) => std::process::ExitCode::FAILURE,
         Err(error) => {
             eprintln!("{error}");
             std::process::ExitCode::FAILURE

@@ -14,10 +14,15 @@ fi
 # shellcheck source=/dev/null
 . "$env_file"
 
+# Build the read-only probe before launching Tauri; readiness never invokes Cargo.
+cargo build --locked -q --manifest-path "$repo/Cargo.toml" -p study-dev
+dev_target=$(cargo metadata --locked --no-deps --format-version 1 --manifest-path "$repo/Cargo.toml" | jq -r .target_directory)
+dev_tool="$dev_target/debug/study-dev"
+
 # Hold the launch lock until the window is ready. The app closes this descriptor.
 exec 8>"$desk/app.lock"
 flock 8
-window_exists() { python3 "$repo/.devcontainer/desktop/window.py" exists; }
+window_exists() { "$dev_tool" desktop query exists; }
 if window_exists; then
   echo "Study is already running"
   exit 0
