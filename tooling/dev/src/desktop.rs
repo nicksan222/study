@@ -1,16 +1,13 @@
 //! Read-only desktop inspection with one deadline shared by every IPC probe.
 #![allow(clippy::print_stdout)] // JSON and logical geometry are the command's output.
 
-use std::{collections::BTreeMap, ffi::OsString, fs, path::Path, process::Output, time::Duration};
+use std::{collections::BTreeMap, ffi::OsString, fs, path::Path, time::Duration};
 
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tokio::{
-    process::Command,
-    time::{Instant, timeout},
-};
+use tokio::{process::Command, time::Instant};
 
-use crate::Result;
+use crate::{Result, bus, process::output};
 
 #[derive(Clone, Copy, Deserialize)]
 struct Rect {
@@ -70,16 +67,6 @@ fn environment(path: &Path) -> Result<BTreeMap<String, String>> {
     Ok(values)
 }
 
-async fn output(command: &mut Command, budget: Duration) -> Result<Output> {
-    if budget.is_zero() {
-        return Err("desktop IPC timed out".into());
-    }
-    timeout(budget, command.kill_on_drop(true).output())
-        .await
-        .map_err(|_| "desktop IPC timed out")?
-        .map_err(Into::into)
-}
-
 async fn sway(
     kind: &str,
     environment: &BTreeMap<String, String>,
@@ -100,77 +87,13 @@ async fn sway(
     Ok(serde_json::from_slice(&result.stdout)?)
 }
 
-fn bus_address(state: &Path) -> String {
-    let socket = state
-        .canonicalize()
-        .unwrap_or_else(|_| state.to_owned())
-        .join("dbus.sock");
-    let mut address = String::from("unix:path=");
-    for &byte in socket.as_os_str().as_encoded_bytes() {
-        if byte.is_ascii_alphanumeric() || b"/-._~".contains(&byte) {
-            address.push(char::from(byte));
-        } else {
-            address.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    address
-}
-
-fn owned_bus(state: &Path, address: &str) -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let Some(pid) = fs::read_to_string(state.join("dbus.pid"))
-            .ok()
-            .and_then(|pid| pid.trim().parse::<u32>().ok())
-            .filter(|pid| *pid > 1)
-        else {
-            return false;
-        };
-        let process = Path::new("/proc").join(pid.to_string());
-        let Ok(metadata) = fs::metadata(&process) else {
-            return false;
-        };
-        let Ok(ours) = fs::metadata("/proc/self") else {
-            return false;
-        };
-        if metadata.uid() != ours.uid() {
-            return false;
-        }
-        let Ok(stat) = fs::read_to_string(process.join("stat")) else {
-            return false;
-        };
-        let Some(state) = stat
-            .rsplit_once(") ")
-            .and_then(|(_, fields)| fields.split_whitespace().next())
-        else {
-            return false;
-        };
-        if matches!(state, "Z" | "X") {
-            return false;
-        }
-        let Ok(command) = fs::read(process.join("cmdline")) else {
-            return false;
-        };
-        let args: Vec<_> = command.split(|byte| *byte == 0).collect();
-        args.iter()
-            .any(|arg| *arg == b"dbus-daemon" || arg.ends_with(b"/dbus-daemon"))
-            && args.contains(&format!("--address={address}").as_bytes())
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = (state, address);
-        false
-    }
-}
-
 async fn status(root: &Path, budget: Duration) -> Result<Value> {
     let deadline = Instant::now()
         .checked_add(budget)
         .ok_or("desktop timeout is too large")?;
     let env_file = root.join("target/desktop.env");
     let state = root.join("target/desktop");
-    let address = bus_address(&state);
+    let address = bus::address(&state);
     let mut result = json!({"desktop":env_file.is_file(), "window":false, "log":state.join("app.log"), "dbus":false, "dbusAddress":address});
     if env_file.is_file() && !budget.is_zero() {
         let probe = async {
@@ -190,22 +113,9 @@ async fn status(root: &Path, budget: Duration) -> Result<Value> {
             Err(error) => result["diagnostic"] = json!(error.to_string()),
         }
     }
-    if owned_bus(&state, &address) {
-        let probe = output(
-            Command::new("dbus-send")
-                .args([
-                    "--session",
-                    "--print-reply",
-                    "--dest=org.freedesktop.DBus",
-                    "/org/freedesktop/DBus",
-                    "org.freedesktop.DBus.ListNames",
-                ])
-                .env("DBUS_SESSION_BUS_ADDRESS", &address),
-            deadline.saturating_duration_since(Instant::now()),
-        )
-        .await;
-        result["dbus"] = json!(probe.is_ok_and(|output| output.status.success()));
-    }
+    let current_bus = bus::status(&state, deadline.saturating_duration_since(Instant::now())).await;
+    result["dbus"] = json!(current_bus.dbus);
+    result["dbusAddress"] = json!(current_bus.address);
     if let Some(pid) = fs::read_to_string(state.join("app.pid"))
         .ok()
         .and_then(|pid| pid.trim().parse::<u32>().ok())
@@ -379,7 +289,7 @@ mod tests {
         }
         let state = Path::new("/tmp/private bus é");
         assert_eq!(
-            bus_address(state),
+            bus::address(state),
             "unix:path=/tmp/private%20bus%20%C3%A9/dbus.sock"
         );
     }
@@ -424,7 +334,7 @@ mod tests {
         let daemon = Daemon(
             std::process::Command::new("dbus-daemon")
                 .args(["--session", "--nofork", "--nopidfile"])
-                .arg(format!("--address={}", bus_address(&state)))
+                .arg(format!("--address={}", bus::address(&state)))
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .spawn()
@@ -439,7 +349,7 @@ mod tests {
                 .unwrap()
                 .success()
         );
-        assert!(owned_bus(&state, &bus_address(&state)));
+        assert!(bus::status(&state, Duration::ZERO).await.owned);
 
         let socket = directory.path().join("sway.sock");
         let _listener = UnixListener::bind(&socket).unwrap();

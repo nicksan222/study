@@ -22,6 +22,8 @@ case "${1:-}" in
   *) echo "usage: attach.sh [--serve-only]" >&2; exit 2 ;;
 esac
 mkdir -p "$desk"
+# shellcheck source=.devcontainer/desktop/tool.sh
+. "$repo/.devcontainer/desktop/tool.sh"
 # Starting and inspecting both transport processes is one transaction. The stop
 # script takes the same lock, so it cannot remove PID files halfway through.
 exec 9>"$desk/attach.lock"
@@ -51,7 +53,7 @@ desktop_alive() {
 }
 
 if ! desktop_alive; then
-  if ! bash "$script_dir/screen.sh" 9>&-; then
+  if ! STUDY_DEV_TOOL="$study_dev" bash "$script_dir/screen.sh" 9>&-; then
     fail "could not start the headless desktop; see $desk/sway.log"
   fi
   if ! desktop_alive; then
@@ -60,7 +62,7 @@ if ! desktop_alive; then
 fi
 
 export DBUS_SESSION_BUS_ADDRESS
-DBUS_SESSION_BUS_ADDRESS=$(python3 "$script_dir/dbus.py" ensure --env-file "$desktop_env" --address-only)
+DBUS_SESSION_BUS_ADDRESS=$("$study_dev" dbus ensure --env-file "$desktop_env" --address-only)
 
 need wayvnc
 need websockify
@@ -194,7 +196,7 @@ fi
 flock -u 9
 if ((start_app)); then
   # The transport was just checked. Reuse it when starting the app.
-  if ! STUDY_DESKTOP_ATTACHED=1 just --justfile "$repo/Justfile" desktop-run 9>&-; then
+  if ! STUDY_DEV_TOOL="$study_dev" STUDY_DESKTOP_ATTACHED=1 just --justfile "$repo/Justfile" desktop-run 9>&-; then
     fail "could not start Study; see $desk/app.log"
   fi
 fi

@@ -78,7 +78,8 @@ at `http://localhost:5173`. Ctrl+C stops both. The development database is kept 
 Use `bun dev --port 5174` to choose another frontend port.
 The root Bun scripts delegate to Just recipes; `just --list` lists all tasks.
 `just gen-protocol`, `just protocol-check`, and the desktop inspection commands run the Rust
-development tool in `tooling/dev`. Desktop startup builds the probe before launching the app.
+development tool in `tooling/dev`. Desktop entry points build it before taking lifecycle
+locks; the tool also owns private D-Bus startup, reuse and shutdown.
 
 | Command | What it does |
 |---|---|

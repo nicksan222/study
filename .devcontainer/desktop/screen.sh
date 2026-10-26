@@ -49,6 +49,8 @@ esac
 w=${size%x*} h=${size#*x}
 mode=$(awk -v w="$w" -v h="$h" -v s="$scale" 'BEGIN { printf "%dx%d", w * s + 0.5, h * s + 0.5 }')
 mkdir -p "$desk"
+# shellcheck source=.devcontainer/desktop/tool.sh
+. "$repo/.devcontainer/desktop/tool.sh"
 
 desktop_is_running() {
   [ -f "$env_file" ] || return 1
@@ -63,7 +65,7 @@ if ! desktop_is_running; then
   chmod 700 "$XDG_RUNTIME_DIR"
   rm -f "$env_file"
   export DBUS_SESSION_BUS_ADDRESS
-  DBUS_SESSION_BUS_ADDRESS=$(python3 "$repo/.devcontainer/desktop/dbus.py" ensure --address-only)
+  DBUS_SESSION_BUS_ADDRESS=$("$study_dev" dbus ensure --address-only)
   WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
     setsid nohup sway -c "$repo/.devcontainer/desktop/sway.config" >"$desk/sway.log" 2>&1 </dev/null &
   for _ in $(seq 100); do
@@ -81,7 +83,7 @@ fi
 
 # Reuse/create the private session bus even on a desktop started before bus management.
 export DBUS_SESSION_BUS_ADDRESS
-DBUS_SESSION_BUS_ADDRESS=$(python3 "$repo/.devcontainer/desktop/dbus.py" ensure --env-file "$env_file" --address-only)
+DBUS_SESSION_BUS_ADDRESS=$("$study_dev" dbus ensure --env-file "$env_file" --address-only)
 
 # Resizing an existing desktop preserves the app's in-memory state.
 swaymsg -q output HEADLESS-1 resolution "$mode" scale "$scale"

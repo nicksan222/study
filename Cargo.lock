@@ -6726,6 +6726,7 @@ dependencies = [
 name = "study-dev"
 version = "0.1.1"
 dependencies = [
+ "nix",
  "serde",
  "serde_json",
  "shlex",

@@ -1,8 +1,10 @@
 //! Development-only workspace commands. Never a dependency of the application.
 #![allow(clippy::print_stderr)]
 
+mod bus;
 mod desktop;
 mod generate;
+mod process;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -15,8 +17,9 @@ async fn main() -> std::process::ExitCode {
             generate::run(true).map(|()| true)
         }
         [command, rest @ ..] if command == "desktop" => desktop::run(rest).await,
+        [command, rest @ ..] if command == "dbus" => bus::run(rest).await,
         _ => {
-            eprintln!("usage: study-dev {{generate [--check]|desktop ...}}");
+            eprintln!("usage: study-dev {{generate [--check]|desktop ...|dbus ...}}");
             return std::process::ExitCode::from(2);
         }
     };

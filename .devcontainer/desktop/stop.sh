@@ -17,6 +17,8 @@ case "${1:-}" in
   *) echo "usage: stop.sh [--app]" >&2; exit 2 ;;
 esac
 mkdir -p "$desk"
+# shellcheck source=.devcontainer/desktop/tool.sh
+. "$repo/.devcontainer/desktop/tool.sh"
 
 # Serialize against attach.sh, which creates the transport PID files.
 # Take the app-start lock before the transport lock, matching desktop-run -> run
@@ -73,7 +75,7 @@ if ((app_only)); then
 fi
 
 # The private session bus stops after its app/browser clients, while --app keeps it alive.
-python3 "$script_dir/dbus.py" stop
+"$study_dev" dbus stop
 
 # The compositor is last. Its socket is the authority for the seat helper and all
 # Wayland clients, and removing desktop.env prevents later callers using it.
