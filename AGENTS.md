@@ -73,7 +73,7 @@ it and the app from zero, and `just desktop-watch` follows its Tauri/Vite rebuil
 | web | `study-landing` | `apps/landing` | The website (Astro on Bun, GitHub Pages): the landing page and one docs page per feature, in English and Italian, with captures of the app on the showcase sample; no Rust |
 | dev | `study-testkit` | `crates/study-testkit` | Real services for tests, run in Docker (a web server, …); a dev-dependency only |
 | dev | `study-seed` | `crates/study-seed` | Sample courses, sessions, files and study material written into a database, for `just reset-data`, tests and the showcase; never a normal dependency of the app |
-| dev | `study-dev` | `tooling/dev` | Development-only workspace commands: protocol/catalog generation, desktop inspection and private D-Bus management |
+| dev | `study-dev` | `tooling/dev` | Development-only workspace commands: protocol/catalog generation, desktop inspection, process waiting and private D-Bus management |
 | dev | `study-showcase` | `crates/study-showcase` | Runs production React captures on isolated real RPC fixtures and prepares bounded PR recordings |
 
 The React UI consumes only generated protobuf messages and the typed client. The native shell and

@@ -81,16 +81,7 @@ fn pid_from(state: &Path) -> Result<Option<u32>> {
 }
 
 #[cfg(target_os = "linux")]
-fn alive(pid: u32) -> bool {
-    fs::read_to_string(format!("/proc/{pid}/stat"))
-        .ok()
-        .and_then(|stat| {
-            stat.rsplit_once(") ").map(|(_, fields)| {
-                !matches!(fields.split_whitespace().next(), None | Some("Z" | "X"))
-            })
-        })
-        .unwrap_or(false)
-}
+use crate::process::pid_alive;
 
 #[cfg(target_os = "linux")]
 fn owned(pid: u32, bus: &str) -> bool {
@@ -99,7 +90,7 @@ fn owned(pid: u32, bus: &str) -> bool {
     let Ok(metadata) = fs::metadata(&process) else {
         return false;
     };
-    if metadata.uid() != nix::unistd::getuid().as_raw() || !alive(pid) {
+    if metadata.uid() != nix::unistd::getuid().as_raw() || !pid_alive(pid) {
         return false;
     }
     let Ok(command) = fs::read(process.join("cmdline")) else {
@@ -206,7 +197,7 @@ fn signal_owned(pid: u32, bus: &str) -> Result {
 async fn stop_process(pid: u32, bus: &str) -> Result {
     signal_owned(pid, bus)?;
     let deadline = Instant::now() + START_BUDGET;
-    while alive(pid) {
+    while pid_alive(pid) {
         if !owned(pid, bus) {
             return Err("desktop D-Bus: process ownership changed; left untouched".into());
         }
@@ -384,7 +375,7 @@ pub(crate) async fn ensure(state: &Path, env_file: Option<&Path>) -> Result<Stat
     let _lock = locked(state).await?;
     let bus = address(state);
     let pid = pid_from(state)?;
-    if let Some(pid) = pid.filter(|pid| alive(*pid)) {
+    if let Some(pid) = pid.filter(|pid| pid_alive(*pid)) {
         if !owned(pid, &bus) {
             return Err(format!(
                 "desktop D-Bus: dbus.pid names unrelated PID {pid}; left untouched"
@@ -433,7 +424,7 @@ pub(crate) async fn ensure(state: &Path, env_file: Option<&Path>) -> Result<Stat
 pub(crate) async fn stop(state: &Path) -> Result {
     let _lock = locked(state).await?;
     let bus = address(state);
-    if let Some(pid) = pid_from(state)?.filter(|pid| alive(*pid)) {
+    if let Some(pid) = pid_from(state)?.filter(|pid| pid_alive(*pid)) {
         if !owned(pid, &bus) {
             return Err(format!(
                 "desktop D-Bus: dbus.pid names unrelated PID {pid}; left untouched"
@@ -625,7 +616,7 @@ mod tests {
             } => pid,
         };
         sleep(Duration::from_millis(100)).await;
-        let leaked = alive(pid);
+        let leaked = pid_alive(pid);
         if leaked {
             stop(folder.path()).await.unwrap();
         }

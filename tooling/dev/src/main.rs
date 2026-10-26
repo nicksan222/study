@@ -18,8 +18,9 @@ async fn main() -> std::process::ExitCode {
         }
         [command, rest @ ..] if command == "desktop" => desktop::run(rest).await,
         [command, rest @ ..] if command == "dbus" => bus::run(rest).await,
+        [command, target] if command == "wait-exit" => process::wait_exit(target).await,
         _ => {
-            eprintln!("usage: study-dev {{generate [--check]|desktop ...|dbus ...}}");
+            eprintln!("usage: study-dev {{generate [--check]|desktop ...|dbus ...|wait-exit PID}}");
             return std::process::ExitCode::from(2);
         }
     };

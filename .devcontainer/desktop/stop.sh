@@ -58,7 +58,7 @@ for service in "${services[@]}"; do
       kill -- "$signal_target" 2>/dev/null || true
       # Keep tracking until shutdown completes. A timeout preserves the PID file
       # and reports failure instead of claiming the desktop is ready to restart.
-      if ! python3 "$script_dir/wait.py" "$signal_target"; then
+      if ! "$study_dev" wait-exit "$signal_target"; then
         echo "$service is still stopping; retry desktop-stop shortly." >&2
         exit 1
       fi
