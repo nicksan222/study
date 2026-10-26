@@ -77,6 +77,7 @@ It starts the real RPC backend, waits until it is ready, then starts Vite with h
 at `http://localhost:5173`. Ctrl+C stops both. The development database is kept between runs.
 Use `bun dev --port 5174` to choose another frontend port.
 The root Bun scripts delegate to Just recipes; `just --list` lists all tasks.
+`just gen-protocol` and `just protocol-check` run the Rust development tool in `tooling/dev`.
 
 | Command | What it does |
 |---|---|

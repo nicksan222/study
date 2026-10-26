@@ -17,8 +17,8 @@
     "gen:protocol": "just gen-protocol",
     "desktop:dev": "cd apps/desktop && tauri dev",
     "desktop:build": "cd apps/desktop && tauri build",
-    "format": "prettier --write apps/desktop/src packages/ui/src tooling/codegen vite.config.ts tsconfig.json",
-    "format:check": "prettier --check apps/desktop/src packages/ui/src tooling/codegen vite.config.ts tsconfig.json"
+    "format": "prettier --write apps/desktop/src packages/ui/src vite.config.ts tsconfig.json",
+    "format:check": "prettier --check apps/desktop/src packages/ui/src vite.config.ts tsconfig.json"
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "2.16.0",

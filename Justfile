@@ -211,11 +211,11 @@ frontend-check:
 
 # Generate protobuf clients and the canonical bilingual catalog.
 gen-protocol:
-    bash tooling/codegen/generate.sh
+    cargo run --locked -q -p study-dev -- generate
 
 # Fail if generated protobuf clients/localized copy differ from the canonical sources.
 protocol-check:
-    bash tooling/codegen/generate.sh --check
+    cargo run --locked -q -p study-dev -- generate --check
 
 # Run release configuration, verification, or assembly commands.
 release *args:
@@ -283,7 +283,7 @@ agents-usage *args:
 
 # Lint the devcontainer and packaging shell scripts.
 check-shell:
-    shellcheck -x tooling/development/*.sh tooling/codegen/*.sh tooling/release/*.sh .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh
+    shellcheck -x tooling/development/*.sh tooling/release/*.sh .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh
 
 # Prepare a PR recording: at most 15 seconds and 8 MB; MP4 or GIF.
 showcase input output:

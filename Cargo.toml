@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["tooling/web-bridge", "crates/study-rpc", "apps/desktop/src-tauri", "crates/study-core", "crates/study-diagram", "crates/study-localization", "crates/study-app", "crates/study-media", "crates/study-ai", "crates/study-pipeline", "crates/study-testkit", "crates/study-showcase", "crates/study-seed"]
+members = ["tooling/dev", "tooling/web-bridge", "crates/study-rpc", "apps/desktop/src-tauri", "crates/study-core", "crates/study-diagram", "crates/study-localization", "crates/study-app", "crates/study-media", "crates/study-ai", "crates/study-pipeline", "crates/study-testkit", "crates/study-showcase", "crates/study-seed"]
 default-members = ["apps/desktop/src-tauri"]
 
 [workspace.package]

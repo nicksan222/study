@@ -6723,6 +6723,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "study-dev"
+version = "0.1.1"
+dependencies = [
+ "serde_json",
+ "syn 2.0.119",
+ "tempfile",
+]
+
+[[package]]
 name = "study-diagram"
 version = "0.1.1"
 dependencies = [
