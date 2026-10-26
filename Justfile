@@ -1,37 +1,27 @@
-# Study workspace tasks. Run `just --list` for available commands.
-#
-# Human loop: desktop-attach -> use the app in a browser -> desktop-stop.
-# Agent loop: agents-doctor -> agents -> focused checks -> check -> agents-stop.
-# The image installs tools; these recipes orchestrate them. Persistent app/browser data
-# is separate from Cargo output even though both live beneath gitignored target/.
-# Variadic recipes use positional arguments so spaces and URL query strings stay data.
+# Workspace tasks. Run `just --list` for commands; see CONTRIBUTING.md for setup.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments
 
 default:
     @just --list
 
-# Where `run` keeps the app database (the app follows XDG_DATA_HOME).
-dev_data := justfile_directory() / "target/dev-data"
-
-# Trim stale Cargo binaries above the size budget, preserving app/browser data and active builds.
-[positional-arguments]
+# Trim stale Cargo binaries to a size budget in GB.
 trim budget_gb="40":
     python3 .devcontainer/trim.py "$1"
 
-# Delete the development database and fill a new one with sample projects, sessions, and pipeline results.
+# Replace development data with sample projects and study material.
 reset-data: trim
     bash .devcontainer/desktop/reset-data.sh
 
-# Run Study and make its desktop available in your host browser. Keep this terminal open; Ctrl+C stops the app.
+# Run the native app on the browser desktop; Ctrl+C stops it.
 run: trim
     bash .devcontainer/desktop/run.sh
 
 # Where `desktop` keeps its env, logs, screenshots and videos.
 desk := justfile_directory() / "target/desktop"
 
-# Start from zero: stop the app and desktop, start a new desktop and its browser viewer, open the viewer in the host browser (VS Code terminals; others print the URL; `STUDY_OPEN_BROWSER=0` skips it), then build and start the app in the background. Development data is kept (`just reset-data` replaces it). `screen` is a preset (`just desktop list`) or `WxH@SCALE` in logical pixels; the default is a 23-inch 1080p monitor. Writes `target/desktop.env` to source in later shells.
-[positional-arguments]
+# Restart the app and desktop, keeping data. Screen: `list`, a preset, or WxH@SCALE.
 desktop screen="display":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -45,22 +35,19 @@ desktop screen="display":
     echo "Building and starting Study; log: target/desktop/app.log"
     bash .devcontainer/desktop/app.sh
 
-# Switch the running desktop to another screen without restarting the app: a preset (`just desktop list`) or `WxH@SCALE`.
-[positional-arguments]
+# Change screen without restarting the app: a preset or WxH@SCALE.
 desktop-screen screen="display":
     @bash .devcontainer/desktop/screen.sh "$1"
 
-# Start/reuse the Tauri/Vite development watcher and follow its log. Ctrl+C detaches the log; the shared app stays up.
+# Follow Tauri/Vite rebuilds; Ctrl+C detaches and keeps the app running.
 desktop-watch:
     python3 .devcontainer/desktop/watch.py
 
-# Run the app (`just run`) on the virtual desktop in the background, logging to target/desktop/app.log; waits for its window.
-[positional-arguments]
+# Start the app in the background and wait for its window.
 desktop-run timeout="900":
     @bash .devcontainer/desktop/app.sh "$1"
 
-# How the app's window sits on the desktop: `full` fills the screen (the default, a maximized window), `float` is a normal window at the size it asks for, centred, and `fullscreen` hides the desktop around it as F11 would.
-[positional-arguments]
+# Set window mode: full (maximized), float, or fullscreen.
 desktop-window mode="full":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -73,8 +60,7 @@ desktop-window mode="full":
       *) echo "mode is full, float or fullscreen"; exit 1 ;;
     esac
 
-# Screenshot the app window (or `screen` for the whole desktop) to a PNG, by default target/desktop/window.png. It is in logical pixels, the ones `desktop-click` takes; `scale=2` keeps every Retina pixel.
-[positional-arguments]
+# Screenshot the window or screen to PNG; coordinates use logical pixels.
 desktop-shot what="window" path=(desk / "window.png") scale="1":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -87,8 +73,7 @@ desktop-shot what="window" path=(desk / "window.png") scale="1":
     fi
     echo "$2"
 
-# Left-click at X,Y in the app window's pixels (as in its screenshot); `button` may be right or middle.
-[positional-arguments]
+# Click X,Y within the app window; button: left, middle, or right.
 desktop-click x y button="left":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -106,8 +91,7 @@ desktop-click x y button="left":
     # Real virtual-pointer events also work inside GTK popup grabs (native menus/dialogs).
     wlrctl pointer click "$button"
 
-# Record the app window for some seconds to an mp4, by default target/desktop/clip.mp4. Run it with `&` to act while it records.
-[positional-arguments]
+# Record the app window to MP4; run with `&` to interact while recording.
 desktop-record seconds="5" path=(desk / "clip.mp4"):
     #!/usr/bin/env bash
     set -euo pipefail
@@ -133,7 +117,6 @@ desktop-attach:
     bash .devcontainer/desktop/attach.sh
 
 # Open a page inside the desktop, with a persistent Chromium profile for sign-in.
-[positional-arguments]
 desktop-browser *args:
     bash .devcontainer/desktop/browser.sh "$@"
 
@@ -146,12 +129,10 @@ desktop-status:
     python3 tooling/development/desktop.py status
 
 # Wait for the managed native Study window without restarting or taking control.
-[positional-arguments]
 desktop-wait timeout="120":
     python3 tooling/development/desktop.py wait --timeout "$1"
 
-# Serve the production React UI with the real gRPC backend through a development-only bridge.
-[positional-arguments]
+# Start the web app and RPC backend; accepts --port and --production.
 web *args:
     exec bash tooling/development/web.sh "$@"
 
@@ -176,8 +157,7 @@ test: trim
 docs:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps --document-private-items
 
-# Capture the production frontend using isolated real RPC fixtures (no model inference).
-[positional-arguments]
+# Record the web demo using an isolated real backend; no sign-in needed.
 demo output="apps/landing/public/demo.gif":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -186,8 +166,7 @@ demo output="apps/landing/public/demo.gif":
     export STUDY_CAPTURE=demo STUDY_DEMO_OUTPUT="$1"
     exec just e2e --grep @demo
 
-# Make website stills/clips from the same React components and actual backend.
-[positional-arguments]
+# Capture website media; filter by scene, language/theme, or missing.
 docs-media *only:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -196,18 +175,18 @@ docs-media *only:
     export STUDY_CAPTURE=docs STUDY_CAPTURE_FILTER="$*"
     exec just e2e --pass-with-no-tests --grep @capture
 
-# Refresh all committed website captures from the migrated app.
+# Refresh the demo and all website captures.
 captures: docs-media demo
 
-# Serve the website (apps/landing: the landing page and docs) with live reload at localhost:4321/study/.
+# Serve the website with live reload at localhost:4321/study/.
 landing:
     cd apps/landing && bun install --frozen-lockfile && bun run dev --host
 
-# Build the website into apps/landing/dist, as the Landing workflow publishes it, from the committed captures; it fails if one is missing.
+# Build the website from committed captures into apps/landing/dist.
 landing-build:
     cd apps/landing && bun install --frozen-lockfile && npm run build
 
-# Type-check the website's pages, components and content without building it, so it needs no captures.
+# Check website types and content without requiring captures.
 landing-check:
     cd apps/landing && bun install --frozen-lockfile && bun run check
 
@@ -216,15 +195,14 @@ build:
     npm run desktop:build -- --no-bundle -- --locked
 
 # Build and sign the native installer/AppImage (see CONTRIBUTING.md for signing setup).
-[positional-arguments]
 package platform *args:
-    bash apps/desktop/packaging/release.sh package "$@"
+    exec bash tooling/release/release.sh build "$@"
 
 # Check dependencies for known vulnerabilities, licenses and sources (deny.toml).
 deny:
     cargo deny --locked check
 
-# Check the production UI, shared components and generated consumer types, then build them.
+# Type-check, lint, test, and build the frontend.
 frontend-check:
     npm run typecheck
     npm run lint
@@ -247,8 +225,7 @@ check-copy:
 check-conventions:
     node tooling/quality/conventions.ts
 
-# Prepare, configure, verify or assemble native releases (see `just release` for usage).
-[positional-arguments]
+# Run release configuration, verification, or assembly commands.
 release *args:
     exec bash tooling/release/release.sh "$@"
 
@@ -261,15 +238,13 @@ tooling-test:
     python3 -m unittest discover -s tooling/release -p 'test_*.py'
 
 # Real browser -> production frontend -> generated gRPC client -> isolated database.
-[positional-arguments]
 e2e *args:
     exec node node_modules/@playwright/test/cli.js test --config tooling/e2e/playwright.config.ts "$@"
 
 # Run checks required for pull requests.
 check: check-shell fmt-check lint deny test docs frontend-check protocol-check tooling-test e2e landing-check
 
-# Run the same checks for one package only, e.g. `just check-crate study-core`: a focused development loop.
-[positional-arguments]
+# Format-check, lint, test, and document one Rust package.
 check-crate package: trim
     cargo fmt -p "$1" -- --check
     cargo clippy --locked -p "$1" --all-targets -- -D warnings
@@ -277,11 +252,10 @@ check-crate package: trim
     cargo test --locked -p "$1" --doc
     RUSTDOCFLAGS="-D warnings" cargo doc --locked -p "$1" --no-deps --document-private-items
 
-# Run the same checks and release build as CI.
+# Run all checks and build the native app.
 ci: check build
 
 # Benchmark this machine and print its report as JSON.
-[positional-arguments]
 benchmark *args:
     cargo run --locked --release -p study-ai --example benchmark -- "$@"
 
@@ -292,18 +266,15 @@ test-transcription-e2e:
 # Both spellings start the same team; neither resets existing conversations.
 alias agent := agents
 
-# Start the project-wide seven-role team, or selected roles (the on-demand scenario, upgrade-reviewer, pr-maker and site start only by name), in Herdr's study session. Options: --session NAME, --fresh, --no-attach, --dry-run.
-[positional-arguments]
+# Start the maintainer team or selected roles; accepts --session, --fresh, --no-attach.
 agents *args:
     python3 .agents/team/agents.py up "$@"
 
 # Stop this team's workspace, or only the named agents. Other Herdr workspaces are untouched.
-[positional-arguments]
 agents-stop *args:
     python3 .agents/team/agents.py down "$@"
 
-# Start fresh conversations for all seven roles, clearing the task checkpoint but preserving code and logins.
-[positional-arguments]
+# Reset team conversations and checkpoints, keeping code and logins.
 agents-reset *args:
     python3 .agents/team/agents.py reset "$@"
 
@@ -312,12 +283,10 @@ doctor:
     bash tooling/development/doctor.sh
 
 # Inspect subscription login and tools without starting a model.
-[positional-arguments]
 agents-doctor *args:
     python3 .agents/team/agents.py doctor "$@"
 
 # Local Claude token counts, including cache usage; not remaining subscription allowance.
-[positional-arguments]
 agents-usage *args:
     python3 .agents/team/usage.py "$@"
 
@@ -325,7 +294,6 @@ agents-usage *args:
 check-shell:
     shellcheck -x tooling/development/*.sh tooling/codegen/*.sh tooling/release/*.sh .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh
 
-# Prepare a recording for a PR: first 15 seconds, no audio, at most 8 MB. Use .mp4 or .gif.
-[positional-arguments]
+# Prepare a PR recording: at most 15 seconds and 8 MB; MP4 or GIF.
 showcase input output:
     python3 .devcontainer/desktop/showcase.py "$1" "$2"

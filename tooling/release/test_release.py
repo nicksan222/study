@@ -164,6 +164,8 @@ class ReleaseTests(unittest.TestCase):
             self.assertNotIn("APPLE_ID=", env_file.read_text())
         result = subprocess.run(["bash", str(cli), "build", "windows-x86_64"], env=dict(environment, TEST_STATUS="17"), capture_output=True)
         self.assertEqual(result.returncode, 17)
+        result = subprocess.run(["bash", str(cli), "build", "windows-x86_64", "--invalid"], env=environment, capture_output=True)
+        self.assertEqual(result.returncode, 2)
 
     def test_config_and_apple_environment(self):
         version = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())["version"]

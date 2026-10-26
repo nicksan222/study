@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  # A branch with a pull request is checked by the pull request run; a push run too would check
-  # it twice.
   push:
     branches: [main]
   pull_request:
@@ -11,7 +9,6 @@ on:
 permissions:
   contents: read
 
-# A new push to a pull request replaces its running checks; main checks every commit.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -19,50 +16,21 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
-# Straight on the runner, no devcontainer (see .github/actions/setup). Lint, tests and the
-# website run in parallel, each with its own cache.
 jobs:
-  lint:
-    name: Format, Clippy, docs and dependencies
+  check:
+    # Required by the main branch ruleset; keep this name.
+    name: Test and build
     runs-on: ubuntu-24.04
     steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - name: Set up
-        uses: ./.github/actions/setup
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
         with:
           tools: cargo-deny@0.20.2
-      - name: Check
-        run: just check-shell fmt-check deny lint docs
-
-  test:
-    name: Tests
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - name: Set up
-        uses: ./.github/actions/setup
-        with:
           packages: ffmpeg
-      # The runner's own Docker runs the tests that need real services (study-testkit).
-      - name: Test
-        run: just test
-
-  frontend:
-    name: Frontend, protocol and real consumer E2E
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - name: Set up
-        uses: ./.github/actions/setup
       - name: Install test browser
         run: npx --no-install playwright install --with-deps chromium
-      - name: Check frontend and protocol
-        run: just frontend-check protocol-check tooling-test
-      - name: Drive the production UI and real gRPC backend
-        run: just e2e
+      - name: Check
+        run: just check
       - name: Retain failure evidence
         if: failure()
         uses: actions/upload-artifact@v7
@@ -70,32 +38,3 @@ jobs:
           name: consumer-e2e
           path: target/e2e
           if-no-files-found: ignore
-
-  site:
-    name: Website
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: apps/landing/package.json
-      # Types and content only: the captures it shows are made when it is published.
-      - name: Check
-        run: cd apps/landing && bun install --frozen-lockfile && bun run check
-
-  done:
-    # The one required check: its name is in the `main` ruleset, so keep it.
-    name: Test and build
-    needs: [lint, test, frontend, site]
-    if: always()
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Every job passed
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          set -euo pipefail
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$RESULTS"
-          jq -e 'all(.[]; .result == "success")' <<<"$RESULTS" >/dev/null

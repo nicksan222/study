@@ -10,8 +10,8 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, frontend type/lint/tests/build, generated protocol drift,
-  tooling tests, real browser consumer E2E, and the website's Bun type check. Some Rust tests
-  run real services in Docker.
+  tooling tests, real browser consumer E2E, and the website's Bun type check. CI runs the same
+  command in its required `Test and build` job. Some Rust tests run real services in Docker.
 - **Every visible word comes from `study-localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an

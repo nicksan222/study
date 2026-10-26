@@ -155,6 +155,10 @@ case "${1:-}" in
     codesign --display --entitlements - --xml "$app" > "$release_temp/entitlements"
     python3 "$repo_root/tooling/release/validate_plist.py" "$release_temp/entitlements" "$app/Contents/Info.plist" ;;
   build)
+    if [[ $# -ne 2 && $# -ne 3 ]] || [[ $# -eq 3 && $3 != --unsigned ]]; then
+      echo 'usage: just package PLATFORM [--unsigned]' >&2
+      exit 2
+    fi
     formats "$2"; cd "$repo_root"
     config=$(configure "$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)" target/local-bundle-config.json "${3:-}")
     normalize_apple
