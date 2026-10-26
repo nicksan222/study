@@ -1,0 +1,60 @@
+[[permission]]
+identifier = "allow-rpc"
+commands.allow = ["rpc"]
+[[permission]]
+identifier = "allow-pick-files"
+commands.allow = ["pick_files"]
+[[permission]]
+identifier = "allow-pick-export"
+commands.allow = ["pick_export"]
+[[permission]]
+identifier = "allow-open-external"
+commands.allow = ["open_external"]
+[[permission]]
+identifier = "allow-recording-start"
+commands.allow = ["recording_start"]
+[[permission]]
+identifier = "allow-recording-stop"
+commands.allow = ["recording_stop"]
+[[permission]]
+identifier = "allow-recording-status"
+commands.allow = ["recording_status"]
+
+[[permission]]
+identifier = "allow-save-file"
+commands.allow = ["save_file"]
+
+[[permission]]
+identifier = "allow-check-update"
+commands.allow = ["check_update"]
+[[permission]]
+identifier = "allow-install-update"
+commands.allow = ["install_update"]
+
+[[permission]]
+identifier = "allow-stage-file"
+commands.allow = ["stage_file"]
+[[permission]]
+identifier = "allow-release-files"
+commands.allow = ["release_files"]
+
+[[permission]]
+identifier = "allow-close-window"
+commands.allow = ["close_window"]
+[[permission]]
+identifier = "allow-quit-app"
+commands.allow = ["quit_app"]
+
+[[permission]]
+identifier = "allow-recording-send"
+commands.allow = ["recording_send"]
+[[permission]]
+identifier = "allow-recording-discard"
+commands.allow = ["recording_discard"]
+[[permission]]
+identifier = "allow-recording-ack"
+commands.allow = ["recording_ack"]
+
+[[permission]]
+identifier = "allow-update-status"
+commands.allow = ["update_status"]

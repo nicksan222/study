@@ -1,0 +1,14 @@
+[package]
+name = "study-showcase"
+description = "Records the README demo GIF and the website's docs media: production React UI through real isolated RPC fixtures"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+study-core.workspace = true
+
+[lints]
+workspace = true

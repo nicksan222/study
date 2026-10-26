@@ -1,0 +1,24 @@
+[package]
+name = "study-media"
+description = "Byte-level media: audio decoding and resampling, PDF and image pages"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+audioadapter-buffers = "5"
+hayro = "0.7"
+image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp", "bmp", "tiff"] }
+# Symphonia reads Opus containers but has no Opus decoder; this one is pure Rust.
+opus-decoder = "0.1"
+rubato = "5"
+study-core.workspace = true
+symphonia = { version = "0.6", features = ["all"] }
+tempfile = "3"
+thiserror = "2"
+tracing.workspace = true
+
+[lints]
+workspace = true

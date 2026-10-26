@@ -1,0 +1,1048 @@
+syntax = "proto3";
+package study.v1;
+// Canonical, typed Study consumer contract. Times are Unix seconds unless named otherwise.
+// IDs are positive SQLite row IDs; absence is represented by message presence.
+
+message ProjectId {
+  int64 value = 1;
+}
+message SourceId {
+  int64 value = 1;
+}
+message SessionId {
+  int64 value = 1;
+}
+message MessageId {
+  int64 value = 1;
+}
+message PartId {
+  int64 value = 1;
+}
+message VersionId {
+  int64 value = 1;
+}
+message DocumentId {
+  int64 value = 1;
+}
+message JobId {
+  int64 value = 1;
+}
+message RecordingId {
+  int64 value = 1;
+}
+message ArtifactId {
+  int64 value = 1;
+}
+message CardId {
+  int64 value = 1;
+}
+message PracticeId {
+  int64 value = 1;
+}
+message QuestionId {
+  int64 value = 1;
+}
+enum SourceKind {
+  SOURCE_KIND_UNSPECIFIED = 0;
+  SOURCE_KIND_AUDIO = 1;
+  SOURCE_KIND_VIDEO = 2;
+  SOURCE_KIND_IMAGE = 3;
+  SOURCE_KIND_PDF = 4;
+  SOURCE_KIND_TEXT = 5;
+  SOURCE_KIND_CODE = 6;
+  SOURCE_KIND_DOCUMENT = 7;
+  SOURCE_KIND_SPREADSHEET = 8;
+  SOURCE_KIND_SLIDES = 9;
+  SOURCE_KIND_ARCHIVE = 10;
+  SOURCE_KIND_WEB = 11;
+  SOURCE_KIND_NOTE = 12;
+  SOURCE_KIND_LINK = 13;
+  SOURCE_KIND_OTHER = 14;
+}
+enum SourceOrigin {
+  SOURCE_ORIGIN_UNSPECIFIED = 0;
+  SOURCE_ORIGIN_IMPORT = 1;
+  SOURCE_ORIGIN_ATTACHMENT = 2;
+  SOURCE_ORIGIN_RECORDING = 3;
+  SOURCE_ORIGIN_NOTE = 4;
+  SOURCE_ORIGIN_WEB = 5;
+}
+enum JobKind {
+  JOB_KIND_UNSPECIFIED = 0;
+  JOB_KIND_EXTRACT = 1;
+  JOB_KIND_INDEX = 2;
+  JOB_KIND_EMBED = 3;
+  JOB_KIND_TITLE = 4;
+  JOB_KIND_REPLY = 5;
+  JOB_KIND_ARTIFACT = 6;
+  JOB_KIND_QUESTION = 7;
+  JOB_KIND_GRADE = 8;
+  JOB_KIND_FETCH = 9;
+  JOB_KIND_REWRITE = 10;
+}
+enum Requirement {
+  REQUIREMENT_UNSPECIFIED = 0;
+  REQUIREMENT_TRANSCRIPTION = 1;
+  REQUIREMENT_SEARCH_MODEL = 2;
+  REQUIREMENT_LANGUAGE_MODELS = 3;
+}
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_BLOCKED = 1;
+  JOB_STATUS_QUEUED = 2;
+  JOB_STATUS_WAITING = 3;
+  JOB_STATUS_RUNNING = 4;
+  JOB_STATUS_SUCCEEDED = 5;
+  JOB_STATUS_FAILED = 6;
+  JOB_STATUS_CANCELLED = 7;
+}
+enum ArtifactKind {
+  ARTIFACT_KIND_UNSPECIFIED = 0;
+  ARTIFACT_KIND_FLASHCARDS = 1;
+  ARTIFACT_KIND_DIAGRAM = 2;
+}
+enum ArtifactStatus {
+  ARTIFACT_STATUS_UNSPECIFIED = 0;
+  ARTIFACT_STATUS_PENDING = 1;
+  ARTIFACT_STATUS_WRITING = 2;
+  ARTIFACT_STATUS_COMPLETE = 3;
+}
+enum BlockKind {
+  BLOCK_KIND_UNSPECIFIED = 0;
+  BLOCK_KIND_PARAGRAPH = 1;
+  BLOCK_KIND_HEADING = 2;
+  BLOCK_KIND_LIST_ITEM = 3;
+  BLOCK_KIND_TABLE = 4;
+  BLOCK_KIND_CODE = 5;
+  BLOCK_KIND_SEGMENT = 6;
+}
+enum QuestionKind {
+  QUESTION_KIND_UNSPECIFIED = 0;
+  QUESTION_KIND_CHOICE = 1;
+  QUESTION_KIND_OPEN = 2;
+}
+enum QuestionStatus {
+  QUESTION_STATUS_UNSPECIFIED = 0;
+  QUESTION_STATUS_PENDING = 1;
+  QUESTION_STATUS_WRITING = 2;
+  QUESTION_STATUS_READY = 3;
+  QUESTION_STATUS_ANSWERED = 4;
+  QUESTION_STATUS_GRADED = 5;
+}
+enum Verdict {
+  VERDICT_UNSPECIFIED = 0;
+  VERDICT_CORRECT = 1;
+  VERDICT_PARTLY = 2;
+  VERDICT_INCORRECT = 3;
+}
+enum Language {
+  LANGUAGE_UNSPECIFIED = 0;
+  LANGUAGE_ENGLISH = 1;
+  LANGUAGE_ITALIAN = 2;
+}
+enum ErrorKind {
+  ERROR_KIND_UNSPECIFIED = 0;
+  ERROR_KIND_TRANSIENT = 1;
+  ERROR_KIND_RATE_LIMITED = 2;
+  ERROR_KIND_AUTH = 3;
+  ERROR_KIND_CONFIG = 4;
+  ERROR_KIND_MODEL_UNAVAILABLE = 5;
+  ERROR_KIND_UNSUPPORTED = 6;
+  ERROR_KIND_INVALID_INPUT = 7;
+  ERROR_KIND_NOT_ENOUGH = 8;
+  ERROR_KIND_NOT_FOUND = 9;
+  ERROR_KIND_CANCELLED = 10;
+  ERROR_KIND_INTERNAL = 11;
+}
+enum ExtractorKind {
+  EXTRACTOR_KIND_UNSPECIFIED = 0;
+  EXTRACTOR_KIND_TRANSCRIPTION = 1;
+  EXTRACTOR_KIND_VISION = 2;
+  EXTRACTOR_KIND_OFFICE = 3;
+  EXTRACTOR_KIND_WEB = 4;
+  EXTRACTOR_KIND_TEXT = 5;
+}
+enum RefinerKind {
+  REFINER_KIND_UNSPECIFIED = 0;
+  REFINER_KIND_TRANSCRIPT = 1;
+  REFINER_KIND_WHITESPACE = 2;
+}
+enum FetcherKind {
+  FETCHER_KIND_UNSPECIFIED = 0;
+  FETCHER_KIND_VIDEO = 1;
+  FETCHER_KIND_PAGE = 2;
+}
+enum TitleSource {
+  TITLE_SOURCE_UNSPECIFIED = 0;
+  TITLE_SOURCE_PROVISIONAL = 1;
+  TITLE_SOURCE_GENERATED = 2;
+  TITLE_SOURCE_USER = 3;
+}
+enum MessageRole {
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_ROLE_USER = 1;
+  MESSAGE_ROLE_ASSISTANT = 2;
+}
+enum MessageStatus {
+  MESSAGE_STATUS_UNSPECIFIED = 0;
+  MESSAGE_STATUS_PENDING = 1;
+  MESSAGE_STATUS_WRITING = 2;
+  MESSAGE_STATUS_COMPLETE = 3;
+}
+enum VersionOrigin {
+  VERSION_ORIGIN_UNSPECIFIED = 0;
+  VERSION_ORIGIN_TYPED = 1;
+  VERSION_ORIGIN_EDITED = 2;
+  VERSION_ORIGIN_ANSWER = 3;
+  VERSION_ORIGIN_IMPROVE = 4;
+  VERSION_ORIGIN_SUMMARIZE = 5;
+  VERSION_ORIGIN_INSTRUCTION = 6;
+}
+enum SearchKind {
+  SEARCH_KIND_UNSPECIFIED = 0;
+  SEARCH_KIND_PROJECT = 1;
+  SEARCH_KIND_SESSION = 2;
+  SEARCH_KIND_MESSAGE = 3;
+  SEARCH_KIND_SOURCE = 4;
+}
+enum Rating {
+  RATING_UNSPECIFIED = 0;
+  RATING_AGAIN = 1;
+  RATING_HARD = 2;
+  RATING_GOOD = 3;
+  RATING_EASY = 4;
+}
+enum LocalModel {
+  LOCAL_MODEL_UNSPECIFIED = 0;
+  LOCAL_MODEL_TRANSCRIPTION = 1;
+  LOCAL_MODEL_SEARCH = 2;
+}
+enum Appearance {
+  APPEARANCE_UNSPECIFIED = 0;
+  APPEARANCE_LIGHT = 1;
+  APPEARANCE_DARK = 2;
+}
+enum LlmProvider {
+  LLM_PROVIDER_UNSPECIFIED = 0;
+  LLM_PROVIDER_CHAT_GPT = 1;
+}
+enum LlmModel {
+  LLM_MODEL_UNSPECIFIED = 0;
+  LLM_MODEL_GPT6_LUNA = 1;
+  LLM_MODEL_GPT61_SOL = 2;
+  LLM_MODEL_GPT6_ASTRA = 3;
+}
+enum Placement {
+  PLACEMENT_UNSPECIFIED = 0;
+  PLACEMENT_LOCAL = 1;
+  PLACEMENT_NOT_ENOUGH_MEMORY = 2;
+  PLACEMENT_TOO_SLOW = 3;
+}
+message Memory {
+  double stability = 1;
+  double difficulty = 2;
+  uint32 reps = 3;
+  uint32 lapses = 4;
+  optional int64 last_review = 5;
+  int64 due = 6;
+}
+message Project {
+  ProjectId id = 1;
+  string name = 2;
+  Day exam_on = 3;
+  int64 created_at = 4;
+  int64 updated_at = 5;
+}
+message ChatSession {
+  SessionId id = 1;
+  ProjectId project_id = 2;
+  string title = 3;
+  TitleSource title_source = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+}
+message Source {
+  SourceId id = 1;
+  string name = 2;
+  SourceKind kind = 3;
+  string mime = 4;
+  SourceOrigin origin = 5;
+  ProjectId project_id = 6;
+  optional string project_name = 7;
+  int64 size_bytes = 8;
+  bytes sha256 = 9;
+  optional string uri = 10;
+  int64 created_at = 11;
+}
+message Document {
+  repeated Block blocks = 1;
+  DocumentMeta meta = 2;
+}
+message Block {
+  BlockKind kind = 1;
+  string text = 2;
+  Anchor anchor = 3;
+}
+message DocumentMeta {
+  optional ExtractorKind extractor = 1;
+  uint32 extractor_version = 2;
+  optional string provider = 3;
+  optional uint64 duration_ms = 4;
+  optional uint32 page_count = 5;
+  repeated Stamp refiners = 6;
+  repeated RefinerKind waiting_for = 7;
+  bool corrected = 8;
+}
+message Stamp {
+  RefinerKind refiner = 1;
+  uint32 version = 2;
+}
+message Citation {
+  uint32 marker = 1;
+  SourceId source_id = 2;
+  string source_name = 3;
+  Anchor anchor = 4;
+  string quote = 5;
+}
+message ChatMessage {
+  MessageId id = 1;
+  SessionId session_id = 2;
+  MessageRole role = 3;
+  MessageStatus status = 4;
+  MessageId reply_to = 5;
+  PartId thread_root = 6;
+  optional uint64 recording_ms = 7;
+  SourceId recorded_in = 8;
+  int64 created_at = 9;
+  repeated MessagePart parts = 10;
+  repeated MessageVersion versions = 11;
+  VersionId active_version = 12;
+  repeated Citation citations = 13;
+  Job reply = 14;
+}
+message MessagePart {
+  PartId id = 1;
+  PartContent content = 2;
+  repeated Job jobs = 3;
+  Document document = 4;
+  ThreadSummary thread = 5;
+}
+message PartContent {
+  SourceId source_id = 1;
+  string name = 2;
+  SourceKind kind = 3;
+}
+message ThreadSummary {
+  uint64 replies = 1;
+  optional int64 last_reply_at = 2;
+}
+message Thread {
+  SessionId session_id = 1;
+  MessageId message_id = 2;
+  int64 opened_at = 3;
+  MessagePart root = 4;
+  repeated ChatMessage replies = 5;
+}
+message MessageVersion {
+  VersionId id = 1;
+  uint32 number = 2;
+  VersionOrigin origin = 3;
+  optional string instruction = 4;
+  MessageStatus status = 5;
+  string text = 6;
+  VersionId based_on = 7;
+  int64 created_at = 8;
+}
+message Recording {
+  RecordingId id = 1;
+  SessionId session_id = 2;
+  int64 started_at = 3;
+  int64 updated_at = 4;
+  uint64 samples = 5;
+}
+message Artifact {
+  ArtifactId id = 1;
+  ProjectId project_id = 2;
+  ArtifactKind kind = 3;
+  string title = 4;
+  string notes = 5;
+  ArtifactStatus status = 6;
+  ArtifactBody body = 7;
+  repeated SourceId sources = 8;
+  repeated Citation citations = 9;
+  Job job = 10;
+  bool mistakes = 11;
+  PracticeId practice_id = 12;
+  int64 created_at = 13;
+  int64 updated_at = 14;
+}
+message Material {
+  Artifact current = 1;
+  Artifact update = 2;
+}
+message Changes {
+  uint64 files = 1;
+  uint64 notes = 2;
+}
+message Flashcard {
+  string front = 1;
+  string back = 2;
+  repeated uint32 cites = 3;
+}
+message Card {
+  CardId id = 1;
+  ArtifactId artifact_id = 2;
+  string front = 3;
+  string back = 4;
+  Memory memory = 5;
+}
+message DueCard {
+  Card card = 1;
+  string artifact_title = 2;
+  ProjectId project_id = 3;
+}
+message PracticeScore {
+  uint32 asked = 1;
+  uint32 answered = 2;
+  uint32 correct = 3;
+  uint32 partly = 4;
+  uint32 incorrect = 5;
+}
+message PracticeSummary {
+  PracticeId id = 1;
+  ProjectId project_id = 2;
+  PracticeScore score = 3;
+  int64 created_at = 4;
+  int64 updated_at = 5;
+}
+message Practice {
+  PracticeId id = 1;
+  ProjectId project_id = 2;
+  PracticeScore score = 3;
+  repeated PracticeQuestion questions = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+}
+message PracticeQuestion {
+  QuestionId id = 1;
+  PracticeId practice_id = 2;
+  uint32 ordinal = 3;
+  QuestionKind kind = 4;
+  QuestionStatus status = 5;
+  WrittenQuestion written = 6;
+  PracticeAnswer answer = 7;
+  optional Verdict verdict = 8;
+  optional string feedback = 9;
+  repeated Citation citations = 10;
+  Job job = 11;
+  int64 created_at = 12;
+  optional int64 answered_at = 13;
+  optional int64 graded_at = 14;
+}
+message WrittenQuestion {
+  string gist = 1;
+  PracticeBody body = 2;
+}
+message JobOverview {
+  Job job = 1;
+  string subject = 2;
+  optional SourceKind source_kind = 3;
+  SourceId source_id = 4;
+  SessionId session_id = 5;
+  optional string session_title = 6;
+  ProjectId project_id = 7;
+  optional string project_name = 8;
+  PracticeId practice_id = 9;
+}
+message SearchHit {
+  SearchKind kind = 1;
+  string title = 2;
+  optional string context = 3;
+  optional string excerpt = 4;
+  optional SourceKind file_kind = 5;
+  int64 at = 6;
+  SearchTarget target = 7;
+}
+message SearchResults {
+  repeated SearchHit hits = 1;
+  bool semantic = 2;
+}
+message Report {
+  SystemInfo system = 1;
+  ComputeScore compute = 2;
+  double elapsed_secs = 3;
+  Plan plan = 4;
+}
+message SystemInfo {
+  string os = 1;
+  optional string os_version = 2;
+  string arch = 3;
+  string cpu_brand = 4;
+  optional uint64 physical_cores = 5;
+  uint64 logical_cores = 6;
+  uint64 total_memory_bytes = 7;
+  uint64 available_memory_bytes = 8;
+  repeated string simd = 9;
+}
+message ComputeScore {
+  double matmul_gflops = 1;
+  double memory_bandwidth_gbps = 2;
+}
+message Empty {
+}
+message BoolResult {
+  bool value = 1;
+}
+message CountResult {
+  uint64 value = 1;
+}
+message BytesResult {
+  bytes value = 1;
+}
+message Day {
+  int32 year = 1;
+  uint32 month = 2;
+  uint32 day = 3;
+}
+message Anchor {
+  oneof kind {
+    TimeAnchor time = 1;
+    uint32 page = 2;
+    TextAnchor text = 3;
+    uint32 slide = 4;
+    uint32 paragraph = 5;
+    UrlAnchor url = 6;
+  }
+}
+message TimeAnchor {
+  uint64 start_ms = 1;
+  uint64 end_ms = 2;
+}
+message TextAnchor {
+  uint32 line_start = 1;
+  uint32 line_end = 2;
+  uint32 start = 3;
+  uint32 end = 4;
+}
+message UrlAnchor {
+  string url = 1;
+  optional string fragment = 2;
+}
+message ArtifactBody {
+  oneof kind {
+    Flashcards flashcards = 1;
+    string mermaid = 2;
+  }
+}
+message Flashcards {
+  repeated Flashcard cards = 1;
+}
+message PracticeBody {
+  oneof kind {
+    ChoiceQuestion choice = 1;
+    OpenQuestion open = 2;
+  }
+}
+message ChoiceQuestion {
+  string question = 1;
+  repeated string choices = 2;
+  uint32 answer = 3;
+  string explanation = 4;
+  repeated uint32 cites = 5;
+}
+message OpenQuestion {
+  string question = 1;
+  string reference = 2;
+  repeated uint32 cites = 3;
+}
+message PracticeAnswer {
+  oneof kind {
+    uint32 choice = 1;
+    string open = 2;
+  }
+}
+message Asked {
+  oneof result {
+    JobId queued = 1;
+    Empty busy = 2;
+    Empty unavailable = 3;
+  }
+}
+message Answered {
+  oneof result {
+    Verdict graded = 1;
+    JobId grading = 2;
+  }
+}
+message JobTarget {
+  oneof kind {
+    SourceId source = 1;
+    DocumentId document = 2;
+    SessionId session = 3;
+    MessageId message = 4;
+    ArtifactId artifact = 5;
+    QuestionId question = 6;
+  }
+}
+// The only current job option is force-title. New job options must extend this typed record.
+message JobOptions {
+  bool force = 1;
+}
+message Job {
+  JobId id = 1;
+  JobKind kind = 2;
+  JobTarget target = 3;
+  JobOptions args = 4;
+  JobStatus status = 5;
+  uint32 attempts = 6;
+  optional ErrorKind error_kind = 7;
+  optional string error = 8;
+  int64 created_at = 9;
+  int64 updated_at = 10;
+  optional int64 started_at = 11;
+  optional int64 finished_at = 12;
+  optional Requirement waiting_for = 13;
+  optional Requirement needs = 14;
+}
+message SearchTarget {
+  oneof kind {
+    ProjectId project = 1;
+    SessionTarget session = 2;
+    SourceTarget source = 3;
+  }
+}
+message SessionTarget {
+  ProjectId project_id = 1;
+  SessionId session_id = 2;
+}
+message SourceTarget {
+  SourceId source_id = 1;
+  Anchor anchor = 2;
+  SessionId session_id = 3;
+}
+message Preview {
+  oneof kind {
+    bytes picture = 1;
+    string text = 2;
+    Empty unavailable = 3;
+  }
+}
+message Processor {
+  oneof kind {
+    ExtractorKind extractor = 1;
+    RefinerKind refiner = 2;
+    JobKind stage = 3;
+    ArtifactKind enhancer = 4;
+  }
+}
+message ProcessingSwitch {
+  SourceKind source = 1;
+  Processor processor = 2;
+  bool default = 3;
+  bool on = 4;
+}
+message ProcessingSettings {
+  repeated ProcessingSwitch switches = 1;
+}
+message AppSettings {
+  Language language = 1;
+  Appearance appearance = 2;
+  uint32 zoom_percent = 3;
+  bool onboarded = 4;
+}
+message TierSetup {
+  LlmProvider provider = 1;
+  optional LlmModel model = 2;
+}
+message LlmSettings {
+  TierSetup tiny = 1;
+  TierSetup medium = 2;
+  TierSetup smart = 3;
+}
+message TranscriptionSettings {
+  uint32 local_instances = 1;
+}
+message ReviewSettings {
+  uint32 new_cards_per_day = 1;
+}
+// Public account identity. Tokens and host credentials never leave the service.
+message ChatGptAccount {
+  string subject = 1;
+  optional string email = 2;
+  bool sharing = 3;
+}
+message Connections {
+  ChatGptAccount chatgpt = 1;
+}
+message ModelRequest {
+  LocalModel model = 1;
+}
+message ModelStatus {
+  LocalModel model = 1;
+  bool installed = 2;
+  uint64 size_bytes = 3;
+}
+message Plan {
+  Placement transcription = 1;
+  optional uint32 transcription_instances = 2;
+}
+message ErrorDetails {
+  ErrorKind kind = 1;
+  string message = 2;
+  optional uint64 retry_after_ms = 3;
+}
+message Health {
+  uint32 protocol_version = 1;
+  bool workers_running = 2;
+  bool test_mode = 3;
+}
+message CreateProjectRequest {
+  string name = 1;
+}
+message RenameProjectRequest {
+  ProjectId id = 1;
+  string name = 2;
+}
+message SetExamRequest {
+  ProjectId id = 1;
+  Day exam_on = 2;
+}
+message ImportFileRequest {
+  string path = 1;
+  ProjectId project = 2;
+}
+message ImportFilesRequest {
+  repeated string paths = 1;
+  ProjectId project = 2;
+}
+message ImportOutcome {
+  string path = 1;
+  oneof result {
+    Source source = 2;
+    ErrorDetails error = 3;
+  }
+}
+message ImportResults {
+  repeated ImportOutcome items = 1;
+}
+message CreateNoteRequest {
+  ProjectId project = 1;
+  string title = 2;
+  string text = 3;
+}
+message AddLinkRequest {
+  ProjectId project = 1;
+  string url = 2;
+}
+message CorrectBlockRequest {
+  SourceId id = 1;
+  uint64 ordinal = 2;
+  string before = 3;
+  string after = 4;
+}
+message SetSourceProjectRequest {
+  SourceId id = 1;
+  ProjectId project = 2;
+}
+message CreateSessionRequest {
+  ProjectId project = 1;
+  string title = 2;
+}
+message RewriteMessageRequest {
+  MessageId id = 1;
+  oneof how {
+    Empty improve = 2;
+    Empty summarize = 3;
+    string instruction = 4;
+  }
+}
+message EditMessageRequest {
+  MessageId id = 1;
+  string text = 2;
+}
+message SetActiveVersionRequest {
+  MessageId message = 1;
+  VersionId version = 2;
+}
+message PostMessageRequest {
+  oneof place {
+    SessionId timeline = 1;
+    PartId thread = 2;
+  }
+  string text = 3;
+  repeated string files = 4;
+}
+// PCM signed 16 bit samples at 16 kHz; range is validated, never truncated.
+message AppendRecordingRequest {
+  RecordingId id = 1;
+  repeated sint32 samples = 2;
+}
+message PostRecordingRequest {
+  SessionId session = 1;
+  RecordingId recording = 2;
+  string name = 3;
+}
+message MaterialRequest {
+  ProjectId project = 1;
+  ArtifactKind kind = 2;
+}
+message WriteCard {
+  string front = 1;
+  string back = 2;
+}
+message SetCardRequest {
+  ArtifactId artifact = 1;
+  uint64 index = 2;
+  oneof change {
+    WriteCard write = 3;
+    Empty delete = 4;
+  }
+}
+message ReviewTimesRequest {
+  ProjectId project = 1;
+  int64 since = 2;
+}
+message ReviewTimes {
+  repeated int64 items = 1;
+}
+message DueByRequest {
+  ProjectId project = 1;
+  int64 until = 2;
+}
+message DueCardsRequest {
+  ProjectId project = 1;
+  uint64 limit = 2;
+}
+message OptionalProject {
+  ProjectId project = 1;
+}
+message ReviewRequest {
+  CardId card = 1;
+  Rating rating = 2;
+}
+message AnswerQuestionRequest {
+  QuestionId id = 1;
+  PracticeAnswer answer = 2;
+}
+message AddToFlashcardsRequest {
+  QuestionId question = 1;
+  string title = 2;
+}
+message LimitRequest {
+  uint64 limit = 1;
+}
+message SearchRequest {
+  string query = 1;
+  uint64 limit = 2;
+}
+message SwitchProcessorRequest {
+  SourceKind kind = 1;
+  Processor processor = 2;
+  bool on = 3;
+}
+message StartSignInRequest {
+  bool reconsent = 1;
+}
+message SignInAttempt {
+  string attempt_id = 1;
+  string url = 2;
+}
+message FinishSignInRequest {
+  string attempt_id = 1;
+}
+message ReadableRequest {
+  SourceKind kind = 1;
+  string mime = 2;
+}
+message HasPreviewRequest {
+  SourceKind kind = 1;
+  optional string mime = 2;
+}
+// Refresh hints. Subscribe first, then load queries. Reconnect or refresh_all means reload
+// all visible queries; missed hints never substitute for persisted database state.
+message Event {
+  oneof kind {
+    Empty refresh_all = 1;
+    JobChanged job = 2;
+    MessagePosted message = 3;
+  }
+}
+message JobChanged {
+  JobId job_id = 1;
+  JobKind kind = 2;
+  JobStatus status = 3;
+  SourceId source_id = 4;
+  SessionId session_id = 5;
+}
+message MessagePosted {
+  SessionId session_id = 1;
+  PartId thread_root = 2;
+  MessageId message_id = 3;
+}
+message Projects {
+  repeated Project items = 1;
+}
+message Sources {
+  repeated Source items = 1;
+}
+message ChatSessions {
+  repeated ChatSession items = 1;
+}
+message ChatMessages {
+  repeated ChatMessage items = 1;
+}
+message SessionIds {
+  repeated SessionId items = 1;
+}
+message Recordings {
+  repeated Recording items = 1;
+}
+message Materials {
+  repeated Material items = 1;
+}
+message DueCards {
+  repeated DueCard items = 1;
+}
+message PracticeSummaries {
+  repeated PracticeSummary items = 1;
+}
+message JobOverviews {
+  repeated JobOverview items = 1;
+}
+message OptionalSource {
+  Source value = 1;
+}
+message OptionalDocument {
+  Document value = 1;
+}
+message OptionalChatSession {
+  ChatSession value = 1;
+}
+message OptionalVersionId {
+  VersionId value = 1;
+}
+message OptionalThread {
+  Thread value = 1;
+}
+message OptionalRecording {
+  Recording value = 1;
+}
+message OptionalChanges {
+  Changes value = 1;
+}
+message OptionalArtifact {
+  Artifact value = 1;
+}
+message OptionalMemory {
+  Memory value = 1;
+}
+message OptionalPractice {
+  Practice value = 1;
+}
+message OptionalJob {
+  Job value = 1;
+}
+message OptionalReport {
+  Report value = 1;
+}
+message ExportSourceToFileRequest {
+  SourceId source_id = 1;
+  string destination = 2;
+}
+message MaterialSettings {
+  bool sift = 1;
+}
+service Study {
+  rpc GetMaterialSettings (.study.v1.Empty) returns (.study.v1.MaterialSettings);
+  rpc SaveMaterialSettings (.study.v1.MaterialSettings) returns (.study.v1.Empty);
+  rpc ExportSourceToFile (.study.v1.ExportSourceToFileRequest) returns (.study.v1.CountResult);
+  rpc GetHealth (.study.v1.Empty) returns (.study.v1.Health);
+  rpc Projects (.study.v1.Empty) returns (.study.v1.Projects);
+  rpc CreateProject (.study.v1.CreateProjectRequest) returns (.study.v1.Project);
+  rpc RenameProject (.study.v1.RenameProjectRequest) returns (.study.v1.BoolResult);
+  rpc SetExam (.study.v1.SetExamRequest) returns (.study.v1.BoolResult);
+  rpc DeleteProject (.study.v1.ProjectId) returns (.study.v1.BoolResult);
+  rpc Sources (.study.v1.Empty) returns (.study.v1.Sources);
+  rpc Source (.study.v1.SourceId) returns (.study.v1.OptionalSource);
+  rpc ImportFiles (.study.v1.ImportFilesRequest) returns (.study.v1.ImportResults);
+  rpc ImportFile (.study.v1.ImportFileRequest) returns (.study.v1.Source);
+  rpc CreateNote (.study.v1.CreateNoteRequest) returns (.study.v1.Source);
+  rpc AddLink (.study.v1.AddLinkRequest) returns (.study.v1.Source);
+  rpc SourceDocument (.study.v1.SourceId) returns (.study.v1.OptionalDocument);
+  rpc CorrectBlock (.study.v1.CorrectBlockRequest) returns (.study.v1.BoolResult);
+  rpc SetSourceProject (.study.v1.SetSourceProjectRequest) returns (.study.v1.BoolResult);
+  rpc DeleteSource (.study.v1.SourceId) returns (.study.v1.BoolResult);
+  rpc ExportSource (.study.v1.SourceId) returns (.study.v1.BytesResult);
+  rpc Preview (.study.v1.SourceId) returns (.study.v1.Preview);
+  rpc HasPreview (.study.v1.HasPreviewRequest) returns (.study.v1.BoolResult);
+  rpc AllSessions (.study.v1.Empty) returns (.study.v1.ChatSessions);
+  rpc Session (.study.v1.SessionId) returns (.study.v1.OptionalChatSession);
+  rpc CreateSession (.study.v1.CreateSessionRequest) returns (.study.v1.ChatSession);
+  rpc CreateUntitledSession (.study.v1.CreateSessionRequest) returns (.study.v1.ChatSession);
+  rpc DeleteSession (.study.v1.SessionId) returns (.study.v1.BoolResult);
+  rpc Reanswer (.study.v1.MessageId) returns (.study.v1.Asked);
+  rpc RewriteMessage (.study.v1.RewriteMessageRequest) returns (.study.v1.Asked);
+  rpc EditMessage (.study.v1.EditMessageRequest) returns (.study.v1.OptionalVersionId);
+  rpc SetActiveVersion (.study.v1.SetActiveVersionRequest) returns (.study.v1.BoolResult);
+  rpc DeleteMessage (.study.v1.MessageId) returns (.study.v1.BoolResult);
+  rpc Messages (.study.v1.SessionId) returns (.study.v1.ChatMessages);
+  rpc Thread (.study.v1.PartId) returns (.study.v1.OptionalThread);
+  rpc PostMessage (.study.v1.PostMessageRequest) returns (.study.v1.ChatMessage);
+  rpc RegenerateTitle (.study.v1.SessionId) returns (.study.v1.JobId);
+  rpc SessionsBeingTitled (.study.v1.Empty) returns (.study.v1.SessionIds);
+  rpc Recordings (.study.v1.Empty) returns (.study.v1.Recordings);
+  rpc Recording (.study.v1.RecordingId) returns (.study.v1.OptionalRecording);
+  rpc CreateRecording (.study.v1.SessionId) returns (.study.v1.Recording);
+  rpc AppendRecording (.study.v1.AppendRecordingRequest) returns (.study.v1.Empty);
+  rpc DeleteRecording (.study.v1.RecordingId) returns (.study.v1.BoolResult);
+  rpc PostRecording (.study.v1.PostRecordingRequest) returns (.study.v1.ChatMessage);
+  rpc UpdateMaterial (.study.v1.MaterialRequest) returns (.study.v1.ArtifactId);
+  rpc CanUpdateMaterial (.study.v1.MaterialRequest) returns (.study.v1.BoolResult);
+  rpc MaterialChanges (.study.v1.ArtifactId) returns (.study.v1.OptionalChanges);
+  rpc DeleteMaterial (.study.v1.MaterialRequest) returns (.study.v1.BoolResult);
+  rpc Material (.study.v1.ProjectId) returns (.study.v1.Materials);
+  rpc Artifact (.study.v1.ArtifactId) returns (.study.v1.OptionalArtifact);
+  rpc SetCard (.study.v1.SetCardRequest) returns (.study.v1.BoolResult);
+  rpc DeleteArtifact (.study.v1.ArtifactId) returns (.study.v1.BoolResult);
+  rpc ReviewTimes (.study.v1.ReviewTimesRequest) returns (.study.v1.ReviewTimes);
+  rpc DueBy (.study.v1.DueByRequest) returns (.study.v1.CountResult);
+  rpc DueCards (.study.v1.DueCardsRequest) returns (.study.v1.DueCards);
+  rpc DueCount (.study.v1.OptionalProject) returns (.study.v1.CountResult);
+  rpc Review (.study.v1.ReviewRequest) returns (.study.v1.OptionalMemory);
+  rpc ProjectPractice (.study.v1.ProjectId) returns (.study.v1.PracticeId);
+  rpc Practices (.study.v1.Empty) returns (.study.v1.PracticeSummaries);
+  rpc Practice (.study.v1.PracticeId) returns (.study.v1.OptionalPractice);
+  rpc AnswerQuestion (.study.v1.AnswerQuestionRequest) returns (.study.v1.Answered);
+  rpc AddToFlashcards (.study.v1.AddToFlashcardsRequest) returns (.study.v1.BoolResult);
+  rpc DeletePractice (.study.v1.PracticeId) returns (.study.v1.BoolResult);
+  rpc JobOverviews (.study.v1.LimitRequest) returns (.study.v1.JobOverviews);
+  rpc Job (.study.v1.JobId) returns (.study.v1.OptionalJob);
+  rpc CancelJob (.study.v1.JobId) returns (.study.v1.BoolResult);
+  rpc RetryJob (.study.v1.JobId) returns (.study.v1.BoolResult);
+  rpc Search (.study.v1.SearchRequest) returns (.study.v1.SearchResults);
+  rpc GetAppSettings (.study.v1.Empty) returns (.study.v1.AppSettings);
+  rpc SaveAppSettings (.study.v1.AppSettings) returns (.study.v1.Empty);
+  rpc GetLlmSettings (.study.v1.Empty) returns (.study.v1.LlmSettings);
+  rpc SaveLlmSettings (.study.v1.LlmSettings) returns (.study.v1.Empty);
+  rpc GetTranscriptionSettings (.study.v1.Empty) returns (.study.v1.TranscriptionSettings);
+  rpc SaveTranscriptionSettings (.study.v1.TranscriptionSettings) returns (.study.v1.Empty);
+  rpc GetReviewSettings (.study.v1.Empty) returns (.study.v1.ReviewSettings);
+  rpc SaveReviewSettings (.study.v1.ReviewSettings) returns (.study.v1.Empty);
+  rpc Connections (.study.v1.Empty) returns (.study.v1.Connections);
+  rpc Processing (.study.v1.Empty) returns (.study.v1.ProcessingSettings);
+  rpc SwitchProcessor (.study.v1.SwitchProcessorRequest) returns (.study.v1.Empty);
+  rpc MachineReport (.study.v1.Empty) returns (.study.v1.OptionalReport);
+  rpc MeasureMachine (.study.v1.Empty) returns (.study.v1.Report);
+  rpc MeasureMachineOnce (.study.v1.Empty) returns (.study.v1.Report);
+  rpc ApplyPlan (.study.v1.Plan) returns (.study.v1.BoolResult);
+  rpc ModelStatus (.study.v1.ModelRequest) returns (.study.v1.ModelStatus);
+  rpc InstallModel (.study.v1.ModelRequest) returns (.study.v1.Empty);
+  rpc StartChatgptSignIn (.study.v1.StartSignInRequest) returns (.study.v1.SignInAttempt);
+  rpc FinishChatgptSignIn (.study.v1.FinishSignInRequest) returns (.study.v1.ChatGptAccount);
+  rpc CancelChatgptSignIn (.study.v1.FinishSignInRequest) returns (.study.v1.BoolResult);
+  rpc SignOutChatgpt (.study.v1.Empty) returns (.study.v1.Empty);
+  rpc Reads (.study.v1.ReadableRequest) returns (.study.v1.BoolResult);
+  rpc StartWorkers (.study.v1.Empty) returns (.study.v1.Empty);
+  rpc TurnOffSearchModel (.study.v1.Empty) returns (.study.v1.Empty);
+  rpc Subscribe (.study.v1.Empty) returns (stream .study.v1.Event);
+}

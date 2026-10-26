@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  STUDY_UPDATE_PUBLIC_KEY: ${{ vars.STUDY_UPDATE_PUBLIC_KEY }}
+  STUDY_UPDATE_ENDPOINT: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+
+jobs:
+  version:
+    name: Check version and signing
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.8.2
+      - name: Check tag and keys
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          published=$(gh release view "$GITHUB_REF_NAME" --json isDraft -q '.isDraft' 2>/dev/null || true)
+          test "$published" != false || { echo 'Published release assets are immutable'; exit 1; }
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "study-desktop") | .version')
+          test "$GITHUB_REF_NAME" = "v$version" || { echo "Tag does not match workspace version $version"; exit 1; }
+          test -n "$STUDY_UPDATE_PUBLIC_KEY" || { echo 'Set STUDY_UPDATE_PUBLIC_KEY'; exit 1; }
+          test -n "$SIGNING_KEY" || { echo 'Set TAURI_SIGNING_PRIVATE_KEY'; exit 1; }
+          node tooling/release/release.mjs configure "$version" target/release-config.json > /dev/null
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  bundle:
+    name: Package ${{ matrix.platform }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - platform: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - platform: macos-aarch64
+            runner: macos-15
+            target: aarch64-apple-darwin
+          - platform: windows-x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup
+        with:
+          packages: patchelf file
+          optimize-dependencies: 'true'
+      - name: Set up Node
+        if: runner.os != 'Linux'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.8.2
+          cache: npm
+      - name: Set up Bun
+        if: runner.os != 'Linux'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      - name: Install Rust
+        if: runner.os != 'Linux'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Restore native build cache
+        if: runner.os != 'Linux'
+        uses: Swatinem/rust-cache@v2
+      - name: Native build tools
+        if: runner.os == 'macOS'
+        run: brew install cmake pkg-config protobuf python
+      - name: Windows protocol compiler
+        if: runner.os == 'Windows'
+        uses: arduino/setup-protoc@v3
+      - name: Install frontend dependencies
+        if: runner.os != 'Linux'
+        run: npm ci
+      - name: Prepare effective signed updater configuration
+        id: config
+        shell: bash
+        env:
+          STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          config=$(node tooling/release/release.mjs configure "$STUDY_RELEASE_VERSION" target/release-config.json)
+          printf 'path=%s\n' "$config" >> "$GITHUB_OUTPUT"
+      - name: Normalize optional Apple credentials
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node tooling/release/release.mjs apple-environment
+      - name: Build signed Tauri bundles and updater assets
+        id: build
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: apps/desktop
+          tauriScript: npx --no-install tauri
+          includeUpdaterJson: false
+          args: --config "${{ steps.config.outputs.path }}" --target ${{ matrix.target }} -- --locked
+      - name: Verify signed macOS microphone permission metadata
+        if: runner.os == 'macOS'
+        env:
+          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
+        run: node tooling/release/release.mjs verify-macos
+      - name: Prepare stable platform downloads
+        shell: bash
+        env:
+          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
+          STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: node tooling/release/release.mjs prepare "${{ matrix.platform }}" "$STUDY_RELEASE_VERSION" "target/release-stage/${{ matrix.platform }}"
+      - name: Retain this platform for single-writer release assembly
+        uses: actions/upload-artifact@v7
+        with:
+          name: bundle-${{ matrix.platform }}
+          path: target/release-stage/${{ matrix.platform }}/
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    name: Verify and publish complete signed release
+    needs: [version, bundle]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Download all platform build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bundle-*
+          path: target/release-input
+      - name: Assemble one complete cryptographically verified update feed
+        env:
+          STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: node tooling/release/release.mjs assemble target/release-input target/release-output "$STUDY_RELEASE_VERSION" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
+      - name: Upload and publish only the complete validated release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          published=$(gh release view "$GITHUB_REF_NAME" --json isDraft -q '.isDraft' 2>/dev/null || true)
+          test "$published" != false || { echo 'Published release assets are immutable'; exit 1; }
+          if test -z "$published"; then
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+          fi
+          gh release upload "$GITHUB_REF_NAME" target/release-output/* --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false

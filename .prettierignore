@@ -1,0 +1,4 @@
+apps/desktop/src/generated/
+apps/desktop/dist/
+node_modules/
+target/

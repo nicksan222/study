@@ -1,0 +1,253 @@
+---
+// The last call: the app's own icon beside "Study is free", the download for this visitor's
+// platform with a note pointing at it, the other platforms in one line, and what to know
+// first. Its script finds the visitor's platform and points every `[data-download]` on the
+// page (the hero's too) at that installer, and drops that platform from the line.
+import Icon from '../Icon.astro';
+import Logo from '../Logo.astro';
+import { keyed, words } from './text';
+import { downloadUrl, href, platforms, releases, repo, t, type Lang } from '../../i18n/strings';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const s = t(lang);
+const docs = (slug: string) => href(lang, `docs/${slug}/`);
+---
+
+<section class="get frame" id="download" aria-labelledby="get-title">
+  <div class="get-tile" data-ink-scope>
+    <div class="cta" data-ink>
+      <span class="get-mark fade"><Logo size={128} /></span>
+      <div class="get-copy">
+        <h2 id="get-title" set:html={keyed(s.get.title, s.get.key, 'ring', 74)} />
+        <p class="cta-body">{s.get.body}</p>
+        <div class="cta-action">
+          <a class="button button-highlighter button-large" id="download-cta" href="#download-platforms" data-download>
+            <span data-download-label>{s.get.download}</span>
+            <Icon name="arrow-right" />
+          </a>
+          <p class="cta-note" data-manual>
+            <span class="hand hand-note" id="download-note" style="--r:-3deg" data-type="hand" set:html={words(s.get.note)} />
+          </p>
+        </div>
+
+        <p class="get-also" id="download-platforms">
+          <span data-also>{s.get.every}</span>
+          <span class="get-links">
+            {
+              platforms.map((platform) => (
+                <span data-os={platform.os}><a href={downloadUrl(platform.file)} aria-label={s.get.rows[platform.os].label}>{s.get.rows[platform.os].name}</a></span>
+              ))
+            }
+          </span>
+        </p>
+        <p class="get-notes">
+          {s.get.linuxNote} {s.get.optional} {s.get.early} <a href={`${repo}/issues`}>{s.get.tellUs}</a>.
+        </p>
+        <p class="get-more">
+          <a class="more" href={docs('install')}>{s.get.install}<Icon name="arrow-right" size={14} /></a>
+          <a class="more" href={releases}>{s.get.all}<Icon name="arrow-right" size={14} /></a>
+        </p>
+      </div>
+    </div>
+
+    <svg class="ink-arrow" data-arrow data-from="#download-note" data-to="#download-cta" data-bow="-0.35" aria-hidden="true"></svg>
+  </div>
+</section>
+
+<script is:inline define:vars={{ platforms, labels: s.get.downloadFor, also: s.get.also, latest: downloadUrl('') }}>
+  // The visitor's platform: every Download on the page fetches its installer, and the line
+  // of platforms under it names only the others.
+  const ua = navigator.userAgent;
+  const arch = navigator.userAgentData?.platform ?? navigator.platform ?? '';
+  let os = null;
+  // An iPad says it is a Mac, but a Mac has no touch screen.
+  if (/Mac/.test(ua) && !/iPhone|iPad/.test(ua) && navigator.maxTouchPoints < 2) os = 'mac';
+  else if (/Windows/.test(ua)) os = 'windows';
+  else if (/Linux/.test(ua) && !/Android/.test(ua)) os = /aarch64|arm/i.test(arch + ua) ? 'linux-arm' : 'linux';
+  const platform = platforms.find((p) => p.os === os);
+  if (platform) {
+    for (const button of document.querySelectorAll('[data-download]')) {
+      button.href = latest + platform.file;
+      const label = button.querySelector('[data-download-label]');
+      if (label) label.textContent = labels[os];
+    }
+    document.querySelector(`.get-links [data-os="${os}"]`)?.remove();
+    const lead = document.querySelector('[data-also]');
+    if (lead) lead.textContent = also;
+    document.dispatchEvent(new Event('ink:relayout'));
+  }
+</script>
+
+<script>
+  import { live, relayout, wait } from '../../scripts/ink';
+
+  // The note writes, quickly, as soon as the Download it points at is in view, without waiting
+  // its turn behind the section's other ink: the call's whole drawing settles within about a
+  // second. Its arrow (scripts/anchor.ts) draws once it has written.
+  const note = document.querySelector<HTMLElement>('#download-note');
+  const action = document.querySelector('.cta-action');
+  const write = async (el: HTMLElement) => {
+    for (const unit of el.querySelectorAll<HTMLElement>('.t')) {
+      const length = unit.textContent?.length ?? 1;
+      unit.style.setProperty('--dur', `${length * 8 + 14}ms`);
+      unit.classList.add('on');
+      await wait(length * 8 + 14);
+    }
+    el.classList.add('typed');
+  };
+  if (note && action) {
+    if (!live) note.classList.add('typed');
+    else
+      new IntersectionObserver(
+        (entries, observer) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          observer.disconnect();
+          window.setTimeout(() => void write(note), 40);
+        },
+        { rootMargin: '0px 0px -8% 0px', threshold: 0.6 },
+      ).observe(action);
+  }
+
+  // Beside Download the arrow bows up and left; under it, the note sits on the centre line and
+  // the arrow rises nearly straight into the button's underside.
+  const arrow = document.querySelector<SVGElement>('.get-tile [data-arrow]');
+  const narrow = window.matchMedia('(max-width: 720px)');
+  const bow = () => {
+    if (!arrow) return;
+    arrow.dataset.bow = narrow.matches ? '0.15' : '-0.35';
+    relayout();
+  };
+  narrow.addEventListener('change', bow);
+  bow();
+</script>
+
+<style>
+  .get-tile {
+    position: relative;
+    padding: clamp(var(--s-7), 6vw, var(--s-9)) clamp(var(--s-4), 4vw, var(--s-8));
+    border-radius: var(--r-xl);
+    background: var(--sidebar);
+  }
+
+  /* The app's icon beside the call, as it will sit in the dock. */
+  .cta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 38rem);
+    justify-content: center;
+    align-items: start;
+    gap: clamp(var(--s-6), 5vw, var(--s-9));
+  }
+  .get-mark {
+    margin-top: var(--s-2);
+    filter: drop-shadow(0 10px 22px rgb(60 48 0 / 0.18));
+    transform: rotate(-4deg);
+  }
+  .get-mark :global(svg) {
+    width: clamp(96px, 10vw, 128px);
+    height: auto;
+  }
+  .cta h2 {
+    font-size: clamp(38px, 4.6vw, 62px);
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+  }
+  .cta-body {
+    margin-top: var(--s-4);
+    color: var(--ink-2);
+    font-size: 19px;
+    line-height: 1.55;
+  }
+  /* Download, with the note to its right and a little below. */
+  .cta-action {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--s-4) clamp(var(--s-7), 6vw, 96px);
+    margin-top: var(--s-6);
+  }
+  .cta-note {
+    margin-top: var(--s-7);
+  }
+  .cta-note .hand {
+    display: block;
+    max-width: 15ch;
+    font-size: 23px;
+    line-height: 1.25;
+  }
+  /* The call draws in quicker than the page's pace: it is the last thing, not a show. */
+  :global(.js-ink) .cta:global(.is-inked) :global(.fade) {
+    transition: opacity 160ms var(--ease-out);
+    transition-duration: 160ms !important;
+  }
+
+  /* The other platforms as one line of links, then the fine print. */
+  .get-also {
+    margin-top: var(--s-6);
+    color: var(--ink-2);
+    font-size: 15px;
+  }
+  .get-links > span {
+    white-space: nowrap;
+  }
+  .get-links a {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .get-links > span + span::before {
+    content: '·';
+    margin-inline: var(--s-2);
+    color: var(--ink-3);
+  }
+  .get-notes {
+    max-width: var(--measure);
+    margin-top: var(--s-3);
+    color: var(--ink-3);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .get-more {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--s-5);
+    margin-top: var(--s-4);
+    font-size: 15px;
+  }
+
+  /* Narrow: one centred column, the note under Download, still pointing up at it. */
+  @media (max-width: 720px) {
+    .cta {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      gap: var(--s-6);
+      text-align: center;
+    }
+    .get-mark {
+      margin-top: 0;
+    }
+    .get-mark :global(svg) {
+      width: 88px;
+    }
+    .cta-action {
+      flex-direction: column;
+      align-items: center;
+      row-gap: var(--s-7);
+    }
+    .cta-note {
+      margin-top: 0;
+    }
+    .get-notes {
+      margin-inline: auto;
+    }
+    .get-more {
+      justify-content: center;
+    }
+  }
+  @media (max-width: 480px) {
+    .cta-body {
+      font-size: 17px;
+    }
+  }
+</style>

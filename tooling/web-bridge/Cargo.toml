@@ -1,0 +1,28 @@
+[package]
+name = "study-web-bridge"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+study-rpc = { path = "../../crates/study-rpc" }
+study-app = { path = "../../crates/study-app" }
+study-core = { path = "../../crates/study-core" }
+study-seed = { path = "../../crates/study-seed" }
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time", "fs"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid = { version = "1", features = ["v4"] }
+futures-util = "0.3"
+async-stream = "0.3"
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "multipart"] }
+
+[lints]
+workspace = true

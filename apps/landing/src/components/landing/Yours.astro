@@ -1,0 +1,477 @@
+---
+// Where the data stays: a sketch of the learner's computer holding their library, and the one
+// dashed trip out to their ChatGPT plan, then three facts about privacy, cost and the code.
+//
+// The sketch draws in order: the laptop, the library filling, the cloud, the dashed line out,
+// then its labels type. Every label and the line are placed from the same geometry as the part
+// they name (the constants below), inside one SVG, so they stay on their part at every width.
+import Icon from '../Icon.astro';
+import { pen } from '../rough';
+import { chars, keyed } from './text';
+import { href, repo, t, type Lang } from '../../i18n/strings';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const s = t(lang);
+const docs = (slug: string) => href(lang, `docs/${slug}/`);
+
+type Pt = [number, number];
+const ink = pen(65);
+
+// The sheet, and the parts everything else is placed from.
+const W = 540;
+const H = 436;
+const lid = { x: 38, y: 160, w: 300, h: 190 };
+const screen = { x: lid.x + 14, y: lid.y + 14, w: lid.w - 28, h: lid.h - 26 };
+const deck = lid.y + lid.h;
+const mid = lid.x + lid.w / 2;
+const shelf = screen.y + 118;
+const db = { cx: screen.x + 66, top: screen.y + 32, bottom: shelf - 6, rx: 34, ry: 10 };
+const books = [
+  { x: screen.x + 136, h: 74, w: 22 },
+  { x: screen.x + 160, h: 88, w: 18 },
+  { x: screen.x + 180, h: 66, w: 26 },
+];
+const cloudPts: Pt[] = [
+  [304, 123],
+  [287, 103],
+  [295, 78],
+  [322, 70],
+  [335, 43],
+  [370, 27],
+  [405, 36],
+  [430, 18],
+  [469, 20],
+  [493, 43],
+  [522, 49],
+  [535, 76],
+  [524, 103],
+  [500, 121],
+  [405, 128],
+  [304, 123],
+];
+const cloudLeft = cloudPts[1];
+// The line leaves the lid's top edge above the books and ends a few points off the cloud.
+const linkFrom: Pt = [screen.x + 210, lid.y - 8];
+const linkTo: Pt = [cloudLeft[0] - 7, cloudLeft[1] - 3];
+
+// A curve, and its lighter second pass from a fresh pull of the same pen.
+const both = (make: () => string) => [make(), make()] as const;
+
+const laptop = {
+  lid: ink.rect(lid.x, lid.y, lid.w, lid.h),
+  screen: ink.rect(screen.x, screen.y, screen.w, screen.h),
+  camera: ink.ring(mid, lid.y + 7, 2.2, 2.2),
+  base: ink.poly([
+    [lid.x, deck],
+    [lid.x + lid.w, deck],
+    [lid.x + lid.w + 28, deck + 24],
+    [lid.x - 28, deck + 24],
+  ]),
+  lip: both(() =>
+    ink.curve([
+      [lid.x - 28, deck + 24],
+      [lid.x - 24, deck + 32],
+      [lid.x + lid.w + 24, deck + 32],
+      [lid.x + lid.w + 28, deck + 24],
+    ]),
+  ),
+  pad: ink.curve([
+    [mid - 34, deck + 24],
+    [mid - 28, deck + 18],
+    [mid + 28, deck + 18],
+    [mid + 34, deck + 24],
+  ]),
+};
+
+const arc = (y: number) => () =>
+  ink.curve([
+    [db.cx - db.rx, y],
+    [db.cx, y + db.ry * 1.2],
+    [db.cx + db.rx, y],
+  ]);
+const span = db.bottom - db.top;
+const leaningPts: Pt[] = [
+  [screen.x + 210, shelf],
+  [screen.x + 230, shelf],
+  [screen.x + 256, shelf - 54],
+  [screen.x + 238, shelf - 62],
+];
+const library = {
+  // The cylinder's body as one closed shape: over the top ellipse, down its sides, round the base.
+  dbFill: `M${db.cx - db.rx} ${db.top} A${db.rx} ${db.ry} 0 0 1 ${db.cx + db.rx} ${db.top} L${db.cx + db.rx} ${db.bottom} Q${db.cx} ${db.bottom + db.ry * 2.4} ${db.cx - db.rx} ${db.bottom} Z`,
+  dbTop: both(() => ink.ring(db.cx, db.top, db.rx, db.ry)),
+  dbSides: `${ink.line(db.cx - db.rx, db.top, db.cx - db.rx, db.bottom)} ${ink.line(db.cx + db.rx, db.top, db.cx + db.rx, db.bottom)}`,
+  dbBands: [arc(db.top + span / 3)(), arc(db.top + (span * 2) / 3)()],
+  dbBottom: both(arc(db.bottom)),
+  shelf: ink.line(screen.x + 128, shelf, screen.x + screen.w - 10, shelf),
+  books: books.map((b) => ({
+    fill: ink.fill(b.x + 1, shelf - b.h + 1, b.w - 2, b.h - 2),
+    outline: ink.rect(b.x, shelf - b.h, b.w, b.h),
+    marks: `${ink.line(b.x + 5, shelf - b.h + 12, b.x + b.w - 5, shelf - b.h + 12)} ${ink.line(b.x + 5, shelf - 14, b.x + b.w - 5, shelf - 14)}`,
+  })),
+  leaning: ink.poly(leaningPts),
+  leaningFill: `M${leaningPts.map((p) => p.join(' ')).join(' L')} Z`,
+};
+
+const cloud = { outline: both(() => ink.curve(cloudPts)), fill: ink.curve(cloudPts) };
+
+// The arrow's shaft is dashed and revealed by a solid stroke drawing over it; its head is solid.
+const arrow = ink.arrow(...linkFrom, ...linkTo, -14, 12);
+const [shaft, ...wings] = arrow.split(' M').map((d, i) => (i ? `M${d}` : d));
+const head = wings.join(' ');
+
+// Labels sit on their part: the library under the shelf, the computer under the deck, the plan
+// in the cloud's middle, and the note beside the line's lower half.
+const label = {
+  library: { x: screen.x + screen.w / 2, y: screen.y + screen.h - 12 },
+  computer: { x: mid, y: deck + 66 },
+  plan: { x: 414, y: 66, step: 28 },
+  out: { x: linkFrom[0] - 18, y: (linkFrom[1] + linkTo[1]) / 2 - 6 },
+};
+
+// When each part starts drawing, in milliseconds after the sketch comes into view.
+// Which step of the sequence each stroke belongs to, and its place in that step; the script
+// below turns these into delays from scripts/pace.ts.
+const step = (part: 'laptop' | 'library' | 'cloud' | 'link' | 'head', i: number) => ({ 'data-part': part, 'data-i': i });
+---
+
+<section class="sec yours frame" aria-labelledby="yours-title">
+  <div class="yours-head">
+    <span class="chip chip-lg tint-blue"><Icon name="house" size={18} /></span>
+    <h2 id="yours-title" data-ink set:html={keyed(s.yours.title, s.yours.key, 'under', 73)} />
+    <p class="lead">{s.yours.lead}</p>
+    <a class="more" href={docs('privacy')}>{s.yours.more}<Icon name="arrow-right" size={14} /></a>
+  </div>
+
+  <div class="grid">
+    <figure class="tile sketch" id="yours-sketch" data-ink data-ink-scope>
+      <svg class="drawing" viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="yours-sketch-title">
+        <title id="yours-sketch-title">{`${s.yours.sketch.library}, ${s.yours.sketch.computer}; ${s.yours.sketch.out.join(' ')}: ${s.yours.sketch.plan.join(' ')}`}</title>
+        <defs>
+          <mask id="yours-link-reveal" maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H}>
+            <path class="reveal draw" pathLength="1" d={shaft} {...step('link', 0)} />
+          </mask>
+        </defs>
+
+        <g id="yours-laptop">
+          <path class="line draw" pathLength="1" d={laptop.lid} {...step('laptop', 0)} />
+          <path class="line draw" pathLength="1" d={laptop.screen} {...step('laptop', 1)} />
+          <path class="line draw" pathLength="1" d={laptop.base} {...step('laptop', 2)} />
+          <path class="line draw" pathLength="1" d={laptop.lip[0]} {...step('laptop', 3)} />
+          <path class="line thin draw" pathLength="1" d={laptop.lip[1]} {...step('laptop', 3)} />
+          <path class="line draw" pathLength="1" d={laptop.pad} {...step('laptop', 4)} />
+          <path class="line draw" pathLength="1" d={laptop.camera} {...step('laptop', 5)} />
+        </g>
+
+        <g id="yours-library">
+          <path class="fill-db fade" d={library.dbFill} {...step('library', 3)} />
+          {library.books.map((b, i) => <path class={`fade ${i === 1 ? 'fill-book-2' : 'fill-db'}`} d={b.fill} {...step('library', 4 + i)} />)}
+          <path class="line draw" pathLength="1" d={library.dbTop[0]} {...step('library', 0)} />
+          <path class="line thin draw" pathLength="1" d={library.dbTop[1]} {...step('library', 0)} />
+          <path class="line draw" pathLength="1" d={library.dbSides} {...step('library', 1)} />
+          <path class="line draw" pathLength="1" d={library.dbBottom[0]} {...step('library', 2)} />
+          <path class="line thin draw" pathLength="1" d={library.dbBottom[1]} {...step('library', 2)} />
+          {library.dbBands.map((d, i) => <path class="line soft draw" pathLength="1" d={d} {...step('library', 3 + i)} />)}
+          <path class="line draw" pathLength="1" d={library.shelf} {...step('library', 2)} />
+          {library.books.map((b, i) => <path class="line draw" pathLength="1" d={b.outline} {...step('library', 3 + i)} />)}
+          {library.books.map((b, i) => <path class="line soft draw" pathLength="1" d={b.marks} {...step('library', 5 + i)} />)}
+          <path class="fill-book-2 fade" d={library.leaningFill} {...step('library', 7)} />
+          <path class="line draw" pathLength="1" d={library.leaning} {...step('library', 6)} />
+        </g>
+
+        <g id="yours-cloud">
+          <path class="fill-cloud fade" d={cloud.fill} {...step('cloud', 3)} />
+          <path class="line draw" pathLength="1" d={cloud.outline[0]} {...step('cloud', 0)} />
+          <path class="line thin draw" pathLength="1" d={cloud.outline[1]} {...step('cloud', 1)} />
+        </g>
+
+        <g id="yours-link">
+          <path class="line dashed" d={shaft} mask="url(#yours-link-reveal)" />
+          <path class="line draw" pathLength="1" d={head} {...step('head', 0)} />
+        </g>
+
+        <g class="labels" data-manual>
+          <text id="yours-label-library" class="hand name" x={label.library.x} y={label.library.y} font-size="21" data-type="ch" set:html={chars(s.yours.sketch.library, 'tspan')} />
+          <text id="yours-label-computer" class="hand name" x={label.computer.x} y={label.computer.y} font-size="25" data-type="ch" set:html={chars(s.yours.sketch.computer, 'tspan')} />
+          <g id="yours-label-plan">
+            {
+              s.yours.sketch.plan.map((line, i) => (
+                <text class="hand name plan" x={label.plan.x} y={label.plan.y + i * label.plan.step} font-size="21" data-type="ch" set:html={chars(line, 'tspan')} />
+              ))
+            }
+          </g>
+          {
+            s.yours.sketch.out.map((line, i) => (
+              <text class="hand note" x={label.out.x} y={label.out.y + i * 25} font-size="19" data-type="ch" set:html={chars(line, 'tspan')} />
+            ))
+          }
+        </g>
+      </svg>
+    </figure>
+
+    <div class="tile tint-blue fact" id="yours-local" data-ink-scope>
+      <span class="chip"><Icon name="library-big" size={16} /></span>
+      <h3>{s.yours.local.title}</h3>
+      <p>{s.yours.local.body} <span id="yours-never">{s.yours.local.never}</span>{s.yours.local.end}</p>
+      <svg class="ink-mark" data-mark="underline" data-to="#yours-never" aria-hidden="true"></svg>
+    </div>
+    <div class="tile tint-blue fact" id="yours-plan">
+      <span class="chip"><Icon name="wallet" size={16} /></span>
+      <h3>{s.yours.plan.title}</h3>
+      <p>{s.yours.plan.body}</p>
+    </div>
+    <div class="tile fact open" id="yours-open">
+      <span class="chip tint-blue"><Icon name="book-open" size={16} /></span>
+      <div class="open-text">
+        <h3>{s.yours.open.title}</h3>
+        <p>{s.yours.open.body}</p>
+      </div>
+      <a class="more" href={repo}>{s.yours.open.link}<Icon name="arrow-right" size={14} /></a>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { DRAW_MS, HEAD_MS, live, STAGGER_MS, STEP_MS, type, wait } from '../../scripts/ink';
+
+  // The sketch in steps, on the page's pace: the laptop, the library filling, the cloud, the
+  // dashed line and its head, then the labels type together. All done in under a second.
+  const sketch = document.querySelector<HTMLElement>('#yours-sketch');
+  const labels = sketch ? [...sketch.querySelectorAll<HTMLElement>('.labels [data-type]')] : [];
+  const link = STEP_MS * 2 + STAGGER_MS;
+  const start = { laptop: 0, library: STEP_MS, cloud: STEP_MS * 2, link, head: link + DRAW_MS - HEAD_MS };
+  const typing = start.head;
+  const total = 950;
+  if (sketch && live) {
+    for (const el of sketch.querySelectorAll<SVGElement>('[data-part]')) {
+      const part = el.dataset.part as keyof typeof start;
+      const i = Number(el.dataset.i ?? 0);
+      el.style.setProperty('--at', `${start[part] + i * (STAGGER_MS / 3)}ms`);
+      el.style.setProperty('--dur', `${part === 'head' ? HEAD_MS : DRAW_MS}ms`);
+    }
+    const watch = new MutationObserver(() => {
+      if (!sketch.classList.contains('is-inked')) return;
+      watch.disconnect();
+      void wait(typing).then(() => Promise.all(labels.map((label) => type(label, total - typing))));
+    });
+    watch.observe(sketch, { attributes: true, attributeFilter: ['class'] });
+  }
+</script>
+
+<style>
+  /* The lead over the sketch, then the facts in varied sizes. */
+  .yours {
+    display: grid;
+    gap: var(--s-7);
+  }
+  /* The story-section lead: chip on top, heading, lead and link, over the sketch's left edge. */
+  .yours-head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    max-width: 680px;
+  }
+  h2 {
+    font-size: clamp(32px, 3.6vw, 48px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+  .lead {
+    margin-top: var(--s-4);
+    color: var(--ink-2);
+    font-size: 18px;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.012em;
+  }
+
+  /* The sketch on the left over two facts on the right (7/5), the code across the bottom. */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--s-5);
+  }
+  .sketch {
+    grid-column: 1 / span 7;
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    padding: clamp(var(--s-4), 3vw, var(--s-7));
+    background: var(--sidebar);
+  }
+  #yours-local,
+  #yours-plan {
+    grid-column: 8 / -1;
+  }
+  .fact {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(var(--s-5), 2.4vw, var(--s-6));
+  }
+  .fact .chip {
+    width: 32px;
+    height: 32px;
+    margin-bottom: var(--s-4);
+    border-radius: var(--r-md);
+  }
+  .fact p {
+    margin-top: var(--s-2);
+    color: var(--ink-2);
+    font-size: 16px;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+  .open {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-5);
+  }
+  .open .chip {
+    margin-bottom: 0;
+  }
+  .open-text {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--s-4);
+  }
+  .open-text p {
+    margin-top: 0;
+  }
+  .open .more {
+    margin-top: 0;
+    white-space: nowrap;
+  }
+
+  /* The drawing. */
+  .drawing {
+    display: block;
+    width: 100%;
+    max-width: 600px;
+    height: auto;
+    overflow: visible;
+  }
+  .drawing path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .drawing .line {
+    stroke: var(--ink-2);
+    stroke-width: 2;
+  }
+  .drawing .thin {
+    stroke-width: 1.1;
+    opacity: 0.55;
+    translate: 0.8px 0.6px;
+  }
+  .drawing .soft {
+    stroke-width: 1.4;
+    opacity: 0.7;
+  }
+  .drawing .dashed {
+    stroke-dasharray: 7 8;
+  }
+  .drawing .reveal {
+    stroke: #fff;
+    stroke-width: 14;
+  }
+  .drawing .fade {
+    stroke: none;
+  }
+  .drawing .fill-db {
+    fill: var(--blue-chip);
+  }
+  .drawing .fill-book-2 {
+    fill: var(--blue-bg);
+  }
+  .drawing .fill-cloud {
+    fill: var(--purple-chip);
+  }
+  .drawing text {
+    font-family: var(--font-hand);
+    text-anchor: middle;
+  }
+  .drawing .name {
+    fill: var(--ink);
+  }
+  .drawing .note {
+    fill: var(--ink-2);
+    text-anchor: end;
+  }
+  /* Each part draws at its own moment, in order, rather than in document order. */
+  :global(.js-ink) .sketch:global(.is-inked) :is(.draw, .fade) {
+    transition-duration: var(--dur, 380ms) !important;
+    transition-delay: var(--at, 0ms);
+  }
+
+  /* On a phone the sheet shrinks to about 0.6, so its writing grows to stay readable. */
+  @media (max-width: 600px) {
+    .sketch {
+      padding: var(--s-3);
+    }
+    .drawing #yours-label-library {
+      font-size: 27px;
+    }
+    .drawing .plan {
+      font-size: 25px;
+    }
+    .drawing #yours-label-computer {
+      font-size: 29px;
+    }
+    .drawing .note {
+      font-size: 25px;
+    }
+    /* Lines step about 1.15 times the larger writing. */
+    .drawing .note + .note {
+      translate: 0 4px;
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .sketch {
+      grid-column: 1 / -1;
+      grid-row: auto;
+    }
+    #yours-local {
+      grid-column: 1 / span 7;
+    }
+    #yours-plan {
+      grid-column: 8 / -1;
+    }
+  }
+  @media (max-width: 900px) {
+    .grid > * {
+      grid-column: 1 / -1 !important;
+    }
+    .open {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+    .open .chip {
+      margin-bottom: var(--s-4);
+    }
+    .open-text {
+      display: block;
+    }
+    .open-text p {
+      margin-top: var(--s-2);
+    }
+    .open .more {
+      margin-top: var(--s-4);
+    }
+  }
+</style>

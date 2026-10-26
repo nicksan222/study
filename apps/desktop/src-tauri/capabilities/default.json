@@ -1,0 +1,33 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Study main window: canonical RPC, microphone and native dialogs.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-rpc",
+    "allow-check-update",
+    "allow-install-update",
+    "allow-update-status",
+    "allow-save-file",
+    "allow-pick-files",
+    "allow-pick-export",
+    "allow-open-external",
+    "allow-recording-start",
+    "allow-recording-stop",
+    "allow-recording-status",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-set-fullscreen",
+    "core:webview:allow-set-webview-zoom",
+    "allow-stage-file",
+    "allow-release-files",
+    "core:menu:default",
+    "allow-close-window",
+    "allow-quit-app",
+    "allow-recording-send",
+    "allow-recording-discard",
+    "allow-recording-ack"
+  ]
+}

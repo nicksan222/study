@@ -1,0 +1,14 @@
+[package]
+name = "study-testkit"
+description = "Services that tests run in Docker, such as a web server"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+testcontainers.workspace = true
+
+[lints]
+workspace = true

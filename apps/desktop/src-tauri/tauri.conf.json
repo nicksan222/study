@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Study",
+  "version": "0.1.1",
+  "identifier": "io.github.nicksan222.Study",
+  "mainBinaryName": "study",
+  "build": {
+    "beforeDevCommand": "npm run dev --workspace @study/desktop",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build --workspace @study/desktop",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Study",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 820,
+        "minHeight": 540,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src ipc: http://ipc.localhost; media-src 'self' blob:",
+      "devCsp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173; media-src 'self' blob:",
+      "freezePrototype": false
+    },
+    "enableGTKAppId": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "rpm",
+      "appimage",
+      "app",
+      "dmg",
+      "nsis"
+    ],
+    "category": "Education",
+    "shortDescription": "Local-first study workspace",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "macOS": {
+      "infoPlist": "Info.plist",
+      "entitlements": "Entitlements.plist",
+      "minimumSystemVersion": "12.0"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/nicksan222/study/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

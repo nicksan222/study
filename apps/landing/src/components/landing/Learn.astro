@@ -1,0 +1,1318 @@
+---
+// One lecture, four ways to learn it: notebook tabs over one stage, each a piece of the app to
+// try (a cited answer, a graded question, a flashcard, a hand-drawn diagram) beside a capture
+// of the real thing.
+import Icon from '../Icon.astro';
+import Shot from '../Shot.astro';
+import { pen } from '../rough';
+import { chars, draw, esc, keyed, pressed, words } from './text';
+import { href, t, type Lang } from '../../i18n/strings';
+import { quizAnswer } from '../../i18n/landing/learn';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const s = t(lang);
+const p = s.passage;
+const b = s.became;
+const letters = ['A', 'B', 'C', 'D'];
+const docs = (slug: string) => href(lang, `docs/${slug}/`);
+const chip = (i: number) =>
+  `<button class="cite t" id="learn-chip-${i}" type="button" data-cite aria-expanded="false" aria-controls="learn-cite-${i}" aria-label="${esc(s.answers.citeLabel)} ${i}">${i}</button>`;
+
+const ink = pen(64);
+const strokes = {
+  tabLine: draw(ink.underline(4, 7, 112)),
+  check: pressed(() => ink.check(2, 2, 18)),
+};
+// Each choice carries a hand-drawn check; only the right one's ever shows.
+const checks = s.quiz.choices.map(() => pressed(() => ink.check(2, 3, 17)));
+
+// The four things a lecture becomes, as notebook tabs over one stage.
+const tabs = [
+  { id: 'answers', label: s.answers.tab, icon: 'wand-sparkles', tint: 'tint-green' },
+  { id: 'quiz', label: s.quiz.tab, icon: 'list-checks', tint: 'tint-purple' },
+  { id: 'card', label: s.card.tab, icon: 'shapes', tint: 'tint-orange' },
+  { id: 'diagram', label: s.diagram.tab, icon: 'workflow', tint: 'tint-pink' },
+];
+// A transcript line split around the phrase a learner washed in it.
+const around = (line: string, phrase: string) => {
+  const at = line.indexOf(phrase);
+  return at < 0 ? [line, '', ''] : [line.slice(0, at), phrase, line.slice(at + phrase.length)];
+};
+const cardQuote = around(s.transcript[1], p.p3);
+const phaseQuote = around(s.transcript[0], p.p1);
+
+// Captures are cropped in the app's own points (each page is 1440 by 900), so its text stays
+// readable: one crop for wide screens and a tighter one (`m`) for narrow ones. A target is a
+// box on the page, in the same points, that an anchored mark circles or brackets.
+type Box = { x: number; y: number; w: number; h: number };
+const crop = (d: Box, m: Box = d) =>
+  `--dx:${d.x};--dy:${d.y};--dw:${d.w};--dh:${d.h};--mx:${m.x};--my:${m.y};--mw:${m.w};--mh:${m.h}`;
+// How wide the whole page renders inside a crop, for `sizes`: the crop scales its box up to
+// fill a panel column, at most 1.25 times the app's size. On wide screens a panel is the
+// frame (1200px) less its padding (2 × 48px) and the columns' gap (24px), split 5 to 7; on
+// narrower ones the crop takes no more than the viewport.
+const panel = 1200 - 2 * 48 - 24;
+const sizes = (column: 5 | 7, d: Box, m: Box = d) =>
+  `(min-width: 1101px) ${Math.round((1440 / d.w) * Math.min((panel * column) / 12, d.w * 1.25))}px, ` +
+  `${Math.round((1440 / m.w) * 100)}vw`;
+const spot = ({ x, y, w, h }: Box) => `--tx:${x};--ty:${y};--tw:${w};--th:${h}`;
+const crops = {
+  passage: { x: 1052, y: 262, w: 372, h: 341 },
+  graded: { x: 356, y: 566, w: 702, h: 254 },
+  gradedNarrow: { x: 368, y: 724, w: 340, h: 96 },
+  ratings: { x: 360, y: 466, w: 698, h: 52 },
+  ratingsNarrow: { x: 536, y: 466, w: 346, h: 52 },
+};
+const spots = {
+  passage: { x: 1064, y: 406, w: 346, h: 190 },
+  correct: { x: 382, y: 731, w: 86, h: 32 },
+  good: { x: 712, y: 474, w: 165, h: 36 },
+};
+
+// The diagram, laid out on a 560 by 320 sheet.
+const phaseX = [10, 152, 294, 436];
+const diagram = {
+  root: { fill: ink.fill(205, 14, 150, 54), line: ink.rect(205, 14, 150, 54) },
+  phases: phaseX.map((x) => ({ x, fill: ink.fill(x, 158, 118, 50), line: ink.rect(x, 158, 118, 50) })),
+  arrows: phaseX.map((x, i) => ink.arrow(262 + i * 12, 74, x + 59, 150, (1.5 - i) * -10)),
+  extra: ink.rect(84, 252, 156, 44),
+  extraArrow: ink.arrow(148, 248, 140, 214, 4, 9),
+  asideArrow: ink.arrow(330, 268, 250, 272, -6, 9),
+};
+---
+
+<section class="sec stage-sec frame" id="learn" aria-labelledby="stage-title">
+  <div class="stage-head">
+    <h2 id="stage-title" data-ink set:html={keyed(s.stage.title, s.stage.key, 'ring', 72)} />
+    <p>{s.stage.body}</p>
+  </div>
+  <div class="stage" data-stage>
+    <div class="tabs" role="tablist" aria-label={s.stage.label}>
+      {
+        tabs.map((tab, i) => (
+          <button
+            class={`tab ${tab.tint}`}
+            type="button"
+            role="tab"
+            id={`tab-${tab.id}`}
+            aria-controls={tab.id}
+            aria-selected={i === 0 ? 'true' : 'false'}
+            tabindex={i === 0 ? '0' : '-1'}
+            data-tab
+          >
+            <span class="chip">
+              <Icon name={tab.icon} size={16} />
+            </span>
+            <span class="tab-label">
+              {tab.label}
+              <svg class="ink tab-line" viewBox="0 0 120 12" preserveAspectRatio="none" aria-hidden="true" set:html={strokes.tabLine} />
+            </span>
+          </button>
+        ))
+      }
+    </div>
+
+    <div class="panels" data-panels>
+      <div class="panel tint-green is-active" id="answers" data-ink-later data-ink-scope>
+        <div class="panel-head">
+          <div class="panel-copy">
+            <h3>{s.answers.title}</h3>
+            <p>{s.answers.body}</p>
+            <a class="more" href={docs('answers')}>{s.answers.more}<Icon name="arrow-right" size={14} /></a>
+          </div>
+          <p class="aside" data-ink>
+            <span class="hand hand-note" id="learn-answers-note" style="--r:-2.5deg" data-type="hand" set:html={words(s.answers.note)} />
+          </p>
+        </div>
+        <div class="panel-body body-7">
+          <div class="piece paper" id="learn-answers-paper" data-cites data-ink>
+            <p class="ask"><span class="mention">@study</span> <span data-type="ch" set:html={chars(s.answers.ask)} /></p>
+            <p class="answer" id="learn-answer" data-type="w" set:html={words(s.answers.a1) + chip(1) + words(s.answers.a2) + chip(2) + words(s.answers.a3)} />
+            <p class="tap">
+              <span class="hand hand-note" id="learn-answers-tap" style="--r:-1.5deg" data-type="hand" set:html={words(s.answers.tap)} />
+            </p>
+            <div class="sources" data-manual>
+              {
+                s.answers.cites.map((time, i) => (
+                  <div class="source" id={`learn-cite-${i + 1}`} data-source>
+                    <p class="source-head">
+                      <span class="cite">{i + 1}</span>
+                      {p.source}
+                      <span class="time">{time}</span>
+                    </p>
+                    <p class="source-text" data-source-text>
+                      <span class="wash">{s.transcript[i]}</span>
+                    </p>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+          <figure class="shot">
+            <div class="crop-wrap" data-ink-scope>
+              <div class="crop" style={crop(crops.passage)}>
+                <Shot name="citation" lang={lang} alt={s.answers.shotAlt} sizes={sizes(5, crops.passage)} />
+                <span class="spot" id="learn-passage-spot" style={spot(spots.passage)}></span>
+              </div>
+              <svg class="ink-mark" data-mark="bracket" data-to="#learn-passage-spot" aria-hidden="true"></svg>
+            </div>
+            <figcaption>{s.answers.caption}</figcaption>
+          </figure>
+        </div>
+        <svg class="ink-arrow" data-arrow data-from="#learn-answers-note" data-to="#learn-answer" data-bow="0.3" aria-hidden="true"></svg>
+        <svg class="ink-arrow" data-arrow data-from="#learn-answers-tap" data-to="#learn-chip-2" data-bow="-0.3" aria-hidden="true"></svg>
+      </div>
+
+      <div class="panel tint-purple" id="quiz" data-ink-later data-ink-scope>
+        <div class="panel-head">
+          <div class="panel-copy">
+            <h3>{s.quiz.title}</h3>
+            <p>{s.quiz.body}</p>
+            <a class="more" href={docs('practice')}>{s.quiz.more}<Icon name="arrow-right" size={14} /></a>
+          </div>
+          <p class="aside" data-ink>
+            <span class="hand hand-note" id="learn-quiz-note" style="--r:2deg" data-type="hand" set:html={words(s.quiz.note)} />
+          </p>
+        </div>
+        <div class="panel-body body-5">
+          <div class="piece paper" data-quiz data-answer={quizAnswer}>
+            <p class="question"><span id="learn-quiz-question">{s.quiz.question}</span></p>
+            <div class="choices" role="group" aria-labelledby="learn-quiz-question">
+              {
+                s.quiz.choices.map((choice, i) => (
+                  <button class="choice" type="button" data-choice aria-pressed="false">
+                    <span class="letter">{letters[i]}</span>
+                    <span class="choice-text">{choice}</span>
+                    <span class="choice-mark choice-right" data-ink data-manual>
+                      <svg class="ink" viewBox="0 0 22 22" aria-hidden="true" set:html={checks[i]} />
+                    </span>
+                    <span class="choice-mark choice-wrong">
+                      <Icon name="x" size={16} />
+                    </span>
+                  </button>
+                ))
+              }
+            </div>
+            <p class="quiz-hint">{s.quiz.hint}</p>
+            <div class="verdicts" aria-live="polite">
+              <div class="verdict" data-verdict="right" data-ink data-manual data-seq hidden>
+                <p class="verdict-line">
+                  <svg class="ink verdict-check" viewBox="0 0 22 22" aria-hidden="true" set:html={strokes.check} />
+                  <span data-type="ch" set:html={chars(s.quiz.correct)} />
+                </p>
+                <p class="verdict-text" data-type="w" set:html={words(s.quiz.right)} />
+              </div>
+              <div class="verdict" data-verdict="miss" data-ink data-manual data-seq hidden>
+                <p class="verdict-line"><span data-type="ch" set:html={chars(s.quiz.wrong)} /></p>
+                <p class="verdict-text" data-type="w" set:html={words(s.quiz.miss)} />
+              </div>
+            </div>
+          </div>
+          <figure class="shot">
+            <div class="crop-wrap" data-ink-scope>
+              <div class="crop crop-cut" style={crop(crops.graded, crops.gradedNarrow)}>
+                <Shot name="graded" lang={lang} alt={s.quiz.shotAlt} sizes={sizes(7, crops.graded, crops.gradedNarrow)} />
+                <span class="spot" id="learn-correct-spot" style={spot(spots.correct)}></span>
+              </div>
+              <svg class="ink-mark" data-mark="ring" data-to="#learn-correct-spot" aria-hidden="true"></svg>
+            </div>
+            <figcaption>{s.quiz.caption}</figcaption>
+          </figure>
+        </div>
+        <svg class="ink-arrow" data-arrow data-from="#learn-quiz-note" data-to="#learn-quiz-question" data-bow="0.3" aria-hidden="true"></svg>
+      </div>
+
+      <div class="panel tint-orange" id="card" data-ink-later data-ink-scope>
+        <div class="panel-head">
+          <div class="panel-copy">
+            <h3>{s.card.title}</h3>
+            <p>{s.card.body}</p>
+            <a class="more" href={docs('flashcards')}>{s.card.more}<Icon name="arrow-right" size={14} /></a>
+          </div>
+          <p class="aside" data-ink>
+            <span class="hand hand-note" id="learn-card-note" style="--r:-3deg" data-type="hand" set:html={words(s.card.note)} />
+          </p>
+        </div>
+        <div class="panel-body body-5">
+          <div class="piece" data-card>
+            <button class="fc" id="learn-card" type="button" aria-pressed="false" data-flip>
+              <span class="fc-face fc-front">
+                <span class="fc-meta"><span>{s.card.course}</span><span class="fc-tag">{s.card.question}</span></span>
+                <span class="fc-text" id="learn-card-front">{b.card.front}</span>
+                <span class="fc-cta" id="learn-card-cta">{s.card.show}</span>
+              </span>
+              <span class="fc-face fc-back" data-manual data-seq>
+                <span class="fc-meta"><span>{s.card.course}</span><span class="fc-tag">{s.card.answer}</span></span>
+                <span class="fc-q">{b.card.front}</span>
+                <span class="fc-text" data-type="w" set:html={words(b.card.back)} />
+                <span class="fc-cta">{s.card.hide}</span>
+              </span>
+            </button>
+            <div class="fc-foot">
+            <p class="fc-tap hand hand-note" style="--r:-2deg">{s.card.tap}</p>
+            <div class="ratings" role="group" aria-label={b.card.tab}>
+              {
+                b.card.ratings.map((rating, i) => (
+                  <button class="rating" type="button" data-rating aria-pressed="false" style={`--i:${i}`}>
+                    {rating}
+                    <span class="key-hint">{i + 1}</span>
+                  </button>
+                ))
+              }
+            </div>
+            </div>
+            <p class="fc-after" aria-live="polite" data-ink data-manual>
+              {s.card.next.map((note) => <span class="hand hand-note fc-next" style="--r:-1.5deg" data-type="hand" hidden set:html={words(note)} />)}
+            </p>
+          </div>
+          <div class="side">
+            <figure class="shot shot-wide">
+              <div class="crop-wrap" data-ink-scope>
+                <div class="crop" style={crop(crops.ratings, crops.ratingsNarrow)}>
+                  <Shot name="flashcard" lang={lang} alt={s.card.shotAlt} sizes={sizes(7, crops.ratings, crops.ratingsNarrow)} />
+                  <span class="spot" id="learn-good-spot" style={spot(spots.good)}></span>
+                </div>
+                <svg class="ink-mark" data-mark="ring" data-to="#learn-good-spot" aria-hidden="true"></svg>
+              </div>
+              <figcaption>{s.card.caption}</figcaption>
+            </figure>
+            <div class="from" data-ink>
+              <p class="paper-head"><Icon name="video" size={14} />{p.source}</p>
+              <p class="from-note"><span class="hand hand-note" id="learn-card-from" style="--r:-2deg" data-type="hand" set:html={words(s.card.from)} /></p>
+              <p class="from-text">
+                {cardQuote[0]}<span class="wash" id="learn-card-phrase">{cardQuote[1]}</span>{cardQuote[2]}
+              </p>
+            </div>
+          </div>
+        </div>
+        <svg class="ink-arrow" data-arrow data-from="#learn-card-note" data-to="#learn-card" data-bow="0.3" aria-hidden="true"></svg>
+        <svg class="ink-arrow" data-arrow data-from="#learn-card-from" data-to="#learn-card-phrase" data-bow="0.3" aria-hidden="true"></svg>
+      </div>
+
+      <div class="panel tint-pink" id="diagram" data-ink-later data-ink-scope>
+        <div class="panel-head">
+          <div class="panel-copy">
+            <h3>{s.diagram.title}</h3>
+            <p>{s.diagram.body}</p>
+            <a class="more" href={docs('notes-and-diagrams')}>{s.diagram.more}<Icon name="arrow-right" size={14} /></a>
+          </div>
+          <p class="aside" data-ink>
+            <span class="hand hand-note" id="learn-diagram-note" style="--r:2.5deg" data-type="hand" set:html={words(s.diagram.note)} />
+          </p>
+        </div>
+        <div class="panel-body body-5">
+          <div class="from" data-ink>
+            <p class="paper-head"><Icon name="video" size={14} />{p.source}</p>
+            <p class="from-note"><span class="hand hand-note" id="learn-diagram-from" style="--r:-2deg" data-type="hand" set:html={words(s.diagram.from)} /></p>
+            <p class="from-text">
+              {phaseQuote[0]}<span class="wash" id="learn-diagram-phrase">{phaseQuote[1]}</span>{phaseQuote[2]}
+            </p>
+          </div>
+          <div class="piece sheet" data-ink>
+            <svg class="drawing" viewBox="0 0 560 320" role="img" aria-label={s.diagram.label}>
+              <path class="node-fill node-root fade" d={diagram.root.fill} />
+              <path class="node-line draw" pathLength="1" d={diagram.root.line} />
+              <g id="learn-diagram-phases">
+                {
+                  diagram.phases.map((phase, i) => (
+                    <>
+                      <path class="node-fill node-phase fade" d={phase.fill} />
+                      <path class="node-line draw" pathLength="1" d={phase.line} id={i === diagram.phases.length - 1 ? 'learn-diagram-last' : undefined} />
+                    </>
+                  ))
+                }
+              </g>
+              {diagram.arrows.map((d) => <path class="node-line draw" pathLength="1" d={d} />)}
+              <path class="node-line node-dashed fade" d={diagram.extra} />
+              <path class="node-line node-dashed fade" d={diagram.extraArrow} />
+              <path class="pencil-line draw" pathLength="1" d={diagram.asideArrow} />
+              <text class="hand node-text" x="280" y="48" font-size="23" data-type="ch" set:html={chars(s.diagram.root, 'tspan')} />
+              {
+                diagram.phases.map((phase, i) => (
+                  <text class="hand node-text" x={phase.x + 59} y="190" font-size="20" data-type="ch" set:html={chars(s.diagram.phases[i], 'tspan')} />
+                ))
+              }
+              <text class="hand node-text" x="162" y="280" font-size="19" data-type="ch" set:html={chars(s.diagram.extra, 'tspan')} />
+              <text class="hand pencil-text" x="338" y="276" font-size="18" data-type="ch" set:html={chars(s.diagram.aside, 'tspan')} />
+            </svg>
+          </div>
+        </div>
+        <svg class="ink-arrow" data-arrow data-from="#learn-diagram-note" data-to="#learn-diagram-last" data-bow="0.3" aria-hidden="true"></svg>
+        <svg class="ink-arrow" data-arrow data-from="#learn-diagram-from" data-to="#learn-diagram-phrase" data-bow="0.3" aria-hidden="true"></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { clear, ink, live, play, relayout, type, wait, PIECE_MS, STAGGER_MS, STEP_MS } from '../../scripts/ink';
+
+  // Anchored arrows and marks redraw on this, once what they point at has moved.
+  const settle = () => {
+    relayout();
+    window.setTimeout(relayout, STEP_MS + STAGGER_MS);
+  };
+
+  // The stage: notebook tabs over one stage. On a wide screen it keeps the height of its
+  // tallest panel; on a narrow one it follows the open panel, easing to its height. Until a
+  // visitor touches it, a wide stage turns to the next tab now and then while in view.
+  const stage = document.querySelector<HTMLElement>('[data-stage]');
+  if (stage) {
+    const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+    const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls') ?? '')!);
+    const box = stage.querySelector<HTMLElement>('[data-panels]')!;
+    const narrow = matchMedia('(max-width: 900px)');
+    const woken = new Set<HTMLElement>();
+    let current = 0;
+    let touched = false;
+    let seen = false;
+    let timer: number | undefined;
+    const wake = (panel: HTMLElement) => {
+      if (!seen || woken.has(panel)) return;
+      woken.add(panel);
+      const roots = [...panel.querySelectorAll<HTMLElement>('[data-ink]:not([data-manual])')];
+      roots.forEach((root, i) => window.setTimeout(() => void ink(root), live ? Math.min(i * STAGGER_MS, STEP_MS) : 0));
+    };
+    const resize = (from: number) => {
+      const to = box.offsetHeight;
+      if (!live || !narrow.matches || from === to) return;
+      box.style.height = `${from}px`;
+      void box.offsetHeight;
+      box.classList.add('is-sizing');
+      box.style.height = `${to}px`;
+      const done = () => {
+        box.style.height = '';
+        box.classList.remove('is-sizing');
+        relayout();
+      };
+      box.addEventListener('transitionend', done, { once: true });
+      window.setTimeout(done, STEP_MS * 2);
+    };
+    const select = (i: number, focus = false) => {
+      const from = box.offsetHeight;
+      current = i;
+      tabs.forEach((tab, j) => {
+        const on = i === j;
+        tab.setAttribute('aria-selected', String(on));
+        tab.tabIndex = on ? 0 : -1;
+        panels[j].inert = !on;
+        panels[j].classList.toggle('is-active', on);
+      });
+      if (focus) tabs[i].focus();
+      resize(from);
+      wake(panels[i]);
+      settle();
+    };
+    const stop = () => {
+      touched = true;
+      window.clearInterval(timer);
+      timer = undefined;
+    };
+    // Tabs only once they work: without this script every panel shows, one after another.
+    panels.forEach((panel, i) => {
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', tabs[i].id);
+      panel.tabIndex = 0;
+    });
+    stage.classList.add('is-live');
+    select(0);
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => {
+        stop();
+        select(i);
+      });
+      tab.addEventListener('keydown', (event) => {
+        const last = tabs.length - 1;
+        const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: last }[event.key];
+        if (to === undefined) return;
+        event.preventDefault();
+        stop();
+        select((to + tabs.length) % tabs.length, true);
+      });
+    });
+    stage.addEventListener('pointerdown', stop);
+    stage.addEventListener('keydown', stop);
+    stage.addEventListener('focusin', stop);
+    new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          seen = true;
+          wake(panels[current]);
+          if (live && !touched && !narrow.matches && timer === undefined) timer = window.setInterval(() => select((current + 1) % tabs.length), 9000);
+        } else if (timer !== undefined) {
+          window.clearInterval(timer);
+          timer = undefined;
+        }
+      },
+      { threshold: 0.3 },
+    ).observe(stage);
+    // A link to one of the pieces, from the passage or the address, opens its tab.
+    const open = (hash: string) => {
+      const i = panels.findIndex((panel) => `#${panel.id}` === hash);
+      if (i < 0) return;
+      stop();
+      select(i);
+    };
+    document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((link) => link.addEventListener('click', () => open(link.hash)));
+    window.addEventListener('hashchange', () => open(location.hash));
+    open(location.hash);
+    // On a narrow screen a note whose arrow has no clean way steps aside rather than point at
+    // nothing; it comes back when the screen widens.
+    const arrows = [...stage.querySelectorAll<SVGElement>('svg[data-arrow]')];
+    const noteOf = (arrow: SVGElement) => document.querySelector<HTMLElement>(arrow.dataset.from ?? '');
+    const sort = () => {
+      if (!narrow.matches) return;
+      for (const arrow of arrows) {
+        const why = arrow.dataset.inkHidden;
+        if (why === 'short' || why === 'crosses') noteOf(arrow)?.classList.add('is-pointless');
+      }
+    };
+    const watch = new MutationObserver(sort);
+    arrows.forEach((arrow) => watch.observe(arrow, { attributes: true, attributeFilter: ['data-ink-hidden'] }));
+    narrow.addEventListener('change', () => {
+      if (!narrow.matches) arrows.forEach((arrow) => noteOf(arrow)?.classList.remove('is-pointless'));
+      settle();
+    });
+    sort();
+  }
+
+  // A citation chip opens the passage it came from, washed where the answer drew on it.
+  for (const root of document.querySelectorAll<HTMLElement>('[data-cites]')) {
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-cite]')];
+    const sources = [...root.querySelectorAll<HTMLElement>('[data-source]')];
+    root.classList.add('is-live');
+    const texts = sources.map((source) => source.querySelector<HTMLElement>('[data-source-text]')!);
+    texts.forEach((text) => (text.hidden = true));
+    chips.forEach((chip, i) =>
+      chip.addEventListener('click', () => {
+        const open = chip.getAttribute('aria-expanded') !== 'true';
+        chips.forEach((c, j) => c.setAttribute('aria-expanded', String(open && i === j)));
+        texts.forEach((text, j) => (text.hidden = !(open && i === j)));
+        sources.forEach((source, j) => source.classList.toggle('is-open', open && i === j));
+        root.classList.add('is-used');
+        settle();
+      }),
+    );
+  }
+
+  // A practice question: picking a choice checks the right one by hand, then the grade and
+  // its reason type out.
+  for (const root of document.querySelectorAll<HTMLElement>('[data-quiz]')) {
+    const choices = [...root.querySelectorAll<HTMLButtonElement>('[data-choice]')];
+    const verdicts = [...root.querySelectorAll<HTMLElement>('[data-verdict]')];
+    const answer = Number(root.dataset.answer);
+    const check = choices[answer].querySelector<HTMLElement>('.choice-right')!;
+    let picks = 0;
+    const pick = async (i: number) => {
+      const run = ++picks;
+      const right = i === answer;
+      root.classList.add('is-answered');
+      choices.forEach((c, j) => {
+        c.setAttribute('aria-pressed', String(i === j));
+        c.classList.toggle('is-answer', j === answer);
+      });
+      verdicts.forEach((verdict) => {
+        verdict.hidden = true;
+        clear(verdict);
+      });
+      void ink(check);
+      await wait(live ? STEP_MS : 0);
+      if (run !== picks) return;
+      for (const verdict of verdicts) {
+        if (verdict.dataset.verdict !== (right ? 'right' : 'miss')) continue;
+        verdict.hidden = false;
+        settle();
+        void ink(verdict, false).then(() => play(verdict, undefined, PIECE_MS / 2));
+      }
+    };
+    choices.forEach((choice, i) => choice.addEventListener('click', () => void pick(i)));
+    root.addEventListener('keydown', (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.key.length !== 1) return;
+      const key = event.key.toLowerCase();
+      const i = 'abcd'.includes(key) ? 'abcd'.indexOf(key) : '1234'.indexOf(key);
+      if (i < 0) return;
+      event.preventDefault();
+      choices[i].focus();
+      void pick(i);
+    });
+  }
+
+  // A flashcard: it turns over and its answer types out, then the four ratings come up, and
+  // each writes when the card comes back.
+  for (const root of document.querySelectorAll<HTMLElement>('[data-card]')) {
+    const card = root.querySelector<HTMLButtonElement>('[data-flip]')!;
+    const front = card.querySelector<HTMLElement>('.fc-front')!;
+    const back = card.querySelector<HTMLElement>('.fc-back')!;
+    const ratings = [...root.querySelectorAll<HTMLButtonElement>('[data-rating]')];
+    const after = root.querySelector<HTMLElement>('.fc-after')!;
+    const notes = [...after.querySelectorAll<HTMLElement>('.fc-next')];
+    let turned = false;
+    let shown = false;
+    const show = () => {
+      shown = true;
+      root.classList.add('is-shown');
+      ratings.forEach((r) => (r.disabled = false));
+      settle();
+    };
+    const turn = (over: boolean) => {
+      card.setAttribute('aria-pressed', String(over));
+      front.setAttribute('aria-hidden', String(over));
+      back.setAttribute('aria-hidden', String(!over));
+      root.classList.toggle('is-over', over);
+      settle();
+      if (over && !turned) {
+        turned = true;
+        void wait(live ? STEP_MS : 0)
+          .then(() => play(back, undefined, PIECE_MS - STEP_MS * 3))
+          .then(show);
+      }
+    };
+    const rate = (i: number) => {
+      ratings.forEach((r, j) => r.setAttribute('aria-pressed', String(i === j)));
+      notes.forEach((note, j) => {
+        note.hidden = i !== j;
+        if (i !== j) clear(note);
+      });
+      root.classList.add('is-rated');
+      settle();
+      void ink(after, false).then(() => type(notes[i]));
+    };
+    root.classList.add('is-live');
+    ratings.forEach((r) => (r.disabled = true));
+    turn(false);
+    if (!live) back.classList.add('done');
+    card.addEventListener('click', () => turn(card.getAttribute('aria-pressed') !== 'true'));
+    ratings.forEach((rating, i) => rating.addEventListener('click', () => rate(i)));
+    root.addEventListener('keydown', (event) => {
+      const i = '1234'.indexOf(event.key);
+      if (!shown || i < 0 || event.altKey || event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      ratings[i].focus();
+      rate(i);
+    });
+  }
+</script>
+
+<style>
+  h2 {
+    font-size: clamp(32px, 3.6vw, 48px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+  }
+  .ink-arrow,
+  .ink-mark {
+    position: absolute;
+    pointer-events: none;
+    color: var(--ink-2);
+  }
+  [data-ink-scope] {
+    position: relative;
+  }
+
+  /* One lecture, four ways: notebook tabs over one stage in the open tab's tint. */
+  .stage-head {
+    max-width: 44rem;
+  }
+  .stage-head p {
+    margin-top: var(--s-4);
+    color: var(--ink-2);
+    font-size: 19px;
+    line-height: 1.55;
+  }
+  .stage {
+    margin-top: var(--s-7);
+  }
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+    padding-left: var(--s-4);
+  }
+  .stage:not(.is-live) .tabs {
+    display: none;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-5) var(--s-4) var(--s-3);
+    border: 0;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    background: transparent;
+    color: var(--ink-2);
+    font: 500 16px/1.2 var(--font);
+    cursor: pointer;
+    transition: background-color 200ms, color 200ms;
+  }
+  .tab:hover {
+    background: color-mix(in oklab, var(--t-bg) 60%, transparent);
+    color: var(--ink);
+  }
+  .tab[aria-selected='true'] {
+    background: var(--t-bg);
+    color: var(--ink);
+  }
+  .tab:focus-visible {
+    outline: 2px solid var(--hl-ink);
+    outline-offset: -3px;
+  }
+  .tab .chip {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--r-md);
+  }
+  .tab-label {
+    position: relative;
+  }
+  .tab-line {
+    position: absolute;
+    left: -6%;
+    bottom: -8px;
+    width: 112%;
+    height: 9px;
+    color: var(--t-ink);
+    stroke-width: 1.8;
+  }
+  .tab-line :global(path) {
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 100ms ease-in;
+  }
+  .tab[aria-selected='true'] .tab-line :global(path) {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 220ms var(--ease-out);
+  }
+
+  /* The panels: stacked in one cell, so the stage is as tall as the tallest; they cross-fade. */
+  .panels {
+    display: grid;
+  }
+  .panel {
+    display: grid;
+    align-content: start;
+    padding: clamp(var(--s-5), 3.4vw, var(--s-7));
+    border-radius: var(--r-xl);
+    background: var(--t-bg);
+    scroll-margin-top: 7rem;
+  }
+  .panel:focus-visible {
+    outline: 2px solid var(--hl-ink);
+    outline-offset: 2px;
+  }
+  .panel + .panel {
+    margin-top: var(--s-5);
+  }
+  .stage.is-live .panel {
+    grid-area: 1 / 1;
+    margin: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 180ms var(--ease-out),
+      visibility 0s linear 180ms;
+  }
+  .stage.is-live .panel.is-active {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 180ms var(--ease-out),
+      visibility 0s;
+  }
+  .panel-head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--s-6);
+    align-items: end;
+  }
+  .panel-copy h3 {
+    font-size: clamp(26px, 2.5vw, 34px);
+    line-height: 1.12;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+  .panel-copy p {
+    max-width: 54ch;
+    margin-top: var(--s-3);
+    color: var(--ink-2);
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  .aside {
+    justify-self: center;
+    padding-bottom: var(--s-2);
+    color: var(--ink-2);
+  }
+  .aside .hand {
+    max-width: 17ch;
+    font-size: 23px;
+    line-height: 1.25;
+  }
+  .panel-body {
+    display: grid;
+    gap: var(--s-5);
+    margin-top: var(--s-7);
+  }
+  .body-7 {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+  .body-5 {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+  /* Paired tiles share one height and centre what they hold. */
+  .panel-body > * {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+  }
+  .side {
+    gap: var(--s-5);
+  }
+  /* Opening a citation grows the answer downward. */
+  .panel-body > [data-cites],
+  .panel-body > .from {
+    justify-content: flex-start;
+  }
+  /* A note whose arrow found no clean way on a narrow screen steps aside. */
+  @media (max-width: 900px) {
+    .is-pointless {
+      display: none;
+    }
+    .shot-wide {
+      display: none;
+    }
+  }
+
+  /* A capture, cropped to the part that proves the point, at no less than the app's size. */
+  .shot {
+    gap: var(--s-3);
+    margin: 0;
+  }
+  .crop-wrap {
+    width: 100%;
+  }
+  .crop {
+    --x: var(--dx);
+    --y: var(--dy);
+    --w: var(--dw);
+    --h: var(--dh);
+    position: relative;
+    overflow: hidden;
+    max-width: calc(var(--w) * 1.25px);
+    margin-inline: auto;
+    aspect-ratio: var(--w) / var(--h);
+    border-radius: var(--r-lg);
+    background: var(--canvas);
+  }
+  .crop :global(picture) {
+    position: absolute;
+    inset: 0;
+  }
+  .crop :global(img) {
+    position: absolute;
+    max-width: none;
+    height: auto;
+    width: calc(1440 / var(--w) * 100%);
+    left: calc(var(--x) / var(--w) * -100%);
+    top: calc(var(--y) / var(--h) * -100%);
+  }
+  /* What a mark circles, in the capture's own points. */
+  .spot {
+    position: absolute;
+    left: calc((var(--tx) - var(--x)) / var(--w) * 100%);
+    top: calc((var(--ty) - var(--y)) / var(--h) * 100%);
+    width: calc(var(--tw) / var(--w) * 100%);
+    height: calc(var(--th) / var(--h) * 100%);
+    pointer-events: none;
+  }
+  .shot figcaption {
+    color: var(--ink-3);
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  .time {
+    color: var(--ink-3);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.9;
+  }
+  .mention {
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    background: var(--hl-wash);
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  /* The cited answer: a chip opens its passage. */
+  .ask {
+    color: var(--ink-2);
+  }
+  .answer {
+    margin-top: var(--s-3);
+    font-size: 17px;
+  }
+  .answer :global(.cite) {
+    border: 0;
+    cursor: pointer;
+    transition: background-color 120ms;
+  }
+  .answer :global(.cite:hover),
+  .answer :global(.cite[aria-expanded='true']) {
+    background: var(--hl-wash);
+    color: var(--ink);
+  }
+  .answer :global(.cite:focus-visible) {
+    outline: 2px solid var(--hl-ink);
+    outline-offset: 1px;
+  }
+  .tap {
+    display: none;
+    justify-content: flex-end;
+    margin-top: var(--s-6);
+    color: var(--ink-2);
+  }
+  [data-cites].is-live:not(.is-used) .tap {
+    display: flex;
+  }
+  .tap .hand {
+    font-size: 21px;
+  }
+  /* The answer's sources sit at the paper's foot, as in the app; a chip opens one. */
+  .sources {
+    display: grid;
+    gap: var(--s-3);
+    margin-top: auto;
+    padding-top: var(--s-5);
+  }
+  .source {
+    font-size: 15px;
+    color: var(--ink-2);
+  }
+  .source.is-open {
+    color: var(--ink);
+  }
+  .source-text:not([hidden]) {
+    animation: arrive 140ms var(--ease-out) both;
+  }
+  .source-head {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-size: 14px;
+  }
+  .source-head .cite {
+    margin: 0;
+    vertical-align: 0;
+  }
+  .source-head .time {
+    line-height: inherit;
+  }
+  .source-text {
+    margin-top: var(--s-2);
+  }
+  .source .wash {
+    animation: wash-in 200ms var(--ease-out) 40ms both;
+    background-size: 100% 88%;
+    background-position: 0 55%;
+  }
+
+  /* The practice question. */
+  .question {
+    font-weight: 600;
+    font-size: 17px;
+    line-height: 1.4;
+  }
+  .choices {
+    display: grid;
+    gap: var(--s-2);
+    margin-top: var(--s-4);
+  }
+  .choice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--s-3);
+    align-items: center;
+    min-height: 44px;
+    padding: var(--s-2) var(--s-3);
+    border: 0;
+    border-radius: var(--r-md);
+    background: var(--hover);
+    color: var(--ink);
+    font: 400 15px/1.35 var(--font);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 160ms;
+  }
+  .choice:hover {
+    background: var(--selected);
+  }
+  .choice:focus-visible,
+  .rating:focus-visible,
+  .fc:focus-visible {
+    outline: 2px solid var(--hl-ink);
+    outline-offset: 2px;
+  }
+  .letter {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--r-sm);
+    background: var(--canvas);
+    color: var(--ink-3);
+    font-size: 12px;
+  }
+  .choice-mark {
+    display: none;
+    color: var(--ink-2);
+  }
+  .choice-right {
+    color: var(--hl-ink);
+  }
+  .choice-right .ink {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.4;
+  }
+  .is-answered .choice.is-answer {
+    background: var(--hl-wash);
+  }
+  .is-answered .choice.is-answer .choice-right,
+  .is-answered .choice[aria-pressed='true']:not(.is-answer) .choice-wrong {
+    display: inline-flex;
+  }
+  .is-answered .choice[aria-pressed='true']:not(.is-answer) .choice-text {
+    color: var(--ink-2);
+    text-decoration: line-through;
+    text-decoration-color: var(--ink-3);
+  }
+  .quiz-hint {
+    margin-top: var(--s-3);
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+  .verdict {
+    margin-top: var(--s-4);
+    animation: arrive 140ms var(--ease-out) both;
+  }
+  .verdict-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .verdict-check {
+    width: 18px;
+    height: 18px;
+    color: var(--hl-ink);
+    stroke-width: 2.4;
+  }
+  .verdict-text {
+    margin-top: var(--s-1);
+    color: var(--ink-2);
+    font-size: 15px;
+  }
+
+  /* The flashcard: it turns over in place. */
+  .fc {
+    display: grid;
+    width: 100%;
+    min-height: 15rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-lg);
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    perspective: 1200px;
+  }
+  .fc-face {
+    grid-area: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    padding: var(--s-5);
+    border-radius: var(--r-lg);
+    background: var(--canvas);
+    backface-visibility: hidden;
+    transition: transform 260ms var(--ease-out);
+  }
+  .fc-back {
+    transform: rotateY(-180deg);
+  }
+  .fc[aria-pressed='true'] .fc-front {
+    transform: rotateY(180deg);
+  }
+  .fc[aria-pressed='true'] .fc-back {
+    transform: rotateY(0);
+  }
+  .fc-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+  .fc-tag {
+    padding: 2px var(--s-2);
+    border-radius: var(--r-sm);
+    background: var(--hover);
+    color: var(--ink-2);
+  }
+  .fc-text {
+    margin-block: auto;
+    font-weight: 600;
+    font-size: 19px;
+    line-height: 1.35;
+    text-align: center;
+  }
+  .fc-back .fc-text {
+    margin-top: 0;
+    font-weight: 400;
+    font-size: 17px;
+    text-align: left;
+  }
+  .fc-q {
+    margin-top: auto;
+    color: var(--ink-3);
+    font-size: 14px;
+  }
+  .fc-cta {
+    align-self: center;
+    padding: 6px var(--s-3);
+    border-radius: var(--r-md);
+    background: var(--hover);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .fc:hover .fc-cta {
+    background: var(--selected);
+  }
+  .fc-foot {
+    display: grid;
+    margin-top: var(--s-3);
+  }
+  .fc-foot > * {
+    grid-area: 1 / 1;
+  }
+  .ratings {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-2);
+  }
+  .rating {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 var(--s-2);
+    border: 0;
+    border-radius: var(--r-md);
+    background: var(--canvas);
+    color: var(--ink);
+    font: 500 14px/1.2 var(--font);
+    cursor: pointer;
+    transition:
+      background-color 120ms,
+      color 120ms,
+      opacity 140ms var(--ease-out) calc(var(--i) * 30ms),
+      translate 160ms var(--ease-out) calc(var(--i) * 30ms);
+  }
+  [data-card].is-live:not(.is-shown) .rating {
+    opacity: 0;
+    translate: 0 6px;
+    cursor: default;
+  }
+  .rating:not(:disabled):hover {
+    background: var(--hover);
+  }
+  .rating[aria-pressed='true'],
+  .rating[aria-pressed='true']:not(:disabled):hover {
+    background: var(--hl-fill);
+    color: var(--on-hl);
+  }
+  .key-hint {
+    color: inherit;
+    opacity: 0.6;
+    font-size: 12px;
+  }
+  .fc-after {
+    display: grid;
+    justify-items: center;
+    min-height: 2.4rem;
+    margin-top: var(--s-3);
+    color: var(--ink-2);
+    font-size: 22px;
+  }
+  .fc-after .hand {
+    grid-area: 1 / 1;
+  }
+  .fc-tap {
+    align-self: center;
+    justify-self: center;
+    color: var(--ink-2);
+    font-size: 22px;
+    transition: opacity 120ms;
+  }
+  [data-card]:not(.is-live) .fc-tap {
+    display: none;
+  }
+  .is-over .fc-tap,
+  .is-shown .fc-tap {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Where a piece came from: the lecture, washed where it did. */
+  .from {
+    margin: 0;
+    padding: var(--s-5);
+    border-radius: var(--r-lg);
+    background: var(--canvas);
+  }
+  .from-text {
+    margin-top: var(--s-6);
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  .from-note {
+    margin-top: var(--s-2);
+    color: var(--ink-2);
+    text-align: right;
+  }
+  .from-note .hand {
+    font-size: 21px;
+  }
+
+  /* The diagram: drawn here, in the app's hand. */
+  .sheet {
+    position: relative;
+    padding: var(--s-5);
+    border-radius: var(--r-lg);
+    background: var(--canvas);
+  }
+  .drawing {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+  .drawing path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .drawing .node-line {
+    stroke: var(--ink);
+    stroke-width: 1.7;
+  }
+  .drawing .pencil-line {
+    stroke: var(--ink-2);
+    stroke-width: 1.8;
+  }
+  .drawing .node-dashed {
+    stroke-dasharray: 6 7;
+  }
+  .drawing .node-fill {
+    stroke: none;
+  }
+  .drawing .node-fill.node-root {
+    fill: var(--blue-chip);
+  }
+  .drawing .node-fill.node-phase {
+    fill: var(--green-chip);
+  }
+  .drawing text {
+    font-family: var(--font-hand);
+    text-anchor: middle;
+  }
+  .node-text {
+    fill: var(--ink);
+  }
+  .drawing .pencil-text {
+    fill: var(--ink-2);
+    text-anchor: start;
+  }
+
+  /* Narrower: tighter crops, cut where a line runs on. */
+  @media (max-width: 1100px) {
+    .crop {
+      --x: var(--mx);
+      --y: var(--my);
+      --w: var(--mw);
+      --h: var(--mh);
+    }
+    .crop-cut {
+      mask-image: linear-gradient(to right, #000 78%, transparent);
+    }
+  }
+  /* Narrow: one column, and the stage follows the open panel's height. */
+  @media (max-width: 900px) {
+    .panel-head,
+    .panel-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .panel-head {
+      gap: var(--s-4);
+    }
+    .aside {
+      justify-self: end;
+      padding: 0 var(--s-4) 0 0;
+    }
+    .panel-body {
+      margin-top: var(--s-6);
+    }
+    .stage.is-live .panels {
+      position: relative;
+      transition: height 180ms var(--ease-out);
+    }
+    .stage.is-live .panels.is-sizing {
+      overflow: clip;
+    }
+    .stage.is-live .panel:not(.is-active) {
+      position: absolute;
+      inset: 0 0 auto 0;
+    }
+  }
+  @media (max-width: 480px) {
+    .ratings {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      padding: 0;
+      margin-bottom: var(--s-2);
+    }
+    .tab {
+      padding: var(--s-2) var(--s-3);
+      border-radius: var(--r-lg);
+      font-size: 15px;
+    }
+    .from,
+    .sheet {
+      padding: var(--s-4);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fc-face {
+      backface-visibility: visible;
+      transform: none !important;
+    }
+    .fc[aria-pressed='true'] .fc-front,
+    .fc[aria-pressed='false'] .fc-back {
+      visibility: hidden;
+    }
+  }
+</style>

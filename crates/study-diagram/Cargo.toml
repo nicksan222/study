@@ -1,0 +1,15 @@
+[package]
+name = "study-diagram"
+description = "Study diagrams: Mermaid conversion, automatic layout and hand-drawn strokes"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+roughr.workspace = true
+rust-sugiyama.workspace = true
+
+[lints]
+workspace = true

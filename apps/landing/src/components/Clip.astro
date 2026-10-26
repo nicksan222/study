@@ -1,0 +1,116 @@
+---
+// A short real recording of the app, in the reader's theme, made by `just docs-media` like
+// the stills. Both themes' videos are on the page and the reader's color scheme shows one;
+// neither loads more than its first bytes until it plays.
+//
+// Without script, or for a reader who asks for reduced motion, a clip is its poster and
+// plays only when asked. Otherwise it plays, muted and looping, while it is on screen, and
+// pauses when it leaves. The browser's controls stay, so a reader can always pause it, and
+// a clip the reader paused stays paused.
+import { getImage } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import type { Lang } from '../i18n/strings';
+import { pick, type Theme } from './variant';
+
+const videos = import.meta.glob<string>('../assets/clips/*.mp4', { query: '?url', import: 'default', eager: true });
+const posters = import.meta.glob<{ default: ImageMetadata }>('../assets/clips/*.webp', { eager: true });
+
+interface Props {
+  name: string;
+  lang: Lang;
+  /** What the clip shows, for a reader who cannot see it. */
+  alt: string;
+}
+const { name, lang, alt } = Astro.props;
+
+const clip = async (theme: Theme) => {
+  const src = pick(name, lang, theme, (file) => videos[`../assets/clips/${file}.mp4`]);
+  const still = pick(name, lang, theme, (file) => posters[`../assets/clips/${file}.webp`]?.default);
+  const poster = await getImage({ src: still, format: 'webp', quality: 82 });
+  return { src, poster: poster.src, width: still.width, height: still.height };
+};
+const themes = { light: await clip('light'), dark: await clip('dark') };
+---
+
+{
+  (['light', 'dark'] as const).map((theme) => (
+    <video
+      class:list={['clip', theme]}
+      data-clip
+      src={themes[theme].src}
+      poster={themes[theme].poster}
+      width={themes[theme].width}
+      height={themes[theme].height}
+      aria-label={alt}
+      muted
+      loop
+      playsinline
+      controls
+      preload="metadata"
+    />
+  ))
+}
+
+<script>
+  // Plays each visible clip while it is on screen, unless the reader asks for less motion
+  // or paused it themselves.
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const clips = [...document.querySelectorAll<HTMLVideoElement>('video[data-clip]')];
+  const shown = (video: HTMLVideoElement) => video.getClientRects().length > 0;
+  const onScreen = new Set<HTMLVideoElement>();
+  const held = new Set<HTMLVideoElement>();
+  // The `pause` event comes later, so the clips this script paused are noted until it does.
+  const ours = new Set<HTMLVideoElement>();
+  const pause = (video: HTMLVideoElement) => {
+    if (video.paused) return;
+    ours.add(video);
+    video.pause();
+  };
+  for (const video of clips) {
+    video.addEventListener('pause', () => ours.delete(video) || held.add(video));
+    video.addEventListener('play', () => held.delete(video));
+  }
+  const update = () => {
+    for (const video of clips) {
+      if (reduced.matches || held.has(video)) continue;
+      if (onScreen.has(video) && shown(video)) video.play().catch(() => {});
+      else pause(video);
+    }
+  };
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting) onScreen.add(video);
+          else onScreen.delete(video);
+        }
+        update();
+      },
+      { threshold: 0.5 },
+    );
+    clips.forEach((video) => observer.observe(video));
+    reduced.addEventListener('change', () => {
+      if (reduced.matches) clips.forEach(pause);
+      update();
+    });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', update);
+  }
+</script>
+
+<style>
+  .clip {
+    display: block;
+  }
+  .clip.dark {
+    display: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    .clip.light {
+      display: none;
+    }
+    .clip.dark {
+      display: block;
+    }
+  }
+</style>

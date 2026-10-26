@@ -1,0 +1,19 @@
+[package]
+name = "study-seed"
+description = "Sample data for development, tests and the README demo: courses, sessions, files and study material written into a database"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+# The real files the sample attaches are written into a temporary directory.
+tempfile = "3"
+study-core = { workspace = true, features = ["testing"] }
+
+[dev-dependencies]
+study-diagram.workspace = true
+
+[lints]
+workspace = true

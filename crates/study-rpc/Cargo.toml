@@ -1,0 +1,24 @@
+[package]
+name = "study-rpc"
+description = "Standalone canonical typed Study gRPC contract and consumers"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+prost = "0.14"
+serde = { version = "1", features = ["derive"] }
+tonic = { version = "0.14", features = ["transport"] }
+tonic-prost = "0.14"
+tokio = { workspace = true, features = ["net"] }
+tower = { version = "0.5", features = ["util"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+
+[build-dependencies]
+protoc-bin-vendored = "3"
+tonic-prost-build = "0.14"
+
+[lints]
+workspace = true

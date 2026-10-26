@@ -1,0 +1,57 @@
+name: Landing
+
+# Builds the website in apps/landing/ (Astro, static) and publishes it to GitHub Pages at
+# https://nicksan222.github.io/study/, so astro.config sets `base: '/study'`.
+#
+# It builds no Rust: the captures of the app the site shows are committed, so a deploy takes
+# about a minute. The Captures workflow makes them again, by hand, in a pull request.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits instead of cancelling one in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      # The same pin as the setup action's, which this job does not otherwise need.
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.40.0
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      - name: Build
+        run: just landing-build
+      - name: Upload
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/landing/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
