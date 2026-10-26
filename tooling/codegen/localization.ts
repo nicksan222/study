@@ -1,10 +1,9 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 
 // Catalog arms deliberately contain only Rust string literals. Fail closed if that
 // changes, so a Rust expression can never silently become a missing translation.
-export function localizationOutputs(root: string): string {
+function localizationOutputs(): string {
+  const root = `${import.meta.dirname}/../..`;
   const read = (path: string): string =>
     readFileSync(`${root}/crates/study-localization/src/${path}`, "utf8");
   const keys = [...read("message.rs").matchAll(/^    ([A-Z]\w*),$/gm)].map(
@@ -31,9 +30,4 @@ export function localizationOutputs(root: string): string {
   return `// Generated from study-localization. Run bun run gen:protocol.\nexport const catalogs = ${JSON.stringify(catalogs, null, 2)} as const;\nexport type MessageKey = keyof typeof catalogs.english;\nexport type Locale = keyof typeof catalogs;\n`;
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
-) {
-  process.stdout.write(localizationOutputs(`${import.meta.dirname}/../..`));
-}
+process.stdout.write(localizationOutputs());

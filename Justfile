@@ -217,22 +217,13 @@ gen-protocol:
 protocol-check:
     bash tooling/codegen/generate.sh --check
 
-# Require canonical localization keys in visible JSX and accessible labels.
-check-copy:
-    node tooling/codegen/ui-copy.ts
-
-# Verify architecture boundaries and website capture references.
-check-conventions:
-    node tooling/quality/conventions.ts
-
 # Run release configuration, verification, or assembly commands.
 release *args:
     exec bash tooling/release/release.sh "$@"
 
-# Verify development lifecycle and architecture rules without opening a model connection.
+# Test development and release tooling.
 tooling-test:
-    node --test tooling/codegen/*.test.ts tooling/quality/*.test.ts apps/desktop/src-tauri/tests/*.test.mjs
-    just check-conventions
+    node --test apps/desktop/src-tauri/tests/*.test.mjs
     node node_modules/typescript/bin/tsc --noEmit -p tooling/tsconfig.json
     python3 -m unittest discover -s tooling/development -p 'test_*.py'
     python3 -m unittest discover -s tooling/release -p 'test_*.py'

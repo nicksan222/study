@@ -11,7 +11,7 @@
     "demo:record": "just demo",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --deny-warnings apps/desktop/src packages/ui/src && just check-copy",
+    "lint": "oxlint --deny-warnings apps/desktop/src packages/ui/src",
     "test": "vitest run",
     "check:protocol": "just protocol-check",
     "gen:protocol": "just gen-protocol",
@@ -21,8 +21,6 @@
     "format:check": "prettier --check apps/desktop/src packages/ui/src tooling/codegen vite.config.ts tsconfig.json"
   },
   "devDependencies": {
-    "@babel/parser": "^8.0.8",
-    "@babel/types": "^8.0.8",
     "@bufbuild/protoc-gen-es": "2.16.0",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.3.3",

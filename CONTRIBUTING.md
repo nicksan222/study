@@ -76,9 +76,7 @@ For web development in the devcontainer, run `bun dev` from the repository root.
 It starts the real RPC backend, waits until it is ready, then starts Vite with hot reload
 at `http://localhost:5173`. Ctrl+C stops both. The development database is kept between runs.
 Use `bun dev --port 5174` to choose another frontend port.
-The root Bun scripts delegate to Just recipes; `just --list` lists all tasks. Bash scripts
-under `tooling/` handle service lifetimes, protocol generation, and release verification.
-The TypeScript helpers only parse source files and check project conventions.
+The root Bun scripts delegate to Just recipes; `just --list` lists all tasks.
 
 | Command | What it does |
 |---|---|

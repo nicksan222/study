@@ -106,7 +106,8 @@ test('seeded flashcards can be edited, added and reviewed without inference', as
   await dialog.getByLabel(en.CardFront, { exact: false }).fill('Consumer cell question');
   await dialog.getByLabel(en.CardBack, { exact: false }).fill('Consumer cell answer');
   await dialog.getByRole('button', { name: en.SaveCard, exact: true }).click();
-  await expect(page.getByText('Consumer cell question', { exact: true })).toBeVisible();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('region', { name: 'Cell biology', exact: true }).getByText('Consumer cell question', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: en.AddCard, exact: true }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel(en.CardFront, { exact: false }).fill('Consumer extra card');
