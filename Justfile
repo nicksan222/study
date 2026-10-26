@@ -6,6 +6,8 @@
 # is separate from Cargo output even though both live beneath gitignored target/.
 # Variadic recipes use positional arguments so spaces and URL query strings stay data.
 
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
 default:
     @just --list
 
@@ -150,8 +152,8 @@ desktop-wait timeout="120":
 
 # Serve the production React UI with the real gRPC backend through a development-only bridge.
 [positional-arguments]
-web port="5173":
-    node tooling/development/frontend.mjs --port "$1"
+web *args:
+    exec bash tooling/development/web.sh "$@"
 
 # Format every workspace package.
 fmt:
@@ -177,12 +179,22 @@ docs:
 # Capture the production frontend using isolated real RPC fixtures (no model inference).
 [positional-arguments]
 demo output="apps/landing/public/demo.gif":
-    node tooling/e2e/capture.mjs "$1"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export STUDY_E2E_PORT="${STUDY_E2E_PORT:-1424}"
+    export STUDY_E2E_ARTIFACTS="$PWD/target/captures"
+    export STUDY_CAPTURE=demo STUDY_DEMO_OUTPUT="$1"
+    exec just e2e --grep @demo
 
 # Make website stills/clips from the same React components and actual backend.
 [positional-arguments]
 docs-media *only:
-    node tooling/e2e/capture.mjs docs "$@"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export STUDY_E2E_PORT="${STUDY_E2E_PORT:-1424}"
+    export STUDY_E2E_ARTIFACTS="$PWD/target/captures"
+    export STUDY_CAPTURE=docs STUDY_CAPTURE_FILTER="$*"
+    exec just e2e --pass-with-no-tests --grep @capture
 
 # Refresh all committed website captures from the migrated app.
 captures: docs-media demo
@@ -219,20 +231,39 @@ frontend-check:
     npm run test
     npm run build
 
+# Generate protobuf clients and the canonical bilingual catalog.
+gen-protocol:
+    bash tooling/codegen/generate.sh
+
 # Fail if generated protobuf clients/localized copy differ from the canonical sources.
 protocol-check:
-    npm run check:protocol
+    bash tooling/codegen/generate.sh --check
+
+# Require canonical localization keys in visible JSX and accessible labels.
+check-copy:
+    node tooling/codegen/ui-copy.ts
+
+# Verify architecture boundaries and website capture references.
+check-conventions:
+    node tooling/quality/conventions.ts
+
+# Prepare, configure, verify or assemble native releases (see `just release` for usage).
+[positional-arguments]
+release *args:
+    exec bash tooling/release/release.sh "$@"
 
 # Verify development lifecycle and architecture rules without opening a model connection.
 tooling-test:
-    node --test tooling/development/*.test.mjs tooling/quality/*.test.mjs tooling/release/*.test.mjs apps/desktop/src-tauri/tests/*.test.mjs
-    node tooling/quality/conventions.mjs
-    node node_modules/typescript/bin/tsc --noEmit -p tooling/e2e/tsconfig.json
+    node --test tooling/codegen/*.test.ts tooling/quality/*.test.ts apps/desktop/src-tauri/tests/*.test.mjs
+    just check-conventions
+    node node_modules/typescript/bin/tsc --noEmit -p tooling/tsconfig.json
     python3 -m unittest discover -s tooling/development -p 'test_*.py'
+    python3 -m unittest discover -s tooling/release -p 'test_*.py'
 
 # Real browser -> production frontend -> generated gRPC client -> isolated database.
-e2e:
-    node tooling/e2e/run.mjs
+[positional-arguments]
+e2e *args:
+    exec node node_modules/@playwright/test/cli.js test --config tooling/e2e/playwright.config.ts "$@"
 
 # Run checks required for pull requests.
 check: check-shell fmt-check lint deny test docs frontend-check protocol-check tooling-test e2e landing-check
@@ -278,7 +309,7 @@ agents-reset *args:
 
 # Check native/frontend/browser prerequisites and the running desktop D-Bus session.
 doctor:
-    node tooling/development/doctor.mjs
+    bash tooling/development/doctor.sh
 
 # Inspect subscription login and tools without starting a model.
 [positional-arguments]
@@ -292,7 +323,7 @@ agents-usage *args:
 
 # Lint the devcontainer and packaging shell scripts.
 check-shell:
-    shellcheck -x .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh
+    shellcheck -x tooling/development/*.sh tooling/codegen/*.sh tooling/release/*.sh .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh
 
 # Prepare a recording for a PR: first 15 seconds, no audio, at most 8 MB. Use .mp4 or .gif.
 [positional-arguments]

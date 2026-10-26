@@ -58,6 +58,19 @@ choose to.
 Study is built in the open, and contributions are welcome. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+For web development in the devcontainer, run `bun dev` from the repository root. It starts
+the frontend and backend together at `http://localhost:5173`.
+
+To record the demo above, run this from the repository root in the devcontainer:
+
+```sh
+bun run demo:record
+```
+
+It starts the web app, runs the automated tour against a fresh sample database, and saves
+`apps/landing/public/demo.gif`. No sign-in is needed. See [capture instructions](CONTRIBUTING.md#captures-of-the-app)
+for a custom output path and website screenshots/clips.
+
 ## License
 
 [Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option.

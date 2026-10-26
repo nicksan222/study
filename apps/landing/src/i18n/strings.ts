@@ -16,7 +16,7 @@ export const repo = 'https://github.com/nicksan222/study';
 export const releases = `${repo}/releases`;
 const latest = `${releases}/latest/download`;
 
-/** What the release publishes, one row per installer (tooling/release/release.mjs enforces these stable names). */
+/** What the release publishes, one row per installer (tooling/release/release.sh enforces these stable names). */
 export const platforms = [
   { os: 'mac', file: 'study-macos-aarch64.dmg' },
   { os: 'windows', file: 'study-windows-x86_64.exe' },

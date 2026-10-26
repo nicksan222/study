@@ -16,7 +16,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1360, height: 900 } } }],
   webServer: {
     env: { STUDY_FIXTURE_ONLY: '1' },
-    command: `node tooling/development/frontend.mjs --port ${port} --production`,
+    command: `bash tooling/development/web.sh --port ${port} --production`,
     cwd: new URL('../..', import.meta.url).pathname,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,

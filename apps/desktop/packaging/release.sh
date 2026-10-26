@@ -7,7 +7,7 @@ case "${1:-}" in
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ] || { [ "$#" -eq 3 ] && [ "$3" != --unsigned ]; }; then
       echo 'usage: release.sh package PLATFORM [--unsigned]' >&2; exit 2
     fi
-    node tooling/release/release.mjs build "${@:2}"
+    bash tooling/release/release.sh build "${@:2}"
     ;;
   *) echo 'usage: release.sh package PLATFORM [--unsigned]' >&2; exit 2 ;;
 esac

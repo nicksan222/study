@@ -72,11 +72,20 @@ Close Study before `just reset-data`; a shared data lock keeps app runs and rese
 
 ### Everyday commands
 
+For web development in the devcontainer, run `bun dev` from the repository root.
+It starts the real RPC backend, waits until it is ready, then starts Vite with hot reload
+at `http://localhost:5173`. Ctrl+C stops both. The development database is kept between runs.
+Use `bun dev --port 5174` to choose another frontend port.
+The root Bun scripts delegate to Just recipes; `just --list` lists all tasks. Bash scripts
+under `tooling/` handle service lifetimes, protocol generation, and release verification.
+The TypeScript helpers only parse source files and check project conventions.
+
 | Command | What it does |
 |---|---|
 | `just run` | Run Study on the browser desktop, keeping the development database. |
-| `just web` | Production React UI with real gRPC backend through the development bridge. |
+| `bun dev` / `just web` | Start the web frontend and real gRPC backend together at localhost:5173. |
 | `just e2e` | Browser CRUD/settings/study flows with an isolated real backend per test. |
+| `bun run demo:record` | Record the web demo tour to `apps/landing/public/demo.gif`. |
 | `just desktop-status` | Inspect the native window and log path without restarting. |
 | `just desktop-wait` | Wait for the native window. |
 | `just reset-data` | Replace the development database with sample data. |
@@ -97,8 +106,20 @@ Both follow `XDG_DATA_HOME` and `XDG_CACHE_HOME`. `just run` uses `target/dev-da
 The README demo and website stills/clips use the same production React components as the
 native app, driven by Playwright through the generated protobuf client and real Rust gRPC
 backend. Every capture gets a fresh seeded fixture database; no model or sign-in is needed.
-`just demo` makes the GIF, `just docs-media` refreshes website media, and `just captures`
-makes both. Optional arguments filter scene names, language/theme variants, or `missing`.
+From the repository root, run:
+
+```sh
+bun run demo:record
+# Optional output path (GIF):
+bun run demo:record target/demo.gif
+```
+
+The recorder starts and stops its own production web frontend and backend, drives the tour,
+and writes `apps/landing/public/demo.gif` by default. It needs the development tools,
+Playwright Chromium and FFmpeg installed by the devcontainer; no running app is required.
+`just demo` runs the same recorder. `just docs-media` refreshes website media, and
+`just captures` makes both. Arguments to `just docs-media` filter scene names,
+language/theme variants, or `missing`.
 Scenes live in `tooling/e2e/tests/captures.spec.ts`; `study-showcase` delegates to that
 consumer. The Captures workflow opens a pull request for refreshed committed assets.
 
@@ -143,7 +164,7 @@ To attach a demo to a pull request, record with `just desktop-record`, then
 Bump the workspace version and Tauri config version together, then push a matching `vX.Y.Z`
 tag. The release checks that tag, builds Tauri packages on Linux x64/ARM64, macOS Apple
 Silicon and Windows x64. Each build retains its signed bundles as an isolated Actions
-artifact. `tooling/release/release.mjs` then verifies every updater with Minisign, checks
+artifact. `tooling/release/release.sh` then verifies every updater with Minisign, checks
 all four platform/version/file digests, preserves the website's stable download names,
 and writes `latest.json` once. A single publisher uploads the complete set and clears the
 draft only after that validation. Published releases are immutable to retries.
