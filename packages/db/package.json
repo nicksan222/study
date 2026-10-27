@@ -1,0 +1,22 @@
+{
+  "name": "@study/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "scripts": {
+    "check:generated": "node --test --test-name-pattern=\"Drizzle generation\" test/schema.test.ts",
+    "check:schema": "drizzle-kit check",
+    "test": "node --test test/*.test.ts",
+    "gen": "drizzle-kit generate",
+    "gen:check": "node --test --test-name-pattern=\"Drizzle generation\" test/schema.test.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "1.0.0-rc.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "1.0.0-rc.5"
+  }
+}

@@ -1,0 +1,42 @@
+[package]
+name = "study-desktop"
+description = "Study's Tauri desktop host for the shared web app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+default-run = "study"
+
+[lib]
+name = "study_desktop"
+
+[[bin]]
+name = "study"
+path = "src/main.rs"
+
+[dependencies]
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "net",
+  "sync",
+  "time",
+  "process",
+  "io-util"
+] }
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

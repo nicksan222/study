@@ -1,0 +1,2 @@
+# Tests may print progress.
+allow-print-in-tests = true

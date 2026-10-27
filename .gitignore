@@ -1,0 +1,66 @@
+/target/
+**/*.rs.bk
+.DS_Store
+
+# Local sample databases.
+/var/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Local agent/tool installations and editor state.
+/.pi/
+/.codex/
+/.idea/
+.claude/settings.local.json
+/.vscode/
+
+# Local development output.
+/graphify-out/
+__pycache__/
+/tmp/
+/coverage/
+*.sqlite3-journal
+*.log
+*.profraw
+*.profdata
+# Native crash dumps; do not ignore source directories named core.
+/core
+/core.[0-9]*
+.env
+.env.local
+
+# Release packaging output.
+/Study.app/
+/study-*.zip
+/study-*.tar.gz
+
+# Additional local configuration and database variants.
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+/dist/
+
+# Design tool working files; its settings in .impeccable/config.json are kept.
+**/.impeccable/*
+!/.impeccable/config.json
+
+# Website dependencies and build output.
+/apps/landing/node_modules/
+/apps/landing/dist/
+/apps/landing/.astro/
+
+
+# Tauri/React workspace outputs.
+node_modules/
+apps/web/dist/
+apps/desktop/dist/
+apps/desktop/src-tauri/gen/
+playwright-report/
+test-results/
+
+# TanStack Router temporary files stay beside their app config.
+.tanstack/

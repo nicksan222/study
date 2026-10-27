@@ -1,0 +1,3 @@
+# Keep Clippy policy in tooling, including for direct Cargo and editor invocations.
+[env]
+CLIPPY_CONF_DIR = { value = "tooling/rust", relative = true }

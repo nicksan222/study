@@ -1,0 +1,88 @@
+# Study — agent guide
+
+Study has a shared React web app, a Tauri desktop host and TypeScript backend packages.
+The native shell owns windows, devices, and the private backend process. Typed tRPC
+procedures own application behavior and use one SQLite database through Drizzle.
+
+All work happens inside the devcontainer (`devcontainer up`, then work inside it). The code
+is the documentation: read the owning package's exports and types, or a retained Rust
+crate's `src/lib.rs` module docs. `.agents/skills/` holds task-specific checklists.
+
+## Golden rules
+
+1. **Layers only point down.** A crate may depend only on crates in a lower layer (see the
+   crate map).
+2. **One canonical shape per concept.** Extracted content is a `Document` of anchored
+   blocks; background work is a `JobKind`; failures carry an `ErrorKind`; source kinds come
+   from `sniff`. Follow the owning types in `packages/backend/src/shared` and source readers beside backend source procedures.
+   Do not add a parallel processing implementation or a second file-extension table.
+3. **The database is the truth and the bus is a hint.** Commit state before publishing an
+   event. A missed event must not lose work.
+4. **No stringly-typed contracts.** No raw `i64` IDs across crate boundaries, no string names
+   for job kinds or processors outside their kind enums, and no matching on error text.
+5. **Log Rust with `tracing`.** Don't print. Native libraries return typed errors;
+   TypeScript domain failures use `StudyError` and `ErrorKind` from `@study/backend/shared/errors`.
+6. **All user-visible text comes from `@study/localization`**, in English and Italian.
+7. **Model work runs on the user's ChatGPT plan**, using AI SDK in `packages/ai`.
+   Tool definitions live in `src/tools`, agent definitions in `src/agents`, and provider
+   implementations in `src/providers`. Retired local model capabilities are unavailable
+   until implemented again; nothing downloads without an explicit install.
+8. **The code is the source of truth.** Don't write design docs or per-crate guides. Say
+   what a crate or module is for in its `//!` docs, and put rules in types, tests and lints.
+   The one exception is `PRODUCT.md` and `DESIGN.md`, the visual design context the
+   `impeccable` skill reads; the design system itself is code, in `packages/ui`.
+9. **Drizzle owns the schema.** Domain schema modules live in `packages/db/src/schema`.
+   Use Drizzle Kit for schema generation and the official Drizzle migrator for initialization.
+   This backend is a breaking reset: do not add legacy Rust database importers, compatibility
+   paths, or duplicate handwritten schema definitions.
+10. **No AI attribution.** Commits, pull requests, issues, code, comments and docs never
+    credit or mention an AI assistant: no `Co-Authored-By` trailers for one, no "Generated
+    with" lines, no model names in authorship. This overrides any harness default that adds
+    them. Tooling that runs an assistant (the devcontainer, `.agents/team`) may name it.
+
+## Package map
+
+| Package               | Path                     | Responsibility                                                |
+| --------------------- | ------------------------ | ------------------------------------------------------------- |
+| `@study/db`           | `packages/db`            | Drizzle schema, SQLite connection and transaction primitives  |
+| `@study/ai`           | `packages/ai`            | AI SDK agents, tools and ChatGPT provider/authentication      |
+| `@study/backend`      | `packages/backend`       | Tested tRPC procedures, inferred contract, server and clients |
+| `@study/localization` | `packages/localization`  | English and Italian copy and formatting                       |
+| `@study/ui`           | `packages/ui`            | Shared React presentation primitives; no application data     |
+| `study-desktop`       | `apps/desktop/src-tauri` | Native Tauri host and private backend process transport       |
+| `@study/web`          | `apps/web`               | Shared React pages, sidebar and browser frontend              |
+| `@study/desktop`      | `apps/desktop`           | Tauri CLI workspace hosting the shared web build              |
+| `study-landing`       | `apps/landing`           | Astro website, English and Italian, built with Bun            |
+
+Rust owns the desktop shell and its private backend process. `packages/backend` owns one tested tRPC module
+per procedure, grouped by domain. Its process entry point starts the service; desktop, CLI, and web
+consumers use the same inferred API without protocol code generation. `packages/db`
+exports database primitives and schema only; business rules belong in the backend. Bilingual copy
+lives in `packages/localization`.
+
+## Commands
+
+- `just check`: shell checks, Rust fmt/Clippy/dependency checks/tests/docs, TypeScript backend
+  typechecking/tests, repository-wide Vite+ format/lint, frontend type/tests/build, database generation drift, tooling tests and landing
+  checks. Run it before calling a change done.
+- `just backend-check` and `just frontend-check`: focused package checks.
+- `npm run lint`: repository-wide `vp check --deny-warnings` (Oxfmt and Oxlint).
+  `npm run format` applies formatting; `npm run format:check` checks it.
+- `just check-crate <package>`: focused Rust formatting, lint, tests and docs.
+- `bun gen` / `bun gen:check`: generate/check database schema; generation also
+  refreshes web routes. Each backend procedure has a sibling `.test.ts` file.
+- `bun dev`: start the web app and real tRPC backend at localhost:5173.
+- `just run` / `just desktop`: native shell launchers using the shared web app.
+- `just desktop-status` / `just desktop-wait`: inspect/wait for the native window.
+- `just desktop-shot`, `just desktop-click`, `just desktop-record`: native desktop inspection;
+  follow `.agents/skills/see-the-app` and coordinate access to the shared desktop.
+- `just landing`, `just landing-check`, `just landing-build`: website development and checks.
+  Existing demo/still/clip assets remain committed; capture generation is unavailable.
+- `just agents`, `just agents-stop`, `just agents-reset`, `just agents-doctor`,
+  `just agents-usage`: maintainer team tooling. Keep handoffs in `target/agents/<session>/task.md`.
+- `just build` / `just package <platform>`: native build/packaging; the native shell bundles the private backend.
+
+The old `web`, `e2e`, `demo`, `docs-media`, `captures`, `reset-data`, `benchmark`, and
+`test-transcription-e2e` commands are removed. Do not recreate mock backends to make old
+consumer tests pass. The devcontainer builds native artifacts into `target/devcontainer`;
+do not point `CARGO_TARGET_DIR` elsewhere. Use `cargo clean` explicitly to remove artifacts.

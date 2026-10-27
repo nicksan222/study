@@ -1,0 +1,49 @@
+{
+  "name": "study-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/desktop",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "vp run typecheck && vp run --fail-if-no-match --filter @study/web build",
+    "typecheck": "vp exec tsc --noEmit -p tooling/typescript/tooling.json && vp run --fail-if-no-match --filter @study/web typecheck",
+    "backend:typecheck": "vp exec tsc --noEmit -p tooling/typescript/backend.json",
+    "backend:test": "vp exec node --test 'packages/*/test/**/*.test.ts' 'packages/backend/src/procedures/**/*.test.ts'",
+    "lint": "vp check --deny-warnings",
+    "quality:test": "vp exec node --test tooling/oxc-config/plugin/*.test.ts",
+    "test": "vp run --fail-if-no-match --filter @study/web test",
+    "gen": "bun run --filter @study/db gen && bun run --filter @study/web gen:routes",
+    "gen:check": "bun run --filter @study/db gen:check",
+    "desktop:dev": "vp run --fail-if-no-match --filter @study/desktop tauri dev",
+    "desktop:build": "vp run --fail-if-no-match --filter @study/desktop tauri build",
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "gen:routes": "vp run --fail-if-no-match --filter @study/web gen:routes",
+    "dev": "node tooling/development/dev.ts"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "5.10.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/router-cli": "^1.167.46",
+    "@tanstack/router-plugin": "^1.168.48",
+    "@tauri-apps/cli": "^2.12.4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "jsdom": "^30.1.3",
+    "typescript": "^7.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "vite-plus": "1.4.0"
+  },
+  "overrides": {
+    "vite": "$vite",
+    "vitest": "5.0.5"
+  }
+}

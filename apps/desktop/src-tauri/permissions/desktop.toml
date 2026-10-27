@@ -1,0 +1,3 @@
+[[permission]]
+identifier = "allow-backend-connection"
+commands.allow = ["backend_connection"]

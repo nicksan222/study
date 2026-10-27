@@ -1,0 +1,4 @@
+{
+  "extends": "../../tooling/typescript/frontend.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

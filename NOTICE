@@ -1,0 +1,12 @@
+Study is licensed under the MIT license or the Apache License 2.0, at your option
+(LICENSE-MIT, LICENSE-APACHE). It bundles the third-party files below, each under its own
+license.
+
+Bundled with the app
+- packages/ui/assets/fonts/Inter-*.ttf: Inter, SIL Open Font License 1.1
+  (packages/ui/assets/fonts/Inter-LICENSE.txt).
+- packages/ui/assets/fonts/Excalifont-Regular.ttf: Excalifont, SIL Open Font License 1.1
+  (packages/ui/assets/fonts/Excalifont-OFL.txt).
+
+- packages/ui/assets/icons/: Lucide icons, ISC license
+  (packages/ui/assets/icons/LICENSE).

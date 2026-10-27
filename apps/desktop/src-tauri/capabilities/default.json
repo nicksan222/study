@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Study main window: private backend discovery.",
+  "windows": ["main"],
+  "permissions": ["allow-backend-connection"]
+}

@@ -1,0 +1,7 @@
+{
+  "extends": "./frontend.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["../../vite.config.ts", "../oxc-config/**/*.ts", "../development/*.ts"]
+}

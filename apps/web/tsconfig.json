@@ -1,0 +1,10 @@
+{
+  "extends": "../../tooling/typescript/frontend.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "../../packages/ui/src/**/*.ts",
+    "../../packages/ui/src/**/*.tsx",
+    "vite.config.ts"
+  ]
+}

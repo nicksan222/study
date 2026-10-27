@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in Study doesn't work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Study version
+      description: The release you downloaded, or the commit you built.
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Linux distribution and glibc version
+      description: For example "Fedora 42, glibc 2.41". `ldd --version` prints glibc's version.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: diagnostics.log
+      description: >-
+        The end of ~/.local/share/study/diagnostics.log, from around when it happened. Check
+        that it holds nothing private before you paste it.
+      render: text
