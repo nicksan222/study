@@ -1,41 +1,20 @@
-export type BlockKind = 'paragraph' | 'heading' | 'list_item' | 'table' | 'code' | 'segment';
+import type { anchorSchema, documentSchema } from './schemas.ts';
 
-export type Anchor =
-  | { type: 'time'; startMs: number; endMs: number }
-  | { type: 'page'; page: number }
-  | {
-      type: 'text';
-      lineStart: number;
-      lineEnd: number;
-      start: number;
-      end: number;
-    }
-  | { type: 'slide' | 'paragraph'; index: number }
-  | { type: 'url'; url: string; fragment: string | null };
+type Mutable<T> =
+  T extends ReadonlyArray<infer Item>
+    ? Mutable<Item>[]
+    : T extends object
+      ? { -readonly [Key in keyof T]: Mutable<T[Key]> }
+      : T;
 
-export interface Block {
-  kind: BlockKind;
-  text: string;
-  anchor: Anchor;
-}
+export type Anchor = Mutable<typeof anchorSchema.Type>;
 
-export interface Stamp {
-  refiner: string;
-  version: number;
-}
+export type Document = Mutable<typeof documentSchema.Type>;
 
-export interface DocumentMeta {
-  extractor: string | null;
-  extractorVersion: number;
-  provider: string | null;
-  durationMs: number | null;
-  pageCount: number | null;
-  refiners: Stamp[];
-  waitingFor: string[];
-  corrected: boolean;
-}
+export type Block = Document['blocks'][number];
 
-export interface Document {
-  blocks: Block[];
-  meta: DocumentMeta;
-}
+export type BlockKind = Block['kind'];
+
+export type Stamp = Document['meta']['refiners'][number];
+
+export type DocumentMeta = Document['meta'];

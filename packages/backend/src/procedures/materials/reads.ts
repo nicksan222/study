@@ -4,15 +4,17 @@ import { eq, and, asc, desc, sql, inArray } from 'drizzle-orm';
 import type { BackendContext } from '#backend/runtime/context';
 import { StudyError } from '#backend/shared/errors/index';
 import type {
-  MaterialDetail,
-  MaterialSummary,
-  MaterialVersionDetail,
-  QuizQuestionDetail,
-  PublishedMaterialVersion,
-  DraftMaterialVersion
-} from '#backend/shared/materials/types';
+  MaterialDetailDto,
+  MaterialSummaryDto,
+  MaterialVersionDetailDto
+} from '#backend/shared/materials/schemas';
 
 import { anchorSchema, documentSchema } from './schemas.ts';
+
+type QuizQuestionDetailDto = Extract<
+  MaterialVersionDetailDto,
+  { kind: 'quiz' }
+>['content']['questions'][number];
 
 export function required<T>(value: T | null | undefined): T {
   if (value === undefined || value === null)
@@ -47,7 +49,7 @@ function readSource(store: BackendContext, id: bigint) {
   return required(store.db.orm.select().from(s.sources).where(eq(s.sources.id, id)).get());
 }
 
-export function readVersion(store: BackendContext, id: bigint): MaterialVersionDetail | null {
+export function readVersion(store: BackendContext, id: bigint): MaterialVersionDetailDto | null {
   const row = store.db.orm
     .select()
     .from(s.material_versions)
@@ -247,7 +249,7 @@ export function readVersion(store: BackendContext, id: bigint): MaterialVersionD
         .where(eq(s.material_quiz_questions.version_id, id))
         .all();
       const references = new Map(openRows.map((r) => [r.questionId, r.reference]));
-      const questions: QuizQuestionDetail[] = store.db.orm
+      const questions: QuizQuestionDetailDto[] = store.db.orm
         .select()
         .from(s.material_quiz_questions)
         .where(eq(s.material_quiz_questions.version_id, id))
@@ -287,7 +289,7 @@ export function readVersion(store: BackendContext, id: bigint): MaterialVersionD
   }
 }
 
-export function readMaterial(store: BackendContext, id: bigint): MaterialDetail | null {
+export function readMaterial(store: BackendContext, id: bigint): MaterialDetailDto | null {
   const row = store.db.orm.select().from(s.materials).where(eq(s.materials.id, id)).get();
 
   if (!row) return null;
@@ -317,16 +319,20 @@ export function readMaterial(store: BackendContext, id: bigint): MaterialDetail 
   };
 }
 
-function isPublished(version: MaterialVersionDetail): version is PublishedMaterialVersion {
+function isPublished(
+  version: MaterialVersionDetailDto
+): version is MaterialVersionDetailDto & { status: 'published'; published_at: bigint } {
   return version.status === 'published' && version.published_at !== null;
 }
 
-function isDraft(version: MaterialVersionDetail): version is DraftMaterialVersion {
+function isDraft(
+  version: MaterialVersionDetailDto
+): version is MaterialVersionDetailDto & { status: 'draft'; published_at: null } {
   return version.status === 'draft' && version.published_at === null;
 }
 
 /** Bounded collection reads: payloads are loaded only by detail endpoints. */
-export function readMaterialSummaries(store: BackendContext, ids: bigint[]): MaterialSummary[] {
+export function readMaterialSummaries(store: BackendContext, ids: bigint[]): MaterialSummaryDto[] {
   if (!ids.length) return [];
 
   const rows = store.db.orm

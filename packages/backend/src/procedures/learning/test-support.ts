@@ -4,15 +4,13 @@ import type { TestContext } from 'node:test';
 import * as s from '@study/db/schema';
 import { eq } from 'drizzle-orm';
 
-import { fixture } from '#testing/procedures';
-
-import { learningRouter } from './router.ts';
+import { createBackendTest } from '#testing/backend-test';
 
 export async function setup(t: TestContext) {
-  const f = await fixture(t);
+  const f = await createBackendTest(t);
   const project = await f.caller.projects.createProject({ name: 'Learning' });
 
-  return { ...f, project, learning: learningRouter.createCaller(f.context) };
+  return { ...f, project, learning: f.caller.learning };
 }
 
 type Fixture = Awaited<ReturnType<typeof setup>>;

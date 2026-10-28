@@ -1,23 +1,22 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 
-import { job as opJob } from '#backend/procedures/jobs/job';
+import { job as opJob } from '#backend/procedures/jobs/operations/job';
 import { claimJob as opClaimJob } from '#backend/procedures/jobs/worker';
-import { artifact as opArtifact } from '#backend/procedures/material/artifact';
 import { finishMaterial as opFinishMaterial } from '#backend/procedures/material/finish-material';
-import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/update-material';
+import { artifact as opArtifact } from '#backend/procedures/material/operations/artifact';
+import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/operations/update-material';
 import { finishQuestion as opFinishQuestion } from '#backend/procedures/practice/finish-question';
-import { question as opQuestion } from '#backend/procedures/practice/practice';
-import { createPractice as opCreatePractice } from '#backend/procedures/practice/project-practice';
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
-import { createNote as opCreateNote } from '#backend/procedures/sources/create-note';
-import { deleteSource as opDeleteSource } from '#backend/procedures/sources/delete-source';
+import { question as opQuestion } from '#backend/procedures/practice/operations/practice';
+import { createPractice as opCreatePractice } from '#backend/procedures/practice/operations/project-practice';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { createNote as opCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { deleteSource as opDeleteSource } from '#backend/procedures/sources/operations/delete-source';
 import { BackendContext } from '#backend/runtime/context';
 import type { SourceId, QuestionId } from '#backend/shared/ids';
 import type { Citation } from '#backend/shared/sources/citations';
+import { createBackendTest } from '#testing/backend-test';
 
 function snapshot(sourceId: SourceId | null, marker = 1): Citation {
   return {
@@ -30,6 +29,7 @@ function snapshot(sourceId: SourceId | null, marker = 1): Citation {
 }
 
 function fixture(
+  t: TestContext,
   kind: 'material' | 'question',
   run: (context: {
     store: BackendContext;
@@ -40,8 +40,8 @@ function fixture(
     jobStatus: () => string;
   }) => void
 ) {
-  const folder = mkdtempSync(join(tmpdir(), 'study-generated-citations-'));
-  const store = BackendContext.open(join(folder, 'study.db'));
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const project = opCreateProject(store, 'P');
@@ -99,21 +99,20 @@ function fixture(
     }
   } finally {
     store.close();
-    rmSync(folder, { recursive: true, force: true });
   }
 }
 
 for (const kind of ['material', 'question'] as const) {
-  test(`${kind} completion preserves citations when published source deletion is forbidden`, () =>
-    fixture(kind, ({ store, sourceId, finish, citations, jobStatus }) => {
+  test(`${kind} completion preserves citations when published source deletion is forbidden`, (t) =>
+    fixture(t, kind, ({ store, sourceId, finish, citations, jobStatus }) => {
       assert.throws(() => opDeleteSource(store, sourceId));
       assert.equal(finish([snapshot(sourceId)]), true);
       assert.deepEqual(citations(), [snapshot(sourceId)]);
       assert.equal(jobStatus(), 'succeeded');
     }));
 
-  test(`${kind} completion validates markers and source IDs before committing any content`, () =>
-    fixture(kind, ({ store, sourceId, finish, citations, status, jobStatus }) => {
+  test(`${kind} completion validates markers and source IDs before committing any content`, (t) =>
+    fixture(t, kind, ({ store, sourceId, finish, citations, status, jobStatus }) => {
       const events: unknown[] = [];
       const unsubscribe = store.subscribe(() => events.push(undefined));
       const before = status();

@@ -1,4 +1,4 @@
-import { language } from '#backend/procedures/settings/get-app-settings';
+import { language } from '#backend/procedures/settings/operations/get-app-settings';
 
 import type { App } from './service.ts';
 

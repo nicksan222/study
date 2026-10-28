@@ -1,9 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
 import { createConnection } from 'node:net';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 
@@ -11,28 +8,18 @@ import { createStudyClient } from '@study/backend/node';
 import { Appearance, Language, LlmProvider } from '@study/backend/shared/settings';
 import { TRPCClientError } from '@trpc/client';
 
-import { readAppSettings } from '#backend/procedures/settings/get-app-settings';
+import { readAppSettings } from '#backend/procedures/settings/operations/get-app-settings';
 import { loadPreferences as opLoadPreferences } from '#backend/procedures/settings/preferences';
 import { serve } from '#backend/runtime/server';
 import { App } from '#backend/runtime/service';
+import { createBackendTest } from '#testing/backend-test';
 
 async function newDb(t: TestContext) {
-  const dir = mkdtempSync(join(tmpdir(), 'study-auth-'));
-  const path = join(dir, 'study.db');
-  let app = await App.open({ path });
-  let server = await serve(app);
+  const testDatabase = createBackendTest(t, { app: false });
+  const path = testDatabase.path;
+  let app = createBackendTest(t, { app: false }).manage(await App.open({ path }));
 
-  t.after(async () => {
-    try {
-      await server.close();
-    } finally {
-      try {
-        await app.close();
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-      }
-    }
-  });
+  let server = createBackendTest(t, { app: false }).manage(await serve(app));
 
   return {
     get app() {
@@ -44,8 +31,8 @@ async function newDb(t: TestContext) {
     async reopen() {
       await server.close();
       await app.close();
-      app = await App.open({ path });
-      server = await serve(app);
+      app = createBackendTest(t, { app: false }).manage(await App.open({ path }));
+      server = createBackendTest(t, { app: false }).manage(await serve(app));
     }
   };
 }
@@ -203,7 +190,7 @@ test('disconnecting a real tRPC finish aborts the pending callback admission', a
     port: Number(redirect.port)
   });
 
-  t.after(() => {
+  createBackendTest(t, { app: false }).dispose(() => {
     socket.destroy();
   });
   await once(socket, 'connect', { signal: AbortSignal.timeout(2000) });

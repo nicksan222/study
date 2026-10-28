@@ -3,9 +3,9 @@ import { and, eq } from 'drizzle-orm';
 
 import type { BackendContext } from '#backend/runtime/context';
 import { StudyError } from '#backend/shared/errors/index';
+import type { MaterialContentInput } from '#backend/shared/materials/schemas';
 
 import { required } from './reads.ts';
-import type { MaterialContentInput } from './schemas.ts';
 
 export function insertContent(
   store: BackendContext,

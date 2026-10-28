@@ -1,8 +1,8 @@
 import type { message_versions } from '@study/db/schema';
 
-import type { message } from '#backend/procedures/conversations/messages';
-import type { recording } from '#backend/procedures/recordings/recording';
-import type { SourceId } from '#backend/shared/ids';
+import type { message } from '#backend/procedures/conversations/operations/messages';
+import type { RecordingId, SessionId, SourceId } from '#backend/shared/ids';
+import type { Recording as RecordingDto } from '#backend/shared/recordings/schemas';
 
 export type VersionOrigin = (typeof message_versions.$inferSelect)['origin'];
 
@@ -20,4 +20,7 @@ export type NewMessage = Pick<ChatMessage, 'sessionId'> &
     attachments?: SourceId[];
   };
 
-export type Recording = NonNullable<ReturnType<typeof recording>>;
+export type Recording = Omit<RecordingDto, 'id' | 'sessionId'> & {
+  id: RecordingId;
+  sessionId: SessionId;
+};

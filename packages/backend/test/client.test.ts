@@ -1,7 +1,4 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
 
 import * as schema from '@study/db/schema';
@@ -11,27 +8,20 @@ import { EventSource } from 'eventsource';
 import { createStudyClient as browserClient } from '#backend/client/index';
 import { createStudyClient as nodeClient } from '#backend/client/node';
 import { App, serve } from '#backend/runtime/index';
+import { createBackendTest } from '#testing/backend-test';
 
 for (const environment of ['browser', 'node'] as const) {
   test(
     `${environment} client exchanges plain bigint IDs, bytes, typed errors and cancellable SSE over real HTTP`,
     { timeout: 10000 },
     async (t) => {
-      const dir = await mkdtemp(join(tmpdir(), 'study-client-'));
-      const app = await App.open({ path: join(dir, 'study.db') });
+      const database = createBackendTest(t, { app: false });
+      const app = await App.open({ path: database.path });
+
+      database.dispose(() => app.close());
       const server = await serve(app);
 
-      t.after(async () => {
-        try {
-          await server.close();
-        } finally {
-          try {
-            await app.close();
-          } finally {
-            await rm(dir, { recursive: true, force: true });
-          }
-        }
-      });
+      database.dispose(() => server.close());
       let discoveries = 0;
       const options = {
         baseUrl: async () => {
@@ -147,7 +137,7 @@ for (const environment of ['browser', 'node'] as const) {
         }
       );
 
-      t.after(() => subscription.unsubscribe());
+      database.dispose(() => subscription.unsubscribe());
       await connected;
       await client.projects.createProject.mutate({ name: 'Physics' });
       await hint;

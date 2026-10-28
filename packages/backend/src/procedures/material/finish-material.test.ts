@@ -6,19 +6,20 @@ import { eq } from 'drizzle-orm';
 
 import { claimJob } from '#backend/procedures/jobs/worker';
 import { learningRouter } from '#backend/procedures/learning/router';
-import { readCitations } from '#backend/procedures/materials/get-citations';
+import { readCitations } from '#backend/procedures/materials/operations/citations';
 import { readMaterial, readVersion } from '#backend/procedures/materials/reads';
-import { createProject } from '#backend/procedures/projects/create-project';
-import { createNote } from '#backend/procedures/sources/create-note';
-import { saveDocument } from '#backend/procedures/sources/source-document';
-import { fixture, document } from '#testing/procedures';
+import { createProject } from '#backend/procedures/projects/operations/create-project';
+import { createNote } from '#backend/procedures/sources/operations/create-note';
+import { saveDocument } from '#backend/procedures/sources/operations/source-document';
+import { createBackendTest } from '#testing/backend-test';
+import { document } from '#testing/procedures';
 
-import { artifact, cards } from './artifact.ts';
 import { finishMaterial } from './finish-material.ts';
-import { requestMaterial } from './update-material.ts';
+import { artifact, cards } from './operations/artifact.ts';
+import { requestMaterial } from './operations/update-material.ts';
 
 test('generated flashcards publish canonical revisions while matching cards retain identity', async (t) => {
-  const f = await fixture(t),
+  const f = await createBackendTest(t),
     p = createProject(f.store, 'Physics');
   const first = requestMaterial(f.store, p.id, 'flashcards', 'Cards', []),
     job = claimJob(f.store, ['artifact'])!;
@@ -98,7 +99,7 @@ test('generated flashcards publish canonical revisions while matching cards reta
 });
 
 test('generation retains multiple exact document snapshots when newer extraction arrives', async (t) => {
-  const f = await fixture(t),
+  const f = await createBackendTest(t),
     p = createProject(f.store, 'Physics');
   const a = createNote(f.store, 'A', 'Old gravity', p.id),
     b = createNote(f.store, 'B', 'Mass', p.id);
@@ -178,7 +179,7 @@ test('generation retains multiple exact document snapshots when newer extraction
 });
 
 test('regeneration removing a legacy card preserves its canonical review and snapshot', async (t) => {
-  const f = await fixture(t),
+  const f = await createBackendTest(t),
     p = createProject(f.store, 'Physics'),
     first = requestMaterial(f.store, p.id, 'flashcards', 'Cards', []),
     job = claimJob(f.store, ['artifact'])!;

@@ -1,13 +1,12 @@
 import * as s from '@study/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import type { z } from 'zod';
 
 import type { BackendContext } from '#backend/runtime/context';
 import { StudyError } from '#backend/shared/errors/index';
+import type { createMaterialVersionInputSchema } from '#backend/shared/materials/schemas';
 
 import { insertContent } from './content.ts';
 import { materialRow, required, versionRow } from './reads.ts';
-import type { createVersionSchema } from './schemas.ts';
 
 export const now = () => BigInt(Math.floor(Date.now() / 1000));
 
@@ -27,7 +26,7 @@ export function assertSession(store: BackendContext, id: bigint, projectId: bigi
 export function insertLinks(
   store: BackendContext,
   version: typeof s.material_versions.$inferSelect,
-  links: { inputs?: bigint[]; parents?: bigint[] }
+  links: { inputs?: readonly bigint[]; parents?: readonly bigint[] }
 ) {
   for (const [ids, parent] of [
     [links.inputs ?? [], false],
@@ -70,7 +69,7 @@ export function insertLinks(
 export function insertVersion(
   store: BackendContext,
   materialId: bigint,
-  input: z.infer<typeof createVersionSchema>,
+  input: typeof createMaterialVersionInputSchema.Type,
   documentId?: bigint
 ) {
   const material = materialRow(store, materialId, true);

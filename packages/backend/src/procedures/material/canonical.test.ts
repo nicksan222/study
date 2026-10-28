@@ -5,16 +5,17 @@ import * as s from '@study/db/schema';
 import { eq } from 'drizzle-orm';
 
 import { originalVersion } from '#backend/procedures/ingestion/source-material';
-import { createProject } from '#backend/procedures/projects/create-project';
-import { createNote } from '#backend/procedures/sources/create-note';
-import { saveDocument } from '#backend/procedures/sources/source-document';
-import { storeSource } from '#backend/procedures/sources/upload-source';
-import { fixture, document } from '#testing/procedures';
+import { createProject } from '#backend/procedures/projects/operations/create-project';
+import { createNote } from '#backend/procedures/sources/operations/create-note';
+import { saveDocument } from '#backend/procedures/sources/operations/source-document';
+import { storeSource } from '#backend/procedures/sources/operations/upload-source';
+import { createBackendTest } from '#testing/backend-test';
+import { document } from '#testing/procedures';
 
 import { canonicalEvidence } from './canonical.ts';
 
 test('link citations resolve fetched document snapshots instead of the original URL material', async (t) => {
-  const f = await fixture(t),
+  const f = await createBackendTest(t),
     p = createProject(f.store, 'Physics');
   const link = storeSource(f.store, {
     projectId: p.id,
@@ -65,7 +66,7 @@ test('link citations resolve fetched document snapshots instead of the original 
 });
 
 test('evidence falls back to known original versions and excludes foreign or missing sources', async (t) => {
-  const f = await fixture(t),
+  const f = await createBackendTest(t),
     p = createProject(f.store, 'P'),
     other = createProject(f.store, 'Other');
   const a = createNote(f.store, 'A', 'A', p.id),
@@ -101,7 +102,7 @@ test('evidence falls back to known original versions and excludes foreign or mis
 });
 
 test('explicit citation versions disambiguate identical historical document passages', async (t) => {
-  const f = await fixture(t),
+  const f = await createBackendTest(t),
     p = createProject(f.store, 'Physics'),
     source = createNote(f.store, 'A', 'Gravity attracts masses', p.id);
   const old = saveDocument(f.store, source.id, document);

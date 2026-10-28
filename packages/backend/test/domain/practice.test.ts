@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 
-import { job as opJob } from '#backend/procedures/jobs/job';
-import { listJobs as opListJobs } from '#backend/procedures/jobs/job-overviews';
+import { sql } from 'drizzle-orm';
+
+import { job as opJob } from '#backend/procedures/jobs/operations/job';
+import { listJobs as opListJobs } from '#backend/procedures/jobs/operations/job-overviews';
 import {
   finishJob as opFinishJob,
   claimJob as opClaimJob,
@@ -14,30 +13,31 @@ import {
   failJob as opFailJob,
   enqueueJob as opEnqueueJob
 } from '#backend/procedures/jobs/worker';
-import { artifact as opArtifact } from '#backend/procedures/material/artifact';
-import { addMistakeCard as opAddMistakeCard } from '#backend/procedures/practice/add-to-flashcards';
-import { answerQuestion as opAnswerQuestion } from '#backend/procedures/practice/answer-question';
-import { deletePractice as opDeletePractice } from '#backend/procedures/practice/delete-practice';
+import { artifact as opArtifact } from '#backend/procedures/material/operations/artifact';
 import { finishGrade as opFinishGrade } from '#backend/procedures/practice/finish-grade';
 import { finishQuestion as opFinishQuestion } from '#backend/procedures/practice/finish-question';
+import { addMistakeCard as opAddMistakeCard } from '#backend/procedures/practice/operations/add-to-flashcards';
+import { answerQuestion as opAnswerQuestion } from '#backend/procedures/practice/operations/answer-question';
+import { deletePractice as opDeletePractice } from '#backend/procedures/practice/operations/delete-practice';
 import {
   practiceScore as opPracticeScore,
   listQuestions as opListQuestions,
   question as opQuestion,
   ensurePracticeQuestions as opEnsurePracticeQuestions
-} from '#backend/procedures/practice/practice';
-import { listPractices as opListPractices } from '#backend/procedures/practice/practices';
-import { createPractice as opCreatePractice } from '#backend/procedures/practice/project-practice';
+} from '#backend/procedures/practice/operations/practice';
+import { listPractices as opListPractices } from '#backend/procedures/practice/operations/practices';
+import { createPractice as opCreatePractice } from '#backend/procedures/practice/operations/project-practice';
 import { requestQuestion as opRequestQuestion } from '#backend/procedures/practice/request-question';
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
 import { BackendContext } from '#backend/runtime/context';
 import type { ProjectId as ImportedProjectId } from '#backend/shared/ids';
 import type { SourceId as ImportedSourceId } from '#backend/shared/ids';
 import type { PracticeId, QuestionId } from '#backend/shared/ids';
+import { createBackendTest } from '#testing/backend-test';
 
-test('choice practice validates answers, grades, and keeps mistakes', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-practice-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('choice practice validates answers, grades, and keeps mistakes', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const project = opCreateProject(store, 'P'),
@@ -67,12 +67,11 @@ test('choice practice validates answers, grades, and keeps mistakes', () => {
     assert.equal(opListQuestions(store, practice.id).length, 3);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('open grade is fenced to the current job attempt', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-practice-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('open grade is fenced to the current job attempt', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -102,12 +101,11 @@ test('open grade is fenced to the current job attempt', () => {
     assert.equal(opQuestion(store, req.questionId)?.verdict, 'correct');
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('practice maintains two unanswered questions and recovers failed generation', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-practice-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('practice maintains two unanswered questions and recovers failed generation', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -131,12 +129,11 @@ test('practice maintains two unanswered questions and recovers failed generation
     assert.equal(opListQuestions(store, practice.id).length, 2);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('mistake cards are unique per question and appear in their material', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-mistakes-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('mistake cards are unique per question and appear in their material', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -173,21 +170,19 @@ test('mistake cards are unique per question and appear in their material', () =>
     if (artifact.body?.type === 'flashcards') assert.equal(artifact.body.cards.length, 1);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('practice recovers orphaned generation and grading jobs', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-orphan-')),
-    path = join(dir, 'db'),
-    store = BackendContext.open(path);
+test('practice recovers orphaned generation and grading jobs', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    path = testDatabase.path,
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
 
   try {
     const p = opCreateProject(store, 'P'),
       practice = opCreatePractice(store, p.id),
       q = opRequestQuestion(store, practice.id, 'open');
-    const raw = new DatabaseSync(path, { readBigInts: true });
 
-    raw.prepare('DELETE FROM jobs WHERE id=?').run(q.jobId);
+    store.db.orm.run(sql`DELETE FROM jobs WHERE id=${q.jobId}`);
     opEnsurePracticeQuestions(store, practice.id);
     const pending = opListJobs(store).find(
       (j) => j.kind === 'question' && j.target.id === q.questionId
@@ -211,13 +206,11 @@ test('practice recovers orphaned generation and grading jobs', () => {
       answer: 'response'
     })!;
 
-    raw.prepare('DELETE FROM jobs WHERE id=?').run(answer.jobId!);
+    store.db.orm.run(sql`DELETE FROM jobs WHERE id=${answer.jobId!}`);
     opEnsurePracticeQuestions(store, practice.id);
     assert.ok(opListJobs(store).some((j) => j.kind === 'grade' && j.target.id === q.questionId));
-    raw.close();
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
@@ -250,36 +243,38 @@ function claimQuestion(store: BackendContext, id: QuestionId) {
   }
 }
 
-function fixture(run: (store: BackendContext, raw: DatabaseSync, practice: PracticeId) => void) {
-  const dir = mkdtempSync(join(tmpdir(), 'study-practice-')),
-    path = join(dir, 'db');
-  const store = BackendContext.open(path),
-    raw = new DatabaseSync(path, { readBigInts: true });
+function fixture(
+  t: TestContext,
+  run: (store: BackendContext, raw: BackendContext['db']['orm'], practice: PracticeId) => void
+) {
+  const testDatabase = createBackendTest(t, { app: false }),
+    path = testDatabase.path;
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path)),
+    raw = store.db.orm;
 
   try {
     run(store, raw, opCreatePractice(store, opCreateProject(store, 'P').id).id);
   } finally {
-    raw.close();
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 }
 
-test('creation queues two questions and remains idempotent', () =>
-  fixture((store, raw, id) => {
+test('creation queues two questions and remains idempotent', (t) =>
+  fixture(t, (store, raw, id) => {
     assert.deepEqual(
       opListQuestions(store, id).map((q) => q.kind),
       ['choice', 'choice']
     );
     const project = BigInt(
-      raw.prepare('SELECT project_id FROM practices WHERE id=?').get(id)!.project_id as number
+      raw.get<{ project_id: bigint }>(sql`SELECT project_id FROM practices WHERE id=${id}`)!
+        .project_id
     ) as ImportedProjectId;
 
     assert.equal(opCreatePractice(store, project).id, id);
     assert.equal(opListQuestions(store, id).length, 2);
   }));
-test('choice and open answers automatically replenish two unanswered questions', () =>
-  fixture((store, _raw, id) => {
+test('choice and open answers automatically replenish two unanswered questions', (t) =>
+  fixture(t, (store, _raw, id) => {
     opEnsurePracticeQuestions(store, id);
 
     for (const kind of ['choice', 'choice', 'open'] as const) {
@@ -307,30 +302,29 @@ test('choice and open answers automatically replenish two unanswered questions',
 
     assert.equal(opListQuestions(store, id).length, 5);
   }));
-test('finishing a writing question replenishes an undersized buffer', () =>
-  fixture((store, raw, id) => {
+test('finishing a writing question replenishes an undersized buffer', (t) =>
+  fixture(t, (store, raw, id) => {
     opEnsurePracticeQuestions(store, id);
     const [first, second] = opListQuestions(store, id);
 
-    raw.prepare('DELETE FROM practice_questions WHERE id=?').run(second.id);
+    raw.run(sql`DELETE FROM practice_questions WHERE id=${second.id}`);
     const job = opClaimJob(store, ['question'])!;
 
-    raw.prepare("UPDATE practice_questions SET status='writing' WHERE id=?").run(first.id);
+    raw.run(sql`UPDATE practice_questions SET status='writing' WHERE id=${first.id}`);
     assert.equal(opFinishQuestion(store, first.id, job.id, job.attempts, choice, 'gist', []), true);
     assert.equal(opListQuestions(store, id).length, 2);
     assert.ok(opClaimJob(store, ['question']));
   }));
-test('generation waits for project source reads and previous generation', () =>
-  fixture((store, raw, id) => {
+test('generation waits for project source reads and previous generation', (t) =>
+  fixture(t, (store, raw, id) => {
     const project = BigInt(
-      raw.prepare('SELECT project_id FROM practices WHERE id=?').get(id)!.project_id as number
+      raw.get<{ project_id: bigint }>(sql`SELECT project_id FROM practices WHERE id=${id}`)!
+        .project_id
     ) as ImportedProjectId;
     const source = BigInt(
-      raw
-        .prepare(
-          "INSERT INTO sources (project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (?,'import','text','text/plain','source',1,zeroblob(32),0)"
-        )
-        .run(project).lastInsertRowid
+      raw.run(
+        sql`INSERT INTO sources (project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (${project},'import','text','text/plain','source',1,zeroblob(32),0)`
+      ).lastInsertRowid
     ) as ImportedSourceId;
     const read = opEnqueueJob(store, {
       kind: 'extract',
@@ -361,8 +355,8 @@ test('generation waits for project source reads and previous generation', () =>
     );
     assert.ok(opClaimJob(store, ['question']));
   }));
-test('summaries list practices by recency with practice scores', () =>
-  fixture((store, raw, id) => {
+test('summaries list practices by recency with practice scores', (t) =>
+  fixture(t, (store, raw, id) => {
     assert.deepEqual(opPracticeScore(store, id), {
       asked: 0,
       answered: 0,
@@ -430,7 +424,7 @@ test('summaries list practices by recency with practice scores', () =>
       opListPractices(store).map((p) => p.id),
       [second.id, id]
     );
-    raw.prepare('UPDATE practices SET updated_at=updated_at+10 WHERE id=?').run(id);
+    raw.run(sql`UPDATE practices SET updated_at=updated_at+10 WHERE id=${id}`);
     assert.deepEqual(
       opListPractices(store).map((p) => p.id),
       [id, second.id]
@@ -444,15 +438,15 @@ test('summaries list practices by recency with practice scores', () =>
     });
   }));
 
-test('orphan recovery restores serial dependencies before later generation runs', () =>
-  fixture((store, raw, id) => {
+test('orphan recovery restores serial dependencies before later generation runs', (t) =>
+  fixture(t, (store, raw, id) => {
     opEnsurePracticeQuestions(store, id);
     const first = opListQuestions(store, id)[0];
     const original = opListJobs(store).find(
       (j) => j.kind === 'question' && j.target.id === first.id
     )!;
 
-    raw.prepare('DELETE FROM jobs WHERE id=?').run(original.id);
+    raw.run(sql`DELETE FROM jobs WHERE id=${original.id}`);
     opEnsurePracticeQuestions(store, id);
     const recovered = opClaimJob(store, ['question'])!;
 

@@ -1,6 +1,7 @@
 import * as schema from '@study/db/schema';
 import { sql, eq, and, inArray, lte } from 'drizzle-orm';
 
+import { job as opJob } from '#backend/procedures/jobs/operations/job';
 import type { BackendContext } from '#backend/runtime/context';
 import type { Failure } from '#backend/shared/errors/index';
 import { StudyError } from '#backend/shared/errors/index';
@@ -8,8 +9,6 @@ import type { JobId } from '#backend/shared/ids';
 import type { NewJob, Job } from '#backend/shared/jobs/types';
 import type { JobKind, JobTarget } from '#backend/shared/jobs/types';
 import type { JsonValue } from '#backend/shared/json';
-
-import { job as opJob } from './job.ts';
 
 export function enqueueJob(ctx: BackendContext, input: NewJob): JobId {
   const args = input.args === undefined ? null : JSON.stringify(input.args);

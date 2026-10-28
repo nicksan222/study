@@ -5,6 +5,17 @@ type LintConfig = NonNullable<UserConfig['lint']>;
 const noBackendMocks =
   'Backend tests must exercise real procedures and dependencies without mocking.';
 
+const effectV4Imports = [
+  {
+    regex: '^effect/unstable(/|$)',
+    message: 'Effect v4 moved these modules to effect/*; remove the unstable segment.'
+  },
+  {
+    regex: '^@effect/(platform|rpc)(/|$)',
+    message: 'Effect v4 merged this package into effect; use the corresponding effect module.'
+  }
+];
+
 const declarations = [
   'interface',
   'type',
@@ -47,8 +58,14 @@ export const lint = {
     'target/**'
   ],
   rules: {
+    'study/backend-no-mocks': 'error',
+    'study/effect-v4-api': 'error',
+    'eslint/no-restricted-imports': ['error', { patterns: effectV4Imports }],
+    'study/database-ownership': 'error',
     'study/procedure-test': 'error',
+    'study/procedure-contract': 'error',
     'study/browser-boundary': 'error',
+    'study/package-boundary': 'error',
     'vite-plus/prefer-vite-plus-imports': 'error',
     '@stylistic/padding-line-between-statements': [
       'error',
@@ -121,6 +138,7 @@ export const lint = {
               { name: 'jest-mock', message: noBackendMocks }
             ],
             patterns: [
+              ...effectV4Imports,
               {
                 regex: '^\\.\\./',
                 message:

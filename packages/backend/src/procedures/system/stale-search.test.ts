@@ -4,14 +4,15 @@ import { test } from 'node:test';
 import {
   saveDocument,
   document as readDocument
-} from '#backend/procedures/sources/source-document';
-import { fixture, document } from '#testing/procedures';
+} from '#backend/procedures/sources/operations/source-document';
+import { createBackendTest } from '#testing/backend-test';
+import { document } from '#testing/procedures';
 
 import { replacePassages } from './index.ts';
-import { search } from './search.ts';
+import { search } from './operations/search.ts';
 
 test('ordinary passage search excludes older extraction text but retains document history', async (t) => {
-  const f = await fixture(t);
+  const f = await createBackendTest(t);
   const project = await f.caller.projects.createProject({ name: 'Snapshots' });
   const source = await f.caller.sources.createNote({
     project: project.id,

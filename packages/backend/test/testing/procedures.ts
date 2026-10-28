@@ -1,62 +1,15 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import type { TestContext } from 'node:test';
-
-import { cancelJob as dbCancelJob } from '#backend/procedures/jobs/cancel-job';
-import { listJobs as dbListJobs } from '#backend/procedures/jobs/job-overviews';
+import { cancelJob as dbCancelJob } from '#backend/procedures/jobs/operations/cancel-job';
+import { listJobs as dbListJobs } from '#backend/procedures/jobs/operations/job-overviews';
 import { claimJob as dbClaimJob } from '#backend/procedures/jobs/worker';
-import { cards as dbCards } from '#backend/procedures/material/artifact';
 import { finishMaterial as dbFinishMaterial } from '#backend/procedures/material/finish-material';
-import { requestMaterial as dbRequestMaterial } from '#backend/procedures/material/update-material';
+import { cards as dbCards } from '#backend/procedures/material/operations/artifact';
+import { requestMaterial as dbRequestMaterial } from '#backend/procedures/material/operations/update-material';
 import { finishQuestion as dbFinishQuestion } from '#backend/procedures/practice/finish-question';
-import { createPractice as dbCreatePractice } from '#backend/procedures/practice/project-practice';
+import { createPractice as dbCreatePractice } from '#backend/procedures/practice/operations/project-practice';
 import { requestQuestion as dbRequestQuestion } from '#backend/procedures/practice/request-question';
 import type { BackendContext } from '#backend/runtime/context';
-import { createProcedureContext } from '#backend/runtime/procedure-context';
-import { appRouter } from '#backend/runtime/router';
-import { App } from '#backend/runtime/service';
 import type { ProjectId } from '#backend/shared/ids';
 import type { Document } from '#backend/shared/sources/document';
-
-/** Real database and application resources; workers stay idle for deterministic tests. */
-export async function fixture(t: TestContext) {
-  const dir = mkdtempSync(join(tmpdir(), 'study-procedure-'));
-  const app = await App.open({
-    path: join(dir, 'study.db')
-  });
-
-  t.after(async () => {
-    try {
-      await app.close();
-    } finally {
-      rmSync(dir, {
-        recursive: true,
-        force: true
-      });
-    }
-  });
-  const store = app.store;
-  const wake = () => app.workers.wake();
-  const refresh = {
-    publish: () => {},
-    subscribe: (listener: () => void) => app.subscribe(() => listener())
-  };
-  const context = createProcedureContext(app, refresh);
-
-  return {
-    app,
-    store,
-    dir,
-    wake,
-    context,
-    caller: appRouter.createCaller(context),
-    callerFor: (signal: AbortSignal) =>
-      appRouter.createCaller(context, {
-        signal
-      })
-  };
-}
 
 export function completeMaterial(store: BackendContext, project: ProjectId) {
   const request = dbRequestMaterial(store, project, 'flashcards', 'Cards', []);

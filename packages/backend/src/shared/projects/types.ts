@@ -1,3 +1,4 @@
-import type { projectRow } from '#backend/procedures/projects/projects';
+import type { ProjectId } from '#backend/shared/ids';
+import type { Project as ProjectDto } from '#backend/shared/projects/schemas';
 
-export type Project = ReturnType<typeof projectRow>;
+export type Project = Omit<ProjectDto, 'id'> & { id: ProjectId };

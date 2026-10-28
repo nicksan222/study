@@ -4,13 +4,14 @@ import { test } from 'node:test';
 import * as s from '@study/db/schema';
 import { eq } from 'drizzle-orm';
 
-import { storeFetched } from '#backend/procedures/sources/source';
-import { saveDocument } from '#backend/procedures/sources/source-document';
+import { storeFetched } from '#backend/procedures/sources/operations/source';
+import { saveDocument } from '#backend/procedures/sources/operations/source-document';
 import { Evidence } from '#backend/runtime/grounding';
-import { fixture, document } from '#testing/procedures';
+import { createBackendTest } from '#testing/backend-test';
+import { document } from '#testing/procedures';
 
 test('link evidence cites the fetched source snapshot while caching the requested link', async (t) => {
-  const f = await fixture(t);
+  const f = await createBackendTest(t);
   const project = await f.caller.projects.createProject({ name: 'Evidence' });
   const link = await f.caller.sources.addLink({
     project: project.id,
@@ -38,7 +39,7 @@ test('link evidence cites the fetched source snapshot while caching the requeste
 });
 
 test('generation evidence pins the exact consumed document version even when identical text is re-extracted', async (t) => {
-  const f = await fixture(t);
+  const f = await createBackendTest(t);
   const project = await f.caller.projects.createProject({ name: 'P' });
   const source = await f.caller.sources.createNote({
     project: project.id,
