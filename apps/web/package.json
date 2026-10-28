@@ -8,7 +8,7 @@
     "build": "vp build",
     "typecheck": "vp run gen:routes && vp exec tsc --noEmit",
     "gen:routes": "vp exec tsr generate",
-    "test": "vp test run"
+    "test": "vp test run --reporter=verbose"
   },
   "dependencies": {
     "@study/backend": "*",

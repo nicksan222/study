@@ -245,7 +245,7 @@ release *args:
 # Test development and release tooling.
 tooling-test:
     npm run quality:test
-    node --test apps/desktop/src-tauri/tests/*.test.mjs
+    node --test --test-reporter=spec apps/desktop/src-tauri/tests/*.test.mjs
     python3 -m unittest discover -s tooling/development -p 'test_*.py'
     python3 -m unittest discover -s tooling/release -p 'test_*.py'
 
