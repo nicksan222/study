@@ -15,6 +15,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_TARGET_DIR: target/devcontainer
 
 jobs:
   check:
@@ -22,9 +23,120 @@ jobs:
     name: Test and build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+
+      - name: 🧰 Set up build tools and dependencies
+        id: setup
+        uses: ./.github/actions/setup
         with:
           tools: cargo-deny@0.20.2
-      - name: Check
-        run: just check
+          target-dir: target/devcontainer
+
+      # Keep the gates equivalent to `just check`. Run every gate after setup,
+      # even if an earlier gate fails, so one run reports all package failures.
+      - name: 🐚 Check shell scripts
+        id: shell
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just check-shell
+
+      - name: 🎨 Check formatting
+        id: format
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just fmt-check
+
+      - name: 🔎 Lint Rust and TypeScript
+        id: lint
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just lint
+
+      - name: 🛡️ Audit Rust dependencies
+        id: dependencies
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just deny
+
+      - name: 🧩 Type-check backend packages
+        id: backend_types
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: npm run backend:typecheck
+
+      - name: 🧪 Test backend, AI, database and localization
+        id: backend_tests
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: npm run backend:test
+
+      - name: 🧩 Type-check web and tooling
+        id: frontend_types
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: npm run typecheck
+
+      - name: 🖼️ Test web, UI and localization components
+        id: frontend_tests
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: npm run test
+
+      - name: 🦀 Test native shell and Rust doctests
+        id: native_tests
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just test
+
+      - name: 🛠️ Test development, desktop and release tooling
+        id: tooling_tests
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just tooling-test
+
+      - name: 🗃️ Check generated database schema
+        id: generated
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just gen-check
+
+      - name: 📚 Build Rust documentation
+        id: docs
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just docs
+
+      - name: 📦 Build web app
+        id: frontend_build
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: npm run build
+
+      - name: 🌍 Check landing page
+        id: landing
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just landing-check
+
+      - name: 📋 Summarize results
+        if: ${{ always() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+
+          steps = json.loads(os.environ['STEPS'])
+          labels = {
+            'setup': '🧰 Setup',
+            'shell': '🐚 Check shell scripts',
+            'format': '🎨 Check formatting',
+            'lint': '🔎 Lint Rust and TypeScript',
+            'dependencies': '🛡️ Audit Rust dependencies',
+            'backend_types': '🧩 Type-check backend packages',
+            'backend_tests': '🧪 Test backend, AI, database and localization',
+            'frontend_types': '🧩 Type-check web and tooling',
+            'frontend_tests': '🖼️ Test web, UI and localization components',
+            'native_tests': '🦀 Test native shell and Rust doctests',
+            'tooling_tests': '🛠️ Test development, desktop and release tooling',
+            'generated': '🗃️ Check generated database schema',
+            'docs': '📚 Build Rust documentation',
+            'frontend_build': '📦 Build web app',
+            'landing': '🌍 Check landing page',
+          }
+          icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('## ✨ Study CI\n\n')
+              summary.write('| Check | Result |\n| :--- | :--- |\n')
+              for key, label in labels.items():
+                  outcome = steps.get(key, {}).get('outcome', 'skipped')
+                  summary.write(f'| {label} | {icons.get(outcome, "❔")} {outcome} |\n')
+          PYTHON

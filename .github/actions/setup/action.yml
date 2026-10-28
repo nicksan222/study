@@ -11,6 +11,9 @@ inputs:
   tools:
     description: More tools for taiki-e/install-action, comma-separated.
     default: ''
+  target-dir:
+    description: Cargo build output directory to cache.
+    default: target
   optimize-dependencies:
     description: >-
       'false' builds dependencies unoptimized. Cargo.toml optimizes them even in dev builds so
@@ -21,7 +24,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install system packages
+    - name: 📚 Install system packages
       shell: bash
       env:
         PACKAGES: ${{ inputs.packages }}
@@ -33,38 +36,39 @@ runs:
           libssl-dev libzstd-dev libasound2-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
           libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev dbus-x11 \
           shellcheck minisign sway $PACKAGES
-    - name: Set up Node
+    - name: 💚 Set up Node
       uses: actions/setup-node@v4
       with:
         node-version: 26.8.2
         cache: npm
-    - name: Set up Bun
+    - name: 🥟 Set up Bun
       uses: oven-sh/setup-bun@v2
       with:
         bun-version-file: apps/landing/package.json
-    - name: Install frontend dependencies
+    - name: 📦 Install workspace dependencies
       shell: bash
       run: npm ci
-    - name: Install landing dependencies
+    - name: 🌍 Install landing dependencies
       shell: bash
       working-directory: apps/landing
       run: bun install --frozen-lockfile
-    - name: Install Rust
+    - name: 🦀 Install Rust
       shell: bash
       run: rustup toolchain install
-    - name: Install just
+    - name: ⚙️ Install just
       uses: taiki-e/install-action@v2
       with:
         tool: just@1.40.0${{ inputs.tools && format(',{0}', inputs.tools) || '' }}
-    - name: Build dependencies unoptimized
+    - name: 🚀 Configure fast dependency builds
       if: inputs.optimize-dependencies == 'false'
       shell: bash
       run: |
         mkdir -p ~/.cargo
         printf '[profile.dev.package."*"]\nopt-level = 0\n' >> ~/.cargo/config.toml
-    - name: Restore build cache
+    - name: ♻️ Restore build cache
       uses: Swatinem/rust-cache@v2
       with:
         # Every branch saves its own cache. A pull request's first run restores main's, so it
         # recompiles only what it changed; its later runs restore its own.
         key: optimize-dependencies-${{ inputs.optimize-dependencies }}
+        workspaces: . -> ${{ inputs.target-dir }}

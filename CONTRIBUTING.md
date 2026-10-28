@@ -10,8 +10,9 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, frontend type/tests/build, generated database drift,
-  tooling tests, backend package checks, and the website's Bun type check. CI runs the same
-  command in its required `Test and build` job.
+  tooling tests, backend package checks, and the website's Bun type check. CI runs equivalent gates as sequential, emoji-labeled steps in its required
+  `Test and build` job, with readable test output and a results table in the run summary.
+  After setup, every gate runs even if an earlier check fails.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an
@@ -70,7 +71,8 @@ frontend Vitest, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts`
 shared policies from `tooling/oxc-config`; these apply to backend, frontend, tests and tooling.
 Run `npm run format` to format, `npm run format:check` to check formatting, and `npm run lint`
 for the combined format/lint gate with warnings denied. Backend tests keep the actual Node
-runtime (`npm run backend:test`), and TypeScript checks keep `tsc`.
+runtime (`npm run backend:test`) with the spec reporter; frontend tests use the verbose
+Vitest reporter. TypeScript checks keep `tsc`.
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.
 Run `bun gen:check` to check generated database outputs
 without changing the database schema. The equivalent Just recipes are `just gen` and
