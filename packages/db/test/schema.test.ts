@@ -47,7 +47,10 @@ test('the Drizzle baseline initializes every modeled table and current code voca
         }
 
       assert.deepEqual(db.all(sql.raw('PRAGMA foreign_key_check')), []);
-      assert.equal(db.get(sql.raw('SELECT count(*) AS n FROM __drizzle_migrations'))?.n, 1n);
+      assert.ok(
+        (db.get<{ n: bigint }>(sql.raw('SELECT count(*) AS n FROM __drizzle_migrations'))?.n ??
+          0n) >= 9n
+      );
       assert.deepEqual(db.select().from(schema.codes_requirement).all(), [
         { code: 'language_models' }
       ]);

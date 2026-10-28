@@ -10,7 +10,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--popover, var(--card));
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+  box-shadow: 0 8px 24px var(--menu-shadow);
   color: var(--foreground);
   outline: none;
 }

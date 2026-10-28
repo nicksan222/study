@@ -177,3 +177,20 @@ test('manifest exports honor blocked exact and more specific patterns and condit
     ]
   );
 });
+
+test('the theme engine remains browser-safe while UI and backend can consume its public API', () => {
+  const diagnostics = lintRule(
+    'package-boundary',
+    {
+      'packages/theme/src/bad.ts':
+        "import { readFileSync } from 'node:fs'; export { readFileSync };",
+      'packages/ui/src/theme.ts': "export { parseTheme } from '@study/theme';",
+      'packages/backend/src/shared/themes/types.ts':
+        "export type { ThemeFile } from '@study/theme';"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.match(diagnostics[0]!.message, /cannot import Node builtins/);
+});

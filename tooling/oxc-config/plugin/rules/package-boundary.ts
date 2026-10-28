@@ -6,6 +6,7 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 const directories = {
   'packages/ui': '@study/ui',
+  'packages/theme': '@study/theme',
   'packages/localization': '@study/localization',
   'packages/db': '@study/db',
   'packages/ai': '@study/ai',
@@ -18,12 +19,13 @@ const directories = {
 type Owner = (typeof directories)[keyof typeof directories];
 
 const allowed: Record<Owner, readonly Owner[]> = {
-  '@study/ui': [],
+  '@study/ui': ['@study/theme'],
+  '@study/theme': [],
   '@study/localization': [],
-  '@study/db': [],
+  '@study/db': ['@study/theme'],
   '@study/ai': ['@study/localization'],
-  '@study/backend': ['@study/db', '@study/ai', '@study/localization'],
-  '@study/web': ['@study/ui', '@study/localization', '@study/backend'],
+  '@study/backend': ['@study/db', '@study/ai', '@study/localization', '@study/theme'],
+  '@study/web': ['@study/ui', '@study/localization', '@study/backend', '@study/theme'],
   '@study/desktop': [],
   'study-landing': []
 };
@@ -158,7 +160,7 @@ export default defineRule({
       }
 
       if (
-        (owner === '@study/web' || owner === '@study/ui') &&
+        (owner === '@study/web' || owner === '@study/ui' || owner === '@study/theme') &&
         context.filename.replaceAll('\\', '/').includes('/src/') &&
         !/\.(?:test|spec)\.[^/]+$|\/(?:test|tests|__tests__|test-support|testing)\//.test(
           context.filename.replaceAll('\\', '/')

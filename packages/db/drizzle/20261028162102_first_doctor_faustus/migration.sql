@@ -1,0 +1,1 @@
+ALTER TABLE `themes` ADD `builtin` integer DEFAULT false NOT NULL;

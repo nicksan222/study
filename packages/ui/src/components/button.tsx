@@ -13,6 +13,7 @@ const buttonVariants = cva(
       variant: 'default'
     },
     variants: {
+      layout: { navigation: 'w-full justify-start' },
       size: {
         compact:
           "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5",
@@ -38,11 +39,11 @@ const buttonVariants = cva(
       },
       variant: {
         default:
-          'not-disabled:inset-shadow-[0_1px_--theme(--color-white/16%)] border-primary bg-primary text-primary-foreground shadow-primary/24 shadow-xs [:active,[data-pressed]]:inset-shadow-[0_1px_--theme(--color-black/8%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-primary/90',
+          'not-disabled:inset-shadow-[0_1px_--theme(--color-media-foreground/16%)] border-primary bg-primary text-primary-foreground shadow-primary/24 shadow-xs [:active,[data-pressed]]:inset-shadow-[0_1px_--theme(--color-media-overlay/8%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-primary/90',
         destructive:
-          'not-disabled:inset-shadow-[0_1px_--theme(--color-white/16%)] border-destructive bg-destructive text-white shadow-destructive/24 shadow-xs [:active,[data-pressed]]:inset-shadow-[0_1px_--theme(--color-black/8%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-destructive/90',
+          'not-disabled:inset-shadow-[0_1px_--theme(--color-media-foreground/16%)] border-destructive bg-destructive text-control-on-destructive shadow-destructive/24 shadow-xs [:active,[data-pressed]]:inset-shadow-[0_1px_--theme(--color-media-overlay/8%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-destructive/90',
         'destructive-outline':
-          'border-input bg-popover not-dark:bg-clip-padding text-destructive-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] dark:bg-input/32 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-white/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-white/6%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:border-destructive/32 [:hover,[data-pressed]]:bg-destructive/4',
+          'border-input bg-popover not-dark:bg-clip-padding text-destructive-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-media-overlay/4%)] dark:bg-input/32 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-media-foreground/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-media-foreground/6%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:border-destructive/32 [:hover,[data-pressed]]:bg-destructive/4',
         ghost:
           '[--control-icon-color:var(--contrast-muted-foreground)] border-transparent text-foreground data-pressed:bg-accent [:hover,[data-pressed]]:bg-accent',
         'ghost-muted':
@@ -53,12 +54,13 @@ const buttonVariants = cva(
           'surface-glass [--control-icon-color:var(--contrast-muted-foreground)] rounded-full border-border/60 text-foreground shadow-sm before:rounded-full [:hover,[data-pressed]]:border-border',
         link: 'border-transparent underline-offset-4 [:hover,[data-pressed]]:underline',
         'media-close':
-          '[--control-icon-color:currentColor] border-transparent bg-black/65 text-white shadow-sm ring-1 ring-white/20 [:hover,[data-pressed]]:bg-black/80 focus-visible:ring-white',
+          '[--control-icon-color:currentColor] border-transparent bg-media-overlay/65 text-media-foreground shadow-sm ring-1 ring-media-foreground/20 [:hover,[data-pressed]]:bg-media-overlay/80 focus-visible:ring-media-foreground',
         'media-navigation':
-          '[--control-icon-color:currentColor] absolute top-1/2 z-20 -translate-y-1/2 border-transparent text-white/90 [:hover,[data-pressed]]:bg-white/10 [:hover,[data-pressed]]:text-white focus-visible:ring-white focus-visible:ring-offset-transparent',
+          '[--control-icon-color:currentColor] absolute top-1/2 z-20 -translate-y-1/2 border-transparent text-media-foreground/90 [:hover,[data-pressed]]:bg-media-foreground/10 [:hover,[data-pressed]]:text-media-foreground focus-visible:ring-media-foreground focus-visible:ring-offset-transparent',
         outline:
-          '[--control-icon-color:var(--contrast-muted-foreground)] border-input bg-popover not-dark:bg-clip-padding text-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] dark:bg-input/32 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-white/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-white/6%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-accent/50 dark:[:hover,[data-pressed]]:bg-input/64',
-        overlay: 'border-transparent bg-black/70 text-white/65 [:hover,[data-pressed]]:bg-black/90',
+          '[--control-icon-color:var(--contrast-muted-foreground)] border-input bg-popover not-dark:bg-clip-padding text-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-media-overlay/4%)] dark:bg-input/32 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-media-foreground/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-media-foreground/6%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-accent/50 dark:[:hover,[data-pressed]]:bg-input/64',
+        overlay:
+          'border-transparent bg-media-overlay/70 text-media-foreground/65 [:hover,[data-pressed]]:bg-media-overlay/90',
         secondary:
           'border-transparent bg-secondary text-secondary-foreground [:active,[data-pressed]]:bg-secondary/80 [:hover,[data-pressed]]:bg-secondary/90',
         'warning-outline':
@@ -75,15 +77,16 @@ type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>['size']>;
 interface ButtonProps extends useRender.ComponentProps<'button'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  layout?: 'navigation';
 }
 
-function Button({ className, variant, size, render, ...props }: ButtonProps) {
+function Button({ className, variant, size, layout, render, ...props }: ButtonProps) {
   const typeValue: React.ButtonHTMLAttributes<HTMLButtonElement>['type'] = render
     ? undefined
     : 'button';
 
   const defaultProps = {
-    className: cn(buttonVariants({ className, size, variant })),
+    className: cn(buttonVariants({ className, size, variant, layout })),
     'data-slot': 'button',
     type: typeValue
   };

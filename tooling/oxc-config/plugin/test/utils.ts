@@ -55,7 +55,7 @@ export function lintFiles(
       });
       symlinkSync(join(root, 'node_modules'), join(directory, 'node_modules'), 'dir');
 
-      for (const name of ['ui', 'localization', 'db', 'ai', 'backend']) {
+      for (const name of ['ui', 'theme', 'localization', 'db', 'ai', 'backend']) {
         const path = join(directory, 'packages', name, 'package.json');
 
         mkdirSync(dirname(path), { recursive: true });

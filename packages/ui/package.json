@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./theme": "./src/theme.ts",
+    "./theme.css": "./src/theme.css",
     "./styles.css": "./src/styles.css",
     "./utils": "./src/utils.ts",
     "./visible-animation": "./src/visible-animation.ts",
@@ -12,6 +14,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@study/theme": "*",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^1.61.0",
     "tailwind-merge": "^3.7.0"
