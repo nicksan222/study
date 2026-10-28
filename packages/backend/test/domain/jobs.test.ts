@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 
-import { createSession as opCreateSession } from '#backend/procedures/conversations/create-session';
-import { postMessage as opPostMessage } from '#backend/procedures/conversations/post-message';
-import { requestReply as opRequestReply } from '#backend/procedures/conversations/reanswer';
-import { cancelJob as opCancelJob } from '#backend/procedures/jobs/cancel-job';
-import { job as opJob } from '#backend/procedures/jobs/job';
-import { listJobs as opListJobs } from '#backend/procedures/jobs/job-overviews';
-import { retryJob as opRetryJob } from '#backend/procedures/jobs/retry-job';
+import { createSession as opCreateSession } from '#backend/procedures/conversations/operations/create-session';
+import { postMessage as opPostMessage } from '#backend/procedures/conversations/operations/post-message';
+import { requestReply as opRequestReply } from '#backend/procedures/conversations/operations/reanswer';
+import { cancelJob as opCancelJob } from '#backend/procedures/jobs/operations/cancel-job';
+import { job as opJob } from '#backend/procedures/jobs/operations/job';
+import { listJobs as opListJobs } from '#backend/procedures/jobs/operations/job-overviews';
+import { retryJob as opRetryJob } from '#backend/procedures/jobs/operations/retry-job';
 import {
   enqueueJob as opEnqueueJob,
   claimJob as opClaimJob,
@@ -19,20 +17,21 @@ import {
   failJob as opFailJob,
   releaseWaiting as opReleaseWaiting
 } from '#backend/procedures/jobs/worker';
-import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/update-material';
-import { listQuestions as opListQuestions } from '#backend/procedures/practice/practice';
-import { createPractice as opCreatePractice } from '#backend/procedures/practice/project-practice';
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
-import { addLink as opAddLink } from '#backend/procedures/sources/add-link';
-import { correctBlock as opCorrectBlock } from '#backend/procedures/sources/correct-block';
-import { createNote as opCreateNote } from '#backend/procedures/sources/create-note';
-import { deleteSource as opDeleteSource } from '#backend/procedures/sources/delete-source';
+import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/operations/update-material';
+import { listQuestions as opListQuestions } from '#backend/procedures/practice/operations/practice';
+import { createPractice as opCreatePractice } from '#backend/procedures/practice/operations/project-practice';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { addLink as opAddLink } from '#backend/procedures/sources/operations/add-link';
+import { correctBlock as opCorrectBlock } from '#backend/procedures/sources/operations/correct-block';
+import { createNote as opCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { deleteSource as opDeleteSource } from '#backend/procedures/sources/operations/delete-source';
 import {
   saveDocument as opSaveDocument,
   saveRead as opSaveRead,
   documentOf as opDocumentOf
-} from '#backend/procedures/sources/source-document';
+} from '#backend/procedures/sources/operations/source-document';
 import { BackendContext } from '#backend/runtime/context';
+import { createBackendTest } from '#testing/backend-test';
 
 const emptyDocument = {
   blocks: [],
@@ -48,21 +47,20 @@ const emptyDocument = {
   }
 };
 
-function fixture(fn: (store: BackendContext, path: string) => void) {
-  const dir = mkdtempSync(join(tmpdir(), 'study-jobs-')),
-    path = join(dir, 'db');
-  const store = BackendContext.open(path);
+function fixture(t: TestContext, fn: (store: BackendContext, path: string) => void) {
+  const testDatabase = createBackendTest(t, { app: false }),
+    path = testDatabase.path;
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
 
   try {
     fn(store, path);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 }
 
-test('jobs are durable, deduplicated, claimed and dependencies released', () =>
-  fixture((store, path) => {
+test('jobs are durable, deduplicated, claimed and dependencies released', (t) =>
+  fixture(t, (store, path) => {
     const src = opCreateNote(store, 'n', 'body');
     const job = opEnqueueJob(store, {
       kind: 'extract',
@@ -86,13 +84,13 @@ test('jobs are durable, deduplicated, claimed and dependencies released', () =>
     assert.equal(opClaimJob(store, ['extract'])?.id, job);
     assert.equal(opFinishJob(store, job, 1n), true);
     assert.equal(opJob(store, dep)?.status, 'queued');
-    const other = BackendContext.open(path);
+    const other = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
 
     assert.equal(opJob(other, job)?.status, 'succeeded');
     other.close();
   }));
-test('job events occur only after outer commit and are discarded on rollback', () =>
-  fixture((store) => {
+test('job events occur only after outer commit and are discarded on rollback', (t) =>
+  fixture(t, (store) => {
     const source = opCreateNote(store, 'n', 'body');
     const events: undefined[] = [];
 
@@ -119,8 +117,8 @@ test('job events occur only after outer commit and are discarded on rollback', (
     });
     assert.deepEqual(events, [undefined]);
   }));
-test('cancels, retries, and recovers interrupted claims', () =>
-  fixture((store) => {
+test('cancels, retries, and recovers interrupted claims', (t) =>
+  fixture(t, (store) => {
     const src = opCreateNote(store, 'n', 'body');
     const id = opEnqueueJob(store, {
       kind: 'extract',
@@ -136,8 +134,8 @@ test('cancels, retries, and recovers interrupted claims', () =>
     assert.equal(opRetryJob(store, id), true);
     assert.equal(opJob(store, id)?.status, 'queued');
   }));
-test('failed jobs retain classified errors and can wait for sign-in', () =>
-  fixture((store) => {
+test('failed jobs retain classified errors and can wait for sign-in', (t) =>
+  fixture(t, (store) => {
     const src = opCreateNote(store, 'n', 'body');
     const id = opEnqueueJob(store, {
       kind: 'extract',
@@ -168,8 +166,8 @@ test('failed jobs retain classified errors and can wait for sign-in', () =>
     assert.equal(opJob(store, id)?.status, 'failed');
     assert.equal(opJob(store, id)?.errorKind, 'invalid_input');
   }));
-test('correction cancels in-flight extraction so stale read cannot overwrite it', () =>
-  fixture((store) => {
+test('correction cancels in-flight extraction so stale read cannot overwrite it', (t) =>
+  fixture(t, (store) => {
     const src = opCreateNote(store, 'n', 'body');
     const doc = {
       blocks: [
@@ -204,8 +202,8 @@ test('correction cancels in-flight extraction so stale read cannot overwrite it'
     assert.equal(opSaveRead(store, job, 1n, src.id, doc), null);
     assert.equal(opDocumentOf(store, src.id)?.document.blocks[0].text, 'new');
   }));
-test('an earlier attempt cannot finish or save after recovery and re-claim', () =>
-  fixture((store) => {
+test('an earlier attempt cannot finish or save after recovery and re-claim', (t) =>
+  fixture(t, (store) => {
     const src = opCreateNote(store, 'n', 'body');
     const job = opEnqueueJob(store, {
       kind: 'extract',
@@ -236,8 +234,8 @@ test('an earlier attempt cannot finish or save after recovery and re-claim', () 
     assert.notEqual(opSaveRead(store, job, second.attempts, src.id, doc), null);
     assert.equal(opFinishJob(store, job, second.attempts), true);
   }));
-test('running work cannot acquire dependencies that create cycles', () =>
-  fixture((store) => {
+test('running work cannot acquire dependencies that create cycles', (t) =>
+  fixture(t, (store) => {
     const s = opCreateNote(store, 'n', 'x');
     const a = opEnqueueJob(store, {
       kind: 'extract',
@@ -261,8 +259,8 @@ test('running work cannot acquire dependencies that create cycles', () =>
     opRecoverJobs(store);
     assert.equal(opJob(store, b)?.status, 'blocked');
   }));
-test('missing dependencies are rejected, terminal dependencies do not block', () =>
-  fixture((store) => {
+test('missing dependencies are rejected, terminal dependencies do not block', (t) =>
+  fixture(t, (store) => {
     const s = opCreateNote(store, 'n', 'x');
 
     assert.throws(() =>
@@ -286,8 +284,8 @@ test('missing dependencies are rejected, terminal dependencies do not block', ()
 
     assert.equal(opJob(store, b)?.status, 'queued');
   }));
-test('retry reblocks queued dependents and rejects retry after dependent starts', () =>
-  fixture((store) => {
+test('retry reblocks queued dependents and rejects retry after dependent starts', (t) =>
+  fixture(t, (store) => {
     const s = opCreateNote(store, 'n', 'x');
     const a = opEnqueueJob(store, {
       kind: 'extract',
@@ -307,8 +305,8 @@ test('retry reblocks queued dependents and rejects retry after dependent starts'
     assert.equal(opClaimJob(store, ['index'])?.id, b);
     assert.equal(opRetryJob(store, a), false);
   }));
-test('deleting a prerequisite target releases and notifies surviving dependent', () =>
-  fixture((store) => {
+test('deleting a prerequisite target releases and notifies surviving dependent', (t) =>
+  fixture(t, (store) => {
     const a = opCreateNote(store, 'a', 'a'),
       b = opCreateNote(store, 'b', 'b');
     const first = opEnqueueJob(store, {
@@ -327,8 +325,8 @@ test('deleting a prerequisite target releases and notifies surviving dependent',
     assert.equal(opJob(store, second)?.status, 'queued');
     assert.ok(events.length > 0);
   }));
-test('retryable failures with delay remain queued until due', () =>
-  fixture((store) => {
+test('retryable failures with delay remain queued until due', (t) =>
+  fixture(t, (store) => {
     const source = opCreateNote(store, 'n', 'body'),
       id = opEnqueueJob(store, {
         kind: 'fetch',
@@ -347,8 +345,8 @@ test('retryable failures with delay remain queued until due', () =>
     assert.equal(opJob(store, id)?.status, 'queued');
     assert.equal(opClaimJob(store, ['fetch']), null);
   }));
-test('rejected cycle remains safe when a running job waits for sign in', () =>
-  fixture((store) => {
+test('rejected cycle remains safe when a running job waits for sign in', (t) =>
+  fixture(t, (store) => {
     const s = opCreateNote(store, 'n', 'body'),
       a = opEnqueueJob(store, {
         kind: 'extract',
@@ -380,8 +378,8 @@ test('rejected cycle remains safe when a running job waits for sign in', () =>
     opFinishJob(store, a, 2n);
     assert.equal(opJob(store, b)?.status, 'queued');
   }));
-test('document replacement reconciles jobs and nested rollback suppresses events', () =>
-  fixture((store) => {
+test('document replacement reconciles jobs and nested rollback suppresses events', (t) =>
+  fixture(t, (store) => {
     const a = opCreateNote(store, 'a', 'a'),
       b = opCreateNote(store, 'b', 'b');
     const doc = {
@@ -431,8 +429,8 @@ test('document replacement reconciles jobs and nested rollback suppresses events
     assert.equal(opJob(store, dep)?.status, 'queued');
     assert.ok(events.length > 0);
   }));
-test('retry refuses a terminal job when the same work is already running', () =>
-  fixture((store) => {
+test('retry refuses a terminal job when the same work is already running', (t) =>
+  fixture(t, (store) => {
     const s = opCreateNote(store, 'n', 'body'),
       first = opEnqueueJob(store, {
         kind: 'extract',
@@ -450,8 +448,8 @@ test('retry refuses a terminal job when the same work is already running', () =>
     assert.equal(opRetryJob(store, first), false);
   }));
 
-test('fetch dependents wait through the extraction handoff', () =>
-  fixture((store) => {
+test('fetch dependents wait through the extraction handoff', (t) =>
+  fixture(t, (store) => {
     const p = opCreateProject(store, 'P'),
       session = opCreateSession(store, p.id, 'S');
     const source = opAddLink(store, p.id, 'https://example.com/lecture');
@@ -485,8 +483,8 @@ test('fetch dependents wait through the extraction handoff', () =>
     assert.ok(opClaimJob(store, ['question']));
   }));
 
-test('an extraction handoff cannot introduce a cycle through a consumer', () =>
-  fixture((store) => {
+test('an extraction handoff cannot introduce a cycle through a consumer', (t) =>
+  fixture(t, (store) => {
     const source = opAddLink(store, null, 'https://example.com');
     const fetch = opEnqueueJob(store, {
       kind: 'fetch',

@@ -8,23 +8,23 @@ import {
 } from '@study/ai';
 import { sql } from 'drizzle-orm';
 
-import { listSessions as opListSessions } from '#backend/procedures/conversations/all-sessions';
+import { listSessions as opListSessions } from '#backend/procedures/conversations/operations/all-sessions';
 import {
   listMessages as opListMessages,
   message as opMessage,
   versionCitations as opVersionCitations
-} from '#backend/procedures/conversations/messages';
+} from '#backend/procedures/conversations/operations/messages';
 import {
   replaceWithGeneratedTitle as opReplaceWithGeneratedTitle,
   setGeneratedTitle as opSetGeneratedTitle
-} from '#backend/procedures/conversations/regenerate-title';
-import { session as opSession } from '#backend/procedures/conversations/session';
-import { thread as opThread } from '#backend/procedures/conversations/thread';
+} from '#backend/procedures/conversations/operations/regenerate-title';
+import { session as opSession } from '#backend/procedures/conversations/operations/session';
+import { thread as opThread } from '#backend/procedures/conversations/operations/thread';
 import {
   beginVersion as opBeginVersion,
   finishVersion as opFinishVersion
 } from '#backend/procedures/conversations/versions';
-import { job as opJob } from '#backend/procedures/jobs/job';
+import { job as opJob } from '#backend/procedures/jobs/operations/job';
 import {
   recoverJobs as opRecoverJobs,
   claimJob as opClaimJob,
@@ -32,32 +32,32 @@ import {
   failJob as opFailJob,
   enqueueJob as opEnqueueJob
 } from '#backend/procedures/jobs/worker';
-import { artifact as opArtifact } from '#backend/procedures/material/artifact';
 import { finishMaterial as opFinishMaterial } from '#backend/procedures/material/finish-material';
+import { artifact as opArtifact } from '#backend/procedures/material/operations/artifact';
 import { finishGrade as opFinishGrade } from '#backend/procedures/practice/finish-grade';
 import { finishQuestion as opFinishQuestion } from '#backend/procedures/practice/finish-question';
 import {
   question as opQuestion,
   listQuestions as opListQuestions
-} from '#backend/procedures/practice/practice';
-import { listPractices as opListPractices } from '#backend/procedures/practice/practices';
-import { language } from '#backend/procedures/settings/get-app-settings';
-import { model as readModel } from '#backend/procedures/settings/get-llm-settings';
+} from '#backend/procedures/practice/operations/practice';
+import { listPractices as opListPractices } from '#backend/procedures/practice/operations/practices';
+import { language } from '#backend/procedures/settings/operations/get-app-settings';
+import { model as readModel } from '#backend/procedures/settings/operations/get-llm-settings';
 import { loadPreferences as opLoadPreferences } from '#backend/procedures/settings/preferences';
 import { fetchPage } from '#backend/procedures/sources/fetch';
-import { readSource, readerFor } from '#backend/procedures/sources/readers/read';
 import {
   source as opSource,
   storeFetched as opStoreFetched,
   readSourceBounded as opReadSourceBounded
-} from '#backend/procedures/sources/source';
+} from '#backend/procedures/sources/operations/source';
 import {
   saveRead as opSaveRead,
   document as opDocument
-} from '#backend/procedures/sources/source-document';
-import { listSources as opListSources } from '#backend/procedures/sources/sources';
+} from '#backend/procedures/sources/operations/source-document';
+import { listSources as opListSources } from '#backend/procedures/sources/operations/sources';
+import { readSource, readerFor } from '#backend/procedures/sources/readers/read';
 import { replacePassages as opReplacePassages } from '#backend/procedures/system/index';
-import { search as opSearch } from '#backend/procedures/system/search';
+import { search as opSearch } from '#backend/procedures/system/operations/search';
 import { classifyError, StudyError } from '#backend/shared/errors/index';
 import type { ProjectId } from '#backend/shared/ids';
 import type { VersionId } from '#backend/shared/ids';

@@ -1,31 +1,29 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { createSession as opCreateSession } from '#backend/procedures/conversations/create-session';
-import { deleteSession as opDeleteSession } from '#backend/procedures/conversations/delete-session';
-import { editMessage as opEditMessage } from '#backend/procedures/conversations/edit-message';
-import { postMessage as opPostMessage } from '#backend/procedures/conversations/post-message';
-import { replaceWithGeneratedTitle as opReplaceWithGeneratedTitle } from '#backend/procedures/conversations/regenerate-title';
+import { createSession as opCreateSession } from '#backend/procedures/conversations/operations/create-session';
+import { deleteSession as opDeleteSession } from '#backend/procedures/conversations/operations/delete-session';
+import { editMessage as opEditMessage } from '#backend/procedures/conversations/operations/edit-message';
+import { postMessage as opPostMessage } from '#backend/procedures/conversations/operations/post-message';
+import { replaceWithGeneratedTitle as opReplaceWithGeneratedTitle } from '#backend/procedures/conversations/operations/regenerate-title';
 import { claimJob as opClaimJob } from '#backend/procedures/jobs/worker';
 import { finishMaterial as opFinishMaterial } from '#backend/procedures/material/finish-material';
-import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/update-material';
+import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/operations/update-material';
 import { finishQuestion as opFinishQuestion } from '#backend/procedures/practice/finish-question';
-import { listQuestions as opListQuestions } from '#backend/procedures/practice/practice';
-import { createPractice as opCreatePractice } from '#backend/procedures/practice/project-practice';
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
-import { deleteProject as opDeleteProject } from '#backend/procedures/projects/delete-project';
-import { createNote as opCreateNote } from '#backend/procedures/sources/create-note';
-import { saveDocument as opSaveDocument } from '#backend/procedures/sources/source-document';
+import { listQuestions as opListQuestions } from '#backend/procedures/practice/operations/practice';
+import { createPractice as opCreatePractice } from '#backend/procedures/practice/operations/project-practice';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { deleteProject as opDeleteProject } from '#backend/procedures/projects/operations/delete-project';
+import { createNote as opCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { saveDocument as opSaveDocument } from '#backend/procedures/sources/operations/source-document';
 import { replacePassages as opReplacePassages } from '#backend/procedures/system/index';
-import { search as opSearch } from '#backend/procedures/system/search';
+import { search as opSearch } from '#backend/procedures/system/operations/search';
 import { BackendContext } from '#backend/runtime/context';
+import { createBackendTest } from '#testing/backend-test';
 
-test('lexical FTS searches accented passages and active messages with filters and cascades', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-search-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('lexical FTS searches accented passages and active messages with filters and cascades', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'Biology'),
@@ -82,12 +80,11 @@ test('lexical FTS searches accented passages and active messages with filters an
     assert.equal(opSearch(store, 'citta', {}).length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('catalog FTS finds project source material and question text', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-search-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('catalog FTS finds project source material and question text', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'Anatomy'),
@@ -97,12 +94,11 @@ test('catalog FTS finds project source material and question text', () => {
     assert.equal(opSearch(store, 'unusual', { kinds: ['source'] })[0].target.id, src.id);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('FTS tracks material and question content and project deletion', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-search-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('FTS tracks material and question content and project deletion', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'Biology'),
@@ -148,12 +144,11 @@ test('FTS tracks material and question content and project deletion', () => {
     assert.equal(opSearch(store, 'osmosis', {}).length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('invalid passage ranges roll back and preserve the previous index', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-index-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('invalid passage ranges roll back and preserve the previous index', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -199,13 +194,12 @@ test('invalid passage ranges roll back and preserve the previous index', () => {
     assert.equal(opSearch(store, 'mitochondria', { projectId: p.id }).length, 1);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('session titles are searchable and follow renames and deletion', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-session-search-'));
-  const store = BackendContext.open(join(dir, 'db'));
+test('session titles are searchable and follow renames and deletion', (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P');
@@ -220,13 +214,12 @@ test('session titles are searchable and follow renames and deletion', () => {
     assert.equal(opSearch(store, 'respiration').length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('partial search matches token prefixes and fragments within names', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-partial-search-'));
-  const store = BackendContext.open(join(dir, 'db'));
+test('partial search matches token prefixes and fragments within names', (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const project = opCreateProject(store, 'Photosynthesis');
@@ -286,6 +279,5 @@ test('partial search matches token prefixes and fragments within names', () => {
     assert.equal(opSearch(store, 'Photo_100%', { kinds: ['session'] }).length, 1);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });

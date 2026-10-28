@@ -8,9 +8,9 @@ import type { ArtifactId } from '#backend/shared/ids';
 import { validateCitations } from '#backend/shared/sources/citations';
 import type { ArtifactBody } from '#backend/shared/study/types';
 
-import { now, text, artifact as opArtifact, cards as opCards } from './artifact.ts';
 import type { CanonicalCitationInput } from './canonical.ts';
 import { canonicalEvidence, writeCanonicalVersion, syncCanonicalArtifact } from './canonical.ts';
+import { now, text, artifact as opArtifact, cards as opCards } from './operations/artifact.ts';
 
 export function finishMaterial(
   ctx: BackendContext,

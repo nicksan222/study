@@ -1,72 +1,70 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, statSync, chmodSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { statSync, chmodSync } from 'node:fs';
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 
-import { listSessions as opListSessions } from '#backend/procedures/conversations/all-sessions';
-import { createSession as opCreateSession } from '#backend/procedures/conversations/create-session';
-import { createUntitledSession as opCreateUntitledSession } from '#backend/procedures/conversations/create-untitled-session';
-import { deleteSession as opDeleteSession } from '#backend/procedures/conversations/delete-session';
+import { sql } from 'drizzle-orm';
+
+import { listSessions as opListSessions } from '#backend/procedures/conversations/operations/all-sessions';
+import { createSession as opCreateSession } from '#backend/procedures/conversations/operations/create-session';
+import { createUntitledSession as opCreateUntitledSession } from '#backend/procedures/conversations/operations/create-untitled-session';
+import { deleteSession as opDeleteSession } from '#backend/procedures/conversations/operations/delete-session';
 import {
   setGeneratedTitle as opSetGeneratedTitle,
   replaceWithGeneratedTitle as opReplaceWithGeneratedTitle
-} from '#backend/procedures/conversations/regenerate-title';
-import { session as opSession } from '#backend/procedures/conversations/session';
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
-import { deleteProject as opDeleteProject } from '#backend/procedures/projects/delete-project';
+} from '#backend/procedures/conversations/operations/regenerate-title';
+import { session as opSession } from '#backend/procedures/conversations/operations/session';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { deleteProject as opDeleteProject } from '#backend/procedures/projects/operations/delete-project';
 import {
   listProjects as opListProjects,
   project as opProject
-} from '#backend/procedures/projects/projects';
-import { renameProject as opRenameProject } from '#backend/procedures/projects/rename-project';
-import { setExam as opSetExam } from '#backend/procedures/projects/set-exam';
-import { addLink as opAddLink } from '#backend/procedures/sources/add-link';
-import { createNote as opCreateNote } from '#backend/procedures/sources/create-note';
-import { deleteSource as opDeleteSource } from '#backend/procedures/sources/delete-source';
+} from '#backend/procedures/projects/operations/read-projects';
+import { renameProject as opRenameProject } from '#backend/procedures/projects/operations/rename-project';
+import { setExam as opSetExam } from '#backend/procedures/projects/operations/set-exam';
+import { addLink as opAddLink } from '#backend/procedures/sources/operations/add-link';
+import { createNote as opCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { deleteSource as opDeleteSource } from '#backend/procedures/sources/operations/delete-source';
 import {
   storeFetched as opStoreFetched,
   source as opSource
-} from '#backend/procedures/sources/source';
-import { saveDocument as opSaveDocument } from '#backend/procedures/sources/source-document';
-import { listSources as opListSources } from '#backend/procedures/sources/sources';
+} from '#backend/procedures/sources/operations/source';
+import { saveDocument as opSaveDocument } from '#backend/procedures/sources/operations/source-document';
+import { listSources as opListSources } from '#backend/procedures/sources/operations/sources';
 import { BackendContext } from '#backend/runtime/context';
 import { StudyError } from '#backend/shared/errors/index';
+import { createBackendTest } from '#testing/backend-test';
 
-function fixture(fn: (path: string) => void) {
-  const dir = mkdtempSync(join(tmpdir(), 'study-backend-'));
+function fixture(t: TestContext, fn: (path: string) => void) {
+  const testDatabase = createBackendTest(t, { app: false });
 
-  try {
-    fn(join(dir, 'study.sqlite3'));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  fn(testDatabase.path);
 }
 
-test('opens a private WAL database and reopens it', () =>
-  fixture((path) => {
-    const store = BackendContext.open(path);
-    const raw = new DatabaseSync(path);
+test('opens a private WAL database and reopens it', (t) =>
+  fixture(t, (path) => {
+    const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
 
-    assert.equal(raw.prepare('pragma journal_mode').get()?.journal_mode, 'wal');
+    assert.equal(
+      store.db.orm.get<{ journal_mode: string }>(sql`pragma journal_mode`)?.journal_mode,
+      'wal'
+    );
 
     if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
 
-    raw.close();
     store.close();
 
     if (process.platform !== 'win32') {
       chmodSync(path, 0o644);
-      const reopened = BackendContext.open(path);
+      const reopened = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
 
       assert.equal(statSync(path).mode & 0o777, 0o600);
       reopened.close();
     }
   }));
-test('projects persist, validate names, and roll back transactions', () =>
-  fixture((path) => {
-    let store = BackendContext.open(path);
+test('projects persist, validate names, and roll back transactions', (t) =>
+  fixture(t, (path) => {
+    let store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
     const a = opCreateProject(store, '  Biology  ');
     const b = opCreateProject(store, 'Biology');
 
@@ -86,16 +84,16 @@ test('projects persist, validate names, and roll back transactions', () =>
     assert.equal(opRenameProject(store, a.id, ' New '), true);
     assert.equal(opSetExam(store, a.id, '2026-10-20'), true);
     store.close();
-    store = BackendContext.open(path);
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
     assert.equal(opProject(store, a.id)?.name, 'New');
     assert.equal(opProject(store, a.id)?.examOn, '2026-10-20');
     assert.equal(opDeleteProject(store, a.id), true);
     assert.equal(opDeleteProject(store, a.id), false);
     store.close();
   }));
-test('session title provenance and project cascade', () =>
-  fixture((path) => {
-    const store = BackendContext.open(path);
+test('session title provenance and project cascade', (t) =>
+  fixture(t, (path) => {
+    const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
     const project = opCreateProject(store, 'Biology');
     const first = opCreateUntitledSession(store, project.id, ' draft ');
     const second = opCreateSession(store, project.id, ' Cells ');
@@ -113,9 +111,9 @@ test('session title provenance and project cascade', () =>
     assert.equal(opSession(store, first.id), null);
     store.close();
   }));
-test('deleted subjects never reuse ids for stale work', () =>
-  fixture((path) => {
-    const store = BackendContext.open(path);
+test('deleted subjects never reuse ids for stale work', (t) =>
+  fixture(t, (path) => {
+    const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
     const p = opCreateProject(store, 'P');
     const old = opCreateUntitledSession(store, p.id, 'old');
 
@@ -144,9 +142,9 @@ test('deleted subjects never reuse ids for stale work', () =>
     assert.equal(opSource(store, next.id)?.kind, 'link');
     store.close();
   }));
-test('validation uses classified invalid input and leaves data intact', () =>
-  fixture((path) => {
-    const store = BackendContext.open(path);
+test('validation uses classified invalid input and leaves data intact', (t) =>
+  fixture(t, (path) => {
+    const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
     const p = opCreateProject(store, 'P');
     const s = opCreateSession(store, p.id, 'S');
 
@@ -163,9 +161,9 @@ test('validation uses classified invalid input and leaves data intact', () =>
     assert.equal(opSession(store, s.id)?.title, 'S');
     store.close();
   }));
-test('nested writes roll back with outer transaction', () =>
-  fixture((path) => {
-    const store = BackendContext.open(path);
+test('nested writes roll back with outer transaction', (t) =>
+  fixture(t, (path) => {
+    const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
     let reached = false;
 
     assert.throws(() =>
@@ -194,9 +192,9 @@ test('nested writes roll back with outer transaction', () =>
     assert.equal(opListSources(store).length, 0);
     store.close();
   }));
-test('async transaction callbacks cannot write after rollback', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-async-'));
-  const store = BackendContext.open(join(dir, 'study.sqlite3'));
+test('async transaction callbacks cannot write after rollback', async (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     let invoked = false;
@@ -229,12 +227,11 @@ test('async transaction callbacks cannot write after rollback', async () => {
     assert.equal(opListProjects(store).length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('a failed nested savepoint can be caught without losing outer writes', () =>
-  fixture((path) => {
-    const store = BackendContext.open(path);
+test('a failed nested savepoint can be caught without losing outer writes', (t) =>
+  fixture(t, (path) => {
+    const store = createBackendTest(t, { app: false }).manage(BackendContext.open(path));
 
     store.transaction(() => {
       opCreateProject(store, 'kept');

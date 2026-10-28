@@ -11,7 +11,7 @@ import type { QuestionId, JobId } from '#backend/shared/ids';
 import { validateCitations } from '#backend/shared/sources/citations';
 import type { PracticeBody } from '#backend/shared/study/types';
 
-import { question as opQuestion, topUpPractice as opTopUpPractice } from './practice.ts';
+import { question as opQuestion, topUpPractice as opTopUpPractice } from './operations/practice.ts';
 
 export function questionJobRunning(
   ctx: BackendContext,

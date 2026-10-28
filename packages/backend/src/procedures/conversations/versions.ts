@@ -4,8 +4,8 @@ import type { BackendContext } from '#backend/runtime/context';
 import type { VersionId, JobId } from '#backend/shared/ids';
 import type { Citation } from '#backend/shared/sources/citations';
 
-import { writeCitations as opWriteCitations } from './edit-message.ts';
-import { now, normalizeText } from './post-message.ts';
+import { writeCitations as opWriteCitations } from './operations/edit-message.ts';
+import { now, normalizeText } from './operations/post-message.ts';
 
 export function beginVersion(
   ctx: BackendContext,

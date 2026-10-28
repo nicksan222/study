@@ -1,42 +1,43 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { createSession as opCreateSession } from '#backend/procedures/conversations/create-session';
-import { editMessage as opEditMessage } from '#backend/procedures/conversations/edit-message';
-import { postMessage as opPostMessage } from '#backend/procedures/conversations/post-message';
-import { job as opJob } from '#backend/procedures/jobs/job';
+import { createSession as opCreateSession } from '#backend/procedures/conversations/operations/create-session';
+import { editMessage as opEditMessage } from '#backend/procedures/conversations/operations/edit-message';
+import { postMessage as opPostMessage } from '#backend/procedures/conversations/operations/post-message';
+import { job as opJob } from '#backend/procedures/jobs/operations/job';
 import {
   claimJob as opClaimJob,
   finishJob as opFinishJob,
   recoverJobs as opRecoverJobs,
   enqueueJob as opEnqueueJob
 } from '#backend/procedures/jobs/worker';
-import { cards as opCards, artifact as opArtifact } from '#backend/procedures/material/artifact';
 import { finishMaterial as opFinishMaterial } from '#backend/procedures/material/finish-material';
-import { materialChanges as opMaterialChanges } from '#backend/procedures/material/material-changes';
+import {
+  cards as opCards,
+  artifact as opArtifact
+} from '#backend/procedures/material/operations/artifact';
+import { materialChanges as opMaterialChanges } from '#backend/procedures/material/operations/material-changes';
 import {
   updateCard as opUpdateCard,
   deleteCard as opDeleteCard
-} from '#backend/procedures/material/set-card';
-import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/update-material';
-import { dueCards as opDueCards } from '#backend/procedures/practice/due-cards';
+} from '#backend/procedures/material/operations/set-card';
+import { requestMaterial as opRequestMaterial } from '#backend/procedures/material/operations/update-material';
+import { dueCards as opDueCards } from '#backend/procedures/practice/operations/due-cards';
 import {
   countDueCards as opCountDueCards,
   newCardsSince as opNewCardsSince
-} from '#backend/procedures/practice/due-count';
-import { reviewCard as opReviewCard } from '#backend/procedures/practice/review';
-import { reviewTimes as opReviewTimes } from '#backend/procedures/practice/review-times';
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
-import { createNote as opCreateNote } from '#backend/procedures/sources/create-note';
-import { deleteSource as opDeleteSource } from '#backend/procedures/sources/delete-source';
+} from '#backend/procedures/practice/operations/due-count';
+import { reviewCard as opReviewCard } from '#backend/procedures/practice/operations/review';
+import { reviewTimes as opReviewTimes } from '#backend/procedures/practice/operations/review-times';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { createNote as opCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { deleteSource as opDeleteSource } from '#backend/procedures/sources/operations/delete-source';
 import { BackendContext } from '#backend/runtime/context';
+import { createBackendTest } from '#testing/backend-test';
 
-test('materials finish on their current attempt and cards keep review scheduling', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-material-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('materials finish on their current attempt and cards keep review scheduling', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -70,12 +71,11 @@ test('materials finish on their current attempt and cards keep review scheduling
     assert.equal(opCards(store, created.artifactId).length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('editing cards invalidates in-flight material updates', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-material-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('editing cards invalidates in-flight material updates', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -108,12 +108,11 @@ test('editing cards invalidates in-flight material updates', () => {
     assert.equal(opCards(store, first.artifactId)[0].front, 'edit');
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('card changes update material body and retained cards keep review history', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-material-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('card changes update material body and retained cards keep review history', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -160,12 +159,11 @@ test('card changes update material body and retained cards keep review history',
     if (empty?.type === 'flashcards') assert.equal(empty.cards.length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('all review grades persist and due filtering uses the scheduled time', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-grades-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('all review grades persist and due filtering uses the scheduled time', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -203,12 +201,11 @@ test('all review grades persist and due filtering uses the scheduled time', () =
     assert.equal(opDueCards(store, p.id, t + 365n * 86400n).length, 4);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('stale artifact attempt and invalid citations cannot overwrite or finish work', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-material-fence-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('stale artifact attempt and invalid citations cannot overwrite or finish work', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -236,12 +233,11 @@ test('stale artifact attempt and invalid citations cannot overwrite or finish wo
     assert.equal(opFinishMaterial(store, a.artifactId, a.jobId, 2n, body, []), true);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('material change counts track source and note additions and edits', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-material-changes-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('material change counts track source and note additions and edits', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -276,12 +272,11 @@ test('material change counts track source and note additions and edits', () => {
     });
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('material waits for source reads and citations retain anchors and source identity', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-cite-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('material waits for source reads and citations retain anchors and source identity', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -325,13 +320,12 @@ test('material waits for source reads and citations retain anchors and source id
     ]);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('new-card allowance is global while reviewed cards remain due', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-due-'));
-  const store = BackendContext.open(join(dir, 'db'));
+test('new-card allowance is global while reviewed cards remain due', (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const projects = [opCreateProject(store, 'A'), opCreateProject(store, 'B')];
@@ -361,6 +355,5 @@ test('new-card allowance is global while reviewed cards remain due', () => {
     assert.deepEqual(opReviewTimes(store, projects[1].id, at), [at]);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });

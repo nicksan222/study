@@ -1,39 +1,46 @@
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
-import { listProjects as opListProjects } from '#backend/procedures/projects/projects';
-import { createNote as opCreateNote } from '#backend/procedures/sources/create-note';
-import { sourceBytes as opSourceBytes } from '#backend/procedures/sources/source';
-import { listSources as opListSources } from '#backend/procedures/sources/sources';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { listProjects as opListProjects } from '#backend/procedures/projects/operations/read-projects';
+import { createNote as opCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { sourceBytes as opSourceBytes } from '#backend/procedures/sources/operations/source';
+import { listSources as opListSources } from '#backend/procedures/sources/operations/sources';
 import { App } from '#backend/runtime/service';
+import { createBackendTest } from '#testing/backend-test';
 
-test('projects and notes persist in an isolated database', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-app-'));
+test('projects and notes persist in an isolated database', async (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+
+  const app = createBackendTest(t, { app: false }).manage(
+    await App.open({ path: testDatabase.path })
+  );
+
+  let noteId: ReturnType<typeof opCreateNote>['id'];
 
   try {
-    const app = await App.open({ path: join(dir, 'study.db') });
     const project = opCreateProject(app.store, 'Physics');
     const note = opCreateNote(app.store, 'Notes', 'Hello', project.id);
 
+    noteId = note.id;
     assert.equal(opListSources(app.store)[0]?.id, note.id);
-    await app.close();
-    const reopened = await App.open({ path: join(dir, 'study.db') });
-
-    assert.equal(opListProjects(reopened.store)[0]?.name, 'Physics');
-    assert.equal(new TextDecoder().decode(opSourceBytes(reopened.store, note.id)!), 'Hello');
-    await reopened.close();
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    await app.close();
   }
+
+  const reopened = createBackendTest(t, { app: false }).manage(
+    await App.open({ path: testDatabase.path })
+  );
+
+  assert.equal(opListProjects(reopened.store)[0]?.name, 'Physics');
+  assert.equal(new TextDecoder().decode(opSourceBytes(reopened.store, noteId)!), 'Hello');
 });
 
-test('cancelling sign-in closes its listener and leaves the account signed out', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-auth-'));
-  const app = await App.open({ path: join(dir, 'db') });
+test('cancelling sign-in closes its listener and leaves the account signed out', async (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const app = createBackendTest(t, { app: false }).manage(
+    await App.open({ path: testDatabase.path })
+  );
 
   try {
     const { url } = await app.startSignIn();
@@ -46,6 +53,5 @@ test('cancelling sign-in closes its listener and leaves the account signed out',
     assert.equal(app.signInStatus().signedIn, false);
   } finally {
     await app.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });

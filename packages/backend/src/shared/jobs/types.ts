@@ -1,6 +1,3 @@
-import type { jobs } from '@study/db/schema';
-
-import type { rowJob } from '#backend/procedures/jobs/worker';
 import type {
   JobId,
   SourceId,
@@ -10,11 +7,12 @@ import type {
   ArtifactId,
   QuestionId
 } from '#backend/shared/ids';
+import type { Job as JobDto, jobKindSchema, jobStatusSchema } from '#backend/shared/jobs/schemas';
 import type { JsonValue } from '#backend/shared/json';
 
-export type JobKind = (typeof jobs.$inferSelect)['kind'];
+export type JobKind = typeof jobKindSchema.Type;
 
-export type JobStatus = (typeof jobs.$inferSelect)['status'];
+export type JobStatus = typeof jobStatusSchema.Type;
 
 export type JobTarget =
   | { type: 'source'; id: SourceId }
@@ -31,4 +29,8 @@ export interface NewJob {
   after?: JobId[];
 }
 
-export type Job = ReturnType<typeof rowJob>;
+export type Job = Omit<JobDto, 'id' | 'target' | 'args'> & {
+  id: JobId;
+  target: JobTarget;
+  args: JsonValue | null;
+};

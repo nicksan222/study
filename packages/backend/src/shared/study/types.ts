@@ -1,10 +1,10 @@
 import type { artifacts, practice_questions } from '@study/db/schema';
 
-import type { artifact, cardRow } from '#backend/procedures/material/artifact';
-import type { question, practiceScore } from '#backend/procedures/practice/practice';
-import type { listPractices } from '#backend/procedures/practice/practices';
-import type { practice } from '#backend/procedures/practice/project-practice';
-import type { cardReviews } from '#backend/procedures/practice/review';
+import type { artifact, cardRow } from '#backend/procedures/material/operations/artifact';
+import type { question, practiceScore } from '#backend/procedures/practice/operations/practice';
+import type { listPractices } from '#backend/procedures/practice/operations/practices';
+import type { practice } from '#backend/procedures/practice/operations/project-practice';
+import type { cardReviews } from '#backend/procedures/practice/operations/review';
 
 export type ArtifactKind = (typeof artifacts.$inferSelect)['kind'];
 

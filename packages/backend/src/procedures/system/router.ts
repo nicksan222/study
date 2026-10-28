@@ -1,9 +1,9 @@
 import { router } from '#backend/runtime/trpc';
 
-import { run as getHealth } from './get-health.ts';
-import { run as search } from './search.ts';
-import { run as startWorkers } from './start-workers.ts';
-import { run as subscribe } from './subscribe.ts';
+import { run as getHealth } from './get-health/index.ts';
+import { run as search } from './search/index.ts';
+import { run as startWorkers } from './start-workers/index.ts';
+import { run as subscribe } from './subscribe/index.ts';
 
 export const systemRouter = router({
   getHealth,

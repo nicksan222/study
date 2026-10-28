@@ -51,5 +51,3 @@ export function cardMemory(store: BackendContext, cardId: bigint, at: bigint): M
     learningSteps: Number(schedule.learning_steps)
   };
 }
-
-export type CardSnapshot = ReturnType<typeof cardSnapshot>;

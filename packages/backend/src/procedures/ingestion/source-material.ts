@@ -1,8 +1,8 @@
 import * as s from '@study/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-import { attachMaterial } from '#backend/procedures/materials/attach';
-import { createMaterial } from '#backend/procedures/materials/create';
+import { createMaterial } from '#backend/procedures/materials/operations/create-material';
+import { attachMaterial } from '#backend/procedures/materials/operations/session-membership';
 import { readVersion } from '#backend/procedures/materials/reads';
 import { readMaterial } from '#backend/procedures/materials/reads';
 import type { BackendContext } from '#backend/runtime/context';

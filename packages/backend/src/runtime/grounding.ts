@@ -1,11 +1,11 @@
 import * as schema from '@study/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-import { source as opSource } from '#backend/procedures/sources/source';
+import { source as opSource } from '#backend/procedures/sources/operations/source';
 import {
   documentOf as opDocumentOf,
   sourceOfDocument
-} from '#backend/procedures/sources/source-document';
+} from '#backend/procedures/sources/operations/source-document';
 import type { ProjectId } from '#backend/shared/ids';
 import type { SourceId } from '#backend/shared/ids';
 import type { Citation } from '#backend/shared/sources/citations';

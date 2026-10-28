@@ -1,7 +1,9 @@
-import type { sessions } from '@study/db/schema';
+import type { SessionDto, titleSourceSchema } from '#backend/shared/conversations/schemas';
+import type { ProjectId, SessionId } from '#backend/shared/ids';
 
-import type { sessionRow } from '#backend/procedures/projects/projects';
+export type TitleSource = typeof titleSourceSchema.Type;
 
-export type TitleSource = (typeof sessions.$inferSelect)['title_source'];
-
-export type ChatSession = ReturnType<typeof sessionRow>;
+export type ChatSession = Omit<SessionDto, 'id' | 'projectId'> & {
+  id: SessionId;
+  projectId: ProjectId;
+};

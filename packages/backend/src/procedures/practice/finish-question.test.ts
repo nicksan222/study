@@ -6,11 +6,12 @@ import { and, eq } from 'drizzle-orm';
 
 import { learningRouter } from '#backend/procedures/learning/router';
 import { readMaterial } from '#backend/procedures/materials/reads';
-import { createProject } from '#backend/procedures/projects/create-project';
-import { fixture, completeQuestion } from '#testing/procedures';
+import { createProject } from '#backend/procedures/projects/operations/create-project';
+import { createBackendTest } from '#testing/backend-test';
+import { completeQuestion } from '#testing/procedures';
 
 test('completed practice questions publish typed agent quizzes usable by the learning router', async (t) => {
-  const f = await fixture(t),
+  const f = await createBackendTest(t),
     p = createProject(f.store, 'Physics');
 
   completeQuestion(f.store, p.id, 'choice');

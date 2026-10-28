@@ -1,28 +1,26 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 
-import { createSession as opCreateSession } from '#backend/procedures/conversations/create-session';
-import { deleteMessage as opDeleteMessage } from '#backend/procedures/conversations/delete-message';
-import { editMessage as opEditMessage } from '#backend/procedures/conversations/edit-message';
-import { message as opMessage } from '#backend/procedures/conversations/messages';
-import { postMessage as opPostMessage } from '#backend/procedures/conversations/post-message';
-import { requestReply as opRequestReply } from '#backend/procedures/conversations/reanswer';
+import { createSession as opCreateSession } from '#backend/procedures/conversations/operations/create-session';
+import { deleteMessage as opDeleteMessage } from '#backend/procedures/conversations/operations/delete-message';
+import { editMessage as opEditMessage } from '#backend/procedures/conversations/operations/edit-message';
+import { message as opMessage } from '#backend/procedures/conversations/operations/messages';
+import { postMessage as opPostMessage } from '#backend/procedures/conversations/operations/post-message';
+import { requestReply as opRequestReply } from '#backend/procedures/conversations/operations/reanswer';
 import {
   createPendingVersion as opCreatePendingVersion,
   requestRewrite as opRequestRewrite
-} from '#backend/procedures/conversations/rewrite-message';
-import { setActiveVersion as opSetActiveVersion } from '#backend/procedures/conversations/set-active-version';
-import { thread as opThread } from '#backend/procedures/conversations/thread';
+} from '#backend/procedures/conversations/operations/rewrite-message';
+import { setActiveVersion as opSetActiveVersion } from '#backend/procedures/conversations/operations/set-active-version';
+import { thread as opThread } from '#backend/procedures/conversations/operations/thread';
 import {
   beginVersion as opBeginVersion,
   finishVersion as opFinishVersion
 } from '#backend/procedures/conversations/versions';
-import { cancelJob as opCancelJob } from '#backend/procedures/jobs/cancel-job';
-import { job as opJob } from '#backend/procedures/jobs/job';
-import { listJobs as opListJobs } from '#backend/procedures/jobs/job-overviews';
+import { cancelJob as opCancelJob } from '#backend/procedures/jobs/operations/cancel-job';
+import { job as opJob } from '#backend/procedures/jobs/operations/job';
+import { listJobs as opListJobs } from '#backend/procedures/jobs/operations/job-overviews';
 import {
   enqueueJob as opEnqueueJob,
   claimJob as opClaimJob,
@@ -31,27 +29,28 @@ import {
   failJob as opFailJob,
   releaseWaiting as opReleaseWaiting
 } from '#backend/procedures/jobs/worker';
-import { createProject as opCreateProject } from '#backend/procedures/projects/create-project';
-import { appendRecording as opAppendRecording } from '#backend/procedures/recordings/append-recording';
-import { createRecording as opCreateRecording } from '#backend/procedures/recordings/create-recording';
-import { deleteRecording as opDeleteRecording } from '#backend/procedures/recordings/delete-recording';
-import { postRecording as opPostRecording } from '#backend/procedures/recordings/post-recording';
+import { createProject as opCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { appendRecording as opAppendRecording } from '#backend/procedures/recordings/operations/append-recording';
+import { createRecording as opCreateRecording } from '#backend/procedures/recordings/operations/create-recording';
+import { deleteRecording as opDeleteRecording } from '#backend/procedures/recordings/operations/delete-recording';
+import { postRecording as opPostRecording } from '#backend/procedures/recordings/operations/post-recording';
 import {
   recordingSamples as opRecordingSamples,
   recording as opRecording
-} from '#backend/procedures/recordings/recording';
-import { listRecordings as opListRecordings } from '#backend/procedures/recordings/recordings';
-import { createNote as opCreateNote } from '#backend/procedures/sources/create-note';
-import { deleteSource as opDeleteSource } from '#backend/procedures/sources/delete-source';
+} from '#backend/procedures/recordings/operations/recording';
+import { listRecordings as opListRecordings } from '#backend/procedures/recordings/operations/recordings';
+import { createNote as opCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { deleteSource as opDeleteSource } from '#backend/procedures/sources/operations/delete-source';
 import {
   source as opSource,
   sourceBytes as opSourceBytes
-} from '#backend/procedures/sources/source';
+} from '#backend/procedures/sources/operations/source';
 import { BackendContext } from '#backend/runtime/context';
+import { createBackendTest } from '#testing/backend-test';
 
-test('message versions, attachments, threads and recordings persist', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-chat-'));
-  const store = BackendContext.open(join(dir, 'db'));
+test('message versions, attachments, threads and recordings persist', (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -87,12 +86,11 @@ test('message versions, attachments, threads and recordings persist', () => {
     assert.equal(opMessage(store, thread.id), null);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('generated versions activate only if the base version is still active', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-versions-'));
-  const store = BackendContext.open(join(dir, 'db'));
+test('generated versions activate only if the base version is still active', (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -117,13 +115,12 @@ test('generated versions activate only if the base version is still active', () 
     assert.equal(opMessage(store, msg.id)?.activeVersionId, pending);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('version writing follows current job attempt and commits completion with job', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-attempt-'));
-  const store = BackendContext.open(join(dir, 'db'));
+test('version writing follows current job attempt and commits completion with job', (t) => {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -155,12 +152,11 @@ test('version writing follows current job attempt and commits completion with jo
     assert.equal(opJob(store, j)?.status, 'succeeded');
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('assistant replies only to user messages in the same session and thread', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-reply-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('assistant replies only to user messages in the same session and thread', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -193,12 +189,11 @@ test('assistant replies only to user messages in the same session and thread', (
     );
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('recording chunks are bounded before allocation', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-limit-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('recording chunks are bounded before allocation', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -209,12 +204,11 @@ test('recording chunks are bounded before allocation', () => {
     assert.equal(opRecordingSamples(store, rec.id).length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('recording lookup and posting create a WAV attachment atomically', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-post-audio-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('recording lookup and posting create a WAV attachment atomically', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -237,12 +231,11 @@ test('recording lookup and posting create a WAV attachment atomically', () => {
     assert.equal(opRecording(store, rec.id), null);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('reply and rewrite requests enqueue their version atomically', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-ask-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('reply and rewrite requests enqueue their version atomically', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -267,12 +260,11 @@ test('reply and rewrite requests enqueue their version atomically', () => {
     assert.equal(opListJobs(store).length, 2);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('notes taken during a recording retain their timestamp and posted source', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-note-audio-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('notes taken during a recording retain their timestamp and posted source', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'P'),
@@ -294,12 +286,11 @@ test('notes taken during a recording retain their timestamp and posted source', 
     assert.equal(updated.recordedIn, posted.parts[0].sourceId);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('generic finish cannot bypass generated version completion', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-fence-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('generic finish cannot bypass generated version completion', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'p'),
@@ -315,12 +306,11 @@ test('generic finish cannot bypass generated version completion', () => {
     assert.equal(opFinishVersion(store, req.versionId, req.jobId, 1n, 'done'), true);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('cancelled or edited generated work can be replaced and stale workers are fenced', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-replace-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('cancelled or edited generated work can be replaced and stale workers are fenced', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'p'),
@@ -345,12 +335,11 @@ test('cancelled or edited generated work can be replaced and stale workers are f
     assert.ok(opJob(store, third.jobId));
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('replacement rollback restores unfinished version and job without publishing', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-restore-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('replacement rollback restores unfinished version and job without publishing', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'p'),
@@ -372,12 +361,11 @@ test('replacement rollback restores unfinished version and job without publishin
     assert.equal(events.length, 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('replacing pending work refreshes and releases dependents after commit', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-replace-events-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('replacing pending work refreshes and releases dependents after commit', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'p'),
@@ -402,12 +390,11 @@ test('replacing pending work refreshes and releases dependents after commit', ()
     assert.ok(events.length > 0);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
-test('generated jobs still support classified failures and retries', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'study-failure-')),
-    store = BackendContext.open(join(dir, 'db'));
+test('generated jobs still support classified failures and retries', (t) => {
+  const testDatabase = createBackendTest(t, { app: false }),
+    store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     const p = opCreateProject(store, 'p'),
@@ -432,12 +419,11 @@ test('generated jobs still support classified failures and retries', () => {
     assert.equal(opFinishVersion(store, req.versionId, req.jobId, 2n, 'done'), true);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('reply and rewrite wait for attachment reads', () =>
-  fixture((store) => {
+test('reply and rewrite wait for attachment reads', (t) =>
+  fixture(t, (store) => {
     const project = opCreateProject(store, 'P'),
       session = opCreateSession(store, project.id, 'S');
     const source = opCreateNote(store, 'N', 'body');
@@ -460,8 +446,8 @@ test('reply and rewrite wait for attachment reads', () =>
     assert.equal(opJob(store, reply.jobId)?.status, 'queued');
   }));
 
-test('message text is normalized and bounded before state changes', () =>
-  fixture((store) => {
+test('message text is normalized and bounded before state changes', (t) =>
+  fixture(t, (store) => {
     const project = opCreateProject(store, 'P'),
       session = opCreateSession(store, project.id, 'S');
 
@@ -485,14 +471,13 @@ test('message text is normalized and bounded before state changes', () =>
     assert.equal(opJob(store, request.jobId)?.status, 'running');
   }));
 
-function fixture(run: (store: BackendContext) => void) {
-  const dir = mkdtempSync(join(tmpdir(), 'study-message-check-'));
-  const store = BackendContext.open(join(dir, 'db'));
+function fixture(t: TestContext, run: (store: BackendContext) => void) {
+  const testDatabase = createBackendTest(t, { app: false });
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     run(store);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 }

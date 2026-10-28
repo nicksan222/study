@@ -1,0 +1,169 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
+import { test } from 'node:test';
+
+import { lintFiles, root } from './utils.ts';
+
+test('whole import type remains enforced by built-in rules without a boundary false positive', () => {
+  const diagnostics = lintFiles({
+    'src/shared/inline-type.ts':
+      "import { type BackendContext } from '#backend/runtime/context';\n\nexport type Context = BackendContext;\n"
+  });
+
+  assert.ok(diagnostics.length > 0);
+  assert.ok(diagnostics.every(({ code }) => !code.includes('browser-boundary')));
+  assert.ok(diagnostics.some(({ code }) => code.includes('consistent-type-specifier-style')));
+});
+
+test('backend cross-directory imports use package aliases and sibling imports stay legal', () => {
+  const diagnostics = lintFiles({
+    'src/runtime/bad-import.ts':
+      "import type { Value } from '../shared/safe.ts';\n\nexport type Next = Value;\n",
+    'src/runtime/bad-export.ts': "export * from '../shared/safe.ts';\n",
+    'src/runtime/bad-dynamic.ts': "export const value = import('../shared/safe.ts');\n",
+    'src/runtime/good-backend.ts': "export { value } from '#backend/shared/safe';\n",
+    'test/good-testing.ts': "export { helper } from '#testing/procedures';\n",
+    'src/shared/safe.ts': 'export const value = 1;\n\nexport type Value = number;\n',
+    'src/shared/sibling.ts': "export { value } from './safe.ts';\n"
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ code }) => code.includes('no-restricted-imports')));
+});
+
+test('Node resolves and loads extensionless nested backend and testing aliases', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `
+    import assert from 'node:assert/strict';
+    import { fileURLToPath } from 'node:url';
+    for (const [specifier, suffix] of [
+      ['#backend/shared/json', '/src/shared/json.ts'],
+      ['#backend/shared/errors/index', '/src/shared/errors/index.ts'],
+      ['#testing/automatic', '/test/testing/automatic.ts']
+    ]) {
+      assert.ok(fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix));
+      await import(specifier);
+    }
+  `
+    ],
+    { cwd: join(root, 'packages/backend'), encoding: 'utf8' }
+  );
+
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test('backend tests reject Node mock imports and context mocking through built-in rules', () => {
+  const diagnostics = lintFiles({
+    'test/mock-context.test.ts':
+      "import { test } from 'node:test';\n\ntest('mocked method', (t) => { t.mock.method(Math, 'random', () => 0.5); });\n",
+    'test/mock-import.ts':
+      "import { mock as tracker } from 'node:test';\n\nexport const mocking = tracker;\n",
+    'test/mock-destructure.ts':
+      'export function tracker(context: { mock: unknown }) { const { mock: tracker } = context;\n\nreturn tracker; }\n',
+    'test/real.test.ts':
+      "import assert from 'node:assert/strict';\nimport { test } from 'node:test';\n\ntest('real value', (t) => { t.after(() => {}); assert.equal(Math.max(1, 2), 2); });\n"
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.equal(
+    diagnostics.filter(({ code }) => code.includes('no-restricted-properties')).length,
+    2
+  );
+  assert.equal(diagnostics.filter(({ code }) => code.includes('no-restricted-imports')).length, 1);
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/real.test.ts')));
+});
+
+test('backend tests reject Vitest and Jest mocking imports', () => {
+  const diagnostics = lintFiles({
+    'test/vitest.ts': "export { vi as mocking } from 'vitest';\n",
+    'test/vite-plus.ts': "export { vi as mocking } from 'vite-plus/test';\n",
+    'test/jest.ts': "export { jest as mocking } from '@jest/globals';\n",
+    'test/jest-mock.ts': "export { fn } from 'jest-mock';\n"
+  });
+
+  const restrictedImports = diagnostics.filter(({ code }) =>
+    code.includes('no-restricted-imports')
+  );
+
+  assert.equal(restrictedImports.length, 4, JSON.stringify(diagnostics));
+  assert.ok(
+    diagnostics.every(
+      ({ code }) =>
+        code.includes('no-restricted-imports') ||
+        code.includes('prefer-vite-plus-imports') ||
+        code === 'study(backend-no-mocks)'
+    )
+  );
+});
+
+test('production config loads the Study plugin', () => {
+  const diagnostics = lintFiles({
+    'src/shared/boundary-smoke.ts': "export * from '#backend/runtime/context';\n"
+  });
+
+  assert.ok(
+    diagnostics.some(
+      ({ code, filename }) =>
+        code === 'study(browser-boundary)' && filename.endsWith('/src/shared/boundary-smoke.ts')
+    )
+  );
+});
+
+test('production config enforces package boundaries', () => {
+  const diagnostics = lintFiles({
+    'src/package-smoke.ts': "import '@study/ui/button';\n"
+  });
+
+  assert.ok(
+    diagnostics.some(
+      ({ code, filename }) =>
+        code === 'study(package-boundary)' && filename.endsWith('/src/package-smoke.ts')
+    )
+  );
+});
+
+test('production config enforces database ownership', () => {
+  const diagnostics = lintFiles({
+    'src/database-smoke.ts': "import { DatabaseSync } from 'node:sqlite';\n"
+  });
+
+  assert.ok(diagnostics.some(({ code }) => code === 'study(database-ownership)'));
+});
+
+test('Effect v4 rejects obsolete package paths in global and backend config', () => {
+  const diagnostics = lintFiles(
+    {
+      'packages/backend/src/old.ts': "export * from '@effect/platform/HttpClient';\n",
+      'packages/ai/src/old.ts': "export * from 'effect/unstable/http';\n",
+      'apps/web/src/old.ts': "export const old = import('@effect/rpc');\n",
+      'packages/ai/src/modern.ts':
+        "export * from 'effect/http';\nexport * from '@effect/platform-node';\n"
+    },
+    undefined,
+    true
+  );
+  const restricted = diagnostics.filter(({ code }) => code.includes('no-restricted-imports'));
+
+  assert.equal(restricted.length, 3, JSON.stringify(diagnostics));
+  assert.ok(restricted.some(({ filename }) => filename.endsWith('/packages/backend/src/old.ts')));
+  assert.ok(restricted.some(({ filename }) => filename.endsWith('/packages/ai/src/old.ts')));
+  assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/web/src/old.ts')));
+  assert.ok(restricted.every(({ filename }) => !filename.endsWith('/modern.ts')));
+});
+
+test('production config enables Effect v4 renamed API guard', () => {
+  const diagnostics = lintFiles({
+    'src/old-effect.ts': "import { Effect } from 'effect';\n\nexport const old = Effect.catchAll;\n"
+  });
+
+  assert.ok(
+    diagnostics.some(({ code }) => code === 'study(effect-v4-api)'),
+    JSON.stringify(diagnostics)
+  );
+});

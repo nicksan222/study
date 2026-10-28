@@ -1,42 +1,49 @@
 import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { createStudyClient } from '@study/backend/node';
+import { Db } from '@study/db';
+import { sql } from 'drizzle-orm';
+
+import { createBackendTest } from '#testing/backend-test';
 
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
   test(
     `backend entry serves real tRPC and shuts down on ${shutdown}`,
     { timeout: 30_000 },
-    async () => {
-      const dir = mkdtempSync(join(tmpdir(), 'study-process-'));
+    async (t) => {
+      const testDatabase = createBackendTest(t, { app: false });
       const env: NodeJS.ProcessEnv = {
         ...process.env,
-        STUDY_DATABASE: join(dir, 'db')
+        STUDY_DATABASE: testDatabase.path
       };
 
       delete env.STUDY_BACKEND_TOKEN;
       const child = spawn(
         process.execPath,
-        [new URL('../src/runtime/main.ts', import.meta.url).pathname],
+        [fileURLToPath(new URL('../src/runtime/main.ts', import.meta.url))],
         {
           env,
           stdio: ['pipe', 'pipe', 'pipe']
         }
       );
+      const exit = once(child, 'exit');
+
+      testDatabase.dispose(async () => {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+
+        await exit;
+      });
       let stderr = '';
 
       child.stderr.on('data', (chunk) => {
         stderr += String(chunk);
       });
       const lines = createInterface({ input: child.stdout });
-      const exit = once(child, 'exit');
 
       try {
         const line = await Promise.race([
@@ -64,15 +71,12 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         });
 
         assert.equal(typeof project.id, 'bigint');
-        const database = new DatabaseSync(env.STUDY_DATABASE!, {
-          readOnly: true,
-          readBigInts: true
-        });
+        const database = createBackendTest(t, { app: false }).manage(Db.open(env.STUDY_DATABASE!));
 
         try {
-          const saved = database
-            .prepare('SELECT id, name FROM projects WHERE id=?')
-            .get(project.id);
+          const saved = database.orm.get<{ id: bigint; name: string }>(
+            sql`SELECT id, name FROM projects WHERE id=${project.id}`
+          );
 
           assert.equal(saved?.id, project.id);
           assert.equal(saved?.name, 'Process persistence');
@@ -92,7 +96,6 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         if (child.exitCode === null) child.kill('SIGKILL');
 
         await exit;
-        rmSync(dir, { recursive: true, force: true });
       }
     }
   );

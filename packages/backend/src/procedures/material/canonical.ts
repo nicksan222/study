@@ -4,8 +4,8 @@ import * as s from '@study/db/schema';
 import { and, desc, eq, isNull, inArray } from 'drizzle-orm';
 
 import { originalVersion } from '#backend/procedures/ingestion/source-material';
-import { createMaterial } from '#backend/procedures/materials/create';
-import { readCitations } from '#backend/procedures/materials/get-citations';
+import { readCitations } from '#backend/procedures/materials/operations/citations';
+import { createMaterial } from '#backend/procedures/materials/operations/create-material';
 import { readMaterial, readVersion, required } from '#backend/procedures/materials/reads';
 import { anchorSchema, createVersionSchema } from '#backend/procedures/materials/schemas';
 import { materialTransaction } from '#backend/procedures/materials/transactions';
@@ -16,7 +16,7 @@ import type { MaterialContentInput, MaterialOperation } from '#backend/shared/ma
 import type { MaterialVersionDetail } from '#backend/shared/materials/types';
 import type { Citation } from '#backend/shared/sources/citations';
 
-import { artifact, cards, now } from './artifact.ts';
+import { artifact, cards, now } from './operations/artifact.ts';
 
 type CanonicalCitations = ReturnType<typeof readCitations>;
 

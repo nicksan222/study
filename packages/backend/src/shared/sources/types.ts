@@ -1,6 +1,8 @@
-import type { sourceRow } from '#backend/procedures/sources/source';
+import type { SourceId } from '#backend/shared/ids';
 
-export type Source = ReturnType<typeof sourceRow>;
+import type { Source as SourceDto } from './schemas.ts';
+
+export type Source = Omit<SourceDto, 'id'> & { id: SourceId };
 
 export type NewSource = Pick<Source, 'name' | 'kind' | 'mime' | 'origin'> &
   Partial<Pick<Source, 'projectId' | 'uri'>> & { bytes: Uint8Array };

@@ -11,7 +11,7 @@ import {
   questionJobRunning as opQuestionJobRunning,
   completeQuestionJob as opCompleteQuestionJob
 } from './finish-question.ts';
-import { question as opQuestion } from './practice.ts';
+import { question as opQuestion } from './operations/practice.ts';
 
 export function finishGrade(
   ctx: BackendContext,

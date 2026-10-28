@@ -1,65 +1,67 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 
-import { job as dbJob } from '#backend/procedures/jobs/job';
-import { listJobs as dbListJobs } from '#backend/procedures/jobs/job-overviews';
-import { retryJob as dbRetryJob } from '#backend/procedures/jobs/retry-job';
+import { sql } from 'drizzle-orm';
+
+import { job as dbJob } from '#backend/procedures/jobs/operations/job';
+import { listJobs as dbListJobs } from '#backend/procedures/jobs/operations/job-overviews';
+import { retryJob as dbRetryJob } from '#backend/procedures/jobs/operations/retry-job';
 import {
   enqueueJob as dbEnqueueJob,
   claimJob as dbClaimJob,
   failJob as dbFailJob
 } from '#backend/procedures/jobs/worker';
-import { createProject as dbCreateProject } from '#backend/procedures/projects/create-project';
-import { deleteProject as dbDeleteProject } from '#backend/procedures/projects/delete-project';
+import { createProject as dbCreateProject } from '#backend/procedures/projects/operations/create-project';
+import { deleteProject as dbDeleteProject } from '#backend/procedures/projects/operations/delete-project';
 import {
   loadPreferences as dbLoadPreferences,
   setPreference as dbSetPreference,
   deletePreference as dbDeletePreference,
   savePreferences as dbSavePreferences
 } from '#backend/procedures/settings/preferences';
-import { addLink as dbAddLink } from '#backend/procedures/sources/add-link';
-import { correctBlock as dbCorrectBlock } from '#backend/procedures/sources/correct-block';
-import { createNote as dbCreateNote } from '#backend/procedures/sources/create-note';
-import { deleteSource as dbDeleteSource } from '#backend/procedures/sources/delete-source';
-import { exportSource as dbExportSource } from '#backend/procedures/sources/export-source-to-file';
-import { importSource as dbImportSource } from '#backend/procedures/sources/import-file';
-import { setSourceProject as dbSetSourceProject } from '#backend/procedures/sources/set-source-project';
+import { addLink as dbAddLink } from '#backend/procedures/sources/operations/add-link';
+import { correctBlock as dbCorrectBlock } from '#backend/procedures/sources/operations/correct-block';
+import { createNote as dbCreateNote } from '#backend/procedures/sources/operations/create-note';
+import { deleteSource as dbDeleteSource } from '#backend/procedures/sources/operations/delete-source';
+import { exportSource as dbExportSource } from '#backend/procedures/sources/operations/export-source-to-file';
+import { importSource as dbImportSource } from '#backend/procedures/sources/operations/import-file';
+import { setSourceProject as dbSetSourceProject } from '#backend/procedures/sources/operations/set-source-project';
 import {
   source as dbSource,
   storeFetched as dbStoreFetched,
   sourceBytes as dbSourceBytes,
   readSourceBounded as dbReadSourceBounded,
   readSourcePrefix as dbReadSourcePrefix
-} from '#backend/procedures/sources/source';
+} from '#backend/procedures/sources/operations/source';
 import {
   saveDocument as dbSaveDocument,
   document as dbDocument,
   sourceOfDocument as dbSourceOfDocument
-} from '#backend/procedures/sources/source-document';
-import { listSources as dbListSources } from '#backend/procedures/sources/sources';
+} from '#backend/procedures/sources/operations/source-document';
+import { listSources as dbListSources } from '#backend/procedures/sources/operations/sources';
 import { BackendContext } from '#backend/runtime/context';
 import { StudyError, classifyError } from '#backend/shared/errors/index';
 import type { Document } from '#backend/shared/sources/document';
 import { sniff, viewerExtension } from '#backend/shared/sources/sniff';
+import { createBackendTest } from '#testing/backend-test';
 
-function fixture(fn: (store: BackendContext, dir: string) => void) {
-  const dir = mkdtempSync(join(tmpdir(), 'study-sources-'));
-  const store = BackendContext.open(join(dir, 'study.sqlite3'));
+function fixture(t: TestContext, fn: (store: BackendContext, dir: string) => void) {
+  const testDatabase = createBackendTest(t, { app: false }),
+    dir = testDatabase.dir;
+  const store = createBackendTest(t, { app: false }).manage(BackendContext.open(testDatabase.path));
 
   try {
     fn(store, dir);
   } finally {
     store.close();
-    rmSync(dir, { recursive: true, force: true });
   }
 }
 
-test('imports duplicate bytes as distinct sources and exports them', () =>
-  fixture((store, dir) => {
+test('imports duplicate bytes as distinct sources and exports them', (t) =>
+  fixture(t, (store, dir) => {
     const p = dbCreateProject(store, 'Physics');
     const input = join(dir, 'notes.txt');
 
@@ -83,8 +85,8 @@ test('imports duplicate bytes as distinct sources and exports them', () =>
     assert.throws(() => dbDeleteSource(store, b.id));
     assert.equal(Buffer.from(dbSourceBytes(store, b.id)!).toString(), 'hello');
   }));
-test('notes and documents roundtrip, reject stale edits, and cascade', () =>
-  fixture((store) => {
+test('notes and documents roundtrip, reject stale edits, and cascade', (t) =>
+  fixture(t, (store) => {
     const note = dbCreateNote(store, 'Ideas', 'the sell divides', null);
 
     assert.equal(note.kind, 'note');
@@ -128,8 +130,8 @@ test('notes and documents roundtrip, reject stale edits, and cascade', () =>
     assert.equal(dbDeleteSource(store, note.id), true);
     assert.equal(dbDocument(store, second), null);
   }));
-test('preferences roundtrip, replace scopes and remove single keys', () =>
-  fixture((store) => {
+test('preferences roundtrip, replace scopes and remove single keys', (t) =>
+  fixture(t, (store) => {
     dbSetPreference(store, 'reader', 'choice', 'local');
     dbSetPreference(store, 'reader', 'count', 3);
     dbSetPreference(store, 'other', 'ok', true);
@@ -151,7 +153,7 @@ test('preferences roundtrip, replace scopes and remove single keys', () =>
     });
     assert.deepEqual(dbLoadPreferences(store, 'other'), { ok: true });
   }));
-test('sniffing prioritizes content and keeps office zip formats', () => {
+test('sniffing prioritizes content and keeps office zip formats', (_t) => {
   const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
 
   assert.deepEqual(sniff('notes.pdf', png), {
@@ -165,15 +167,15 @@ test('sniffing prioritizes content and keeps office zip formats', () => {
   assert.equal(viewerExtension('code', 'text/plain'), 'txt');
   assert.equal(viewerExtension('image', 'image/svg+xml'), null);
 });
-test('classified errors preserve domain and filesystem kinds', () => {
+test('classified errors preserve domain and filesystem kinds', (_t) => {
   assert.equal(classifyError(new StudyError('rate_limited', 'busy')).kind, 'rate_limited');
   assert.equal(
     classifyError(Object.assign(new Error('missing'), { code: 'ENOENT' })).kind,
     'not_found'
   );
 });
-test('links are replaced atomically and bounded reads enforce limits', () =>
-  fixture((store) => {
+test('links are replaced atomically and bounded reads enforce limits', (t) =>
+  fixture(t, (store) => {
     const link = dbAddLink(store, null, ' https://example.org/a ');
 
     assert.equal(link.kind, 'link');
@@ -200,14 +202,14 @@ test('links are replaced atomically and bounded reads enforce limits', () =>
       })
     );
   }));
-test('preference replacement rolls back on invalid JSON values', () =>
-  fixture((store) => {
+test('preference replacement rolls back on invalid JSON values', (t) =>
+  fixture(t, (store) => {
     dbSavePreferences(store, 's', { good: 'kept' });
     assert.throws(() => dbSavePreferences(store, 's', { invalid: undefined as never }));
     assert.deepEqual(dbLoadPreferences(store, 's'), { good: 'kept' });
   }));
-test('source writes and document replacement roll back on constraint errors', () =>
-  fixture((store) => {
+test('source writes and document replacement roll back on constraint errors', (t) =>
+  fixture(t, (store) => {
     const p = dbCreateProject(store, 'Project');
     const source = dbCreateNote(store, 'note', 'body', p.id);
     const doc: Document = {
@@ -237,8 +239,8 @@ test('source writes and document replacement roll back on constraint errors', ()
     assert.equal(dbDocument(store, id), null);
   }));
 
-test('document identity prevents correction of a replaced document with identical text', () =>
-  fixture((store) => {
+test('document identity prevents correction of a replaced document with identical text', (t) =>
+  fixture(t, (store) => {
     const src = dbCreateNote(store, 'N', 'x');
     const doc: Document = {
       blocks: [{ kind: 'paragraph', text: 'same', anchor: { type: 'page', page: 1 } }],
@@ -262,19 +264,17 @@ test('document identity prevents correction of a replaced document with identica
     assert.equal(dbCorrectBlock(store, src.id, old, 0, 'same', 'wrong'), null);
     assert.equal(dbDocument(store, current)?.blocks[0].text, 'same');
   }));
-test('bounded read checks blob length rather than stale metadata', () =>
-  fixture((store, dir) => {
+test('bounded read checks blob length rather than stale metadata', (t) =>
+  fixture(t, (store) => {
     const s = dbCreateNote(store, 'N', 'abcdef');
-    const raw = new DatabaseSync(join(dir, 'study.sqlite3'));
 
-    raw.prepare('UPDATE sources SET size_bytes = 1 WHERE id = ?').run(s.id);
-    raw.close();
+    store.db.orm.run(sql`UPDATE sources SET size_bytes = 1 WHERE id = ${s.id}`);
     assert.equal(dbReadSourceBounded(store, s.id, 2), null);
     assert.equal(Buffer.from(dbReadSourceBounded(store, s.id, 6)!).toString(), 'abcdef');
   }));
 
-test('corrections atomically schedule indexing and retire failed extraction', () =>
-  fixture((store) => {
+test('corrections atomically schedule indexing and retire failed extraction', (t) =>
+  fixture(t, (store) => {
     const source = dbCreateNote(store, 'N', 'body');
     const doc: Document = {
       blocks: [{ kind: 'paragraph', text: 'wrong', anchor: { type: 'page', page: 1 } }],

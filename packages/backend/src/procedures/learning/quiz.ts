@@ -60,7 +60,7 @@ export function choices(store: BackendContext, questionId: bigint) {
 export function choiceScore(
   store: BackendContext,
   question: typeof s.material_quiz_questions.$inferSelect,
-  selected: bigint[]
+  selected: readonly bigint[]
 ) {
   if (
     !selected.length ||
@@ -227,5 +227,3 @@ export function attemptView(store: BackendContext, attemptId: bigint) {
     }
   };
 }
-
-export type QuizAttempt = ReturnType<typeof attemptView>;
