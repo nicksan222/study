@@ -45,6 +45,10 @@ runs:
     - name: Install frontend dependencies
       shell: bash
       run: npm ci
+    - name: Install landing dependencies
+      shell: bash
+      working-directory: apps/landing
+      run: bun install --frozen-lockfile
     - name: Install Rust
       shell: bash
       run: rustup toolchain install
