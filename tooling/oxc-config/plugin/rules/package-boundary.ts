@@ -10,7 +10,7 @@ const directories = {
   'packages/localization': '@study/localization',
   'packages/db': '@study/db',
   'packages/ai': '@study/ai',
-  'packages/backend': '@study/backend',
+  'apps/server': '@study/server',
   'apps/web': '@study/web',
   'apps/desktop': '@study/desktop',
   'apps/landing': 'study-landing'
@@ -24,15 +24,15 @@ const allowed: Record<Owner, readonly Owner[]> = {
   '@study/localization': [],
   '@study/db': ['@study/theme'],
   '@study/ai': ['@study/localization'],
-  '@study/backend': ['@study/db', '@study/ai', '@study/localization', '@study/theme'],
-  '@study/web': ['@study/ui', '@study/localization', '@study/backend', '@study/theme'],
+  '@study/server': ['@study/db', '@study/ai', '@study/localization', '@study/theme'],
+  '@study/web': ['@study/ui', '@study/localization', '@study/server', '@study/theme'],
   '@study/desktop': [],
   'study-landing': []
 };
 
 const exportsByPackage = new Map<string, unknown>(
   Object.entries(directories)
-    .filter(([directory]) => directory.startsWith('packages/'))
+    .filter(([directory]) => directory.startsWith('packages/') || directory === 'apps/server')
     .map(([directory, name]) => {
       const manifest = JSON.parse(
         readFileSync(new URL(`../../../../${directory}/package.json`, import.meta.url), 'utf8')
@@ -144,7 +144,7 @@ export default defineRule({
           });
         } else if (
           owner === '@study/web' &&
-          name === '@study/backend' &&
+          name === '@study/server' &&
           subpath !== '' &&
           subpath !== '/client' &&
           !subpath.startsWith('/shared/')
@@ -152,7 +152,7 @@ export default defineRule({
           context.report({
             node,
             message:
-              '@study/web must use browser-safe @study/backend root, client, or shared exports.'
+              '@study/web must use browser-safe @study/server root, client, or shared exports.'
           });
         }
 

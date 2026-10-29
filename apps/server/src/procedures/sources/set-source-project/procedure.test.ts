@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { createProject as dbCreateProject } from '#server/procedures/projects/operations/create-project';
+import { createNote as dbCreateNote } from '#server/procedures/sources/operations/create-note';
+import { source as dbSource } from '#server/procedures/sources/operations/source';
+import { createServerTest } from '#testing/server-test';
+test('setSourceProject assigns unowned sources and seals published ownership', async (t) => {
+  const f = await createServerTest(t);
+  const project = dbCreateProject(f.store, 'Course');
+  const source = dbCreateNote(f.store, 'n', 'body');
+
+  assert.equal(
+    (
+      await f.caller.sources.setSourceProject({
+        id: source.id,
+        project: project.id
+      })
+    ).value,
+    true
+  );
+  assert.equal(dbSource(f.store, source.id)?.projectId, project.id);
+  await assert.rejects(f.caller.sources.setSourceProject({ id: source.id }), {
+    kind: 'invalid_input'
+  });
+  assert.equal(dbSource(f.store, source.id)?.projectId, project.id);
+});

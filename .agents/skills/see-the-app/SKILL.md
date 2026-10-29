@@ -78,10 +78,10 @@ Model work requires the user's ChatGPT sign-in. Use existing or seeded material 
 connection is unavailable, and report the limitation. `just desktop-stop` stops the app,
 browser, and virtual desktop while keeping their data.
 
-## Backend transition
+## Server transition
 
 The Rust browser bridge, seeded E2E runner and capture generator are retired. `just web`,
 `just e2e`, `just demo` and `just docs-media` are unavailable. Native launchers remain, but
-TypeScript backend integration is incomplete; inspect startup logs before claiming a
-working app flow. Use package tests for available backend behavior. Keep committed website
+TypeScript server integration is incomplete; inspect startup logs before claiming a
+working app flow. Use package tests for available server behavior. Keep committed website
 captures intact until a replacement recorder is available.

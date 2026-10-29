@@ -7,8 +7,7 @@ test('database connection and schema factories stay with their owners', () => {
   const diagnostics = lintRule(
     'database-ownership',
     {
-      'packages/backend/src/core-migrate.ts':
-        "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
+      'apps/server/src/core-migrate.ts': "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
       'packages/db/src/schema/namespace.ts': "import * as core from 'drizzle-orm/sqlite-core';\n",
       'packages/db/src/schema/dynamic.ts': "const core = import('drizzle-orm/sqlite-core');\n",
       'packages/db/src/schema/migrate.ts':
@@ -20,52 +19,51 @@ test('database connection and schema factories stay with their owners', () => {
       'packages/db/src/schema/items.ts':
         "import { sqliteTable as table, sqliteView } from 'drizzle-orm/sqlite-core';\n",
       'packages/db/drizzle.config.ts': "import { defineConfig } from 'drizzle-kit';\n",
-      'packages/backend/src/good.ts':
+      'apps/server/src/good.ts':
         "import { eq, sql } from 'drizzle-orm';\nimport type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';\nimport type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';\nimport { Db } from '@study/db';\nconst sqliteTable = () => 1;\nconst object = { sqliteTable };\n",
-      'packages/backend/test/raw.test.ts': "import { DatabaseSync as Raw } from 'node:sqlite';\n",
-      'packages/backend/src/driver.ts':
-        "export { drizzle as create } from 'drizzle-orm/node-sqlite';\n",
-      'packages/backend/src/migrator.ts': "export * from 'drizzle-orm/node-sqlite/migrator';\n",
-      'packages/backend/src/schema.ts':
+      'apps/server/test/raw.test.ts': "import { DatabaseSync as Raw } from 'node:sqlite';\n",
+      'apps/server/src/driver.ts': "export { drizzle as create } from 'drizzle-orm/node-sqlite';\n",
+      'apps/server/src/migrator.ts': "export * from 'drizzle-orm/node-sqlite/migrator';\n",
+      'apps/server/src/schema.ts':
         "import { sqliteTable as table } from 'drizzle-orm/sqlite-core';\n",
       'packages/db/src/not-schema.ts':
         "export { sqliteTableCreator } from 'drizzle-orm/sqlite-core';\n",
-      'packages/backend/src/namespace.ts':
+      'apps/server/src/namespace.ts':
         "import * as core from 'drizzle-orm/sqlite-core';\ncore.sqliteView('v');\n",
-      'packages/backend/src/dynamic.ts':
+      'apps/server/src/dynamic.ts':
         "const core = import('drizzle-orm/sqlite-core');\nconst db = import('node:sqlite');\n",
-      'packages/backend/src/reexport.ts': "export * from 'drizzle-orm/sqlite-core';\n"
+      'apps/server/src/reexport.ts': "export * from 'drizzle-orm/sqlite-core';\n"
     },
     true
   );
 
   assert.deepEqual(
     diagnostics
-      .map(({ filename, message }) => [filename.split('/packages/')[1], message])
+      .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     [
       [
-        'backend/src/core-migrate.ts',
+        'server/src/core-migrate.ts',
         'SQLite connections and migrations belong in packages/db/src/db.ts.'
       ],
       [
-        'backend/src/driver.ts',
+        'server/src/driver.ts',
         'SQLite connections and migrations belong in packages/db/src/db.ts.'
       ],
       [
-        'backend/src/dynamic.ts',
+        'server/src/dynamic.ts',
         'SQLite connections and migrations belong in packages/db/src/db.ts.'
       ],
-      ['backend/src/dynamic.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+      ['server/src/dynamic.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
       [
-        'backend/src/migrator.ts',
+        'server/src/migrator.ts',
         'SQLite connections and migrations belong in packages/db/src/db.ts.'
       ],
-      ['backend/src/namespace.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
-      ['backend/src/reexport.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
-      ['backend/src/schema.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+      ['server/src/namespace.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+      ['server/src/reexport.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+      ['server/src/schema.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
       [
-        'backend/test/raw.test.ts',
+        'server/test/raw.test.ts',
         'SQLite connections and migrations belong in packages/db/src/db.ts.'
       ],
       ['db/src/db.ts', 'SQLite connections and migrations belong in packages/db/src/db.ts.'],
@@ -103,7 +101,7 @@ test('owner reexports cannot evade ownership by preceding imports', () => {
 
   assert.deepEqual(
     diagnostics
-      .map(({ filename, message }) => [filename.split('/packages/')[1], message])
+      .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     [
       ...Array.from({ length: 3 }, () => [

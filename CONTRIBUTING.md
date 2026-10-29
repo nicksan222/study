@@ -10,7 +10,7 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, frontend type/tests/build, generated database drift,
-  tooling tests, backend package checks, and the website's Bun type check. CI runs equivalent gates as sequential, emoji-labeled steps in its required
+  tooling tests, server package checks, and the website's Bun type check. CI runs equivalent gates as sequential, emoji-labeled steps in its required
   `Test and build` job, with readable test output and a results table in the run summary.
   After setup, every gate runs even if an earlier check fails.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
@@ -35,7 +35,7 @@ devcontainer exec --workspace-folder . bash
 The devcontainer installs root and landing dependencies from their committed locks. To
 refresh them, run `npm ci` and `bun install --cwd apps/landing --frozen-lockfile`, then
 run `just check`. The former Rust
-backend and browser bridge have been retired; the replacement backend does not yet provide
+server and browser bridge have been retired; the replacement server does not yet provide
 all application features, and seeded browser E2E and capture generation are unavailable.
 
 ### On your own Linux machine
@@ -58,7 +58,7 @@ image independently of its path filters.
 
 ### Everyday commands
 
-Run `bun dev` from the repository root to start the web app and tRPC backend at
+Run `bun dev` from the repository root to start the web app and tRPC server at
 `http://localhost:5173`. Development data lives in `target/web/study.sqlite`; set
 `STUDY_DATABASE` to use another database. `just run` starts the desktop host of the same app.
 
@@ -66,12 +66,12 @@ The root scripts and Just recipes share the project commands; `just --list` list
 configs live in `apps/web`; shared TypeScript settings live in `tooling/typescript`.
 Rust lint and dependency policy live in `tooling/rust`; `.cargo/config.toml` points Clippy
 there for both recipes and direct Cargo invocations. Root npm scripts select the web
-workspace and backend TypeScript config. Vite+ (`vp`) owns web development, builds,
+workspace and server TypeScript config. Vite+ (`vp`) owns web development, builds,
 frontend Vitest, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts` imports the
-shared policies from `tooling/oxc-config`; these apply to backend, frontend, tests and tooling.
+shared policies from `tooling/oxc-config`; these apply to server, frontend, tests and tooling.
 Run `npm run format` to format, `npm run format:check` to check formatting, and `npm run lint`
-for the combined format/lint gate with warnings denied. Backend tests keep the actual Node
-runtime (`npm run backend:test`) with the spec reporter; frontend tests use the verbose
+for the combined format/lint gate with warnings denied. Server tests keep the actual Node
+runtime (`npm run server:test`) with the spec reporter; frontend tests use the verbose
 Vitest reporter. TypeScript checks keep `tsc`.
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.
 Run `bun gen:check` to check generated database outputs
@@ -93,16 +93,16 @@ Node package or Cargo build.
 ## Where data lives
 
 - `~/.local/share/study/`: the database (`study.sqlite3`) and `diagnostics.log`.
-- Existing local-model caches may remain from earlier releases; the retired backend no
+- Existing local-model caches may remain from earlier releases; the retired server no
   longer installs or uses them.
 
 Existing data is retained. Native development selects `target/dev-data`; no reset or seed
-command is provided during the backend transition.
+command is provided during the server transition.
 
 ## Captures of the app
 
 The README demo and website stills and clips are committed from an earlier release.
-The former capture runner was retired with the Rust backend.
+The former capture runner was retired with the Rust server.
 
 ## The agent team
 
@@ -172,12 +172,12 @@ inclusion in Study, as defined in the Apache-2.0 license, is dual licensed under
 [Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), without any additional terms or
 conditions.
 
-The TypeScript backend uses Drizzle with schema modules in `packages/db/src/schema`.
+The TypeScript server uses Drizzle with schema modules in `packages/db/src/schema`.
 Run `bun gen` after changing the schema and `bun gen:check` to check drift.
-`packages/backend` owns the tRPC router and inferred client contract; it needs no code generation.
+`apps/server` owns the tRPC router and inferred client contract; it needs no code generation.
 Desktop, CLI, and web clients use the same typed procedures.
 
 `@study/db` exports `Db` and the schema; it contains no business rules. Procedures live in
-`packages/backend`, grouped by domain with input validation and a sibling `.test.ts` for each
-operation. Tests use fresh SQLite databases and actual services. `packages/backend/src/runtime/main.ts`
-starts and stops the backend process. The app is local only; ChatGPT provider sign-in is retained.
+`apps/server`, grouped by domain with input validation and a sibling `.test.ts` for each
+operation. Tests use fresh SQLite databases and actual services. `apps/server/src/runtime/main.ts`
+starts and stops the server process. The app is local only; ChatGPT provider sign-in is retained.

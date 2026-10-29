@@ -10,25 +10,25 @@ export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     const filename = context.filename.replaceAll('\\', '/');
-    const backend = filename.includes('/packages/backend/src/');
+    const server = filename.includes('/apps/server/src/');
     const procedures =
-      filename.includes('/packages/backend/src/procedures/') &&
+      filename.includes('/apps/server/src/procedures/') &&
       filename.endsWith('.ts') &&
       !filename.endsWith('.test.ts');
     const folderRoleCandidate = filename.match(
-      /\/packages\/backend\/src\/procedures\/[^/]+\/[^/]+\/(index|procedure|input|output)\.ts$/
+      /\/apps\/server\/src\/procedures\/[^/]+\/[^/]+\/(index|procedure|input|output)\.ts$/
     )?.[1];
     const folderRole = folderRoleCandidate;
     const schemaFile = folderRole === 'input' || folderRole === 'output';
     const schemaContractFile =
       schemaFile ||
-      (filename.includes('/packages/backend/src/shared/') && filename.endsWith('/schemas.ts'));
+      (filename.includes('/apps/server/src/shared/') && filename.endsWith('/schemas.ts'));
     const folderProcedureFile = folderRole === 'procedure';
     const folderIndexFile = folderRole === 'index';
     const endpointFolderIndexFile =
       folderIndexFile && existsSync(resolve(dirname(filename), 'procedure.ts'));
 
-    if (!backend || filename.endsWith('/runtime/trpc.ts')) return {};
+    if (!server || filename.endsWith('/runtime/trpc.ts')) return {};
 
     const routerFile = filename.endsWith('/router.ts');
 
@@ -63,10 +63,10 @@ export default defineRule({
     function procedureSource(source: string, imported: string): boolean {
       const root = filename.slice(
         0,
-        filename.indexOf('/packages/backend/src/') + '/packages/backend/src/'.length
+        filename.indexOf('/apps/server/src/') + '/apps/server/src/'.length
       );
-      const target = source.startsWith('#backend/')
-        ? resolve(root, source.slice('#backend/'.length))
+      const target = source.startsWith('#server/')
+        ? resolve(root, source.slice('#server/'.length))
         : source.startsWith('.')
           ? resolve(dirname(filename), source)
           : '';
@@ -333,13 +333,13 @@ export default defineRule({
       ImportDeclaration(node) {
         if (schemaContractFile) {
           const source = node.source.value;
-          const target = source.startsWith('#backend/')
+          const target = source.startsWith('#server/')
             ? resolve(
                 filename.slice(
                   0,
-                  filename.indexOf('/packages/backend/src/') + '/packages/backend/src/'.length
+                  filename.indexOf('/apps/server/src/') + '/apps/server/src/'.length
                 ),
-                source.slice('#backend/'.length)
+                source.slice('#server/'.length)
               )
             : source.startsWith('.')
               ? resolve(dirname(filename), source)
@@ -351,7 +351,7 @@ export default defineRule({
             source.startsWith('@study/db/') ||
             source === 'drizzle-orm' ||
             source.startsWith('drizzle-orm/') ||
-            source.startsWith('#backend/procedures/') ||
+            source.startsWith('#server/procedures/') ||
             targetPath.includes('/procedures/')
           )
             context.report({
@@ -418,7 +418,7 @@ export default defineRule({
         }
 
         if (
-          node.source.value === '#backend/runtime/trpc' ||
+          node.source.value === '#server/runtime/trpc' ||
           (filename.endsWith('/runtime/router.ts') && node.source.value === './trpc.ts')
         ) {
           for (const specifier of node.specifiers) {

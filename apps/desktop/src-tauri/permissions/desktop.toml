@@ -1,3 +1,3 @@
 [[permission]]
-identifier = "allow-backend-connection"
-commands.allow = ["backend_connection"]
+identifier = "allow-server-connection"
+commands.allow = ["server_connection"]

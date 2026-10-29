@@ -25,7 +25,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/trpc': {
-        target: process.env.STUDY_BACKEND_URL ?? 'http://127.0.0.1:5201',
+        target: process.env.STUDY_SERVER_URL ?? 'http://127.0.0.1:5201',
         configure: (proxy) => {
           // Browser requests enter through the same-origin Vite proxy.
           proxy.on('proxyReq', (request) => request.removeHeader('origin'));

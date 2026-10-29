@@ -8,23 +8,23 @@ test('package ownership, public exports, and browser entrypoints are enforced', 
     'package-boundary',
     {
       'packages/ui/src/app.ts': "import '@study/web';\n",
-      'packages/ui/src/bad.ts': "import '@study/backend';\n",
+      'packages/ui/src/bad.ts': "import '@study/server';\n",
       'packages/localization/src/bad.ts': "export * from '@study/ui/button';\n",
       'packages/db/src/bad.ts': "import type { Account } from '@study/ai';\n",
       'packages/ai/src/bad.ts': "export * from '@study/db';\n",
-      'packages/backend/src/bad.ts': "import '@study/ui/button';\n",
-      'apps/web/src/bad.ts': "export * from '@study/backend/server';\n",
+      'apps/server/src/bad.ts': "import '@study/ui/button';\n",
+      'apps/web/src/bad.ts': "export * from '@study/server/runtime';\n",
       'apps/web/src/node.ts': "import 'node:fs';\n",
-      'apps/web/src/private.ts': "import '@study/backend/shared/not-exported';\n",
-      'apps/web/src/relative.ts': "export * from '../../../packages/backend/src/index.ts';\n",
+      'apps/web/src/private.ts': "import '@study/server/shared/not-exported';\n",
+      'apps/web/src/relative.ts': "export * from '../../../apps/server/src/index.ts';\n",
       'apps/web/src/absolute.ts': `import '${root}packages/ai/src/index.ts';\n`,
       'apps/web/src/dynamic.ts': "export const db = import('../../../packages/db/src/index.ts');\n",
-      'apps/desktop/src/bad.ts': "import '@study/backend';\n",
+      'apps/desktop/src/bad.ts': "import '@study/server';\n",
       'apps/landing/src/bad.ts': "import '@study/ui/button';\n",
       'packages/ai/src/good.ts': "import '@study/localization';\n",
-      'packages/backend/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
+      'apps/server/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
       'apps/web/src/good.ts':
-        "import '@study/ui/button';\nimport '@study/backend';\nimport '@study/backend/client';\nimport '@study/backend/shared/ids';\n",
+        "import '@study/ui/button';\nimport '@study/server';\nimport '@study/server/client';\nimport '@study/server/shared/ids';\n",
       'packages/ui/src/same.ts': "import './other.ts';\n"
     },
     true
@@ -40,32 +40,26 @@ test('package ownership, public exports, and browser entrypoints are enforced', 
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     [
       ['packages/ui/src/app.ts', '@study/ui cannot depend on @study/web; use its owning layer.'],
-      [
-        'packages/ui/src/bad.ts',
-        '@study/ui cannot depend on @study/backend; use its owning layer.'
-      ],
+      ['packages/ui/src/bad.ts', '@study/ui cannot depend on @study/server; use its owning layer.'],
       [
         'packages/localization/src/bad.ts',
         '@study/localization cannot depend on @study/ui; use its owning layer.'
       ],
       ['packages/db/src/bad.ts', '@study/db cannot depend on @study/ai; use its owning layer.'],
       ['packages/ai/src/bad.ts', '@study/ai cannot depend on @study/db; use its owning layer.'],
-      [
-        'packages/backend/src/bad.ts',
-        '@study/backend cannot depend on @study/ui; use its owning layer.'
-      ],
+      ['apps/server/src/bad.ts', '@study/server cannot depend on @study/ui; use its owning layer.'],
       [
         'apps/web/src/bad.ts',
-        '@study/web must use browser-safe @study/backend root, client, or shared exports.'
+        '@study/web must use browser-safe @study/server root, client, or shared exports.'
       ],
       ['apps/web/src/node.ts', '@study/web cannot import Node builtins in browser code.'],
       [
         'apps/web/src/private.ts',
-        '@study/backend/shared/not-exported is not a public package export.'
+        '@study/server/shared/not-exported is not a public package export.'
       ],
       [
         'apps/web/src/relative.ts',
-        'Import @study/backend through its public package exports instead of a source path.'
+        'Import @study/server through its public package exports instead of a source path.'
       ],
       [
         'apps/web/src/absolute.ts',
@@ -77,7 +71,7 @@ test('package ownership, public exports, and browser entrypoints are enforced', 
       ],
       [
         'apps/desktop/src/bad.ts',
-        '@study/desktop cannot depend on @study/backend; use its owning layer.'
+        '@study/desktop cannot depend on @study/server; use its owning layer.'
       ],
       ['apps/landing/src/bad.ts', 'study-landing cannot depend on @study/ui; use its owning layer.']
     ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
@@ -88,7 +82,7 @@ test('source and test directory imports cannot bypass package boundaries', () =>
   const diagnostics = lintRule(
     'package-boundary',
     {
-      'apps/web/src/relative.ts': "import '../../../packages/backend/src/';\n",
+      'apps/web/src/relative.ts': "import '../../../apps/server/src/';\n",
       'apps/web/src/absolute.ts': `import '${root}packages/db/test';\n`
     },
     true
@@ -109,7 +103,7 @@ test('source and test directory imports cannot bypass package boundaries', () =>
       ],
       [
         'relative.ts',
-        'Import @study/backend through its public package exports instead of a source path.'
+        'Import @study/server through its public package exports instead of a source path.'
       ]
     ]
   );
@@ -178,15 +172,14 @@ test('manifest exports honor blocked exact and more specific patterns and condit
   );
 });
 
-test('the theme engine remains browser-safe while UI and backend can consume its public API', () => {
+test('the theme engine remains browser-safe while UI and server can consume its public API', () => {
   const diagnostics = lintRule(
     'package-boundary',
     {
       'packages/theme/src/bad.ts':
         "import { readFileSync } from 'node:fs'; export { readFileSync };",
       'packages/ui/src/theme.ts': "export { parseTheme } from '@study/theme';",
-      'packages/backend/src/shared/themes/types.ts':
-        "export type { ThemeFile } from '@study/theme';"
+      'apps/server/src/shared/themes/types.ts': "export type { ThemeFile } from '@study/theme';"
     },
     true
   );

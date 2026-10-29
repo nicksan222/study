@@ -11,16 +11,16 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 - Root frontend dependencies use `npm ci` and the committed `package-lock.json`. Landing
   uses Bun and its own lock. Vite+ supplies the local `vp` CLI, Oxfmt, Oxlint, Vite and
   frontend Vitest; keep its Vite alias and Vitest override aligned with the installed bundle.
-  Root `vite.config.ts` owns format/lint policy for backend, frontend, tests and tooling.
-  Backend tests run in Node and type checking stays with `tsc`.
+  Root `vite.config.ts` owns format/lint policy for server, frontend, tests and tooling.
+  Server tests run in Node and type checking stays with `tsc`.
   No browser/network install occurs during tests.
 - Keep `.github/actions/setup`'s apt dependencies and Node/just pins aligned with Dockerfile.
   Rust comes from `rust-toolchain.toml`. Preserve `--locked` and `target/devcontainer`.
 - `just check` includes Rust formatting, Clippy, dependencies, tests/doctests/docs, repository-wide Vite+ format/lint, frontend
-  type/tests/build, generated database drift, tooling tests, backend checks, and the
+  type/tests/build, generated database drift, tooling tests, server checks, and the
   landing Bun check. CI runs equivalent gates; `Test and build` is the required aggregate.
 - The Rust browser bridge and its E2E/capture runners are retired. Use package tests for
-  available behavior; do not claim full application parity during backend integration.
+  available behavior; do not claim full application parity during server integration.
 - `just run` launches Tauri/Vite on the virtual desktop. `desktop-status`, `desktop-wait`,
   `desktop-shot`, `desktop-click`, `desktop-record` work for agents. Never stop another
   agent's build or desktop without coordination. Keep host viewer and OAuth browser apart.

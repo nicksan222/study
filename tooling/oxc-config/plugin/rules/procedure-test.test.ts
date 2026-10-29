@@ -23,7 +23,7 @@ test('procedure function and aliased run exports are checked without classifying
   const diagnostics = lintRule('procedure-test', {
     'src/procedures/projects/function.ts': 'export function run() {}\n',
     'src/procedures/projects/alias.ts': 'const procedure = 1;\n\nexport { procedure as run };\n',
-    'src/procedures/projects/types.ts': "export type { run } from '#backend/shared/safe';\n",
+    'src/procedures/projects/types.ts': "export type { run } from '#server/shared/safe';\n",
     'src/procedures/projects/already.test.ts': 'export const run = 1;\n',
     'src/procedures/projects/not-run.ts': 'export const runtime = 1;\n'
   });
@@ -52,15 +52,15 @@ test('folder procedures require procedure.test.ts and old test setup imports are
   assertDiagnostics('procedure-test', diagnostics, [
     [
       'src/procedures/projects/covered/procedure.test.ts',
-      'Procedure tests must use createBackendTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
+      'Procedure tests must use createServerTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
     ],
     [
       'src/procedures/projects/database/procedure.test.ts',
-      'Procedure tests must use createBackendTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
+      'Procedure tests must use createServerTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
     ],
     [
       'src/procedures/projects/legacy/procedure.test.ts',
-      'Procedure tests must use createBackendTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
+      'Procedure tests must use createServerTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
     ],
     [
       'src/procedures/projects/missing/procedure.ts',
@@ -68,11 +68,11 @@ test('folder procedures require procedure.test.ts and old test setup imports are
     ],
     [
       'src/procedures/projects/namespace/procedure.test.ts',
-      'Procedure tests must use createBackendTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
+      'Procedure tests must use createServerTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
     ],
     [
       'src/procedures/projects/wildcard/procedure.test.ts',
-      'Procedure tests must use createBackendTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
+      'Procedure tests must use createServerTest(t); fixture, caller and testDatabase setup APIs are forbidden.'
     ]
   ]);
 });

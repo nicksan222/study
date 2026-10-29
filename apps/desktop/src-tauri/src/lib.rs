@@ -1,4 +1,4 @@
-//! Native window hosting the shared web app and its private TypeScript backend.
+//! Native window hosting the shared web app and its private TypeScript server.
 mod diagnostics;
 mod logging;
 mod server;
@@ -7,13 +7,13 @@ use tauri::Manager as _;
 use transport::NativeError;
 
 pub struct Shell {
-    backend: tokio::sync::Mutex<server::Backend>,
+    server: tokio::sync::Mutex<server::Server>,
 }
 #[tauri::command]
-async fn backend_connection(
+async fn server_connection(
     shell: tauri::State<'_, std::sync::Arc<Shell>>,
 ) -> Result<transport::Connection, NativeError> {
-    Ok(shell.backend.lock().await.client.connection())
+    Ok(shell.server.lock().await.client.connection())
 }
 pub fn run() {
     let result = tauri::Builder::default()
@@ -37,28 +37,28 @@ pub fn run() {
                         resources.join(if cfg!(windows) { "node.exe" } else { "node" })
                     }
                 });
-            let entry = std::env::var_os("STUDY_BACKEND_ENTRY")
+            let entry = std::env::var_os("STUDY_SERVER_ENTRY")
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| {
                     if cfg!(debug_assertions) {
                         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                            .join("../../../packages/backend/src/runtime/main.ts")
+                            .join("../../../apps/server/src/runtime/main.ts")
                     } else {
-                        resources.join("backend/main.js")
+                        resources.join("server/main.js")
                     }
                 });
             let database = std::env::var_os("STUDY_DATABASE")
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| data.join("study.sqlite"));
-            let backend =
-                tauri::async_runtime::block_on(server::Backend::start(node, entry, database))
+            let server =
+                tauri::async_runtime::block_on(server::Server::start(node, entry, database))
                     .map_err(|e| std::io::Error::other(e.message))?;
             app.manage(std::sync::Arc::new(Shell {
-                backend: tokio::sync::Mutex::new(backend),
+                server: tokio::sync::Mutex::new(server),
             }));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![backend_connection])
+        .invoke_handler(tauri::generate_handler![server_connection])
         .build(tauri::generate_context!());
     match result {
         Ok(application) => application.run(|app, event| {
@@ -66,13 +66,13 @@ pub fn run() {
                 tauri::async_runtime::block_on(async {
                     if let Err(e) = app
                         .state::<std::sync::Arc<Shell>>()
-                        .backend
+                        .server
                         .lock()
                         .await
                         .shutdown()
                         .await
                     {
-                        tracing::error!(message=%e.message, "backend shutdown failed");
+                        tracing::error!(message=%e.message, "server shutdown failed");
                     }
                 });
             }

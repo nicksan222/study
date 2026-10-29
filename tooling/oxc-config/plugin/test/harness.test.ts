@@ -13,7 +13,7 @@ test('isolated rule ignores unrelated default lint violations', () => {
 
 test('isolated rule loads the plugin and reports its diagnostic and path', () => {
   const diagnostics = lintRule('browser-boundary', {
-    'src/shared/bad.ts': "export * from '#backend/runtime/context';\n"
+    'src/shared/bad.ts': "export * from '#server/runtime/context';\n"
   });
 
   assert.equal(diagnostics.length, 1);

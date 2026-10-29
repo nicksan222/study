@@ -22,7 +22,7 @@ beforeEach(() => {
   history.replaceState(null, '', '/');
 });
 
-it.each(pages)('renders an empty %s page without calling the backend', async (page) => {
+it.each(pages)('renders an empty %s page without calling the server', async (page) => {
   history.replaceState(null, '', `/#/${page}?id=42&project=99`);
   const fetch = vi.spyOn(globalThis, 'fetch');
 

@@ -55,15 +55,15 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just deny
 
-      - name: 🧩 Type-check backend packages
-        id: backend_types
+      - name: 🧩 Type-check server packages
+        id: server_types
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npm run backend:typecheck
+        run: npm run server:typecheck
 
-      - name: 🧪 Test backend, AI, database and localization
-        id: backend_tests
+      - name: 🧪 Test server, AI, database and localization
+        id: server_tests
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npm run backend:test
+        run: npm run server:test
 
       - name: 🧩 Type-check web and tooling
         id: frontend_types
@@ -121,8 +121,8 @@ jobs:
             'format': '🎨 Check formatting',
             'lint': '🔎 Lint Rust and TypeScript',
             'dependencies': '🛡️ Audit Rust dependencies',
-            'backend_types': '🧩 Type-check backend packages',
-            'backend_tests': '🧪 Test backend, AI, database and localization',
+            'server_types': '🧩 Type-check server packages',
+            'server_tests': '🧪 Test server, AI, database and localization',
             'frontend_types': '🧩 Type-check web and tooling',
             'frontend_tests': '🖼️ Test web, UI and localization components',
             'native_tests': '🦀 Test native shell and Rust doctests',
