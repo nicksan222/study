@@ -1,0 +1,7961 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "e93fbd69-413b-4db6-b2e7-dfc0ad676ec8",
+  "prevIds": [
+    "6e46945c-5157-4219-a0c0-fe5926befe3c"
+  ],
+  "ddl": [
+    {
+      "name": "preferences",
+      "entityType": "tables"
+    },
+    {
+      "name": "projects",
+      "entityType": "tables"
+    },
+    {
+      "name": "source_blobs",
+      "entityType": "tables"
+    },
+    {
+      "name": "sources",
+      "entityType": "tables"
+    },
+    {
+      "name": "citations",
+      "entityType": "tables"
+    },
+    {
+      "name": "message_parts",
+      "entityType": "tables"
+    },
+    {
+      "name": "message_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "messages",
+      "entityType": "tables"
+    },
+    {
+      "name": "recording_chunks",
+      "entityType": "tables"
+    },
+    {
+      "name": "recordings",
+      "entityType": "tables"
+    },
+    {
+      "name": "sessions",
+      "entityType": "tables"
+    },
+    {
+      "name": "blocks",
+      "entityType": "tables"
+    },
+    {
+      "name": "documents",
+      "entityType": "tables"
+    },
+    {
+      "name": "chunks",
+      "entityType": "tables"
+    },
+    {
+      "name": "artifact_citations",
+      "entityType": "tables"
+    },
+    {
+      "name": "artifact_note_snapshots",
+      "entityType": "tables"
+    },
+    {
+      "name": "artifact_sources",
+      "entityType": "tables"
+    },
+    {
+      "name": "artifacts",
+      "entityType": "tables"
+    },
+    {
+      "name": "cards",
+      "entityType": "tables"
+    },
+    {
+      "name": "reviews",
+      "entityType": "tables"
+    },
+    {
+      "name": "practice_questions",
+      "entityType": "tables"
+    },
+    {
+      "name": "practices",
+      "entityType": "tables"
+    },
+    {
+      "name": "question_citations",
+      "entityType": "tables"
+    },
+    {
+      "name": "job_deps",
+      "entityType": "tables"
+    },
+    {
+      "name": "jobs",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_artifact_kind",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_artifact_status",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_block_kind",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_error_kind",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_extractor_kind",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_job_kind",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_job_status",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_message_role",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_message_status",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_question_kind",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_question_status",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_rating",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_requirement",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_source_kind",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_source_origin",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_title_source",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_verdict",
+      "entityType": "tables"
+    },
+    {
+      "name": "codes_version_origin",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_version_inputs",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_version_parents",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "materials",
+      "entityType": "tables"
+    },
+    {
+      "name": "session_materials",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_audio_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_diagram_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_document_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_file_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_image_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_link_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_version_citations",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_video_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_card_identities",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_card_reviews",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_card_schedules",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_flashcard_entries",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_flashcard_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_attempts",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_choices",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_open_answers",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_questions",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_responses",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_selections",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_versions",
+      "entityType": "tables"
+    },
+    {
+      "name": "themes",
+      "entityType": "tables"
+    },
+    {
+      "table": "preferences",
+      "name": "scope",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "preferences",
+      "name": "key",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "preferences",
+      "name": "value",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "projects",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "projects",
+      "name": "name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "projects",
+      "name": "exam_on",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "projects",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "projects",
+      "name": "updated_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "source_blobs",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "source_blobs",
+      "name": "bytes",
+      "type": "blob",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "origin",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "mime",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "size_bytes",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "sha256",
+      "type": "blob",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "uri",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "citations",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "citations",
+      "name": "marker",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "citations",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "citations",
+      "name": "source_name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "citations",
+      "name": "anchor",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "citations",
+      "name": "quote",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_parts",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_parts",
+      "name": "message_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_parts",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_parts",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_parts",
+      "name": "source_name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_parts",
+      "name": "source_kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "number",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "origin",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "instruction",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "text",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "''",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "based_on",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "owner_job_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "message_versions",
+      "name": "owner_attempt",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "role",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "reply_to",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "thread_root",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "recording_ms",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "recording_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "recorded_in",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "active_version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "messages",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "recording_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "pcm",
+      "type": "blob",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recordings",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recordings",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recordings",
+      "name": "started_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recordings",
+      "name": "updated_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "title",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "title_source",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "updated_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "blocks",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "blocks",
+      "name": "document_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "blocks",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "blocks",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "blocks",
+      "name": "text",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "blocks",
+      "name": "anchor",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "documents",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "documents",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "documents",
+      "name": "extractor",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "documents",
+      "name": "extractor_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "documents",
+      "name": "meta",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "documents",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "document_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "first_block",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "last_block",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "anchor",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "text",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "chunks",
+      "name": "content_hash",
+      "type": "blob",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "artifact_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "marker",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "source_name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "anchor",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "quote",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_note_snapshots",
+      "name": "artifact_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_note_snapshots",
+      "name": "message_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_note_snapshots",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_sources",
+      "name": "artifact_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifact_sources",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "material_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "practice_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "mistakes",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "title",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "notes",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "''",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "body",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "artifacts",
+      "name": "updated_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "material_card_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "artifact_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "front",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "back",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "stability",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "difficulty",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "reps",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "lapses",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "last_review",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "due",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "cites",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'[]'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "state",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "elapsed_days",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "scheduled_days",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "cards",
+      "name": "learning_steps",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "reviews",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "reviews",
+      "name": "card_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "reviews",
+      "name": "rating",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "reviews",
+      "name": "reviewed_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "reviews",
+      "name": "stability",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "reviews",
+      "name": "difficulty",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "reviews",
+      "name": "elapsed_days",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "body",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "gist",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "choice",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "answer",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "verdict",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "feedback",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "answered_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practice_questions",
+      "name": "graded_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practices",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practices",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practices",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "practices",
+      "name": "updated_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "question_citations",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "question_citations",
+      "name": "marker",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "question_citations",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "question_citations",
+      "name": "source_name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "question_citations",
+      "name": "anchor",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "question_citations",
+      "name": "quote",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "job_deps",
+      "name": "job_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "job_deps",
+      "name": "depends_on",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "document_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "message_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "artifact_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "args",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "dedupe_key",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "waiting_for",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "attempts",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "run_after",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "error_kind",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "error",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "updated_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "started_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "jobs",
+      "name": "finished_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_artifact_kind",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_artifact_status",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_block_kind",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_error_kind",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_extractor_kind",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_job_kind",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_job_status",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_message_role",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_message_status",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_question_kind",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_question_status",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_rating",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_requirement",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_source_kind",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_source_origin",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_title_source",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_verdict",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "codes_version_origin",
+      "name": "code",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "input_version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "parent_version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "material_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "number",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'draft'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "operation",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'original'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "creator",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'user'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "instruction",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "language",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_versions",
+      "name": "published_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "materials",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "materials",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "materials",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "materials",
+      "name": "title",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "materials",
+      "name": "created_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "materials",
+      "name": "updated_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "materials",
+      "name": "archived_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_materials",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_materials",
+      "name": "material_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_materials",
+      "name": "project_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_materials",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'audio'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "duration_ms",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "sample_rate",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "channels",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'diagram'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "format",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "payload",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'document'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "document_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'file'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'image'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "width",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "height",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'link'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "marker",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "input_version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "anchor",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "quote",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'video'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "source_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "duration_ms",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "width",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "height",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "material_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'flashcards'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "card_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "reviewed_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "rating",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "elapsed_days",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "card_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "due",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "last_review",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "elapsed_days",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "scheduled_days",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "learning_steps",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "state",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "stability",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "difficulty",
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "reps",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "lapses",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "material_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "card_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "front",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "back",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "material_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'flashcards'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "started_at",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "finished_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "question_kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "text",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "is_correct",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_open_answers",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_open_answers",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'open'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_open_answers",
+      "name": "reference_answer",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "prompt",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "explanation",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "attempt_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "question_kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "answer",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "score",
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "feedback",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_selections",
+      "name": "attempt_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_selections",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_selections",
+      "name": "choice_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_versions",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_versions",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'quiz'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "themes",
+      "name": "id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "themes",
+      "name": "definition",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "themes",
+      "name": "builtin",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sources",
+      "name": "sources_sha256_idx",
+      "columns": [
+        {
+          "value": "sha256",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "sources",
+      "name": "sources_project_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "citations",
+      "name": "citations_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "message_parts",
+      "name": "message_parts_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "message_parts",
+      "name": "message_parts_message_id_ordinal_unique",
+      "columns": [
+        {
+          "value": "message_id",
+          "isExpression": false
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_unfinished_idx",
+      "columns": [
+        {
+          "value": "message_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "status != 'complete'",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_based_on_idx",
+      "columns": [
+        {
+          "value": "based_on",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": "based_on IS NOT NULL",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_message_id_number_unique",
+      "columns": [
+        {
+          "value": "message_id",
+          "isExpression": false
+        },
+        {
+          "value": "number",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "messages",
+      "name": "messages_thread_idx",
+      "columns": [
+        {
+          "value": "thread_root",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": "thread_root IS NOT NULL",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "messages",
+      "name": "messages_session_idx",
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "messages",
+      "name": "messages_recording_idx",
+      "columns": [
+        {
+          "value": "recording_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": "recording_id IS NOT NULL",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "messages",
+      "name": "messages_active_version_idx",
+      "columns": [
+        {
+          "value": "active_version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": "active_version_id IS NOT NULL",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "recording_chunks_recording_id_ordinal_unique",
+      "columns": [
+        {
+          "value": "recording_id",
+          "isExpression": false
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "recordings",
+      "name": "recordings_session_idx",
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "sessions",
+      "name": "sessions_project_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "\"updated_at\" desc",
+          "isExpression": true
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "sessions",
+      "name": "sessions_id_project_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "blocks",
+      "name": "blocks_document_id_ordinal_unique",
+      "columns": [
+        {
+          "value": "document_id",
+          "isExpression": false
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "documents",
+      "name": "documents_source_id_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "chunks",
+      "name": "chunks_content_hash_idx",
+      "columns": [
+        {
+          "value": "content_hash",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "chunks",
+      "name": "chunks_document_id_ordinal_unique",
+      "columns": [
+        {
+          "value": "document_id",
+          "isExpression": false
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "artifact_citations_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifact_sources",
+      "name": "artifact_sources_unique_idx",
+      "columns": [
+        {
+          "value": "artifact_id",
+          "isExpression": false
+        },
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "source_id IS NOT NULL",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifact_sources",
+      "name": "artifact_sources_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_update_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "mistakes = 0 AND status != 'complete'",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_material_idx",
+      "columns": [
+        {
+          "value": "material_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_project_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "\"id\" desc",
+          "isExpression": true
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_piece_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "mistakes = 0 AND status = 'complete'",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_practice_id_unique",
+      "columns": [
+        {
+          "value": "practice_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "cards",
+      "name": "cards_question_idx",
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "cards",
+      "name": "cards_material_card_idx",
+      "columns": [
+        {
+          "value": "material_card_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "cards",
+      "name": "cards_due_idx",
+      "columns": [
+        {
+          "value": "due",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "cards",
+      "name": "cards_artifact_id_ordinal_unique",
+      "columns": [
+        {
+          "value": "artifact_id",
+          "isExpression": false
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "reviews",
+      "name": "reviews_card_idx",
+      "columns": [
+        {
+          "value": "card_id",
+          "isExpression": false
+        },
+        {
+          "value": "reviewed_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_practice_id_ordinal_unique",
+      "columns": [
+        {
+          "value": "practice_id",
+          "isExpression": false
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "practices",
+      "name": "practices_updated_idx",
+      "columns": [
+        {
+          "value": "\"updated_at\" desc",
+          "isExpression": true
+        },
+        {
+          "value": "\"id\" desc",
+          "isExpression": true
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "practices",
+      "name": "practices_project_id_unique",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "question_citations",
+      "name": "question_citations_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "job_deps",
+      "name": "job_deps_depends_on_idx",
+      "columns": [
+        {
+          "value": "depends_on",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_session_idx",
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_question_idx",
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_pending_dedupe_idx",
+      "columns": [
+        {
+          "value": "dedupe_key",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "status IN ('blocked', 'queued', 'waiting')",
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_message_idx",
+      "columns": [
+        {
+          "value": "message_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_document_idx",
+      "columns": [
+        {
+          "value": "document_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_claim_idx",
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        },
+        {
+          "value": "run_after",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_artifact_idx",
+      "columns": [
+        {
+          "value": "artifact_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "material_version_inputs_input_idx",
+      "columns": [
+        {
+          "value": "input_version_id",
+          "isExpression": false
+        },
+        {
+          "value": "version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "material_version_inputs_project_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "material_version_parents_parent_idx",
+      "columns": [
+        {
+          "value": "parent_version_id",
+          "isExpression": false
+        },
+        {
+          "value": "version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "material_version_parents_material_idx",
+      "columns": [
+        {
+          "value": "material_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_number_unique",
+      "columns": [
+        {
+          "value": "material_id",
+          "isExpression": false
+        },
+        {
+          "value": "number",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_id_kind_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_id_material_kind_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "material_id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_id_material_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "material_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_id_project_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_heads_idx",
+      "columns": [
+        {
+          "value": "material_id",
+          "isExpression": false
+        },
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "\"number\" desc",
+          "isExpression": true
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_project_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "materials",
+      "name": "materials_id_kind_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "materials",
+      "name": "materials_id_project_kind_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "materials",
+      "name": "materials_id_project_unique",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "materials",
+      "name": "materials_project_updated_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "\"updated_at\" desc",
+          "isExpression": true
+        },
+        {
+          "value": "\"id\" desc",
+          "isExpression": true
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "session_materials",
+      "name": "session_materials_position_unique",
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false
+        },
+        {
+          "value": "position",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "session_materials",
+      "name": "session_materials_material_idx",
+      "columns": [
+        {
+          "value": "material_id",
+          "isExpression": false
+        },
+        {
+          "value": "session_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "session_materials",
+      "name": "session_materials_project_idx",
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "material_audio_versions_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "material_document_versions_document_unique",
+      "columns": [
+        {
+          "value": "document_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "material_file_versions_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "material_image_versions_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "material_link_versions_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "material_version_citations_marker_unique",
+      "columns": [
+        {
+          "value": "version_id",
+          "isExpression": false
+        },
+        {
+          "value": "marker",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "material_version_citations_input_idx",
+      "columns": [
+        {
+          "value": "input_version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "material_video_versions_source_idx",
+      "columns": [
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "material_card_identities_material",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "material_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "material_card_identities_material_fk",
+      "columns": [
+        {
+          "value": "material_id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "material_card_reviews_entry_fk",
+      "columns": [
+        {
+          "value": "version_id",
+          "isExpression": false
+        },
+        {
+          "value": "card_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "material_card_reviews_card_time",
+      "columns": [
+        {
+          "value": "card_id",
+          "isExpression": false
+        },
+        {
+          "value": "reviewed_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "material_card_schedules_due",
+      "columns": [
+        {
+          "value": "due",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "material_flashcard_entries_position",
+      "columns": [
+        {
+          "value": "version_id",
+          "isExpression": false
+        },
+        {
+          "value": "position",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "material_flashcard_entries_card_fk",
+      "columns": [
+        {
+          "value": "card_id",
+          "isExpression": false
+        },
+        {
+          "value": "material_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "material_flashcard_versions_material",
+      "columns": [
+        {
+          "value": "version_id",
+          "isExpression": false
+        },
+        {
+          "value": "material_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "material_flashcard_versions_material_fk",
+      "columns": [
+        {
+          "value": "material_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "material_quiz_attempts_version",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "material_quiz_attempts_version_fk",
+      "columns": [
+        {
+          "value": "version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "material_quiz_choices_position",
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false
+        },
+        {
+          "value": "position",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "material_quiz_choices_question",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "question_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "material_quiz_questions_position",
+      "columns": [
+        {
+          "value": "version_id",
+          "isExpression": false
+        },
+        {
+          "value": "position",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "material_quiz_questions_version",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "material_quiz_questions_kind",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "material_quiz_responses_question_version_fk",
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false
+        },
+        {
+          "value": "version_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "material_quiz_responses_question_kind_fk",
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false
+        },
+        {
+          "value": "question_kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_selections",
+      "name": "material_quiz_selections_choice_fk",
+      "columns": [
+        {
+          "value": "choice_id",
+          "isExpression": false
+        },
+        {
+          "value": "question_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "source_blobs",
+      "name": "fk_source_blobs_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "sources",
+      "name": "fk_sources_project_id_projects_id_fk",
+      "columns": [
+        "project_id"
+      ],
+      "tableTo": "projects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "sources",
+      "name": "fk_sources_origin_codes_source_origin_code_fk",
+      "columns": [
+        "origin"
+      ],
+      "tableTo": "codes_source_origin",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "sources",
+      "name": "fk_sources_kind_codes_source_kind_code_fk",
+      "columns": [
+        "kind"
+      ],
+      "tableTo": "codes_source_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "citations",
+      "name": "fk_citations_version_id_message_versions_id_fk",
+      "columns": [
+        "version_id"
+      ],
+      "tableTo": "message_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "citations",
+      "name": "fk_citations_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_parts",
+      "name": "fk_message_parts_message_id_messages_id_fk",
+      "columns": [
+        "message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_parts",
+      "name": "fk_message_parts_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_parts",
+      "name": "fk_message_parts_source_kind_codes_source_kind_code_fk",
+      "columns": [
+        "source_kind"
+      ],
+      "tableTo": "codes_source_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_versions",
+      "name": "fk_message_versions_message_id_messages_id_fk",
+      "columns": [
+        "message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_versions",
+      "name": "fk_message_versions_origin_codes_version_origin_code_fk",
+      "columns": [
+        "origin"
+      ],
+      "tableTo": "codes_version_origin",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_versions",
+      "name": "fk_message_versions_status_codes_message_status_code_fk",
+      "columns": [
+        "status"
+      ],
+      "tableTo": "codes_message_status",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_versions",
+      "name": "fk_message_versions_based_on_message_versions_id_fk",
+      "columns": [
+        "based_on"
+      ],
+      "tableTo": "message_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "message_versions",
+      "name": "fk_message_versions_owner_job_id_jobs_id_fk",
+      "columns": [
+        "owner_job_id"
+      ],
+      "tableTo": "jobs",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "messages",
+      "name": "fk_messages_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "messages",
+      "name": "fk_messages_role_codes_message_role_code_fk",
+      "columns": [
+        "role"
+      ],
+      "tableTo": "codes_message_role",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "messages",
+      "name": "fk_messages_reply_to_messages_id_fk",
+      "columns": [
+        "reply_to"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "messages",
+      "name": "fk_messages_thread_root_message_parts_id_fk",
+      "columns": [
+        "thread_root"
+      ],
+      "tableTo": "message_parts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "messages",
+      "name": "fk_messages_recording_id_recordings_id_fk",
+      "columns": [
+        "recording_id"
+      ],
+      "tableTo": "recordings",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "messages",
+      "name": "fk_messages_recorded_in_sources_id_fk",
+      "columns": [
+        "recorded_in"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "messages",
+      "name": "fk_messages_active_version_id_message_versions_id_fk",
+      "columns": [
+        "active_version_id"
+      ],
+      "tableTo": "message_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "fk_recording_chunks_recording_id_recordings_id_fk",
+      "columns": [
+        "recording_id"
+      ],
+      "tableTo": "recordings",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "recordings",
+      "name": "fk_recordings_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "sessions",
+      "name": "fk_sessions_project_id_projects_id_fk",
+      "columns": [
+        "project_id"
+      ],
+      "tableTo": "projects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "sessions",
+      "name": "fk_sessions_title_source_codes_title_source_code_fk",
+      "columns": [
+        "title_source"
+      ],
+      "tableTo": "codes_title_source",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "blocks",
+      "name": "fk_blocks_document_id_documents_id_fk",
+      "columns": [
+        "document_id"
+      ],
+      "tableTo": "documents",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "blocks",
+      "name": "fk_blocks_kind_codes_block_kind_code_fk",
+      "columns": [
+        "kind"
+      ],
+      "tableTo": "codes_block_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "documents",
+      "name": "fk_documents_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "documents",
+      "name": "fk_documents_extractor_codes_extractor_kind_code_fk",
+      "columns": [
+        "extractor"
+      ],
+      "tableTo": "codes_extractor_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "chunks",
+      "name": "fk_chunks_document_id_documents_id_fk",
+      "columns": [
+        "document_id"
+      ],
+      "tableTo": "documents",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "fk_artifact_citations_artifact_id_artifacts_id_fk",
+      "columns": [
+        "artifact_id"
+      ],
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "fk_artifact_citations_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifact_note_snapshots",
+      "name": "fk_artifact_note_snapshots_artifact_id_artifacts_id_fk",
+      "columns": [
+        "artifact_id"
+      ],
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifact_sources",
+      "name": "fk_artifact_sources_artifact_id_artifacts_id_fk",
+      "columns": [
+        "artifact_id"
+      ],
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifact_sources",
+      "name": "fk_artifact_sources_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifacts",
+      "name": "fk_artifacts_project_id_projects_id_fk",
+      "columns": [
+        "project_id"
+      ],
+      "tableTo": "projects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifacts",
+      "name": "fk_artifacts_material_id_materials_id_fk",
+      "columns": [
+        "material_id"
+      ],
+      "tableTo": "materials",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifacts",
+      "name": "fk_artifacts_practice_id_practices_id_fk",
+      "columns": [
+        "practice_id"
+      ],
+      "tableTo": "practices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifacts",
+      "name": "fk_artifacts_kind_codes_artifact_kind_code_fk",
+      "columns": [
+        "kind"
+      ],
+      "tableTo": "codes_artifact_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "artifacts",
+      "name": "fk_artifacts_status_codes_artifact_status_code_fk",
+      "columns": [
+        "status"
+      ],
+      "tableTo": "codes_artifact_status",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "cards",
+      "name": "fk_cards_material_card_id_material_card_identities_id_fk",
+      "columns": [
+        "material_card_id"
+      ],
+      "tableTo": "material_card_identities",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "cards",
+      "name": "fk_cards_artifact_id_artifacts_id_fk",
+      "columns": [
+        "artifact_id"
+      ],
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "cards",
+      "name": "fk_cards_question_id_practice_questions_id_fk",
+      "columns": [
+        "question_id"
+      ],
+      "tableTo": "practice_questions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "reviews",
+      "name": "fk_reviews_card_id_cards_id_fk",
+      "columns": [
+        "card_id"
+      ],
+      "tableTo": "cards",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "reviews",
+      "name": "fk_reviews_rating_codes_rating_code_fk",
+      "columns": [
+        "rating"
+      ],
+      "tableTo": "codes_rating",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "fk_practice_questions_practice_id_practices_id_fk",
+      "columns": [
+        "practice_id"
+      ],
+      "tableTo": "practices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "fk_practice_questions_kind_codes_question_kind_code_fk",
+      "columns": [
+        "kind"
+      ],
+      "tableTo": "codes_question_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "fk_practice_questions_status_codes_question_status_code_fk",
+      "columns": [
+        "status"
+      ],
+      "tableTo": "codes_question_status",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "fk_practice_questions_verdict_codes_verdict_code_fk",
+      "columns": [
+        "verdict"
+      ],
+      "tableTo": "codes_verdict",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "practices",
+      "name": "fk_practices_project_id_projects_id_fk",
+      "columns": [
+        "project_id"
+      ],
+      "tableTo": "projects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "question_citations",
+      "name": "fk_question_citations_question_id_practice_questions_id_fk",
+      "columns": [
+        "question_id"
+      ],
+      "tableTo": "practice_questions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "question_citations",
+      "name": "fk_question_citations_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "job_deps",
+      "name": "fk_job_deps_job_id_jobs_id_fk",
+      "columns": [
+        "job_id"
+      ],
+      "tableTo": "jobs",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "job_deps",
+      "name": "fk_job_deps_depends_on_jobs_id_fk",
+      "columns": [
+        "depends_on"
+      ],
+      "tableTo": "jobs",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_kind_codes_job_kind_code_fk",
+      "columns": [
+        "kind"
+      ],
+      "tableTo": "codes_job_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_document_id_documents_id_fk",
+      "columns": [
+        "document_id"
+      ],
+      "tableTo": "documents",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_message_id_messages_id_fk",
+      "columns": [
+        "message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_artifact_id_artifacts_id_fk",
+      "columns": [
+        "artifact_id"
+      ],
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_question_id_practice_questions_id_fk",
+      "columns": [
+        "question_id"
+      ],
+      "tableTo": "practice_questions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_status_codes_job_status_code_fk",
+      "columns": [
+        "status"
+      ],
+      "tableTo": "codes_job_status",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_waiting_for_codes_requirement_code_fk",
+      "columns": [
+        "waiting_for"
+      ],
+      "tableTo": "codes_requirement",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "jobs",
+      "name": "fk_jobs_error_kind_codes_error_kind_code_fk",
+      "columns": [
+        "error_kind"
+      ],
+      "tableTo": "codes_error_kind",
+      "columnsTo": [
+        "code"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "fk_material_version_inputs_version_id_project_id_material_versions_id_project_id_fk",
+      "columns": [
+        "version_id",
+        "project_id"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "project_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "fk_material_version_inputs_input_version_id_project_id_material_versions_id_project_id_fk",
+      "columns": [
+        "input_version_id",
+        "project_id"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "project_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "fk_material_version_parents_version_id_material_id_material_versions_id_material_id_fk",
+      "columns": [
+        "version_id",
+        "material_id"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "material_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "fk_material_version_parents_parent_version_id_material_id_material_versions_id_material_id_fk",
+      "columns": [
+        "parent_version_id",
+        "material_id"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "material_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_versions",
+      "name": "fk_material_versions_material_id_project_id_kind_materials_id_project_id_kind_fk",
+      "columns": [
+        "material_id",
+        "project_id",
+        "kind"
+      ],
+      "tableTo": "materials",
+      "columnsTo": [
+        "id",
+        "project_id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "materials",
+      "name": "fk_materials_project_id_projects_id_fk",
+      "columns": [
+        "project_id"
+      ],
+      "tableTo": "projects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "session_materials",
+      "name": "fk_session_materials_session_id_project_id_sessions_id_project_id_fk",
+      "columns": [
+        "session_id",
+        "project_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id",
+        "project_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "session_materials",
+      "name": "fk_session_materials_material_id_project_id_materials_id_project_id_fk",
+      "columns": [
+        "material_id",
+        "project_id"
+      ],
+      "tableTo": "materials",
+      "columnsTo": [
+        "id",
+        "project_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "fk_material_audio_versions_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "fk_material_audio_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "fk_material_diagram_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "fk_material_document_versions_document_id_documents_id_fk",
+      "columns": [
+        "document_id"
+      ],
+      "tableTo": "documents",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "fk_material_document_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "fk_material_file_versions_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "fk_material_file_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "fk_material_image_versions_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "fk_material_image_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "fk_material_link_versions_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "fk_material_link_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "fk_material_version_citations_version_id_input_version_id_material_version_inputs_version_id_input_version_id_fk",
+      "columns": [
+        "version_id",
+        "input_version_id"
+      ],
+      "tableTo": "material_version_inputs",
+      "columnsTo": [
+        "version_id",
+        "input_version_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "fk_material_video_versions_source_id_sources_id_fk",
+      "columns": [
+        "source_id"
+      ],
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "fk_material_video_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "fk_material_card_identities_material_id_kind_materials_id_kind_fk",
+      "columns": [
+        "material_id",
+        "kind"
+      ],
+      "tableTo": "materials",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "fk_material_card_reviews_version_id_card_id_material_flashcard_entries_version_id_card_id_fk",
+      "columns": [
+        "version_id",
+        "card_id"
+      ],
+      "tableTo": "material_flashcard_entries",
+      "columnsTo": [
+        "version_id",
+        "card_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "fk_material_card_schedules_card_id_material_card_identities_id_fk",
+      "columns": [
+        "card_id"
+      ],
+      "tableTo": "material_card_identities",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "fk_material_flashcard_entries_version_id_material_id_material_flashcard_versions_version_id_material_id_fk",
+      "columns": [
+        "version_id",
+        "material_id"
+      ],
+      "tableTo": "material_flashcard_versions",
+      "columnsTo": [
+        "version_id",
+        "material_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "fk_material_flashcard_entries_card_id_material_id_material_card_identities_id_material_id_fk",
+      "columns": [
+        "card_id",
+        "material_id"
+      ],
+      "tableTo": "material_card_identities",
+      "columnsTo": [
+        "id",
+        "material_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "fk_material_flashcard_versions_version_id_material_id_kind_material_versions_id_material_id_kind_fk",
+      "columns": [
+        "version_id",
+        "material_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "material_id",
+        "kind"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "fk_material_quiz_attempts_version_id_material_quiz_versions_version_id_fk",
+      "columns": [
+        "version_id"
+      ],
+      "tableTo": "material_quiz_versions",
+      "columnsTo": [
+        "version_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "fk_material_quiz_choices_question_id_question_kind_material_quiz_questions_id_kind_fk",
+      "columns": [
+        "question_id",
+        "question_kind"
+      ],
+      "tableTo": "material_quiz_questions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_open_answers",
+      "name": "fk_material_quiz_open_answers_question_id_kind_material_quiz_questions_id_kind_fk",
+      "columns": [
+        "question_id",
+        "kind"
+      ],
+      "tableTo": "material_quiz_questions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "fk_material_quiz_questions_version_id_material_quiz_versions_version_id_fk",
+      "columns": [
+        "version_id"
+      ],
+      "tableTo": "material_quiz_versions",
+      "columnsTo": [
+        "version_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "fk_material_quiz_responses_attempt_id_version_id_material_quiz_attempts_id_version_id_fk",
+      "columns": [
+        "attempt_id",
+        "version_id"
+      ],
+      "tableTo": "material_quiz_attempts",
+      "columnsTo": [
+        "id",
+        "version_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "fk_material_quiz_responses_question_id_version_id_material_quiz_questions_id_version_id_fk",
+      "columns": [
+        "question_id",
+        "version_id"
+      ],
+      "tableTo": "material_quiz_questions",
+      "columnsTo": [
+        "id",
+        "version_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "fk_material_quiz_responses_question_id_question_kind_material_quiz_questions_id_kind_fk",
+      "columns": [
+        "question_id",
+        "question_kind"
+      ],
+      "tableTo": "material_quiz_questions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_selections",
+      "name": "fk_material_quiz_selections_attempt_id_question_id_material_quiz_responses_attempt_id_question_id_fk",
+      "columns": [
+        "attempt_id",
+        "question_id"
+      ],
+      "tableTo": "material_quiz_responses",
+      "columnsTo": [
+        "attempt_id",
+        "question_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_selections",
+      "name": "fk_material_quiz_selections_choice_id_question_id_material_quiz_choices_id_question_id_fk",
+      "columns": [
+        "choice_id",
+        "question_id"
+      ],
+      "tableTo": "material_quiz_choices",
+      "columnsTo": [
+        "id",
+        "question_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_versions",
+      "name": "fk_material_quiz_versions_version_id_kind_material_versions_id_kind_fk",
+      "columns": [
+        "version_id",
+        "kind"
+      ],
+      "tableTo": "material_versions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "preferences",
+      "name": "preferences_pk",
+      "columns": [
+        "scope",
+        "key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "citations",
+      "name": "citations_pk",
+      "columns": [
+        "version_id",
+        "marker"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "artifact_citations_pk",
+      "columns": [
+        "artifact_id",
+        "marker"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "artifact_note_snapshots",
+      "name": "artifact_note_snapshots_pk",
+      "columns": [
+        "artifact_id",
+        "message_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "question_citations",
+      "name": "question_citations_pk",
+      "columns": [
+        "question_id",
+        "marker"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "job_deps",
+      "name": "job_deps_pk",
+      "columns": [
+        "job_id",
+        "depends_on"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "material_version_inputs_pk",
+      "columns": [
+        "version_id",
+        "input_version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "material_version_parents_pk",
+      "columns": [
+        "version_id",
+        "parent_version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "session_materials",
+      "name": "session_materials_pk",
+      "columns": [
+        "session_id",
+        "material_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "material_flashcard_entries_pk",
+      "columns": [
+        "version_id",
+        "card_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "material_quiz_responses_pk",
+      "columns": [
+        "attempt_id",
+        "question_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_selections",
+      "name": "material_quiz_selections_pk",
+      "columns": [
+        "attempt_id",
+        "question_id",
+        "choice_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "projects",
+      "name": "projects_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "source_blobs",
+      "name": "source_blobs_pk",
+      "columns": [
+        "source_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "sources",
+      "name": "sources_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "message_parts",
+      "name": "message_parts_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "messages",
+      "name": "messages_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "recording_chunks_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "recordings",
+      "name": "recordings_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "sessions",
+      "name": "sessions_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "blocks",
+      "name": "blocks_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "documents",
+      "name": "documents_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "chunks",
+      "name": "chunks_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "reviews",
+      "name": "reviews_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "practices",
+      "name": "practices_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_artifact_kind",
+      "name": "codes_artifact_kind_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_artifact_status",
+      "name": "codes_artifact_status_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_block_kind",
+      "name": "codes_block_kind_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_error_kind",
+      "name": "codes_error_kind_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_extractor_kind",
+      "name": "codes_extractor_kind_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_job_kind",
+      "name": "codes_job_kind_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_job_status",
+      "name": "codes_job_status_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_message_role",
+      "name": "codes_message_role_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_message_status",
+      "name": "codes_message_status_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_question_kind",
+      "name": "codes_question_kind_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_question_status",
+      "name": "codes_question_status_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_rating",
+      "name": "codes_rating_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_requirement",
+      "name": "codes_requirement_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_source_kind",
+      "name": "codes_source_kind_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_source_origin",
+      "name": "codes_source_origin_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_title_source",
+      "name": "codes_title_source_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_verdict",
+      "name": "codes_verdict_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "codes_version_origin",
+      "name": "codes_version_origin_pk",
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "materials",
+      "name": "materials_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "material_audio_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "material_diagram_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "material_document_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "material_file_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "material_image_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "material_link_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "material_video_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "material_card_identities_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "material_card_reviews_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "material_card_schedules_pk",
+      "columns": [
+        "card_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "material_flashcard_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "material_quiz_attempts_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "material_quiz_choices_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_open_answers",
+      "name": "material_quiz_open_answers_pk",
+      "columns": [
+        "question_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "material_quiz_questions_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_versions",
+      "name": "material_quiz_versions_pk",
+      "columns": [
+        "version_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "themes",
+      "name": "themes_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "preferences",
+      "name": "preferences_check_1",
+      "value": "json_valid(value)",
+      "entityType": "checks"
+    },
+    {
+      "table": "projects",
+      "name": "projects_check_1",
+      "value": "length(trim(name)) > 0 AND length(name) <= 100",
+      "entityType": "checks"
+    },
+    {
+      "table": "projects",
+      "name": "projects_check_2",
+      "value": "exam_on IS NULL OR date(exam_on) IS exam_on",
+      "entityType": "checks"
+    },
+    {
+      "table": "sources",
+      "name": "sources_check_1",
+      "value": "length(mime) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "sources",
+      "name": "sources_check_2",
+      "value": "length(trim(name)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "sources",
+      "name": "sources_check_3",
+      "value": "size_bytes BETWEEN 1 AND 536870912",
+      "entityType": "checks"
+    },
+    {
+      "table": "sources",
+      "name": "sources_check_4",
+      "value": "length(sha256) = 32",
+      "entityType": "checks"
+    },
+    {
+      "table": "sources",
+      "name": "sources_check_5",
+      "value": "uri IS NULL OR length(uri) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "citations",
+      "name": "citations_check_1",
+      "value": "marker BETWEEN 1 AND 4294967295",
+      "entityType": "checks"
+    },
+    {
+      "table": "citations",
+      "name": "citations_check_2",
+      "value": "json_valid(anchor)",
+      "entityType": "checks"
+    },
+    {
+      "table": "message_parts",
+      "name": "message_parts_check_1",
+      "value": "ordinal >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_check_1",
+      "value": "number >= 1",
+      "entityType": "checks"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_check_2",
+      "value": "(origin = 'instruction') = (instruction IS NOT NULL)",
+      "entityType": "checks"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_check_3",
+      "value": "status = 'complete' OR text = ''",
+      "entityType": "checks"
+    },
+    {
+      "table": "message_versions",
+      "name": "message_versions_instruction_check",
+      "value": "instruction IS NULL OR (\n        length(trim(instruction, char(9, 10, 11, 12, 13, 32, 160, 5760,\n          8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202,\n          8232, 8233, 8239, 8287, 12288, 65279))) > 0\n        AND length(instruction) <= 100000\n      )",
+      "entityType": "checks"
+    },
+    {
+      "table": "messages",
+      "name": "messages_check_1",
+      "value": "recording_ms IS NULL OR recording_ms >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "messages",
+      "name": "messages_check_2",
+      "value": "(reply_to IS NULL) OR (role = 'assistant')",
+      "entityType": "checks"
+    },
+    {
+      "table": "messages",
+      "name": "messages_check_3",
+      "value": "recording_id IS NULL OR recording_ms IS NOT NULL",
+      "entityType": "checks"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "recording_chunks_check_1",
+      "value": "ordinal >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "recording_chunks",
+      "name": "recording_chunks_check_2",
+      "value": "length(pcm) > 0 AND length(pcm) % 2 = 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "sessions",
+      "name": "sessions_check_1",
+      "value": "length(trim(title)) > 0 AND length(title) <= 200",
+      "entityType": "checks"
+    },
+    {
+      "table": "blocks",
+      "name": "blocks_check_1",
+      "value": "ordinal >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "blocks",
+      "name": "blocks_check_2",
+      "value": "json_valid(anchor)",
+      "entityType": "checks"
+    },
+    {
+      "table": "documents",
+      "name": "documents_check_1",
+      "value": "extractor_version >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "documents",
+      "name": "documents_check_2",
+      "value": "json_valid(meta)",
+      "entityType": "checks"
+    },
+    {
+      "table": "chunks",
+      "name": "chunks_check_1",
+      "value": "ordinal >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "chunks",
+      "name": "chunks_check_2",
+      "value": "last_block >= first_block",
+      "entityType": "checks"
+    },
+    {
+      "table": "chunks",
+      "name": "chunks_check_3",
+      "value": "json_valid(anchor)",
+      "entityType": "checks"
+    },
+    {
+      "table": "chunks",
+      "name": "chunks_check_4",
+      "value": "length(content_hash) = 32",
+      "entityType": "checks"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "artifact_citations_check_1",
+      "value": "marker BETWEEN 1 AND 4294967295",
+      "entityType": "checks"
+    },
+    {
+      "table": "artifact_citations",
+      "name": "artifact_citations_check_2",
+      "value": "json_valid(anchor)",
+      "entityType": "checks"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_check_1",
+      "value": "mistakes IN (0, 1)",
+      "entityType": "checks"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_check_2",
+      "value": "length(trim(title)) > 0 AND length(title) <= 200",
+      "entityType": "checks"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_check_3",
+      "value": "body IS NULL OR json_valid(body)",
+      "entityType": "checks"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_check_4",
+      "value": "(status = 'complete') = (body IS NOT NULL)",
+      "entityType": "checks"
+    },
+    {
+      "table": "artifacts",
+      "name": "artifacts_check_5",
+      "value": "practice_id IS NULL OR mistakes = 1",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_1",
+      "value": "ordinal >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_2",
+      "value": "length(trim(front)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_3",
+      "value": "length(trim(back)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_4",
+      "value": "stability >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_5",
+      "value": "difficulty >= 0 AND difficulty <= 10",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_6",
+      "value": "reps >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_7",
+      "value": "lapses >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_check_8",
+      "value": "json_valid(cites)",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_state_check",
+      "value": "state IN (0, 1, 2, 3)",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_elapsed_days_check",
+      "value": "elapsed_days >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_scheduled_days_check",
+      "value": "scheduled_days >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "cards",
+      "name": "cards_learning_steps_check",
+      "value": "learning_steps >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "reviews",
+      "name": "reviews_check_1",
+      "value": "elapsed_days >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_1",
+      "value": "ordinal >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_2",
+      "value": "body IS NULL OR json_valid(body)",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_3",
+      "value": "length(trim(gist)) > 0 AND length(gist) <= 200",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_4",
+      "value": "choice >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_5",
+      "value": "length(trim(answer)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_6",
+      "value": "length(trim(feedback)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_7",
+      "value": "(body IS NULL) = (status = 'pending' OR status = 'writing')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_8",
+      "value": "(gist IS NULL) = (body IS NULL)",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_9",
+      "value": "(answered_at IS NOT NULL) = (status = 'answered' OR status = 'graded')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_10",
+      "value": "(choice IS NOT NULL) = (answered_at IS NOT NULL AND kind = 'choice')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_11",
+      "value": "(answer IS NOT NULL) = (answered_at IS NOT NULL AND kind = 'open')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_12",
+      "value": "(status = 'answered') <= (kind = 'open')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_13",
+      "value": "(graded_at IS NOT NULL) = (status = 'graded')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_14",
+      "value": "(verdict IS NOT NULL) = (status = 'graded')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_15",
+      "value": "(verdict = 'partly') <= (kind = 'open')",
+      "entityType": "checks"
+    },
+    {
+      "table": "practice_questions",
+      "name": "practice_questions_check_16",
+      "value": "(feedback IS NOT NULL) = (status = 'graded' AND kind = 'open')",
+      "entityType": "checks"
+    },
+    {
+      "table": "question_citations",
+      "name": "question_citations_check_1",
+      "value": "marker BETWEEN 1 AND 4294967295",
+      "entityType": "checks"
+    },
+    {
+      "table": "question_citations",
+      "name": "question_citations_check_2",
+      "value": "json_valid(anchor)",
+      "entityType": "checks"
+    },
+    {
+      "table": "job_deps",
+      "name": "job_deps_distinct_check",
+      "value": "job_id != depends_on",
+      "entityType": "checks"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_check_1",
+      "value": "args IS NULL OR json_valid(args)",
+      "entityType": "checks"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_check_2",
+      "value": "attempts >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_check_3",
+      "value": "(source_id IS NOT NULL) + (document_id IS NOT NULL) + (session_id IS NOT NULL)\n        + (message_id IS NOT NULL) + (artifact_id IS NOT NULL) + (question_id IS NOT NULL) = 1",
+      "entityType": "checks"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_check_4",
+      "value": "(error IS NULL) = (error_kind IS NULL)",
+      "entityType": "checks"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_check_5",
+      "value": "(status = 'waiting') = (waiting_for IS NOT NULL)",
+      "entityType": "checks"
+    },
+    {
+      "table": "jobs",
+      "name": "jobs_kind_target_check",
+      "value": "(kind IN ('fetch', 'extract') AND source_id IS NOT NULL)\n        OR (kind = 'index' AND document_id IS NOT NULL)\n        OR (kind = 'title' AND session_id IS NOT NULL)\n        OR (kind IN ('reply', 'rewrite') AND message_id IS NOT NULL)\n        OR (kind = 'artifact' AND artifact_id IS NOT NULL)\n        OR (kind IN ('question', 'grade') AND question_id IS NOT NULL)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_version_inputs",
+      "name": "material_version_inputs_distinct_check",
+      "value": "version_id != input_version_id",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_version_parents",
+      "name": "material_version_parents_distinct_check",
+      "value": "version_id != parent_version_id",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_identity_check",
+      "value": "id > 0 AND typeof(number) = 'integer' AND number > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_status_check",
+      "value": "status IN ('draft','published') AND ((status = 'published') = (published_at IS NOT NULL))",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_operation_check",
+      "value": "operation IN ('original','edit','summarize','translate','generate','extract','transcribe')",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_creator_check",
+      "value": "creator IN ('user','agent','import')",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_language_check",
+      "value": "language IS NULL OR length(trim(language)) BETWEEN 1 AND 64",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_instruction_check",
+      "value": "instruction IS NULL OR length(trim(instruction)) BETWEEN 1 AND 100000",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_versions",
+      "name": "material_versions_times_check",
+      "value": "typeof(created_at) = 'integer' AND created_at >= 0 AND (published_at IS NULL OR (typeof(published_at) = 'integer' AND published_at >= created_at))",
+      "entityType": "checks"
+    },
+    {
+      "table": "materials",
+      "name": "materials_kind_check",
+      "value": "kind IN ('file','audio','video','image','link','document','diagram','quiz','flashcards')",
+      "entityType": "checks"
+    },
+    {
+      "table": "materials",
+      "name": "materials_title_check",
+      "value": "length(trim(title)) BETWEEN 1 AND 200",
+      "entityType": "checks"
+    },
+    {
+      "table": "materials",
+      "name": "materials_times_check",
+      "value": "id > 0 AND typeof(created_at) = 'integer' AND typeof(updated_at) = 'integer' AND created_at >= 0 AND updated_at >= created_at AND (archived_at IS NULL OR (typeof(archived_at) = 'integer' AND archived_at >= created_at))",
+      "entityType": "checks"
+    },
+    {
+      "table": "session_materials",
+      "name": "session_materials_position_check",
+      "value": "typeof(position) = 'integer' AND position >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "payload_kind_check",
+      "value": "\"kind\" = 'audio'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "material_audio_duration_check",
+      "value": "duration_ms IS NULL OR (typeof(duration_ms) = 'integer' AND duration_ms >= 0)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "material_audio_sample_rate_check",
+      "value": "sample_rate IS NULL OR (typeof(sample_rate) = 'integer' AND sample_rate > 0)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_audio_versions",
+      "name": "material_audio_channels_check",
+      "value": "channels IS NULL OR (typeof(channels) = 'integer' AND channels > 0)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "payload_kind_check",
+      "value": "\"kind\" = 'diagram'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "material_diagram_format_check",
+      "value": "format IN ('mermaid')",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_diagram_versions",
+      "name": "material_diagram_payload_check",
+      "value": "length(trim(payload)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_document_versions",
+      "name": "payload_kind_check",
+      "value": "\"kind\" = 'document'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_file_versions",
+      "name": "payload_kind_check",
+      "value": "\"kind\" = 'file'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "payload_kind_check",
+      "value": "\"kind\" = 'image'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_image_versions",
+      "name": "material_image_dimensions_check",
+      "value": "(width IS NULL AND height IS NULL) OR (width IS NOT NULL AND height IS NOT NULL AND typeof(width) = 'integer' AND typeof(height) = 'integer' AND width > 0 AND height > 0)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_link_versions",
+      "name": "payload_kind_check",
+      "value": "\"kind\" = 'link'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "material_version_citations_marker_check",
+      "value": "typeof(marker) = 'integer' AND marker BETWEEN 1 AND 4294967295",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "material_version_citations_anchor_check",
+      "value": "CASE WHEN json_valid(\"anchor\") THEN coalesce(\n    json_type(\"anchor\") = 'object' AND CASE json_extract(\"anchor\", '$.type')\n    WHEN 'time' THEN json_type(\"anchor\", '$.startMs') = 'integer' AND json_extract(\"anchor\", '$.startMs') >= 0\n      AND json_type(\"anchor\", '$.endMs') = 'integer' AND json_extract(\"anchor\", '$.endMs') >= json_extract(\"anchor\", '$.startMs')\n    WHEN 'page' THEN json_type(\"anchor\", '$.page') = 'integer' AND json_extract(\"anchor\", '$.page') >= 1\n    WHEN 'paragraph' THEN json_type(\"anchor\", '$.index') = 'integer' AND json_extract(\"anchor\", '$.index') >= 0\n    WHEN 'slide' THEN json_type(\"anchor\", '$.index') = 'integer' AND json_extract(\"anchor\", '$.index') >= 0\n    WHEN 'url' THEN json_type(\"anchor\", '$.url') = 'text' AND length(trim(json_extract(\"anchor\", '$.url'))) > 0\n      AND json_type(\"anchor\", '$.fragment') IN ('null', 'text')\n    WHEN 'text' THEN json_type(\"anchor\", '$.lineStart') = 'integer' AND json_extract(\"anchor\", '$.lineStart') >= 0\n      AND json_type(\"anchor\", '$.lineEnd') = 'integer' AND json_extract(\"anchor\", '$.lineEnd') >= json_extract(\"anchor\", '$.lineStart')\n      AND json_type(\"anchor\", '$.start') = 'integer' AND json_extract(\"anchor\", '$.start') >= 0\n      AND json_type(\"anchor\", '$.end') = 'integer' AND json_extract(\"anchor\", '$.end') >= json_extract(\"anchor\", '$.start')\n    ELSE 0 END, 0) ELSE 0 END",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_version_citations",
+      "name": "material_version_citations_quote_check",
+      "value": "length(trim(quote)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "payload_kind_check",
+      "value": "\"kind\" = 'video'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "material_video_duration_check",
+      "value": "duration_ms IS NULL OR (typeof(duration_ms) = 'integer' AND duration_ms >= 0)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_video_versions",
+      "name": "material_video_dimensions_check",
+      "value": "(width IS NULL AND height IS NULL) OR (width IS NOT NULL AND height IS NOT NULL AND typeof(width) = 'integer' AND typeof(height) = 'integer' AND width > 0 AND height > 0)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_card_identities",
+      "name": "material_card_identities_kind",
+      "value": "kind = 'flashcards'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_card_reviews",
+      "name": "material_card_reviews_values",
+      "value": "typeof(reviewed_at) = 'integer' AND reviewed_at >= 0 AND rating IN ('again','hard','good','easy') AND elapsed_days >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_card_schedules",
+      "name": "material_card_schedules_values",
+      "value": "typeof(due) = 'integer' AND due >= 0 AND state IN ('new','learning','review','relearning') AND stability >= 0 AND stability <= 36500 AND difficulty BETWEEN 1 AND 10 AND typeof(reps) = 'integer' AND typeof(lapses) = 'integer' AND reps >= 0 AND lapses BETWEEN 0 AND reps AND (last_review IS NULL OR (typeof(last_review) = 'integer' AND last_review >= 0)) AND typeof(elapsed_days) = 'integer' AND elapsed_days >= 0 AND typeof(scheduled_days) = 'integer' AND scheduled_days >= 0 AND typeof(learning_steps) = 'integer' AND learning_steps >= 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_flashcard_entries",
+      "name": "material_flashcard_entries_values",
+      "value": "typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND length(trim(front)) > 0 AND length(trim(back)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_flashcard_versions",
+      "name": "material_flashcard_versions_kind",
+      "value": "kind = 'flashcards'",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_quiz_attempts",
+      "name": "material_quiz_attempts_values",
+      "value": "status IN ('in_progress','completed') AND typeof(started_at) = 'integer' AND started_at >= 0 AND (finished_at IS NULL OR (typeof(finished_at) = 'integer' AND finished_at >= started_at)) AND ((status = 'completed' AND finished_at IS NOT NULL) OR (status = 'in_progress' AND finished_at IS NULL))",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_quiz_choices",
+      "name": "material_quiz_choices_values",
+      "value": "question_kind IN ('single_choice','multiple_choice') AND typeof(position) = 'integer' AND position >= 0 AND length(trim(text)) > 0 AND is_correct IN (0,1)",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_quiz_open_answers",
+      "name": "material_quiz_open_answers_values",
+      "value": "kind = 'open' AND length(trim(reference_answer)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "material_quiz_questions_values",
+      "value": "typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','open') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_quiz_responses",
+      "name": "material_quiz_responses_values",
+      "value": "question_kind IN ('single_choice','multiple_choice','open') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind = 'open' AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind IN ('single_choice','multiple_choice') AND answer IS NULL))",
+      "entityType": "checks"
+    },
+    {
+      "table": "material_quiz_versions",
+      "name": "material_quiz_versions_kind",
+      "value": "kind = 'quiz'",
+      "entityType": "checks"
+    }
+  ],
+  "renames": []
+}

@@ -7,6 +7,8 @@ import effectV4Api from './rules/effect-v4-api.ts';
 import packageBoundary from './rules/package-boundary.ts';
 import procedureContract from './rules/procedure-contract.ts';
 import procedureTest from './rules/procedure-test.ts';
+import sharedUiVariants from './rules/shared-ui-variants.ts';
+import themeRule from './rules/theme-colors.ts';
 
 export default definePlugin({
   meta: { name: 'study' },
@@ -17,6 +19,8 @@ export default definePlugin({
     'procedure-contract': procedureContract,
     'procedure-test': procedureTest,
     'browser-boundary': browserBoundary,
-    'package-boundary': packageBoundary
+    'package-boundary': packageBoundary,
+    'theme-colors': themeRule,
+    'shared-ui-variants': sharedUiVariants
   }
 });

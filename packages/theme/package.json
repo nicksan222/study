@@ -1,0 +1,13 @@
+{
+  "name": "@study/theme",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@csstools/css-color-parser": "4.2.6",
+    "@csstools/css-parser-algorithms": "4.0.2",
+    "@csstools/css-tokenizer": "4.0.2"
+  }
+}

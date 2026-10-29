@@ -33,6 +33,7 @@
     "@study/ai": "*",
     "@study/db": "*",
     "@study/localization": "*",
+    "@study/theme": "*",
     "@trpc/client": "11.19.0",
     "@trpc/server": "11.19.0",
     "ai": "6.0.316",

@@ -66,6 +66,8 @@ export const lint = {
     'study/procedure-contract': 'error',
     'study/browser-boundary': 'error',
     'study/package-boundary': 'error',
+    'study/theme-colors': 'error',
+    'study/shared-ui-variants': 'error',
     'vite-plus/prefer-vite-plus-imports': 'error',
     '@stylistic/padding-line-between-statements': [
       'error',

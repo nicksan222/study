@@ -11,10 +11,12 @@ import { recordingsRouter } from '#backend/procedures/recordings/router';
 import { settingsRouter } from '#backend/procedures/settings/router';
 import { sourcesRouter } from '#backend/procedures/sources/router';
 import { systemRouter } from '#backend/procedures/system/router';
+import { themesRouter } from '#backend/procedures/themes/router';
 
 import { router } from './trpc.ts';
 
 export const appRouter = router({
+  themes: themesRouter,
   projects: projectsRouter,
   sources: sourcesRouter,
   conversations: conversationsRouter,

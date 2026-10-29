@@ -44,7 +44,7 @@ export function Shell() {
             <Button
               key={name}
               variant={page === name ? 'secondary' : 'ghost-muted'}
-              className="w-full justify-start"
+              layout="navigation"
               render={<Link to={`/${name}`} search={{}} aria-label={t(name)} />}
             >
               <Icon className="size-4" aria-hidden="true" />
@@ -54,8 +54,8 @@ export function Shell() {
         </nav>
       </aside>
       <main className="study-content">
-        <PageShell.Header title={t(page)} className="study-page-header" />
-        <PageShell.PageBody className="study-page">
+        <PageShell.Header title={t(page)} />
+        <PageShell.PageBody>
           <Outlet />
         </PageShell.PageBody>
       </main>
