@@ -1,5 +1,5 @@
+import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { and, eq } from 'drizzle-orm';
 
 import { createMaterial } from '#server/procedures/materials/operations/create-material';
 import { attachMaterial } from '#server/procedures/materials/operations/session-membership';
@@ -74,7 +74,16 @@ export function sourceMaterial(
       case 'link':
         content = { kind: 'link', ...common };
         break;
-      default:
+      case 'archive':
+      case 'code':
+      case 'document':
+      case 'note':
+      case 'other':
+      case 'pdf':
+      case 'slides':
+      case 'spreadsheet':
+      case 'text':
+      case 'web':
         content = { kind: 'file', ...common };
     }
 

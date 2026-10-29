@@ -1,5 +1,5 @@
+import { and, asc, eq, gt } from '@study/db';
 import * as s from '@study/db/schema';
-import { and, asc, eq, gt } from 'drizzle-orm';
 
 import { versionRow } from '#server/procedures/materials/reads';
 import { publicProcedure } from '#server/runtime/trpc';

@@ -1,5 +1,5 @@
+import { sql, eq } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql, eq } from 'drizzle-orm';
 
 import { recording as opRecording } from '#server/procedures/recordings/operations/recording';
 import type { ServerContext } from '#server/runtime/context';

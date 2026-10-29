@@ -1,5 +1,6 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import type { ServerContext } from '#server/runtime/context';
 import { StudyError } from '#server/shared/errors/index';
@@ -25,7 +26,7 @@ export function loadPreferences(ctx: ServerContext, scope: string): Record<strin
     .where(sql`scope = ${scope}`)
     .all())
     Object.defineProperty(result, row.key as string, {
-      value: JSON.parse(row.value as string) as JsonValue,
+      value: Schema.decodeUnknownSync(Schema.MutableJson)(JSON.parse(row.value)),
       enumerable: true,
       configurable: true,
       writable: true

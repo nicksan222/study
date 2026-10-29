@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 import type { DocumentId } from '#server/shared/ids';
 import type { PassageDraft } from '#server/shared/search/types';
@@ -25,13 +26,15 @@ export function replacePassages(
     )
       throw new StudyError('not_found', 'document not found');
 
-    const count = ctx.db.orm
-      .select({
-        count: sql`count(*)`
-      })
-      .from(schema.blocks)
-      .where(sql`document_id=${id}`)
-      .get()!.count as bigint;
+    const count = requireRow(
+      ctx.db.orm
+        .select({
+          count: sql`count(*)`
+        })
+        .from(schema.blocks)
+        .where(sql`document_id=${id}`)
+        .get()
+    ).count as bigint;
 
     ctx.db.orm
       .delete(schema.chunks)

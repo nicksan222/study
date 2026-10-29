@@ -167,3 +167,45 @@ test('production config enables Effect v4 renamed API guard', () => {
     JSON.stringify(diagnostics)
   );
 });
+
+test('production config rejects direct Drizzle imports outside the database package', () => {
+  const diagnostics = lintFiles({
+    'src/drizzle-smoke.ts': "import { sql } from 'drizzle-orm'; export { sql };"
+  });
+
+  assert.ok(diagnostics.some(({ code }) => code === 'study(drizzle-boundary)'));
+});
+
+test('the database package alone owns Drizzle dependencies', async () => {
+  const { readdirSync, readFileSync, existsSync } = await import('node:fs');
+  const manifests = [join(root, 'package.json')];
+
+  for (const folder of ['apps', 'packages']) {
+    for (const entry of readdirSync(join(root, folder))) {
+      const file = join(root, folder, entry, 'package.json');
+
+      if (existsSync(file)) manifests.push(file);
+    }
+  }
+
+  for (const file of manifests) {
+    const manifest = JSON.parse(readFileSync(file, 'utf8'));
+    const dependencies = {
+      ...manifest.dependencies,
+      ...manifest.devDependencies,
+      ...manifest.optionalDependencies,
+      ...manifest.peerDependencies
+    };
+
+    if (manifest.name === '@study/db') {
+      assert.ok(dependencies['drizzle-orm']);
+      continue;
+    }
+
+    for (const name of Object.keys(dependencies))
+      assert.ok(
+        !/^drizzle-(?:orm|kit)(?:\/|$)/.test(name),
+        `${manifest.name} must use @study/db instead of ${name}`
+      );
+  }
+});

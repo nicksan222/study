@@ -1,10 +1,11 @@
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { cardSnapshot, cardMemory } from '#server/procedures/learning/cards';
 import { now } from '#server/procedures/learning/quiz';
 import type { ServerContext } from '#server/runtime/context';
 import { invalid } from '#server/runtime/errors';
+import { requireRow } from '#server/shared/errors/index';
 import { reviewMemory } from '#server/shared/study/srs';
 import type { Rating } from '#server/shared/study/srs';
 
@@ -45,17 +46,19 @@ export function reviewMaterialCard(
       .onConflictDoUpdate({ target: s.material_card_schedules.card_id, set: values })
       .run();
     const elapsedDays = before.lastReview === null ? 0 : Number(at - before.lastReview) / 86400;
-    const review = store.db.orm
-      .insert(s.material_card_reviews)
-      .values({
-        card_id: cardId,
-        version_id: versionId,
-        reviewed_at: at,
-        rating,
-        elapsed_days: elapsedDays
-      })
-      .returning()
-      .get()!;
+    const review = requireRow(
+      store.db.orm
+        .insert(s.material_card_reviews)
+        .values({
+          card_id: cardId,
+          version_id: versionId,
+          reviewed_at: at,
+          rating,
+          elapsed_days: elapsedDays
+        })
+        .returning()
+        .get()
+    );
 
     const mapped = store.db.orm
       .select({ id: s.cards.id })

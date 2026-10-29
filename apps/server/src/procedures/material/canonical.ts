@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 
+import { and, desc, eq, isNull, inArray } from '@study/db';
 import * as s from '@study/db/schema';
-import { and, desc, eq, isNull, inArray } from 'drizzle-orm';
 
 import { originalVersion } from '#server/procedures/ingestion/source-material';
 import { readCitations } from '#server/procedures/materials/operations/citations';

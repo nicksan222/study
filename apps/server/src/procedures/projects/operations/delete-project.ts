@@ -1,5 +1,5 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
 import type { ProjectId } from '#server/shared/ids';

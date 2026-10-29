@@ -1,4 +1,4 @@
-import { DrizzleQueryError } from 'drizzle-orm';
+import { DrizzleQueryError } from '@study/db';
 import { ZodError } from 'zod';
 
 import type { ServerContext } from '#server/runtime/context';

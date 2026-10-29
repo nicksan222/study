@@ -1,5 +1,5 @@
+import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { and, eq } from 'drizzle-orm';
 
 import { attemptRow, attemptView, choiceScore } from '#server/procedures/learning/quiz';
 import { invalid } from '#server/runtime/errors';

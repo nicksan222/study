@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import type { TestContext } from 'node:test';
 
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { createServerTest } from '#testing/server-test';
 

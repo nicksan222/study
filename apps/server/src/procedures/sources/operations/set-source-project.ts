@@ -1,5 +1,5 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
 
 import { originalVersion, sourceMaterial } from '#server/procedures/ingestion/source-material';
 import type { ServerContext } from '#server/runtime/context';

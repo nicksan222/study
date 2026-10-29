@@ -1,14 +1,16 @@
+import { eq, and, asc, isNull, sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { eq, and, asc, isNull, sql } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import { targetJobs } from '#server/procedures/jobs/operations/job-overviews';
 import { documentOf } from '#server/procedures/sources/operations/source-document';
 import type { ServerContext } from '#server/runtime/context';
 import type { MessagePart, ChatMessage } from '#server/shared/conversations/messages';
+import { requireRow } from '#server/shared/errors/index';
 import type { SessionId } from '#server/shared/ids';
 import type { MessageId, VersionId } from '#server/shared/ids';
 import type { Citation } from '#server/shared/sources/citations';
-import type { Anchor } from '#server/shared/sources/document';
+import { anchorSchema } from '#server/shared/sources/schemas';
 
 export function message(ctx: ServerContext, id: MessageId) {
   const row = ctx.db.orm.select().from(schema.messages).where(eq(schema.messages.id, id)).get();
@@ -72,7 +74,7 @@ export function versionCitations(ctx: ServerContext, version: VersionId): Citati
       marker: Number(row.marker),
       sourceId: row.source_id,
       sourceName: row.source_name,
-      anchor: JSON.parse(row.anchor) as Anchor,
+      anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(row.anchor)),
       quote: row.quote
     }));
 }
@@ -91,16 +93,18 @@ export function listMessages(ctx: ServerContext, sessionId: SessionId): ChatMess
 
 export function partView(ctx: ServerContext, value: MessagePart) {
   const doc = value.sourceId ? documentOf(ctx, value.sourceId) : null;
-  const thread = ctx.db.orm
-    .select({
-      replies: sql<bigint>`count(*)`,
-      lastReplyAt: sql<
-        bigint | null
-      >`(SELECT created_at FROM messages WHERE thread_root = ${value.id} ORDER BY id DESC LIMIT 1)`
-    })
-    .from(schema.messages)
-    .where(eq(schema.messages.thread_root, value.id))
-    .get()!;
+  const thread = requireRow(
+    ctx.db.orm
+      .select({
+        replies: sql<bigint>`count(*)`,
+        lastReplyAt: sql<
+          bigint | null
+        >`(SELECT created_at FROM messages WHERE thread_root = ${value.id} ORDER BY id DESC LIMIT 1)`
+      })
+      .from(schema.messages)
+      .where(eq(schema.messages.thread_root, value.id))
+      .get()
+  );
 
   return {
     ...value,

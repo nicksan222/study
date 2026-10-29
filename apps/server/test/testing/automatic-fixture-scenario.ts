@@ -3,8 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { beforeEach, test } from 'node:test';
 import type { TestContext } from 'node:test';
 
-import { Db } from '@study/db';
-import { sql } from 'drizzle-orm';
+import { Db, sql } from '@study/db';
 
 import { App } from '#server/runtime/service';
 

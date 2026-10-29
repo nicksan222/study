@@ -2,10 +2,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Db } from '@study/db';
+import { Db, eq } from '@study/db';
 import { themes } from '@study/db/schema';
 import { defaultThemeId, parseTheme, renderThemeCss } from '@study/theme';
-import { eq } from 'drizzle-orm';
 
 const dir = mkdtempSync(join(tmpdir(), 'study-theme-css-'));
 

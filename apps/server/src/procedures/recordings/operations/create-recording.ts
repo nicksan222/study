@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { now } from '#server/procedures/conversations/operations/post-message';
 import type { ServerContext } from '#server/runtime/context';

@@ -1,5 +1,5 @@
+import { eq } from '@study/db';
 import * as schema from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { sessionRow } from '#server/procedures/projects/operations/project-rows';
 import type { ServerContext } from '#server/runtime/context';

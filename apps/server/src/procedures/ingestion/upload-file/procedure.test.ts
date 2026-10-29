@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { createSession } from '#server/procedures/conversations/operations/create-session';
 import { sourceMaterial } from '#server/procedures/ingestion/source-material';

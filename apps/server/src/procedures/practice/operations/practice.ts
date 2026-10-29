@@ -1,5 +1,6 @@
+import { desc, sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { desc, sql } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import { retryJob as opRetryJob } from '#server/procedures/jobs/operations/retry-job';
 import { enqueueJob as opEnqueueJob } from '#server/procedures/jobs/worker';
@@ -8,22 +9,26 @@ import {
   requestQuestion as opRequestQuestion
 } from '#server/procedures/practice/request-question';
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import type { PracticeId, QuestionId, JobId } from '#server/shared/ids';
-import type { Anchor } from '#server/shared/sources/document';
-import type { PracticeBody, PracticeQuestion } from '#server/shared/study/types';
+import { practiceBodySchema } from '#server/shared/practice/schemas';
+import { anchorSchema } from '#server/shared/sources/schemas';
+import type { PracticeQuestion } from '#server/shared/study/types';
 
 export function practiceScore(ctx: ServerContext, id: PracticeId) {
-  const r = ctx.db.orm
-    .select({
-      asked: sql`count(body)`,
-      answered: sql`count(answered_at)`,
-      correct: sql`coalesce(sum(verdict='correct'),0)`,
-      partly: sql`coalesce(sum(verdict='partly'),0)`,
-      incorrect: sql`coalesce(sum(verdict='incorrect'),0)`
-    })
-    .from(schema.practice_questions)
-    .where(sql`practice_id=${id}`)
-    .get()!;
+  const r = requireRow(
+    ctx.db.orm
+      .select({
+        asked: sql`count(body)`,
+        answered: sql`count(answered_at)`,
+        correct: sql`coalesce(sum(verdict='correct'),0)`,
+        partly: sql`coalesce(sum(verdict='partly'),0)`,
+        incorrect: sql`coalesce(sum(verdict='incorrect'),0)`
+      })
+      .from(schema.practice_questions)
+      .where(sql`practice_id=${id}`)
+      .get()
+  );
 
   return {
     asked: Number(r.asked),
@@ -53,7 +58,7 @@ export function question(ctx: ServerContext, id: QuestionId) {
       marker: Number(c.marker),
       sourceId: c.source_id,
       sourceName: c.source_name,
-      anchor: JSON.parse(c.anchor) as Anchor,
+      anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(c.anchor)),
       quote: c.quote
     }));
 
@@ -63,7 +68,7 @@ export function question(ctx: ServerContext, id: QuestionId) {
     ordinal: r.ordinal,
     kind: r.kind,
     status: r.status,
-    body: r.body === null ? null : (JSON.parse(r.body) as PracticeBody),
+    body: r.body === null ? null : Schema.decodeUnknownSync(practiceBodySchema)(JSON.parse(r.body)),
     gist: r.gist,
     choice: r.choice === null ? null : Number(r.choice),
     answer: r.answer,
@@ -146,23 +151,27 @@ export function topUpPractice(ctx: ServerContext, id: PracticeId): void {
     return;
 
   const waiting = Number(
-    ctx.db.orm
-      .select({
-        n: sql`count(*)`
-      })
-      .from(schema.practice_questions)
-      .where(sql`practice_id=${id} AND status IN ('pending','writing','ready')`)
-      .get()!.n
+    requireRow(
+      ctx.db.orm
+        .select({
+          n: sql`count(*)`
+        })
+        .from(schema.practice_questions)
+        .where(sql`practice_id=${id} AND status IN ('pending','writing','ready')`)
+        .get()
+    ).n
   );
 
   for (let n = waiting; n < 2; n++) {
-    const ordinal = ctx.db.orm
-      .select({
-        n: sql`coalesce(max(ordinal)+1,0)`
-      })
-      .from(schema.practice_questions)
-      .where(sql`practice_id=${id}`)
-      .get()!.n as bigint;
+    const ordinal = requireRow(
+      ctx.db.orm
+        .select({
+          n: sql`coalesce(max(ordinal)+1,0)`
+        })
+        .from(schema.practice_questions)
+        .where(sql`practice_id=${id}`)
+        .get()
+    ).n as bigint;
 
     opRequestQuestion(ctx, id, ordinal % 3n === 2n ? 'open' : 'choice');
   }

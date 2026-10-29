@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { eq } from '@study/db';
+import * as schema from '@study/db/schema';
+
 import { createNote as dbCreateNote } from '#server/procedures/sources/operations/create-note';
 import { storeFetched } from '#server/procedures/sources/operations/source';
 import {
@@ -88,4 +91,28 @@ test('original links resolve the latest fetched document without changing docume
     blocks: document.blocks.map((block) => ({ ...block, text: 'Later extraction of old snapshot' }))
   });
   assert.equal((await f.caller.sources.sourceDocument({ id: link.id })).value?.id, second.id);
+});
+
+test('document reads reject malformed persisted anchors and metadata', async (t) => {
+  const f = await createServerTest(t);
+  const source = dbCreateNote(f.store, 'n', 'body');
+  const id = dbSaveDocument(f.store, source.id, document);
+
+  f.store.db.orm
+    .update(schema.blocks)
+    .set({ anchor: '{"type":"page","page":"invalid"}' })
+    .where(eq(schema.blocks.document_id, id))
+    .run();
+  assert.throws(() => readDocument(f.store, id));
+  f.store.db.orm
+    .update(schema.blocks)
+    .set({ anchor: JSON.stringify(document.blocks[0]!.anchor) })
+    .where(eq(schema.blocks.document_id, id))
+    .run();
+  f.store.db.orm
+    .update(schema.documents)
+    .set({ meta: '{"extractorVersion":"invalid"}' })
+    .where(eq(schema.documents.id, id))
+    .run();
+  assert.throws(() => readDocument(f.store, id));
 });

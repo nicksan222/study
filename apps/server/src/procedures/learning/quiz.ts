@@ -1,8 +1,9 @@
+import { and, asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { and, asc, eq } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
 import { invalid } from '#server/runtime/errors';
+import { requireRow } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 
 export const now = () => BigInt(Math.floor(Date.now() / 1000));
@@ -178,7 +179,7 @@ export function attemptView(store: ServerContext, attemptId: bigint) {
 
   const results = items.map((item) => {
     const response = responseByQuestion.get(item.id);
-    const question = questionById.get(item.id)!;
+    const question = requireRow(questionById.get(item.id));
     const result = {
       explanation: question.explanation,
       score: response?.score ?? null,

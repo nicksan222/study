@@ -1,14 +1,15 @@
+import { sql, eq, and, inArray, lte } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql, eq, and, inArray, lte } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import { job as opJob } from '#server/procedures/jobs/operations/job';
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import type { Failure } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 import type { JobId } from '#server/shared/ids';
 import type { NewJob, Job } from '#server/shared/jobs/types';
 import type { JobKind, JobTarget } from '#server/shared/jobs/types';
-import type { JsonValue } from '#server/shared/json';
 
 export function enqueueJob(ctx: ServerContext, input: NewJob): JobId {
   const args = input.args === undefined ? null : JSON.stringify(input.args);
@@ -270,9 +271,11 @@ export function now(): bigint {
 }
 
 export function rowJob(row: typeof schema.jobs.$inferSelect) {
-  const type = (['source', 'document', 'session', 'message', 'artifact', 'question'] as const).find(
-    (t) => row[`${t}_id`] !== null
-  )!;
+  const type = requireRow(
+    (['source', 'document', 'session', 'message', 'artifact', 'question'] as const).find(
+      (t) => row[`${t}_id`] !== null
+    )
+  );
 
   return {
     id: row.id,
@@ -282,7 +285,8 @@ export function rowJob(row: typeof schema.jobs.$inferSelect) {
       id: row[`${type}_id`]
     } as JobTarget,
     status: row.status,
-    args: row.args === null ? null : (JSON.parse(row.args) as JsonValue),
+    args:
+      row.args === null ? null : Schema.decodeUnknownSync(Schema.MutableJson)(JSON.parse(row.args)),
     attempts: row.attempts,
     errorKind: row.error_kind,
     error: row.error,

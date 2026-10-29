@@ -1,5 +1,5 @@
+import { sql } from '@study/db';
 import type { cards } from '@study/db/schema';
-import { sql } from 'drizzle-orm';
 
 import { cardRow } from '#server/procedures/material/operations/artifact';
 import type { ServerContext } from '#server/runtime/context';

@@ -1,5 +1,5 @@
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { materialRow, readMaterial, required } from '#server/procedures/materials/reads';
 import { materialTransaction } from '#server/procedures/materials/transactions';

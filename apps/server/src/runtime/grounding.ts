@@ -1,5 +1,5 @@
+import { and, eq } from '@study/db';
 import * as schema from '@study/db/schema';
-import { and, eq } from 'drizzle-orm';
 
 import { source as opSource } from '#server/procedures/sources/operations/source';
 import {

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { job as dbJob } from '#server/procedures/jobs/operations/job';
 import { listJobs as dbListJobs } from '#server/procedures/jobs/operations/job-overviews';
@@ -42,8 +42,9 @@ import {
   sourceOfDocument as dbSourceOfDocument
 } from '#server/procedures/sources/operations/source-document';
 import { listSources as dbListSources } from '#server/procedures/sources/operations/sources';
+import { classifyError } from '#server/runtime/classify-error';
 import { ServerContext } from '#server/runtime/context';
-import { StudyError, classifyError } from '#server/shared/errors/index';
+import { StudyError } from '#server/shared/errors/index';
 import type { Document } from '#server/shared/sources/document';
 import { sniff, viewerExtension } from '#server/shared/sources/sniff';
 import { createServerTest } from '#testing/server-test';

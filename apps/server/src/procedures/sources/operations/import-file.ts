@@ -2,9 +2,10 @@ import { openSync, closeSync } from 'node:fs';
 import { basename } from 'node:path';
 
 import { enqueueJob } from '#server/procedures/jobs/worker';
+import { classifyError } from '#server/runtime/classify-error';
 import type { ServerContext } from '#server/runtime/context';
 import { invalid } from '#server/runtime/errors';
-import { StudyError, classifyError } from '#server/shared/errors/index';
+import { StudyError } from '#server/shared/errors/index';
 import type { ProjectId } from '#server/shared/ids';
 import { readImportFile } from '#server/shared/sources/file';
 import type { Source } from '#server/shared/sources/schemas';

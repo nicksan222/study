@@ -1,13 +1,16 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import { targetJobs } from '#server/procedures/jobs/operations/job-overviews';
 import type { ServerContext } from '#server/runtime/context';
 import { StudyError } from '#server/shared/errors/index';
 import type { ArtifactId } from '#server/shared/ids';
-import type { Anchor } from '#server/shared/sources/document';
+import { artifactBodySchema } from '#server/shared/material/schemas';
+import { anchorSchema } from '#server/shared/sources/schemas';
+import { cardSchema } from '#server/shared/study/schemas';
 import type { MemoryState } from '#server/shared/study/srs';
-import type { ArtifactBody, Card } from '#server/shared/study/types';
+import type { Card } from '#server/shared/study/types';
 
 export function artifact(ctx: ServerContext, id: ArtifactId) {
   const r = ctx.db.orm
@@ -28,7 +31,7 @@ export function artifact(ctx: ServerContext, id: ArtifactId) {
       marker: Number(c.marker),
       sourceId: c.source_id,
       sourceName: c.source_name,
-      anchor: JSON.parse(c.anchor) as Anchor,
+      anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(c.anchor)),
       quote: c.quote
     }));
 
@@ -39,7 +42,7 @@ export function artifact(ctx: ServerContext, id: ArtifactId) {
     kind: r.kind,
     title: r.title,
     status: r.status,
-    body: r.body === null ? null : (JSON.parse(r.body) as ArtifactBody),
+    body: r.body === null ? null : Schema.decodeUnknownSync(artifactBodySchema)(JSON.parse(r.body)),
     citations,
     sources: ctx.db.orm
       .select({ source_id: schema.artifact_sources.source_id })
@@ -75,7 +78,7 @@ export function cardRow(r: typeof schema.cards.$inferSelect) {
     ordinal: r.ordinal,
     front: r.front,
     back: r.back,
-    cites: JSON.parse(r.cites) as number[],
+    cites: Schema.decodeUnknownSync(cardSchema.fields.cites)(JSON.parse(r.cites)),
     memory: {
       stability: r.stability,
       difficulty: r.difficulty,

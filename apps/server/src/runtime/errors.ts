@@ -3,7 +3,9 @@ import { text } from '@study/localization';
 import { TRPCError } from '@trpc/server';
 
 import type { ErrorKind } from '#server/shared/errors/index';
-import { classifyError, StudyError } from '#server/shared/errors/index';
+import { StudyError } from '#server/shared/errors/index';
+
+import { classifyError } from './classify-error.ts';
 
 const codes = {
   invalid_input: 'BAD_REQUEST',

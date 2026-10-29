@@ -1,5 +1,5 @@
+import { eq, desc } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq, desc } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
 import { StudyError } from '#server/shared/errors/index';

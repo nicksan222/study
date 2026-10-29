@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { sourceBytes, storeFetched } from '#server/procedures/sources/operations/source';
 import { saveDocument, documentOf } from '#server/procedures/sources/operations/source-document';

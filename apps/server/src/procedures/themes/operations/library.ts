@@ -1,6 +1,6 @@
+import { eq, sql } from '@study/db';
 import { themes } from '@study/db/schema';
 import { parseTheme, serializeTheme, ThemeFileError } from '@study/theme';
-import { eq, sql } from 'drizzle-orm';
 
 import { loadPreferences, setPreference } from '#server/procedures/settings/preferences';
 import type { ServerContext } from '#server/runtime/context';

@@ -1,7 +1,8 @@
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { readReviewSettings } from '#server/procedures/settings/operations/get-review-settings';
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 import type { ProjectId } from '#server/shared/ids';
 
@@ -15,21 +16,27 @@ export function countDueCards(
     throw new StudyError('invalid_input', 'invalid card allowance');
 
   const active = sql`(a.material_id IS NULL OR EXISTS(SELECT 1 FROM materials m WHERE m.id=a.material_id AND m.archived_at IS NULL))`;
-  const reviewed = ctx.db.orm.get(
-    sql`SELECT count(*) AS n FROM cards c JOIN artifacts a ON a.id=c.artifact_id WHERE ${active} AND c.due<=${at} AND c.reps>0 AND (${project} IS NULL OR a.project_id=${project})`
-  )!.n as bigint;
-  const fresh = ctx.db.orm.get(
-    sql`SELECT count(*) AS n FROM (SELECT a.project_id FROM cards c JOIN artifacts a ON a.id=c.artifact_id WHERE ${active} AND c.due<=${at} AND c.reps=0 ORDER BY c.due,c.id LIMIT ${newCards}) WHERE (${project} IS NULL OR project_id=${project})`
-  )!.n as bigint;
+  const reviewed = requireRow(
+    ctx.db.orm.get(
+      sql`SELECT count(*) AS n FROM cards c JOIN artifacts a ON a.id=c.artifact_id WHERE ${active} AND c.due<=${at} AND c.reps>0 AND (${project} IS NULL OR a.project_id=${project})`
+    )
+  ).n as bigint;
+  const fresh = requireRow(
+    ctx.db.orm.get(
+      sql`SELECT count(*) AS n FROM (SELECT a.project_id FROM cards c JOIN artifacts a ON a.id=c.artifact_id WHERE ${active} AND c.due<=${at} AND c.reps=0 ORDER BY c.due,c.id LIMIT ${newCards}) WHERE (${project} IS NULL OR project_id=${project})`
+    )
+  ).n as bigint;
 
   return Number(reviewed + fresh);
 }
 
 export function newCardsSince(ctx: ServerContext, since: bigint): number {
   return Number(
-    ctx.db.orm.get(
-      sql`SELECT count(*) AS n FROM (SELECT min(reviewed_at) AS first FROM reviews GROUP BY card_id) WHERE first>=${since}`
-    )!.n
+    requireRow(
+      ctx.db.orm.get(
+        sql`SELECT count(*) AS n FROM (SELECT min(reviewed_at) AS first FROM reviews GROUP BY card_id) WHERE first>=${since}`
+      )
+    ).n
   );
 }
 

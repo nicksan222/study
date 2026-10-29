@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { DrizzleQueryError } from 'drizzle-orm';
+import { DrizzleQueryError } from '@study/db';
 
-import { classifyError } from '#server/shared/errors/index';
+import { classifyError } from '#server/runtime/classify-error';
 
 test('Node SQLite numeric busy and locked codes are retryable', () => {
   for (const errcode of [5, 6, 261, 517, 262])

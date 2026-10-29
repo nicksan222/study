@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { and, eq } from 'drizzle-orm';
 
 import { learningRouter } from '#server/procedures/learning/router';
 import { readMaterial } from '#server/procedures/materials/reads';

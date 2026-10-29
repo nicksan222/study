@@ -1,9 +1,10 @@
+import { and, desc, eq, sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { reviewMaterialCard } from '#server/procedures/learning/operations/review-card';
 import { cardRow } from '#server/procedures/material/operations/artifact';
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 import type { CardId } from '#server/shared/ids';
 import { reviewMemory } from '#server/shared/study/srs';
@@ -71,7 +72,9 @@ export function reviewCard(
 
       reviewMaterialCard(ctx, version.id, row.material_card_id, rating, at);
 
-      return cardRow(ctx.db.orm.select().from(schema.cards).where(eq(schema.cards.id, id)).get()!);
+      return cardRow(
+        requireRow(ctx.db.orm.select().from(schema.cards).where(eq(schema.cards.id, id)).get())
+      );
     }
 
     const before = cardRow(row);
@@ -109,11 +112,13 @@ export function reviewCard(
       .run();
 
     return cardRow(
-      ctx.db.orm
-        .select()
-        .from(schema.cards)
-        .where(sql`id=${id}`)
-        .get()!
+      requireRow(
+        ctx.db.orm
+          .select()
+          .from(schema.cards)
+          .where(sql`id=${id}`)
+          .get()
+      )
     );
   });
 }

@@ -1,5 +1,5 @@
+import { desc } from '@study/db';
 import * as schema from '@study/db/schema';
-import { desc } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
 

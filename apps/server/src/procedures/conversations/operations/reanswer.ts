@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { listJobs as opListJobs } from '#server/procedures/jobs/operations/job-overviews';
 import { enqueueJob as opEnqueueJob } from '#server/procedures/jobs/worker';

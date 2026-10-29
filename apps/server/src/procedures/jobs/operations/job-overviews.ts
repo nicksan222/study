@@ -1,5 +1,5 @@
+import { desc, eq } from '@study/db';
 import * as schema from '@study/db/schema';
-import { desc, eq } from 'drizzle-orm';
 
 import { rowJob } from '#server/procedures/jobs/worker';
 import type { ServerContext } from '#server/runtime/context';
