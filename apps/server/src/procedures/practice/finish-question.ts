@@ -1,5 +1,5 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
 
 import { reconcileJobs } from '#server/procedures/jobs/worker';
 import type { CanonicalCitationInput } from '#server/procedures/material/canonical';

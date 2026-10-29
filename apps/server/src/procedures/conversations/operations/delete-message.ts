@@ -1,5 +1,5 @@
+import { eq } from '@study/db';
 import * as schema from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
 import type { MessageId } from '#server/shared/ids';

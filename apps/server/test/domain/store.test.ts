@@ -3,7 +3,7 @@ import { statSync, chmodSync } from 'node:fs';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { listSessions as opListSessions } from '#server/procedures/conversations/operations/all-sessions';
 import { createSession as opCreateSession } from '#server/procedures/conversations/operations/create-session';

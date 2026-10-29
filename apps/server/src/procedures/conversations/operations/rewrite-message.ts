@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { enqueueJob as opEnqueueJob } from '#server/procedures/jobs/worker';
 import type { ServerContext } from '#server/runtime/context';

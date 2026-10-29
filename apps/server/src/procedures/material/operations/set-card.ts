@@ -1,5 +1,5 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
 
 import { syncCanonicalArtifact } from '#server/procedures/material/canonical';
 import { invalidateMaterial, syncMaterialBody } from '#server/procedures/material/finish-material';

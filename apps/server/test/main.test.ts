@@ -5,9 +5,8 @@ import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { Db } from '@study/db';
+import { Db, sql } from '@study/db';
 import { createStudyClient } from '@study/server/node';
-import { sql } from 'drizzle-orm';
 
 import { createServerTest } from '#testing/server-test';
 

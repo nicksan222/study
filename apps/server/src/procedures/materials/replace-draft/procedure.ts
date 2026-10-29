@@ -1,5 +1,5 @@
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { insertContent, removeContent } from '#server/procedures/materials/content';
 import { readVersion, required, versionRow } from '#server/procedures/materials/reads';

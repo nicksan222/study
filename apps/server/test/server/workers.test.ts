@@ -4,8 +4,8 @@ import { createServer } from 'node:http';
 import type { Socket } from 'node:net';
 import { test } from 'node:test';
 
+import { sql } from '@study/db';
 import { createStudyClient } from '@study/server/node';
-import { sql } from 'drizzle-orm';
 
 import { postMessage } from '#server/procedures/conversations/operations/post-message';
 import { job as opJob } from '#server/procedures/jobs/operations/job';

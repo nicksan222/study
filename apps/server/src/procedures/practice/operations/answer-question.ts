@@ -1,5 +1,5 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
 
 import { enqueueJob as opEnqueueJob } from '#server/procedures/jobs/worker';
 import { now } from '#server/procedures/practice/finish-question';

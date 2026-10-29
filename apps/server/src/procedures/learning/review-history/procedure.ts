@@ -1,5 +1,5 @@
+import { and, desc, eq, lt } from '@study/db';
 import * as s from '@study/db/schema';
-import { and, desc, eq, lt } from 'drizzle-orm';
 
 import { cardSnapshot } from '#server/procedures/learning/cards';
 import { publicProcedure } from '#server/runtime/trpc';

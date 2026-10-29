@@ -1,7 +1,8 @@
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { now } from '#server/procedures/conversations/operations/post-message';
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 import type { RecordingId } from '#server/shared/ids';
 
@@ -17,9 +18,11 @@ export function appendRecording(ctx: ServerContext, id: RecordingId, samples: In
 
   samples.forEach((value, i) => pcm.writeInt16LE(value, i * 2));
   ctx.transaction(() => {
-    const existing = ctx.db.orm.get<Record<string, unknown>>(
-      sql`SELECT COALESCE(SUM(length(pcm)),0) AS size FROM recording_chunks WHERE recording_id=${id}`
-    )!.size as bigint;
+    const existing = requireRow(
+      ctx.db.orm.get<Record<string, unknown>>(
+        sql`SELECT COALESCE(SUM(length(pcm)),0) AS size FROM recording_chunks WHERE recording_id=${id}`
+      )
+    ).size as bigint;
 
     if (existing + BigInt(pcm.length) > BigInt(MAX_RECORDING_SAMPLES * 2))
       throw new StudyError('invalid_input', 'recording is too large');

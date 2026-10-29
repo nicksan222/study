@@ -1,5 +1,5 @@
+import { asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { asc, eq } from 'drizzle-orm';
 
 import { versionRow } from '#server/procedures/materials/reads';
 import { anchorSchema } from '#server/procedures/materials/schemas';

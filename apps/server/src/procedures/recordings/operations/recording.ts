@@ -1,7 +1,8 @@
+import { sql, eq } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql, eq } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 import type { RecordingId } from '#server/shared/ids';
 import type { Recording, RecordingView } from '#server/shared/recordings/schemas';
@@ -22,9 +23,11 @@ export function recording(ctx: ServerContext, id: RecordingId): Recording | null
 }
 
 export function recordingSamples(ctx: ServerContext, id: RecordingId): Int16Array {
-  const size = ctx.db.orm.get<Record<string, unknown>>(
-    sql`SELECT COALESCE(SUM(length(pcm)),0) AS size FROM recording_chunks WHERE recording_id=${id}`
-  )!.size as bigint;
+  const size = requireRow(
+    ctx.db.orm.get<Record<string, unknown>>(
+      sql`SELECT COALESCE(SUM(length(pcm)),0) AS size FROM recording_chunks WHERE recording_id=${id}`
+    )
+  ).size as bigint;
 
   if (size > BigInt(MAX_RECORDING_SAMPLES * 2))
     throw new StudyError('invalid_input', 'recording is too large');
@@ -45,13 +48,15 @@ export function recordingSamples(ctx: ServerContext, id: RecordingId): Int16Arra
 }
 
 export function recordingView(ctx: ServerContext, value: Recording): RecordingView {
-  const count = ctx.db.orm
-    .select({
-      samples: sql<bigint>`coalesce(sum(length(${schema.recording_chunks.pcm})), 0) / 2`
-    })
-    .from(schema.recording_chunks)
-    .where(eq(schema.recording_chunks.recording_id, value.id))
-    .get()!;
+  const count = requireRow(
+    ctx.db.orm
+      .select({
+        samples: sql<bigint>`coalesce(sum(length(${schema.recording_chunks.pcm})), 0) / 2`
+      })
+      .from(schema.recording_chunks)
+      .where(eq(schema.recording_chunks.recording_id, value.id))
+      .get()
+  );
 
   return { ...value, samples: count.samples };
 }

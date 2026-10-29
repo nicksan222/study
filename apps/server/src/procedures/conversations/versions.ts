@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import type { ServerContext } from '#server/runtime/context';
 import type { VersionId, JobId } from '#server/shared/ids';

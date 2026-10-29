@@ -1,5 +1,5 @@
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { cardSnapshot } from '#server/procedures/learning/cards';
 import { publicProcedure } from '#server/runtime/trpc';

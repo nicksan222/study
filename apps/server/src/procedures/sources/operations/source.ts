@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { sql, eq, getTableColumns } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql, eq, getTableColumns } from 'drizzle-orm';
 
 import { originalVersion } from '#server/procedures/ingestion/source-material';
 import type { ServerContext } from '#server/runtime/context';

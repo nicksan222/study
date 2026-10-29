@@ -6,7 +6,8 @@ import {
   streamReply,
   ChatGptRequestError
 } from '@study/ai';
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
+import { Effect, Fiber, Schedule } from 'effect';
 
 import { listSessions as opListSessions } from '#server/procedures/conversations/operations/all-sessions';
 import {
@@ -58,11 +59,12 @@ import { listSources as opListSources } from '#server/procedures/sources/operati
 import { readSource, readerFor } from '#server/procedures/sources/readers/read';
 import { replacePassages as opReplacePassages } from '#server/procedures/system/index';
 import { search as opSearch } from '#server/procedures/system/operations/search';
-import { classifyError, StudyError } from '#server/shared/errors/index';
+import { StudyError } from '#server/shared/errors/index';
 import type { ProjectId } from '#server/shared/ids';
 import type { VersionId } from '#server/shared/ids';
 import type { Job } from '#server/shared/jobs/types';
 
+import { classifyError } from './classify-error.ts';
 import type { ServerContext } from './context.ts';
 import { Evidence } from './grounding.ts';
 
@@ -71,7 +73,7 @@ export class Workers {
   private readonly store: ServerContext;
   private readonly auth: AuthManager;
   private readonly request?: typeof fetch;
-  private timer?: ReturnType<typeof setInterval>;
+  private polling?: Fiber.Fiber<void>;
   private unsubscribe?: () => void;
   private active?: {
     job: Job;
@@ -105,8 +107,14 @@ export class Workers {
 
       this.wake();
     });
-    this.timer = setInterval(() => this.wake(), 500);
-    this.timer.unref();
+    this.polling = Effect.runFork(
+      Effect.scoped(
+        Effect.repeat(
+          Effect.sync(() => this.wake()),
+          Schedule.spaced('500 millis')
+        ).pipe(Effect.asVoid)
+      )
+    );
     this.wake();
   }
 
@@ -122,9 +130,12 @@ export class Workers {
 
   async stop() {
     this.stopped = true;
-    clearInterval(this.timer);
     this.unsubscribe?.();
     this.active?.controller.abort();
+
+    if (this.polling) await Effect.runPromise(Fiber.interrupt(this.polling));
+
+    this.polling = undefined;
     await this.running;
     opRecoverJobs(this.store);
   }
@@ -407,7 +418,10 @@ export class Workers {
       if (!versionId || !opBeginVersion(store, versionId, job.id, job.attempts))
         throw new StudyError('cancelled', 'Version superseded');
 
-      const version = opMessage(store, message.id)!.versions.find((v) => v.id === versionId)!;
+      const version = opMessage(store, message.id)?.versions.find((v) => v.id === versionId);
+
+      if (!version) throw new StudyError('cancelled', 'Version superseded');
+
       const previous =
         job.kind === 'rewrite' && version.basedOn ? opVersionCitations(store, version.basedOn) : [];
       const evidence = new Evidence(store, session.projectId, previous);
@@ -454,7 +468,6 @@ export class Workers {
 
         text = await streamReply(agents, messages, {}, signal);
       } else {
-        const version = opMessage(store, message.id)!.versions.find((v) => v.id === versionId)!;
         const before = message.versions.find((v) => v.id === version.basedOn)?.text ?? '';
         const result = await agents.rewrite.generate({
           prompt: JSON.stringify({

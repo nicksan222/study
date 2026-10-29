@@ -1,9 +1,9 @@
 import { types } from 'node:util';
 
-import { Db } from '@study/db';
-import { sql } from 'drizzle-orm';
+import { Db, sql } from '@study/db';
 
 import { reconcileJobs } from '#server/procedures/jobs/worker';
+import { requireRow } from '#server/shared/errors/index';
 
 /** One connection with synchronous transactions and committed refresh hints. */
 export class ServerContext {
@@ -73,6 +73,6 @@ export class ServerContext {
   }
 
   private changes(): bigint {
-    return this.db.orm.get<{ n: bigint }>(sql`SELECT total_changes() AS n`)!.n;
+    return requireRow(this.db.orm.get<{ n: bigint }>(sql`SELECT total_changes() AS n`)).n;
   }
 }

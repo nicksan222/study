@@ -58,6 +58,28 @@ export const lint = {
     'target/**'
   ],
   rules: {
+    'study/drizzle-boundary': 'error',
+    'study/effect-scoped-fibers': 'error',
+    'study/effect-no-native-timers': 'error',
+    'study/effect-bounded-concurrency': 'error',
+    'study/effect-bounded-retries': 'error',
+    'study/effect-abort-signal': 'error',
+
+    'study/effect-no-discarded': 'error',
+    'study/effect-runtime-boundary': 'error',
+    'study/effect-try-promise': 'error',
+    'study/effect-no-throw': 'error',
+    'study/effect-no-or-die': 'error',
+    'study/effect-no-swallowed-failures': 'error',
+    'study/no-lossy-ids': 'error',
+    'study/decode-persisted-json': 'error',
+    'study/parameterized-sql': 'error',
+    'study/no-non-null-query-results': 'error',
+    'study/synchronous-transactions': 'error',
+    'study/transaction-no-io': 'error',
+    'study/no-error-message-matching': 'error',
+    'study/preserve-error-cause': 'error',
+
     'study/server-no-mocks': 'error',
     'study/effect-v4-api': 'error',
     'eslint/no-restricted-imports': ['error', { patterns: effectV4Imports }],
@@ -128,6 +150,10 @@ export const lint = {
     {
       files: ['**/apps/server/**/*.{ts,tsx}'],
       rules: {
+        'typescript/switch-exhaustiveness-check': [
+          'error',
+          { considerDefaultExhaustiveForUnions: false }
+        ],
         'eslint/no-restricted-properties': ['error', { property: 'mock', message: noServerMocks }],
         'eslint/no-restricted-imports': [
           'error',

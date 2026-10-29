@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { originalVersion } from '#server/procedures/ingestion/source-material';
 import { createProject } from '#server/procedures/projects/operations/create-project';

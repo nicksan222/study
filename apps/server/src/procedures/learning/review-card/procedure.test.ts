@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { eq } from 'drizzle-orm';
 
 import { setup, seedDeck } from '#server/procedures/learning/test-support';
 import { newMemory, reviewMemory } from '#server/shared/study/srs';

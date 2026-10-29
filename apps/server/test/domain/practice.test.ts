@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 
-import { sql } from 'drizzle-orm';
+import { sql } from '@study/db';
 
 import { job as opJob } from '#server/procedures/jobs/operations/job';
 import { listJobs as opListJobs } from '#server/procedures/jobs/operations/job-overviews';

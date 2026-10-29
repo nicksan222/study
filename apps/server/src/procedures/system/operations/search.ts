@@ -1,5 +1,6 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import type { ServerContext } from '#server/runtime/context';
 import { StudyError } from '#server/shared/errors/index';
@@ -17,6 +18,7 @@ import type {
   SearchKind,
   SearchTarget
 } from '#server/shared/search/types';
+import { anchorSchema } from '#server/shared/sources/schemas';
 
 export function search(
   ctx: ServerContext,
@@ -57,7 +59,7 @@ export function search(
           id: r.id as ChunkId,
           documentId: r.document_id as DocumentId,
           sourceId: r.source_id as SourceId,
-          anchor: JSON.parse(r.anchor as string)
+          anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(r.anchor as string))
         },
         projectId: r.project_id as ProjectId | null,
         text: r.text as string,

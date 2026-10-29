@@ -1,12 +1,15 @@
+import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import { syncCanonicalArtifact } from '#server/procedures/material/canonical';
 import { cardRow } from '#server/procedures/material/operations/artifact';
 import { now } from '#server/procedures/practice/finish-question';
 import type { ServerContext } from '#server/runtime/context';
+import { requireRow } from '#server/shared/errors/index';
 import { StudyError } from '#server/shared/errors/index';
 import type { ArtifactId, CardId, QuestionId } from '#server/shared/ids';
+import { cardSchema } from '#server/shared/study/schemas';
 import type { Card } from '#server/shared/study/types';
 
 import { question as opQuestion } from './practice.ts';
@@ -38,13 +41,15 @@ export function addMistakeCard(
     )
       throw new StudyError('invalid_input', 'mistake already saved');
 
-    const practice = ctx.db.orm
-      .select({
-        project_id: schema.practices.project_id
-      })
-      .from(schema.practices)
-      .where(sql`id=${q.practiceId}`)
-      .get()!;
+    const practice = requireRow(
+      ctx.db.orm
+        .select({
+          project_id: schema.practices.project_id
+        })
+        .from(schema.practices)
+        .where(sql`id=${q.practiceId}`)
+        .get()
+    );
     let a = ctx.db.orm
       .select({
         id: schema.artifacts.id
@@ -93,7 +98,7 @@ export function addMistakeCard(
       .map((row) => ({
         front: row.front,
         back: row.back,
-        cites: JSON.parse(row.cites as string)
+        cites: Schema.decodeUnknownSync(cardSchema.fields.cites)(JSON.parse(row.cites))
       }));
 
     ctx.db.orm
@@ -108,11 +113,13 @@ export function addMistakeCard(
       .where(sql`id=${a}`)
       .run();
     syncCanonicalArtifact(ctx, a);
-    const row = ctx.db.orm
-      .select()
-      .from(schema.cards)
-      .where(sql`id=${card}`)
-      .get()!;
+    const row = requireRow(
+      ctx.db.orm
+        .select()
+        .from(schema.cards)
+        .where(sql`id=${card}`)
+        .get()
+    );
 
     return cardRow(row);
   });

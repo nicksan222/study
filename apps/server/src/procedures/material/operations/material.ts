@@ -1,5 +1,5 @@
+import { desc, sql } from '@study/db';
 import * as schema from '@study/db/schema';
-import { desc, sql } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
 import type { ProjectId, ArtifactId } from '#server/shared/ids';

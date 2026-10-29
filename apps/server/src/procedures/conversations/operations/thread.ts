@@ -1,5 +1,5 @@
+import { eq, asc } from '@study/db';
 import * as schema from '@study/db/schema';
-import { eq, asc } from 'drizzle-orm';
 
 import type { ServerContext } from '#server/runtime/context';
 import type { ChatMessage } from '#server/shared/conversations/messages';

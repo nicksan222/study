@@ -1,5 +1,6 @@
+import { sql, desc, eq, and } from '@study/db';
 import * as schema from '@study/db/schema';
-import { sql, desc, eq, and } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import { sourceMaterial, originalVersion } from '#server/procedures/ingestion/source-material';
 import { job as dbJob } from '#server/procedures/jobs/operations/job';
@@ -7,7 +8,8 @@ import { createMaterialFromDocument } from '#server/procedures/materials/operati
 import type { ServerContext } from '#server/runtime/context';
 import type { JobId, SourceId, DocumentId } from '#server/shared/ids';
 import type { Document } from '#server/shared/sources/document';
-import type { DocumentMeta, BlockKind, Anchor } from '#server/shared/sources/document';
+import type { BlockKind } from '#server/shared/sources/document';
+import { documentSchema } from '#server/shared/sources/schemas';
 
 import { source as dbSource } from './source.ts';
 
@@ -118,13 +120,10 @@ export function document(ctx: ServerContext, id: DocumentId): Document | null {
     .map((block) => ({
       kind: block.kind as BlockKind,
       text: block.text as string,
-      anchor: JSON.parse(block.anchor as string) as Anchor
+      anchor: JSON.parse(block.anchor)
     }));
 
-  return {
-    meta: JSON.parse(row.meta as string) as DocumentMeta,
-    blocks
-  };
+  return Schema.decodeUnknownSync(documentSchema)({ meta: JSON.parse(row.meta), blocks });
 }
 
 export function documentOf(

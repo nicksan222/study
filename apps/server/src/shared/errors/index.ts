@@ -1,5 +1,4 @@
 import type { codes_error_kind } from '@study/db/schema';
-import { DrizzleQueryError } from 'drizzle-orm';
 
 export type ErrorKind = (typeof codes_error_kind.$inferSelect)['code'];
 
@@ -33,41 +32,10 @@ export function needsSetup(kind: ErrorKind): boolean {
   return kind === 'auth' || kind === 'config' || kind === 'model_unavailable';
 }
 
-export function classifyError(error: unknown): Failure {
-  if (error instanceof DrizzleQueryError) return classifyError(error.cause);
+/** A row guaranteed by a completed write or an aggregate query must exist. */
+export function requireRow<T>(value: T | null | undefined): T {
+  if (value === undefined || value === null)
+    throw new StudyError('internal', 'Required database row missing');
 
-  if (error instanceof StudyError)
-    return {
-      kind: error.kind,
-      message: error.message,
-      retryAfterMs: error.retryAfterMs
-    };
-
-  const e = error as {
-    code?: string;
-    errcode?: number;
-    message?: string;
-  } | null;
-  const code = e?.code;
-  const kind: ErrorKind =
-    e?.errcode === 787 || code === 'ENOENT'
-      ? 'not_found'
-      : code === 'EACCES' || code === 'EPERM'
-        ? 'config'
-        : (e?.errcode !== undefined && [5, 6].includes(e.errcode & 0xff)) ||
-            [
-              'ETIMEDOUT',
-              'EINTR',
-              'ECONNRESET',
-              'ECONNABORTED',
-              'SQLITE_BUSY',
-              'SQLITE_LOCKED'
-            ].includes(code ?? '')
-          ? 'transient'
-          : [275, 1555, 2067].includes(e?.errcode ?? 0) ||
-              ['EINVAL', 'ERR_INVALID_ARG_TYPE', 'ERR_OUT_OF_RANGE'].includes(code ?? '')
-            ? 'invalid_input'
-            : 'internal';
-
-  return { kind, message: e?.message ?? String(error), retryAfterMs: null };
+  return value;
 }

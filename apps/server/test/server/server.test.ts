@@ -4,7 +4,7 @@ import { createConnection } from 'node:net';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 
-import { Db } from '@study/db';
+import { Db, sql } from '@study/db';
 import { createStudyClient as browserClient } from '@study/server/client';
 import { createStudyClient as nativeClient } from '@study/server/node';
 import type { SourceId as ImportedSourceId } from '@study/server/shared/ids';
@@ -12,7 +12,6 @@ import type { MessageId as ImportedMessageId } from '@study/server/shared/ids';
 import type { ArtifactId as ImportedArtifactId } from '@study/server/shared/ids';
 import type { Document as ImportedDocument } from '@study/server/shared/sources';
 import { TRPCClientError } from '@trpc/client';
-import { sql } from 'drizzle-orm';
 
 import { createSession as dbCreateSession } from '#server/procedures/conversations/operations/create-session';
 import { message as dbMessage } from '#server/procedures/conversations/operations/messages';

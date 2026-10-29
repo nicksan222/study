@@ -47,7 +47,7 @@ test('migrations install six valid protected palettes and reopening preserves ch
 
 test('migration upserts its palette and runtime reopen does not reseed it', async (t) => {
   const f = await createServerTest(t);
-  const { eq, sql } = await import('drizzle-orm');
+  const { eq, sql } = await import('@study/db');
   const { readFileSync, readdirSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const folder = fileURLToPath(new URL('../drizzle/', import.meta.resolve('@study/db')));
