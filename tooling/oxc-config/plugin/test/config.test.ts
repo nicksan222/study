@@ -8,7 +8,7 @@ import { lintFiles, root } from './utils.ts';
 test('whole import type remains enforced by built-in rules without a boundary false positive', () => {
   const diagnostics = lintFiles({
     'src/shared/inline-type.ts':
-      "import { type BackendContext } from '#backend/runtime/context';\n\nexport type Context = BackendContext;\n"
+      "import { type ServerContext } from '#server/runtime/context';\n\nexport type Context = ServerContext;\n"
   });
 
   assert.ok(diagnostics.length > 0);
@@ -16,13 +16,13 @@ test('whole import type remains enforced by built-in rules without a boundary fa
   assert.ok(diagnostics.some(({ code }) => code.includes('consistent-type-specifier-style')));
 });
 
-test('backend cross-directory imports use package aliases and sibling imports stay legal', () => {
+test('server cross-directory imports use package aliases and sibling imports stay legal', () => {
   const diagnostics = lintFiles({
     'src/runtime/bad-import.ts':
       "import type { Value } from '../shared/safe.ts';\n\nexport type Next = Value;\n",
     'src/runtime/bad-export.ts': "export * from '../shared/safe.ts';\n",
     'src/runtime/bad-dynamic.ts': "export const value = import('../shared/safe.ts');\n",
-    'src/runtime/good-backend.ts': "export { value } from '#backend/shared/safe';\n",
+    'src/runtime/good-server.ts': "export { value } from '#server/shared/safe';\n",
     'test/good-testing.ts': "export { helper } from '#testing/procedures';\n",
     'src/shared/safe.ts': 'export const value = 1;\n\nexport type Value = number;\n',
     'src/shared/sibling.ts': "export { value } from './safe.ts';\n"
@@ -32,7 +32,7 @@ test('backend cross-directory imports use package aliases and sibling imports st
   assert.ok(diagnostics.every(({ code }) => code.includes('no-restricted-imports')));
 });
 
-test('Node resolves and loads extensionless nested backend and testing aliases', () => {
+test('Node resolves and loads extensionless nested server and testing aliases', () => {
   const result = spawnSync(
     process.execPath,
     [
@@ -42,8 +42,8 @@ test('Node resolves and loads extensionless nested backend and testing aliases',
     import assert from 'node:assert/strict';
     import { fileURLToPath } from 'node:url';
     for (const [specifier, suffix] of [
-      ['#backend/shared/json', '/src/shared/json.ts'],
-      ['#backend/shared/errors/index', '/src/shared/errors/index.ts'],
+      ['#server/shared/json', '/src/shared/json.ts'],
+      ['#server/shared/errors/index', '/src/shared/errors/index.ts'],
       ['#testing/automatic', '/test/testing/automatic.ts']
     ]) {
       assert.ok(fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix));
@@ -51,14 +51,14 @@ test('Node resolves and loads extensionless nested backend and testing aliases',
     }
   `
     ],
-    { cwd: join(root, 'packages/backend'), encoding: 'utf8' }
+    { cwd: join(root, 'apps/server'), encoding: 'utf8' }
   );
 
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
-test('backend tests reject Node mock imports and context mocking through built-in rules', () => {
+test('server tests reject Node mock imports and context mocking through built-in rules', () => {
   const diagnostics = lintFiles({
     'test/mock-context.test.ts':
       "import { test } from 'node:test';\n\ntest('mocked method', (t) => { t.mock.method(Math, 'random', () => 0.5); });\n",
@@ -79,7 +79,7 @@ test('backend tests reject Node mock imports and context mocking through built-i
   assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/real.test.ts')));
 });
 
-test('backend tests reject Vitest and Jest mocking imports', () => {
+test('server tests reject Vitest and Jest mocking imports', () => {
   const diagnostics = lintFiles({
     'test/vitest.ts': "export { vi as mocking } from 'vitest';\n",
     'test/vite-plus.ts': "export { vi as mocking } from 'vite-plus/test';\n",
@@ -97,14 +97,14 @@ test('backend tests reject Vitest and Jest mocking imports', () => {
       ({ code }) =>
         code.includes('no-restricted-imports') ||
         code.includes('prefer-vite-plus-imports') ||
-        code === 'study(backend-no-mocks)'
+        code === 'study(server-no-mocks)'
     )
   );
 });
 
 test('production config loads the Study plugin', () => {
   const diagnostics = lintFiles({
-    'src/shared/boundary-smoke.ts': "export * from '#backend/runtime/context';\n"
+    'src/shared/boundary-smoke.ts': "export * from '#server/runtime/context';\n"
   });
 
   assert.ok(
@@ -136,10 +136,10 @@ test('production config enforces database ownership', () => {
   assert.ok(diagnostics.some(({ code }) => code === 'study(database-ownership)'));
 });
 
-test('Effect v4 rejects obsolete package paths in global and backend config', () => {
+test('Effect v4 rejects obsolete package paths in global and server config', () => {
   const diagnostics = lintFiles(
     {
-      'packages/backend/src/old.ts': "export * from '@effect/platform/HttpClient';\n",
+      'apps/server/src/old.ts': "export * from '@effect/platform/HttpClient';\n",
       'packages/ai/src/old.ts': "export * from 'effect/unstable/http';\n",
       'apps/web/src/old.ts': "export const old = import('@effect/rpc');\n",
       'packages/ai/src/modern.ts':
@@ -151,7 +151,7 @@ test('Effect v4 rejects obsolete package paths in global and backend config', ()
   const restricted = diagnostics.filter(({ code }) => code.includes('no-restricted-imports'));
 
   assert.equal(restricted.length, 3, JSON.stringify(diagnostics));
-  assert.ok(restricted.some(({ filename }) => filename.endsWith('/packages/backend/src/old.ts')));
+  assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/server/src/old.ts')));
   assert.ok(restricted.some(({ filename }) => filename.endsWith('/packages/ai/src/old.ts')));
   assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/web/src/old.ts')));
   assert.ok(restricted.every(({ filename }) => !filename.endsWith('/modern.ts')));

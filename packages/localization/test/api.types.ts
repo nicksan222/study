@@ -1,4 +1,4 @@
-// Included in backend:typecheck; these calls are never executed.
+// Included in server:typecheck; these calls are never executed.
 import { createLocalization, text, catalogs } from '@study/localization';
 import type { MessageKey, StaticMessageKey } from '@study/localization';
 

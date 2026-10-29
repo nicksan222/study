@@ -1,4 +1,4 @@
-//! Private backend discovery for the shared web client.
+//! Private server discovery for the shared web client.
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]

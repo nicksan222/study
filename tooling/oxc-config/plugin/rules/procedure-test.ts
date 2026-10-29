@@ -7,10 +7,10 @@ export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     const filename = context.filename.replaceAll('\\', '/');
-    const inProcedures = filename.includes('/packages/backend/src/procedures/');
+    const inProcedures = filename.includes('/apps/server/src/procedures/');
     const testFile = inProcedures && filename.endsWith('.test.ts');
     const deprecatedTestApi =
-      'Procedure tests must use createBackendTest(t); fixture, caller and testDatabase setup APIs are forbidden.';
+      'Procedure tests must use createServerTest(t); fixture, caller and testDatabase setup APIs are forbidden.';
     const namespaceImports = new Map<string, { blocked: Set<string>; specifier: any }>();
 
     if (!inProcedures || !filename.endsWith('.ts')) return {};

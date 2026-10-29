@@ -15,7 +15,7 @@ function Copy({ name }: { name: string }) {
 }
 
 describe('desktop language provider', () => {
-  it('switches independently and preserves the backend locale', () => {
+  it('switches independently and preserves the server locale', () => {
     const view = (locale: 'english' | 'italian') => (
       <>
         <LanguageProvider locale={locale}>

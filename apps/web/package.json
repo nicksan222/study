@@ -11,8 +11,8 @@
     "test": "vp test run --reporter=verbose"
   },
   "dependencies": {
-    "@study/backend": "*",
     "@study/localization": "*",
+    "@study/server": "*",
     "@study/ui": "*",
     "@tanstack/react-router": "^1.170.46",
     "@tauri-apps/api": "^2.12.4",

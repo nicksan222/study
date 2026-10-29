@@ -6,7 +6,7 @@ export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     const filename = context.filename.replaceAll('\\', '/');
-    const marker = '/packages/backend/src/';
+    const marker = '/apps/server/src/';
     const index = filename.lastIndexOf(marker);
 
     if (index === -1) return {};
@@ -19,10 +19,10 @@ export default defineRule({
     function forbidden(source: string): boolean {
       if (source === '@study/db' || source.startsWith('@study/db/')) return true;
 
-      if (/^@study\/backend\/(server|runtime|procedures)(\/|$)/.test(source)) return true;
+      if (/^@study\/server\/(server|runtime|procedures)(\/|$)/.test(source)) return true;
 
-      const target = source.startsWith('#backend/')
-        ? resolve(sourceRoot, source.slice('#backend/'.length))
+      const target = source.startsWith('#server/')
+        ? resolve(sourceRoot, source.slice('#server/'.length))
         : source.startsWith('.') || source.startsWith('/')
           ? resolve(dirname(context.filename), source)
           : null;
@@ -34,7 +34,7 @@ export default defineRule({
     }
 
     const message =
-      'Shared contracts and clients must use type-only references to backend runtime, procedures, and @study/db.';
+      'Shared contracts and clients must use type-only references to server runtime, procedures, and @study/db.';
 
     return {
       ImportDeclaration(node) {

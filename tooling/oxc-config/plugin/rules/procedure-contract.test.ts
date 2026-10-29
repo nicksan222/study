@@ -11,7 +11,7 @@ const builderMessage = 'Create the tRPC builder only in runtime/trpc.ts.';
 const barrelMessage =
   'Procedure modules must not re-export values with export *; export helpers explicitly.';
 
-const prefix = "import { publicProcedure as procedure, router } from '#backend/runtime/trpc';\n";
+const prefix = "import { publicProcedure as procedure, router } from '#server/runtime/trpc';\n";
 
 const cases: { name: string; path: string; source: string; messages: string[] }[] = [
   {
@@ -90,7 +90,7 @@ const cases: { name: string; path: string; source: string; messages: string[] }[
     name: 'rejects namespace procedure builder',
     path: 'src/procedures/x/namespace-builder.ts',
     source:
-      "import * as trpc from '#backend/runtime/trpc';\nexport const run = trpc.publicProcedure.input(schema).query(handler);\n",
+      "import * as trpc from '#server/runtime/trpc';\nexport const run = trpc.publicProcedure.input(schema).query(handler);\n",
     messages: [contractMessage, contractMessage]
   },
   {
@@ -103,7 +103,7 @@ const cases: { name: string; path: string; source: string; messages: string[] }[
     name: 'accepts imported router endpoint',
     path: 'src/procedures/z/router.ts',
     source:
-      "import { router } from '#backend/runtime/trpc';\nimport { run as endpoint } from './endpoint';\nexport const zRouter = router({ endpoint });\n",
+      "import { router } from '#server/runtime/trpc';\nimport { run as endpoint } from './endpoint';\nexport const zRouter = router({ endpoint });\n",
     messages: []
   },
   {
@@ -123,7 +123,7 @@ const cases: { name: string; path: string; source: string; messages: string[] }[
     name: 'rejects additional endpoint export',
     path: 'src/procedures/a/aliased-export.ts',
     source:
-      "import { publicProcedure } from '#backend/runtime/trpc';\nexport const run = publicProcedure.input(schema).query(handler);\nexport { run as other };\n",
+      "import { publicProcedure } from '#server/runtime/trpc';\nexport const run = publicProcedure.input(schema).query(handler);\nexport { run as other };\n",
     messages: [contractMessage]
   },
   {
@@ -150,28 +150,28 @@ const cases: { name: string; path: string; source: string; messages: string[] }[
     name: 'accepts shadowed builder binding',
     path: 'src/procedures/a/shadow.ts',
     source:
-      "import { publicProcedure } from '#backend/runtime/trpc';\nexport const run = publicProcedure.input(schema).query(handler);\nexport function helper(publicProcedure: { value: number }) { return publicProcedure.value; }\n",
+      "import { publicProcedure } from '#server/runtime/trpc';\nexport const run = publicProcedure.input(schema).query(handler);\nexport function helper(publicProcedure: { value: number }) { return publicProcedure.value; }\n",
     messages: []
   },
   {
     name: 'rejects computed router key',
     path: 'src/procedures/b/router.ts',
     source:
-      "import { router } from '#backend/runtime/trpc';\nimport { run as endpoint } from './endpoint';\nexport const bRouter = router({ [sideEffect()]: endpoint });\n",
+      "import { router } from '#server/runtime/trpc';\nimport { run as endpoint } from './endpoint';\nexport const bRouter = router({ [sideEffect()]: endpoint });\n",
     messages: [contractMessage]
   },
   {
     name: 'rejects unrelated router import',
     path: 'src/procedures/c/router.ts',
     source:
-      "import { router } from '#backend/runtime/trpc';\nimport { run as endpoint } from '#backend/shared/helper';\nexport const cRouter = router({ endpoint });\n",
+      "import { router } from '#server/runtime/trpc';\nimport { run as endpoint } from '#server/shared/helper';\nexport const cRouter = router({ endpoint });\n",
     messages: [contractMessage]
   },
   {
     name: 'accepts sibling router import',
     path: 'src/procedures/d/router.ts',
     source:
-      "import { router } from '#backend/runtime/trpc';\nimport { run as endpoint } from './endpoint';\nexport const dRouter = router({ endpoint });\n",
+      "import { router } from '#server/runtime/trpc';\nimport { run as endpoint } from './endpoint';\nexport const dRouter = router({ endpoint });\n",
     messages: []
   }
 ];
@@ -191,12 +191,12 @@ for (const { name, path, source, messages } of cases) {
 test('value wildcard barrels cannot expose an endpoint through a router', () => {
   const diagnostics = lintRule('procedure-contract', {
     'src/procedures/example/endpoint.ts':
-      "import { publicProcedure } from '#backend/runtime/trpc';\nexport const run = publicProcedure.input(schema).query(handler);\n",
+      "import { publicProcedure } from '#server/runtime/trpc';\nexport const run = publicProcedure.input(schema).query(handler);\n",
     'src/procedures/example/endpoint.test.ts': 'export {};\n',
     'src/procedures/example/barrel.ts': "export * from './endpoint';\n",
     'src/procedures/example/types.ts': "export type * from './endpoint';\n",
     'src/procedures/example/router.ts':
-      "import { router } from '#backend/runtime/trpc';\nimport { run as endpoint } from './barrel';\nexport const exampleRouter = router({ endpoint });\n"
+      "import { router } from '#server/runtime/trpc';\nimport { run as endpoint } from './barrel';\nexport const exampleRouter = router({ endpoint });\n"
   });
 
   assertDiagnostics('procedure-contract', diagnostics, [
@@ -209,7 +209,7 @@ test('accepts the canonical folder contract and explicit non-object schemas', ()
     'src/procedures/example/read/index.ts':
       "export { run } from './procedure.ts';\nexport type { Input } from './input.ts';\nexport { type Output } from './output.ts';\n",
     'src/procedures/example/read/procedure.ts':
-      "import { publicProcedure } from '#backend/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).output(outputValidator).query(() => []);\n",
+      "import { publicProcedure } from '#server/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).output(outputValidator).query(() => []);\n",
     'src/procedures/example/read/input.ts':
       "import { Schema } from 'effect';\nexport const inputSchema = Schema.Struct({});\nexport type Input = typeof inputSchema.Type;\nexport const inputValidator = Schema.toStandardSchemaV1(inputSchema);\n",
     'src/procedures/example/read/output.ts':
@@ -221,7 +221,7 @@ test('accepts the canonical folder contract and explicit non-object schemas', ()
 
 test('endpoint indexes require canonical run, Input, and Output exports through the CLI', () => {
   const procedure =
-    "import { publicProcedure } from '#backend/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).output(outputValidator).query(() => []);\n";
+    "import { publicProcedure } from '#server/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).output(outputValidator).query(() => []);\n";
   const input =
     "import { Schema } from 'effect';\nexport const inputSchema = Schema.Struct({});\nexport type Input = typeof inputSchema.Type;\nexport const inputValidator = Schema.toStandardSchemaV1(inputSchema);\n";
   const output =
@@ -260,13 +260,13 @@ test('folder endpoint boundaries reject implementation exports, missing validato
   const diagnostics = lintRule('procedure-contract', {
     'src/procedures/example/bad-index/index.ts': "export { run, helper } from './procedure.ts';\n",
     'src/procedures/example/bad-index/procedure.ts':
-      "import { publicProcedure } from '#backend/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).output(outputValidator).query(() => []);\n",
+      "import { publicProcedure } from '#server/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).output(outputValidator).query(() => []);\n",
     'src/procedures/example/bad-index/input.ts':
       "import { Schema } from 'effect';\nexport const inputSchema = Schema.Struct({});\nexport type Input = typeof inputSchema.Type;\nexport const inputValidator = Schema.toStandardSchemaV1(inputSchema);\n",
     'src/procedures/example/bad-index/output.ts':
       "import { Schema } from 'effect';\nexport const outputSchema = Schema.Array(Schema.String);\nexport type Output = typeof outputSchema.Type;\nexport const outputValidator = Schema.toStandardSchemaV1(outputSchema);\n",
     'src/procedures/example/bad-procedure/procedure.ts':
-      "import { publicProcedure } from '#backend/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).query(() => []);\n",
+      "import { publicProcedure } from '#server/runtime/trpc';\nimport { inputValidator } from './input.ts';\nimport { outputValidator } from './output.ts';\nexport const run = publicProcedure.input(inputValidator).query(() => []);\n",
     'src/procedures/example/bad-schema/input.ts':
       "import { Schema } from 'effect';\nimport { projects } from '@study/db';\nexport const inputSchema = Schema.Struct({ value: Schema.Unknown, id: projects.$inferSelect.id });\nexport type Input = unknown;\nexport const inputValidator = Schema.toStandardSchemaV1(inputSchema);\n"
   });
@@ -288,9 +288,9 @@ test('folder endpoint boundaries reject implementation exports, missing validato
 test('folder routers must import the explicit endpoint index instead of an endpoint implementation', () => {
   const diagnostics = lintRule('procedure-contract', {
     'src/procedures/example/router.ts':
-      "import { router } from '#backend/runtime/trpc';\nimport { run as endpoint } from './folder';\nexport const exampleRouter = router({ endpoint });\n",
+      "import { router } from '#server/runtime/trpc';\nimport { run as endpoint } from './folder';\nexport const exampleRouter = router({ endpoint });\n",
     'src/procedures/example/direct-router.ts':
-      "import { router } from '#backend/runtime/trpc';\nimport { run as endpoint } from './folder/procedure.ts';\nexport const exampleRouter = router({ endpoint });\n",
+      "import { router } from '#server/runtime/trpc';\nimport { run as endpoint } from './folder/procedure.ts';\nexport const exampleRouter = router({ endpoint });\n",
     'src/procedures/example/folder/index.ts': "export { run } from './procedure.ts';\n"
   });
 

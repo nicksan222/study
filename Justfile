@@ -225,10 +225,10 @@ frontend-check:
     npm run test
     npm run build
 
-# Check the TypeScript backend packages against the actual Node runtime.
-backend-check:
-    npm run backend:typecheck
-    npm run backend:test
+# Check the TypeScript server packages against the actual Node runtime.
+server-check:
+    npm run server:typecheck
+    npm run server:test
 
 # Generate database migrations and web routes.
 gen:
@@ -250,7 +250,7 @@ tooling-test:
     python3 -m unittest discover -s tooling/release -p 'test_*.py'
 
 # Run checks required for pull requests.
-check: check-shell fmt-check lint deny test docs backend-check frontend-check gen-check tooling-test landing-check
+check: check-shell fmt-check lint deny test docs server-check frontend-check gen-check tooling-test landing-check
 
 # Format-check, lint, test, and document one Rust package.
 check-crate package:

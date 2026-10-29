@@ -33,7 +33,7 @@ aspects of the result. There is no required seven-step approval chain.
   paste arbitrary result text directly into a shell command: backticks and `$()` execute.
 - Assign work by task and files, never by crate alone. One writer per file. State the
   question, permitted files, required evidence, and stopping point in each assignment.
-- Browser consumer E2E owns an isolated RPC backend/database for each test. No test mocks
+- Browser consumer E2E owns an isolated RPC server/database for each test. No test mocks
   transport; native desktop checks cover OS capabilities separately.
 - Everyone shares one checkout, one `target/devcontainer` and one desktop. Every save
   leaves the crate building warning-free; write a function and its caller in one edit.

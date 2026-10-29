@@ -76,7 +76,7 @@ test('localized plurals cover zero, one and many in both locales', () => {
     );
   }
 });
-test('locale-bound and backend translations remain isolated', () => {
+test('locale-bound and server translations remain isolated', () => {
   const english = createLocalization('english');
   const italian = createLocalization('italian');
 

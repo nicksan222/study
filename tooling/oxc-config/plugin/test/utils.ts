@@ -36,11 +36,11 @@ export function lintFiles(
   mkdirSync(temporaryRoot, { recursive: true });
 
   const directory = mkdtempSync(join(temporaryRoot, 'oxlint-quality-'));
-  const backend = join(directory, 'packages/backend');
+  const server = join(directory, 'apps/server');
 
   try {
     for (const [name, source] of Object.entries(files)) {
-      const filename = join(workspace ? directory : backend, name);
+      const filename = join(workspace ? directory : server, name);
 
       mkdirSync(dirname(filename), { recursive: true });
       writeFileSync(filename, source);
@@ -55,13 +55,14 @@ export function lintFiles(
       });
       symlinkSync(join(root, 'node_modules'), join(directory, 'node_modules'), 'dir');
 
-      for (const name of ['ui', 'theme', 'localization', 'db', 'ai', 'backend']) {
-        const path = join(directory, 'packages', name, 'package.json');
+      for (const name of ['ui', 'theme', 'localization', 'db', 'ai', 'server']) {
+        const workspace = name === 'server' ? 'apps' : 'packages';
+        const path = join(directory, workspace, name, 'package.json');
 
         mkdirSync(dirname(path), { recursive: true });
 
         if (name in manifests) writeFileSync(path, JSON.stringify({ exports: manifests[name] }));
-        else cpSync(join(root, 'packages', name, 'package.json'), path);
+        else cpSync(join(root, workspace, name, 'package.json'), path);
       }
 
       plugin = join(directory, pluginPath, 'index.ts');
@@ -90,7 +91,7 @@ export function lintFiles(
         'json',
         ...(workspace
           ? ['packages', 'apps'].map((name) => join(directory, name)).filter(existsSync)
-          : [backend])
+          : [server])
       ],
       {
         cwd: root,
@@ -154,7 +155,7 @@ export function assertDiagnostics(
     diagnostics
       .map(({ code, filename, message }) => {
         assert.equal(code, `study(${rule})`);
-        const marker = '/packages/backend/';
+        const marker = '/apps/server/';
 
         assert.ok(filename.includes(marker), filename);
 

@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { App, serve } from '@study/backend/server';
+import { App, serve } from '@study/server/runtime';
 import { createServer } from 'vite-plus';
 import type { ViteDevServer } from 'vite-plus';
 
@@ -13,7 +13,7 @@ await mkdir(dirname(database), { recursive: true });
 
 const app = await App.open({ path: database });
 
-let backend: Awaited<ReturnType<typeof serve>> | undefined;
+let server: Awaited<ReturnType<typeof serve>> | undefined;
 
 let web: ViteDevServer | undefined;
 
@@ -25,7 +25,7 @@ const close = () =>
       await web?.close();
     } finally {
       try {
-        await backend?.close();
+        await server?.close();
       } finally {
         await app.close();
       }
@@ -33,11 +33,11 @@ const close = () =>
   })());
 
 try {
-  backend = await serve(app);
+  server = await serve(app);
   app.workers.start();
   web = await createServer({
     configFile: resolve(root, 'apps/web/vite.config.ts'),
-    server: { proxy: { '/trpc': { target: backend.url } } }
+    server: { proxy: { '/trpc': { target: server.url } } }
   });
   await web.listen();
   web.printUrls();

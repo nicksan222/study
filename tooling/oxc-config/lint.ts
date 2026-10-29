@@ -2,8 +2,8 @@ import type { UserConfig } from 'vite-plus';
 
 type LintConfig = NonNullable<UserConfig['lint']>;
 
-const noBackendMocks =
-  'Backend tests must exercise real procedures and dependencies without mocking.';
+const noServerMocks =
+  'Server tests must exercise real procedures and dependencies without mocking.';
 
 const effectV4Imports = [
   {
@@ -58,7 +58,7 @@ export const lint = {
     'target/**'
   ],
   rules: {
-    'study/backend-no-mocks': 'error',
+    'study/server-no-mocks': 'error',
     'study/effect-v4-api': 'error',
     'eslint/no-restricted-imports': ['error', { patterns: effectV4Imports }],
     'study/database-ownership': 'error',
@@ -126,25 +126,25 @@ export const lint = {
   },
   overrides: [
     {
-      files: ['**/packages/backend/**/*.{ts,tsx}'],
+      files: ['**/apps/server/**/*.{ts,tsx}'],
       rules: {
-        'eslint/no-restricted-properties': ['error', { property: 'mock', message: noBackendMocks }],
+        'eslint/no-restricted-properties': ['error', { property: 'mock', message: noServerMocks }],
         'eslint/no-restricted-imports': [
           'error',
           {
             paths: [
-              { name: 'node:test', importNames: ['mock'], message: noBackendMocks },
-              { name: 'vitest', importNames: ['vi', 'vitest'], message: noBackendMocks },
-              { name: 'vite-plus/test', importNames: ['vi', 'vitest'], message: noBackendMocks },
-              { name: '@jest/globals', importNames: ['jest'], message: noBackendMocks },
-              { name: 'jest-mock', message: noBackendMocks }
+              { name: 'node:test', importNames: ['mock'], message: noServerMocks },
+              { name: 'vitest', importNames: ['vi', 'vitest'], message: noServerMocks },
+              { name: 'vite-plus/test', importNames: ['vi', 'vitest'], message: noServerMocks },
+              { name: '@jest/globals', importNames: ['jest'], message: noServerMocks },
+              { name: 'jest-mock', message: noServerMocks }
             ],
             patterns: [
               ...effectV4Imports,
               {
                 regex: '^\\.\\./',
                 message:
-                  'Use extensionless #backend/* or #testing/* package imports across directories.'
+                  'Use extensionless #server/* or #testing/* package imports across directories.'
               }
             ]
           }

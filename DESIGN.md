@@ -79,6 +79,6 @@ Preserve light/dark appearance, zoom, bilingual English/Italian copy, keyboard n
 dialog focus, drafts, recording ownership, source citations, destructive confirmations,
 pending work and actionable recovery. The 820 × 540 native minimum remains usable;
 narrower browser views preserve navigation and move header actions into the shared dock.
-All copy comes from `study-localization`. Browser tests use isolated real RPC backends.
+All copy comes from `study-localization`. Browser tests use isolated real RPC servers.
 Assess every page in both themes and at narrow sizes, including important pending, empty
 and version-history states, and fix independent UX/UI review findings before finishing.
