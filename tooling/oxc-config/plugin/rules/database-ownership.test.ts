@@ -39,7 +39,7 @@ test('database connection and schema factories stay with their owners', () => {
 
   assert.deepEqual(
     diagnostics
-      .map(({ filename, message }) => [filename.split('/packages/')[1], message])
+      .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     [
       [
@@ -101,7 +101,7 @@ test('owner reexports cannot evade ownership by preceding imports', () => {
 
   assert.deepEqual(
     diagnostics
-      .map(({ filename, message }) => [filename.split('/packages/')[1], message])
+      .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     [
       ...Array.from({ length: 3 }, () => [

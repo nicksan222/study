@@ -16,7 +16,7 @@ export default defineRule({
       filename.endsWith('.ts') &&
       !filename.endsWith('.test.ts');
     const folderRoleCandidate = filename.match(
-      /\/packages\/server\/src\/procedures\/[^/]+\/[^/]+\/(index|procedure|input|output)\.ts$/
+      /\/apps\/server\/src\/procedures\/[^/]+\/[^/]+\/(index|procedure|input|output)\.ts$/
     )?.[1];
     const folderRole = folderRoleCandidate;
     const schemaFile = folderRole === 'input' || folderRole === 'output';

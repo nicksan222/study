@@ -12,7 +12,7 @@ export default defineRule({
   create(context) {
     const filename = context.filename.replaceAll('\\', '/');
 
-    if (!/\/packages\/server\/(?:test\/|src\/.*\.test\.)/.test(filename)) return {};
+    if (!/\/apps\/server\/(?:test\/|src\/.*\.test\.)/.test(filename)) return {};
 
     const namedTypes = new Map<string, any>();
     const namespaces = new Map<string, { types: readonly string[]; specifier: any }>();
