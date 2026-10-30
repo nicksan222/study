@@ -20,28 +20,28 @@ import {
   titleRequestSchema
 } from './schemas.ts';
 
-export const sessionCursorSchema = Schema.Struct({ updatedAt: Schema.BigInt, id: sessionIdSchema });
+const sessionCursorSchema = Schema.Struct({ updatedAt: Schema.BigInt, id: sessionIdSchema });
 
 export const sessionPageInputSchema = Schema.Struct({
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(sessionCursorSchema)
 });
 
-export const sessionPageSchema = Schema.Struct({
+const sessionPageSchema = Schema.Struct({
   items: Schema.Array(sessionSchema),
   next: Schema.NullOr(sessionCursorSchema)
 });
 
-export const sessionIdInputSchema = Schema.Struct({ id: sessionIdSchema });
+const sessionIdInputSchema = Schema.Struct({ id: sessionIdSchema });
 
 export const createSessionInputSchema = Schema.Struct({
   project: projectIdSchema,
   title: Schema.String
 });
 
-export const createUntitledSessionInputSchema = Schema.Struct({ project: projectIdSchema });
+const createUntitledSessionInputSchema = Schema.Struct({ project: projectIdSchema });
 
-export const messageIdInputSchema = Schema.Struct({ id: messageIdSchema });
+const messageIdInputSchema = Schema.Struct({ id: messageIdSchema });
 
 export const threadInputSchema = Schema.Struct({
   sessionId: sessionIdSchema,
@@ -50,7 +50,7 @@ export const threadInputSchema = Schema.Struct({
   before: Schema.optional(messageIdSchema)
 });
 
-export const threadPageSchema = Schema.Struct({
+const threadPageSchema = Schema.Struct({
   items: Schema.Array(chatMessageSchema),
   next: Schema.NullOr(messageIdSchema)
 });

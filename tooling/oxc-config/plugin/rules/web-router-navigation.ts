@@ -100,13 +100,7 @@ export default defineRule({
         for (const attribute of node.attributes) {
           if (attribute.type !== 'JSXAttribute' || attribute.name.name !== 'href') continue;
 
-          const value =
-            attribute.value?.type === 'Literal'
-              ? attribute.value.value
-              : attribute.value?.type === 'JSXExpressionContainer' &&
-                  attribute.value.expression.type === 'Literal'
-                ? attribute.value.expression.value
-                : null;
+          const value = hrefValue(attribute);
 
           if (typeof value === 'string' && /^(?:\/(?!\/)|#\/)/.test(value)) report(attribute);
         }
@@ -114,3 +108,12 @@ export default defineRule({
     };
   }
 });
+
+function hrefValue(attribute: any): unknown {
+  return attribute.value?.type === 'Literal'
+    ? attribute.value.value
+    : attribute.value?.type === 'JSXExpressionContainer' &&
+        attribute.value.expression.type === 'Literal'
+      ? attribute.value.expression.value
+      : null;
+}

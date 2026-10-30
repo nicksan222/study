@@ -11,7 +11,7 @@ export const DRAW_MS = 300;
 export const HEAD_MS = 90;
 
 /** A fade or a pop: a word, a citation, a step appearing. */
-export const FADE_MS = 160;
+const FADE_MS = 160;
 
 /** Between strokes, or pieces, that start together. */
 export const STAGGER_MS = 50;

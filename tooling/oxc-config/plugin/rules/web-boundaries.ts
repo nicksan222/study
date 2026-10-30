@@ -24,13 +24,7 @@ export default defineRule({
         return;
       }
 
-      if (
-        !transport &&
-        (source === 'effect/rpc' ||
-          source === '@trpc/client' ||
-          source === '@study/server/client' ||
-          source.startsWith('@trpc/'))
-      ) {
+      if (!transport && rawClient(source)) {
         report(node, 'Use the browser transport adapters instead of importing a raw client.');
 
         return;
@@ -52,18 +46,11 @@ export default defineRule({
         return;
       }
 
-      const [targetLayer, targetDomain] = target.split('/');
-      const upward =
-        (layer === 'lib' && ['app', 'routes', 'pages', 'features'].includes(targetLayer)) ||
-        (layer === 'features' && ['app', 'routes', 'pages'].includes(targetLayer)) ||
-        (layer === 'pages' && ['app', 'routes'].includes(targetLayer));
-      const crossPage = layer === 'pages' && targetLayer === 'pages' && domain !== targetDomain;
-      const featureImport =
-        targetLayer === 'features' && (layer !== 'features' || domain !== targetDomain);
-      const privateFeature =
-        featureImport && target.split('/').length > 2 && !/^features\/[^/]+\/index$/.test(target);
+      checkOwnership(node, target);
+    }
 
-      if (upward || crossPage || privateFeature)
+    function checkOwnership(node: any, target: string) {
+      if (violatesOwnership(layer, domain, target))
         report(
           node,
           'Keep dependencies downward; pages are private and shared features expose index entry points.'
@@ -106,3 +93,32 @@ export default defineRule({
     };
   }
 });
+
+function violatesOwnership(layer: string, domain: string | undefined, target: string): boolean {
+  const [targetLayer, targetDomain] = target.split('/');
+  const upward = upwardImport(layer, targetLayer);
+  const crossPage = layer === 'pages' && targetLayer === 'pages' && domain !== targetDomain;
+  const featureImport =
+    targetLayer === 'features' && (layer !== 'features' || domain !== targetDomain);
+  const privateFeature =
+    featureImport && target.split('/').length > 2 && !/^features\/[^/]+\/index$/.test(target);
+
+  return upward || crossPage || privateFeature;
+}
+
+function rawClient(source: string): boolean {
+  return (
+    source === 'effect/rpc' ||
+    source === '@trpc/client' ||
+    source === '@study/server/client' ||
+    source.startsWith('@trpc/')
+  );
+}
+
+function upwardImport(layer: string, targetLayer: string): boolean {
+  return (
+    (layer === 'lib' && ['app', 'routes', 'pages', 'features'].includes(targetLayer)) ||
+    (layer === 'features' && ['app', 'routes', 'pages'].includes(targetLayer)) ||
+    (layer === 'pages' && ['app', 'routes'].includes(targetLayer))
+  );
+}

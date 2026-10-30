@@ -23,14 +23,14 @@ const metadataCodec = Schema.fromJsonString(
   })
 );
 
-function view(row: typeof workflow_executions.$inferSelect): typeof executionSchema.Type {
-  const pending = row.result === '"__interrupt_safe__"' || row.result === '"__interrupt_unsafe__"';
-  const result =
-    row.result !== null && !pending ? Schema.decodeUnknownSync(resultCodec)(row.result) : null;
+function executionOutcome(
+  status: typeof workflow_executions.$inferSelect.status,
+  result: typeof resultCodec.Type | null
+) {
   let outcome: (typeof executionSchema.Type)['outcome'] = null;
   let failureKind: (typeof executionSchema.Type)['failureKind'] = null;
 
-  if (row.status === 'cancelled') {
+  if (status === 'cancelled') {
     outcome = 'failure';
     failureKind = 'cancelled';
   } else if (result?._tag === 'Complete') {
@@ -45,6 +45,15 @@ function view(row: typeof workflow_executions.$inferSelect): typeof executionSch
     outcome = 'failure';
     failureKind = 'internal';
   }
+
+  return { outcome, failureKind };
+}
+
+function view(row: typeof workflow_executions.$inferSelect): typeof executionSchema.Type {
+  const pending = row.result === '"__interrupt_safe__"' || row.result === '"__interrupt_unsafe__"';
+  const result =
+    row.result !== null && !pending ? Schema.decodeUnknownSync(resultCodec)(row.result) : null;
+  const { outcome, failureKind } = executionOutcome(row.status, result);
 
   let correlationId: string | null = null;
 

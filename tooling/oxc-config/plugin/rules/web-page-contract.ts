@@ -22,6 +22,34 @@ export default defineRule({
     const imports = new Map<any, { source: string; name: string }>();
     const report = (node: any, message: string) => context.report({ node, message });
 
+    function rememberImports(node: any) {
+      if (!typeOnly(node)) {
+        for (const item of node.specifiers) {
+          const name = item.type === 'ImportSpecifier' ? propertyName(item.imported) : null;
+
+          if (name) imports.set(item, { source: node.source.value, name });
+        }
+      }
+    }
+
+    function checkComponents(options: any) {
+      for (const option of options.properties) {
+        if (
+          option.type !== 'Property' ||
+          !['component', 'pendingComponent', 'errorComponent', 'notFoundComponent'].includes(
+            propertyName(option.key) ?? ''
+          )
+        )
+          continue;
+
+        if (option.value.type !== 'Identifier' || !imports.has(bindings.definition(option.value)))
+          report(
+            option,
+            'Route components must reference imported presentation or page components.'
+          );
+      }
+    }
+
     return {
       Program(node) {
         const required = page
@@ -47,24 +75,9 @@ export default defineRule({
           );
       },
       ImportDeclaration(node) {
-        if (!typeOnly(node)) {
-          for (const item of node.specifiers) {
-            const name = item.type === 'ImportSpecifier' ? propertyName(item.imported) : null;
+        rememberImports(node);
 
-            if (name) imports.set(item, { source: node.source.value, name });
-          }
-        }
-
-        if (
-          route &&
-          !typeOnly(node) &&
-          node.source.value !== 'react' &&
-          node.specifiers.some(
-            (item) =>
-              item.type === 'ImportSpecifier' &&
-              (propertyName(item.imported) ?? '').startsWith('use')
-          )
-        ) {
+        if (route && routeHookImport(node)) {
           report(
             node,
             'Route modules reference page components; application hooks belong in pages.'
@@ -77,13 +90,7 @@ export default defineRule({
 
         if (
           node.source.value === 'react' ||
-          (node.source.value === '@tanstack/react-router' &&
-            !route &&
-            node.specifiers.some(
-              (item) =>
-                item.type !== 'ImportSpecifier' ||
-                (item.imported.type === 'Identifier' && item.imported.name.startsWith('use'))
-            ))
+          (node.source.value === '@tanstack/react-router' && !route && importsRouterLifecycle(node))
         )
           report(
             node,
@@ -111,21 +118,7 @@ export default defineRule({
 
         if (options?.type !== 'ObjectExpression') return;
 
-        for (const option of options.properties) {
-          if (
-            option.type !== 'Property' ||
-            !['component', 'pendingComponent', 'errorComponent', 'notFoundComponent'].includes(
-              propertyName(option.key) ?? ''
-            )
-          )
-            continue;
-
-          if (option.value.type !== 'Identifier' || !imports.has(bindings.definition(option.value)))
-            report(
-              option,
-              'Route components must reference imported presentation or page components.'
-            );
-        }
+        checkComponents(options);
       },
       ExportNamedDeclaration(node) {
         if (!route || typeOnly(node)) return;
@@ -165,3 +158,22 @@ export default defineRule({
     };
   }
 });
+
+function importsHook(node: any): boolean {
+  return node.specifiers.some(
+    (item: any) =>
+      item.type === 'ImportSpecifier' && (propertyName(item.imported) ?? '').startsWith('use')
+  );
+}
+
+function importsRouterLifecycle(node: any): boolean {
+  return node.specifiers.some(
+    (item: any) =>
+      item.type !== 'ImportSpecifier' ||
+      (item.imported.type === 'Identifier' && item.imported.name.startsWith('use'))
+  );
+}
+
+function routeHookImport(node: any): boolean {
+  return !typeOnly(node) && node.source.value !== 'react' && importsHook(node);
+}

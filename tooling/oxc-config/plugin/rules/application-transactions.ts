@@ -1,6 +1,13 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { binding, imported, production, property, typedOwner } from './synchronous-transactions.ts';
+import {
+  binding,
+  imported,
+  memberName as property,
+  constantDeclarator,
+  enterNode
+} from '../lexical-bindings.ts';
+import { production, typedOwner } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -12,15 +19,26 @@ export default defineRule({
       return {};
 
     function db(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (property(node) === 'db' && typedOwner(context, node.object)) return true;
 
       if (node.type !== 'Identifier') return false;
 
       const def = binding(context, node)?.defs[0]?.node;
+
+      if (databaseType(node, def)) return true;
+
+      if (constantDeclarator(def)) {
+        if (openedDb(def.init)) return true;
+
+        return db(def.init, seen);
+      }
+
+      return false;
+    }
+
+    function databaseType(node: any, def: any): boolean {
       const type = (
         def?.id?.typeAnnotation ?? binding(context, node)?.defs[0]?.name?.typeAnnotation
       )?.typeAnnotation;
@@ -31,16 +49,16 @@ export default defineRule({
       )
         return true;
 
-      if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
-        if (
-          def.init?.type === 'CallExpression' &&
-          property(def.init.callee) === 'open' &&
-          imported(context, def.init.callee.object, /^@study\/db$/, 'Db')
-        )
-          return true;
+      return false;
+    }
 
-        return db(def.init, seen);
-      }
+    function openedDb(init: any): boolean {
+      if (
+        init?.type === 'CallExpression' &&
+        property(init.callee) === 'open' &&
+        imported(context, init.callee.object, /^@study\/db$/, 'Db')
+      )
+        return true;
 
       return false;
     }

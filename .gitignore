@@ -20,6 +20,7 @@
 __pycache__/
 /tmp/
 /coverage/
+/.fallow/
 *.sqlite3-journal
 *.log
 *.profraw

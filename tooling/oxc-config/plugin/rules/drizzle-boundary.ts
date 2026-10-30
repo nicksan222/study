@@ -1,6 +1,6 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { binding, imported, property } from './synchronous-transactions.ts';
+import { requireBindings } from '../require-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -22,58 +22,7 @@ export default defineRule({
       return name !== undefined && /^(?:drizzle-orm|drizzle-kit)(?:\/|$)/.test(name);
     }
 
-    function createRequire(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
-
-      if (imported(context, node, /^(?:node:)?module$/, 'createRequire')) return true;
-
-      if (
-        property(node) === 'createRequire' &&
-        imported(context, node.object, /^(?:node:)?module$/)
-      )
-        return true;
-
-      const definition = binding(context, node)?.defs[0]?.node;
-
-      return (
-        definition?.type === 'VariableDeclarator' &&
-        definition.parent?.kind === 'const' &&
-        createRequire(definition.init, seen)
-      );
-    }
-
-    function requireFunction(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
-
-      if (
-        node.type === 'Identifier' &&
-        node.name === 'require' &&
-        !binding(context, node)?.defs.length
-      )
-        return true;
-
-      if (
-        property(node) === 'require' &&
-        node.object.type === 'Identifier' &&
-        ['module', 'globalThis', 'global'].includes(node.object.name) &&
-        !binding(context, node.object)?.defs.length
-      )
-        return true;
-
-      if (node.type === 'CallExpression' && createRequire(node.callee)) return true;
-
-      const definition = binding(context, node)?.defs[0]?.node;
-
-      return (
-        definition?.type === 'VariableDeclarator' &&
-        definition.parent?.kind === 'const' &&
-        requireFunction(definition.init, seen)
-      );
-    }
+    const requireFunction = requireBindings(context);
 
     function report(node: any): void {
       context.report({

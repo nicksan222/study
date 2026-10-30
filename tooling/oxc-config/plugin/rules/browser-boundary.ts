@@ -36,7 +36,7 @@ export default defineRule({
 
       if (
         /^@trpc(?:\/|$)|^superjson(?:\/|$)/.test(source) ||
-        (browser && server && source !== '@study/server/client')
+        rawServerClient(browser, server, source)
       ) {
         context.report({
           node,
@@ -47,15 +47,11 @@ export default defineRule({
         return;
       }
 
-      if (
-        contracts
-          ? db ||
-            server ||
-            /\/apps\/server\//.test(source) ||
-            /\/packages\/db\//.test(source) ||
-            /^effect\/(?:unstable\/)?workflow(?:\/|$)/.test(source)
-          : db || privateServer || (server && !/^@study\/server(?:\/client)?$/.test(source))
-      ) {
+      const blocked = contracts
+        ? db || server || contractSource(source)
+        : browserSource(db, privateServer, server, source);
+
+      if (blocked) {
         context.report({
           node,
           message: contracts
@@ -66,3 +62,24 @@ export default defineRule({
     });
   }
 });
+
+function contractSource(source: string): boolean {
+  return (
+    /\/apps\/server\//.test(source) ||
+    /\/packages\/db\//.test(source) ||
+    /^effect\/(?:unstable\/)?workflow(?:\/|$)/.test(source)
+  );
+}
+
+function rawServerClient(browser: boolean, server: boolean, source: string): boolean {
+  return browser && server && source !== '@study/server/client';
+}
+
+function browserSource(
+  db: boolean,
+  privateServer: boolean,
+  server: boolean,
+  source: string
+): boolean {
+  return db || privateServer || (server && !/^@study\/server(?:\/client)?$/.test(source));
+}

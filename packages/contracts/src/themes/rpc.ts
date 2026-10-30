@@ -4,21 +4,21 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { failureSchema } from '../errors.ts';
 import { themeFileSchema } from './schemas.ts';
 
-export const themeIdInputSchema = Schema.Struct({ id: Schema.String });
+const themeIdInputSchema = Schema.Struct({ id: Schema.String });
 
 export const themePageInputSchema = Schema.Struct({
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(Schema.String)
 });
 
-export const themePageSchema = Schema.Struct({
+const themePageSchema = Schema.Struct({
   items: Schema.Array(themeFileSchema),
   next: Schema.NullOr(Schema.String)
 });
 
-export const themeJsonInputSchema = Schema.Struct({ json: Schema.String });
+const themeJsonInputSchema = Schema.Struct({ json: Schema.String });
 
-export const selectThemeInputSchema = Schema.Struct({ id: Schema.NullOr(Schema.String) });
+const selectThemeInputSchema = Schema.Struct({ id: Schema.NullOr(Schema.String) });
 
 export const ThemesRpc = RpcGroup.make(
   Rpc.make('theme', {

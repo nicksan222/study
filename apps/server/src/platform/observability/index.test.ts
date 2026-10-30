@@ -90,14 +90,16 @@ test('operation metrics record outcomes and release active operations without in
 
   assert.equal(active?.type, 'Gauge');
 
-  if (active?.type === 'Gauge') assert.equal(active.state.value, 1);
+  assert.ok(active?.type === 'Gauge');
+  assert.equal(active.state.value, 1);
 
   const after = snapshots.after;
   const gauge = after.find((s) => s.id === 'study.operation.active');
 
   assert.equal(gauge?.type, 'Gauge');
 
-  if (gauge?.type === 'Gauge') assert.equal(gauge.state.value, 0);
+  assert.ok(gauge?.type === 'Gauge');
+  assert.equal(gauge.state.value, 0);
 
   const counts = after.filter((s) => s.id === 'study.operation.completed');
 
@@ -109,17 +111,17 @@ test('operation metrics record outcomes and release active operations without in
   for (const count of counts) {
     assert.equal(count.type, 'Counter');
 
-    if (count.type === 'Counter') assert.equal(count.state.count, 1);
+    assert.ok(count.type === 'Counter');
+    assert.equal(count.state.count, 1);
   }
 
   const duration = after.find((s) => s.id === 'study.operation.duration_ms');
 
   assert.equal(duration?.type, 'Histogram');
 
-  if (duration?.type === 'Histogram') {
-    assert.equal(duration.state.count, 3);
-    assert.ok(duration.state.sum >= 2000);
-  }
+  assert.ok(duration?.type === 'Histogram');
+  assert.equal(duration.state.count, 3);
+  assert.ok(duration.state.sum >= 2000);
 
   assert.doesNotMatch(
     JSON.stringify(after),

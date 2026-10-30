@@ -176,6 +176,7 @@ export class App {
     return runNative(Effect.uninterruptibleMask((restore) => Effect.gen(() => openScope(restore))));
   }
 
+  // fallow-ignore-next-line unused-class-member -- Runtime lifecycle and RPC tests close the inferred App instance.
   close(): Promise<void> {
     if (this.closing) return this.closing;
 
@@ -225,9 +226,5 @@ export class App {
     }
 
     if (errors.length) throw new AggregateError(errors, 'Application cleanup failed');
-  }
-
-  subscribe(listener: () => void) {
-    return this.store.subscribe(listener);
   }
 }

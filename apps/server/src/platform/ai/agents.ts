@@ -152,56 +152,51 @@ export function streamAgent<
             catch: failure
           });
           const iterator = result.fullStream[Symbol.asyncIterator]();
-          let text = '';
-          let finished = false;
+          const text = yield* Effect.gen(readStream);
 
-          while (true) {
-            const next = yield* Effect.tryPromise({
-              try: () => iterator.next(),
-              catch: failure
-            });
+          function* readStream() {
+            let text = '';
+            let finished = false;
 
-            if (next.done) break;
+            while (true) {
+              const next = yield* Effect.tryPromise({
+                try: () => iterator.next(),
+                catch: failure
+              });
 
-            const part = next.value;
+              if (next.done) break;
 
-            if (
-              part.type === 'error' ||
-              part.type === 'tool-error' ||
-              part.type === 'tool-output-denied' ||
-              part.type === 'abort'
-            )
+              const part = next.value;
+
+              if (['error', 'tool-error', 'tool-output-denied', 'abort'].includes(part.type))
+                return yield* Effect.fail(agentStreamError(part));
+
+              if (part.type === 'text-delta') {
+                text += part.text;
+                yield* Queue.offer(queue, { type: 'text-delta', text: part.text });
+                published = true;
+              }
+
+              if (part.type === 'finish') {
+                if (part.finishReason !== 'stop')
+                  return yield* Effect.fail(
+                    new StudyError('transient', 'Agent response did not complete')
+                  );
+
+                finished = true;
+              }
+            }
+
+            if (!finished)
               return yield* Effect.fail(
-                failure(
-                  'error' in part
-                    ? part.error
-                    : new StudyError('transient', 'Agent stream failed', { cause: part })
-                )
+                new StudyError('transient', 'Agent response did not complete')
               );
 
-            if (part.type === 'text-delta') {
-              text += part.text;
-              yield* Queue.offer(queue, { type: 'text-delta', text: part.text });
-              published = true;
-            }
+            if (!text.trim())
+              return yield* Effect.fail(new StudyError('transient', 'Agent output was empty'));
 
-            if (part.type === 'finish') {
-              if (part.finishReason !== 'stop')
-                return yield* Effect.fail(
-                  new StudyError('transient', 'Agent response did not complete')
-                );
-
-              finished = true;
-            }
+            return text;
           }
-
-          if (!finished)
-            return yield* Effect.fail(
-              new StudyError('transient', 'Agent response did not complete')
-            );
-
-          if (!text.trim())
-            return yield* Effect.fail(new StudyError('transient', 'Agent output was empty'));
 
           const raw =
             definition.mode === 'object'
@@ -242,5 +237,13 @@ export function streamAgent<
         Effect.withSpan(`agent.${definition.id}.stream`)
       ),
     { bufferSize: 16, strategy: 'suspend' }
+  );
+}
+
+function agentStreamError(part: { readonly type: string; readonly error?: unknown }) {
+  return failure(
+    'error' in part
+      ? part.error
+      : new StudyError('transient', 'Agent stream failed', { cause: part })
   );
 }

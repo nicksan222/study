@@ -38,6 +38,15 @@ function writeManifests(directory: string, manifests: Record<string, unknown>): 
   }
 }
 
+function writeSources(files: Record<string, string>, directory: string): void {
+  for (const [name, source] of Object.entries(files)) {
+    const filename = join(directory, name);
+
+    mkdirSync(dirname(filename), { recursive: true });
+    writeFileSync(filename, source);
+  }
+}
+
 export function lintFiles(
   files: Record<string, string>,
   rule?: string,
@@ -52,12 +61,7 @@ export function lintFiles(
   const server = join(directory, 'apps/server');
 
   try {
-    for (const [name, source] of Object.entries(files)) {
-      const filename = join(workspace ? directory : server, name);
-
-      mkdirSync(dirname(filename), { recursive: true });
-      writeFileSync(filename, source);
-    }
+    writeSources(files, workspace ? directory : server);
 
     let plugin = join(root, pluginPath, 'index.ts');
 
@@ -105,7 +109,7 @@ export function lintFiles(
     );
 
     assert.ifError(result.error);
-    assert.ok(result.status === 0 || result.status === 1, result.stderr || result.stdout);
+    assertLintStatus(result.status, result.stderr, result.stdout);
 
     const output = JSON.parse(result.stdout) as { diagnostics: Diagnostic[] };
 
@@ -169,4 +173,8 @@ export function assertDiagnostics(
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
   );
+}
+
+function assertLintStatus(status: number | null, stderr: string, stdout: string): void {
+  assert.ok(status === 0 || status === 1, stderr || stdout);
 }

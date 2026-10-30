@@ -1,3 +1,4 @@
+import { constantDeclarator, namedProperty, lexicalResolver } from './lexical-bindings.ts';
 import { webFile } from './web-files.ts';
 
 export function serverProduction(filename: string): boolean {
@@ -63,8 +64,7 @@ export function effectBindings(context: any) {
     if (pattern.type !== 'ObjectPattern') return null;
 
     for (const property of pattern.properties) {
-      if (property.type !== 'Property' || (property.computed && property.key.type !== 'Literal'))
-        continue;
+      if (!namedProperty(property)) continue;
 
       const name = propertyName(property.key);
 
@@ -82,40 +82,29 @@ export function effectBindings(context: any) {
     return null;
   }
 
-  function resolve(node: any, seen = new Set<any>()): string | null {
-    if (!node || seen.has(node)) return null;
+  const resolve = lexicalResolver(resolveIdentifier, resolveMember);
 
-    seen.add(node);
+  function resolveMember(node: any, seen: Set<any>): string | null {
+    const object = resolve(node.object, seen);
+    const name =
+      !node.computed || node.property.type === 'Literal' ? propertyName(node.property) : null;
 
-    if (node.type === 'Identifier') {
-      const def = definition(node);
+    if (object && name) return object === 'root' ? name : `${object}.${name}`;
 
-      if (imported.has(def)) return imported.get(def)!;
+    return null;
+  }
 
-      if (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        def.id.type === 'Identifier'
-      )
-        return resolve(def.init, seen);
+  function resolveIdentifier(node: any, seen: Set<any>): string | null {
+    const def = definition(node);
 
-      if (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        def.id.type === 'ObjectPattern'
-      ) {
-        const base = resolve(def.init, seen);
+    if (imported.has(def)) return imported.get(def)!;
 
-        return base ? destructured(def.id, node.name, base) : null;
-      }
-    }
+    if (constantDeclarator(def) && def.id.type === 'Identifier') return resolve(def.init, seen);
 
-    if (node.type === 'MemberExpression') {
-      const object = resolve(node.object, seen);
-      const name =
-        !node.computed || node.property.type === 'Literal' ? propertyName(node.property) : null;
+    if (constantDeclarator(def) && def.id.type === 'ObjectPattern') {
+      const base = resolve(def.init, seen);
 
-      if (object && name) return object === 'root' ? name : `${object}.${name}`;
+      return base ? destructured(def.id, node.name, base) : null;
     }
 
     return null;

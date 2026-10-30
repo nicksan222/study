@@ -1,7 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { serverProduction, propertyName } from '../effect-bindings.ts';
-import { binding } from './synchronous-transactions.ts';
+import { binding, constantAliasValue, lexicalResolver } from '../lexical-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -10,58 +10,45 @@ export default defineRule({
 
     if (!serverProduction(path) || /\/src\/runtime\/(?:config|main)\.ts$/.test(path)) return {};
 
-    function resolve(node: any, seen = new Set<any>()): string | null {
-      if (!node || seen.has(node)) return null;
+    const resolve = lexicalResolver(resolveIdentifier, resolveMember);
 
-      seen.add(node);
+    function resolveMember(node: any, seen: Set<any>): string | null {
+      const base = resolve(node.object, seen);
+      const name =
+        !node.computed || node.property.type === 'Literal' ? propertyName(node.property) : null;
 
-      if (node.type === 'Identifier') {
-        const def = binding(context, node)?.defs[0]?.node;
+      return base === 'globalThis' && name === 'process'
+        ? 'process'
+        : base && name
+          ? `${base}.${name}`
+          : null;
+    }
 
-        if (!def && node.name === 'process') return 'process';
+    function resolveIdentifier(node: any, seen: Set<any>): string | null {
+      const def = binding(context, node)?.defs[0]?.node;
 
-        if (!def && node.name === 'globalThis') return 'globalThis';
+      if (!def && node.name === 'process') return 'process';
 
-        if (
-          def?.parent?.type === 'ImportDeclaration' &&
-          ['node:process', 'process'].includes(def.parent.source.value)
-        ) {
-          if (def.type === 'ImportDefaultSpecifier' || def.type === 'ImportNamespaceSpecifier')
-            return 'process';
+      if (!def && node.name === 'globalThis') return 'globalThis';
 
-          if (def.type === 'ImportSpecifier' && propertyName(def.imported) === 'env')
-            return 'process.env';
-        }
+      const imported = processImport(def);
 
-        if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
-          const base = resolve(def.init, seen);
+      if (imported) return imported;
 
-          if (def.id.type === 'Identifier') return base;
+      return resolveAlias(node, def, seen);
+    }
 
-          if (def.id.type === 'ObjectPattern' && base) {
-            const prop = def.id.properties.find(
-              (p: any) => p.type === 'Property' && p.value?.name === node.name
-            );
-            const name = propertyName(prop?.key);
+    function resolveAlias(node: any, def: any, seen: Set<any>): string | null {
+      return constantAliasValue(def, seen, resolve, (pattern, base) => {
+        if (!base) return null;
 
-            return name ? `${base}.${name}` : null;
-          }
-        }
-      }
+        const prop = pattern.properties.find(
+          (p: any) => p.type === 'Property' && p.value?.name === node.name
+        );
+        const name = propertyName(prop?.key);
 
-      if (node.type === 'MemberExpression') {
-        const base = resolve(node.object, seen);
-        const name =
-          !node.computed || node.property.type === 'Literal' ? propertyName(node.property) : null;
-
-        return base === 'globalThis' && name === 'process'
-          ? 'process'
-          : base && name
-            ? `${base}.${name}`
-            : null;
-      }
-
-      return null;
+        return name ? `${base}.${name}` : null;
+      });
     }
 
     function report(node: any) {
@@ -93,3 +80,18 @@ export default defineRule({
     };
   }
 });
+
+function processImport(def: any): string | null {
+  if (
+    def?.parent?.type === 'ImportDeclaration' &&
+    ['node:process', 'process'].includes(def.parent.source.value)
+  ) {
+    if (def.type === 'ImportDefaultSpecifier' || def.type === 'ImportNamespaceSpecifier')
+      return 'process';
+
+    if (def.type === 'ImportSpecifier' && propertyName(def.imported) === 'env')
+      return 'process.env';
+  }
+
+  return null;
+}

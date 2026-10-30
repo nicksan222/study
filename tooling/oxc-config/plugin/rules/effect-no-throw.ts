@@ -12,6 +12,38 @@ export default defineRule({
       'Yield a typed failure instead of throwing StudyError inside an Effect generator.';
     const errors = new Set<any>();
 
+    function effectGenerator(parent: any): boolean {
+      while (parent) {
+        if (
+          ['FunctionExpression', 'FunctionDeclaration', 'ArrowFunctionExpression'].includes(
+            parent.type
+          )
+        ) {
+          if (!parent.generator) return false;
+
+          const call = parent.parent;
+
+          if (call?.type !== 'CallExpression') return false;
+
+          const name = bindings.resolve(call.callee);
+
+          if (
+            name === 'Effect.gen' ||
+            name === 'Effect.fn' ||
+            (call.callee.type === 'CallExpression' &&
+              bindings.resolve(call.callee.callee) === 'Effect.fn')
+          )
+            return true;
+
+          return false;
+        }
+
+        parent = parent.parent;
+      }
+
+      return false;
+    }
+
     return {
       ImportDeclaration(node) {
         bindings.imports(node);
@@ -41,35 +73,7 @@ export default defineRule({
         )
           return;
 
-        let parent: any = node.parent;
-
-        while (parent) {
-          if (
-            ['FunctionExpression', 'FunctionDeclaration', 'ArrowFunctionExpression'].includes(
-              parent.type
-            )
-          ) {
-            if (!parent.generator) return;
-
-            const call = parent.parent;
-
-            if (call?.type !== 'CallExpression') return;
-
-            const name = bindings.resolve(call.callee);
-
-            if (
-              name === 'Effect.gen' ||
-              name === 'Effect.fn' ||
-              (call.callee.type === 'CallExpression' &&
-                bindings.resolve(call.callee.callee) === 'Effect.fn')
-            )
-              context.report({ node, message });
-
-            return;
-          }
-
-          parent = parent.parent;
-        }
+        if (effectGenerator(node.parent)) context.report({ node, message });
       }
     };
   }

@@ -3,8 +3,6 @@ import { cn } from '@study/ui/utils';
 
 export const Tooltip = Primitive.Root;
 
-export const TooltipProvider = Primitive.Provider;
-
 export const TooltipTrigger = Primitive.Trigger;
 
 export function TooltipPopup({

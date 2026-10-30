@@ -9,15 +9,8 @@
  */
 export { catalogs } from './catalog.ts';
 export type { Locale, MessageKey } from './catalog.ts';
-export { text, createLocalization, localeCode, countText } from './i18n.ts';
-export type {
-  Localization,
-  StaticMessageKey,
-  Translate,
-  MessageParameters,
-  TranslationArguments,
-  CountKey
-} from './i18n.ts';
+export { text, createLocalization, countText } from './i18n.ts';
+export type { StaticMessageKey } from './i18n.ts';
 export * from './formatting.ts';
 export * from './counts.ts';
 export * from './time.ts';

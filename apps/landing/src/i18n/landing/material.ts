@@ -3,7 +3,7 @@
 // and its transcript.
 import type { Shape } from '../strings';
 
-export const en = {
+export const materialEn = {
   material: {
     title: 'Everything you study, in one place.',
     key: 'one place',
@@ -28,7 +28,7 @@ export const en = {
   }
 } as const;
 
-export const it: Shape<typeof en> = {
+export const materialIt: Shape<typeof materialEn> = {
   material: {
     title: 'Tutto ciò che studi, in un posto solo.',
     key: 'un posto solo',

@@ -14,7 +14,7 @@ export function makeGradingSnapshot(resources: StoreResources) {
   const { db } = resources;
   const { attemptRow, published } = makeQuiz(resources);
 
-  function gradingSnapshot(event: QuizAnswerSubmitted, allowGraded = false) {
+  function assertGradingEvent(event: QuizAnswerSubmitted) {
     const stale = () => {
       throw new StudyError('invalid_input', 'stale quiz grade');
     };
@@ -41,6 +41,14 @@ export function makeGradingSnapshot(resources: StoreResources) {
       encodeEvent(stored) !== encodeEvent(event)
     )
       return stale();
+  }
+
+  function gradingSnapshot(event: QuizAnswerSubmitted, allowGraded = false) {
+    const stale = () => {
+      throw new StudyError('invalid_input', 'stale quiz grade');
+    };
+
+    assertGradingEvent(event);
 
     const attempt = attemptRow(event.attemptId, true);
     const version = published(attempt.version_id, 'quiz');

@@ -21,12 +21,7 @@ export function property(node: any, name: string): any {
     if (item.type === 'SpreadElement' || (item.computed && item.key.type !== 'Literal'))
       return undefined;
 
-    if (
-      item.type === 'Property' &&
-      ((!item.computed && item.key.type === 'Identifier' && item.key.name === name) ||
-        (item.key.type === 'Literal' && item.key.value === name))
-    )
-      return item.value;
+    if (matchingProperty(item, name)) return item.value;
   }
 
   return undefined;
@@ -63,4 +58,12 @@ export function walk(node: ESTree.Node, visit: (node: ESTree.Node) => void): voi
 function walkChildren(children: any[], visit: (node: ESTree.Node) => void): void {
   for (const item of children)
     if (item && typeof item === 'object' && typeof item.type === 'string') walk(item, visit);
+}
+
+function matchingProperty(item: any, name: string): boolean {
+  return (
+    item.type === 'Property' &&
+    ((!item.computed && item.key.type === 'Identifier' && item.key.name === name) ||
+      (item.key.type === 'Literal' && item.key.value === name))
+  );
 }

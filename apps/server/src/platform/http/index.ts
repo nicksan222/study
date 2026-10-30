@@ -1,5 +1,6 @@
 import { StudyError } from '@study/contracts/errors';
 import { Clock, Effect, Stream } from 'effect';
+import type { HttpClientResponse } from 'effect/http';
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from 'effect/http';
 
 import { liveClock } from '#server/platform/time/index';
@@ -9,13 +10,6 @@ export interface FetchOptions {
   maxBytes?: number;
   maxRedirects?: number;
   fetch?: typeof fetch;
-}
-
-export interface FetchedPage {
-  url: string;
-  bytes: Uint8Array;
-  mime: string;
-  name: string;
 }
 
 export function validateLink(address: string): string {
@@ -82,45 +76,13 @@ export function fetchPage(address: string, options: FetchOptions = {}) {
             return { tag: 'redirect', next } as const;
           }
 
-          if (response.status < 200 || response.status >= 300)
-            return yield* Effect.fail(
-              new StudyError(
-                response.status === 429
-                  ? 'rate_limited'
-                  : response.status >= 500
-                    ? 'transient'
-                    : 'invalid_input',
-                `Page request failed with HTTP ${response.status}`
-              )
-            );
+          yield* checkPageStatus(response.status);
 
-          const declared = Number(response.headers['content-length']);
-
-          if (Number.isFinite(declared) && declared > limit)
-            return yield* Effect.fail(
-              new StudyError('invalid_input', 'Page exceeds the size limit')
-            );
-
-          const chunks: Uint8Array[] = [];
-          let size = 0;
-
-          yield* Stream.runForEach(response.stream, (chunk) => {
-            size += chunk.byteLength;
-
-            if (size > limit)
-              return Effect.fail(new StudyError('invalid_input', 'Page exceeds the size limit'));
-
-            chunks.push(chunk);
-
-            return Effect.void;
-          });
-          const bytes = new Uint8Array(size);
-          let offset = 0;
-
-          for (const chunk of chunks) {
-            bytes.set(chunk, offset);
-            offset += chunk.byteLength;
-          }
+          const bytes = yield* readResponseBytes(
+            response,
+            limit,
+            new StudyError('invalid_input', 'Page exceeds the size limit')
+          );
 
           const mime = (response.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
 
@@ -163,12 +125,7 @@ export function requestBytes(
 ) {
   return Effect.scoped(
     Effect.gen(function* () {
-      if (
-        !Number.isSafeInteger(options.maxBytes) ||
-        options.maxBytes <= 0 ||
-        !Number.isSafeInteger(options.timeoutMs) ||
-        options.timeoutMs <= 0
-      )
+      if (!validHttpLimits(options))
         return yield* Effect.fail(new StudyError('invalid_input', 'Invalid HTTP limits'));
 
       const client = HttpClient.withScope(yield* HttpClient.HttpClient);
@@ -178,50 +135,15 @@ export function requestBytes(
         )
       );
       const response = yield* client.execute(request);
-      const declared = Number(response.headers['content-length']);
-
-      if (Number.isFinite(declared) && declared > options.maxBytes)
-        return yield* Effect.fail(
-          new StudyError('transient', 'HTTP response exceeds the size limit')
-        );
-
-      const chunks: Uint8Array[] = [];
-      let size = 0;
-
-      yield* Stream.runForEach(response.stream, (chunk) => {
-        size += chunk.byteLength;
-
-        if (size > options.maxBytes)
-          return Effect.fail(new StudyError('transient', 'HTTP response exceeds the size limit'));
-
-        chunks.push(chunk);
-
-        return Effect.void;
-      });
-      const bytes = new Uint8Array(size);
-      let offset = 0;
-
-      for (const chunk of chunks) {
-        bytes.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
+      const bytes = yield* readResponseBytes(
+        response,
+        options.maxBytes,
+        new StudyError('transient', 'HTTP response exceeds the size limit')
+      );
 
       return { status: response.status, bytes };
     })
-  ).pipe(
-    Effect.mapError((error) =>
-      error instanceof StudyError
-        ? error
-        : new StudyError('transient', 'HTTP request failed', { cause: error })
-    ),
-    Effect.timeoutOrElse({
-      duration: options.timeoutMs,
-      orElse: () => Effect.fail(new StudyError('transient', 'HTTP request timed out'))
-    }),
-    Effect.provide(FetchHttpClient.layer),
-    Effect.provideService(FetchHttpClient.RequestInit, { redirect: 'error' }),
-    Effect.provideService(FetchHttpClient.Fetch, options.fetch ?? globalThis.fetch)
-  );
+  ).pipe(withHttpTransport(options));
 }
 
 /** Run HTTP effects at the Promise-only provider boundary. */
@@ -257,12 +179,7 @@ export function streamingFetch(
     });
     const program = Effect.scoped(
       Effect.gen(function* () {
-        if (
-          !Number.isSafeInteger(options.timeoutMs) ||
-          options.timeoutMs <= 0 ||
-          !Number.isSafeInteger(options.maxBytes) ||
-          options.maxBytes <= 0
-        )
+        if (!validHttpLimits(options))
           return yield* Effect.fail(new StudyError('invalid_input', 'Invalid HTTP limits'));
 
         const webRequest = yield* Effect.try({
@@ -271,12 +188,12 @@ export function streamingFetch(
         });
         const client = HttpClient.withScope(yield* HttpClient.HttpClient);
         const response = yield* client.execute(HttpClientRequest.fromWeb(webRequest));
-        const declared = Number(response.headers['content-length']);
 
-        if (Number.isFinite(declared) && declared > options.maxBytes)
-          return yield* Effect.fail(
-            new StudyError('transient', 'HTTP response exceeds the size limit')
-          );
+        yield* checkResponseSize(
+          response,
+          options.maxBytes,
+          new StudyError('transient', 'HTTP response exceeds the size limit')
+        );
 
         const noBody = [204, 205, 304].includes(response.status);
 
@@ -302,6 +219,30 @@ export function streamingFetch(
         }
       })
     ).pipe(
+      withHttpTransport(options),
+      Effect.provideService(Clock.Clock, options.clock ?? liveClock())
+    );
+
+    void runHttpPromise(program, { signal }).catch((error: unknown) => {
+      if (settled) {
+        if (!cancellation.signal.aborted) output?.error(error);
+      } else reject(signal.aborted ? signal.reason : error);
+    });
+  });
+}
+
+function validHttpLimits(options: { timeoutMs: number; maxBytes: number }) {
+  return (
+    Number.isSafeInteger(options.timeoutMs) &&
+    options.timeoutMs > 0 &&
+    Number.isSafeInteger(options.maxBytes) &&
+    options.maxBytes > 0
+  );
+}
+
+function withHttpTransport(options: { timeoutMs: number; fetch?: typeof fetch }) {
+  return <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
       Effect.mapError((error) =>
         error instanceof StudyError
           ? error
@@ -313,14 +254,59 @@ export function streamingFetch(
       }),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.RequestInit, { redirect: 'error' }),
-      Effect.provideService(FetchHttpClient.Fetch, options.fetch ?? globalThis.fetch),
-      Effect.provideService(Clock.Clock, options.clock ?? liveClock())
+      Effect.provideService(FetchHttpClient.Fetch, options.fetch ?? globalThis.fetch)
+    );
+}
+
+function checkResponseSize(
+  response: HttpClientResponse.HttpClientResponse,
+  limit: number,
+  error: StudyError
+) {
+  const declared = Number(response.headers['content-length']);
+
+  return Number.isFinite(declared) && declared > limit ? Effect.fail(error) : Effect.void;
+}
+
+function readResponseBytes(
+  response: HttpClientResponse.HttpClientResponse,
+  limit: number,
+  error: StudyError
+) {
+  return Effect.gen(function* () {
+    yield* checkResponseSize(response, limit, error);
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+
+    yield* Stream.runForEach(response.stream, (chunk) => {
+      size += chunk.byteLength;
+
+      if (size > limit) return Effect.fail(error);
+
+      chunks.push(chunk);
+
+      return Effect.void;
+    });
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    return bytes;
+  });
+}
+
+function checkPageStatus(status: number) {
+  if (status < 200 || status >= 300)
+    return Effect.fail(
+      new StudyError(
+        status === 429 ? 'rate_limited' : status >= 500 ? 'transient' : 'invalid_input',
+        `Page request failed with HTTP ${status}`
+      )
     );
 
-    void runHttpPromise(program, { signal }).catch((error: unknown) => {
-      if (settled) {
-        if (!cancellation.signal.aborted) output?.error(error);
-      } else reject(signal.aborted ? signal.reason : error);
-    });
-  });
+  return Effect.void;
 }

@@ -101,7 +101,8 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
   await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
   const address = peer.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(address, 'missing address');
+  assert.ok(typeof address !== 'string', 'expected TCP address');
 
   const base = `http://127.0.0.1:${address.port}`;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
@@ -167,7 +168,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      if (event.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+      assertEventType(event, 'ConversationGenerationRequested', 'wrong event');
 
       return event;
     };
@@ -255,7 +256,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (reanswerEvent.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(reanswerEvent, 'ConversationGenerationRequested', 'wrong event');
 
     output = 'Another answer';
     await execute(reanswerEvent, 'reanswer');
@@ -277,7 +278,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (rewriteEvent.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(rewriteEvent, 'ConversationGenerationRequested', 'wrong event');
 
     output = 'Rewritten answer';
     context.db.orm.run(
@@ -313,7 +314,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (userEvent.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(userEvent, 'ConversationGenerationRequested', 'wrong event');
 
     output = 'Short question';
     await execute(userEvent, 'rewrite-user');
@@ -330,7 +331,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (oldEvent.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(oldEvent, 'ConversationGenerationRequested', 'wrong event');
 
     const newer = await run(
       Effect.flatMap(Conversations, (c) =>
@@ -351,7 +352,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (newerEvent.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(newerEvent, 'ConversationGenerationRequested', 'wrong event');
 
     await run(
       Effect.flatMap(Conversations, (c) =>
@@ -457,7 +458,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (grounded.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(grounded, 'ConversationGenerationRequested', 'wrong event');
 
     const replacement = context.db.orm
       .insert(s.documents)
@@ -497,7 +498,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (toolRace.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(toolRace, 'ConversationGenerationRequested', 'wrong event');
 
     const callsBeforeToolRace = calls;
 
@@ -528,7 +529,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (cancelled.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+    assertEventType(cancelled, 'ConversationGenerationRequested', 'wrong event');
 
     output = 'Cancelled answer';
     duringCall = async () => {
@@ -551,33 +552,39 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         .find((c) => c.version_id === grounded.versionId)?.quote,
       'alpha old evidence'
     );
-    const longSession = await run(
-      Effect.flatMap(Conversations, (c) => c.createSession({ project: project.id, title: 'Long' }))
-    );
-    const early = await run(
-      Effect.flatMap(Conversations, (c) =>
-        c.postMessage({ sessionId: longSession.id, text: 'Early message' })
-      )
-    );
+    await assertLongHistoryPreservesEarlyMessages();
 
-    for (let i = 0; i < 55; i++) {
-      await run(
+    async function assertLongHistoryPreservesEarlyMessages() {
+      const longSession = await run(
         Effect.flatMap(Conversations, (c) =>
-          c.postMessage({ sessionId: longSession.id, text: `Later ${i}` })
+          c.createSession({ project: project.id, title: 'Long' })
         )
       );
+      const early = await run(
+        Effect.flatMap(Conversations, (c) =>
+          c.postMessage({ sessionId: longSession.id, text: 'Early message' })
+        )
+      );
+
+      for (let i = 0; i < 55; i++) {
+        await run(
+          Effect.flatMap(Conversations, (c) =>
+            c.postMessage({ sessionId: longSession.id, text: `Later ${i}` })
+          )
+        );
+      }
+
+      const earlyRewrite = await run(
+        Effect.flatMap(Conversations, (c) =>
+          c.rewriteMessage({ messageId: early.id, origin: 'improve' })
+        )
+      );
+      const earlySnapshot = await run(
+        Effect.flatMap(Conversations, (c) => c.replySnapshot({ requestId: earlyRewrite.requestId }))
+      );
+
+      assert.equal(earlySnapshot.messages.at(-1)?.text, 'Early message');
     }
-
-    const earlyRewrite = await run(
-      Effect.flatMap(Conversations, (c) =>
-        c.rewriteMessage({ messageId: early.id, origin: 'improve' })
-      )
-    );
-    const earlySnapshot = await run(
-      Effect.flatMap(Conversations, (c) => c.replySnapshot({ requestId: earlyRewrite.requestId }))
-    );
-
-    assert.equal(earlySnapshot.messages.at(-1)?.text, 'Early message');
   } finally {
     await auth.dispose();
     context.close();
@@ -585,3 +592,11 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     await new Promise<void>((resolve) => peer.close(() => resolve()));
   }
 });
+
+function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  event: ReturnType<typeof decodeEvent> | undefined,
+  type: T,
+  message: string
+): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
+  assert.ok(event && event.type === type, message);
+}

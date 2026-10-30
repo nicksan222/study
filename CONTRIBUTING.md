@@ -9,7 +9,7 @@ Thank you for helping with Study.
   `src/lib.rs`.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
-  denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, frontend type/tests/build, generated database drift,
+  denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build, generated database drift,
   tooling tests, server package checks, and the website's Bun type check. CI runs equivalent gates as sequential, emoji-labeled steps in its required
   `Test and build` job, with readable test output and a results table in the run summary.
   After setup, every gate runs even if an earlier check fails.
@@ -75,6 +75,18 @@ The Vite+ pipeline uses syntax-only lint analysis, React stability rules and pac
 sorting; dedicated TypeScript checks and Study's architecture rules remain required. Server tests keep the actual Node
 runtime (`npm run server:test`) with the spec reporter; frontend tests use the verbose
 Vitest reporter. TypeScript checks keep `tsc`.
+Run `npm run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.
+It checks the full repository for dead code, code health and duplication and fails on
+any reported issue. Local `just check` and the required CI `Test and build` job both
+run it; there is no baseline or new-issues-only mode. `.fallowrc.jsonc` enforces maximum
+cyclomatic complexity of 10 and cognitive complexity of 15. Functions longer than
+60 lines are reported as advisory refactoring targets. CRAP enforcement is disabled
+until measured coverage is configured. Clone detection starts
+at 50 tokens and 5 lines, and every detected clone fails the gate. The config documents one content-sensitive
+exception for an independent feature-owned SQL join; changing its content or copy count
+requires review again. These checks
+supplement the existing architecture lint and TypeScript checks.
+
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.
 Run `bun gen:check` to check generated database outputs
 without changing the database schema. The equivalent Just recipes are `just gen` and

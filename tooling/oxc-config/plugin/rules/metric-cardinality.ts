@@ -20,21 +20,7 @@ export default defineRule({
     function helper(node: any): boolean {
       node = resolveValue(context, node);
 
-      if (
-        node?.type === 'MemberExpression' &&
-        propertyName(node.property) === 'safeMetricLabels' &&
-        (!node.computed || node.property.type === 'Literal')
-      ) {
-        const base = resolveValue(context, node.object);
-        const def = base?.type === 'Identifier' && bindings.definition(base);
-
-        return (
-          def?.type === 'ImportNamespaceSpecifier' &&
-          ['platform/observability', 'platform/observability/index'].includes(
-            targetPath(context.filename, def.parent.source.value) ?? ''
-          )
-        );
-      }
+      if (namespaceHelper(node)) return true;
 
       if (node?.type !== 'Identifier') return false;
 
@@ -49,9 +35,44 @@ export default defineRule({
       );
     }
 
+    function namespaceHelper(node: any): boolean {
+      if (
+        node?.type === 'MemberExpression' &&
+        propertyName(node.property) === 'safeMetricLabels' &&
+        (!node.computed || node.property.type === 'Literal')
+      ) {
+        const base = resolveValue(context, node.object);
+        const def = namespaceDefinition(base);
+
+        return (
+          def?.type === 'ImportNamespaceSpecifier' &&
+          ['platform/observability', 'platform/observability/index'].includes(
+            targetPath(context.filename, def.parent.source.value) ?? ''
+          )
+        );
+      }
+
+      return false;
+    }
+
+    function namespaceDefinition(base: any): any {
+      return base?.type === 'Identifier' && bindings.definition(base);
+    }
+
     function scalar(node: any): boolean {
       node = resolveValue(context, node);
 
+      if (enumValue(node)) return true;
+
+      return (
+        (node?.type === 'Literal' && ['string', 'number', 'boolean'].includes(typeof node.value)) ||
+        (node?.type === 'ConditionalExpression' &&
+          scalar(node.consequent) &&
+          scalar(node.alternate))
+      );
+    }
+
+    function enumValue(node: any): boolean {
       if (
         node?.type === 'MemberExpression' &&
         node.object.type === 'Identifier' &&
@@ -62,12 +83,7 @@ export default defineRule({
         if (def?.type === 'TSEnumDeclaration') return true;
       }
 
-      return (
-        (node?.type === 'Literal' && ['string', 'number', 'boolean'].includes(typeof node.value)) ||
-        (node?.type === 'ConditionalExpression' &&
-          scalar(node.consequent) &&
-          scalar(node.alternate))
-      );
+      return false;
     }
 
     function safe(node: any): boolean {
@@ -98,6 +114,27 @@ export default defineRule({
       );
     }
 
+    function checkOptions(node: any) {
+      const options = resolveValue(context, node.arguments[1]);
+
+      if (options?.type !== 'ObjectExpression') {
+        context.report({ node, message });
+
+        return;
+      }
+
+      for (const item of options.properties) {
+        if (
+          item.type === 'SpreadElement' ||
+          (item.computed && item.key.type !== 'Literal') ||
+          (propertyName(item.key) === 'attributes' && !safe(item.value))
+        ) {
+          context.report({ node, message });
+          break;
+        }
+      }
+    }
+
     return {
       ImportDeclaration: bindings.imports,
       CallExpression(node) {
@@ -118,24 +155,7 @@ export default defineRule({
           ) &&
           node.arguments.length > 1
         ) {
-          const options = resolveValue(context, node.arguments[1]);
-
-          if (options?.type !== 'ObjectExpression') {
-            context.report({ node, message });
-
-            return;
-          }
-
-          for (const item of options.properties) {
-            if (
-              item.type === 'SpreadElement' ||
-              (item.computed && item.key.type !== 'Literal') ||
-              (propertyName(item.key) === 'attributes' && !safe(item.value))
-            ) {
-              context.report({ node, message });
-              break;
-            }
-          }
+          checkOptions(node);
         }
       }
     };

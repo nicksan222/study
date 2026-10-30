@@ -22,10 +22,7 @@ export default defineRule({
       ...moduleEdges(context, (node, source) => {
         if (!source) return;
 
-        const resolved =
-          source.startsWith('.') || source.startsWith('/')
-            ? resolve(dirname(filename), source).replaceAll('\\', '/')
-            : '';
+        const resolved = resolvedSource(filename, source);
         const retiredContract =
           /^@study\/contracts\/(?:procedures|jobs|material|practice|ingestion|study)(?:\/|$)/.test(
             source
@@ -37,20 +34,15 @@ export default defineRule({
 
         if (
           retiredContract ||
-          /^@trpc(?:\/|$)/.test(source) ||
-          /^superjson(?:\/|$)/.test(source) ||
-          (server && target && retiredServerRoot.test(target)) ||
-          (resolvedServer !== null && retiredServerRoot.test(resolvedServer))
+          retiredTransport(source) ||
+          retiredServerImport(server, target, resolvedServer, retiredServerRoot)
         )
           context.report({
             node,
             message: 'Retired transport and server modules must be migrated.'
           });
 
-        const path =
-          source.startsWith('.') || source.startsWith('/')
-            ? resolve(dirname(filename), source).replaceAll('\\', '/')
-            : '';
+        const path = resolvedSource(filename, source);
 
         if (/^@study\/ai(?:\/|$)/.test(source) || /\/packages\/ai(?:\/|$)/.test(path))
           context.report({
@@ -70,3 +62,24 @@ export default defineRule({
     };
   }
 });
+
+function resolvedSource(filename: string, source: string): string {
+  return source.startsWith('.') || source.startsWith('/')
+    ? resolve(dirname(filename), source).replaceAll('\\', '/')
+    : '';
+}
+
+function retiredTransport(source: string): boolean {
+  return /^@trpc(?:\/|$)/.test(source) || /^superjson(?:\/|$)/.test(source);
+}
+
+function retiredServerImport(
+  server: string | null,
+  target: string | null,
+  resolved: string | null,
+  pattern: RegExp
+): boolean {
+  return Boolean(
+    (server && target && pattern.test(target)) || (resolved !== null && pattern.test(resolved))
+  );
+}

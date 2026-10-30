@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { documentIdSchema, projectIdSchema, sourceIdSchema } from '../ids.ts';
+import { projectIdSchema, sourceIdSchema } from '../ids.ts';
 import { sourceKinds } from './sniff.ts';
 
 export const sourceSchema = Schema.Struct({
@@ -62,13 +62,3 @@ export const documentSchema = Schema.Struct({
   blocks: blocksSchema,
   meta: documentMetaSchema
 });
-
-export type Document = typeof documentSchema.Type;
-
-export const documentWithIdSchema = Schema.Struct({
-  id: documentIdSchema,
-  blocks: blocksSchema,
-  meta: documentMetaSchema
-});
-
-export type DocumentWithId = typeof documentWithIdSchema.Type;

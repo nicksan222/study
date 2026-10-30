@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { production, property, binding } from './synchronous-transactions.ts';
+import { memberName as property, binding } from '../lexical-bindings.ts';
+import { production } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },

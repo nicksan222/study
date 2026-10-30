@@ -20,7 +20,3 @@ export const materialOperations = [
   'extract',
   'transcribe'
 ] as const;
-
-export type MaterialKind = (typeof materialKinds)[number];
-
-export type MaterialOperation = (typeof materialOperations)[number];

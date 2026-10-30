@@ -360,6 +360,9 @@
   }
 
   .settings-slider {
+    --settings-slider-thumb-shadow: 0 1px 2px
+      color-mix(in srgb, var(--contrast-foreground) 12%, transparent);
+    --settings-slider-thumb-transition: transform 120ms ease, box-shadow 120ms ease;
     --settings-slider-progress: 0%;
     --settings-slider-fill-offset: 0.5rem;
     --settings-slider-fill-position: calc(
@@ -404,10 +407,8 @@
     border: 2px solid var(--primary);
     border-radius: 9999px;
     background: var(--background);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--contrast-foreground) 12%, transparent);
-    transition:
-      transform 120ms ease,
-      box-shadow 120ms ease;
+    box-shadow: var(--settings-slider-thumb-shadow);
+    transition: var(--settings-slider-thumb-transition);
   }
 
   .settings-slider::-moz-range-thumb {
@@ -416,10 +417,8 @@
     border: 2px solid var(--primary);
     border-radius: 9999px;
     background: var(--background);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--contrast-foreground) 12%, transparent);
-    transition:
-      transform 120ms ease,
-      box-shadow 120ms ease;
+    box-shadow: var(--settings-slider-thumb-shadow);
+    transition: var(--settings-slider-thumb-transition);
   }
 
   .settings-slider:hover::-webkit-slider-thumb {

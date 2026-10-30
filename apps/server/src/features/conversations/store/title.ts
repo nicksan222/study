@@ -16,6 +16,7 @@ import { unixSeconds } from '#server/platform/time/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeHistory } from './history.ts';
+import { makePersistence } from './persistence.ts';
 
 const requestInput = Schema.Struct({ ...titleRequestSchema.fields });
 
@@ -23,7 +24,7 @@ function makeHelpers({ db, clock }: StoreResources) {
   const { conversationHistory } = makeHistory({ db, clock });
 
   function read(requestId: string, replayTitle?: string, eventId?: string) {
-    const eventRow = db.orm
+    const foundEventRow = db.orm
       .select()
       .from(workflowEvents)
       .where(
@@ -34,7 +35,9 @@ function makeHelpers({ db, clock }: StoreResources) {
       )
       .get();
 
-    if (!eventRow) throw new StudyError('not_found', 'title request not found');
+    if (!foundEventRow) throw new StudyError('not_found', 'title request not found');
+
+    const eventRow = foundEventRow;
 
     const event = Schema.decodeUnknownSync(conversationTitleRequestedSchema)(
       decodeEvent(eventRow.payload)
@@ -56,27 +59,39 @@ function makeHelpers({ db, clock }: StoreResources) {
       throw new StudyError('invalid_input', 'title request is stale');
     };
 
+    function matchesTitleRequest() {
+      return !(
+        latest?.eventId !== event.eventId ||
+        event.eventId !== eventRow.eventId ||
+        event.requestId !== requestId ||
+        (eventId !== undefined && event.eventId !== eventId) ||
+        event.correlationId !== requestId
+      );
+    }
+
     if (
       !session ||
-      latest?.eventId !== event.eventId ||
-      event.eventId !== eventRow.eventId ||
-      event.requestId !== requestId ||
-      (eventId !== undefined && event.eventId !== eventId) ||
-      event.correlationId !== requestId ||
+      !matchesTitleRequest() ||
       session.project_id !== event.projectId ||
       session.context_revision !== event.contextRevision ||
       session.title_source === 'user'
     )
       return stale();
 
-    const replay =
-      replayTitle !== undefined &&
-      session.title_source === 'generated' &&
-      session.title === replayTitle;
+    const replay = isTitleReplay(session, replayTitle);
 
     if (!replay && (session.title_source !== event.titleSource || session.title !== event.title))
       return stale();
 
+    assertTitleHistory(event);
+
+    return { event, replay };
+  }
+
+  function assertTitleHistory(event: typeof conversationTitleRequestedSchema.Type) {
+    const stale = () => {
+      throw new StudyError('invalid_input', 'title request is stale');
+    };
     const current = conversationHistory(event.sessionId);
 
     if (
@@ -94,8 +109,6 @@ function makeHelpers({ db, clock }: StoreResources) {
       })
     )
       return stale();
-
-    return { event, replay };
   }
 
   return { read, conversationHistory };
@@ -105,6 +118,7 @@ export const TitleStore = defineStore({
   name: 'study/ConversationTitleStore',
   entity: { singular: 'titleSnapshot', plural: 'titleSnapshots' },
   make: ({ db, clock }) => {
+    const { requiredSession } = makePersistence({ db, clock });
     const { read, conversationHistory } = makeHelpers({ db, clock });
 
     return {
@@ -121,13 +135,7 @@ export const TitleStore = defineStore({
           input: requestInput,
           output: titleSnapshotSchema,
           run: (input) => {
-            const session = db.orm
-              .select()
-              .from(sessions)
-              .where(eq(sessions.id, input.sessionId))
-              .get();
-
-            if (!session) throw new StudyError('not_found', 'session not found');
+            const session = requiredSession(input.sessionId);
 
             if (session.title_source !== 'provisional')
               throw new StudyError('invalid_input', 'user title cannot be generated');
@@ -171,3 +179,11 @@ export const TitleStore = defineStore({
     };
   }
 });
+
+function isTitleReplay(session: typeof sessions.$inferSelect, replayTitle: string | undefined) {
+  return (
+    replayTitle !== undefined &&
+    session.title_source === 'generated' &&
+    session.title === replayTitle
+  );
+}

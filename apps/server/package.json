@@ -7,9 +7,7 @@
     "#testing/*": "./test/testing/*.ts"
   },
   "exports": {
-    ".": "./src/index.ts",
     "./client": "./src/client/index.ts",
-    "./node": "./src/client/node.ts",
     "./runtime": "./src/runtime/index.ts"
   },
   "scripts": {
@@ -19,7 +17,6 @@
   "dependencies": {
     "@ai-sdk/openai": "3.0.132",
     "@ai-sdk/provider": "3.0.19",
-    "@ai-sdk/provider-utils": "4.0.62",
     "@effect/platform-node": "4.0.7",
     "@study/contracts": "*",
     "@study/db": "*",

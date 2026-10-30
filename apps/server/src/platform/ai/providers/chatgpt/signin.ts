@@ -10,6 +10,8 @@ import type { Account } from '#server/platform/ai/providers/chatgpt/session';
 import { requestBytes, runHttpPromise } from '#server/platform/http/index';
 import { liveClock } from '#server/platform/time/index';
 
+import { assertTokenResponse } from './token-response.ts';
+
 const claimsSchema = Schema.Struct({
   iss: Schema.String,
   aud: Schema.Union([Schema.String, Schema.Array(Schema.String)]),
@@ -179,6 +181,7 @@ export class SignIn {
     this.server.close();
   }
 
+  // fallow-ignore-next-line unused-class-member -- Auth service calls finish on the scoped sign-in; signin.test.ts exercises the OAuth exchange.
   async finish(timeoutMs: number, signal?: AbortSignal): Promise<SignInResult> {
     if (this.used) throw new Error('Sign-in already finished');
 
@@ -232,75 +235,9 @@ export class SignIn {
         throw error;
       });
 
-      if (response.status < 200 || response.status >= 300)
-        throw new StudyError(
-          [400, 401, 403].includes(response.status)
-            ? 'auth'
-            : response.status === 429
-              ? 'rate_limited'
-              : 'transient',
-          'Sign-in token exchange failed'
-        );
+      assertTokenResponse(response.status, 'Sign-in token exchange failed');
 
-      const tokenSchema = Schema.Struct({
-        id_token: Schema.optional(Schema.String),
-        access_token: Schema.optional(Schema.String),
-        refresh_token: Schema.optional(Schema.String),
-        expires_in: Schema.optional(Schema.Number),
-        scope: Schema.optional(Schema.String)
-      });
-      let tokens: typeof tokenSchema.Type;
-
-      try {
-        tokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokenSchema))(
-          new TextDecoder().decode(response.bytes)
-        );
-      } catch {
-        throw new Error('Invalid sign-in token response');
-      }
-
-      if (!tokens || typeof tokens !== 'object') throw new Error('Invalid sign-in token response');
-
-      const payload = tokens.id_token?.split('.')[1];
-
-      if (!payload) throw new Error('Invalid ID token');
-
-      let claims: typeof claimsSchema.Type;
-
-      try {
-        claims = Schema.decodeUnknownSync(Schema.fromJsonString(claimsSchema))(
-          Buffer.from(payload, 'base64url').toString()
-        );
-      } catch {
-        throw new Error('Invalid ID token');
-      }
-
-      if (!claims || typeof claims !== 'object') throw new Error('Invalid ID token');
-
-      const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-
-      if (
-        claims.iss?.replace(/\/$/, '') !== this.options.issuer.replace(/\/$/, '') ||
-        !audience.includes(clientId) ||
-        claims.nonce !== this.nonce ||
-        !claims.sub ||
-        !(claims.exp > (this.options.clock ?? liveClock()).currentTimeMillisUnsafe() / 1000)
-      )
-        throw new Error('Invalid ID token claims');
-
-      if (!tokens.access_token) throw new Error('Empty ChatGPT access token');
-
-      return {
-        account: {
-          subject: claims.sub,
-          clientId,
-          email: claims.email,
-          sharing: !!tokens.scope?.split(/\s+/).includes('chatgpt.tokens.use.direct'),
-          refreshToken: tokens.refresh_token ?? null
-        },
-        accessToken: tokens.access_token,
-        expiresIn: tokens.expires_in ?? 3600
-      };
+      return signInResult(response.bytes, clientId, this.options, this.nonce);
     } finally {
       this.dispose();
     }
@@ -327,3 +264,85 @@ export const acquireSignIn = (options: SignInOptions) =>
 
     return signin;
   });
+
+function signInResult(
+  bytes: Uint8Array,
+  clientId: string,
+  options: SignInOptions,
+  nonce: string
+): SignInResult {
+  const tokenSchema = Schema.Struct({
+    id_token: Schema.optional(Schema.String),
+    access_token: Schema.optional(Schema.String),
+    refresh_token: Schema.optional(Schema.String),
+    expires_in: Schema.optional(Schema.Number),
+    scope: Schema.optional(Schema.String)
+  });
+  let tokens: typeof tokenSchema.Type;
+
+  try {
+    tokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokenSchema))(
+      new TextDecoder().decode(bytes)
+    );
+  } catch {
+    throw new Error('Invalid sign-in token response');
+  }
+
+  if (!tokens || typeof tokens !== 'object') throw new Error('Invalid sign-in token response');
+
+  const claims = readIdClaims(tokens.id_token);
+
+  assertIdClaims(claims, options, clientId, nonce);
+
+  if (!tokens.access_token) throw new Error('Empty ChatGPT access token');
+
+  return {
+    account: {
+      subject: claims.sub,
+      clientId,
+      email: claims.email,
+      sharing: !!tokens.scope?.split(/\s+/).includes('chatgpt.tokens.use.direct'),
+      refreshToken: tokens.refresh_token ?? null
+    },
+    accessToken: tokens.access_token,
+    expiresIn: tokens.expires_in ?? 3600
+  };
+}
+
+function readIdClaims(idToken: string | undefined) {
+  const payload = idToken?.split('.')[1];
+
+  if (!payload) throw new Error('Invalid ID token');
+
+  let claims: typeof claimsSchema.Type;
+
+  try {
+    claims = Schema.decodeUnknownSync(Schema.fromJsonString(claimsSchema))(
+      Buffer.from(payload, 'base64url').toString()
+    );
+  } catch {
+    throw new Error('Invalid ID token');
+  }
+
+  if (!claims || typeof claims !== 'object') throw new Error('Invalid ID token');
+
+  return claims;
+}
+
+function assertIdClaims(
+  claims: typeof claimsSchema.Type,
+  options: SignInOptions,
+  clientId: string,
+  nonce: string
+) {
+  const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+
+  if (
+    claims.iss?.replace(/\/$/, '') !== options.issuer.replace(/\/$/, '') ||
+    !audience.includes(clientId) ||
+    claims.nonce !== nonce ||
+    !claims.sub ||
+    !(claims.exp > (options.clock ?? liveClock()).currentTimeMillisUnsafe() / 1000)
+  )
+    throw new Error('Invalid ID token claims');
+}

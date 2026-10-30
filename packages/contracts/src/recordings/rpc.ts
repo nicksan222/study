@@ -10,7 +10,7 @@ export const recordingPageInputSchema = Schema.Struct({
   before: Schema.optional(recordingIdSchema)
 });
 
-export const recordingPageSchema = Schema.Struct({
+const recordingPageSchema = Schema.Struct({
   items: Schema.Array(recordingViewSchema),
   next: Schema.NullOr(recordingIdSchema)
 });

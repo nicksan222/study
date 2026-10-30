@@ -71,7 +71,7 @@ test('rejects mismatched generation event before reaching a provider', async () 
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        if (value.type !== 'MaterialGenerationRequested') throw Error('wrong event');
+        assertEventType(value, 'MaterialGenerationRequested', 'wrong event');
 
         return value;
       }).pipe(Effect.provide(domain))
@@ -257,7 +257,7 @@ test('generates and publishes all material kinds with captured evidence and repl
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      if (event.type !== 'MaterialGenerationRequested') throw Error('wrong event');
+      assertEventType(event, 'MaterialGenerationRequested', 'wrong event');
 
       tool = true;
       output = JSON.stringify(content);
@@ -427,31 +427,36 @@ test('generates and publishes all material kinds with captured evidence and repl
       ]
     });
 
-    assert.equal(quiz.content.kind, 'quiz');
+    assertQuizQuestionShapes();
 
-    if (quiz.content.kind !== 'quiz') throw Error('wrong content');
+    function assertQuizQuestionShapes() {
+      assert.equal(quiz.content.kind, 'quiz');
 
-    const [single, multiple, open] = quiz.content.questions;
+      if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-    assert.equal(single?.kind, 'single_choice');
-    assert.equal(multiple?.kind, 'multiple_choice');
+      const [single, multiple, open] = quiz.content.questions;
 
-    if (
-      single?.kind !== 'single_choice' ||
-      multiple?.kind !== 'multiple_choice' ||
-      open?.kind !== 'open'
-    )
-      throw Error('wrong questions');
+      assert.equal(single?.kind, 'single_choice');
+      assert.equal(multiple?.kind, 'multiple_choice');
 
-    assert.deepEqual(
-      single.choices.map((choice) => choice.isCorrect),
-      [true, false]
-    );
-    assert.deepEqual(
-      multiple.choices.map((choice) => choice.isCorrect),
-      [true, true, false]
-    );
-    assert.equal(open.referenceAnswer, 'alpha');
+      if (
+        single?.kind !== 'single_choice' ||
+        multiple?.kind !== 'multiple_choice' ||
+        open?.kind !== 'open'
+      )
+        throw Error('wrong questions');
+
+      assert.deepEqual(
+        single.choices.map((choice) => choice.isCorrect),
+        [true, false]
+      );
+      assert.deepEqual(
+        multiple.choices.map((choice) => choice.isCorrect),
+        [true, true, false]
+      );
+      assert.equal(open.referenceAnswer, 'alpha');
+    }
+
     await generate(
       'diagram',
       {
@@ -512,7 +517,7 @@ test('generates and publishes all material kinds with captured evidence and repl
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      if (event.type !== 'MaterialGenerationRequested') throw Error('wrong event');
+      assertEventType(event, 'MaterialGenerationRequested', 'wrong event');
 
       return event;
     };
@@ -617,7 +622,7 @@ test('generates and publishes all material kinds with captured evidence and repl
     );
     const retry = decodeEvent(context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload);
 
-    if (retry.type !== 'MaterialGenerationRequested') throw Error('wrong retry event');
+    assertEventType(retry, 'MaterialGenerationRequested', 'wrong retry event');
 
     await assert.rejects(executeEvent({ ...retry, eventId: 'forged-retry' }));
     tool = true;
@@ -671,7 +676,7 @@ test('generates and publishes all material kinds with captured evidence and repl
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
 
-    if (closedEvent.type !== 'MaterialGenerationRequested') throw Error('wrong event');
+    assertEventType(closedEvent, 'MaterialGenerationRequested', 'wrong event');
 
     const beforeClosed = calls;
 
@@ -713,3 +718,11 @@ test('generates and publishes all material kinds with captured evidence and repl
     await new Promise<void>((resolve) => peer.close(() => resolve()));
   }
 });
+
+function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  event: ReturnType<typeof decodeEvent> | undefined,
+  type: T,
+  message: string
+): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
+  assert.ok(event && event.type === type, message);
+}

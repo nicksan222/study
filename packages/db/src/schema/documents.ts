@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, uniqueIndex, index, check } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
+import { documentReference } from '../columns.ts';
 import { codes_block_kind, codes_extractor_kind } from './codes.ts';
 import { sources } from './sources.ts';
 
@@ -32,10 +33,7 @@ export const blocks = sqliteTable(
   'blocks',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
-    document_id: integer()
-      .$type<DocumentId>()
-      .notNull()
-      .references((): AnySQLiteColumn => documents.id, { onDelete: 'cascade' }),
+    document_id: documentReference(() => documents.id),
     ordinal: integer().$type<bigint>().notNull(),
     kind: text({ enum: codes_block_kind.code.enumValues })
       .notNull()

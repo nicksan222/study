@@ -1,11 +1,17 @@
-import { binding, imported, property, typedOwner } from './synchronous-transactions.ts';
+import {
+  binding,
+  imported,
+  memberName as property,
+  constantDeclarator,
+  enterNode
+} from '../lexical-bindings.ts';
+import { typedOwner } from './synchronous-transactions.ts';
 
 const sources = /^(?:@study\/db(?:\/.*)?|drizzle-orm(?:\/.*)?)$/;
 
 export function api(context: any, node: any, name: string, seen = new Set<any>()): boolean {
-  if (!node || seen.has(node)) return false;
+  if (!enterNode(node, seen)) return false;
 
-  seen.add(node);
   const valueImport = (target: any, importedName?: string): boolean => {
     if (!imported(context, target, sources, importedName)) return false;
 
@@ -20,25 +26,17 @@ export function api(context: any, node: any, name: string, seen = new Set<any>()
 
   const def = binding(context, node)?.defs[0]?.node;
 
-  return (
-    def?.type === 'VariableDeclarator' &&
-    def.parent?.kind === 'const' &&
-    api(context, def.init, name, seen)
-  );
+  return constantDeclarator(def) && api(context, def.init, name, seen);
 }
 
 export function databaseOrm(context: any, node: any, seen = new Set<any>()): boolean {
-  if (!node || seen.has(node)) return false;
-
-  seen.add(node);
+  if (!enterNode(node, seen)) return false;
 
   if (property(node) === 'orm' && typedOwner(context, node)) return true;
 
   const declaration = binding(context, node)?.defs[0]?.node;
 
-  return declaration?.type === 'VariableDeclarator' && declaration.parent?.kind === 'const'
-    ? databaseOrm(context, declaration.init, seen)
-    : false;
+  return constantDeclarator(declaration) ? databaseOrm(context, declaration.init, seen) : false;
 }
 
 export function chain(
@@ -46,20 +44,17 @@ export function chain(
   node: any,
   seen = new Set<any>()
 ): { methods: { name: string; args: any[] }[]; owner: any } | undefined {
-  if (!node || seen.has(node)) return;
-
-  seen.add(node);
+  if (!enterNode(node, seen)) return;
 
   if (node.type === 'Identifier') {
     const def = binding(context, node)?.defs[0]?.node;
 
-    if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-      return chain(context, def.init, seen);
+    if (constantDeclarator(def)) return chain(context, def.init, seen);
 
     return;
   }
 
-  if (node.type !== 'CallExpression' || node.callee?.type !== 'MemberExpression') return;
+  if (!memberCall(node)) return;
 
   const name = property(node.callee);
 
@@ -145,6 +140,68 @@ export function trivialPredicate(tokens: string[]): boolean {
 
   let predicate = tokens.slice(0, end);
 
+  predicate = unwrapPredicate(predicate);
+
+  let depth = 0;
+
+  for (let index = 0; index < predicate.length; index++) {
+    const token = predicate[index];
+
+    if (token === '(') depth++;
+    else if (token === ')') depth--;
+    else if (depth === 0 && token === 'OR')
+      return (
+        trivialPredicate(predicate.slice(0, index)) || trivialPredicate(predicate.slice(index + 1))
+      );
+  }
+
+  return ['', 'TRUE', '1', '1 = 1'].includes(predicate.join(' '));
+}
+
+/** Recognize only top-level assignment operators; comparisons inside their values remain checked. */
+export function nullComparison(tokens: string[]): boolean {
+  const state = { depth: 0, set: false, start: 0 };
+
+  for (let index = 0; index < tokens.length; index++) {
+    advanceAssignment(tokens, index, state);
+
+    if (!comparesNull(tokens, index)) continue;
+
+    const assignment = nullAssignment(tokens, index, state.start, state.depth, state.set);
+
+    if (!assignment) return true;
+  }
+
+  return false;
+}
+
+function comparesNull(tokens: string[], index: number): boolean {
+  return (
+    ['=', '!=', '<>'].includes(tokens[index]) &&
+    (tokens[index + 1] === 'NULL' || tokens[index - 1] === 'NULL')
+  );
+}
+
+function nullAssignment(
+  tokens: string[],
+  index: number,
+  start: number,
+  depth: number,
+  set: boolean
+): boolean {
+  const token = tokens[index];
+  const lhs = tokens.slice(start, index);
+  const assignment =
+    token === '=' &&
+    !depth &&
+    set &&
+    (lhs.length === 1 || (lhs.length === 3 && lhs[1] === '.')) &&
+    lhs.every((part) => part === '.' || /^[A-Z_][A-Z_0-9$]*$/.test(part));
+
+  return assignment;
+}
+
+function unwrapPredicate(predicate: string[]): string[] {
   while (predicate[0] === '(' && predicate.at(-1) === ')') {
     let depth = 0;
     const closing = predicate.findIndex((token) => {
@@ -160,64 +217,30 @@ export function trivialPredicate(tokens: string[]): boolean {
     predicate = predicate.slice(1, -1);
   }
 
-  let depth = 0;
-
-  for (let index = 0; index < predicate.length; index++) {
-    const token = predicate[index];
-
-    if (token === '(') depth++;
-    else if (token === ')') depth--;
-    else if (depth === 0 && token === 'OR')
-      return (
-        trivialPredicate(predicate.slice(0, index)) || trivialPredicate(predicate.slice(index + 1))
-      );
-  }
-
-  return (
-    !predicate.length ||
-    predicate.join(' ') === 'TRUE' ||
-    predicate.join(' ') === '1' ||
-    predicate.join(' ') === '1 = 1'
-  );
+  return predicate;
 }
 
-/** Recognize only top-level assignment operators; comparisons inside their values remain checked. */
-export function nullComparison(tokens: string[]): boolean {
-  let depth = 0;
-  let set = false;
-  let start = 0;
+function memberCall(node: any): boolean {
+  return node.type === 'CallExpression' && node.callee?.type === 'MemberExpression';
+}
 
-  for (let index = 0; index < tokens.length; index++) {
-    const token = tokens[index];
+function advanceAssignment(
+  tokens: string[],
+  index: number,
+  state: { depth: number; set: boolean; start: number }
+): void {
+  const token = tokens[index];
 
-    if (token === '(') depth++;
-    else if (token === ')') depth--;
+  state.depth += ({ '(': 1, ')': -1 } as Record<string, number>)[token] ?? 0;
 
-    if (!depth && token === 'SET') {
-      set = true;
-      start = index + 1;
-    }
+  if (state.depth) return;
 
-    if (!depth && ['WHERE', 'RETURNING', ';'].includes(token)) set = false;
-
-    if (!depth && set && token === ',') start = index + 1;
-
-    if (
-      !['=', '!=', '<>'].includes(token) ||
-      (tokens[index + 1] !== 'NULL' && tokens[index - 1] !== 'NULL')
-    )
-      continue;
-
-    const lhs = tokens.slice(start, index);
-    const assignment =
-      token === '=' &&
-      !depth &&
-      set &&
-      (lhs.length === 1 || (lhs.length === 3 && lhs[1] === '.')) &&
-      lhs.every((part) => part === '.' || /^[A-Z_][A-Z_0-9$]*$/.test(part));
-
-    if (!assignment) return true;
+  if (token === 'SET') {
+    state.set = true;
+    state.start = index + 1;
   }
 
-  return false;
+  if (['WHERE', 'RETURNING', ';'].includes(token)) state.set = false;
+
+  if (state.set && token === ',') state.start = index + 1;
 }

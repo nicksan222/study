@@ -76,7 +76,13 @@ export function makeReads({ db: store }: StoreResources) {
 
     if (!row) return null;
 
-    const base = {
+    return readVersionContent(row);
+  }
+
+  function readVersionBase(row: typeof s.material_versions.$inferSelect) {
+    const id = row.id;
+
+    return {
       ...row,
       inputs: store.orm
         .select()
@@ -93,224 +99,292 @@ export function makeReads({ db: store }: StoreResources) {
         .all()
         .map((r) => r.parent_version_id)
     };
+  }
+
+  function readVersionContent(
+    row: typeof s.material_versions.$inferSelect
+  ): MaterialVersionDetailDto {
+    const base = readVersionBase(row);
 
     switch (row.kind) {
-      case 'diagram': {
-        const c = required(
-          store.orm
-            .select()
-            .from(s.material_diagram_versions)
-            .where(eq(s.material_diagram_versions.version_id, id))
-            .get()
-        );
-
-        return {
-          ...base,
-          kind: row.kind,
-          content: { kind: c.kind, format: c.format, payload: c.payload }
-        };
-      }
-      case 'file': {
-        const c = required(
-          store.orm
-            .select()
-            .from(s.material_file_versions)
-            .where(eq(s.material_file_versions.version_id, id))
-            .get()
-        );
-
-        return {
-          ...base,
-          kind: row.kind,
-          content: { kind: c.kind, sourceId: c.source_id, source: readSource(id) }
-        };
-      }
-      case 'link': {
-        const c = required(
-          store.orm
-            .select()
-            .from(s.material_link_versions)
-            .where(eq(s.material_link_versions.version_id, id))
-            .get()
-        );
-
-        return {
-          ...base,
-          kind: row.kind,
-          content: { kind: c.kind, sourceId: c.source_id, source: readSource(id) }
-        };
-      }
-      case 'audio': {
-        const c = required(
-          store.orm
-            .select()
-            .from(s.material_audio_versions)
-            .where(eq(s.material_audio_versions.version_id, id))
-            .get()
-        );
-
-        return {
-          ...base,
-          kind: row.kind,
-          content: {
-            kind: c.kind,
-            sourceId: c.source_id,
-            source: readSource(id),
-            durationMs: c.duration_ms,
-            sampleRate: c.sample_rate,
-            channels: c.channels
-          }
-        };
-      }
-      case 'video': {
-        const c = required(
-          store.orm
-            .select()
-            .from(s.material_video_versions)
-            .where(eq(s.material_video_versions.version_id, id))
-            .get()
-        );
-
-        return {
-          ...base,
-          kind: row.kind,
-          content: {
-            kind: c.kind,
-            sourceId: c.source_id,
-            source: readSource(id),
-            durationMs: c.duration_ms,
-            width: c.width,
-            height: c.height
-          }
-        };
-      }
-      case 'image': {
-        const c = required(
-          store.orm
-            .select()
-            .from(s.material_image_versions)
-            .where(eq(s.material_image_versions.version_id, id))
-            .get()
-        );
-
-        return {
-          ...base,
-          kind: row.kind,
-          content: {
-            kind: c.kind,
-            sourceId: c.source_id,
-            source: readSource(id),
-            width: c.width,
-            height: c.height
-          }
-        };
-      }
-      case 'document': {
-        const c = required(
-          store.orm
-            .select()
-            .from(s.material_document_versions)
-            .where(eq(s.material_document_versions.version_id, id))
-            .get()
-        );
-        const doc = required(
-          store.orm.select().from(s.documents).where(eq(s.documents.id, c.document_id)).get()
-        );
-        const blocks = store.orm
-          .select()
-          .from(s.blocks)
-          .where(eq(s.blocks.document_id, doc.id))
-          .orderBy(asc(s.blocks.ordinal))
-          .all()
-          .map((b) => ({
-            kind: b.kind,
-            text: b.text,
-            anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(b.anchor))
-          }));
-
-        return {
-          ...base,
-          kind: row.kind,
-          content: {
-            kind: row.kind,
-            ...Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(doc.meta) })
-          }
-        };
-      }
-      case 'quiz': {
-        const choiceRows = store.orm
-          .select({ choice: s.material_quiz_choices })
-          .from(s.material_quiz_choices)
-          .innerJoin(
-            s.material_quiz_questions,
-            eq(s.material_quiz_questions.id, s.material_quiz_choices.question_id)
-          )
-          .where(eq(s.material_quiz_questions.version_id, id))
-          .orderBy(asc(s.material_quiz_choices.question_id), asc(s.material_quiz_choices.position))
-          .all();
-        const byQuestion = new Map<
-          QuizQuestionId,
-          { id: QuizChoiceId; text: string; isCorrect: boolean }[]
-        >();
-
-        for (const { choice: c } of choiceRows) {
-          const group = byQuestion.get(c.question_id) ?? [];
-
-          group.push({ id: c.id, text: c.text, isCorrect: c.is_correct });
-          byQuestion.set(c.question_id, group);
-        }
-
-        const openRows = store.orm
-          .select({
-            questionId: s.material_quiz_open_answers.question_id,
-            reference: s.material_quiz_open_answers.reference_answer
-          })
-          .from(s.material_quiz_open_answers)
-          .innerJoin(
-            s.material_quiz_questions,
-            eq(s.material_quiz_questions.id, s.material_quiz_open_answers.question_id)
-          )
-          .where(eq(s.material_quiz_questions.version_id, id))
-          .all();
-        const references = new Map(openRows.map((r) => [r.questionId, r.reference]));
-        const questions: QuizQuestionDetailDto[] = store.orm
-          .select()
-          .from(s.material_quiz_questions)
-          .where(eq(s.material_quiz_questions.version_id, id))
-          .orderBy(asc(s.material_quiz_questions.position))
-          .all()
-          .map((q) => {
-            const questionBase = { id: q.id, prompt: q.prompt, explanation: q.explanation };
-
-            if (q.kind === 'open')
-              return {
-                ...questionBase,
-                kind: q.kind,
-                referenceAnswer: required(references.get(q.id))
-              };
-
-            const choices = byQuestion.get(q.id) ?? [];
-
-            if (q.kind === 'single_choice') return { ...questionBase, kind: q.kind, choices };
-
-            return { ...questionBase, kind: q.kind, choices };
-          });
-
-        return { ...base, kind: row.kind, content: { kind: row.kind, questions } };
-      }
-
-      case 'flashcards': {
-        const cards = store.orm
-          .select()
-          .from(s.material_flashcard_entries)
-          .where(eq(s.material_flashcard_entries.version_id, id))
-          .orderBy(asc(s.material_flashcard_entries.position))
-          .all()
-          .map((c) => ({ cardId: c.card_id, front: c.front, back: c.back }));
-
-        return { ...base, kind: row.kind, content: { kind: row.kind, cards } };
-      }
+      case 'diagram':
+        return readDiagram(base);
+      case 'file':
+        return readFile(base);
+      case 'link':
+        return readLink(base);
+      case 'audio':
+        return readAudio(base);
+      case 'video':
+        return readVideo(base);
+      case 'image':
+        return readImage(base);
+      case 'document':
+        return readDocument(base);
+      case 'quiz':
+        return readQuiz(base);
+      case 'flashcards':
+        return readFlashcards(base);
     }
+  }
+
+  function readDiagram(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'diagram' }> {
+    const id = base.id;
+    const c = required(
+      store.orm
+        .select()
+        .from(s.material_diagram_versions)
+        .where(eq(s.material_diagram_versions.version_id, id))
+        .get()
+    );
+
+    return {
+      ...base,
+      kind: 'diagram',
+      content: { kind: c.kind, format: c.format, payload: c.payload }
+    };
+  }
+
+  function readFile(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'file' }> {
+    const id = base.id;
+    const c = required(
+      store.orm
+        .select()
+        .from(s.material_file_versions)
+        .where(eq(s.material_file_versions.version_id, id))
+        .get()
+    );
+
+    return {
+      ...base,
+      kind: 'file',
+      content: { kind: c.kind, sourceId: c.source_id, source: readSource(id) }
+    };
+  }
+
+  function readLink(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'link' }> {
+    const id = base.id;
+    const c = required(
+      store.orm
+        .select()
+        .from(s.material_link_versions)
+        .where(eq(s.material_link_versions.version_id, id))
+        .get()
+    );
+
+    return {
+      ...base,
+      kind: 'link',
+      content: { kind: c.kind, sourceId: c.source_id, source: readSource(id) }
+    };
+  }
+
+  function readAudio(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'audio' }> {
+    const id = base.id;
+    const c = required(
+      store.orm
+        .select()
+        .from(s.material_audio_versions)
+        .where(eq(s.material_audio_versions.version_id, id))
+        .get()
+    );
+
+    return {
+      ...base,
+      kind: 'audio',
+      content: {
+        kind: c.kind,
+        sourceId: c.source_id,
+        source: readSource(id),
+        durationMs: c.duration_ms,
+        sampleRate: c.sample_rate,
+        channels: c.channels
+      }
+    };
+  }
+
+  function readVideo(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'video' }> {
+    const id = base.id;
+    const c = required(
+      store.orm
+        .select()
+        .from(s.material_video_versions)
+        .where(eq(s.material_video_versions.version_id, id))
+        .get()
+    );
+
+    return {
+      ...base,
+      kind: 'video',
+      content: {
+        kind: c.kind,
+        sourceId: c.source_id,
+        source: readSource(id),
+        durationMs: c.duration_ms,
+        width: c.width,
+        height: c.height
+      }
+    };
+  }
+
+  function readImage(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'image' }> {
+    const id = base.id;
+    const c = required(
+      store.orm
+        .select()
+        .from(s.material_image_versions)
+        .where(eq(s.material_image_versions.version_id, id))
+        .get()
+    );
+
+    return {
+      ...base,
+      kind: 'image',
+      content: {
+        kind: c.kind,
+        sourceId: c.source_id,
+        source: readSource(id),
+        width: c.width,
+        height: c.height
+      }
+    };
+  }
+
+  function readDocument(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'document' }> {
+    const id = base.id;
+    const c = required(
+      store.orm
+        .select()
+        .from(s.material_document_versions)
+        .where(eq(s.material_document_versions.version_id, id))
+        .get()
+    );
+    const doc = required(
+      store.orm.select().from(s.documents).where(eq(s.documents.id, c.document_id)).get()
+    );
+    const blocks = store.orm
+      .select()
+      .from(s.blocks)
+      .where(eq(s.blocks.document_id, doc.id))
+      .orderBy(asc(s.blocks.ordinal))
+      .all()
+      .map((b) => ({
+        kind: b.kind,
+        text: b.text,
+        anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(b.anchor))
+      }));
+
+    return {
+      ...base,
+      kind: 'document',
+      content: {
+        kind: 'document',
+        ...Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(doc.meta) })
+      }
+    };
+  }
+
+  function readQuiz(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'quiz' }> {
+    const id = base.id;
+    const choiceRows = store.orm
+      .select({ choice: s.material_quiz_choices })
+      .from(s.material_quiz_choices)
+      .innerJoin(
+        s.material_quiz_questions,
+        eq(s.material_quiz_questions.id, s.material_quiz_choices.question_id)
+      )
+      .where(eq(s.material_quiz_questions.version_id, id))
+      .orderBy(asc(s.material_quiz_choices.question_id), asc(s.material_quiz_choices.position))
+      .all();
+    const byQuestion = new Map<
+      QuizQuestionId,
+      { id: QuizChoiceId; text: string; isCorrect: boolean }[]
+    >();
+
+    for (const { choice: c } of choiceRows) {
+      const group = byQuestion.get(c.question_id) ?? [];
+
+      group.push({ id: c.id, text: c.text, isCorrect: c.is_correct });
+      byQuestion.set(c.question_id, group);
+    }
+
+    const openRows = store.orm
+      .select({
+        questionId: s.material_quiz_open_answers.question_id,
+        reference: s.material_quiz_open_answers.reference_answer
+      })
+      .from(s.material_quiz_open_answers)
+      .innerJoin(
+        s.material_quiz_questions,
+        eq(s.material_quiz_questions.id, s.material_quiz_open_answers.question_id)
+      )
+      .where(eq(s.material_quiz_questions.version_id, id))
+      .all();
+    const references = new Map(openRows.map((r) => [r.questionId, r.reference]));
+    const questions: QuizQuestionDetailDto[] = store.orm
+      .select()
+      .from(s.material_quiz_questions)
+      .where(eq(s.material_quiz_questions.version_id, id))
+      .orderBy(asc(s.material_quiz_questions.position))
+      .all()
+      .map((q) => {
+        const questionBase = { id: q.id, prompt: q.prompt, explanation: q.explanation };
+
+        if (q.kind === 'open')
+          return {
+            ...questionBase,
+            kind: q.kind,
+            referenceAnswer: required(references.get(q.id))
+          };
+
+        const choices = byQuestion.get(q.id) ?? [];
+
+        if (q.kind === 'single_choice') return { ...questionBase, kind: q.kind, choices };
+
+        return { ...questionBase, kind: q.kind, choices };
+      });
+
+    return { ...base, kind: 'quiz', content: { kind: 'quiz', questions } };
+  }
+
+  function readFlashcards(
+    base: ReturnType<typeof readVersionBase>
+  ): Extract<MaterialVersionDetailDto, { kind: 'flashcards' }> {
+    const id = base.id;
+    const cards = store.orm
+      .select()
+      .from(s.material_flashcard_entries)
+      .where(eq(s.material_flashcard_entries.version_id, id))
+      .orderBy(asc(s.material_flashcard_entries.position))
+      .all()
+      .map((c) => ({ cardId: c.card_id, front: c.front, back: c.back }));
+
+    return { ...base, kind: 'flashcards', content: { kind: 'flashcards', cards } };
+  }
+
+  function latestVersion(id: MaterialId, status: typeof s.material_versions.$inferSelect.status) {
+    return store.orm
+      .select({ id: s.material_versions.id })
+      .from(s.material_versions)
+      .where(and(eq(s.material_versions.material_id, id), eq(s.material_versions.status, status)))
+      .orderBy(desc(s.material_versions.number))
+      .get();
   }
 
   function readMaterial(id: MaterialId): MaterialDetailDto | null {
@@ -318,20 +392,8 @@ export function makeReads({ db: store }: StoreResources) {
 
     if (!row) return null;
 
-    const publishedRow = store.orm
-      .select({ id: s.material_versions.id })
-      .from(s.material_versions)
-      .where(
-        and(eq(s.material_versions.material_id, id), eq(s.material_versions.status, 'published'))
-      )
-      .orderBy(desc(s.material_versions.number))
-      .get();
-    const draftRow = store.orm
-      .select({ id: s.material_versions.id })
-      .from(s.material_versions)
-      .where(and(eq(s.material_versions.material_id, id), eq(s.material_versions.status, 'draft')))
-      .orderBy(desc(s.material_versions.number))
-      .get();
+    const publishedRow = latestVersion(id, 'published');
+    const draftRow = latestVersion(id, 'draft');
     const published = publishedRow ? readVersion(publishedRow.id) : null;
     const draft = draftRow ? readVersion(draftRow.id) : null;
 

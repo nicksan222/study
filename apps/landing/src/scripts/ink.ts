@@ -68,28 +68,9 @@ export const type = async (el: HTMLElement | SVGElement, budget = PIECE_MS) => {
   for (const unit of units) {
     if (runs.get(el) !== run) return;
 
-    const length = unit.textContent?.length ?? 1;
+    last = revealUnit(unit, mode, last);
 
-    if (mode === 'hand')
-      unit.style.setProperty(
-        '--dur',
-        `${Math.min(length * CHAR_MS[1] + STAGGER_MS, STEP_MS * 1.5)}ms`
-      );
-
-    unit.classList.add('on');
-
-    if (mode !== 'hand' && unit.tagName !== 'tspan') {
-      last?.classList.remove('at');
-      unit.classList.add('at');
-      last = unit;
-    }
-
-    await wait(
-      Math.min(
-        mode === 'ch' ? between(CHAR_MS) : mode === 'w' ? between(WORD_MS) : HAND_WORD_MS,
-        most
-      )
-    );
+    await wait(Math.min(typingDelay(mode), most));
   }
 
   if (runs.get(el) !== run) return;
@@ -184,3 +165,31 @@ if (!live)
   document
     .querySelectorAll<HTMLElement>('[data-seq]')
     .forEach((root) => root.classList.add('done'));
+
+function revealUnit(unit: HTMLElement, mode: string | undefined, last: HTMLElement | undefined) {
+  const length = unit.textContent?.length ?? 1;
+
+  if (mode === 'hand')
+    unit.style.setProperty(
+      '--dur',
+      `${Math.min(length * CHAR_MS[1] + STAGGER_MS, STEP_MS * 1.5)}ms`
+    );
+
+  unit.classList.add('on');
+
+  if (mode !== 'hand' && unit.tagName !== 'tspan') {
+    last?.classList.remove('at');
+    unit.classList.add('at');
+    last = unit;
+  }
+
+  return last;
+}
+
+function typingDelay(mode: string | undefined) {
+  if (mode === 'ch') return between(CHAR_MS);
+
+  if (mode === 'w') return between(WORD_MS);
+
+  return HAND_WORD_MS;
+}

@@ -35,7 +35,7 @@ export const sourcePageInputSchema = Schema.Struct({
   before: Schema.optional(sourceIdSchema)
 });
 
-export const sourcePageSchema = Schema.Struct({
+const sourcePageSchema = Schema.Struct({
   items: Schema.Array(sourceSchema),
   next: Schema.NullOr(sourceIdSchema)
 });

@@ -1,4 +1,4 @@
-import { Effect, Schema, SchemaGetter } from 'effect';
+import { Schema, SchemaGetter } from 'effect';
 
 import {
   materialCardIdSchema,
@@ -13,11 +13,6 @@ import {
 export const learningIdSchema = Schema.BigInt.check(
   Schema.isBetweenBigInt({ minimum: 1n, maximum: 9223372036854775807n })
 );
-
-export const learningTakeSchema = Schema.Number.check(
-  Schema.isInt(),
-  Schema.isBetween({ minimum: 1, maximum: 100 })
-).pipe(Schema.withDecodingDefault(Effect.succeed(30)));
 
 export const learningTimeSchema = Schema.BigInt.check(
   Schema.isBetweenBigInt({ minimum: 0n, maximum: 9223372036854775807n })
@@ -86,25 +81,35 @@ export const quizAttemptRowSchema = Schema.Struct({
   finished_at: Schema.NullOr(Schema.BigInt)
 });
 
-export const quizAttemptInProgressQuestionSchema = Schema.Union([
+const quizAttemptQuestionFields = {
+  id: quizQuestionIdSchema,
+  position: Schema.BigInt,
+  prompt: Schema.String
+};
+
+const openAttemptQuestionFields = {
+  ...quizAttemptQuestionFields,
+  kind: Schema.Literal('open'),
+  answer: Schema.NullOr(Schema.Struct({ type: Schema.Literal('open'), answer: Schema.String }))
+};
+
+const choiceAttemptQuestionFields = {
+  ...quizAttemptQuestionFields,
+  kind: Schema.Literals(['single_choice', 'multiple_choice']),
+  answer: Schema.NullOr(
+    Schema.Struct({
+      type: Schema.Literal('choice'),
+      choiceIds: Schema.mutable(Schema.Array(quizChoiceIdSchema))
+    })
+  )
+};
+
+const quizAttemptInProgressQuestionSchema = Schema.Union([
   Schema.Struct({
-    id: quizQuestionIdSchema,
-    position: Schema.BigInt,
-    prompt: Schema.String,
-    kind: Schema.Literal('open'),
-    answer: Schema.NullOr(Schema.Struct({ type: Schema.Literal('open'), answer: Schema.String }))
+    ...openAttemptQuestionFields
   }),
   Schema.Struct({
-    id: quizQuestionIdSchema,
-    position: Schema.BigInt,
-    prompt: Schema.String,
-    kind: Schema.Literals(['single_choice', 'multiple_choice']),
-    answer: Schema.NullOr(
-      Schema.Struct({
-        type: Schema.Literal('choice'),
-        choiceIds: Schema.mutable(Schema.Array(quizChoiceIdSchema))
-      })
-    ),
+    ...choiceAttemptQuestionFields,
     choices: Schema.mutable(
       Schema.Array(
         Schema.Struct({ id: quizChoiceIdSchema, position: Schema.BigInt, text: Schema.String })
@@ -113,13 +118,9 @@ export const quizAttemptInProgressQuestionSchema = Schema.Union([
   })
 ]);
 
-export const quizAttemptCompletedQuestionSchema = Schema.Union([
+const quizAttemptCompletedQuestionSchema = Schema.Union([
   Schema.Struct({
-    id: quizQuestionIdSchema,
-    position: Schema.BigInt,
-    prompt: Schema.String,
-    kind: Schema.Literal('open'),
-    answer: Schema.NullOr(Schema.Struct({ type: Schema.Literal('open'), answer: Schema.String })),
+    ...openAttemptQuestionFields,
     explanation: Schema.String,
     score: Schema.NullOr(Schema.Number),
     feedback: Schema.NullOr(Schema.String),
@@ -127,16 +128,7 @@ export const quizAttemptCompletedQuestionSchema = Schema.Union([
     referenceAnswer: Schema.NullOr(Schema.String)
   }),
   Schema.Struct({
-    id: quizQuestionIdSchema,
-    position: Schema.BigInt,
-    prompt: Schema.String,
-    kind: Schema.Literals(['single_choice', 'multiple_choice']),
-    answer: Schema.NullOr(
-      Schema.Struct({
-        type: Schema.Literal('choice'),
-        choiceIds: Schema.mutable(Schema.Array(quizChoiceIdSchema))
-      })
-    ),
+    ...choiceAttemptQuestionFields,
     explanation: Schema.String,
     score: Schema.NullOr(Schema.Number),
     feedback: Schema.NullOr(Schema.String),
@@ -186,7 +178,3 @@ export const quizAttemptSchema = Schema.Union([
   quizAttemptInProgressSchema,
   quizAttemptCompletedSchema
 ]);
-
-export type QuizAttempt = typeof quizAttemptSchema.Type;
-
-export type CardSnapshot = typeof flashcardSnapshotSchema.Type;

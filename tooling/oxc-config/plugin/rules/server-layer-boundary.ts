@@ -7,7 +7,12 @@ import {
   serverPath,
   targetPath
 } from '../architecture-imports.ts';
-import { binding, property } from './synchronous-transactions.ts';
+import {
+  binding,
+  memberName as property,
+  constantDeclarator,
+  enterNode
+} from '../lexical-bindings.ts';
 
 function serviceName(name: string, feature: string): boolean {
   const owner = feature.replace(/(^|-)([a-z])/g, (_, _separator, letter) => letter.toUpperCase());
@@ -40,71 +45,9 @@ export default defineRule({
       const targetRole = targetFeature && featureRole(targetFeature[2] ?? '');
       let forbidden = /^ts-fsrs(?:\/|$)/.test(source) && current !== 'platform/scheduling/fsrs.ts';
 
-      forbidden ||=
-        current.startsWith('runtime/') &&
-        current !== 'runtime/workflows.ts' &&
-        !!targetFeature &&
-        targetRole === 'workflow';
+      forbidden ||= runtimeWorkflow(current, targetFeature, targetRole);
 
-      if (feature) {
-        if (role === 'service' && target === 'platform/database/database' && !_typeOnly) {
-          const specifiers = node.specifiers;
-          const database =
-            !specifiers ||
-            specifiers.length === 0 ||
-            specifiers.some(
-              (specifier: any) =>
-                (specifier.type !== 'ImportSpecifier' &&
-                  specifier.type !== 'ImportNamespaceSpecifier') ||
-                (specifier.importKind !== 'type' &&
-                  (specifier.imported?.name ?? specifier.imported?.value) === 'Database')
-            );
-
-          forbidden ||= database;
-        }
-
-        if (role !== 'store') forbidden ||= db;
-
-        if (role === 'rpc') forbidden ||= !!target && /^platform\/database(?:\/|$)/.test(target);
-
-        forbidden ||=
-          !!target &&
-          /^(?:runtime|domains|procedures|application|ai|workflows)(?:\/|$)/.test(target);
-
-        if (targetFeature && targetFeature[1] !== feature[1]) {
-          forbidden ||= !!targetFeature[2] && targetFeature[2] !== 'index';
-
-          if (node.type === 'ImportDeclaration' || node.type === 'ExportNamedDeclaration')
-            forbidden ||= node.specifiers.some(
-              (s: any) =>
-                (s.type !== 'ImportSpecifier' && s.type !== 'ExportSpecifier') ||
-                !serviceName(s.imported?.name ?? s.local?.name ?? '', targetFeature[1]!)
-            );
-          else forbidden = true;
-        }
-
-        if (targetRole === 'store') forbidden ||= role !== 'service' && role !== 'store';
-
-        if (targetRole === 'store' && node.type.startsWith('Export')) forbidden = true;
-
-        if (role === 'service') forbidden ||= targetRole === 'workflow';
-
-        if (role === 'store') forbidden ||= targetRole === 'service';
-
-        if (role === 'rpc' && targetFeature && targetFeature[1] === feature[1])
-          forbidden ||= targetRole !== 'service';
-
-        if (index && node.type.startsWith('Export') && targetFeature) {
-          forbidden ||= targetRole !== 'service' || node.type === 'ExportAllDeclaration';
-
-          if (node.type === 'ExportNamedDeclaration')
-            forbidden ||= node.specifiers.some(
-              (s: any) =>
-                s.exportKind !== 'type' &&
-                !serviceName(s.exported?.name ?? s.exported?.value ?? '', feature[1]!)
-            );
-        }
-      }
+      forbidden ||= featureImport(node, target, db, targetFeature, targetRole, _typeOnly);
 
       if (forbidden)
         context.report({
@@ -113,6 +56,27 @@ export default defineRule({
             'Import crosses the feature boundary; expose only services and keep stores private.'
         });
     });
+
+    function featureImport(
+      node: any,
+      target: string | null,
+      db: boolean,
+      targetFeature: any,
+      targetRole: any,
+      _typeOnly: boolean
+    ) {
+      if (!feature) return false;
+
+      return [
+        serviceDatabase(node, role, target, _typeOnly),
+        role !== 'store' && db,
+        featureTarget(role, target),
+        crossFeature(node, feature, targetFeature),
+        roleDependency(node, role, targetRole),
+        siblingRpc(role, feature, targetFeature, targetRole),
+        indexExport(node, index, feature, targetFeature, targetRole)
+      ].some(Boolean);
+    }
 
     const preferencesRestricted =
       role === 'store' &&
@@ -154,10 +118,16 @@ export default defineRule({
     }
 
     function globalFetch(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
+      if (!enterNode(node, seen)) return false;
 
-      seen.add(node);
+      if (fetchGlobal(node)) return true;
 
+      const def = binding(context, node)?.defs[0]?.node;
+
+      return constantDeclarator(def) && globalFetch(def.init, seen);
+    }
+
+    function fetchGlobal(node: any): boolean {
       if (
         node.type === 'Identifier' &&
         node.name === 'fetch' &&
@@ -173,13 +143,7 @@ export default defineRule({
       )
         return true;
 
-      const def = binding(context, node)?.defs[0]?.node;
-
-      return (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        globalFetch(def.init, seen)
-      );
+      return false;
     }
 
     function rawDatabase(node: any): boolean {
@@ -302,3 +266,92 @@ export default defineRule({
     };
   }
 });
+
+function serviceDatabase(node: any, role: any, target: any, _typeOnly: boolean) {
+  let forbidden = false;
+
+  if (role === 'service' && target === 'platform/database/database' && !_typeOnly) {
+    const specifiers = node.specifiers;
+    const database =
+      !specifiers ||
+      specifiers.length === 0 ||
+      specifiers.some(
+        (specifier: any) =>
+          (specifier.type !== 'ImportSpecifier' && specifier.type !== 'ImportNamespaceSpecifier') ||
+          (specifier.importKind !== 'type' &&
+            (specifier.imported?.name ?? specifier.imported?.value) === 'Database')
+      );
+
+    forbidden ||= database;
+  }
+
+  return forbidden;
+}
+
+function crossFeature(node: any, feature: any, targetFeature: any) {
+  let forbidden = false;
+
+  if (targetFeature && targetFeature[1] !== feature[1]) {
+    forbidden ||= !!targetFeature[2] && targetFeature[2] !== 'index';
+
+    if (node.type === 'ImportDeclaration' || node.type === 'ExportNamedDeclaration')
+      forbidden ||= node.specifiers.some(
+        (s: any) =>
+          (s.type !== 'ImportSpecifier' && s.type !== 'ExportSpecifier') ||
+          !serviceName(s.imported?.name ?? s.local?.name ?? '', targetFeature[1]!)
+      );
+    else forbidden = true;
+  }
+
+  return forbidden;
+}
+
+function indexExport(node: any, index: boolean, feature: any, targetFeature: any, targetRole: any) {
+  let forbidden = false;
+
+  if (index && node.type.startsWith('Export') && targetFeature) {
+    forbidden ||= targetRole !== 'service' || node.type === 'ExportAllDeclaration';
+
+    if (node.type === 'ExportNamedDeclaration')
+      forbidden ||= node.specifiers.some(
+        (s: any) =>
+          s.exportKind !== 'type' &&
+          !serviceName(s.exported?.name ?? s.exported?.value ?? '', feature[1]!)
+      );
+  }
+
+  return forbidden;
+}
+
+function featureTarget(role: any, target: string | null): boolean {
+  if (!target) return false;
+
+  return (
+    (role === 'rpc' && /^platform\/database(?:\/|$)/.test(target)) ||
+    /^(?:runtime|domains|procedures|application|ai|workflows)(?:\/|$)/.test(target)
+  );
+}
+
+function roleDependency(node: any, role: any, targetRole: any): boolean {
+  if (targetRole === 'store')
+    return !['service', 'store'].includes(role) || node.type.startsWith('Export');
+
+  const forbidden: Record<string, string> = { service: 'workflow', store: 'service' };
+
+  return forbidden[role] !== undefined && forbidden[role] === targetRole;
+}
+
+function siblingRpc(role: any, feature: any, targetFeature: any, targetRole: any): boolean {
+  return (
+    role === 'rpc' && !!targetFeature && targetFeature[1] === feature[1] && targetRole !== 'service'
+  );
+}
+
+function runtimeWorkflow(current: string, feature: any, role: any): boolean {
+  return (
+    current.startsWith('runtime/') &&
+    current !== 'runtime/workflows.ts' &&
+    !!feature &&
+    role === 'workflow'
+  );
+}

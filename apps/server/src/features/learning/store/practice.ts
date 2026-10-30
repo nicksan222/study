@@ -52,18 +52,22 @@ function makePractice(resources: StoreResources) {
   const { attemptView } = makeQuiz(resources);
   const { startQuiz } = makeStartQuiz(resources);
 
-  function failureKind(row: Slot): ErrorKind | null {
-    if (row.status !== 'pending') return null;
-
-    if (row.failure_kind) return row.failure_kind;
-
-    const execution = db.orm
+  function receiptExecutions() {
+    return db.orm
       .select({ status: s.workflow_executions.status, result: s.workflow_executions.result })
       .from(s.workflowReceipts)
       .innerJoin(
         s.workflow_executions,
         eq(s.workflow_executions.execution_id, s.workflowReceipts.executionId)
-      )
+      );
+  }
+
+  function failureKind(row: Slot): ErrorKind | null {
+    if (row.status !== 'pending') return null;
+
+    if (row.failure_kind) return row.failure_kind;
+
+    const execution = receiptExecutions()
       .where(
         and(
           eq(s.workflowReceipts.eventId, generationEventId(row)),
@@ -82,13 +86,7 @@ function makePractice(resources: StoreResources) {
 
       if (queued) return null;
 
-      const preparation = db.orm
-        .select({ status: s.workflow_executions.status, result: s.workflow_executions.result })
-        .from(s.workflowReceipts)
-        .innerJoin(
-          s.workflow_executions,
-          eq(s.workflow_executions.execution_id, s.workflowReceipts.executionId)
-        )
+      const preparation = receiptExecutions()
         .innerJoin(s.workflowEvents, eq(s.workflowEvents.eventId, s.workflowReceipts.eventId))
         .where(
           and(
@@ -210,18 +208,10 @@ function makePractice(resources: StoreResources) {
     return id;
   }
 
-  function start(projectId: ProjectId, inputVersionIds: readonly MaterialVersionId[]) {
-    const existing = control(projectId);
-
-    if (existing?.enabled) return [];
-
-    if (
-      !inputVersionIds.length ||
-      inputVersionIds.length > 20 ||
-      new Set(inputVersionIds).size !== inputVersionIds.length
-    )
-      invalid('invalid practice inputs');
-
+  function assertPracticeInputs(
+    projectId: ProjectId,
+    inputVersionIds: readonly MaterialVersionId[]
+  ) {
     for (const id of inputVersionIds) {
       const row = db.orm
         .select()
@@ -246,6 +236,21 @@ function makePractice(resources: StoreResources) {
       if (!row || !material || material.archived_at !== null || !document)
         invalid('practice input must be an active published project document');
     }
+  }
+
+  function start(projectId: ProjectId, inputVersionIds: readonly MaterialVersionId[]) {
+    const existing = control(projectId);
+
+    if (existing?.enabled) return [];
+
+    if (
+      !inputVersionIds.length ||
+      inputVersionIds.length > 20 ||
+      new Set(inputVersionIds).size !== inputVersionIds.length
+    )
+      invalid('invalid practice inputs');
+
+    assertPracticeInputs(projectId, inputVersionIds);
 
     const epoch = randomUUID();
 
@@ -280,6 +285,44 @@ function makePractice(resources: StoreResources) {
       .run();
   }
 
+  function assertPublicationIntent(row: typeof slots.$inferSelect, slotId: string) {
+    const request = db.orm
+      .select()
+      .from(s.material_generation_requests)
+      .where(eq(s.material_generation_requests.id, slotId))
+      .get();
+
+    if (!request || request.project_id !== row.project_id)
+      invalid('invalid practice generation intent');
+
+    const intent = Schema.decodeUnknownSync(
+      Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
+    )(request.payload);
+    const captured = view(row).inputVersionIds;
+
+    if (
+      intent.kind !== 'quiz' ||
+      intent.scopeId !== row.epoch ||
+      intent.questionSpec?.count !== 1 ||
+      intent.questionSpec.kind !== row.kind ||
+      intent.inputVersionIds.length !== captured.length ||
+      intent.inputVersionIds.some((id, i) => id !== captured[i])
+    )
+      invalid('invalid practice generation intent');
+  }
+
+  function assertRetrySlot(row: typeof slots.$inferSelect | undefined) {
+    if (
+      !row ||
+      !control(row.project_id)?.enabled ||
+      control(row.project_id)?.epoch !== row.epoch ||
+      row.status !== 'pending'
+    )
+      invalid('practice slot is inactive');
+
+    return row;
+  }
+
   function publish(slotId: string, versionId: MaterialVersionId) {
     const row = db.orm.select().from(slots).where(eq(slots.id, slotId)).get();
 
@@ -307,29 +350,8 @@ function makePractice(resources: StoreResources) {
         )
       )
       .get();
-    const request = db.orm
-      .select()
-      .from(s.material_generation_requests)
-      .where(eq(s.material_generation_requests.id, slotId))
-      .get();
 
-    if (!request || request.project_id !== row.project_id)
-      invalid('invalid practice generation intent');
-
-    const intent = Schema.decodeUnknownSync(
-      Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
-    )(request.payload);
-    const captured = view(row).inputVersionIds;
-
-    if (
-      intent.kind !== 'quiz' ||
-      intent.scopeId !== row.epoch ||
-      intent.questionSpec?.count !== 1 ||
-      intent.questionSpec.kind !== row.kind ||
-      intent.inputVersionIds.length !== captured.length ||
-      intent.inputVersionIds.some((id, i) => id !== captured[i])
-    )
-      invalid('invalid practice generation intent');
+    assertPublicationIntent(row, slotId);
 
     const questions = db.orm
       .select()
@@ -393,6 +415,7 @@ function makePractice(resources: StoreResources) {
     stop,
     publish,
     answerSlot,
+    assertRetrySlot,
     refill,
     control,
     failureKind,
@@ -422,6 +445,7 @@ export const PracticeStore = defineStore({
       stop,
       publish,
       answerSlot,
+      assertRetrySlot,
       refill,
       control,
       failureKind,
@@ -473,17 +497,7 @@ export const PracticeStore = defineStore({
             const questionId = attempt.questions[0].id;
 
             if (row.status === 'answered') {
-              const previous = attempt.questions[0].answer;
-              const same =
-                previous?.type === 'open' && input.answer.type === 'open'
-                  ? previous.answer === input.answer.answer
-                  : previous?.type === 'choice' && input.answer.type === 'choice'
-                    ? previous.choiceIds.length === input.answer.choiceIds.length &&
-                      previous.choiceIds.every(
-                        (id) =>
-                          input.answer.type === 'choice' && input.answer.choiceIds.includes(id)
-                      )
-                    : false;
+              const same = sameAnswer(attempt.questions[0].answer, input.answer);
 
               if (!same) invalid('practice answer differs from the committed response');
 
@@ -520,15 +534,9 @@ export const PracticeStore = defineStore({
           input: retryPracticeQuestionInputSchema,
           output: Schema.Struct({ slot: practiceSlotSchema, requested: Schema.Boolean }),
           run: (input) => {
-            const row = db.orm.select().from(slots).where(eq(slots.id, input.slotId)).get();
+            const found = db.orm.select().from(slots).where(eq(slots.id, input.slotId)).get();
 
-            if (
-              !row ||
-              !control(row.project_id)?.enabled ||
-              control(row.project_id)?.epoch !== row.epoch ||
-              row.status !== 'pending'
-            )
-              invalid('practice slot is inactive');
+            const row = assertRetrySlot(found);
 
             const scope = db.orm
               .select()
@@ -644,3 +652,15 @@ export const PracticeControlStore = defineStore({
     };
   }
 });
+
+function sameAnswer(
+  previous: (typeof quizAttemptSchema.Type)['questions'][number]['answer'],
+  answer: (typeof answerPracticeQuestionInputSchema.Type)['answer']
+) {
+  return previous?.type === 'open' && answer.type === 'open'
+    ? previous.answer === answer.answer
+    : previous?.type === 'choice' && answer.type === 'choice'
+      ? previous.choiceIds.length === answer.choiceIds.length &&
+        previous.choiceIds.every((id) => answer.type === 'choice' && answer.choiceIds.includes(id))
+      : false;
+}

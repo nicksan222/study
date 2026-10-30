@@ -8,8 +8,14 @@ import {
   targetPath
 } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
+import {
+  binding,
+  memberName as property,
+  constantDeclarator,
+  destructuredBinding,
+  enterNode
+} from '../lexical-bindings.ts';
 import { resolveValue } from './module-factories.ts';
-import { binding, property } from './synchronous-transactions.ts';
 import { production } from './synchronous-transactions.ts';
 
 export default defineRule({
@@ -35,9 +41,8 @@ export default defineRule({
       (/\/features\//.test(path) && featureRole(path) === 'workflow');
 
     function ownershipKey(node: any, seen = new Set<any>()): 'activity' | 'publication' | null {
-      if (!node || seen.has(node)) return null;
+      if (!enterNode(node, seen)) return null;
 
-      seen.add(node);
       const classify = (name: string, source: string | null) => {
         if (name === 'WorkflowActivityOwner' && source === 'platform/workflows/ownership')
           return 'activity' as const;
@@ -58,30 +63,7 @@ export default defineRule({
           : null;
       };
 
-      if (node.type === 'Identifier') {
-        const def = binding(context, node)?.defs[0]?.node;
-
-        if (def?.type === 'ImportSpecifier')
-          return classify(
-            def.imported.name ?? def.imported.value,
-            targetPath(context.filename, def.parent.source.value)
-          );
-
-        if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
-          if (def.id.type === 'ObjectPattern') {
-            const prop = def.id.properties.find(
-              (p: any) =>
-                p.type === 'Property' && (p.value.name ?? p.value.left?.name) === node.name
-            );
-
-            return prop ? member(def.init, prop.key.name ?? prop.key.value) : null;
-          }
-
-          return ownershipKey(def.init, seen);
-        }
-
-        return null;
-      }
+      if (node.type === 'Identifier') return ownershipIdentifier(node, seen, classify, member);
 
       if (node.type === 'MemberExpression')
         return member(node.object, node.computed ? node.property.value : node.property.name);
@@ -99,51 +81,50 @@ export default defineRule({
       return null;
     }
 
-    function nativeLayer(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+    function ownershipIdentifier(
+      node: any,
+      seen: Set<any>,
+      classify: (name: string, source: string | null) => 'activity' | 'publication' | null,
+      member: (object: any, name: string) => 'activity' | 'publication' | null
+    ): 'activity' | 'publication' | null {
       const def = binding(context, node)?.defs[0]?.node;
 
-      if (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        def.id.type === 'Identifier'
-      )
-        return nativeLayer(def.init, seen);
-
-      if (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        def.id.type === 'ObjectPattern'
-      ) {
-        const item = def.id.properties.find(
-          (part: any) => part.type === 'Property' && part.value?.name === node.name
+      if (def?.type === 'ImportSpecifier')
+        return classify(
+          def.imported.name ?? def.imported.value,
+          targetPath(context.filename, def.parent.source.value)
         );
-        const key = item?.key;
 
-        if (key && (!item.computed || key.type === 'Literal'))
-          return nativeLayer(
-            { type: 'MemberExpression', object: def.init, property: key, computed: item.computed },
-            seen
-          );
+      if (constantDeclarator(def)) {
+        if (def.id.type === 'ObjectPattern') {
+          const prop = destructuredBinding(def.id, node.name);
+
+          return prop ? member(def.init, prop.key.name ?? prop.key.value) : null;
+        }
+
+        return ownershipKey(def.init, seen);
       }
+
+      return null;
+    }
+
+    function nativeLayer(node: any, seen = new Set<any>()): boolean {
+      if (!enterNode(node, seen)) return false;
+
+      const def = binding(context, node)?.defs[0]?.node;
+
+      const alias = layerAlias(node, def, seen);
+
+      if (alias !== null) return alias;
 
       if (/^(?:rpc[./])?RpcGroup\.toLayer$/.test(effects.resolve(node) ?? '')) return true;
 
-      const imported = importedValue(context, node);
+      if (importedLayer(node)) return true;
 
-      if (imported?.name.endsWith('.toLayer')) {
-        if (/^@study\/contracts\/.+\/rpc$/.test(imported.source)) return true;
+      return constructedLayer(node);
+    }
 
-        if (
-          imported.target &&
-          /^features\/[^/]+\//.test(imported.target) &&
-          featureRole(imported.target) === 'workflow'
-        )
-          return true;
-      }
-
+    function constructedLayer(node: any): boolean {
       const resolved = resolveValue(context, node);
 
       if (property(resolved) !== 'toLayer') return false;
@@ -157,6 +138,43 @@ export default defineRule({
       );
     }
 
+    function layerAlias(node: any, def: any, seen: Set<any>): boolean | null {
+      if (constantDeclarator(def) && def.id.type === 'Identifier')
+        return nativeLayer(def.init, seen);
+
+      if (constantDeclarator(def) && def.id.type === 'ObjectPattern') {
+        const item = def.id.properties.find(
+          (part: any) => part.type === 'Property' && part.value?.name === node.name
+        );
+        const key = item?.key;
+
+        if (key && (!item.computed || key.type === 'Literal'))
+          return nativeLayer(
+            { type: 'MemberExpression', object: def.init, property: key, computed: item.computed },
+            seen
+          );
+      }
+
+      return null;
+    }
+
+    function importedLayer(node: any): boolean {
+      const imported = importedValue(context, node);
+
+      if (imported?.name.endsWith('.toLayer')) {
+        if (/^@study\/contracts\/.+\/rpc$/.test(imported.source)) return true;
+
+        if (
+          imported.target &&
+          /^features\/[^/]+\//.test(imported.target) &&
+          featureRole(imported.target) === 'workflow'
+        )
+          return true;
+      }
+
+      return false;
+    }
+
     const nameOf = (node: any) =>
       effects.resolve(node)?.replace(/^(?:unstable\/)?workflow[./]/, '') ?? '';
     const edges = moduleEdges(context, (node, source) => {
@@ -166,6 +184,28 @@ export default defineRule({
           message: 'Workflow infrastructure cannot be imported into contracts or browser packages.'
         });
     });
+
+    function checkCapability(node: any, name: string) {
+      if (
+        !engineOwner &&
+        /^(?:Effect\.provideService(?:Effect)?|Layer\.(?:succeed|effect|sync)|Context\.(?:make|add))$/.test(
+          name
+        )
+      ) {
+        const index =
+          (name.startsWith('Effect.') || name === 'Context.add') && node.arguments.length === 3
+            ? 1
+            : 0;
+
+        const capability = ownershipKey(node.arguments[index]);
+
+        if (capability && !(publicationOwner && capability === 'publication'))
+          context.report({
+            node,
+            message: 'Only the canonical workflow owner may grant this capability.'
+          });
+      }
+    }
 
     return {
       ...edges,
@@ -183,25 +223,7 @@ export default defineRule({
             message: 'Use defineRpc or defineWorkflowHandler for native handler registration.'
           });
 
-        if (
-          !engineOwner &&
-          /^(?:Effect\.provideService(?:Effect)?|Layer\.(?:succeed|effect|sync)|Context\.(?:make|add))$/.test(
-            name
-          )
-        ) {
-          const index =
-            (name.startsWith('Effect.') || name === 'Context.add') && node.arguments.length === 3
-              ? 1
-              : 0;
-
-          const capability = ownershipKey(node.arguments[index]);
-
-          if (capability && !(publicationOwner && capability === 'publication'))
-            context.report({
-              node,
-              message: 'Only the canonical workflow owner may grant this capability.'
-            });
-        }
+        checkCapability(node, name);
 
         if (
           (name === 'Workflow.make' && !workflowOwner) ||

@@ -142,6 +142,23 @@ function colors(value: unknown): ThemeColors {
   return result;
 }
 
+function themeIdentity(input: Record<string, unknown>): Pick<ThemeFile, 'id' | 'name'> {
+  if (
+    input.version !== 1 ||
+    typeof input.id !== 'string' ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(input.id) ||
+    typeof input.name !== 'string' ||
+    !input.name.trim() ||
+    input.name.length > 128 ||
+    Array.from(input.name).some(
+      (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
+    )
+  )
+    invalid();
+
+  return { id: input.id as string, name: (input.name as string).trim() };
+}
+
 export function parseTheme(json: string): ThemeFile {
   if (json.length > 65536) invalid();
 
@@ -162,23 +179,11 @@ export function parseTheme(json: string): ThemeFile {
   )
     invalid();
 
-  if (
-    input.version !== 1 ||
-    typeof input.id !== 'string' ||
-    !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(input.id) ||
-    typeof input.name !== 'string' ||
-    !input.name.trim() ||
-    input.name.length > 128 ||
-    Array.from(input.name).some(
-      (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
-    )
-  )
-    invalid();
+  const identity = themeIdentity(input);
 
   const result: ThemeFile = {
     version: 1,
-    id: input.id,
-    name: input.name.trim(),
+    ...identity,
     ...(input.colors === undefined ? {} : { colors: colors(input.colors) }),
     ...(input.light === undefined ? {} : { light: colors(input.light) }),
     ...(input.dark === undefined ? {} : { dark: colors(input.dark) })

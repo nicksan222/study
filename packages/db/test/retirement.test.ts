@@ -21,9 +21,7 @@ test('retirement upgrades populated canonical state, references, sequences and s
   try {
     cpSync(fileURLToPath(new URL('../drizzle', import.meta.url)), migrations, { recursive: true });
 
-    for (const entry of readdirSync(migrations))
-      if (entry >= '20261029213743')
-        rmSync(join(migrations, entry), { recursive: true, force: true });
+    retainPrecedingMigrations(migrations);
 
     const old = new DatabaseSync(path, { readBigInts: true });
 
@@ -160,3 +158,9 @@ test('retirement upgrades populated canonical state, references, sequences and s
     rmSync(folder, { recursive: true, force: true });
   }
 });
+
+function retainPrecedingMigrations(migrations: string) {
+  for (const entry of readdirSync(migrations))
+    if (entry >= '20261029213743')
+      rmSync(join(migrations, entry), { recursive: true, force: true });
+}

@@ -141,14 +141,6 @@ export function safeMetadata(
   return result;
 }
 
-/** Annotations inherit through child fibers and spans. */
-export function annotateOperation<A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  metadata: Readonly<Record<string, unknown>>
-): Effect.Effect<A, E, R> {
-  return effect.pipe(Effect.annotateLogs(safeMetadata(metadata)));
-}
-
 /** Instrument a lazy operation without exposing its input, result, or failure. */
 export function observeOperation<A, E, R>(
   name: string,

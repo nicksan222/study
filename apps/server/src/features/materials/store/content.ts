@@ -17,206 +17,307 @@ export function makeContent(resources: StoreResources) {
     version: typeof s.material_versions.$inferSelect,
     c: MaterialContentInput
   ) {
+    assertContentSource(version, c);
+
+    switch (c.kind) {
+      case 'diagram':
+        insertDiagram(version, c);
+        break;
+      case 'file':
+        insertFile(version, c);
+        break;
+      case 'link':
+        insertLink(version, c);
+        break;
+      case 'audio':
+        insertAudio(version, c);
+        break;
+      case 'video':
+        insertVideo(version, c);
+        break;
+      case 'image':
+        insertImage(version, c);
+        break;
+      case 'document':
+        insertDocument(version, c);
+        break;
+      case 'quiz':
+        insertQuiz(version, c);
+        break;
+      case 'flashcards':
+        insertFlashcards(version, c);
+        break;
+    }
+
+    snapshotSource(version, c);
+  }
+
+  function insertDiagram(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'diagram' }>
+  ) {
     const db = store.orm,
       id = version.id;
 
+    db.insert(s.material_diagram_versions)
+      .values({
+        version_id: id,
+        format: c.format,
+        payload: c.payload
+      })
+      .run();
+  }
+
+  function insertFile(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'file' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.insert(s.material_file_versions)
+      .values({
+        version_id: id,
+        source_id: c.sourceId
+      })
+      .run();
+  }
+
+  function insertLink(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'link' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.insert(s.material_link_versions)
+      .values({
+        version_id: id,
+        source_id: c.sourceId
+      })
+      .run();
+  }
+
+  function insertAudio(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'audio' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.insert(s.material_audio_versions)
+      .values({
+        version_id: id,
+        source_id: c.sourceId,
+        duration_ms: c.durationMs,
+        sample_rate: c.sampleRate,
+        channels: c.channels
+      })
+      .run();
+  }
+
+  function insertVideo(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'video' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.insert(s.material_video_versions)
+      .values({
+        version_id: id,
+        source_id: c.sourceId,
+        duration_ms: c.durationMs,
+        width: c.width,
+        height: c.height
+      })
+      .run();
+  }
+
+  function insertImage(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'image' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.insert(s.material_image_versions)
+      .values({
+        version_id: id,
+        source_id: c.sourceId,
+        width: c.width,
+        height: c.height
+      })
+      .run();
+  }
+
+  function insertDocument(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'document' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.delete(s.material_source_snapshots)
+      .where(eq(s.material_source_snapshots.version_id, id))
+      .run();
+    const doc = db
+      .insert(s.documents)
+      .values({
+        source_id: null,
+        extractor: null,
+        extractor_version: BigInt(c.meta.extractorVersion),
+        meta: JSON.stringify(c.meta),
+        created_at: version.created_at
+      })
+      .returning()
+      .get();
+
+    c.blocks.forEach((b, i) =>
+      db
+        .insert(s.blocks)
+        .values({
+          document_id: doc.id,
+          ordinal: BigInt(i),
+          kind: b.kind,
+          text: b.text,
+          anchor: JSON.stringify(b.anchor)
+        })
+        .run()
+    );
+    db.insert(s.material_document_versions)
+      .values({
+        version_id: id,
+        document_id: doc.id
+      })
+      .run();
+  }
+
+  function insertQuiz(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'quiz' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.insert(s.material_quiz_versions)
+      .values({
+        version_id: id
+      })
+      .run();
+    c.questions.forEach((q, i) => {
+      const row = db
+        .insert(s.material_quiz_questions)
+        .values({
+          version_id: id,
+          position: BigInt(i),
+          kind: q.kind,
+          prompt: q.prompt,
+          explanation: q.explanation
+        })
+        .returning()
+        .get();
+
+      if (q.kind === 'open')
+        db.insert(s.material_quiz_open_answers)
+          .values({
+            question_id: row.id,
+            reference_answer: q.referenceAnswer
+          })
+          .run();
+      else
+        q.choices.forEach((choice, j) =>
+          db
+            .insert(s.material_quiz_choices)
+            .values({
+              question_id: row.id,
+              question_kind: q.kind,
+              position: BigInt(j),
+              text: choice.text,
+              is_correct: choice.isCorrect
+            })
+            .run()
+        );
+    });
+  }
+
+  function insertFlashcards(
+    version: typeof s.material_versions.$inferSelect,
+    c: Extract<MaterialContentInput, { kind: 'flashcards' }>
+  ) {
+    const db = store.orm,
+      id = version.id;
+
+    db.insert(s.material_flashcard_versions)
+      .values({
+        version_id: id,
+        material_id: version.material_id
+      })
+      .run();
+    c.cards.forEach((card, i) => {
+      let cardId = card.cardId;
+
+      if (cardId !== undefined) {
+        if (
+          !db
+            .select()
+            .from(s.material_card_identities)
+            .where(
+              and(
+                eq(s.material_card_identities.id, cardId),
+                eq(s.material_card_identities.material_id, version.material_id)
+              )
+            )
+            .get()
+        )
+          throw new StudyError('invalid_input', 'Card identity belongs to another material');
+      } else
+        cardId = db
+          .insert(s.material_card_identities)
+          .values({
+            material_id: version.material_id
+          })
+          .returning()
+          .get().id;
+
+      db.insert(s.material_flashcard_entries)
+        .values({
+          version_id: id,
+          material_id: version.material_id,
+          card_id: cardId,
+          position: BigInt(i),
+          front: card.front,
+          back: card.back
+        })
+        .run();
+    });
+  }
+
+  function contentSource(id: typeof s.sources.$inferSelect.id) {
+    return required(store.orm.select().from(s.sources).where(eq(s.sources.id, id)).get());
+  }
+
+  function assertContentSource(
+    version: typeof s.material_versions.$inferSelect,
+    c: MaterialContentInput
+  ) {
     if ('sourceId' in c) {
-      const source = required(
-        db.select().from(s.sources).where(eq(s.sources.id, c.sourceId)).get()
-      );
+      const source = contentSource(c.sourceId);
 
       if (source.project_id !== version.project_id)
         throw new StudyError('invalid_input', 'Source belongs to another project');
     }
+  }
 
-    switch (c.kind) {
-      case 'diagram':
-        db.insert(s.material_diagram_versions)
-          .values({
-            version_id: id,
-            format: c.format,
-            payload: c.payload
-          })
-          .run();
-        break;
-      case 'file':
-        db.insert(s.material_file_versions)
-          .values({
-            version_id: id,
-            source_id: c.sourceId
-          })
-          .run();
-        break;
-      case 'link':
-        db.insert(s.material_link_versions)
-          .values({
-            version_id: id,
-            source_id: c.sourceId
-          })
-          .run();
-        break;
-      case 'audio':
-        db.insert(s.material_audio_versions)
-          .values({
-            version_id: id,
-            source_id: c.sourceId,
-            duration_ms: c.durationMs,
-            sample_rate: c.sampleRate,
-            channels: c.channels
-          })
-          .run();
-        break;
-      case 'video':
-        db.insert(s.material_video_versions)
-          .values({
-            version_id: id,
-            source_id: c.sourceId,
-            duration_ms: c.durationMs,
-            width: c.width,
-            height: c.height
-          })
-          .run();
-        break;
-      case 'image':
-        db.insert(s.material_image_versions)
-          .values({
-            version_id: id,
-            source_id: c.sourceId,
-            width: c.width,
-            height: c.height
-          })
-          .run();
-        break;
-      case 'document': {
-        db.delete(s.material_source_snapshots)
-          .where(eq(s.material_source_snapshots.version_id, id))
-          .run();
-        const doc = db
-          .insert(s.documents)
-          .values({
-            source_id: null,
-            extractor: null,
-            extractor_version: BigInt(c.meta.extractorVersion),
-            meta: JSON.stringify(c.meta),
-            created_at: version.created_at
-          })
-          .returning()
-          .get();
-
-        c.blocks.forEach((b, i) =>
-          db
-            .insert(s.blocks)
-            .values({
-              document_id: doc.id,
-              ordinal: BigInt(i),
-              kind: b.kind,
-              text: b.text,
-              anchor: JSON.stringify(b.anchor)
-            })
-            .run()
-        );
-        db.insert(s.material_document_versions)
-          .values({
-            version_id: id,
-            document_id: doc.id
-          })
-          .run();
-        break;
-      }
-      case 'quiz': {
-        db.insert(s.material_quiz_versions)
-          .values({
-            version_id: id
-          })
-          .run();
-        c.questions.forEach((q, i) => {
-          const row = db
-            .insert(s.material_quiz_questions)
-            .values({
-              version_id: id,
-              position: BigInt(i),
-              kind: q.kind,
-              prompt: q.prompt,
-              explanation: q.explanation
-            })
-            .returning()
-            .get();
-
-          if (q.kind === 'open')
-            db.insert(s.material_quiz_open_answers)
-              .values({
-                question_id: row.id,
-                reference_answer: q.referenceAnswer
-              })
-              .run();
-          else
-            q.choices.forEach((choice, j) =>
-              db
-                .insert(s.material_quiz_choices)
-                .values({
-                  question_id: row.id,
-                  question_kind: q.kind,
-                  position: BigInt(j),
-                  text: choice.text,
-                  is_correct: choice.isCorrect
-                })
-                .run()
-            );
-        });
-        break;
-      }
-      case 'flashcards': {
-        db.insert(s.material_flashcard_versions)
-          .values({
-            version_id: id,
-            material_id: version.material_id
-          })
-          .run();
-        c.cards.forEach((card, i) => {
-          let cardId = card.cardId;
-
-          if (cardId !== undefined) {
-            if (
-              !db
-                .select()
-                .from(s.material_card_identities)
-                .where(
-                  and(
-                    eq(s.material_card_identities.id, cardId),
-                    eq(s.material_card_identities.material_id, version.material_id)
-                  )
-                )
-                .get()
-            )
-              throw new StudyError('invalid_input', 'Card identity belongs to another material');
-          } else
-            cardId = db
-              .insert(s.material_card_identities)
-              .values({
-                material_id: version.material_id
-              })
-              .returning()
-              .get().id;
-
-          db.insert(s.material_flashcard_entries)
-            .values({
-              version_id: id,
-              material_id: version.material_id,
-              card_id: cardId,
-              position: BigInt(i),
-              front: card.front,
-              back: card.back
-            })
-            .run();
-        });
-        break;
-      }
-    }
+  function snapshotSource(
+    version: typeof s.material_versions.$inferSelect,
+    c: MaterialContentInput
+  ) {
+    const db = store.orm,
+      id = version.id;
 
     if ('sourceId' in c) {
-      const source = required(
-        db.select().from(s.sources).where(eq(s.sources.id, c.sourceId)).get()
-      );
+      const source = contentSource(c.sourceId);
       const state = required(
         db
           .select()

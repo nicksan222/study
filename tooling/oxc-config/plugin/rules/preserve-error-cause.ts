@@ -1,46 +1,56 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { production, binding, imported } from './synchronous-transactions.ts';
+import { binding, imported } from '../lexical-bindings.ts';
+import { production } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     if (!production(context.filename)) return {};
 
-    return {
-      NewExpression(node) {
-        const callee: any = node.callee;
-        const study = imported(
-          context,
-          callee,
-          /(?:shared\/errors(?:\/index)?|@study\/server\/shared\/errors|@study\/contracts(?:\/errors)?)$/,
-          'StudyError'
+    function preservesCause(options: any, caughtBinding: any): boolean {
+      const cause =
+        options?.type === 'ObjectExpression' &&
+        options.properties.some(
+          (entry: any) =>
+            entry.type === 'Property' &&
+            (entry.key.name ?? entry.key.value) === 'cause' &&
+            entry.value.type === 'Identifier' &&
+            binding(context, entry.value) === caughtBinding
         );
 
-        if (
-          !(
-            study ||
-            (callee.type === 'Identifier' &&
-              callee.name === 'Error' &&
-              !binding(context, callee)?.defs.length)
-          )
-        )
-          return;
+      return cause;
+    }
 
-        let caught: any = node.parent;
+    function wrapperKind(callee: any): boolean | null {
+      const study = imported(
+        context,
+        callee,
+        /(?:shared\/errors(?:\/index)?|@study\/server\/shared\/errors|@study\/contracts(?:\/errors)?)$/,
+        'StudyError'
+      );
 
-        while (caught && caught.type !== 'CatchClause') {
-          if (
-            ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(
-              caught.type
-            )
-          )
-            return;
+      if (study) return true;
 
-          caught = caught.parent;
-        }
+      if (
+        callee.type === 'Identifier' &&
+        callee.name === 'Error' &&
+        !binding(context, callee)?.defs.length
+      )
+        return false;
 
-        if (!caught?.param || caught.param.type !== 'Identifier') return;
+      return null;
+    }
+
+    return {
+      NewExpression(node) {
+        const study = wrapperKind(node.callee);
+
+        if (study === null) return;
+
+        const caught = nearestCatch(node.parent);
+
+        if (!namedCatch(caught)) return;
 
         const message = node.arguments[study ? 1 : 0];
 
@@ -62,21 +72,12 @@ export default defineRule({
           return false;
         }
 
-        const directThrow =
-          node.parent?.type === 'ThrowStatement' && node.parent.parent === caught.body;
+        const directThrow = directCatchThrow(node, caught);
 
         if (!refers(message) && !directThrow) return;
 
         const options = node.arguments[study ? 2 : 1];
-        const cause =
-          options?.type === 'ObjectExpression' &&
-          options.properties.some(
-            (entry: any) =>
-              entry.type === 'Property' &&
-              (entry.key.name ?? entry.key.value) === 'cause' &&
-              entry.value.type === 'Identifier' &&
-              binding(context, entry.value) === caughtBinding
-          );
+        const cause = preservesCause(options, caughtBinding);
 
         if (!cause)
           context.report({
@@ -87,3 +88,24 @@ export default defineRule({
     };
   }
 });
+
+function nearestCatch(caught: any): any {
+  while (caught && caught.type !== 'CatchClause') {
+    if (
+      ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(caught.type)
+    )
+      return null;
+
+    caught = caught.parent;
+  }
+
+  return caught;
+}
+
+function directCatchThrow(node: any, caught: any): boolean {
+  return node.parent?.type === 'ThrowStatement' && node.parent.parent === caught.body;
+}
+
+function namedCatch(caught: any): boolean {
+  return !!caught?.param && caught.param.type === 'Identifier';
+}

@@ -18,22 +18,11 @@ export default defineRule({
         if (api !== 'Effect.forEach' && api !== 'Effect.all') return;
 
         const input = node.arguments[0];
-        const curried =
-          api === 'Effect.forEach' &&
-          node.arguments.length === 2 &&
-          node.arguments[1]?.type === 'ObjectExpression';
+        const curried = curriedForEach(node, api);
         const options = node.arguments[api === 'Effect.forEach' && !curried ? 2 : 1];
         const concurrency = property(options, 'concurrency');
 
-        if (
-          !concurrency ||
-          (!curried &&
-            ((input?.type === 'ArrayExpression' &&
-              !input.elements.some((item) => item?.type === 'SpreadElement')) ||
-              (input?.type === 'ObjectExpression' &&
-                !input.properties.some((item) => item.type === 'SpreadElement'))))
-        )
-          return;
+        if (!concurrency || (!curried && fixedBatch(input))) return;
 
         if (!positive(concurrency))
           context.report({
@@ -44,3 +33,22 @@ export default defineRule({
     };
   }
 });
+
+function fixedBatch(input: any): boolean {
+  if (input?.type === 'ArrayExpression')
+    return !input.elements.some((item: any) => item?.type === 'SpreadElement');
+
+  if (input?.type === 'ObjectExpression')
+    return !input.properties.some((item: any) => item.type === 'SpreadElement');
+
+  return false;
+}
+
+function curriedForEach(node: any, api: string | null): boolean {
+  const curried =
+    api === 'Effect.forEach' &&
+    node.arguments.length === 2 &&
+    node.arguments[1]?.type === 'ObjectExpression';
+
+  return curried;
+}

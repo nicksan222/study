@@ -14,7 +14,7 @@ import {
 import { materialGenerationRegistration } from '#server/features/materials/workflows/generation';
 import { sourceIndexedRegistration } from '#server/features/materials/workflows/index';
 import { recordingPostRegistration } from '#server/features/recordings/workflows/index';
-import { sourceCorrectionRegistration } from '#server/features/sources/workflows/correction';
+import { sourceCorrectionRegistration } from '#server/features/sources/workflows/index';
 import { sourceIngestionRegistration } from '#server/features/sources/workflows/index';
 
 /** Each workflow is registered once with its durable event subscriptions. */

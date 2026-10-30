@@ -40,6 +40,11 @@ const strokes = {
 const checks = s.quiz.choices.map(() => pressed(() => ink.check(2, 3, 17)));
 
 // The four things a lecture becomes, as notebook tabs over one stage.
+const tabState = (index: number) => ({
+  'aria-selected': index === 0 ? ('true' as const) : ('false' as const),
+  tabindex: index === 0 ? '0' : '-1'
+});
+
 const tabs = [
   { id: 'answers', label: s.answers.tab, icon: 'wand-sparkles', tint: 'tint-green' },
   { id: 'quiz', label: s.quiz.tab, icon: 'list-checks', tint: 'tint-purple' },
@@ -120,8 +125,7 @@ const diagram = {
             role="tab"
             id={`tab-${tab.id}`}
             aria-controls={tab.id}
-            aria-selected={i === 0 ? 'true' : 'false'}
-            tabindex={i === 0 ? '0' : '-1'}
+            {...tabState(i)}
             data-tab
           >
             <span class="chip">
@@ -383,7 +387,9 @@ const diagram = {
   const stage = document.querySelector<HTMLElement>('[data-stage]');
 
   if (stage) {
-    const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+
+
+const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
     const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls') ?? '')!);
     const box = stage.querySelector<HTMLElement>('[data-panels]')!;
     const narrow = matchMedia('(max-width: 900px)');

@@ -54,8 +54,7 @@ export default defineRule({
         )
           meaningful = true;
 
-        for (const [key, child] of Object.entries(node))
-          if (key !== 'parent' && key !== 'loc' && key !== 'range') inspect(child);
+        inspectChildren(node, inspect);
       }
 
       inspect(callback.body);
@@ -79,3 +78,8 @@ export default defineRule({
     };
   }
 });
+
+function inspectChildren(node: any, inspect: (child: any) => void): void {
+  for (const [key, child] of Object.entries(node))
+    if (key !== 'parent' && key !== 'loc' && key !== 'range') inspect(child);
+}

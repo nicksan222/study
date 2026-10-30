@@ -1,16 +1,15 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings } from '../effect-bindings.ts';
+import { binding, enterNode } from '../lexical-bindings.ts';
 import { resolveValue } from './module-factories.ts';
-import { binding } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     const path = context.filename.replaceAll('\\', '/');
 
-    if (!/\/packages\/contracts\/src\//.test(path) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path))
-      return {};
+    if (!contractFile(path)) return {};
 
     const effects = effectBindings(context);
     const report = (node: any) =>
@@ -20,9 +19,7 @@ export default defineRule({
       });
 
     function handwritten(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (node.type === 'TSInterfaceDeclaration' || node.type === 'TSTypeLiteral') return true;
 
@@ -35,20 +32,50 @@ export default defineRule({
 
       if (node.type === 'TSTypeOperator') return handwritten(node.typeAnnotation, seen);
 
-      if (node.type === 'TSTypeReference') {
-        const parameters = node.typeArguments?.params ?? node.typeParameters?.params ?? [];
-        const args =
-          node.typeName.type === 'Identifier' && ['Extract', 'Exclude'].includes(node.typeName.name)
-            ? parameters.slice(0, 1)
-            : parameters;
-
-        if (args.some((type: any) => handwritten(type, new Set(seen)))) return true;
-
-        if (node.typeName.type === 'Identifier')
-          return handwritten(binding(context, node.typeName)?.defs[0]?.node, seen);
-      }
+      if (node.type === 'TSTypeReference') return handwrittenReference(node, seen);
 
       return false;
+    }
+
+    function handwrittenReference(node: any, seen: Set<any>): boolean {
+      const parameters = node.typeArguments?.params ?? node.typeParameters?.params ?? [];
+      const args =
+        node.typeName.type === 'Identifier' && ['Extract', 'Exclude'].includes(node.typeName.name)
+          ? parameters.slice(0, 1)
+          : parameters;
+
+      if (args.some((type: any) => handwritten(type, new Set(seen)))) return true;
+
+      if (node.typeName.type === 'Identifier')
+        return handwritten(binding(context, node.typeName)?.defs[0]?.node, seen);
+
+      return false;
+    }
+
+    function handwrittenDeclaration(node: any): boolean {
+      return (
+        node?.type === 'TSInterfaceDeclaration' ||
+        (node?.type === 'TSTypeAliasDeclaration' && handwritten(node))
+      );
+    }
+
+    function importedBrand(node: any): boolean {
+      const def = binding(context, node)?.defs[0]?.node;
+
+      return (
+        def?.type === 'ImportSpecifier' &&
+        def.imported?.name === 'Brand' &&
+        def.parent?.source?.value === 'effect'
+      );
+    }
+
+    function handwrittenBrand(name: any): boolean {
+      return (
+        !path.endsWith('/ids.ts') &&
+        name?.type === 'TSQualifiedName' &&
+        ['Brand', 'Branded'].includes(name.right?.name) &&
+        (effects.resolve(name.left) === 'Brand' || importedBrand(name.left))
+      );
     }
 
     return {
@@ -56,11 +83,7 @@ export default defineRule({
       ExportNamedDeclaration(node) {
         const declaration = node.declaration;
 
-        if (
-          declaration?.type === 'TSInterfaceDeclaration' ||
-          (declaration?.type === 'TSTypeAliasDeclaration' && handwritten(declaration))
-        )
-          report(declaration);
+        if (handwrittenDeclaration(declaration)) report(declaration);
 
         if (!node.source && !declaration)
           for (const specifier of node.specifiers)
@@ -103,23 +126,12 @@ export default defineRule({
         )
           report(node);
 
-        if (
-          !path.endsWith('/ids.ts') &&
-          name?.type === 'TSQualifiedName' &&
-          ['Brand', 'Branded'].includes(name.right?.name) &&
-          (effects.resolve(name.left) === 'Brand' ||
-            (() => {
-              const def = binding(context, name.left)?.defs[0]?.node;
-
-              return (
-                def?.type === 'ImportSpecifier' &&
-                def.imported?.name === 'Brand' &&
-                def.parent?.source?.value === 'effect'
-              );
-            })())
-        )
-          report(node);
+        if (handwrittenBrand(name)) report(node);
       }
     };
   }
 });
+
+function contractFile(path: string): boolean {
+  return /\/packages\/contracts\/src\//.test(path) && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path);
+}

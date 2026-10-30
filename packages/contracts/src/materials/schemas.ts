@@ -92,47 +92,48 @@ export const materialAnchorSchema = anchorSchema;
 export const materialDocumentSchema = documentSchema;
 
 const materialDocumentInputIsValid = (document: typeof materialDocumentSchema.Type) =>
-  document.blocks.length > 0 &&
-  document.blocks.every(({ anchor }) => {
-    switch (anchor.type) {
-      case 'time':
-        return (
-          isNatural(anchor.startMs) && isNatural(anchor.endMs) && anchor.endMs >= anchor.startMs
-        );
-      case 'page':
-        return Number.isInteger(anchor.page) && anchor.page >= 1;
-      case 'text':
-        return (
-          isNatural(anchor.lineStart) &&
-          isNatural(anchor.lineEnd) &&
-          isNatural(anchor.start) &&
-          isNatural(anchor.end) &&
-          anchor.lineEnd >= anchor.lineStart &&
-          anchor.end >= anchor.start
-        );
-      case 'slide':
-      case 'paragraph':
-        return isNatural(anchor.index);
-      case 'url':
-        try {
-          new URL(anchor.url);
+  document.blocks.length > 0 && document.blocks.every(({ anchor }) => validMaterialAnchor(anchor));
 
-          return true;
-        } catch {
-          return false;
-        }
-      default:
-        return true;
-    }
-  });
+function validMaterialAnchor(anchor: typeof materialAnchorSchema.Type) {
+  switch (anchor.type) {
+    case 'time':
+      return isNatural(anchor.startMs) && isNatural(anchor.endMs) && anchor.endMs >= anchor.startMs;
+    case 'page':
+      return Number.isInteger(anchor.page) && anchor.page >= 1;
+    case 'text':
+      return validTextAnchor(anchor);
+    case 'slide':
+    case 'paragraph':
+      return isNatural(anchor.index);
+    case 'url':
+      return validAnchorUrl(anchor.url);
+    default:
+      return true;
+  }
+}
+
+function validTextAnchor(anchor: Extract<typeof materialAnchorSchema.Type, { type: 'text' }>) {
+  return (
+    isNatural(anchor.lineStart) &&
+    isNatural(anchor.lineEnd) &&
+    isNatural(anchor.start) &&
+    isNatural(anchor.end) &&
+    anchor.lineEnd >= anchor.lineStart &&
+    anchor.end >= anchor.start
+  );
+}
 
 const quizChoiceInputSchema = Schema.Struct({ text: nonemptySchema, isCorrect: Schema.Boolean });
 
-const singleChoiceInputSchema = Schema.Struct({
-  kind: Schema.Literal('single_choice'),
+const choiceQuestionFields = {
   prompt: nonemptySchema,
   explanation: nonemptySchema,
   choices: Schema.mutable(Schema.Array(quizChoiceInputSchema)).check(Schema.isBetweenLength(2, 100))
+};
+
+const singleChoiceInputSchema = Schema.Struct({
+  kind: Schema.Literal('single_choice'),
+  ...choiceQuestionFields
 }).check(
   Schema.makeFilter(
     (question: { choices: readonly { isCorrect: boolean }[] }) =>
@@ -142,9 +143,7 @@ const singleChoiceInputSchema = Schema.Struct({
 
 const multipleChoiceInputSchema = Schema.Struct({
   kind: Schema.Literal('multiple_choice'),
-  prompt: nonemptySchema,
-  explanation: nonemptySchema,
-  choices: Schema.mutable(Schema.Array(quizChoiceInputSchema)).check(Schema.isBetweenLength(2, 100))
+  ...choiceQuestionFields
 }).check(
   Schema.makeFilter((question: { choices: readonly { isCorrect: boolean }[] }) =>
     question.choices.some((choice) => choice.isCorrect)
@@ -202,6 +201,11 @@ export const materialFlashcardsContentInputSchema = Schema.Struct({
   )
 );
 
+const pairedDimensions = Schema.makeFilter(
+  (content: { width: bigint | null; height: bigint | null }) =>
+    (content.width === null) === (content.height === null)
+);
+
 export const materialContentInputSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('file'), sourceId: sourceIdSchema }),
   Schema.Struct({
@@ -217,23 +221,13 @@ export const materialContentInputSchema = Schema.Union([
     durationMs: nonnegativeNullableBigIntSchema,
     width: positiveNullableBigIntSchema,
     height: positiveNullableBigIntSchema
-  }).check(
-    Schema.makeFilter(
-      (content: { width: bigint | null; height: bigint | null }) =>
-        (content.width === null) === (content.height === null)
-    )
-  ),
+  }).check(pairedDimensions),
   Schema.Struct({
     kind: Schema.Literal('image'),
     sourceId: sourceIdSchema,
     width: positiveNullableBigIntSchema,
     height: positiveNullableBigIntSchema
-  }).check(
-    Schema.makeFilter(
-      (content: { width: bigint | null; height: bigint | null }) =>
-        (content.width === null) === (content.height === null)
-    )
-  ),
+  }).check(pairedDimensions),
   Schema.Struct({ kind: Schema.Literal('link'), sourceId: sourceIdSchema }),
   Schema.Struct({ kind: Schema.Literal('document'), ...materialDocumentSchema.fields }).check(
     Schema.makeFilter(materialDocumentInputIsValid)
@@ -525,6 +519,13 @@ export const materialCitationSchema = Schema.Struct({
   quote: nonemptySchema
 });
 
+const uniqueMaterialLinks = Schema.makeFilter(
+  (links: { inputs?: readonly bigint[]; parents?: readonly bigint[] }) =>
+    [links.inputs, links.parents].every(
+      (ids) => ids === undefined || new Set(ids).size === ids.length
+    )
+);
+
 export const materialLinksInputSchema = Schema.Struct({
   inputs: Schema.optional(
     Schema.mutable(Schema.Array(materialVersionIdSchema)).check(Schema.isMaxLength(1000))
@@ -532,13 +533,7 @@ export const materialLinksInputSchema = Schema.Struct({
   parents: Schema.optional(
     Schema.mutable(Schema.Array(materialVersionIdSchema)).check(Schema.isMaxLength(1000))
   )
-}).check(
-  Schema.makeFilter((links: { inputs?: readonly bigint[]; parents?: readonly bigint[] }) =>
-    [links.inputs, links.parents].every(
-      (ids) => ids === undefined || new Set(ids).size === ids.length
-    )
-  )
-);
+}).check(uniqueMaterialLinks);
 
 export const createMaterialVersionInputSchema = Schema.Struct({
   ...materialLinksInputSchema.fields,
@@ -546,26 +541,14 @@ export const createMaterialVersionInputSchema = Schema.Struct({
   operation: Schema.optional(materialOperationSchema),
   language: Schema.optional(Schema.NullOr(Schema.Trim.check(Schema.isBetweenLength(1, 64)))),
   publish: Schema.optional(Schema.Boolean)
-}).check(
-  Schema.makeFilter((links: { inputs?: readonly bigint[]; parents?: readonly bigint[] }) =>
-    [links.inputs, links.parents].every(
-      (ids) => ids === undefined || new Set(ids).size === ids.length
-    )
-  )
-);
+}).check(uniqueMaterialLinks);
 
 export const createMaterialInputSchema = Schema.Struct({
   ...createMaterialVersionInputSchema.fields,
   projectId: projectIdSchema,
   sessionId: Schema.optional(sessionIdSchema),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200))
-}).check(
-  Schema.makeFilter((links: { inputs?: readonly bigint[]; parents?: readonly bigint[] }) =>
-    [links.inputs, links.parents].every(
-      (ids) => ids === undefined || new Set(ids).size === ids.length
-    )
-  )
-);
+}).check(uniqueMaterialLinks);
 
 export const materialPageSchema = Schema.Struct({
   cursor: Schema.optional(materialIdSchema),
@@ -589,3 +572,13 @@ export type MaterialSummaryDto = typeof materialSummarySchema.Type;
 export type MaterialDetailDto = typeof materialDetailSchema.Type;
 
 export type MaterialCitation = typeof materialCitationSchema.Type;
+
+function validAnchorUrl(url: string) {
+  try {
+    new URL(url);
+
+    return true;
+  } catch {
+    return false;
+  }
+}

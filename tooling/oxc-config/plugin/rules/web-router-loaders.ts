@@ -1,8 +1,8 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { propertyName } from '../effect-bindings.ts';
+import { imported } from '../lexical-bindings.ts';
 import { webFile } from '../web-files.ts';
-import { imported } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -28,15 +28,8 @@ export default defineRule({
             .filter((item: any) => item.type === 'Property')
             .map((item: any) => [propertyName(item.key), item.value])
         );
-        const metadata: any = properties.get('staticData');
 
-        if (metadata?.type !== 'ObjectExpression') return;
-
-        const section = metadata.properties.find(
-          (item: any) => item.type === 'Property' && propertyName(item.key) === 'section'
-        )?.value;
-
-        if (section?.type !== 'Literal' || !['library', 'practice'].includes(section.value)) return;
+        if (!requiresLoader(properties.get('staticData'))) return;
 
         if (!properties.has('loader') || !properties.has('loaderDeps'))
           context.report({
@@ -48,3 +41,13 @@ export default defineRule({
     };
   }
 });
+
+function requiresLoader(metadata: any): boolean {
+  if (metadata?.type !== 'ObjectExpression') return false;
+
+  const section = metadata.properties.find(
+    (item: any) => item.type === 'Property' && propertyName(item.key) === 'section'
+  )?.value;
+
+  return section?.type === 'Literal' && ['library', 'practice'].includes(section.value);
+}

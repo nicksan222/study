@@ -23,3 +23,8 @@ export function isPresentationAttribute(node: ESTree.Node): boolean {
     );
   });
 }
+
+/** Restrict presentation rules to web source, retaining each rule's test suffix policy. */
+export function webPresentationSource(filename: string, tests: RegExp): boolean {
+  return /\/apps\/web\/src\//.test(filename) && !tests.test(filename);
+}

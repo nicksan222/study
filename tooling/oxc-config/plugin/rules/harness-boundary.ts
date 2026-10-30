@@ -1,7 +1,13 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
-import { binding, imported, property } from './synchronous-transactions.ts';
+import {
+  binding,
+  imported,
+  memberName as property,
+  constantDeclarator,
+  enterNode
+} from '../lexical-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -20,9 +26,7 @@ export default defineRule({
     });
 
     function resourceOwner(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       const importedApp = (value: any, namespace = false): boolean => {
         const definition = binding(context, value)?.defs[0]?.node;
@@ -44,6 +48,17 @@ export default defineRule({
       )
         return true;
 
+      if (memberOwner(node, importedApp)) return true;
+
+      const definition = binding(context, node)?.defs[0]?.node;
+
+      return constantDeclarator(definition) && resourceOwner(definition.init, seen);
+    }
+
+    function memberOwner(
+      node: any,
+      importedApp: (value: any, namespace?: boolean) => boolean
+    ): boolean {
       if (
         node.type === 'MemberExpression' &&
         ((property(node) === 'Db' && imported(context, node.object, /^@study\/db$/)) ||
@@ -51,13 +66,7 @@ export default defineRule({
       )
         return true;
 
-      const definition = binding(context, node)?.defs[0]?.node;
-
-      return (
-        definition?.type === 'VariableDeclarator' &&
-        definition.parent?.kind === 'const' &&
-        resourceOwner(definition.init, seen)
-      );
+      return false;
     }
 
     return {

@@ -178,19 +178,7 @@ export function workflowStore(context: ServerContext) {
     },
     saveActivity(id: string, owner: string, name: string, attempt: number, result: string) {
       context.transaction(() => {
-        const row = db
-          .select()
-          .from(workflow_executions)
-          .where(
-            and(
-              eq(workflow_executions.execution_id, id),
-              eq(workflow_executions.owner_token, owner),
-              gt(workflow_executions.updated_at, now() - BigInt(leaseMs))
-            )
-          )
-          .get();
-
-        if (!row) throw new Error('Workflow owner was fenced');
+        this.assertOwner(id, owner);
 
         db.insert(workflow_activities)
           .values({ execution_id: id, name, attempt, result })

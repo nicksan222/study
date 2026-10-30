@@ -14,10 +14,6 @@ export const recordingViewSchema = Schema.Struct({
   samples: Schema.BigInt
 });
 
-export type Recording = typeof recordingSchema.Type;
-
-export type RecordingView = typeof recordingViewSchema.Type;
-
 export const recordingPostSchema = Schema.Struct({
   requestId: Schema.String.check(Schema.isMinLength(1)),
   recordingId: recordingIdSchema,

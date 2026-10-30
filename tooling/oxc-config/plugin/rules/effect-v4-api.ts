@@ -1,5 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
+import { boundSpecifier } from '../lexical-bindings.ts';
+
 const replacements: Record<string, Record<string, string>> = {
   Effect: {
     catchAll: 'use Effect.catch',
@@ -27,20 +29,6 @@ export default defineRule({
         : undefined;
     }
 
-    function bound(node: any, specifier: any): boolean {
-      let scope = context.sourceCode.getScope(node);
-
-      while (scope) {
-        const variable = scope.set.get(node.name);
-
-        if (variable) return variable.defs.some((definition) => definition.node === specifier);
-
-        scope = scope.upper!;
-      }
-
-      return false;
-    }
-
     function propertyName(property: any, computed: boolean): string | null {
       if (!computed && property.type === 'Identifier') return property.name;
 
@@ -53,7 +41,7 @@ export default defineRule({
       if (node?.type === 'Identifier') {
         const binding = modules.get(node.name);
 
-        return binding && bound(node, binding.specifier) ? binding.module : null;
+        return binding && boundSpecifier(context, node, binding.specifier) ? binding.module : null;
       }
 
       if (node?.type === 'MemberExpression' && moduleFor(node.object) === 'root') {
@@ -65,22 +53,60 @@ export default defineRule({
       return null;
     }
 
-    function reportPattern(pattern: any, module: string): void {
-      for (const property of pattern.properties) {
-        if (property.type !== 'Property') continue;
+    function reportPatternProperty(property: any, module: string): void {
+      if (property.type !== 'Property') return;
 
-        const name = propertyName(property.key, property.computed);
+      const name = propertyName(property.key, property.computed);
 
-        if (!name) continue;
+      if (!name) return;
 
-        if (module === 'root' && (name === 'Effect' || name === 'Context')) {
-          if (property.value.type === 'ObjectPattern') reportPattern(property.value, name);
-        } else {
-          const diagnostic = message(module, name);
+      if (module === 'root' && (name === 'Effect' || name === 'Context')) {
+        if (property.value.type === 'ObjectPattern') reportPattern(property.value, name);
 
-          if (diagnostic) context.report({ node: property, message: diagnostic });
-        }
+        return;
       }
+
+      const diagnostic = message(module, name);
+
+      if (diagnostic) context.report({ node: property, message: diagnostic });
+    }
+
+    function reportPattern(pattern: any, module: string): void {
+      for (const property of pattern.properties) reportPatternProperty(property, module);
+    }
+
+    function registerNamedImport(source: string, submodule: string | null, specifier: any): void {
+      const name = propertyName(specifier.imported, false);
+
+      if (source === 'effect') {
+        if (name === 'Effect' || name === 'Context')
+          modules.set(specifier.local.name, { module: name, specifier });
+
+        return;
+      }
+
+      const diagnostic = submodule && name && message(submodule, name);
+
+      if (diagnostic) context.report({ node: specifier, message: diagnostic });
+    }
+
+    function registerImport(source: string, specifier: any): void {
+      if (specifier.importKind === 'type') return;
+
+      const submodule =
+        source === 'effect/Effect' ? 'Effect' : source === 'effect/Context' ? 'Context' : null;
+
+      if (specifier.type === 'ImportNamespaceSpecifier') {
+        const module = source === 'effect' ? 'root' : submodule;
+
+        if (module) modules.set(specifier.local.name, { module, specifier });
+
+        return;
+      }
+
+      if (specifier.type !== 'ImportSpecifier') return;
+
+      registerNamedImport(source, submodule, specifier);
     }
 
     return {
@@ -88,34 +114,8 @@ export default defineRule({
         if (node.importKind === 'type') return;
 
         const source = node.source.value;
-        const submodule =
-          source === 'effect/Effect' ? 'Effect' : source === 'effect/Context' ? 'Context' : null;
 
-        for (const specifier of node.specifiers) {
-          if (specifier.type === 'ImportSpecifier' && specifier.importKind === 'type') continue;
-
-          if (source === 'effect' && specifier.type === 'ImportNamespaceSpecifier') {
-            modules.set(specifier.local.name, { module: 'root', specifier });
-          } else if (source === 'effect' && specifier.type === 'ImportSpecifier') {
-            const name =
-              specifier.imported.type === 'Identifier'
-                ? specifier.imported.name
-                : specifier.imported.value;
-
-            if (name === 'Effect' || name === 'Context')
-              modules.set(specifier.local.name, { module: name, specifier });
-          } else if (submodule && specifier.type === 'ImportNamespaceSpecifier') {
-            modules.set(specifier.local.name, { module: submodule, specifier });
-          } else if (submodule && specifier.type === 'ImportSpecifier') {
-            const name =
-              specifier.imported.type === 'Identifier'
-                ? specifier.imported.name
-                : specifier.imported.value;
-            const diagnostic = message(submodule, name);
-
-            if (diagnostic) context.report({ node: specifier, message: diagnostic });
-          }
-        }
+        for (const specifier of node.specifiers) registerImport(source, specifier);
       },
       ExportNamedDeclaration(node) {
         if (!node.source || node.exportKind === 'type') return;

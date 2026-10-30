@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 
-import { root } from '../test/utils.ts';
+import { lintRule, root } from '../test/utils.ts';
 
 function lint(files: Record<string, string>) {
   const dir = mkdtempSync(join(tmpdir(), 'factory-rule-'));
@@ -145,3 +145,21 @@ test('unrelated APIs and SQL identifiers are not workflow writers', () => {
     []
   );
 });
+
+for (const identifier of ['constructor', '__proto__', 'ordinary']) {
+  for (const statement of [
+    `WITH ${identifier} AS (SELECT 1) DELETE FROM workflow_events WHERE id = 1`,
+    `SELECT ${identifier} FROM ordinary; DELETE FROM workflow_events WHERE id = 1`
+  ]) {
+    test(`detects protected SQL writes after ${statement}`, () => {
+      const diagnostics = lintRule('workflow-persistence-boundary', {
+        'apps/server/src/features/jobs/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute(${JSON.stringify(statement)});`
+      });
+
+      assert.deepEqual(
+        diagnostics.map(({ message }) => message),
+        ['Only the canonical workflow owner may write workflow_events.']
+      );
+    });
+  }
+}

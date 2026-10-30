@@ -1,10 +1,16 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, serverProduction } from '../effect-bindings.ts';
+import {
+  binding,
+  memberName as property,
+  constantAliasValue,
+  lexicalResolver
+} from '../lexical-bindings.ts';
 import { property as field } from './effect-lifecycle-syntax.ts';
 import { isFactory, resolveValue } from './module-factories.ts';
 import { chain, databaseOrm } from './persistence-syntax.ts';
-import { binding, callbackTarget, property } from './synchronous-transactions.ts';
+import { callbackTarget } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -15,12 +21,7 @@ export default defineRule({
 
     // Nested function bodies are deferred; inspecting them here would report pure closures.
     function immediate(node: any, visit: (node: any) => void): void {
-      if (
-        !node ||
-        typeof node !== 'object' ||
-        /^(?:Function|ArrowFunction|Class)/.test(node.type ?? '')
-      )
-        return;
+      if (!immediateScope(node)) return;
 
       visit(node);
 
@@ -32,47 +33,33 @@ export default defineRule({
       }
     }
 
-    function resolve(node: any, seen = new Set<any>()): string | null {
-      if (!node || seen.has(node)) return null;
+    const resolve = lexicalResolver(resolvedIdentifier, resolveMember);
 
-      seen.add(node);
+    function resolveMember(node: any, seen: Set<any>): string | null {
+      const base = resolve(node.object, seen);
+      const key = node.computed ? node.property.value : node.property.name;
 
-      if (node.type === 'Identifier') {
-        const def = binding(context, node)?.defs[0]?.node;
+      return base && key ? `${base}.${key}` : null;
+    }
 
-        if (!def && ['Promise', 'JSON', 'Date', 'Math'].includes(node.name)) return node.name;
+    function resolvedIdentifier(node: any, seen: Set<any>): string | null {
+      const def = binding(context, node)?.defs[0]?.node;
 
-        if (
-          def?.parent?.type === 'ImportDeclaration' &&
-          /^(?:node:)?fs$/.test(def.parent.source.value)
-        ) {
-          if (def.type === 'ImportNamespaceSpecifier' || def.type === 'ImportDefaultSpecifier')
-            return 'fs';
+      if (!def && ['Promise', 'JSON', 'Date', 'Math'].includes(node.name)) return node.name;
 
-          if (def.type === 'ImportSpecifier') return `fs.${def.imported.name}`;
-        }
+      const imported = filesystemImport(def);
 
-        if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
-          const base = resolve(def.init, seen);
+      if (imported) return imported;
 
-          if (def.id.type === 'Identifier') return base;
+      return resolvedAlias(node, def, seen);
+    }
 
-          if (def.id.type === 'ObjectPattern') {
-            const prop = def.id.properties.find((p: any) => p.value?.name === node.name);
+    function resolvedAlias(node: any, def: any, seen: Set<any>): string | null {
+      return constantAliasValue(def, seen, resolve, (pattern, base) => {
+        const prop = pattern.properties.find((p: any) => p.value?.name === node.name);
 
-            return base && prop ? `${base}.${prop.key.name}` : null;
-          }
-        }
-      }
-
-      if (node.type === 'MemberExpression') {
-        const base = resolve(node.object, seen);
-        const key = node.computed ? node.property.value : node.property.name;
-
-        return base && key ? `${base}.${key}` : null;
-      }
-
-      return null;
+        return base && prop ? `${base}.${prop.key.name}` : null;
+      });
     }
 
     function promise(node: any): boolean {
@@ -121,38 +108,66 @@ export default defineRule({
       );
     }
 
+    function checkStoreConstruction(node: any) {
+      if (isFactory(context, node.callee, 'store')) {
+        const descriptor = resolveValue(context, node.arguments[0]);
+        const make = callbackTarget(context, field(descriptor, 'make'));
+
+        if (make)
+          immediate(make.body, (part: any) => {
+            if (part.type !== 'CallExpression') return;
+
+            if (databaseExecution(part))
+              context.report({
+                node: part,
+                message: 'Keep database execution out of store construction.'
+              });
+          });
+      }
+    }
+
+    function databaseExecution(part: any): boolean {
+      const query = chain(context, part);
+
+      return (
+        (query && ['get', 'all', 'run'].includes(query.methods.at(-1)?.name ?? '')) ||
+        (part.callee?.type === 'MemberExpression' &&
+          ['get', 'all', 'run'].includes(property(part.callee) ?? '') &&
+          databaseOrm(context, part.callee.object))
+      );
+    }
+
+    function mappedPromise(node: any, arg: any): boolean {
+      if (
+        ['Promise.all', 'Promise.allSettled'].includes(resolve(node.callee) ?? '') &&
+        arg?.type === 'CallExpression' &&
+        arg.callee?.type === 'MemberExpression' &&
+        (arg.callee.property as any)?.name === 'map' &&
+        callbackPromise(arg.arguments[0])
+      )
+        return true;
+
+      return false;
+    }
+
+    function uninterruptibleOutsideOwner(name: string | null): boolean {
+      if (
+        name === 'Effect.uninterruptible' &&
+        !/\/src\/platform\/ai\/runtime\/resource(?:\.ts|\/[^/]+\.ts)$/.test(context.filename)
+      )
+        return true;
+
+      return false;
+    }
+
     return {
       ImportDeclaration: effects.imports,
       CallExpression(node) {
-        if (isFactory(context, node.callee, 'store')) {
-          const descriptor = resolveValue(context, node.arguments[0]);
-          const make = callbackTarget(context, field(descriptor, 'make'));
-
-          if (make)
-            immediate(make.body, (part: any) => {
-              if (part.type !== 'CallExpression') return;
-
-              const query = chain(context, part);
-
-              if (
-                (query && ['get', 'all', 'run'].includes(query.methods.at(-1)?.name ?? '')) ||
-                (part.callee?.type === 'MemberExpression' &&
-                  ['get', 'all', 'run'].includes(property(part.callee) ?? '') &&
-                  databaseOrm(context, part.callee.object))
-              )
-                context.report({
-                  node: part,
-                  message: 'Keep database execution out of store construction.'
-                });
-            });
-        }
+        checkStoreConstruction(node);
 
         const name = effects.resolve(node.callee);
         const arg = node.arguments[0];
-        const tryArg =
-          name === 'Effect.try' && arg?.type === 'ObjectExpression'
-            ? (arg.properties as any[]).find((p: any) => p.key?.name === 'try')?.value
-            : arg;
+        const tryArg = callbackArgument(name, arg);
         const cb = callbackTarget(context, tryArg);
         let bad = (name === 'Effect.sync' || name === 'Effect.try') && callbackPromise(tryArg);
 
@@ -164,20 +179,9 @@ export default defineRule({
 
         if (name === 'Effect.succeed' && knownIo(arg)) bad = true;
 
-        if (
-          name === 'Effect.uninterruptible' &&
-          !/\/src\/platform\/ai\/runtime\/resource(?:\.ts|\/[^/]+\.ts)$/.test(context.filename)
-        )
-          bad = true;
+        if (uninterruptibleOutsideOwner(name)) bad = true;
 
-        if (
-          ['Promise.all', 'Promise.allSettled'].includes(resolve(node.callee) ?? '') &&
-          arg?.type === 'CallExpression' &&
-          arg.callee?.type === 'MemberExpression' &&
-          (arg.callee.property as any)?.name === 'map' &&
-          callbackPromise(arg.arguments[0])
-        )
-          bad = true;
+        if (mappedPromise(node, arg)) bad = true;
 
         if (bad)
           context.report({
@@ -188,3 +192,29 @@ export default defineRule({
     };
   }
 });
+
+function filesystemImport(def: any): string | null {
+  if (def?.parent?.type === 'ImportDeclaration' && /^(?:node:)?fs$/.test(def.parent.source.value)) {
+    if (def.type === 'ImportNamespaceSpecifier' || def.type === 'ImportDefaultSpecifier')
+      return 'fs';
+
+    if (def.type === 'ImportSpecifier') return `fs.${def.imported.name}`;
+  }
+
+  return null;
+}
+
+function callbackArgument(name: string | null, arg: any) {
+  const tryArg =
+    name === 'Effect.try' && arg?.type === 'ObjectExpression'
+      ? (arg.properties as any[]).find((p: any) => p.key?.name === 'try')?.value
+      : arg;
+
+  return tryArg;
+}
+
+function immediateScope(node: any): boolean {
+  return (
+    !!node && typeof node === 'object' && !/^(?:Function|ArrowFunction|Class)/.test(node.type ?? '')
+  );
+}

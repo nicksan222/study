@@ -3,7 +3,7 @@
 // and search) are on the learner's computer, and only model work goes to their ChatGPT plan.
 import type { Shape } from '../strings';
 
-export const en = {
+export const yoursEn = {
   yours: {
     title: 'Yours, on your computer.',
     key: 'your computer',
@@ -33,7 +33,7 @@ export const en = {
   }
 } as const;
 
-export const it: Shape<typeof en> = {
+export const yoursIt: Shape<typeof yoursEn> = {
   yours: {
     title: 'Tuo, sul tuo computer.',
     key: 'tuo computer',
