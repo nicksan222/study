@@ -38,7 +38,11 @@ beforeEach(() => {
 });
 
 it.each(pages)('renders an empty %s page without calling the server', async (page) => {
-  history.replaceState(null, '', `/#/${page}?id=42`);
+  history.replaceState(
+    null,
+    '',
+    `/${page === 'MediaList' ? 'media-list' : page.toLowerCase()}?id=42`
+  );
   const fetch = vi.spyOn(globalThis, 'fetch');
 
   render(<App />);
@@ -53,11 +57,11 @@ it.each(pages)('renders an empty %s page without calling the server', async (pag
 it('navigates between placeholders and restores browser history', async () => {
   const user = userEvent.setup();
 
-  history.replaceState(null, '', '/#/Home');
+  history.replaceState(null, '', '/home');
   render(<App />);
   await screen.findByRole('heading');
   await user.click(screen.getByRole('link', { name: catalogs.english.Settings }));
-  await waitFor(() => expect(location.hash).toBe('#/Settings'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/settings'));
   expect(
     await screen.findByRole('heading', { name: catalogs.english.Settings })
   ).toBeInTheDocument();

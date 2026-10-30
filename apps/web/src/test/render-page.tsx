@@ -2,8 +2,8 @@ import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import { vi } from 'vite-plus/test';
 
+import { Providers } from '../app/providers';
 import { createAppRouter } from '../app/router';
-import { LanguageProvider } from '../lib/i18n';
 import type { Locale } from '../lib/i18n';
 
 vi.mock('../lib/study-client/client', async () => {
@@ -26,9 +26,9 @@ export function renderPage(path: string, locale: Locale = 'english') {
 
   return {
     ...render(
-      <LanguageProvider locale={locale}>
+      <Providers locale={locale} queryClient={router.options.context.queryClient}>
         <RouterProvider router={router} />
-      </LanguageProvider>
+      </Providers>
     ),
     router
   };

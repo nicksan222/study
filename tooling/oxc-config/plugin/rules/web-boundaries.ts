@@ -29,12 +29,9 @@ export default defineRule({
         (source === 'effect/rpc' ||
           source === '@trpc/client' ||
           source === '@study/server/client' ||
-          /^(?:@trpc|@tanstack)\/.*query/.test(source))
+          source.startsWith('@trpc/'))
       ) {
-        report(
-          node,
-          'Use the browser Effect transport adapters instead of importing a raw client.'
-        );
+        report(node, 'Use the browser transport adapters instead of importing a raw client.');
 
         return;
       }
@@ -50,7 +47,7 @@ export default defineRule({
       }
 
       if (!transport && target === 'lib/study-client/client') {
-        report(node, 'Use browser Effect operations instead of importing the raw RPC client.');
+        report(node, 'Use browser request operations instead of importing the raw RPC client.');
 
         return;
       }
@@ -101,10 +98,10 @@ export default defineRule({
         const fetch = nativeGlobal(bindings, callee)?.replace(/^window\./, '') === 'fetch';
         const request =
           callee.type === 'MemberExpression' &&
-          ['query', 'mutate'].includes(propertyName(callee.property) ?? '');
+          ['query'].includes(propertyName(callee.property) ?? '');
 
         if (fetch || request)
-          report(node, 'Perform browser I/O through the Effect transport adapters.');
+          report(node, 'Perform browser I/O through the browser transport adapters.');
       }
     };
   }

@@ -5,7 +5,7 @@ import { expect, it } from 'vite-plus/test';
 import { renderPage } from '../../test/render-page';
 
 it.each(['english', 'italian'] as const)('opens the Diagrams page in %s', async (locale) => {
-  const { router } = renderPage('/Diagrams?project=9007199254740993', locale);
+  const { router } = renderPage('/diagrams?project=9007199254740993', locale);
 
   expect(
     await screen.findByRole('heading', { name: catalogs[locale].Diagrams })

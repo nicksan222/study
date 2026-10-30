@@ -16,6 +16,7 @@
     "@study/localization": "*",
     "@study/server": "*",
     "@study/ui": "*",
+    "@tanstack/react-query": "^5.105.0",
     "@tanstack/react-router": "^1.170.46",
     "@tauri-apps/api": "^2.12.4",
     "effect": "4.0.7",

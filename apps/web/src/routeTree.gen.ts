@@ -10,16 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DiagramsRouteImport } from './routes/Diagrams'
-import { Route as FlashcardsRouteImport } from './routes/Flashcards'
-import { Route as HelpRouteImport } from './routes/Help'
-import { Route as HomeRouteImport } from './routes/Home'
-import { Route as MediaListRouteImport } from './routes/MediaList'
-import { Route as PipelinesRouteImport } from './routes/Pipelines'
-import { Route as PracticeRouteImport } from './routes/Practice'
-import { Route as ProjectsRouteImport } from './routes/Projects'
-import { Route as SessionsRouteImport } from './routes/Sessions'
-import { Route as SettingsRouteImport } from './routes/Settings'
+import { Route as DiagramsRouteImport } from './routes/diagrams'
+import { Route as FlashcardsRouteImport } from './routes/flashcards'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as MediaListRouteImport } from './routes/media-list'
+import { Route as PipelinesRouteImport } from './routes/pipelines'
+import { Route as PracticeRouteImport } from './routes/practice'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as SessionsRouteImport } from './routes/sessions'
+import { Route as SettingsRouteImport } from './routes/settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -27,136 +27,136 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiagramsRoute = DiagramsRouteImport.update({
-  id: '/Diagrams',
-  path: '/Diagrams',
+  id: '/diagrams',
+  path: '/diagrams',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlashcardsRoute = FlashcardsRouteImport.update({
-  id: '/Flashcards',
-  path: '/Flashcards',
+  id: '/flashcards',
+  path: '/flashcards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HelpRoute = HelpRouteImport.update({
-  id: '/Help',
-  path: '/Help',
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
-  id: '/Home',
-  path: '/Home',
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MediaListRoute = MediaListRouteImport.update({
-  id: '/MediaList',
-  path: '/MediaList',
+  id: '/media-list',
+  path: '/media-list',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelinesRoute = PipelinesRouteImport.update({
-  id: '/Pipelines',
-  path: '/Pipelines',
+  id: '/pipelines',
+  path: '/pipelines',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PracticeRoute = PracticeRouteImport.update({
-  id: '/Practice',
-  path: '/Practice',
+  id: '/practice',
+  path: '/practice',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/Projects',
-  path: '/Projects',
+  id: '/projects',
+  path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessionsRoute = SessionsRouteImport.update({
-  id: '/Sessions',
-  path: '/Sessions',
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
-  id: '/Settings',
-  path: '/Settings',
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/Diagrams': typeof DiagramsRoute
-  '/Flashcards': typeof FlashcardsRoute
-  '/Help': typeof HelpRoute
-  '/Home': typeof HomeRoute
-  '/MediaList': typeof MediaListRoute
-  '/Pipelines': typeof PipelinesRoute
-  '/Practice': typeof PracticeRoute
-  '/Projects': typeof ProjectsRoute
-  '/Sessions': typeof SessionsRoute
-  '/Settings': typeof SettingsRoute
+  '/diagrams': typeof DiagramsRoute
+  '/flashcards': typeof FlashcardsRoute
+  '/help': typeof HelpRoute
+  '/home': typeof HomeRoute
+  '/media-list': typeof MediaListRoute
+  '/pipelines': typeof PipelinesRoute
+  '/practice': typeof PracticeRoute
+  '/projects': typeof ProjectsRoute
+  '/sessions': typeof SessionsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/Diagrams': typeof DiagramsRoute
-  '/Flashcards': typeof FlashcardsRoute
-  '/Help': typeof HelpRoute
-  '/Home': typeof HomeRoute
-  '/MediaList': typeof MediaListRoute
-  '/Pipelines': typeof PipelinesRoute
-  '/Practice': typeof PracticeRoute
-  '/Projects': typeof ProjectsRoute
-  '/Sessions': typeof SessionsRoute
-  '/Settings': typeof SettingsRoute
+  '/diagrams': typeof DiagramsRoute
+  '/flashcards': typeof FlashcardsRoute
+  '/help': typeof HelpRoute
+  '/home': typeof HomeRoute
+  '/media-list': typeof MediaListRoute
+  '/pipelines': typeof PipelinesRoute
+  '/practice': typeof PracticeRoute
+  '/projects': typeof ProjectsRoute
+  '/sessions': typeof SessionsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/Diagrams': typeof DiagramsRoute
-  '/Flashcards': typeof FlashcardsRoute
-  '/Help': typeof HelpRoute
-  '/Home': typeof HomeRoute
-  '/MediaList': typeof MediaListRoute
-  '/Pipelines': typeof PipelinesRoute
-  '/Practice': typeof PracticeRoute
-  '/Projects': typeof ProjectsRoute
-  '/Sessions': typeof SessionsRoute
-  '/Settings': typeof SettingsRoute
+  '/diagrams': typeof DiagramsRoute
+  '/flashcards': typeof FlashcardsRoute
+  '/help': typeof HelpRoute
+  '/home': typeof HomeRoute
+  '/media-list': typeof MediaListRoute
+  '/pipelines': typeof PipelinesRoute
+  '/practice': typeof PracticeRoute
+  '/projects': typeof ProjectsRoute
+  '/sessions': typeof SessionsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/Diagrams'
-    | '/Flashcards'
-    | '/Help'
-    | '/Home'
-    | '/MediaList'
-    | '/Pipelines'
-    | '/Practice'
-    | '/Projects'
-    | '/Sessions'
-    | '/Settings'
+    | '/diagrams'
+    | '/flashcards'
+    | '/help'
+    | '/home'
+    | '/media-list'
+    | '/pipelines'
+    | '/practice'
+    | '/projects'
+    | '/sessions'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/Diagrams'
-    | '/Flashcards'
-    | '/Help'
-    | '/Home'
-    | '/MediaList'
-    | '/Pipelines'
-    | '/Practice'
-    | '/Projects'
-    | '/Sessions'
-    | '/Settings'
+    | '/diagrams'
+    | '/flashcards'
+    | '/help'
+    | '/home'
+    | '/media-list'
+    | '/pipelines'
+    | '/practice'
+    | '/projects'
+    | '/sessions'
+    | '/settings'
   id:
     | '__root__'
     | '/'
-    | '/Diagrams'
-    | '/Flashcards'
-    | '/Help'
-    | '/Home'
-    | '/MediaList'
-    | '/Pipelines'
-    | '/Practice'
-    | '/Projects'
-    | '/Sessions'
-    | '/Settings'
+    | '/diagrams'
+    | '/flashcards'
+    | '/help'
+    | '/home'
+    | '/media-list'
+    | '/pipelines'
+    | '/practice'
+    | '/projects'
+    | '/sessions'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -182,73 +182,73 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Diagrams': {
-      id: '/Diagrams'
-      path: '/Diagrams'
-      fullPath: '/Diagrams'
+    '/diagrams': {
+      id: '/diagrams'
+      path: '/diagrams'
+      fullPath: '/diagrams'
       preLoaderRoute: typeof DiagramsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Flashcards': {
-      id: '/Flashcards'
-      path: '/Flashcards'
-      fullPath: '/Flashcards'
+    '/flashcards': {
+      id: '/flashcards'
+      path: '/flashcards'
+      fullPath: '/flashcards'
       preLoaderRoute: typeof FlashcardsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Help': {
-      id: '/Help'
-      path: '/Help'
-      fullPath: '/Help'
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
       preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Home': {
-      id: '/Home'
-      path: '/Home'
-      fullPath: '/Home'
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/MediaList': {
-      id: '/MediaList'
-      path: '/MediaList'
-      fullPath: '/MediaList'
+    '/media-list': {
+      id: '/media-list'
+      path: '/media-list'
+      fullPath: '/media-list'
       preLoaderRoute: typeof MediaListRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Pipelines': {
-      id: '/Pipelines'
-      path: '/Pipelines'
-      fullPath: '/Pipelines'
+    '/pipelines': {
+      id: '/pipelines'
+      path: '/pipelines'
+      fullPath: '/pipelines'
       preLoaderRoute: typeof PipelinesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Practice': {
-      id: '/Practice'
-      path: '/Practice'
-      fullPath: '/Practice'
+    '/practice': {
+      id: '/practice'
+      path: '/practice'
+      fullPath: '/practice'
       preLoaderRoute: typeof PracticeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Projects': {
-      id: '/Projects'
-      path: '/Projects'
-      fullPath: '/Projects'
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Sessions': {
-      id: '/Sessions'
-      path: '/Sessions'
-      fullPath: '/Sessions'
+    '/sessions': {
+      id: '/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
       preLoaderRoute: typeof SessionsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Settings': {
-      id: '/Settings'
-      path: '/Settings'
-      fullPath: '/Settings'
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }

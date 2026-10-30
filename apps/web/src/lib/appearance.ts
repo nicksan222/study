@@ -1,7 +1,6 @@
 import { Appearance } from '@study/contracts/settings/types';
 import { applyThemeToDocument, createThemeStore, defaultThemeId } from '@study/ui/theme';
 
-import { runOperation } from './effect/runtime';
 import { loadAppearance } from './study-client/operations';
 
 export function initializeAppearance(document: Document): () => void {
@@ -9,16 +8,19 @@ export function initializeAppearance(document: Document): () => void {
   const restore = applyThemeToDocument(store, document);
   const controller = new AbortController();
 
-  void runOperation(loadAppearance(), controller.signal).then((outcome) => {
-    if (controller.signal.aborted || outcome.status !== 'ready') return;
+  void loadAppearance(controller.signal)
+    .then(({ settings, selected, themes }) => {
+      if (controller.signal.aborted) return;
 
-    const { settings, selected, themes } = outcome.value;
-    const theme = themes.find((item) => item.id === (selected ?? defaultThemeId));
+      const theme = themes.find((item) => item.id === (selected ?? defaultThemeId));
 
-    if (theme) store.setTheme(theme);
+      if (theme) store.setTheme(theme);
 
-    store.setAppearance(settings.appearance === Appearance.LIGHT ? 'light' : 'dark');
-  });
+      store.setAppearance(settings.appearance === Appearance.LIGHT ? 'light' : 'dark');
+    })
+    .catch(() => {
+      // Startup keeps the default palette when saved appearance is unavailable.
+    });
 
   return () => {
     controller.abort();

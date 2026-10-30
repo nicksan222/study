@@ -5,7 +5,6 @@ import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
 import { FileText, Network, Layers, GraduationCap } from 'lucide-react';
 
-import type { OperationState } from '../../lib/effect/use-operation';
 import { useI18n } from '../../lib/i18n';
 import type { AppSearch } from '../../lib/navigation/route-contract';
 import type { Subjects } from '../../lib/study-client/operations';
@@ -22,7 +21,10 @@ export function LibraryListView({
   search,
   reload
 }: {
-  state: OperationState<LibraryItem[]>;
+  state:
+    | { status: 'pending' }
+    | { status: 'error'; error?: unknown }
+    | { status: 'success'; data: LibraryItem[] };
   section: 'library' | 'practice';
   subjects: Subjects;
   blocked: boolean;
@@ -43,10 +45,10 @@ export function LibraryListView({
       </Button>
     );
 
-  if (state.status !== 'ready')
+  if (state.status !== 'success')
     return <Sidebar.Message role="status">{t('LoadingStudy')}</Sidebar.Message>;
 
-  const items = state.value.filter(
+  const items = state.data.filter(
     (item) =>
       (filter === 'all' || filter === (item.type === 'source' ? 'source' : item.value.kind)) &&
       (item.type === 'source' ? item.value.name : item.value.title)

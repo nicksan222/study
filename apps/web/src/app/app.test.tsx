@@ -19,8 +19,17 @@ vi.mock('../lib/study-client/client', async () => {
   };
 });
 
-it.each(['/', '/#/unknown'])('opens Home for %s', async (url) => {
+it.each(['/', '/unknown'])('opens Home for %s', async (url) => {
   history.replaceState(null, '', url);
   render(<App />);
   expect(await screen.findByRole('heading', { name: catalogs.english.Home })).toBeInTheDocument();
+});
+
+it('opens a lowercase deep link without hash routing', async () => {
+  history.replaceState(null, '', '/sessions?project=9007199254740993');
+  render(<App />);
+  await screen.findByRole('heading', { name: catalogs.english.Sessions });
+  expect(location.pathname).toBe('/sessions');
+  expect(location.search).toBe('?project=9007199254740993');
+  expect(location.hash).toBe('');
 });

@@ -5,32 +5,32 @@ import type { SearchResults } from '../../lib/study-client/operations';
 export function resultLocation(hit: SearchResults['hits'][number], project?: ProjectId) {
   switch (hit.target.type) {
     case 'project':
-      return { to: '/Home', search: { project: String(hit.target.id) } } as const;
+      return { to: '/home', search: { project: String(hit.target.id) } } as const;
     case 'session':
       return {
-        to: '/Sessions',
+        to: '/sessions',
         search: { project: String(hit.target.projectId), id: String(hit.target.sessionId) }
       } as const;
     case 'material':
       return {
         to:
           hit.target.materialKind === 'diagram'
-            ? '/Diagrams'
+            ? '/diagrams'
             : hit.target.materialKind === 'flashcards'
-              ? '/Flashcards'
+              ? '/flashcards'
               : hit.target.materialKind === 'quiz'
-                ? '/Practice'
-                : '/MediaList',
+                ? '/practice'
+                : '/media-list',
         search: { project: String(hit.target.projectId), material: String(hit.target.materialId) }
       } as const;
     case 'question':
       return {
-        to: '/Practice',
+        to: '/practice',
         search: { project: String(hit.target.projectId), material: String(hit.target.materialId) }
       } as const;
     case 'source':
       return {
-        to: '/MediaList',
+        to: '/media-list',
         search: {
           id: String(hit.target.sourceId),
           ...(project ? { project: String(project) } : {})

@@ -126,6 +126,8 @@ export const lint = {
     'study/web-boundaries': 'error',
     'study/web-page-contract': 'error',
     'study/web-presentation-purity': 'error',
+    'study/web-query-contract': 'error',
+    'study/web-router-loaders': 'error',
     'study/web-router-navigation': 'error',
     'vite-plus/prefer-vite-plus-imports': 'error',
     '@stylistic/padding-line-between-statements': [

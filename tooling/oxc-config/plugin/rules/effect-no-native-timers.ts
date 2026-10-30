@@ -1,8 +1,10 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, propertyName } from '../effect-bindings.ts';
+import { webFile } from '../web-files.ts';
 import { businessFile } from './effect-lifecycle-syntax.ts';
 import { nativeGlobal } from './native-global.ts';
+import { imported } from './synchronous-transactions.ts';
 
 const message =
   'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
@@ -43,6 +45,27 @@ export default defineRule({
       );
     }
 
+    function uiDebounce(node: any): boolean {
+      const current = webFile(context.filename);
+
+      if (
+        !current ||
+        !/(?:^|\/)use-[^/]+\.tsx?$/.test(current) ||
+        nativeGlobal(bindings, node.callee) !== 'setTimeout'
+      )
+        return false;
+
+      for (let parent = node.parent; parent; parent = parent.parent) {
+        if (
+          parent.type === 'CallExpression' &&
+          imported(context, parent.callee, /^react$/, 'useEffect')
+        )
+          return true;
+      }
+
+      return false;
+    }
+
     return {
       ImportDeclaration(node) {
         if (
@@ -52,7 +75,10 @@ export default defineRule({
           context.report({ node, message });
       },
       CallExpression(node) {
-        if (timer(node.callee) || nativeGlobal(bindings, node.callee) === 'AbortSignal.timeout')
+        if (
+          (timer(node.callee) && !uiDebounce(node)) ||
+          nativeGlobal(bindings, node.callee) === 'AbortSignal.timeout'
+        )
           context.report({ node, message });
       }
     };

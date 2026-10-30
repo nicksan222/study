@@ -1,36 +1,34 @@
 import { StudyError } from '@study/contracts/errors';
 import { Cause, Effect, Exit } from 'effect';
 
-export type Outcome<A> =
-  | { status: 'ready'; value: A }
-  | { status: 'error'; error: StudyError }
-  | { status: 'cancelled' };
-
-export async function runOperation<A>(
+export async function runRequest<A>(
   operation: Effect.Effect<A, StudyError>,
-  signal: AbortSignal
-): Promise<Outcome<A>> {
-  if (signal.aborted) return { status: 'cancelled' };
+  signal?: AbortSignal
+): Promise<A> {
+  if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError');
 
   const exit = await Effect.runPromiseExit(
     operation.pipe(
       Effect.match({
-        onSuccess: (value): Outcome<A> => ({ status: 'ready', value }),
-        onFailure: (error): Outcome<A> =>
-          error.kind === 'cancelled' ? { status: 'cancelled' } : { status: 'error', error }
+        onSuccess: (value) => ({ ok: true as const, value }),
+        onFailure: (error) => ({ ok: false as const, error })
       })
     ),
     { signal }
   );
 
-  if (signal.aborted) return { status: 'cancelled' };
+  if (signal?.aborted || (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)))
+    throw new DOMException('Request aborted', 'AbortError');
 
-  if (Exit.isSuccess(exit)) return exit.value;
+  if (Exit.isFailure(exit))
+    throw new StudyError('internal', 'Unexpected browser request failure', { cause: exit.cause });
 
-  if (Cause.hasInterruptsOnly(exit.cause)) return { status: 'cancelled' };
+  if (!exit.value.ok) {
+    if (exit.value.error.kind === 'cancelled')
+      throw new DOMException('Request aborted', 'AbortError');
 
-  return {
-    status: 'error',
-    error: new StudyError('internal', 'Unexpected browser operation failure', { cause: exit.cause })
-  };
+    throw exit.value.error;
+  }
+
+  return exit.value.value;
 }

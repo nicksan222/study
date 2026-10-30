@@ -117,7 +117,7 @@ export function SidebarView({
             layout="navigation"
             render={
               <Link
-                to="/Home"
+                to="/home"
                 search={requestedProject ? { project: requestedProject } : {}}
                 onClick={() => {
                   setPickerOpen(false);
@@ -146,7 +146,7 @@ export function SidebarView({
             layout="navigation"
             render={
               <Link
-                to="/Projects"
+                to="/projects"
                 search={{}}
                 onClick={() => {
                   setPickerOpen(false);
@@ -163,7 +163,7 @@ export function SidebarView({
             layout="navigation"
             render={
               <Link
-                to="/Help"
+                to="/help"
                 search={requestedProject ? { project: requestedProject } : {}}
                 onClick={() => {
                   setPickerOpen(false);
@@ -354,7 +354,7 @@ export function SidebarView({
                     title={session.title}
                     render={
                       <Link
-                        to="/Sessions"
+                        to="/sessions"
                         search={{ project: String(session.projectId), id: String(session.id) }}
                       />
                     }

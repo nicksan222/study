@@ -2,33 +2,23 @@ import { StudyError } from '@study/contracts/errors';
 import { Effect } from 'effect';
 import { expect, it } from 'vite-plus/test';
 
-import { runOperation } from './runtime';
+import { runRequest } from './runtime';
 
 it('preserves expected failures and their retry metadata', async () => {
   const error = new StudyError('rate_limited', 'limited', { retryAfterMs: 300 });
 
-  expect(await runOperation(Effect.fail(error), new AbortController().signal)).toEqual({
-    status: 'error',
-    error
-  });
+  await expect(runRequest(Effect.fail(error))).rejects.toBe(error);
 });
 
 it('returns successful values', async () => {
-  expect(await runOperation(Effect.succeed(42), new AbortController().signal)).toEqual({
-    status: 'ready',
-    value: 42
-  });
+  expect(await runRequest(Effect.succeed(42))).toBe(42);
 });
 
 it('keeps unexpected defects as internal failures with their cause', async () => {
-  const result = await runOperation(Effect.die(new Error('defect')), new AbortController().signal);
-
-  expect(result.status).toBe('error');
-
-  if (result.status === 'error') {
-    expect(result.error.kind).toBe('internal');
-    expect(result.error.cause).toBeDefined();
-  }
+  await expect(runRequest(Effect.die(new Error('defect')))).rejects.toMatchObject({
+    kind: 'internal',
+    cause: expect.anything()
+  });
 });
 
 it('forwards interruption to the transport without presenting an error', async () => {
@@ -49,11 +39,11 @@ it('forwards interruption to the transport without presenting an error', async (
       }),
     catch: (cause) => new StudyError('transient', 'offline', { cause })
   });
-  const pending = runOperation(operation, controller.signal);
+  const pending = runRequest(operation, controller.signal);
 
   await ready;
   controller.abort();
-  expect(await pending).toEqual({ status: 'cancelled' });
+  await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
   expect(aborted).toBe(true);
 });
 
@@ -63,13 +53,13 @@ it('does not start an operation when its owner is already aborted', async () => 
   controller.abort();
   let started = false;
 
-  expect(
-    await runOperation(
+  await expect(
+    runRequest(
       Effect.sync(() => {
         started = true;
       }),
       controller.signal
     )
-  ).toEqual({ status: 'cancelled' });
+  ).rejects.toMatchObject({ name: 'AbortError' });
   expect(started).toBe(false);
 });
