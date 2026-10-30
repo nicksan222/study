@@ -1,3 +1,4 @@
+import type { ProjectId, SourceId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, blob, index, check } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -7,7 +8,7 @@ import { codes_source_kind, codes_source_origin } from './codes.ts';
 export const source_blobs = sqliteTable('source_blobs', {
   source_id: integer()
     .primaryKey()
-    .$type<bigint>()
+    .$type<SourceId>()
     .references((): AnySQLiteColumn => sources.id, { onDelete: 'cascade' }),
   bytes: blob({ mode: 'buffer' }).notNull()
 });
@@ -15,7 +16,7 @@ export const source_blobs = sqliteTable('source_blobs', {
 export const projects = sqliteTable(
   'projects',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<ProjectId>(),
     name: text().notNull(),
     exam_on: text(),
     created_at: integer().$type<bigint>().notNull(),
@@ -30,9 +31,9 @@ export const projects = sqliteTable(
 export const sources = sqliteTable(
   'sources',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<SourceId>(),
     project_id: integer()
-      .$type<bigint>()
+      .$type<ProjectId>()
       .references((): AnySQLiteColumn => projects.id, { onDelete: 'cascade' }),
     origin: text({ enum: codes_source_origin.code.enumValues })
       .notNull()

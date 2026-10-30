@@ -1,281 +1,236 @@
-import { randomUUID } from 'node:crypto';
+import { StudyError } from '@study/contracts/errors';
+import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 
-import { AuthManager, SignIn } from '@study/ai';
-import type { Account } from '@study/ai';
+import { Auth } from '#server/features/auth/index';
+import { AuthManager } from '#server/platform/ai/auth/index';
+import { ServerContext } from '#server/platform/database/context';
 
-import { releaseWaiting as opReleaseWaiting } from '#server/procedures/jobs/worker';
-import {
-  loadPreferences as opLoadPreferences,
-  setPreference as opSetPreference,
-  deletePreference as opDeletePreference
-} from '#server/procedures/settings/preferences';
-import { StudyError } from '#server/shared/errors/index';
-import type { JsonValue } from '#server/shared/json';
-
-import { ServerContext } from './context.ts';
+import { createNativeRuntime, runNative } from './layers.ts';
+import { nativeLayers } from './native.ts';
 import { Workers } from './workers.ts';
 
-const PRIVATE = 'private.chatgpt';
-
-const same = (a: Account, b: Account) =>
-  a.subject === b.subject &&
-  a.clientId === b.clientId &&
-  a.refreshToken === b.refreshToken &&
-  a.sharing === b.sharing &&
-  a.email === b.email;
-
-/** Owns one database and the process-wide ChatGPT session. */
+/** Owns the database, native services, and workflow consumer for one application. */
 export class App {
-  private signin?: SignIn;
-  private attemptId?: string;
-  readonly workers: Workers;
-  private finishing?: SignIn;
-  private signInGeneration = 0;
-  private authTransition = false;
-  private closing = false;
+  readonly shutdown = new AbortController();
+  private closing?: Promise<void>;
+
   readonly store: ServerContext;
   private readonly auth: AuthManager;
-  private readonly issuer: string;
-  private readonly hostId: string;
-  private readonly fetch?: typeof fetch;
+  readonly native: ReturnType<typeof nativeLayers>;
+  readonly nativeRuntime: ReturnType<typeof createNativeRuntime>;
+  readonly workers: Workers;
+  private readonly scope: Scope.Closeable;
 
   private constructor(
     store: ServerContext,
     auth: AuthManager,
-    issuer: string,
-    hostId: string,
-    fetch?: typeof globalThis.fetch
+    native: ReturnType<typeof nativeLayers>,
+    nativeRuntime: ReturnType<typeof createNativeRuntime>,
+    workers: Workers,
+    scope: Scope.Closeable
   ) {
     this.store = store;
-    this.workers = new Workers(store, auth, fetch);
     this.auth = auth;
-    this.issuer = issuer;
-    this.hostId = hostId;
-    this.fetch = fetch;
+    this.native = native;
+    this.nativeRuntime = nativeRuntime;
+    this.workers = workers;
+    this.scope = scope;
   }
 
-  static async open(options: {
+  static open(options: {
     path: string;
     issuer?: string;
     hostId?: string;
     fetch?: typeof fetch;
   }): Promise<App> {
-    const store = ServerContext.open(options.path);
-    let auth: AuthManager | undefined;
+    const issuer = options.issuer ?? 'https://auth.openai.com';
 
-    try {
-      const issuer = options.issuer ?? 'https://auth.openai.com';
+    return runNative(
+      Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          const scope = yield* Scope.make();
+          const result = yield* Effect.exit(
+            restore(
+              Scope.provide(
+                Effect.gen(function* () {
+                  let runtime: ReturnType<typeof createNativeRuntime> | undefined;
+                  const clock = yield* Clock.Clock;
+                  const auth = yield* Effect.acquireRelease(
+                    Effect.try({
+                      try: () =>
+                        new AuthManager({
+                          issuer,
+                          clock,
+                          fetch: options.fetch,
+                          saveRefresh: async (previous, token) => {
+                            if (!runtime)
+                              throw new StudyError('internal', 'Application is not initialized');
 
-      auth = new AuthManager({
-        issuer,
-        fetch: options.fetch,
-        saveRefresh: async (previous, token) => {
-          store.transaction(() => {
-            const saved = opLoadPreferences(store, PRIVATE).account as unknown as
-              | Account
-              | undefined;
+                            await runtime.runPromise(
+                              Effect.flatMap(Auth, (account) =>
+                                account.rotateRefreshToken({ previous, token })
+                              )
+                            );
+                          }
+                        }),
+                      catch: (cause) => cause
+                    }),
+                    (owner) =>
+                      Effect.tryPromise({
+                        try: () => owner.dispose(),
+                        catch: (error) => error
+                      }).pipe(Effect.orDie)
+                  );
+                  const store = yield* Effect.acquireRelease(
+                    Effect.try({
+                      try: () => ServerContext.open(options.path, clock),
+                      catch: (cause) => cause
+                    }),
+                    (context) => Effect.sync(() => context.close())
+                  );
+                  const queue = yield* Queue.sliding<void>(1);
+                  let workers: Workers;
+                  const native = nativeLayers(
+                    store,
+                    auth,
+                    issuer,
+                    options.hostId ?? 'study',
+                    {
+                      started: Effect.sync(() => workers.started),
+                      start: Effect.tryPromise({
+                        try: () => workers.start(),
+                        catch: (cause) =>
+                          cause instanceof StudyError
+                            ? cause
+                            : new StudyError('internal', 'Workflow worker could not start', {
+                                cause
+                              })
+                      }),
+                      stop: Effect.tryPromise({
+                        try: () => workers.stop(),
+                        catch: (cause) =>
+                          cause instanceof StudyError
+                            ? cause
+                            : new StudyError('internal', 'Workflow worker could not stop', {
+                                cause
+                              })
+                      })
+                    },
+                    {
+                      cancel: (input) =>
+                        Effect.tryPromise({
+                          try: () => workers.cancelExecution(input),
+                          catch: (cause) =>
+                            cause instanceof StudyError
+                              ? cause
+                              : new StudyError('internal', 'Workflow cancellation failed', {
+                                  cause
+                                })
+                        })
+                    },
+                    options.fetch
+                  );
 
-            if (!saved) throw new Error('Sign-in changed during refresh');
+                  runtime = yield* Effect.acquireRelease(
+                    Effect.sync(() => createNativeRuntime(native)),
+                    (owner) =>
+                      Effect.tryPromise({
+                        try: () => owner.dispose(),
+                        catch: (error) => error
+                      }).pipe(Effect.orDie)
+                  );
+                  // On failed acquisition, flush auth while the runtime and database still exist.
+                  yield* Scope.addFinalizer(
+                    scope,
+                    Effect.tryPromise({ try: () => auth.dispose(), catch: (error) => error }).pipe(
+                      Effect.orDie
+                    )
+                  );
+                  workers = yield* Effect.acquireRelease(
+                    Effect.sync(() => new Workers(store, native, runtime!, queue)),
+                    (owner) =>
+                      Effect.tryPromise({ try: () => owner.close(), catch: (error) => error }).pipe(
+                        Effect.orDie
+                      )
+                  );
+                  yield* Effect.tryPromise({
+                    try: () => runtime!.context(),
+                    catch: (cause) => cause
+                  });
 
-            if (
-              same(saved, {
-                ...previous,
-                refreshToken: token
-              })
+                  return new App(store, auth, native, runtime, workers, scope);
+                }),
+                scope
+              )
             )
-              return;
+          );
 
-            if (!same(saved, previous)) throw new Error('Sign-in changed during refresh');
+          if (Exit.isFailure(result)) {
+            const cleanup = yield* Effect.exit(Scope.close(scope, result));
 
-            opSetPreference(store, PRIVATE, 'account', {
-              ...previous,
-              refreshToken: token
-            } as unknown as JsonValue);
-          });
-        }
-      });
-      const account = opLoadPreferences(store, PRIVATE).account as unknown as Account | undefined;
+            return yield* Effect.failCause(
+              Exit.isFailure(cleanup) ? Cause.combine(result.cause, cleanup.cause) : result.cause
+            );
+          }
 
-      if (account) await auth.replace(account);
-
-      return new App(store, auth, issuer, options.hostId ?? 'study', options.fetch);
-    } catch (error) {
-      await auth?.dispose();
-      store.close();
-
-      throw error;
-    }
+          return result.value;
+        })
+      )
+    );
   }
 
-  async close() {
-    this.closing = true;
-    await this.workers.stop();
-    this.cancelSignIn();
+  close(): Promise<void> {
+    if (this.closing) return this.closing;
 
-    if (this.authTransition) throw new Error('Auth transition in progress; retry close');
+    const stopped = this.workers.close();
+    const closing = Promise.resolve().then(() => this.release(stopped));
 
-    await this.auth.dispose();
-    this.store.close();
+    this.closing = closing;
+    this.shutdown.abort();
+    void closing.catch(() => {
+      if (this.closing === closing) this.closing = undefined;
+    });
+
+    return closing;
+  }
+
+  private async release(stopped: Promise<void>) {
+    const errors: unknown[] = [];
+
+    try {
+      await stopped;
+    } catch (error) {
+      errors.push(error);
+    }
+
+    try {
+      await this.nativeRuntime.runPromise(Effect.flatMap(Auth, (auth) => auth.prepareShutdown()));
+    } catch (error) {
+      errors.push(error);
+    }
+
+    // Refresh persistence calls the Auth service, so its runtime and SQLite must remain alive.
+    try {
+      await this.auth.dispose();
+    } catch (error) {
+      errors.push(error);
+
+      throw new AggregateError(
+        errors,
+        'Credential cleanup failed; application close can be retried'
+      );
+    }
+
+    try {
+      await runNative(Scope.close(this.scope, Exit.void));
+    } catch (error) {
+      errors.push(error);
+    }
+
+    if (errors.length) throw new AggregateError(errors, 'Application cleanup failed');
   }
 
   subscribe(listener: () => void) {
     return this.store.subscribe(listener);
-  }
-
-  signInStatus() {
-    const account = opLoadPreferences(this.store, PRIVATE).account as unknown as
-      | Account
-      | undefined;
-
-    return account
-      ? {
-          signedIn: true,
-          email: account.email ?? null,
-          sharing: account.sharing
-        }
-      : {
-          signedIn: false,
-          email: null,
-          sharing: false
-        };
-  }
-
-  async startSignIn(reconsent = false) {
-    if (this.closing) throw new Error('App is closing');
-
-    this.cancelSignIn();
-    const generation = this.signInGeneration;
-    const signin = await SignIn.start({
-      issuer: this.issuer,
-      hostId: this.hostId,
-      reconsent,
-      fetch: this.fetch
-    });
-
-    if (this.closing || generation !== this.signInGeneration) {
-      signin.dispose();
-
-      throw new Error('Sign-in cancelled');
-    }
-
-    this.signin = signin;
-    this.attemptId = randomUUID();
-
-    return {
-      url: signin.url,
-      attemptId: this.attemptId
-    };
-  }
-
-  async finishSignIn(signal?: AbortSignal, attemptId?: string) {
-    if (attemptId !== undefined && attemptId !== this.attemptId)
-      throw new StudyError('invalid_input', 'Unknown sign-in attempt');
-
-    const signin = this.signin;
-
-    if (!signin) throw new Error('Sign-in has not started');
-
-    if (this.finishing === signin)
-      throw new StudyError('invalid_input', 'Sign-in is already finishing');
-
-    this.finishing = signin;
-
-    try {
-      const result = await signin.finish(300_000, signal);
-
-      if (this.closing || this.signin !== signin || signal?.aborted)
-        throw new StudyError('cancelled', 'Sign-in cancelled');
-
-      if (this.authTransition)
-        throw new StudyError('invalid_input', 'Sign-in transition in progress');
-
-      this.authTransition = true;
-
-      try {
-        const before = opLoadPreferences(this.store, PRIVATE).account as unknown as
-          | Account
-          | undefined;
-
-        await this.auth.replace(result.account, result);
-        const after = opLoadPreferences(this.store, PRIVATE).account as unknown as
-          | Account
-          | undefined;
-        const account =
-          before && after && same(before, result.account) && !same(before, after)
-            ? {
-                ...result.account,
-                refreshToken: after.refreshToken
-              }
-            : result.account;
-
-        try {
-          if (signal?.aborted || this.closing || this.signin !== signin)
-            throw new StudyError('cancelled', 'Sign-in cancelled');
-
-          opSetPreference(this.store, PRIVATE, 'account', account as unknown as JsonValue);
-        } catch (error) {
-          try {
-            if (after) await this.auth.replace(after);
-            else await this.auth.signOut();
-          } catch {
-            await this.auth.signOut();
-          }
-
-          throw error;
-        }
-
-        opReleaseWaiting(this.store);
-        this.workers.wake();
-
-        return this.signInStatus();
-      } finally {
-        this.authTransition = false;
-      }
-    } finally {
-      if (this.signin === signin) this.signin = undefined;
-
-      if (this.finishing === signin) this.finishing = undefined;
-
-      signin.dispose();
-    }
-  }
-
-  cancelSignIn(attemptId?: string) {
-    if (attemptId !== undefined && attemptId !== this.attemptId) return false;
-
-    this.signInGeneration++;
-    this.signin?.dispose();
-    this.signin = undefined;
-    this.attemptId = undefined;
-
-    return true;
-  }
-
-  publicAccount() {
-    const account = opLoadPreferences(this.store, PRIVATE).account as unknown as
-      | Account
-      | undefined;
-
-    return account
-      ? {
-          subject: account.subject,
-          email: account.email ?? undefined,
-          sharing: account.sharing
-        }
-      : undefined;
-  }
-
-  async signOut() {
-    if (this.closing || this.authTransition) throw new Error('Auth transition in progress');
-
-    this.cancelSignIn();
-    this.authTransition = true;
-
-    try {
-      await this.auth.signOut();
-      opDeletePreference(this.store, PRIVATE, 'account');
-    } finally {
-      this.authTransition = false;
-    }
   }
 }

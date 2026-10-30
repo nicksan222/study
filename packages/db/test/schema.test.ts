@@ -6,7 +6,9 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { projectIdSchema } from '@study/contracts/ids';
 import { sql, eq, getTableName } from 'drizzle-orm';
+import { Schema } from 'effect';
 
 import { Db } from '../src/index.ts';
 import * as schema from '../src/schema.ts';
@@ -51,9 +53,6 @@ test('the Drizzle baseline initializes every modeled table and current code voca
         (db.get<{ n: bigint }>(sql.raw('SELECT count(*) AS n FROM __drizzle_migrations'))?.n ??
           0n) >= 9n
       );
-      assert.deepEqual(db.select().from(schema.codes_requirement).all(), [
-        { code: 'language_models' }
-      ]);
       assert.equal(
         db.get(
           sql.raw("SELECT name FROM sqlite_schema WHERE name IN ('schema_meta','embeddings')")
@@ -73,7 +72,7 @@ test('Drizzle reads and writes identities beyond Number precision without losing
   fixture((path) => {
     const connection = Db.open(path);
     const db = connection.orm;
-    const id = 9007199254740993n;
+    const id = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
 
     try {
       db.insert(schema.projects)
@@ -104,7 +103,7 @@ test('Drizzle reads and writes identities beyond Number precision without losing
           db
             .insert(schema.sessions)
             .values({
-              project_id: id + 100n,
+              project_id: Schema.decodeUnknownSync(projectIdSchema)(id + 100n),
               title: 'Missing project',
               title_source: 'user',
               created_at: 1n,
@@ -167,3 +166,25 @@ test('Drizzle generation is stable and leaves SQL-managed FTS outside schema dif
     rmSync(folder, { recursive: true, force: true });
   }
 });
+
+test('retired projection tables and message job ownership are absent', () =>
+  fixture((path) => {
+    const connection = Db.open(path);
+
+    try {
+      const db = connection.orm;
+
+      assert.equal(
+        db.get(sql.raw("SELECT name FROM sqlite_schema WHERE type='table' AND name='jobs'")),
+        undefined
+      );
+      assert.equal(
+        db
+          .all(sql.raw('PRAGMA table_info(message_versions)'))
+          .some((column) => column.name === 'owner_job_id'),
+        false
+      );
+    } finally {
+      connection.close();
+    }
+  }));

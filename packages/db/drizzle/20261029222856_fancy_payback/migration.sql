@@ -1,0 +1,1 @@
+CREATE INDEX `workflow_executions_recovery_idx` ON `workflow_executions` (`status`,`workflow_tag`,`updated_at`);

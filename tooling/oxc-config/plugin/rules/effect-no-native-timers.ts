@@ -2,6 +2,7 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, propertyName } from '../effect-bindings.ts';
 import { businessFile } from './effect-lifecycle-syntax.ts';
+import { nativeGlobal } from './native-global.ts';
 
 const message =
   'Use Effect.sleep or a scoped Effect schedule instead of native timers in server business code.';
@@ -51,7 +52,8 @@ export default defineRule({
           context.report({ node, message });
       },
       CallExpression(node) {
-        if (timer(node.callee)) context.report({ node, message });
+        if (timer(node.callee) || nativeGlobal(bindings, node.callee) === 'AbortSignal.timeout')
+          context.report({ node, message });
       }
     };
   }

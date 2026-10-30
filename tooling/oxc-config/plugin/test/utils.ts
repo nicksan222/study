@@ -55,14 +55,15 @@ export function lintFiles(
       });
       symlinkSync(join(root, 'node_modules'), join(directory, 'node_modules'), 'dir');
 
-      for (const name of ['ui', 'theme', 'localization', 'db', 'ai', 'server']) {
+      for (const name of ['contracts', 'ui', 'theme', 'localization', 'db', 'ai', 'server']) {
         const workspace = name === 'server' ? 'apps' : 'packages';
         const path = join(directory, workspace, name, 'package.json');
 
         mkdirSync(dirname(path), { recursive: true });
 
         if (name in manifests) writeFileSync(path, JSON.stringify({ exports: manifests[name] }));
-        else cpSync(join(root, workspace, name, 'package.json'), path);
+        else if (existsSync(join(root, workspace, name, 'package.json')))
+          cpSync(join(root, workspace, name, 'package.json'), path);
       }
 
       plugin = join(directory, pluginPath, 'index.ts');

@@ -1,674 +1,236 @@
-import { strict as assert } from 'node:assert';
+import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createConnection } from 'node:net';
 import { test } from 'node:test';
-import type { TestContext } from 'node:test';
 
-import { Db, sql } from '@study/db';
-import { createStudyClient as browserClient } from '@study/server/client';
-import { createStudyClient as nativeClient } from '@study/server/node';
-import type { SourceId as ImportedSourceId } from '@study/server/shared/ids';
-import type { MessageId as ImportedMessageId } from '@study/server/shared/ids';
-import type { ArtifactId as ImportedArtifactId } from '@study/server/shared/ids';
-import type { Document as ImportedDocument } from '@study/server/shared/sources';
-import { TRPCClientError } from '@trpc/client';
+import { projectIdSchema } from '@study/contracts/ids';
+import { StudyRpc } from '@study/contracts/rpc';
+import { Appearance, Language } from '@study/contracts/settings';
+import { sql } from '@study/db';
+import * as schema from '@study/db/schema';
+import { createTestDatabase } from '@study/db/testing';
+import { Effect, Option, Schema } from 'effect';
 
-import { createSession as dbCreateSession } from '#server/procedures/conversations/operations/create-session';
-import { message as dbMessage } from '#server/procedures/conversations/operations/messages';
-import { postMessage as dbPostMessage } from '#server/procedures/conversations/operations/post-message';
-import { requestReply as dbRequestReply } from '#server/procedures/conversations/operations/reanswer';
-import {
-  beginVersion as dbBeginVersion,
-  finishVersion as dbFinishVersion
-} from '#server/procedures/conversations/versions';
-import { cancelJob as dbCancelJob } from '#server/procedures/jobs/operations/cancel-job';
-import { listJobs as dbListJobs } from '#server/procedures/jobs/operations/job-overviews';
-import { enqueueJob as dbEnqueueJob, claimJob as dbClaimJob } from '#server/procedures/jobs/worker';
-import { finishMaterial as dbFinishMaterial } from '#server/procedures/material/finish-material';
-import { requestMaterial as dbRequestMaterial } from '#server/procedures/material/operations/update-material';
-import { finishQuestion as dbFinishQuestion } from '#server/procedures/practice/finish-question';
-import { answerQuestion as dbAnswerQuestion } from '#server/procedures/practice/operations/answer-question';
-import { createPractice as dbCreatePractice } from '#server/procedures/practice/operations/project-practice';
-import { requestQuestion as dbRequestQuestion } from '#server/procedures/practice/request-question';
-import { createProject as dbCreateProject } from '#server/procedures/projects/operations/create-project';
-import { createNote as dbCreateNote } from '#server/procedures/sources/operations/create-note';
-import {
-  saveDocument as dbSaveDocument,
-  documentOf as dbDocumentOf
-} from '#server/procedures/sources/operations/source-document';
-import { serve } from '#server/runtime/server';
-import { App } from '#server/runtime/service';
-import { createServerTest } from '#testing/server-test';
+import { makeStudyClient } from '#server/client/index';
+import { App, serve } from '#server/runtime/index';
 
-async function fixture(t: TestContext) {
-  const testDatabase = createServerTest(t, { app: false });
-  const path = testDatabase.path;
-  const app = createServerTest(t, { app: false }).manage(await App.open({ path }));
-  const server = createServerTest(t, { app: false }).manage(await serve(app));
+function failureKind(error: unknown) {
+  assert.ok(error && typeof error === 'object' && 'kind' in error);
 
-  return { app, server, path };
+  return error.kind;
 }
 
-const hasCode = (code: string) => (error: unknown) =>
-  error instanceof TRPCClientError && error.data?.code === code;
+async function fixture() {
+  const location = createTestDatabase();
+  const app = await App.open({ path: location.path });
+  const server = await serve(app);
 
-for (const protocol of ['node', 'browser'] as const) {
-  test(`${protocol} calls without credentials, validates IDs and preserves int64`, async (t) => {
-    const f = await fixture(t);
-
-    const create = protocol === 'node' ? nativeClient : browserClient;
-    const baseUrl = protocol === 'node' ? f.server.url : f.server.url;
-    const client = create({ baseUrl });
-
-    assert.deepEqual((await client.projects.projects.query({})).items, []);
-    await assert.rejects(client.projects.deleteProject.mutate({ id: 0n }), hasCode('BAD_REQUEST'));
-    await assert.rejects(client.projects.deleteProject.mutate({ id: -1n }), hasCode('BAD_REQUEST'));
-    await assert.rejects(
-      client.projects.renameProject.mutate({ name: 'Missing' } as never),
-      hasCode('BAD_REQUEST')
-    );
-    const db = createServerTest(t, { app: false }).manage(Db.open(f.path));
-
-    try {
-      db.orm.run(
-        sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES(${9007199254740993n},'Large',0,0)`
-      );
-    } finally {
-      db.close();
-    }
-
-    const project = (await client.projects.projects.query({})).items[0]!;
-
-    assert.equal(project.id, 9007199254740993n);
-    const session = await client.conversations.createSession.mutate({
-      project: project.id,
-      title: 'Session'
-    });
-    const source = await client.sources.uploadSource.mutate({
-      name: 'hello.txt',
-      bytes: new TextEncoder().encode('hello'),
-      project: project.id
-    });
-
-    assert.deepEqual(
-      (await client.sources.exportSource.query({ id: source.id! })).value,
-      new TextEncoder().encode('hello')
-    );
-    const recording = await client.recordings.createRecording.mutate({
-      id: session.id!
-    });
-
-    await assert.rejects(
-      client.recordings.append.mutate({ id: recording.id, samples: [32768] }),
-      hasCode('BAD_REQUEST')
-    );
-    await assert.rejects(
-      client.recordings.append.mutate({
-        id: recording.id,
-        samples: [-32769]
-      }),
-      hasCode('BAD_REQUEST')
-    );
-    await client.recordings.append.mutate({
-      id: recording.id,
-      samples: [-32768, 0, 32767]
-    });
-    assert.equal(
-      (await client.recordings.recording.query({ id: recording.id! })).value?.samples,
-      3n
-    );
-    const message = await client.recordings.postRecording.mutate({
-      session: session.id,
-      recording: recording.id,
-      name: 'voice.wav'
-    });
-    const wav = (
-      await client.sources.exportSource.query({
-        id: message.parts[0]!.content!.sourceId!
-      })
-    ).value;
-
-    assert.equal(Buffer.from(wav).readInt16LE(44), -32768);
-    assert.equal(Buffer.from(wav).readInt16LE(48), 32767);
-    await assert.rejects(client.projects.createProject.mutate({ name: '' }), (error) => {
-      assert.ok(error instanceof TRPCClientError);
-      assert.equal(error.data?.code, 'BAD_REQUEST');
-      assert.equal(error.data?.kind, 'invalid_input');
-
-      return true;
-    });
-  });
-}
-
-test('browser CORS is restricted to desktop and development origins', async (t) => {
-  const f = await fixture(t);
-
-  for (const origin of [
-    'tauri://localhost',
-    'http://tauri.localhost',
-    'https://tauri.localhost',
-    'http://localhost:5173'
-  ]) {
-    const response = await fetch(`${f.server.url}/trpc/projects.projects`, {
-      method: 'OPTIONS',
-      headers: {
-        origin,
-        'access-control-request-method': 'POST',
-        'access-control-request-headers': 'content-type'
-      }
-    });
-
-    assert.equal(response.status, 204);
-    assert.equal(response.headers.get('access-control-allow-origin'), origin);
-  }
-
-  const denied = await fetch(`${f.server.url}/trpc/projects.projects`, {
-    method: 'OPTIONS',
-    headers: {
-      origin: 'https://evil.example',
-      'access-control-request-method': 'POST'
-    }
-  });
-
-  assert.equal(denied.status, 403);
-  assert.equal(denied.headers.get('access-control-allow-origin'), null);
-  const custom = await fetch(`${f.server.url}/api/listProjects`, {
-    method: 'POST'
-  });
-
-  assert.equal(custom.status, 404);
-});
-
-test("correction compares the client's document identity even when replacement text matches", async (t) => {
-  const f = await fixture(t);
-
-  const client = nativeClient({
-    baseUrl: f.server.url
-  });
-  const source = await client.sources.createNote.mutate({
-    title: 'Notes',
-    text: 'same'
-  });
-  const coreId = source.id as ImportedSourceId;
-  const doc: ImportedDocument = {
-    blocks: [
-      {
-        kind: 'paragraph',
-        text: 'same',
-        anchor: { type: 'paragraph', index: 0 }
-      }
-    ],
-    meta: {
-      extractor: 'text',
-      extractorVersion: 1,
-      provider: null,
-      durationMs: null,
-      pageCount: null,
-      refiners: [],
-      waitingFor: [],
-      corrected: false
+  return {
+    location,
+    app,
+    server,
+    async close() {
+      await server.close();
+      await app.close();
+      location.cleanup();
     }
   };
+}
 
-  dbSaveDocument(f.app.store, coreId, doc);
-  const original = (await client.sources.sourceDocument.query({ id: source.id! })).value!;
+test('native HTTP RPC preserves int64 IDs, bytes, typed failures and settings', async () => {
+  const f = await fixture();
 
-  assert.ok(original.id);
-  const replacement = dbSaveDocument(f.app.store, coreId, structuredClone(doc));
+  try {
+    const large = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
 
-  assert.notEqual(original.id, replacement);
-  assert.equal(
-    (
-      await client.sources.correctBlock.mutate({
-        id: source.id,
-        documentId: original.id,
-        ordinal: 0,
-        before: 'same',
-        after: 'overwritten'
-      })
-    ).value,
-    false
-  );
-  assert.equal(dbDocumentOf(f.app.store, coreId)?.document.blocks[0]?.text, 'same');
-  await assert.rejects(
-    client.sources.correctBlock.mutate({
-      id: source.id,
-      ordinal: 0,
-      before: 'same',
-      after: 'bad'
-    } as never),
-    hasCode('BAD_REQUEST')
-  );
-  assert.equal(
-    (
-      await client.sources.correctBlock.mutate({
-        id: source.id,
-        documentId: replacement,
-        ordinal: 0,
-        before: 'same',
-        after: 'updated'
-      })
-    ).value,
-    true
-  );
+    f.app.store.db.orm
+      .insert(schema.projects)
+      .values({ id: large, name: 'Large', created_at: 0n, updated_at: 0n })
+      .run();
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
+
+          assert.equal((yield* client['projects.projects']({ limit: 10 })).items[0]?.id, large);
+          const absent = Schema.decodeUnknownSync(projectIdSchema)(9223372036854775807n);
+
+          assert.ok(Option.isNone(yield* client['projects.findProject']({ id: absent })));
+          assert.equal(
+            failureKind(yield* Effect.flip(client['projects.project']({ id: absent }))),
+            'not_found'
+          );
+          assert.equal(
+            failureKind(yield* Effect.flip(client['projects.createProject']({ name: '' }))),
+            'invalid_input'
+          );
+          const source = yield* client['sources.createSource']({
+            name: 'hello.txt',
+            bytes: new TextEncoder().encode('hello'),
+            projectId: large
+          });
+
+          assert.equal(source.projectId, large);
+          assert.ok(source.sha256 instanceof Uint8Array);
+          assert.deepEqual(yield* client['sources.source']({ id: source.id }), source);
+          const settings = {
+            language: Language.ITALIAN,
+            appearance: Appearance.LIGHT,
+            zoomPercent: 125,
+            onboarded: true
+          };
+
+          yield* client['settings.saveAppSettings'](settings);
+          assert.deepEqual(yield* client['settings.appSettings']({}), settings);
+          assert.equal(yield* client['auth.publicAccount']({}), undefined);
+          assert.equal(
+            yield* client['projects.setExam']({ id: large, examOn: '2028-02-29' }),
+            true
+          );
+          assert.equal(
+            failureKind(
+              yield* Effect.flip(client['projects.setExam']({ id: large, examOn: '2026-02-29' }))
+            ),
+            'invalid_input'
+          );
+        })
+      )
+    );
+    const snapshot = f.app.store.db.orm.get(sql`SELECT bytes FROM source_snapshots LIMIT 1`) as {
+      bytes: Uint8Array;
+    };
+
+    assert.deepEqual(Buffer.from(snapshot.bytes), Buffer.from('hello'));
+  } finally {
+    await f.close();
+  }
 });
 
-test('assistant mentions queue replies, and reanswer writes a version of the same answer', async (t) => {
-  const f = await fixture(t);
+test('native listener enforces browser origins and exposes the RPC endpoint', async () => {
+  const f = await fixture();
 
-  const client = nativeClient({
-    baseUrl: f.server.url
-  });
-  const project = await client.projects.createProject.mutate({
-    name: 'Physics'
-  });
-  const session = await client.conversations.createSession.mutate({
-    project: project.id,
-    title: 'Notes'
-  });
+  try {
+    for (const origin of [
+      'tauri://localhost',
+      'http://tauri.localhost',
+      'https://tauri.localhost',
+      'http://localhost:5173'
+    ]) {
+      const response = await fetch(`${f.server.url}/rpc`, {
+        method: 'OPTIONS',
+        headers: {
+          origin,
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type'
+        }
+      });
 
-  await client.conversations.postMessage.mutate({
-    place: { type: 'timeline', id: session.id },
-    text: 'Plain note'
-  });
-  const asked = await client.conversations.postMessage.mutate({
-    place: { type: 'timeline', id: session.id },
-    text: '@study Explain gravity'
-  });
-  const messages = (await client.conversations.messages.query({ id: session.id! })).items;
-  const answer = messages.find((m) => m.replyTo === asked.id)!;
+      assert.equal(response.status, 204);
+      assert.equal(response.headers.get('access-control-allow-origin'), origin);
+    }
 
-  assert.ok(answer);
-  assert.equal(answer.versions.length, 1);
-  const claim = dbClaimJob(f.app.store, ['reply'])!;
-  const version = dbMessage(f.app.store, answer.id as ImportedMessageId)!.versions[0]!;
+    const denied = await fetch(`${f.server.url}/rpc`, {
+      method: 'OPTIONS',
+      headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' }
+    });
 
-  assert.equal(dbBeginVersion(f.app.store, version.id, claim.id, claim.attempts), true);
-  assert.equal(
-    dbFinishVersion(f.app.store, version.id, claim.id, claim.attempts, 'Gravity attracts masses'),
-    true
-  );
-  const again = await client.conversations.reanswer.mutate({
-    id: answer.id!
-  });
-
-  assert.equal(again.type, 'queued');
-  const after = (await client.conversations.messages.query({ id: session.id! })).items;
-
-  assert.equal(after.length, 3);
-  assert.equal(after.find((m) => m.id === answer.id)?.versions.length, 2);
-  assert.equal((await client.conversations.reanswer.mutate({ id: asked.id! })).type, 'unavailable');
-});
-
-test('typed settings validate, persist, and do not expose private credentials', async (t) => {
-  const f = await fixture(t);
-
-  const client = browserClient({
-    baseUrl: f.server.url
-  });
-  const before = await client.settings.getAppSettings.query({});
-
-  await client.settings.saveAppSettings.mutate({
-    ...before,
-    language: 2,
-    appearance: 1,
-    zoomPercent: 125,
-    onboarded: true
-  });
-  assert.equal((await client.settings.getAppSettings.query({})).zoomPercent, 125);
-  await assert.rejects(
-    client.settings.saveAppSettings.mutate({
-      ...before,
-      language: 0 as never
-    }),
-    hasCode('BAD_REQUEST')
-  );
-  await assert.rejects(
-    client.settings.saveAppSettings.mutate({ ...before, zoomPercent: 201 }),
-    hasCode('BAD_REQUEST')
-  );
-  await client.settings.saveReviewSettings.mutate({ newCardsPerDay: 4 });
-  assert.equal((await client.settings.getReviewSettings.query({})).newCardsPerDay, 4);
-  await assert.rejects(client.settings.saveLlmSettings.mutate({} as never), hasCode('BAD_REQUEST'));
-  await client.settings.saveLlmSettings.mutate({
-    tiny: { provider: 1, model: 1 },
-    medium: { provider: 1, model: 2 },
-    smart: { provider: 1, model: 3 }
-  });
-  assert.equal((await client.settings.getLlmSettings.query({})).smart?.model, 3);
-  assert.equal((await client.auth.connections.query({})).chatgpt, undefined);
-  const project = await client.projects.createProject.mutate({
-    name: 'Calendar'
-  });
-
-  await assert.rejects(
-    client.projects.setExam.mutate({
-      id: project.id,
-      examOn: '2026-02-29'
-    }),
-    hasCode('BAD_REQUEST')
-  );
-  assert.equal(
-    (
-      await client.projects.setExam.mutate({
-        id: project.id,
-        examOn: '2028-02-29'
-      })
-    ).value,
-    true
-  );
+    assert.equal(denied.status, 204);
+    assert.equal(
+      (
+        await fetch(`${f.server.url}/rpc`, {
+          method: 'POST',
+          headers: { origin: 'https://evil.example' }
+        })
+      ).status,
+      403
+    );
+    assert.equal(denied.headers.get('access-control-allow-origin'), null);
+    assert.equal((await fetch(`${f.server.url}/api/listProjects`, { method: 'POST' })).status, 404);
+  } finally {
+    await f.close();
+  }
 });
 
 test(
-  'closing the listener cancels SSE, sign-in and an incomplete HTTP body',
+  'closing the listener terminates an incomplete request and rejects new connections',
   { timeout: 5000 },
-  async (t) => {
-    const f = await fixture(t);
-    const client = nativeClient({ baseUrl: f.server.url });
+  async () => {
+    const f = await fixture();
     const endpoint = new URL(f.server.url);
-    const socket = createConnection({
-      host: endpoint.hostname,
-      port: Number(endpoint.port)
-    });
+    const socket = createConnection({ host: endpoint.hostname, port: Number(endpoint.port) });
 
-    createServerTest(t, { app: false }).dispose(() => {
-      socket.destroy();
-    });
-
-    await once(socket, 'connect', { signal: AbortSignal.timeout(2000) });
-    socket.resume();
-    const attempt = await client.auth.startChatgptSignIn.mutate({});
-    const pending = client.auth.finishChatgptSignIn
-      .mutate({ attemptId: attempt.attemptId })
-      .catch(() => {});
-
-    await new Promise<void>((resolve, reject) => {
-      const subscription = client.system.subscribe.subscribe(
-        {},
-        { onData: () => resolve(), onError: reject }
+    try {
+      await once(socket, 'connect', { signal: AbortSignal.timeout(2000) });
+      socket.resume();
+      socket.write(
+        `POST /rpc HTTP/1.1\r\nHost: ${endpoint.host}\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n{`
       );
+      const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
 
-      createServerTest(t, { app: false }).dispose(() => subscription.unsubscribe());
-    });
-    socket.write(
-      `POST /trpc/projects.createProject HTTP/1.1\r\nHost: ${endpoint.host}\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n{`
-    );
-    const disconnected = new Promise<void>((resolve) => socket.once('close', () => resolve()));
-
-    socket.on('error', (error: NodeJS.ErrnoException) => assert.equal(error.code, 'ECONNRESET'));
-    await f.server.close();
-    await pending;
-    await disconnected;
-    assert.equal(socket.destroyed, true);
-    assert.equal(f.app.signInStatus().signedIn, false);
+      socket.on('error', (error: NodeJS.ErrnoException) => assert.equal(error.code, 'ECONNRESET'));
+      await f.server.close();
+      await closed;
+      await assert.rejects(fetch(`${f.server.url}/rpc`));
+    } finally {
+      socket.destroy();
+      await f.close();
+    }
   }
 );
 
-test('stored browser uploads attach to messages and stay scoped to their project', async (t) => {
-  const f = await fixture(t);
+test('HTTP message attachments retain source identity and reject another project', async () => {
+  const f = await fixture();
 
-  const client = browserClient({
-    baseUrl: f.server.url
-  });
-  const one = await client.projects.createProject.mutate({ name: 'One' });
-  const two = await client.projects.createProject.mutate({ name: 'Two' });
-  const session = await client.conversations.createSession.mutate({
-    project: one.id,
-    title: 'One'
-  });
-  const upload = await client.sources.uploadSource.mutate({
-    project: one.id,
-    name: 'notes.txt',
-    bytes: new TextEncoder().encode('Physics')
-  });
-  const message = await client.conversations.postMessage.mutate({
-    place: { type: 'timeline', id: session.id },
-    attachments: [upload.id!]
-  });
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
+          const one = yield* client['projects.createProject']({ name: 'One' });
+          const two = yield* client['projects.createProject']({ name: 'Two' });
+          const session = yield* client['conversations.createSession']({
+            project: one.id,
+            title: 'Notes'
+          });
+          const source = yield* client['sources.createSource']({
+            projectId: one.id,
+            name: 'notes.txt',
+            bytes: new TextEncoder().encode('Physics')
+          });
+          const foreign = yield* client['sources.createSource']({
+            projectId: two.id,
+            name: 'other.txt',
+            bytes: new TextEncoder().encode('Other')
+          });
+          const message = yield* client['conversations.postMessage']({
+            sessionId: session.id,
+            text: '',
+            sourceIds: [source.id]
+          });
 
-  assert.equal(message.parts[0]?.sourceId, upload.id);
-  const foreign = await client.sources.createNote.mutate({
-    project: two.id,
-    title: 'Other',
-    text: 'Unrelated'
-  });
-
-  await assert.rejects(
-    client.conversations.postMessage.mutate({
-      place: { type: 'timeline', id: session.id },
-      attachments: [foreign.id!]
-    }),
-    hasCode('BAD_REQUEST')
-  );
-  assert.equal((await client.conversations.messages.query({ id: session.id! })).items.length, 1);
-});
-
-test('material, flashcard review, practice answers, and typed job controls use persisted domain data', async (t) => {
-  const f = await fixture(t);
-
-  const client = nativeClient({
-    baseUrl: f.server.url
-  });
-  const project = await client.projects.createProject.mutate({
-    name: 'Physics'
-  });
-  const session = await client.conversations.createSession.mutate({
-    project: project.id,
-    title: 'Notes'
-  });
-
-  await client.conversations.postMessage.mutate({
-    place: { type: 'timeline', id: session.id },
-    text: 'Gravity attracts masses.'
-  });
-  const id = await client.material.updateMaterial.mutate({
-    project: project.id,
-    kind: 'flashcards'
-  });
-  const job = dbClaimJob(f.app.store, ['artifact'])!;
-
-  assert.equal(
-    dbFinishMaterial(
-      f.app.store,
-      id.id as ImportedArtifactId,
-      job.id,
-      job.attempts,
-      {
-        type: 'flashcards',
-        cards: [{ front: 'Gravity?', back: 'Attraction', cites: [] }]
-      },
-      []
-    ),
-    true
-  );
-  assert.equal(
-    (await client.material.material.query({ id: project.id! })).items[0]?.current?.id,
-    id.id
-  );
-  const due = await client.practice.dueCards.query({
-    project: project.id,
-    limit: 10
-  });
-
-  assert.equal(due.items.length, 1);
-  const card = due.items[0]!.card!;
-
-  assert.equal((await client.practice.review.mutate({ card: card.id, rating: 3 })).value?.reps, 1);
-  assert.equal(
-    (
-      await client.practice.reviewTimes.query({
-        project: project.id,
-        since: 0n
-      })
-    ).items.length,
-    1
-  );
-  assert.equal(
-    (
-      await client.material.setCard.mutate({
-        artifact: id.id,
-        index: 0,
-        change: { type: 'write', front: 'Force?', back: 'Gravity' }
-      })
-    ).value,
-    true
-  );
-  const practice = await client.practice.projectPractice.mutate({
-    id: project.id!
-  });
-  const questionJob = dbClaimJob(f.app.store, ['question'])!;
-
-  assert.equal(questionJob.target.type, 'question');
-
-  if (questionJob.target.type !== 'question') throw new Error('Wrong target');
-
-  const question = questionJob.target.id;
-
-  dbFinishQuestion(
-    f.app.store,
-    question,
-    questionJob.id,
-    questionJob.attempts,
-    {
-      type: 'choice',
-      question: 'Gravity is?',
-      choices: ['Attraction', 'Heat', 'Light'],
-      answer: 0,
-      explanation: 'Mass attracts mass',
-      cites: []
-    },
-    'Gravity',
-    []
-  );
-  const loaded = (await client.practice.practice.query(practice)).value!;
-
-  assert.equal(loaded.questions.find((q) => q.id === question)?.body?.type, 'choice');
-  const answered = await client.practice.answerQuestion.mutate({
-    id: question,
-    answer: { type: 'choice', choice: 0 }
-  });
-
-  assert.equal(answered.type, 'graded');
-  assert.equal(answered.type === 'graded' ? answered.verdict : null, 'correct');
-  assert.equal((await client.practice.practices.query({})).items[0]?.score?.correct, 1);
-  const pending = dbListJobs(f.app.store).find(
-    (j) => j.kind === 'question' && j.status === 'queued'
-  )!;
-
-  assert.equal((await client.jobs.cancelJob.mutate({ id: pending.id })).value, true);
-  assert.equal((await client.jobs.retryJob.mutate({ id: pending.id })).value, true);
-  assert.equal((await client.material.deleteArtifact.mutate({ id: id.id })).value, true);
-  assert.equal((await client.practice.deletePractice.mutate(practice)).value, true);
-});
-
-test('RPC reports current reply and grading work and reanswers wait for attachments', async (t) => {
-  const f = await fixture(t);
-
-  const client = nativeClient({
-    baseUrl: f.server.url
-  });
-  const store = f.app.store;
-  const project = dbCreateProject(store, 'P'),
-    session = dbCreateSession(store, project.id, 'S');
-  const source = dbCreateNote(store, 'N', 'body', project.id);
-  const user = dbPostMessage(store, {
-    sessionId: session.id,
-    text: 'Question',
-    attachments: [source.id]
-  });
-  const first = dbRequestReply(store, user.id);
-
-  dbClaimJob(store, ['reply']);
-  dbBeginVersion(store, first.versionId, first.jobId, 1n);
-  dbFinishVersion(store, first.versionId, first.jobId, 1n, 'First answer');
-  dbEnqueueJob(store, {
-    kind: 'extract',
-    target: { type: 'source', id: source.id }
-  });
-  const again = await client.conversations.reanswer.mutate({
-    id: first.messageId
-  });
-
-  assert.equal(again.type, 'queued');
-
-  if (again.type !== 'queued') throw new Error('Not queued');
-
-  const loaded = (await client.conversations.messages.query({ id: session.id })).items.find(
-    (m) => m.id === first.messageId
-  )!;
-
-  assert.equal(loaded.reply?.id, again.jobId);
-  assert.equal(dbClaimJob(store, ['reply']), null);
-
-  dbCancelJob(store, dbListJobs(store).find((j) => j.kind === 'extract')!.id);
-  const practice = dbCreatePractice(store, project.id);
-
-  for (const job of dbListJobs(store)) if (job.kind === 'question') dbCancelJob(store, job.id);
-
-  const request = dbRequestQuestion(store, practice.id, 'open');
-  const job = dbClaimJob(store, ['question'])!;
-
-  dbFinishQuestion(
-    store,
-    request.questionId,
-    job.id,
-    job.attempts,
-    { type: 'open', question: 'Explain', reference: 'Reference', cites: [] },
-    'Gist',
-    []
-  );
-  dbAnswerQuestion(store, request.questionId, {
-    type: 'open',
-    answer: 'Answer'
-  });
-  const grade = dbListJobs(store).find((j) => j.kind === 'grade')!;
-  const question = (
-    await client.practice.practice.query({ id: practice.id })
-  ).value?.questions.find((q) => q.id === request.questionId);
-
-  assert.equal(question?.job?.id, grade.id);
-});
-
-test('daily card allowance is consumed across requests and projects', async (t) => {
-  const f = await fixture(t);
-
-  const client = nativeClient({
-    baseUrl: f.server.url
-  });
-  const store = f.app.store;
-
-  await client.settings.saveReviewSettings.mutate({ newCardsPerDay: 1 });
-  const projects = [dbCreateProject(store, 'A'), dbCreateProject(store, 'B')];
-
-  for (const p of projects) {
-    const request = dbRequestMaterial(store, p.id, 'flashcards', 'Cards', []);
-    const job = dbClaimJob(store, ['artifact'])!;
-
-    dbFinishMaterial(
-      store,
-      request.artifactId,
-      job.id,
-      job.attempts,
-      { type: 'flashcards', cards: [{ front: 'Q', back: 'A', cites: [] }] },
-      []
+          assert.equal(message.parts[0]?.sourceId, source.id);
+          assert.equal(message.parts[0]?.sourceName, 'notes.txt');
+          assert.equal(
+            failureKind(
+              yield* Effect.flip(
+                client['conversations.postMessage']({
+                  sessionId: session.id,
+                  text: '',
+                  sourceIds: [foreign.id]
+                })
+              )
+            ),
+            'invalid_input'
+          );
+          assert.equal(
+            (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items
+              .length,
+            1
+          );
+        })
+      )
     );
+  } finally {
+    await f.close();
   }
-
-  const due = await client.practice.dueCards.query({ limit: 10 });
-
-  assert.equal(due.items.length, 1);
-  await client.practice.review.mutate({
-    card: due.items[0]!.card!.id,
-    rating: 3
-  });
-  assert.equal((await client.practice.dueCards.query({ limit: 10 })).items.length, 0);
-  assert.equal((await client.practice.dueCount.query({})).value, 0);
-  assert.equal(
-    (
-      await client.practice.dueBy.query({
-        until: BigInt(Math.floor(Date.now() / 1000))
-      })
-    ).value,
-    0
-  );
 });

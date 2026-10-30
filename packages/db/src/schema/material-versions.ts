@@ -1,3 +1,4 @@
+import type { MaterialId, MaterialVersionId, ProjectId, SessionId } from '@study/contracts/ids';
 import { sql, desc } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -9,18 +10,20 @@ import {
   index,
   check
 } from 'drizzle-orm/sqlite-core';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { materialKinds, materialOperations } from '../material-kinds.ts';
 import { sessions } from './conversations.ts';
+import { material_generation_requests } from './material-generation.ts';
 import { projects } from './sources.ts';
 
 /** Project-owned content. Session membership is organization, never provenance. */
 export const materials = sqliteTable(
   'materials',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<MaterialId>(),
     project_id: integer()
-      .$type<bigint>()
+      .$type<ProjectId>()
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
     kind: text({ enum: materialKinds }).notNull(),
@@ -49,9 +52,9 @@ export const materials = sqliteTable(
 export const session_materials = sqliteTable(
   'session_materials',
   {
-    session_id: integer().$type<bigint>().notNull(),
-    material_id: integer().$type<bigint>().notNull(),
-    project_id: integer().$type<bigint>().notNull(),
+    session_id: integer().$type<SessionId>().notNull(),
+    material_id: integer().$type<MaterialId>().notNull(),
+    project_id: integer().$type<ProjectId>().notNull(),
     position: integer().$type<bigint>().notNull()
   },
   (t) => [
@@ -75,9 +78,9 @@ export const session_materials = sqliteTable(
 export const material_versions = sqliteTable(
   'material_versions',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
-    material_id: integer().$type<bigint>().notNull(),
-    project_id: integer().$type<bigint>().notNull(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<MaterialVersionId>(),
+    material_id: integer().$type<MaterialId>().notNull(),
+    project_id: integer().$type<ProjectId>().notNull(),
     kind: text({ enum: materialKinds }).notNull(),
     number: integer().$type<bigint>().notNull(),
     status: text({ enum: ['draft', 'published'] })
@@ -88,6 +91,9 @@ export const material_versions = sqliteTable(
       .notNull()
       .default('user'),
     instruction: text(),
+    generation_request_id: text().references(
+      (): AnySQLiteColumn => material_generation_requests.id
+    ),
     language: text(),
     created_at: integer().$type<bigint>().notNull(),
     published_at: integer().$type<bigint>()
@@ -97,6 +103,7 @@ export const material_versions = sqliteTable(
       columns: [t.material_id, t.project_id, t.kind],
       foreignColumns: [materials.id, materials.project_id, materials.kind]
     }).onDelete('cascade'),
+    uniqueIndex('material_versions_generation_request_unique').on(t.generation_request_id),
     uniqueIndex('material_versions_number_unique').on(t.material_id, t.number),
     uniqueIndex('material_versions_id_kind_unique').on(t.id, t.kind),
     uniqueIndex('material_versions_id_material_kind_unique').on(t.id, t.material_id, t.kind),
@@ -135,9 +142,9 @@ export const material_versions = sqliteTable(
 export const material_version_parents = sqliteTable(
   'material_version_parents',
   {
-    version_id: integer().$type<bigint>().notNull(),
-    parent_version_id: integer().$type<bigint>().notNull(),
-    material_id: integer().$type<bigint>().notNull()
+    version_id: integer().$type<MaterialVersionId>().notNull(),
+    parent_version_id: integer().$type<MaterialVersionId>().notNull(),
+    material_id: integer().$type<MaterialId>().notNull()
   },
   (t) => [
     primaryKey({ columns: [t.version_id, t.parent_version_id] }),
@@ -158,9 +165,9 @@ export const material_version_parents = sqliteTable(
 export const material_version_inputs = sqliteTable(
   'material_version_inputs',
   {
-    version_id: integer().$type<bigint>().notNull(),
-    input_version_id: integer().$type<bigint>().notNull(),
-    project_id: integer().$type<bigint>().notNull()
+    version_id: integer().$type<MaterialVersionId>().notNull(),
+    input_version_id: integer().$type<MaterialVersionId>().notNull(),
+    project_id: integer().$type<ProjectId>().notNull()
   },
   (t) => [
     primaryKey({ columns: [t.version_id, t.input_version_id] }),

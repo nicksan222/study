@@ -8,7 +8,7 @@ import { lintFiles, root } from './utils.ts';
 test('whole import type remains enforced by built-in rules without a boundary false positive', () => {
   const diagnostics = lintFiles({
     'src/shared/inline-type.ts':
-      "import { type ServerContext } from '#server/runtime/context';\n\nexport type Context = ServerContext;\n"
+      "import { type Project } from '@study/contracts';\n\nexport type Entity = Project;\n"
   });
 
   assert.ok(diagnostics.length > 0);
@@ -42,8 +42,8 @@ test('Node resolves and loads extensionless nested server and testing aliases', 
     import assert from 'node:assert/strict';
     import { fileURLToPath } from 'node:url';
     for (const [specifier, suffix] of [
-      ['#server/shared/json', '/src/shared/json.ts'],
-      ['#server/shared/errors/index', '/src/shared/errors/index.ts'],
+      ['@study/contracts/json', '/src/json.ts'],
+      ['@study/contracts/errors', '/src/errors.ts'],
       ['#testing/automatic', '/test/testing/automatic.ts']
     ]) {
       assert.ok(fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix));
@@ -208,4 +208,33 @@ test('the database package alone owns Drizzle dependencies', async () => {
         `${manifest.name} must use @study/db instead of ${name}`
       );
   }
+});
+
+test('future contracts subpaths are checked against explicit manifest exports', () => {
+  const diagnostics = lintFiles(
+    {
+      'src/domains/projects/schema.ts':
+        "export { projectSchema } from '@study/contracts/projects';",
+      'src/domains/sources/schema.ts': "export { privateSchema } from '@study/contracts/private';"
+    },
+    'package-boundary',
+    false,
+    { contracts: { '.': './src/index.ts', './projects': './src/projects.ts' } }
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.ok(diagnostics[0]?.filename.endsWith('/src/domains/sources/schema.ts'));
+});
+
+test('production config enables feature orchestration, native clock and metric cardinality', () => {
+  const diagnostics = lintFiles({
+    'src/features/example/service.ts':
+      "import { Metric } from 'effect'; async function operation() {} Date.now(); Metric.withAttributes({ requestId: 'id' });"
+  });
+
+  for (const rule of ['feature-orchestration', 'native-clock', 'metric-cardinality'])
+    assert.ok(
+      diagnostics.some(({ code }) => code === `study(${rule})`),
+      rule
+    );
 });

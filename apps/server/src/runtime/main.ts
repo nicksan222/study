@@ -10,7 +10,7 @@ let server: Awaited<ReturnType<typeof serve>>;
 
 try {
   server = await serve(app);
-  app.workers.start();
+  await app.workers.start();
 } catch (error) {
   await app.close();
 

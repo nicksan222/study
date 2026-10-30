@@ -1,6 +1,6 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { production, property } from './synchronous-transactions.ts';
+import { binding, production, property } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -18,6 +18,22 @@ export default defineRule({
     return {
       TSNonNullExpression(node) {
         const expression = node.expression;
+
+        if (
+          (expression.type === 'Literal' && expression.value === null) ||
+          (expression.type === 'Identifier' &&
+            expression.name === 'undefined' &&
+            !binding(context, expression)?.defs.length) ||
+          (expression.type === 'UnaryExpression' && expression.operator === 'void')
+        ) {
+          context.report({
+            node,
+            message:
+              'Return the missing value; required store queries map it to a typed not_found failure.'
+          });
+
+          return;
+        }
 
         if (expression.type !== 'CallExpression') return;
 

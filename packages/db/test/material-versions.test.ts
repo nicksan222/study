@@ -40,6 +40,15 @@ function diagram(db: Db, id: bigint) {
     VALUES(${id},'mermaid','graph TD; A-->B')`);
 }
 
+function pinSource(db: Db, versionId: bigint, sourceId = 1n) {
+  db.orm.run(sql`INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime,uri)
+    SELECT s.id,1,coalesce(b.bytes,X''),s.kind,s.mime,s.uri FROM sources s LEFT JOIN source_blobs b ON b.source_id=s.id
+    WHERE s.id=${sourceId} ON CONFLICT DO NOTHING`);
+  db.orm.run(sql`INSERT INTO material_source_snapshots(version_id,source_id,revision,metadata)
+    SELECT ${versionId},s.id,1,json_object('id',CAST(s.id AS TEXT),'projectId',CAST(s.project_id AS TEXT),'projectName',p.name,'name',s.name,'kind',s.kind,'mime',s.mime,'origin',s.origin,'sizeBytes',CAST(s.size_bytes AS TEXT),'sha256',lower(hex(s.sha256)),'uri',s.uri,'createdAt',CAST(s.created_at AS TEXT))
+    FROM sources s LEFT JOIN projects p ON p.id=s.project_id WHERE s.id=${sourceId}`);
+}
+
 function publish(db: Db, id: bigint) {
   db.orm.run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=${id}`);
 }
@@ -214,9 +223,12 @@ test('file and media versions reuse source bytes and reject incomplete or mismat
   db.exec(
     'INSERT INTO material_audio_versions(version_id,source_id,duration_ms,sample_rate,channels) VALUES(1,1,1000,48000,2)'
   );
+  pinSource(db, 1n);
   publish(db, 1n);
-  assert.throws(() => db.exec("UPDATE source_blobs SET bytes=x'ff' WHERE source_id=1"));
-  assert.throws(() => db.exec("UPDATE sources SET mime='text/plain' WHERE id=1"));
+  assert.throws(() => db.exec("UPDATE source_snapshots SET bytes=x'ff' WHERE source_id=1"));
+  assert.throws(() =>
+    db.exec("UPDATE material_source_snapshots SET metadata='{}' WHERE version_id=1")
+  );
   assert.throws(() =>
     db.exec("INSERT OR REPLACE INTO source_blobs(source_id,bytes) VALUES(1,x'ff')")
   );
@@ -236,6 +248,7 @@ test('file and media versions reuse source bytes and reject incomplete or mismat
     )
   );
   db.exec('INSERT INTO material_audio_versions(version_id,source_id,duration_ms) VALUES(3,1,1000)');
+  pinSource(db, 3n);
   publish(db, 3n);
   assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
 });
@@ -273,6 +286,7 @@ test('project deletion purges owned files, snapshots and memberships without aff
   `);
   draft(db, 1n, 'file');
   db.exec('INSERT INTO material_file_versions(version_id,source_id) VALUES(1,1)');
+  pinSource(db, 1n);
   publish(db, 1n);
   draft(db, 2n, 'document');
   db.exec(`
@@ -391,4 +405,40 @@ test('removing a draft material payload preserves a source-owned extraction snap
     db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM blocks WHERE document_id=1`)?.n,
     1n
   );
+});
+
+test('source-backed versions cannot be published without a revision pin', (t) => {
+  const db = fixture(t);
+
+  db.exec(`INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at)
+    VALUES(1,1,'attachment','text','text/plain','notes',1,zeroblob(32),1);
+    INSERT INTO source_blobs(source_id,bytes) VALUES(1,x'01');`);
+  draft(db, 1n, 'file');
+  db.exec('INSERT INTO material_file_versions(version_id,source_id) VALUES(1,1)');
+  assert.throws(() => publish(db, 1n));
+});
+
+test('material citations enforce positive unsigned 32 bit markers', (t) => {
+  const db = fixture(t);
+
+  diagram(db, 1n);
+  publish(db, 1n);
+  diagram(db, 2n);
+  db.exec(
+    'INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(2,1,1)'
+  );
+  const insert = (marker: bigint) =>
+    db.orm.run(
+      sql`INSERT INTO material_version_citations(version_id,marker,input_version_id,anchor,quote) VALUES(2,${marker},1,'{"type":"page","page":1}','Quote')`
+    );
+
+  for (const marker of [0n, -1n, 4294967296n]) assert.throws(() => insert(marker));
+
+  for (const marker of [1n, 4294967295n]) insert(marker);
+
+  assert.equal(
+    db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_version_citations`)?.n,
+    2n
+  );
+  assert.throws(() => insert(1n));
 });

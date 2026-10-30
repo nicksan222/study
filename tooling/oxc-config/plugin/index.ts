@@ -1,6 +1,12 @@
 import { definePlugin } from 'vite-plus/lint/plugins';
 
+import architectureRules from './architecture-rules.ts';
+import definitionRules from './definition-rules.ts';
+import factoryRules from './factory-rules.ts';
+import observabilityRules from './observability-rules.ts';
+import persistenceRules from './persistence-rules.ts';
 import browserBoundary from './rules/browser-boundary.ts';
+import contextIdentity from './rules/context-identity.ts';
 import databaseOwnership from './rules/database-ownership.ts';
 import decodePersistedJson from './rules/decode-persisted-json.ts';
 import drizzleBoundary from './rules/drizzle-boundary.ts';
@@ -16,15 +22,18 @@ import effectRuntimeBoundary from './rules/effect-runtime-boundary.ts';
 import effectScopedFibers from './rules/effect-scoped-fibers.ts';
 import effectTryPromise from './rules/effect-try-promise.ts';
 import effectV4Api from './rules/effect-v4-api.ts';
+import featureOrchestration from './rules/feature-orchestration.ts';
+import harnessBoundary from './rules/harness-boundary.ts';
+import metricCardinality from './rules/metric-cardinality.ts';
+import nativeClock from './rules/native-clock.ts';
 import noErrorMessageMatching from './rules/no-error-message-matching.ts';
 import noLossyIds from './rules/no-lossy-ids.ts';
 import noNonNullQueryResults from './rules/no-non-null-query-results.ts';
 import packageBoundary from './rules/package-boundary.ts';
 import parameterizedSql from './rules/parameterized-sql.ts';
 import preserveErrorCause from './rules/preserve-error-cause.ts';
-import procedureContract from './rules/procedure-contract.ts';
-import procedureTest from './rules/procedure-test.ts';
 import serverNoMocks from './rules/server-no-mocks.ts';
+import serviceDefinition from './rules/service-definition.ts';
 import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
 import themeRule from './rules/theme-colors.ts';
@@ -34,6 +43,17 @@ import webPresentation from './rules/web-presentation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'feature-orchestration': featureOrchestration,
+    'native-clock': nativeClock,
+    'metric-cardinality': metricCardinality,
+    'context-identity': contextIdentity,
+    'service-definition': serviceDefinition,
+    'harness-boundary': harnessBoundary,
+    ...architectureRules,
+    ...definitionRules,
+    ...factoryRules,
+    ...observabilityRules,
+    ...persistenceRules,
     'drizzle-boundary': drizzleBoundary,
     'effect-scoped-fibers': effectScopedFibers,
     'effect-no-native-timers': effectNoNativeTimers,
@@ -59,8 +79,6 @@ export default definePlugin({
     'server-no-mocks': serverNoMocks,
     'database-ownership': databaseOwnership,
     'effect-v4-api': effectV4Api,
-    'procedure-contract': procedureContract,
-    'procedure-test': procedureTest,
     'browser-boundary': browserBoundary,
     'package-boundary': packageBoundary,
     'theme-colors': themeRule,

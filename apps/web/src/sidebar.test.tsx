@@ -1,6 +1,7 @@
 import { catalogs } from '@study/localization';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { Effect as EffectType } from 'effect';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { App } from './app';
@@ -15,18 +16,24 @@ const api = vi.hoisted(() => ({
   createSession: vi.fn()
 }));
 
-vi.mock('./study-client', () => ({
-  studyClient: {
-    projects: { projects: { query: api.projects }, createProject: { mutate: api.createProject } },
-    sources: { sources: { query: api.sources } },
-    materials: { list: { query: api.materials } },
-    system: { search: { query: api.search } },
-    conversations: {
-      allSessions: { query: api.sessions },
-      createUntitledSession: { mutate: api.createSession }
-    }
-  }
-}));
+vi.mock('./study-client', async () => {
+  const { Effect } = await import('effect');
+  const call = (fn: typeof api.projects) => (input: unknown) => Effect.tryPromise(() => fn(input));
+  const client = {
+    'projects.projects': call(api.projects),
+    'projects.createProject': call(api.createProject),
+    'sources.sources': call(api.sources),
+    'materials.materials': call(api.materials),
+    'system.search': call(api.search),
+    'conversations.sessions': call(api.sessions),
+    'conversations.createUntitledSession': call(api.createSession)
+  };
+
+  return {
+    runStudy: (f: (rpc: typeof client) => EffectType.Effect<unknown>, signal?: AbortSignal) =>
+      Effect.runPromise(f(client), { signal })
+  };
+});
 
 const en = catalogs.english;
 
@@ -92,10 +99,12 @@ it('searches within the selected subject and opens a result', async () => {
   await screen.findByLabelText('Biology');
   await user.type(screen.getByRole('searchbox'), 'cell');
   await user.click(await screen.findByRole('link', { name: /Cell division/ }));
-  expect(api.search).toHaveBeenLastCalledWith(
-    { query: 'cell', project: 1n, limit: 30, kinds: ['session', 'message'] },
-    expect.anything()
-  );
+  expect(api.search).toHaveBeenLastCalledWith({
+    query: 'cell',
+    project: 1n,
+    limit: 30,
+    kinds: ['session', 'message']
+  });
   await waitFor(() => expect(location.hash).toBe('#/Sessions?project=1&id=9'));
 });
 
@@ -105,7 +114,7 @@ it('creates a real session in the selected subject', async () => {
   render(<App />);
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('button', { name: en.NewSession }));
-  expect(api.createSession).toHaveBeenCalledWith({ project: 1n, title: en.NewSession });
+  expect(api.createSession).toHaveBeenCalledWith({ project: 1n });
   await waitFor(() => expect(location.hash).toBe('#/Sessions?project=1&id=7'));
 });
 
@@ -151,10 +160,7 @@ it('searches globally on Settings while retaining the subject for navigation', a
   await screen.findByLabelText('Biology');
   await user.type(screen.getByRole('searchbox'), 'cell');
   await waitFor(() =>
-    expect(api.search).toHaveBeenLastCalledWith(
-      { query: 'cell', project: undefined, limit: 30 },
-      expect.anything()
-    )
+    expect(api.search).toHaveBeenLastCalledWith({ query: 'cell', project: undefined, limit: 30 })
   );
 });
 
@@ -212,10 +218,12 @@ it('requests session kinds from the server before limiting search hits', async (
   await user.click(await screen.findByRole('menuitem', { name: en.Sessions }));
   await user.type(screen.getByRole('searchbox'), 'cell');
   await waitFor(() =>
-    expect(api.search).toHaveBeenLastCalledWith(
-      { query: 'cell', project: 1n, limit: 30, kinds: ['session', 'message'] },
-      expect.anything()
-    )
+    expect(api.search).toHaveBeenLastCalledWith({
+      query: 'cell',
+      project: 1n,
+      limit: 30,
+      kinds: ['session', 'message']
+    })
   );
 });
 
@@ -296,10 +304,87 @@ it('lists flashcards and quizzes together and follows material pagination', asyn
   await screen.findByRole('link', { name: 'Cell cards' });
   expect(screen.getByRole('link', { name: 'Cell quiz' })).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
-  expect(api.materials).toHaveBeenLastCalledWith(
-    { projectId: 1n, cursor: 21n, take: 100, archived: false },
-    expect.anything()
-  );
+  expect(api.materials).toHaveBeenLastCalledWith({
+    projectId: 1n,
+    cursor: 21n,
+    limit: 100,
+    archived: false
+  });
   await user.click(screen.getByRole('link', { name: 'Cell cards' }));
   await waitFor(() => expect(location.hash).toBe('#/Flashcards?project=1&material=21'));
+});
+
+it('loads later project and session pages', async () => {
+  api.projects.mockImplementation(({ before }) =>
+    Promise.resolve(
+      before ? { items: [subjects[1]], next: null } : { items: [subjects[0]], next: 1n }
+    )
+  );
+  api.sessions.mockImplementation(({ before }) =>
+    Promise.resolve(
+      before
+        ? {
+            items: [
+              {
+                id: 43n,
+                projectId: 1n,
+                title: 'Later session',
+                titleSource: 'user',
+                createdAt: 0n,
+                updatedAt: 0n
+              }
+            ],
+            next: null
+          }
+        : { items: [], next: { id: 42n, updatedAt: 1n } }
+    )
+  );
+  render(<App />);
+  expect(await screen.findByRole('link', { name: 'Later session' })).toBeInTheDocument();
+  const user = userEvent.setup();
+
+  await user.click(await screen.findByLabelText('Biology'));
+  expect(await screen.findByRole('option', { name: 'History' })).toBeInTheDocument();
+});
+
+it('loads later source pages in the library', async () => {
+  api.sources.mockImplementation(({ before }) =>
+    Promise.resolve(
+      before
+        ? { items: [{ id: 11n, name: 'Later file', projectId: 1n, createdAt: 0n }], next: null }
+        : { items: [], next: 10n }
+    )
+  );
+  const user = userEvent.setup();
+
+  render(<App />);
+  await screen.findByLabelText('Biology');
+  await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
+  expect(await screen.findByRole('link', { name: 'Later file' })).toBeInTheDocument();
+});
+
+it.each([
+  ['diagram', 'Diagrams'],
+  ['flashcards', 'Flashcards'],
+  ['quiz', 'Practice']
+])('opens a %s search result on its own page', async (materialKind, page) => {
+  history.replaceState(null, '', '/#/Settings?project=1');
+  api.search.mockResolvedValue({
+    semantic: false,
+    hits: [
+      {
+        kind: 'material',
+        title: 'Cell study',
+        at: 0n,
+        target: { type: 'material', projectId: 1n, materialId: 8n, versionId: 9n, materialKind }
+      }
+    ]
+  });
+  const user = userEvent.setup();
+
+  render(<App />);
+  await screen.findByLabelText('Biology');
+  await user.type(screen.getByRole('searchbox'), 'cell');
+  await user.click(await screen.findByRole('link', { name: /Cell study/ }));
+  await waitFor(() => expect(location.hash).toBe(`#/${page}?project=1&material=8`));
 });

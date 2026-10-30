@@ -1,609 +1,226 @@
-import type { AuthManager } from '@study/ai';
-import {
-  createChatGptModel,
-  createStudyAgents,
-  generateMaterial,
-  streamReply,
-  ChatGptRequestError
-} from '@study/ai';
-import { sql } from '@study/db';
-import { Effect, Fiber, Schedule } from 'effect';
+import { StudyError } from '@study/contracts/errors';
+import type { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
+import { Cause, Effect, Fiber, Queue, Semaphore } from 'effect';
+import { WorkflowEngine } from 'effect/workflow';
 
-import { listSessions as opListSessions } from '#server/procedures/conversations/operations/all-sessions';
+import type { ServerContext } from '#server/platform/database/context';
+import { classifyError } from '#server/platform/errors/classify-error';
+import { observeOperation, safeMetadata } from '#server/platform/observability/index';
 import {
-  listMessages as opListMessages,
-  message as opMessage,
-  versionCitations as opVersionCitations
-} from '#server/procedures/conversations/operations/messages';
-import {
-  replaceWithGeneratedTitle as opReplaceWithGeneratedTitle,
-  setGeneratedTitle as opSetGeneratedTitle
-} from '#server/procedures/conversations/operations/regenerate-title';
-import { session as opSession } from '#server/procedures/conversations/operations/session';
-import { thread as opThread } from '#server/procedures/conversations/operations/thread';
-import {
-  beginVersion as opBeginVersion,
-  finishVersion as opFinishVersion
-} from '#server/procedures/conversations/versions';
-import { job as opJob } from '#server/procedures/jobs/operations/job';
-import {
-  recoverJobs as opRecoverJobs,
-  claimJob as opClaimJob,
-  finishJob as opFinishJob,
-  failJob as opFailJob,
-  enqueueJob as opEnqueueJob
-} from '#server/procedures/jobs/worker';
-import { finishMaterial as opFinishMaterial } from '#server/procedures/material/finish-material';
-import { artifact as opArtifact } from '#server/procedures/material/operations/artifact';
-import { finishGrade as opFinishGrade } from '#server/procedures/practice/finish-grade';
-import { finishQuestion as opFinishQuestion } from '#server/procedures/practice/finish-question';
-import {
-  question as opQuestion,
-  listQuestions as opListQuestions
-} from '#server/procedures/practice/operations/practice';
-import { listPractices as opListPractices } from '#server/procedures/practice/operations/practices';
-import { language } from '#server/procedures/settings/operations/get-app-settings';
-import { model as readModel } from '#server/procedures/settings/operations/get-llm-settings';
-import { loadPreferences as opLoadPreferences } from '#server/procedures/settings/preferences';
-import { fetchPage } from '#server/procedures/sources/fetch';
-import {
-  source as opSource,
-  storeFetched as opStoreFetched,
-  readSourceBounded as opReadSourceBounded
-} from '#server/procedures/sources/operations/source';
-import {
-  saveRead as opSaveRead,
-  document as opDocument
-} from '#server/procedures/sources/operations/source-document';
-import { listSources as opListSources } from '#server/procedures/sources/operations/sources';
-import { readSource, readerFor } from '#server/procedures/sources/readers/read';
-import { replacePassages as opReplacePassages } from '#server/procedures/system/index';
-import { search as opSearch } from '#server/procedures/system/operations/search';
-import { StudyError } from '#server/shared/errors/index';
-import type { ProjectId } from '#server/shared/ids';
-import type { VersionId } from '#server/shared/ids';
-import type { Job } from '#server/shared/jobs/types';
+  WorkflowConfiguration,
+  notifyConfigurationChanged
+} from '#server/platform/workflows/configuration';
+import { cancelExecution } from '#server/platform/workflows/control';
+import { recoverWorkflowEngine } from '#server/platform/workflows/engine';
+import { dispatchPending } from '#server/platform/workflows/triggers';
 
-import { classifyError } from './classify-error.ts';
-import type { ServerContext } from './context.ts';
-import { Evidence } from './grounding.ts';
+import { createWorkflowRuntime } from './layers.ts';
+import type { createNativeRuntime } from './layers.ts';
+import type { nativeLayers } from './native.ts';
+import { workflowDefinitions, workflowTriggers } from './workflows.ts';
 
-/** One durable job consumer. Database leases guard every asynchronous result. */
+type Consumer = {
+  readonly runtime: ReturnType<typeof createWorkflowRuntime>;
+  readonly fiber: Fiber.Fiber<void, unknown>;
+  readonly unsubscribe: () => void;
+};
+
+type Lifecycle =
+  | { readonly tag: 'stopped' }
+  | { readonly tag: 'running'; readonly consumer: Consumer }
+  | { readonly tag: 'stopping' }
+  | { readonly tag: 'closing'; readonly consumer: Consumer | undefined }
+  | { readonly tag: 'closed' };
+
+/** One scoped durable workflow consumer; committed hints only accelerate polling. */
 export class Workers {
+  private readonly runtime: ReturnType<typeof createNativeRuntime>;
+  private readonly layers: ReturnType<typeof nativeLayers>;
+  private readonly queue: Queue.Queue<void>;
   private readonly store: ServerContext;
-  private readonly auth: AuthManager;
-  private readonly request?: typeof fetch;
-  private polling?: Fiber.Fiber<void>;
-  private unsubscribe?: () => void;
-  private active?: {
-    job: Job;
-    controller: AbortController;
-  };
-  private running?: Promise<void>;
-  private stopped = true;
+  private readonly transitions = Semaphore.makeUnsafe(1);
+  private state: Lifecycle = { tag: 'stopped' };
 
-  constructor(store: ServerContext, auth: AuthManager, request?: typeof fetch) {
+  constructor(
+    store: ServerContext,
+    layers: ReturnType<typeof nativeLayers>,
+    runtime: ReturnType<typeof createNativeRuntime>,
+    queue: Queue.Queue<void>
+  ) {
     this.store = store;
-    this.auth = auth;
-    this.request = request;
+    this.runtime = runtime;
+    this.queue = queue;
+    this.layers = layers;
   }
 
   get started() {
-    return !this.stopped;
+    return this.state.tag === 'running';
   }
 
-  start() {
-    if (!this.stopped) return;
-
-    this.stopped = false;
-    opRecoverJobs(this.store);
-    this.unsubscribe = this.store.subscribe(() => {
-      if (this.active) {
-        const current = opJob(this.store, this.active.job.id);
-
-        if (current?.status !== 'running' || current.attempts !== this.active.job.attempts)
-          this.active.controller.abort();
-      }
-
-      this.wake();
-    });
-    this.polling = Effect.runFork(
-      Effect.scoped(
-        Effect.repeat(
-          Effect.sync(() => this.wake()),
-          Schedule.spaced('500 millis')
-        ).pipe(Effect.asVoid)
-      )
+  private transition<A, E>(effect: Effect.Effect<A, E>): Promise<A> {
+    return this.runtime.runPromise(
+      this.transitions.withPermit(Effect.uninterruptibleMask(() => effect))
     );
-    this.wake();
+  }
+
+  start(): Promise<void> {
+    return this.transition(
+      Effect.sync(() => {
+        if (this.state.tag === 'closing' || this.state.tag === 'closed')
+          throw new StudyError('cancelled', 'Workflow worker is closing');
+
+        if (this.state.tag === 'stopped')
+          this.state = { tag: 'running', consumer: this.startConsumer() };
+      })
+    );
+  }
+
+  private startConsumer(): Consumer {
+    const unsubscribe = this.store.subscribe(() => this.wake());
+    const store = this.store;
+    const queue = this.queue;
+
+    const runtime = createWorkflowRuntime(this.layers, this.runtime);
+    const fiber = runtime.runFork(
+      Effect.gen(function* () {
+        const engine = yield* WorkflowEngine.WorkflowEngine;
+        const configuration = yield* WorkflowConfiguration;
+
+        const tick = observeOperation(
+          'workflow.tick',
+          Effect.gen(function* () {
+            yield* Effect.try(() =>
+              dispatchPending(store, workflowTriggers, store.clock.currentTimeMillisUnsafe())
+            );
+            const revision = yield* configuration.revision;
+
+            yield* notifyConfigurationChanged(store, engine, revision);
+            yield* recoverWorkflowEngine(store, engine, workflowDefinitions);
+          })
+        );
+
+        while (true) {
+          yield* tick.pipe(
+            Effect.catchCause((cause) =>
+              Cause.hasInterrupts(cause)
+                ? Effect.failCause(cause)
+                : Effect.logError('Workflow recovery failed').pipe(
+                    Effect.annotateLogs(
+                      safeMetadata({
+                        operation: 'workflow.tick',
+                        errorKind: classifyError(Cause.squash(cause)).kind
+                      })
+                    )
+                  )
+            )
+          );
+          yield* Queue.take(queue).pipe(Effect.timeoutOption('250 millis'));
+        }
+      }).pipe(Effect.asVoid)
+    );
+
+    return { runtime, fiber, unsubscribe };
+  }
+
+  cancelExecution(input: typeof cancelExecutionInputSchema.Type): Promise<void> {
+    return this.transition(
+      Effect.gen({ self: this }, function* () {
+        if (this.state.tag === 'closing' || this.state.tag === 'closed')
+          return yield* Effect.fail(new StudyError('cancelled', 'Workflow worker is closing'));
+
+        const active = this.state.tag === 'running' ? this.state.consumer.runtime : undefined;
+        const runtime = active ?? createWorkflowRuntime(this.layers, this.runtime);
+
+        return yield* Effect.tryPromise({
+          try: () => runtime.runPromise(cancelExecution(this.store, workflowDefinitions, input)),
+          catch: (error) => error
+        }).pipe(
+          Effect.ensuring(
+            active
+              ? Effect.void
+              : Effect.tryPromise({ try: () => runtime.dispose(), catch: (error) => error }).pipe(
+                  Effect.orDie
+                )
+          )
+        );
+      })
+    );
   }
 
   wake() {
-    if (this.stopped || this.running) return;
-
-    this.running = Promise.resolve()
-      .then(() => this.drain())
-      .finally(() => {
-        this.running = undefined;
-      });
+    Queue.offerUnsafe(this.queue, undefined);
   }
 
-  async stop() {
-    this.stopped = true;
-    this.unsubscribe?.();
-    this.active?.controller.abort();
+  stop(): Promise<void> {
+    return this.transition(
+      Effect.gen({ self: this }, function* () {
+        if (this.state.tag !== 'running') return;
 
-    if (this.polling) await Effect.runPromise(Fiber.interrupt(this.polling));
+        const consumer = this.state.consumer;
 
-    this.polling = undefined;
-    await this.running;
-    opRecoverJobs(this.store);
+        this.state = { tag: 'stopping' };
+        yield* this.disposeConsumer(consumer).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              if (this.state.tag === 'stopping') this.state = { tag: 'stopped' };
+            })
+          )
+        );
+      })
+    );
   }
 
-  private async drain() {
-    while (!this.stopped) {
-      const job = opClaimJob(this.store, [
-        'fetch',
-        'extract',
-        'index',
-        'title',
-        'reply',
-        'rewrite',
-        'artifact',
-        'question',
-        'grade'
-      ]);
-
-      if (!job) return;
-
-      const controller = new AbortController();
-
-      this.active = {
-        job,
-        controller
+  close(): Promise<void> {
+    if (this.state.tag !== 'closing' && this.state.tag !== 'closed')
+      this.state = {
+        tag: 'closing',
+        consumer: this.state.tag === 'running' ? this.state.consumer : undefined
       };
 
-      try {
-        await this.run(job, controller.signal);
+    return this.transition(
+      Effect.gen({ self: this }, function* () {
+        if (this.state.tag !== 'closing') return;
 
-        if (!controller.signal.aborted) opFinishJob(this.store, job.id, job.attempts);
-      } catch (error) {
-        const failure = controller.signal.aborted
-          ? {
-              kind: 'cancelled' as const,
-              message: 'Job cancelled',
-              retryAfterMs: null
-            }
-          : error instanceof ChatGptRequestError
-            ? {
-                kind: error.kind,
-                message: error.message,
-                retryAfterMs: null
-              }
-            : classifyError(error);
+        const consumer = this.state.consumer;
 
-        if (!this.stopped) opFailJob(this.store, job.id, job.attempts, failure);
-      } finally {
-        this.active = undefined;
-      }
-    }
-  }
-
-  private model(tier: 'tiny' | 'medium' | 'smart') {
-    if (!opLoadPreferences(this.store, 'private.chatgpt').account)
-      throw new StudyError('auth', 'Sign-in required');
-
-    return createChatGptModel({
-      auth: this.auth,
-      modelId: readModel(this.store, tier),
-      fetch: this.request
-    });
-  }
-
-  private context(project: ProjectId, evidence: Evidence) {
-    const sources = opListSources(this.store)
-      .filter((s) => s.projectId === project)
-      .flatMap((s) => {
-        const text = evidence.source(s.id);
-
-        return text ? [text] : [];
-      });
-    const notes = opListSessions(this.store, project)
-      .flatMap((s) => opListMessages(this.store, s.id))
-      .filter((m) => m.role === 'user')
-      .map((m) => m.versions.find((v) => v.id === m.activeVersionId)?.text ?? '')
-      .filter(Boolean);
-
-    return {
-      sources,
-      notes,
-      prompt: JSON.stringify({
-        sources,
-        notes
+        yield* (consumer ? this.disposeConsumer(consumer) : Effect.void).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              this.state = { tag: 'closed' };
+            })
+          )
+        );
       })
-    };
+    );
   }
 
-  private agents(
-    project: ProjectId,
-    tier: 'tiny' | 'medium' | 'smart',
-    evidence: Evidence = new Evidence(this.store, project)
-  ) {
-    return createStudyAgents({
-      model: this.model(tier),
-      language: language(this.store),
-      capabilities: {
-        searchSources: async (query, signal) => {
-          signal?.throwIfAborted();
-          const ids = new Set(
-            opSearch(this.store, query, {
-              projectId: project,
-              kinds: ['source', 'passage'],
-              limit: 20
-            }).flatMap((h) =>
-              h.target.type === 'source'
-                ? [h.target.id]
-                : h.target.type === 'passage'
-                  ? [h.target.sourceId]
-                  : []
-            )
-          );
+  private disposeConsumer(consumer: Consumer) {
+    return Effect.gen(function* () {
+      const errors: unknown[] = [];
 
-          return [...ids].flatMap((id) => {
-            const text = evidence.source(id);
-
-            return text ? [text] : [];
-          });
-        }
+      try {
+        consumer.unsubscribe();
+      } catch (error) {
+        errors.push(error);
       }
-    });
-  }
 
-  private args(job: Job) {
-    return job.args && typeof job.args === 'object' && !Array.isArray(job.args) ? job.args : {};
-  }
+      const interruption = yield* Effect.exit(Fiber.interrupt(consumer.fiber));
 
-  private current(job: Job, signal: AbortSignal) {
-    signal.throwIfAborted();
-    const current = opJob(this.store, job.id);
+      if (interruption._tag === 'Failure') errors.push(Cause.squash(interruption.cause));
 
-    if (current?.status !== 'running' || current.attempts !== job.attempts)
-      throw new StudyError('cancelled', 'Job superseded');
-  }
-
-  private async run(job: Job, signal: AbortSignal) {
-    const store = this.store;
-
-    if (job.kind === 'fetch' && job.target.type === 'source') {
-      const source = opSource(store, job.target.id);
-
-      if (!source?.uri) throw new StudyError('not_found', 'Link missing');
-
-      const page = await fetchPage(source.uri, {
-        signal,
-        fetch: this.request
-      });
-
-      this.current(job, signal);
-      store.transaction(() => {
-        const fetched = opStoreFetched(store, source.id, {
-          name: page.name,
-          bytes: page.bytes,
-          kind: 'web',
-          mime: page.mime,
-          uri: page.url
-        });
-
-        if (!fetched) throw new StudyError('not_found', 'Fetched source missing');
-
-        const extraction = opEnqueueJob(store, {
-          kind: 'extract',
-          target: {
-            type: 'source',
-            id: fetched.id
-          },
-          after: [job.id]
-        });
-
-        store.db.orm.run(sql`INSERT OR IGNORE INTO job_deps (job_id, depends_on)
-          SELECT consumer.id, ${extraction}
-          FROM job_deps dependency JOIN jobs consumer ON consumer.id = dependency.job_id
-          WHERE dependency.depends_on = ${job.id}
-            AND consumer.id != ${extraction}
-            AND consumer.status IN ('queued', 'blocked', 'waiting')`);
-      });
-
-      return;
-    }
-
-    if (job.kind === 'extract' && job.target.type === 'source') {
-      const source = opSource(store, job.target.id);
-
-      if (!source) throw new StudyError('not_found', 'Source missing');
-
-      const reader = readerFor(source);
-      const bytes = opReadSourceBounded(store, source.id, 16 * 1024 * 1024);
-
-      if (!bytes) throw new StudyError('invalid_input', 'Source exceeds reader limit');
-
-      const document = await readSource(
-        {
-          ...source,
-          bytes,
-          url: source.uri ?? undefined
-        },
-        {
-          signal,
-          model: reader.kind === 'vision' ? this.model('medium') : undefined
-        }
-      );
-
-      this.current(job, signal);
-      store.transaction(() => {
-        const id = opSaveRead(store, job.id, job.attempts, source.id, document);
-
-        if (id)
-          opEnqueueJob(store, {
-            kind: 'index',
-            target: {
-              type: 'document',
-              id
-            }
-          });
-      });
-
-      return;
-    }
-
-    if (job.kind === 'index' && job.target.type === 'document') {
-      const document = opDocument(store, job.target.id);
-
-      if (!document) throw new StudyError('not_found', 'Document missing');
-
-      opReplacePassages(
-        store,
-        job.target.id,
-        document.blocks.flatMap((b, i) =>
-          b.text.trim()
-            ? [
-                {
-                  firstBlock: i,
-                  lastBlock: i,
-                  anchor: b.anchor,
-                  text: b.text
-                }
-              ]
-            : []
+      yield* Effect.tryPromise({
+        try: () => consumer.runtime.dispose(),
+        catch: (error) => error
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.sync(() => {
+            errors.push(error);
+          })
         )
       );
 
-      return;
-    }
-
-    if (job.kind === 'title' && job.target.type === 'session') {
-      const session = opSession(store, job.target.id);
-
-      if (!session) throw new StudyError('not_found', 'Session missing');
-
-      const text = opListMessages(store, session.id)
-        .map((m) => m.versions.find((v) => v.id === m.activeVersionId)?.text ?? '')
-        .join('\n');
-
-      if (!text.trim()) throw new StudyError('not_enough', 'No session content');
-
-      const result = await this.agents(session.projectId, 'tiny').title.generate({
-        prompt: text,
-        abortSignal: signal
-      });
-
-      this.current(job, signal);
-
-      if (this.args(job).force === true)
-        opReplaceWithGeneratedTitle(store, session.id, result.text.trim());
-      else opSetGeneratedTitle(store, session.id, result.text.trim());
-
-      return;
-    }
-
-    if ((job.kind === 'reply' || job.kind === 'rewrite') && job.target.type === 'message') {
-      const message = opMessage(store, job.target.id);
-      const session = message && opSession(store, message.sessionId);
-
-      if (!message || !session) throw new StudyError('not_found', 'Message missing');
-
-      const raw = this.args(job).versionId;
-      const versionId =
-        typeof raw === 'string' && /^[1-9][0-9]*$/.test(raw) ? (BigInt(raw) as VersionId) : null;
-
-      if (!versionId || !opBeginVersion(store, versionId, job.id, job.attempts))
-        throw new StudyError('cancelled', 'Version superseded');
-
-      const version = opMessage(store, message.id)?.versions.find((v) => v.id === versionId);
-
-      if (!version) throw new StudyError('cancelled', 'Version superseded');
-
-      const previous =
-        job.kind === 'rewrite' && version.basedOn ? opVersionCitations(store, version.basedOn) : [];
-      const evidence = new Evidence(store, session.projectId, previous);
-      const agents = this.agents(session.projectId, 'medium', evidence);
-      let text: string;
-
-      if (job.kind === 'reply') {
-        const timeline = message.threadRoot
-          ? (opThread(store, message.threadRoot)?.messages ?? [])
-          : opListMessages(store, session.id);
-        const messages = timeline
-          .filter(
-            (m) =>
-              m.id !== message.id &&
-              m.threadRoot === message.threadRoot &&
-              (!message.replyTo || m.id <= message.replyTo)
-          )
-          .map((m) => ({
-            role: m.role,
-            content: JSON.stringify({
-              text: m.versions.find((v) => v.id === m.activeVersionId)?.text ?? '',
-              attachments: m.parts.flatMap((p) => {
-                const source = p.sourceId ? evidence.source(p.sourceId) : null;
-
-                return source ? [source] : [];
-              })
-            })
-          }));
-
-        if (message.threadRoot) {
-          const owner = opListMessages(store, session.id)
-            .flatMap((m) => m.parts)
-            .find((p) => p.id === message.threadRoot);
-          const source = owner?.sourceId ? evidence.source(owner.sourceId) : null;
-
-          if (source)
-            messages.unshift({
-              role: 'user',
-              content: JSON.stringify({
-                threadSource: source
-              })
-            });
-        }
-
-        text = await streamReply(agents, messages, {}, signal);
-      } else {
-        const before = message.versions.find((v) => v.id === version.basedOn)?.text ?? '';
-        const result = await agents.rewrite.generate({
-          prompt: JSON.stringify({
-            text: before,
-            action: version.origin,
-            instruction: version.instruction
-          }),
-          abortSignal: signal
-        });
-
-        text = result.text;
-      }
-
-      this.current(job, signal);
-      const grounded = evidence.text(text);
-
-      opFinishVersion(store, versionId, job.id, job.attempts, grounded.value, grounded.citations);
-
-      return;
-    }
-
-    if (job.kind === 'artifact' && job.target.type === 'artifact') {
-      const artifact = opArtifact(store, job.target.id);
-
-      if (!artifact) throw new StudyError('not_found', 'Material missing');
-
-      const evidence = new Evidence(store, artifact.projectId);
-      const context = this.context(artifact.projectId, evidence);
-
-      if (!context.sources.length && !context.notes.length)
-        throw new StudyError('not_enough', 'No study content');
-
-      const result = await generateMaterial(
-        this.agents(artifact.projectId, 'smart', evidence),
-        context.prompt,
-        {
-          kind: artifact.kind,
-          signal
-        }
-      );
-
-      this.current(job, signal);
-      const grounded =
-        result.type === 'diagram'
-          ? {
-              type: 'diagram' as const,
-              mermaid: evidence.text(result.mermaid).value
-            }
-          : {
-              type: 'flashcards' as const,
-              cards: result.cards.map((card) => ({
-                front: evidence.text(card.front).value,
-                back: evidence.text(card.back).value,
-                cites: evidence.references(card.cites)
-              }))
-            };
-
-      opFinishMaterial(store, artifact.id, job.id, job.attempts, grounded, evidence.citations);
-
-      return;
-    }
-
-    if ((job.kind === 'question' || job.kind === 'grade') && job.target.type === 'question') {
-      const question = opQuestion(store, job.target.id);
-      const practice = question && opListPractices(store).find((p) => p.id === question.practiceId);
-
-      if (!question || !practice) throw new StudyError('not_found', 'Question missing');
-
-      const evidence = new Evidence(store, practice.projectId, question.citations);
-      const agents = this.agents(practice.projectId, 'medium', evidence);
-
-      if (job.kind === 'question') {
-        const context = this.context(practice.projectId, evidence);
-
-        if (!context.sources.length && !context.notes.length)
-          throw new StudyError('not_enough', 'No study content');
-
-        const prior = opListQuestions(store, practice.id).flatMap((q) => (q.gist ? [q.gist] : []));
-        const result = await agents.question(
-          question.kind,
-          JSON.stringify({
-            context,
-            prior
-          }),
-          signal
-        );
-
-        this.current(job, signal);
-        const body =
-          result.type === 'choice'
-            ? {
-                ...result,
-                question: evidence.text(result.question).value,
-                choices: result.choices.map((c) => evidence.text(c).value),
-                explanation: evidence.text(result.explanation).value,
-                cites: evidence.references(result.cites)
-              }
-            : {
-                ...result,
-                question: evidence.text(result.question).value,
-                reference: evidence.text(result.reference).value,
-                cites: evidence.references(result.cites)
-              };
-
-        opFinishQuestion(
-          store,
-          question.id,
-          job.id,
-          job.attempts,
-          body,
-          result.gist,
-          evidence.citations
-        );
-      } else {
-        const result = await agents.grade.generate({
-          prompt: JSON.stringify({
-            question: question.body,
-            answer: question.answer
-          }),
-          abortSignal: signal
-        });
-
-        this.current(job, signal);
-        opFinishGrade(
-          store,
-          question.id,
-          job.id,
-          job.attempts,
-          result.output.verdict,
-          evidence.text(result.output.feedback).value
-        );
-      }
-
-      return;
-    }
-
-    throw new StudyError('unsupported', 'No worker supports this job');
+      if (errors.length)
+        return yield* Effect.fail(new AggregateError(errors, 'Workflow worker cleanup failed'));
+    });
   }
 }

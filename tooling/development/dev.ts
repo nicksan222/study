@@ -34,7 +34,7 @@ const close = () =>
 
 try {
   server = await serve(app);
-  app.workers.start();
+  await app.workers.start();
   web = await createServer({
     configFile: resolve(root, 'apps/web/vite.config.ts'),
     server: { proxy: { '/trpc': { target: server.url } } }

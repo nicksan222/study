@@ -51,3 +51,11 @@ test('named block callbacks and constant database aliases stay synchronous', () 
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('factory-owned database callbacks cannot start asynchronous transactions', () => {
+  const diagnostics = lintRule('synchronous-transactions', {
+    'src/features/items/store/index.ts': `import { defineStore, storeMutation as command } from '#server/platform/definitions/define-store'; defineStore({ make: ({db}) => ({queries: {}, mutations: {save: command({ run(input) { db.transaction(async () => 1); } })}}) });`
+  });
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+});

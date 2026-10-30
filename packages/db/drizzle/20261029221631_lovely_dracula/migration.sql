@@ -1,0 +1,2 @@
+CREATE INDEX `workflow_executions_pagination_idx` ON `workflow_executions` (`created_at`,`execution_id`);--> statement-breakpoint
+CREATE INDEX `workflow_executions_correlation_pagination_idx` ON `workflow_executions` (json_extract("payload", '$.event.correlationId'),`created_at`,`execution_id`);

@@ -1,3 +1,7 @@
+import type { SessionDto } from '@study/contracts/conversations/schemas';
+import type { ProjectId } from '@study/contracts/ids';
+import type { Project } from '@study/contracts/projects/schemas';
+import type { searchResultSchema } from '@study/contracts/system/schemas';
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
@@ -6,6 +10,7 @@ import { Input } from '@study/ui/input';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from '@study/ui/menu';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
+import { Effect } from 'effect';
 import {
   Home,
   MessagesSquare,
@@ -25,19 +30,19 @@ import type { PageName } from './navigation';
 import { SidebarItems } from './sidebar-items';
 import type { SidebarItemFilter } from './sidebar-items';
 import { SidebarNavigation } from './sidebar-navigation';
-import { studyClient } from './study-client';
+import { runStudy } from './study-client';
 
-type Sessions = Awaited<ReturnType<typeof studyClient.conversations.allSessions.query>>['items'];
+type Sessions = readonly SessionDto[];
 
-type Subjects = Awaited<ReturnType<typeof studyClient.projects.projects.query>>['items'];
+type Subjects = Project[];
 
-type SearchResults = Awaited<ReturnType<typeof studyClient.system.search.query>>;
+type SearchResults = typeof searchResultSchema.Type;
 
 type SearchHit = SearchResults['hits'][number];
 
 const globalPages: readonly PageName[] = ['Projects', 'Settings', 'Help'];
 
-function resultLocation(hit: SearchHit, project: bigint | undefined) {
+function resultLocation(hit: SearchHit, project: ProjectId | undefined) {
   switch (hit.target.type) {
     case 'project':
       return { to: '/Home', search: { project: String(hit.target.id) } } as const;
@@ -45,6 +50,23 @@ function resultLocation(hit: SearchHit, project: bigint | undefined) {
       return {
         to: '/Sessions',
         search: { project: String(hit.target.projectId), id: String(hit.target.sessionId) }
+      } as const;
+    case 'material':
+      return {
+        to:
+          hit.target.materialKind === 'diagram'
+            ? '/Diagrams'
+            : hit.target.materialKind === 'flashcards'
+              ? '/Flashcards'
+              : hit.target.materialKind === 'quiz'
+                ? '/Practice'
+                : '/MediaList',
+        search: { project: String(hit.target.projectId), material: String(hit.target.materialId) }
+      } as const;
+    case 'question':
+      return {
+        to: '/Practice',
+        search: { project: String(hit.target.projectId), material: String(hit.target.materialId) }
       } as const;
     case 'source':
       return {
@@ -99,6 +121,7 @@ export function Sidebar({
   const [actionError, setActionError] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const subjectRequest = useRef<AbortController | null>(null);
+  const actionRequest = useRef<AbortController | null>(null);
   const subject = subjects.find((item) => String(item.id) === requestedProject);
   const project = subjectState === 'ready' ? subject?.id : undefined;
   const invalidSubject =
@@ -109,8 +132,32 @@ export function Sidebar({
   useEffect(() => {
     const controller = new AbortController();
 
+    actionRequest.current = controller;
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
     subjectRequest.current = controller;
-    void studyClient.projects.projects.query({}, { signal: controller.signal }).then(
+    void runStudy(
+      (client) =>
+        Effect.gen(function* () {
+          const items: Project[] = [];
+          let before: ProjectId | undefined;
+
+          do {
+            const page = yield* client['projects.projects']({ limit: 100, before });
+
+            items.push(...page.items);
+            before = page.next ?? undefined;
+          } while (before !== undefined);
+
+          return { items };
+        }),
+      controller.signal
+    ).then(
       (result) => {
         if (!controller.signal.aborted) {
           setSubjects(result.items);
@@ -128,7 +175,23 @@ export function Sidebar({
   useEffect(() => {
     const controller = new AbortController();
 
-    void studyClient.conversations.allSessions.query({}, { signal: controller.signal }).then(
+    void runStudy(
+      (client) =>
+        Effect.gen(function* () {
+          const items: SessionDto[] = [];
+          let before: { updatedAt: bigint; id: SessionDto['id'] } | undefined;
+
+          do {
+            const page = yield* client['conversations.sessions']({ limit: 100, before });
+
+            items.push(...page.items);
+            before = page.next ?? undefined;
+          } while (before !== undefined);
+
+          return { items };
+        }),
+      controller.signal
+    ).then(
       (result) => {
         if (!controller.signal.aborted) {
           setSessions(result.items);
@@ -154,24 +217,23 @@ export function Sidebar({
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      void studyClient.system.search
-        .query(
-          {
+      void runStudy(
+        (client) =>
+          client['system.search']({
             query: query.trim(),
             project: global ? undefined : project,
             limit: 30,
             ...(global ? {} : { kinds: ['session', 'message'] })
-          },
-          { signal: controller.signal }
-        )
-        .then(
-          (result) => {
-            if (!controller.signal.aborted) setSearchState({ key: searchKey, result });
-          },
-          () => {
-            if (!controller.signal.aborted) setSearchState({ key: searchKey, error: true });
-          }
-        );
+          }),
+        controller.signal
+      ).then(
+        (result) => {
+          if (!controller.signal.aborted) setSearchState({ key: searchKey, result });
+        },
+        () => {
+          if (!controller.signal.aborted) setSearchState({ key: searchKey, error: true });
+        }
+      );
     }, 200);
 
     return () => {
@@ -200,7 +262,7 @@ export function Sidebar({
     setQuery('');
     setFilter('all');
   };
-  const selectSubject = (id: bigint) => {
+  const selectSubject = (id: ProjectId) => {
     setPickerOpen(false);
     clearSearch();
     void navigate({ to: global ? '/Home' : `/${page}`, search: { project: String(id) } });
@@ -212,10 +274,10 @@ export function Sidebar({
     setActionError(false);
 
     try {
-      const session = await studyClient.conversations.createUntitledSession.mutate({
-        project,
-        title: t('NewSession')
-      });
+      const session = await runStudy(
+        (client) => client['conversations.createUntitledSession']({ project }),
+        actionRequest.current?.signal
+      );
 
       setSessionRefresh((value) => value + 1);
       clearSearch();
@@ -236,7 +298,10 @@ export function Sidebar({
     setActionError(false);
 
     try {
-      const created = await studyClient.projects.createProject.mutate({ name: name.trim() });
+      const created = await runStudy(
+        (client) => client['projects.createProject']({ name: name.trim() }),
+        actionRequest.current?.signal
+      );
 
       subjectRequest.current?.abort();
       setSubjects((items) => [...items.filter((item) => item.id !== created.id), created]);
@@ -492,7 +557,7 @@ export function Sidebar({
             )}
             {hits.map((hit) => (
               <SidebarUI.Item
-                key={`${hit.target.type}:${hit.target.type === 'project' ? hit.target.id : hit.target.type === 'session' ? hit.target.sessionId : hit.target.sourceId}:${hit.at}:${hit.excerpt ?? ''}`}
+                key={`${hit.target.type}:${hit.target.type === 'project' ? hit.target.id : hit.target.type === 'session' ? hit.target.sessionId : hit.target.type === 'source' ? hit.target.sourceId : hit.target.materialId}:${hit.at}:${hit.excerpt ?? ''}`}
                 label={hit.title}
                 icon={
                   hit.kind === 'source' ? (

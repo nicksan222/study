@@ -1,324 +1,156 @@
-import { strict as assert } from 'node:assert';
-import { once } from 'node:events';
-import { createServer } from 'node:http';
-import type { Socket } from 'node:net';
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
-import { createStudyClient } from '@study/server/node';
+import { createTestDatabase } from '@study/db/testing';
+import { Effect } from 'effect';
 
-import { postMessage } from '#server/procedures/conversations/operations/post-message';
-import { job as opJob } from '#server/procedures/jobs/operations/job';
-import { listJobs as opListJobs } from '#server/procedures/jobs/operations/job-overviews';
-import { enqueueJob } from '#server/procedures/jobs/worker';
-import { loadPreferences as opLoadPreferences } from '#server/procedures/settings/preferences';
-import { sourceBytes } from '#server/procedures/sources/operations/source';
-import { source as opSource } from '#server/procedures/sources/operations/source';
-import { search as opSearch } from '#server/procedures/system/operations/search';
-import { ServerContext } from '#server/runtime/context';
-import { serve } from '#server/runtime/server';
-import { App } from '#server/runtime/service';
-import { createServerTest } from '#testing/server-test';
+import { makeStudyClient } from '#server/client/index';
+import { App, serve } from '#server/runtime/index';
 
-function changed(app: App, predicate: () => boolean): Promise<void> {
-  if (predicate()) return Promise.resolve();
+test(
+  'source workflow survives restart and makes its content discoverable',
+  { timeout: 15000 },
+  async () => {
+    const location = createTestDatabase();
+    let app = await App.open({ path: location.path });
+    let server = await serve(app);
 
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      unsubscribe();
-      reject(new Error('Timed out waiting for persisted job state'));
-    }, 2000);
-    const unsubscribe = app.subscribe(() => {
-      if (predicate()) {
-        clearTimeout(timer);
-        unsubscribe();
-        resolve();
-      }
-    });
+    try {
+      const source = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+            const project = yield* client['projects.createProject']({ name: 'Physics' });
 
-    if (predicate()) {
-      clearTimeout(timer);
-      unsubscribe();
-      resolve();
+            return yield* client['sources.createSource']({
+              projectId: project.id,
+              name: 'gravity.txt',
+              bytes: new TextEncoder().encode('Gravity attracts masses.')
+            });
+          })
+        )
+      );
+
+      assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
+      await server.close();
+      await app.close();
+      app = await App.open({ path: location.path });
+      server = await serve(app);
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+
+            yield* client['system.startWorkers']({});
+            assert.equal((yield* client['system.health']({})).workersRunning, true);
+
+            for (let i = 0; i < 100; i++) {
+              const state = yield* client['sources.sourceProcessing']({ id: source.id });
+
+              if (state.documentId !== null) {
+                const search = yield* client['system.search']({ query: 'gravity', limit: 10 });
+
+                assert.ok(
+                  search.hits.some(
+                    (hit) => hit.target.type === 'source' && hit.target.sourceId === source.id
+                  )
+                );
+                yield* client['system.stopWorkers']({});
+                assert.equal((yield* client['system.health']({})).workersRunning, false);
+
+                return;
+              }
+
+              yield* Effect.sleep('50 millis');
+            }
+
+            assert.fail('source workflow did not recover');
+          })
+        )
+      );
+      assert.ok(app.store.db.orm.all(sql`SELECT * FROM workflow_receipts`).length > 0);
+      assert.ok(
+        app.store.db.orm.all(sql`SELECT * FROM workflow_executions WHERE status = 'completed'`)
+          .length > 0
+      );
+    } finally {
+      await server.close();
+      await app.close();
+      location.cleanup();
     }
-  });
-}
-
-test('workers read and index sources, persist corrections, and leave AI jobs waiting for sign-in', async (t) => {
-  const testDatabase = createServerTest(t, { app: false });
-  const path = testDatabase.path;
-  const app = createServerTest(t, { app: false }).manage(await App.open({ path }));
-  const server = createServerTest(t, { app: false }).manage(await serve(app));
-  const client = createStudyClient({
-    baseUrl: server.url
-  });
-
-  const project = await client.projects.createProject.mutate({
-    name: 'Physics'
-  });
-  const source = await client.sources.createNote.mutate({
-    project: project.id,
-    title: 'Gravity',
-    text: 'Gravity attracts masses.'
-  });
-
-  await client.system.startWorkers.mutate({});
-  await changed(app, () =>
-    opListJobs(app.store).some((j) => j.kind === 'index' && j.status === 'succeeded')
-  );
-  const document = (await client.sources.sourceDocument.query({ id: source.id })).value!;
-
-  assert.equal(document.blocks[0]?.text, 'Gravity attracts masses.');
-  const result = await client.system.search.query({
-    query: 'attracts',
-    project: project.id,
-    limit: 10
-  });
-
-  assert.equal(
-    result.hits.some((h) => h.target.type === 'source' && h.target.sourceId === source.id),
-    true
-  );
-  assert.equal(
-    (
-      await client.sources.correctBlock.mutate({
-        id: source.id,
-        documentId: document.id,
-        ordinal: 0,
-        before: document.blocks[0]!.text,
-        after: 'Gravity attracts matter.'
-      })
-    ).value,
-    true
-  );
-  await changed(app, () =>
-    opListJobs(app.store)
-      .filter((j) => j.kind === 'index')
-      .every((j) => j.status === 'succeeded')
-  );
-  assert.equal(
-    (
-      await client.system.search.query({
-        query: 'matter',
-        project: project.id,
-        limit: 10
-      })
-    ).hits.length > 0,
-    true
-  );
-  const session = await client.conversations.createSession.mutate({
-    project: project.id,
-    title: 'Notes'
-  });
-
-  await client.conversations.postMessage.mutate({
-    place: { type: 'timeline', id: session.id },
-    text: '@study Explain gravity'
-  });
-  await changed(app, () =>
-    opListJobs(app.store).some((j) => j.kind === 'reply' && j.status === 'waiting')
-  );
-  const job = opListJobs(app.store).find((j) => j.kind === 'reply')!;
-
-  assert.equal(job.errorKind, 'auth');
-  assert.equal(app.signInStatus().signedIn, false);
-  assert.deepEqual(opLoadPreferences(app.store, 'private.chatgpt'), {});
-  await app.workers.stop();
-  const reopened = createServerTest(t, { app: false }).manage(ServerContext.open(path));
-
-  try {
-    const persisted = opJob(reopened, job.id)!;
-
-    assert.equal(persisted.status, 'waiting');
-    assert.equal(persisted.errorKind, 'auth');
-    assert.equal(persisted.attempts, 1n);
-    assert.deepEqual(opLoadPreferences(reopened, 'private.chatgpt'), {});
-    assert.equal(opSearch(reopened, 'matter', { limit: 10 }).length > 0, true);
-  } finally {
-    reopened.close();
   }
+);
 
-  assert.equal((await client.jobs.cancelJob.mutate({ id: job.id })).value, true);
-  assert.equal((await client.jobs.job.query({ id: job.id })).value?.status, 'cancelled');
-});
+test(
+  'reply workflow records a durable sign-in wait across restart',
+  { timeout: 15000 },
+  async () => {
+    const location = createTestDatabase();
+    let app = await App.open({ path: location.path });
+    let server = await serve(app);
 
-test('shutdown aborts actual HTTP page fetching, closes its socket and requeues durable work', async (t) => {
-  const testDatabase = createServerTest(t, { app: false });
-  const path = testDatabase.path;
-  // This server deliberately holds the response open until the real fetch aborts.
-  const page = createServer();
-  const sockets = new Set<Socket>();
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+            const project = yield* client['projects.createProject']({ name: 'Physics' });
+            const session = yield* client['conversations.createSession']({
+              project: project.id,
+              title: 'Notes'
+            });
 
-  testDatabase.dispose(async () => {
-    for (const socket of sockets) socket.destroy();
+            yield* client['conversations.postMessage']({
+              sessionId: session.id,
+              text: 'Explain gravity'
+            });
+            const request = yield* client['conversations.requestReply']({ sessionId: session.id });
 
-    page.closeAllConnections();
+            yield* client['system.startWorkers']({});
 
-    if (page.listening)
-      await new Promise<void>((resolve, reject) =>
-        page.close((error) => (error ? reject(error) : resolve()))
+            for (let i = 0; i < 100; i++) {
+              if (
+                app.store.db.orm.all(
+                  sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
+                ).length
+              ) {
+                const message = yield* client['conversations.message']({ id: request.messageId });
+
+                assert.equal(
+                  message.versions.find((version) => version.id === request.versionId)?.status,
+                  'pending'
+                );
+
+                return;
+              }
+
+              yield* Effect.sleep('50 millis');
+            }
+
+            assert.fail('reply workflow did not wait for sign-in');
+          })
+        )
       );
-  });
-  page.on('connection', (socket) => {
-    sockets.add(socket);
-    socket.once('close', () => sockets.delete(socket));
-  });
-  const listening = once(page, 'listening');
+      await server.close();
+      await app.close();
+      app = await App.open({ path: location.path });
+      server = await serve(app);
+      assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length, 1);
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-  page.listen(0, '127.0.0.1');
-  await listening;
-  const address = page.address();
-
-  assert.ok(address && typeof address !== 'string');
-  const url = `http://127.0.0.1:${address.port}/notes`;
-  const app = createServerTest(t, { app: false }).manage(await App.open({ path }));
-  const server = createServerTest(t, { app: false }).manage(await serve(app));
-  const client = createStudyClient({ baseUrl: server.url });
-
-  await client.sources.addLink.mutate({ url });
-  const request = once(page, 'request', {
-    signal: AbortSignal.timeout(5000)
-  });
-
-  await client.system.startWorkers.mutate({});
-  const [incoming, response] = await request;
-
-  assert.equal(incoming.url, '/notes');
-  assert.equal(incoming.method, 'GET');
-  assert.equal(response.writableEnded, false);
-  const disconnected = once(incoming.socket, 'close', {
-    signal: AbortSignal.timeout(5000)
-  });
-  const active = opListJobs(app.store).find((job) => job.kind === 'fetch')!;
-
-  assert.equal(active.status, 'running');
-  assert.equal(active.attempts, 1n);
-  await app.workers.stop();
-  await disconnected;
-  assert.equal(incoming.socket.destroyed, true);
-  assert.equal(response.writableEnded, false);
-  assert.equal(app.workers.started, false);
-  const queued = opJob(app.store, active.id)!;
-
-  assert.equal(queued.status, 'queued');
-  assert.equal(queued.attempts, 1n);
-  assert.equal(
-    opListJobs(app.store).some((job) => job.kind === 'extract'),
-    false
-  );
-  const reopened = createServerTest(t, { app: false }).manage(ServerContext.open(path));
-
-  try {
-    assert.equal(opJob(reopened, active.id)?.status, 'queued');
-    assert.equal(opJob(reopened, active.id)?.attempts, 1n);
-    assert.equal(active.target.type, 'source');
-
-    if (active.target.type === 'source')
-      assert.equal(opSource(reopened, active.target.id)?.uri, url);
-  } finally {
-    reopened.close();
-  }
-});
-
-test('published link fetch hands durable consumers to the fetched extraction across restart', async (t) => {
-  const testDatabase = createServerTest(t, { app: false });
-  const path = testDatabase.path;
-  const page = createServer((_request, response) => {
-    response.writeHead(200, { 'content-type': 'text/html' });
-    response.end('<html><body><p>Snapshot gravity evidence.</p></body></html>');
-  });
-
-  testDatabase.dispose(async () => {
-    page.closeAllConnections();
-
-    if (page.listening)
-      await new Promise<void>((resolve, reject) =>
-        page.close((error) => (error ? reject(error) : resolve()))
+            assert.equal(yield* client['auth.publicAccount']({}), undefined);
+          })
+        )
       );
-  });
-  page.listen(0, '127.0.0.1');
-  await once(page, 'listening');
-  const address = page.address();
-
-  assert.ok(address && typeof address !== 'string');
-  const url = `http://127.0.0.1:${address.port}/article`;
-  let app = createServerTest(t, { app: false }).manage(await App.open({ path }));
-  let server = createServerTest(t, { app: false }).manage(await serve(app));
-  let client = createStudyClient({ baseUrl: server.url });
-  let unsubscribe = () => {};
-
-  const project = await client.projects.createProject.mutate({ name: 'Fetch' });
-  const source = await client.sources.addLink.mutate({ project: project.id, url });
-  const session = await client.conversations.createSession.mutate({
-    project: project.id,
-    title: 'Consumer'
-  });
-
-  postMessage(app.store, {
-    sessionId: session.id,
-    text: 'Explain gravity',
-    attachments: [source.id]
-  });
-  const fetchJob = opListJobs(app.store).find((job) => job.kind === 'fetch')!;
-  const consumer = enqueueJob(app.store, {
-    kind: 'title',
-    target: { type: 'session', id: session.id },
-    after: [fetchJob.id]
-  });
-  let stopping: Promise<void> | undefined;
-
-  unsubscribe = app.subscribe(() => {
-    if (opJob(app.store, fetchJob.id)?.status === 'succeeded' && !stopping)
-      stopping = app.workers.stop();
-  });
-  testDatabase.dispose(unsubscribe);
-  app.workers.start();
-  await changed(app, () => opJob(app.store, fetchJob.id)?.status === 'succeeded');
-  await stopping;
-  unsubscribe();
-  const extract = opListJobs(app.store).find((job) => job.kind === 'extract')!;
-
-  assert.ok(extract);
-  assert.equal(extract.target.type, 'source');
-
-  if (extract.target.type !== 'source') throw new Error('Expected extraction source');
-
-  assert.notEqual(extract.target.id, source.id);
-  assert.equal(Buffer.from(sourceBytes(app.store, source.id)!).toString(), url);
-  assert.ok(
-    Buffer.from(sourceBytes(app.store, extract.target.id)!)
-      .toString()
-      .includes('Snapshot gravity evidence')
-  );
-  const reopened = createServerTest(t, { app: false }).manage(ServerContext.open(path));
-
-  try {
-    assert.equal(opJob(reopened, consumer)?.status, 'blocked');
-    assert.equal(opJob(reopened, consumer)?.attempts, 0n);
-    assert.ok(
-      reopened.db.orm.get(
-        sql`SELECT 1 FROM job_deps WHERE job_id=${extract.id} AND depends_on=${fetchJob.id}`
-      )
-    );
-    assert.ok(
-      reopened.db.orm.get(
-        sql`SELECT 1 FROM job_deps WHERE job_id=${consumer} AND depends_on=${extract.id}`
-      )
-    );
-  } finally {
-    reopened.close();
+    } finally {
+      await server.close();
+      await app.close();
+      location.cleanup();
+    }
   }
-
-  await server.close();
-  await app.close();
-  app = createServerTest(t, { app: false }).manage(await App.open({ path }));
-  server = createServerTest(t, { app: false }).manage(await serve(app));
-  client = createStudyClient({ baseUrl: server.url });
-  app.workers.start();
-  await changed(app, () => opJob(app.store, consumer)?.status === 'waiting');
-  assert.equal(opJob(app.store, extract.id)?.status, 'succeeded');
-  assert.equal(opJob(app.store, consumer)?.errorKind, 'auth');
-  const found = (await client.sources.sourceDocument.query({ id: source.id })).value;
-
-  assert.ok(found?.blocks.some((block) => block.text.includes('Snapshot gravity evidence')));
-});
+);

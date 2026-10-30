@@ -1,10 +1,13 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { dirname, resolve } from 'node:path';
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
+import { moduleEdges } from '../architecture-imports.ts';
+
 const directories = {
+  'packages/contracts': '@study/contracts',
   'packages/ui': '@study/ui',
   'packages/theme': '@study/theme',
   'packages/localization': '@study/localization',
@@ -19,13 +22,14 @@ const directories = {
 type Owner = (typeof directories)[keyof typeof directories];
 
 const allowed: Record<Owner, readonly Owner[]> = {
+  '@study/contracts': [],
   '@study/ui': ['@study/theme'],
-  '@study/theme': [],
+  '@study/theme': ['@study/contracts'],
   '@study/localization': [],
-  '@study/db': ['@study/theme'],
+  '@study/db': ['@study/contracts', '@study/theme'],
   '@study/ai': ['@study/localization'],
-  '@study/server': ['@study/db', '@study/ai', '@study/localization', '@study/theme'],
-  '@study/web': ['@study/ui', '@study/localization', '@study/server', '@study/theme'],
+  '@study/server': ['@study/contracts', '@study/db', '@study/localization', '@study/theme'],
+  '@study/web': ['@study/contracts', '@study/ui', '@study/localization', '@study/theme'],
   '@study/desktop': [],
   'study-landing': []
 };
@@ -34,9 +38,10 @@ const exportsByPackage = new Map<string, unknown>(
   Object.entries(directories)
     .filter(([directory]) => directory.startsWith('packages/') || directory === 'apps/server')
     .map(([directory, name]) => {
-      const manifest = JSON.parse(
-        readFileSync(new URL(`../../../../${directory}/package.json`, import.meta.url), 'utf8')
-      ) as { exports: unknown };
+      const path = new URL(`../../../../${directory}/package.json`, import.meta.url);
+      const manifest = existsSync(path)
+        ? (JSON.parse(readFileSync(path, 'utf8')) as { exports: unknown })
+        : { exports: name === '@study/contracts' ? './src/index.ts' : undefined };
 
       return [name, manifest.exports] as const;
     })
@@ -123,8 +128,14 @@ export default defineRule({
       if (packageMatch) {
         const name = packageMatch[1]!;
         const subpath = packageMatch[2] ?? '';
+        const nativeClient =
+          owner === '@study/web' && name === '@study/server' && subpath === '/client';
 
-        if (!Object.values(directories).includes(name as Owner)) return;
+        if (!Object.values(directories).includes(name as Owner)) {
+          context.report({ node, message: `Unknown workspace package ${name}.` });
+
+          return;
+        }
 
         if (
           !exportsByPackage.has(name) &&
@@ -137,7 +148,7 @@ export default defineRule({
           });
         } else if (!isPublic(name, subpath)) {
           context.report({ node, message: `${name}${subpath} is not a public package export.` });
-        } else if (name !== owner && !allowed[owner].includes(name as Owner)) {
+        } else if (name !== owner && !allowed[owner].includes(name as Owner) && !nativeClient) {
           context.report({
             node,
             message: `${owner} cannot depend on ${name}; use its owning layer.`
@@ -146,13 +157,11 @@ export default defineRule({
           owner === '@study/web' &&
           name === '@study/server' &&
           subpath !== '' &&
-          subpath !== '/client' &&
-          !subpath.startsWith('/shared/')
+          subpath !== '/client'
         ) {
           context.report({
             node,
-            message:
-              '@study/web must use browser-safe @study/server root, client, or shared exports.'
+            message: '@study/web must use browser-safe @study/server root or client exports.'
           });
         }
 
@@ -160,7 +169,10 @@ export default defineRule({
       }
 
       if (
-        (owner === '@study/web' || owner === '@study/ui' || owner === '@study/theme') &&
+        (owner === '@study/web' ||
+          owner === '@study/ui' ||
+          owner === '@study/theme' ||
+          owner === '@study/contracts') &&
         context.filename.replaceAll('\\', '/').includes('/src/') &&
         !/\.(?:test|spec)\.[^/]+$|\/(?:test|tests|__tests__|test-support|testing)\//.test(
           context.filename.replaceAll('\\', '/')
@@ -190,20 +202,8 @@ export default defineRule({
       }
     }
 
-    return {
-      ImportDeclaration(node) {
-        check(node, node.source.value);
-      },
-      ExportNamedDeclaration(node) {
-        if (node.source) check(node, node.source.value);
-      },
-      ExportAllDeclaration(node) {
-        check(node, node.source.value);
-      },
-      ImportExpression(node) {
-        if (node.source.type === 'Literal' && typeof node.source.value === 'string')
-          check(node, node.source.value);
-      }
-    };
+    return moduleEdges(context, (node, source) => {
+      if (source) check(node, source);
+    });
   }
 });

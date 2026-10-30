@@ -1,3 +1,4 @@
+import type { DocumentId, SourceId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, uniqueIndex, index, check } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -8,9 +9,9 @@ import { sources } from './sources.ts';
 export const documents = sqliteTable(
   'documents',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<DocumentId>(),
     source_id: integer()
-      .$type<bigint>()
+      .$type<SourceId>()
       .references((): AnySQLiteColumn => sources.id, { onDelete: 'cascade' }),
     extractor: text({ enum: codes_extractor_kind.code.enumValues }).references(
       (): AnySQLiteColumn => codes_extractor_kind.code,
@@ -32,7 +33,7 @@ export const blocks = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
     document_id: integer()
-      .$type<bigint>()
+      .$type<DocumentId>()
       .notNull()
       .references((): AnySQLiteColumn => documents.id, { onDelete: 'cascade' }),
     ordinal: integer().$type<bigint>().notNull(),
