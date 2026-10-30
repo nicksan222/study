@@ -4,8 +4,8 @@ import '@fontsource-variable/inter';
 
 import '@study/ui/styles.css';
 import './styles.css';
-import { App } from './app';
-import { initializeAppearance } from './appearance';
+import { App } from './app/app';
+import { initializeAppearance } from './lib/appearance';
 
 const restoreAppearance = initializeAppearance(document);
 

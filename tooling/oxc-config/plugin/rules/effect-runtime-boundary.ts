@@ -1,22 +1,23 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { effectBindings, serverProduction } from '../effect-bindings.ts';
+import { effectBindings, effectProduction } from '../effect-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
-    if (!serverProduction(context.filename)) return {};
+    if (!effectProduction(context.filename)) return {};
 
     const bindings = effectBindings(context);
     const message =
-      'Run Effects and construct ManagedRuntime only at approved server runtime boundaries.';
+      'Run Effects and construct ManagedRuntime only at approved application runtime boundaries.';
 
     const path = context.filename.replaceAll('\\', '/');
-    const execute = /\/apps\/server\/src\/(?:runtime\/main|platform\/ai\/tool-adapter)\.ts$/.test(
-      path
-    );
+    const webRuntime = path.endsWith('/apps/web/src/lib/effect/runtime.ts');
+    const execute =
+      webRuntime ||
+      /\/apps\/server\/src\/(?:runtime\/main|platform\/ai\/tool-adapter)\.ts$/.test(path);
     const syncObservation = path.endsWith('/apps/server/src/platform/observability/index.ts');
-    const construct = /\/apps\/server\/src\/runtime\/(?:main|layers)\.ts$/.test(path);
+    const construct = webRuntime || /\/apps\/server\/src\/runtime\/(?:main|layers)\.ts$/.test(path);
 
     function httpPromiseBridge(node: any, name: string): boolean {
       if (!path.endsWith('/apps/server/src/platform/http/index.ts') || name !== 'Effect.runPromise')

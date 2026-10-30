@@ -183,15 +183,14 @@ test('disposes active handlers when the server shuts down', async () => {
     const first = new Promise<void>((resolve) => {
       started = resolve;
     });
-    const fiber = Effect.runFork(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(Group, { baseUrl: url });
 
-          return yield* Stream.runForEach(client.events(), () => Effect.sync(started));
-        })
-      )
-    );
+    function* verifyHandlerDisposal() {
+      const client = yield* makeStudyClient(Group, { baseUrl: url });
+
+      return yield* Stream.runForEach(client.events(), () => Effect.sync(started));
+    }
+
+    const fiber = Effect.runFork(Effect.scoped(Effect.gen(verifyHandlerDisposal)));
 
     await first;
     await shutdown();

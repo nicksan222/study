@@ -58,6 +58,8 @@ export const lint = {
     'target/**'
   ],
   rules: {
+    'eslint/max-depth': ['error', 3],
+    'eslint/max-nested-callbacks': ['error', 3],
     'react/no-array-index-key': 'error',
     'react/no-unstable-nested-components': 'error',
     'oxc/no-accumulating-spread': 'error',
@@ -121,6 +123,10 @@ export const lint = {
     'study/theme-colors': 'error',
     'study/shared-ui-variants': 'error',
     'study/web-presentation': 'error',
+    'study/web-boundaries': 'error',
+    'study/web-page-contract': 'error',
+    'study/web-presentation-purity': 'error',
+    'study/web-router-navigation': 'error',
     'vite-plus/prefer-vite-plus-imports': 'error',
     '@stylistic/padding-line-between-statements': [
       'error',

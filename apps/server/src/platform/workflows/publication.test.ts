@@ -49,61 +49,61 @@ test('publication is fenced within the transaction by the captured activity leas
     payload: { id: Schema.String },
     idempotencyKey: ({ id }) => id
   });
+
+  function* verifyPublicationFencing() {
+    const guard = yield* PublicationGuard;
+
+    assert.throws(() => guard.assert(), StudyError);
+    context.transaction(() => {
+      guard.assert();
+      context.db.orm.run(sql`INSERT INTO publication_probe VALUES (1)`);
+    });
+    store.interrupt('publication', 'safe');
+    assert.throws(() => context.transaction(() => guard.assert()), StudyError);
+    context.db.orm
+      .update(workflow_executions)
+      .set({ result: null })
+      .where(eq(workflow_executions.execution_id, 'publication'))
+      .run();
+    context.db.orm
+      .update(workflow_executions)
+      .set({ status: 'suspended' })
+      .where(eq(workflow_executions.execution_id, 'publication'))
+      .run();
+    assert.throws(() => context.transaction(() => guard.assert()), StudyError);
+    context.db.orm
+      .update(workflow_executions)
+      .set({ status: 'running' })
+      .where(eq(workflow_executions.execution_id, 'publication'))
+      .run();
+    context.db.orm
+      .update(workflow_executions)
+      .set({ updated_at: 0n })
+      .where(eq(workflow_executions.execution_id, 'publication'))
+      .run();
+    assert.throws(() => context.transaction(() => guard.assert()), StudyError);
+    assert.equal(store.claim('publication', 'replacement'), true);
+    assert.throws(() => context.transaction(() => guard.assert()), StudyError);
+    assert.throws(
+      () =>
+        context.transaction(() => {
+          context.db.orm.run(sql`INSERT INTO publication_probe VALUES (2)`);
+          guard.assert();
+        }),
+      StudyError
+    );
+    assert.equal(context.db.orm.all(sql`SELECT value FROM publication_probe`).length, 1);
+    context.db.orm
+      .delete(workflow_executions)
+      .where(eq(workflow_executions.execution_id, 'publication'))
+      .run();
+    assert.throws(() => context.transaction(() => guard.assert()), StudyError);
+    assertionsCompleted = true;
+  }
+
   const activity = Activity.make({
     name: 'publish',
-    execute: withPublicationGuard(
-      context,
-      Effect.gen(function* () {
-        const guard = yield* PublicationGuard;
-
-        assert.throws(() => guard.assert(), StudyError);
-        context.transaction(() => {
-          guard.assert();
-          context.db.orm.run(sql`INSERT INTO publication_probe VALUES (1)`);
-        });
-        store.interrupt('publication', 'safe');
-        assert.throws(() => context.transaction(() => guard.assert()), StudyError);
-        context.db.orm
-          .update(workflow_executions)
-          .set({ result: null })
-          .where(eq(workflow_executions.execution_id, 'publication'))
-          .run();
-        context.db.orm
-          .update(workflow_executions)
-          .set({ status: 'suspended' })
-          .where(eq(workflow_executions.execution_id, 'publication'))
-          .run();
-        assert.throws(() => context.transaction(() => guard.assert()), StudyError);
-        context.db.orm
-          .update(workflow_executions)
-          .set({ status: 'running' })
-          .where(eq(workflow_executions.execution_id, 'publication'))
-          .run();
-        context.db.orm
-          .update(workflow_executions)
-          .set({ updated_at: 0n })
-          .where(eq(workflow_executions.execution_id, 'publication'))
-          .run();
-        assert.throws(() => context.transaction(() => guard.assert()), StudyError);
-        assert.equal(store.claim('publication', 'replacement'), true);
-        assert.throws(() => context.transaction(() => guard.assert()), StudyError);
-        assert.throws(
-          () =>
-            context.transaction(() => {
-              context.db.orm.run(sql`INSERT INTO publication_probe VALUES (2)`);
-              guard.assert();
-            }),
-          StudyError
-        );
-        assert.equal(context.db.orm.all(sql`SELECT value FROM publication_probe`).length, 1);
-        context.db.orm
-          .delete(workflow_executions)
-          .where(eq(workflow_executions.execution_id, 'publication'))
-          .run();
-        assert.throws(() => context.transaction(() => guard.assert()), StudyError);
-        assertionsCompleted = true;
-      })
-    ).pipe(Effect.orDie)
+    execute: withPublicationGuard(context, Effect.gen(verifyPublicationFencing)).pipe(Effect.orDie)
   });
 
   try {
@@ -114,7 +114,10 @@ test('publication is fenced within the transaction by the captured activity leas
 
           yield* engine.register(workflow, () => activity);
           yield* Effect.exit(
-            engine.execute(workflow, { executionId: 'publication', payload: { id: 'publication' } })
+            engine.execute(workflow, {
+              executionId: 'publication',
+              payload: { id: 'publication' }
+            })
           );
 
           return yield* Metric.snapshot;

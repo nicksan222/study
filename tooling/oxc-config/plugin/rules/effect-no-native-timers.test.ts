@@ -1,9 +1,10 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
-  'Use Effect.sleep or a scoped Effect schedule instead of native timers in server business code.';
+  'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
 
 test('reports unsafe server lifecycle syntax and permits bounded operations', () => {
   const diagnostics = lintRule('effect-no-native-timers', {
@@ -65,4 +66,19 @@ test('rejects native abort deadlines while preserving cancellation composition',
     ['src/platform/ai/providers/example.ts', message],
     ['src/platform/ai/providers/example.ts', message]
   ]);
+});
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-no-native-timers',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        'export const task = setTimeout(() => {}, 10);',
+      'apps/web/src/features/example/page.logic.test.ts':
+        'export const task = setTimeout(() => {}, 10);'
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

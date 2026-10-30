@@ -1,7 +1,13 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
+import type { Tracer } from 'effect';
+
 import { safeMetadata } from '#server/platform/observability/index';
+
+function spanName(span: Tracer.AnySpan) {
+  return span._tag === 'Span' ? span.name : 'external';
+}
 
 test('only approved scalar operation metadata reaches the log sink', () => {
   assert.deepEqual(
@@ -29,9 +35,7 @@ test('operation logs inherit only allowed annotations and carry a span', async (
         span._tag === 'Span'
           ? {
               name: span.name,
-              parent: Option.map(span.parent, (parent) =>
-                parent._tag === 'Span' ? parent.name : 'external'
-              )
+              parent: Option.map(span.parent, spanName)
             }
           : 'external'
       )

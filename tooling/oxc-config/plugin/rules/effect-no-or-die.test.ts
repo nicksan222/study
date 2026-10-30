@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
@@ -31,4 +32,19 @@ test('resolves imported namespaces, named imports, const aliases and shadowing',
       ['src/procedures/aliases.ts', message]
     ]
   );
+});
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-no-or-die',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; export const task = Effect.orDie(other);",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; export const task = Effect.orDie(other);"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

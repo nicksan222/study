@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
@@ -55,4 +56,19 @@ test('rejects a signal from an unrelated variable', () => {
   });
 
   assertDiagnostics('effect-abort-signal', diagnostics, [['src/workers/example.ts', message]]);
+});
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-abort-signal',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; export const task = Effect.tryPromise(() => fetch(url));",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; export const task = Effect.tryPromise(() => fetch(url));"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

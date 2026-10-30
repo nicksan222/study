@@ -40,6 +40,33 @@ async function nextEntry(zip: ZipFile): Promise<Entry | null> {
   });
 }
 
+async function readXmlPart(zip: ZipFile, entry: Entry, signal?: AbortSignal): Promise<string> {
+  const stream = await zip.openReadStreamPromise(entry);
+  const chunks: Buffer[] = [];
+  let size = 0;
+  const abort = () => stream.destroy(new StudyError('cancelled', 'Reading was cancelled'));
+
+  signal?.addEventListener('abort', abort, { once: true });
+
+  try {
+    checkAbort(signal);
+
+    for await (const chunk of stream) {
+      size += chunk.length;
+
+      if (size > entry.uncompressedSize || size > MAX_EXPANDED)
+        throw new StudyError('invalid_input', 'Office XML exceeds the size limit');
+
+      chunks.push(chunk);
+    }
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    stream.destroy();
+  }
+
+  return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
+}
+
 async function xmlParts(bytes: Uint8Array, signal?: AbortSignal): Promise<Map<string, string>> {
   let zip: ZipFile | undefined;
 
@@ -72,33 +99,7 @@ async function xmlParts(bytes: Uint8Array, signal?: AbortSignal): Promise<Map<st
       if (total > MAX_EXPANDED)
         throw new StudyError('invalid_input', 'Office XML exceeds the size limit');
 
-      const stream = await zip.openReadStreamPromise(entry);
-      const chunks: Buffer[] = [];
-      let size = 0;
-      const abort = () => stream.destroy(new StudyError('cancelled', 'Reading was cancelled'));
-
-      signal?.addEventListener('abort', abort, { once: true });
-
-      try {
-        checkAbort(signal);
-
-        for await (const chunk of stream) {
-          size += chunk.length;
-
-          if (size > entry.uncompressedSize || size > MAX_EXPANDED)
-            throw new StudyError('invalid_input', 'Office XML exceeds the size limit');
-
-          chunks.push(chunk);
-        }
-      } finally {
-        signal?.removeEventListener('abort', abort);
-        stream.destroy();
-      }
-
-      parts.set(
-        entry.fileName,
-        new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))
-      );
+      parts.set(entry.fileName, await readXmlPart(zip, entry, signal));
     }
 
     return parts;

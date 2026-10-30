@@ -76,3 +76,18 @@ test('void and await do not execute Effects but terminal runtime pipelines do', 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-no-discarded',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; Effect.succeed(1);",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; Effect.succeed(1);"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+});

@@ -35,18 +35,18 @@ test('close rejects a queued start and leaves the worker stopped', async (t) => 
 test('concurrent native fibers share one worker and stop idempotently', async (t) => {
   const { app } = await createServerTest(t);
 
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      yield* Effect.all(
-        Array.from({ length: 8 }, () => Effect.promise(() => app.workers.start())),
-        { concurrency: 'unbounded' }
-      );
-      assert.equal(app.workers.started, true);
-      yield* Effect.all(
-        Array.from({ length: 8 }, () => Effect.promise(() => app.workers.stop())),
-        { concurrency: 'unbounded' }
-      );
-      assert.equal(app.workers.started, false);
-    })
-  );
+  function* verifySharedWorkerLifecycle() {
+    yield* Effect.all(
+      Array.from({ length: 8 }, () => Effect.promise(() => app.workers.start())),
+      { concurrency: 'unbounded' }
+    );
+    assert.equal(app.workers.started, true);
+    yield* Effect.all(
+      Array.from({ length: 8 }, () => Effect.promise(() => app.workers.stop())),
+      { concurrency: 'unbounded' }
+    );
+    assert.equal(app.workers.started, false);
+  }
+
+  await Effect.runPromise(Effect.gen(verifySharedWorkerLifecycle));
 });

@@ -38,7 +38,11 @@ import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
 import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
+import webBoundaries from './rules/web-boundaries.ts';
+import webPageContract from './rules/web-page-contract.ts';
+import webPresentationPurity from './rules/web-presentation-purity.ts';
 import webPresentation from './rules/web-presentation.ts';
+import webRouterNavigation from './rules/web-router-navigation.ts';
 
 export default definePlugin({
   meta: { name: 'study' },
@@ -83,6 +87,10 @@ export default definePlugin({
     'package-boundary': packageBoundary,
     'theme-colors': themeRule,
     'shared-ui-variants': sharedUiVariants,
+    'web-boundaries': webBoundaries,
+    'web-page-contract': webPageContract,
+    'web-presentation-purity': webPresentationPurity,
+    'web-router-navigation': webRouterNavigation,
     'web-presentation': webPresentation
   }
 });

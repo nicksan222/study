@@ -1,9 +1,10 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
-  'Run Effects and construct ManagedRuntime only at approved server runtime boundaries.';
+  'Run Effects and construct ManagedRuntime only at approved application runtime boundaries.';
 
 test('reports misuse and accepts scoped alternatives', () => {
   assertDiagnostics(
@@ -132,4 +133,20 @@ test('only the exported HTTP Promise bridge can execute an HTTP Effect', () => {
     ['src/platform/http/index.ts', message],
     ['src/platform/http/other.ts', message]
   ]);
+});
+
+test('only the browser runtime adapter may execute browser operations', () => {
+  const code =
+    "import { Effect as E, ManagedRuntime as M } from 'effect'; E.runPromise(E.void); E.runPromiseExitWith(context)(E.void); M.make(layer);";
+  const diagnostics = lintRule(
+    'effect-runtime-boundary',
+    {
+      'apps/web/src/features/example/page.logic.ts': code,
+      'apps/web/src/lib/effect/runtime.ts': code,
+      'apps/web/src/features/example/page.logic.test.ts': code
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });

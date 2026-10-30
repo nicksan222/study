@@ -45,138 +45,135 @@ export class App {
   }): Promise<App> {
     const issuer = options.issuer ?? 'https://auth.openai.com';
 
-    return runNative(
-      Effect.uninterruptibleMask((restore) =>
-        Effect.gen(function* () {
-          const scope = yield* Scope.make();
-          const result = yield* Effect.exit(
-            restore(
-              Scope.provide(
-                Effect.gen(function* () {
-                  let runtime: ReturnType<typeof createNativeRuntime> | undefined;
-                  const clock = yield* Clock.Clock;
-                  const auth = yield* Effect.acquireRelease(
-                    Effect.try({
-                      try: () =>
-                        new AuthManager({
-                          issuer,
-                          clock,
-                          fetch: options.fetch,
-                          saveRefresh: async (previous, token) => {
-                            if (!runtime)
-                              throw new StudyError('internal', 'Application is not initialized');
+    function* openScope(
+      restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+    ) {
+      const scope = yield* Scope.make();
 
-                            await runtime.runPromise(
-                              Effect.flatMap(Auth, (account) =>
-                                account.rotateRefreshToken({ previous, token })
-                              )
-                            );
-                          }
-                        }),
-                      catch: (cause) => cause
-                    }),
-                    (owner) =>
-                      Effect.tryPromise({
-                        try: () => owner.dispose(),
-                        catch: (error) => error
-                      }).pipe(Effect.orDie)
-                  );
-                  const store = yield* Effect.acquireRelease(
-                    Effect.try({
-                      try: () => ServerContext.open(options.path, clock),
-                      catch: (cause) => cause
-                    }),
-                    (context) => Effect.sync(() => context.close())
-                  );
-                  const queue = yield* Queue.sliding<void>(1);
-                  let workers: Workers;
-                  const native = nativeLayers(
-                    store,
-                    auth,
-                    issuer,
-                    options.hostId ?? 'study',
-                    {
-                      started: Effect.sync(() => workers.started),
-                      start: Effect.tryPromise({
-                        try: () => workers.start(),
-                        catch: (cause) =>
-                          cause instanceof StudyError
-                            ? cause
-                            : new StudyError('internal', 'Workflow worker could not start', {
-                                cause
-                              })
-                      }),
-                      stop: Effect.tryPromise({
-                        try: () => workers.stop(),
-                        catch: (cause) =>
-                          cause instanceof StudyError
-                            ? cause
-                            : new StudyError('internal', 'Workflow worker could not stop', {
-                                cause
-                              })
-                      })
-                    },
-                    {
-                      cancel: (input) =>
-                        Effect.tryPromise({
-                          try: () => workers.cancelExecution(input),
-                          catch: (cause) =>
-                            cause instanceof StudyError
-                              ? cause
-                              : new StudyError('internal', 'Workflow cancellation failed', {
-                                  cause
-                                })
-                        })
-                    },
-                    options.fetch
-                  );
+      function* acquireApplication() {
+        let runtime: ReturnType<typeof createNativeRuntime> | undefined;
+        const clock = yield* Clock.Clock;
+        const auth = yield* Effect.acquireRelease(
+          Effect.try({
+            try: () =>
+              new AuthManager({
+                issuer,
+                clock,
+                fetch: options.fetch,
+                saveRefresh: async (previous, token) => {
+                  if (!runtime) throw new StudyError('internal', 'Application is not initialized');
 
-                  runtime = yield* Effect.acquireRelease(
-                    Effect.sync(() => createNativeRuntime(native)),
-                    (owner) =>
-                      Effect.tryPromise({
-                        try: () => owner.dispose(),
-                        catch: (error) => error
-                      }).pipe(Effect.orDie)
-                  );
-                  // On failed acquisition, flush auth while the runtime and database still exist.
-                  yield* Scope.addFinalizer(
-                    scope,
-                    Effect.tryPromise({ try: () => auth.dispose(), catch: (error) => error }).pipe(
-                      Effect.orDie
+                  await runtime.runPromise(
+                    Effect.flatMap(Auth, (account) =>
+                      account.rotateRefreshToken({ previous, token })
                     )
                   );
-                  workers = yield* Effect.acquireRelease(
-                    Effect.sync(() => new Workers(store, native, runtime!, queue)),
-                    (owner) =>
-                      Effect.tryPromise({ try: () => owner.close(), catch: (error) => error }).pipe(
-                        Effect.orDie
-                      )
-                  );
-                  yield* Effect.tryPromise({
-                    try: () => runtime!.context(),
-                    catch: (cause) => cause
-                  });
+                }
+              }),
+            catch: (cause) => cause
+          }),
+          (owner) =>
+            Effect.tryPromise({
+              try: () => owner.dispose(),
+              catch: (error) => error
+            }).pipe(Effect.orDie)
+        );
+        const store = yield* Effect.acquireRelease(
+          Effect.try({
+            try: () => ServerContext.open(options.path, clock),
+            catch: (cause) => cause
+          }),
+          (context) => Effect.sync(() => context.close())
+        );
+        const queue = yield* Queue.sliding<void>(1);
+        let workers: Workers;
+        const native = nativeLayers(
+          store,
+          auth,
+          issuer,
+          options.hostId ?? 'study',
+          {
+            started: Effect.sync(() => workers.started),
+            start: Effect.tryPromise({
+              try: () => workers.start(),
+              catch: (cause) =>
+                cause instanceof StudyError
+                  ? cause
+                  : new StudyError('internal', 'Workflow worker could not start', {
+                      cause
+                    })
+            }),
+            stop: Effect.tryPromise({
+              try: () => workers.stop(),
+              catch: (cause) =>
+                cause instanceof StudyError
+                  ? cause
+                  : new StudyError('internal', 'Workflow worker could not stop', {
+                      cause
+                    })
+            })
+          },
+          {
+            cancel: (input) =>
+              Effect.tryPromise({
+                try: () => workers.cancelExecution(input),
+                catch: (cause) =>
+                  cause instanceof StudyError
+                    ? cause
+                    : new StudyError('internal', 'Workflow cancellation failed', {
+                        cause
+                      })
+              })
+          },
+          options.fetch
+        );
 
-                  return new App(store, auth, native, runtime, workers, scope);
-                }),
-                scope
-              )
+        runtime = yield* Effect.acquireRelease(
+          Effect.sync(() => createNativeRuntime(native)),
+          (owner) =>
+            Effect.tryPromise({
+              try: () => owner.dispose(),
+              catch: (error) => error
+            }).pipe(Effect.orDie)
+        );
+        // On failed acquisition, flush auth while the runtime and database still exist.
+        yield* Scope.addFinalizer(
+          scope,
+          Effect.tryPromise({ try: () => auth.dispose(), catch: (error) => error }).pipe(
+            Effect.orDie
+          )
+        );
+        workers = yield* Effect.acquireRelease(
+          Effect.sync(() => new Workers(store, native, runtime!, queue)),
+          (owner) =>
+            Effect.tryPromise({ try: () => owner.close(), catch: (error) => error }).pipe(
+              Effect.orDie
             )
-          );
+        );
+        yield* Effect.tryPromise({
+          try: () => runtime!.context(),
+          catch: (cause) => cause
+        });
 
-          if (Exit.isFailure(result)) {
-            const cleanup = yield* Effect.exit(Scope.close(scope, result));
+        return new App(store, auth, native, runtime, workers, scope);
+      }
 
-            return yield* Effect.failCause(
-              Exit.isFailure(cleanup) ? Cause.combine(result.cause, cleanup.cause) : result.cause
-            );
-          }
+      const result = yield* Effect.exit(
+        restore(Scope.provide(Effect.gen(acquireApplication), scope))
+      );
 
-          return result.value;
-        })
-      )
-    );
+      if (Exit.isFailure(result)) {
+        const cleanup = yield* Effect.exit(Scope.close(scope, result));
+
+        return yield* Effect.failCause(
+          Exit.isFailure(cleanup) ? Cause.combine(result.cause, cleanup.cause) : result.cause
+        );
+      }
+
+      return result.value;
+    }
+
+    return runNative(Effect.uninterruptibleMask((restore) => Effect.gen(() => openScope(restore))));
   }
 
   close(): Promise<void> {

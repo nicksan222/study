@@ -52,58 +52,62 @@ test('native durable sleep persists and fires at the controlled deadline', async
   const location = createTestDatabase();
 
   try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* TestClock.setTime(100_000);
-        const clock = yield* Clock.Clock;
-        const context = new ServerContext(location.open(), clock);
-        const workflow = Workflow.make('clock-test', {
-          payload: { id: Schema.String },
-          idempotencyKey: ({ id }) => id,
-          success: Schema.String
-        });
-        let completed = false;
+    function* verifyDurableDeadline() {
+      yield* TestClock.setTime(100_000);
+      const clock = yield* Clock.Clock;
+      const context = new ServerContext(location.open(), clock);
+      const workflow = Workflow.make('clock-test', {
+        payload: { id: Schema.String },
+        idempotencyKey: ({ id }) => id,
+        success: Schema.String
+      });
+      let completed = false;
 
-        try {
-          yield* Effect.scoped(
-            Effect.gen(function* () {
-              const engine = yield* WorkflowEngine.WorkflowEngine;
+      try {
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
 
-              yield* engine.register(workflow, () =>
-                Effect.gen(function* () {
-                  yield* DurableClock.sleep({
-                    name: 'wake',
-                    duration: '10 seconds',
-                    inMemoryThreshold: 0
-                  });
-                  completed = true;
+            function runWorkflow() {
+              return Effect.gen(function* () {
+                yield* DurableClock.sleep({
+                  name: 'wake',
+                  duration: '10 seconds',
+                  inMemoryThreshold: 0
+                });
+                completed = true;
 
-                  return 'done';
-                })
-              );
-              yield* engine.execute(workflow, {
-                executionId: 'one',
-                payload: { id: 'one' },
-                discard: true
+                return 'done';
               });
+            }
 
-              for (let i = 0; i < 100 && !context.db.orm.select().from(workflow_clocks).get(); i++)
-                yield* Effect.yieldNow;
+            yield* engine.register(workflow, runWorkflow);
+            yield* engine.execute(workflow, {
+              executionId: 'one',
+              payload: { id: 'one' },
+              discard: true
+            });
 
-              assert.equal(context.db.orm.select().from(workflow_clocks).get()?.due_at, 110_000n);
-              yield* TestClock.adjust('9 seconds');
-              assert.equal(completed, false);
-              yield* TestClock.adjust('1 second');
+            for (let i = 0; i < 100 && !context.db.orm.select().from(workflow_clocks).get(); i++)
+              yield* Effect.yieldNow;
 
-              for (let i = 0; i < 100 && !completed; i++) yield* Effect.yieldNow;
+            assert.equal(context.db.orm.select().from(workflow_clocks).get()?.due_at, 110_000n);
+            yield* TestClock.adjust('9 seconds');
+            assert.equal(completed, false);
+            yield* TestClock.adjust('1 second');
 
-              assert.equal(completed, true);
-            }).pipe(Effect.provide(workflowEngineLayer(context)))
-          );
-        } finally {
-          context.close();
-        }
-      }).pipe(Effect.provide(TestClock.layer()))
+            for (let i = 0; i < 100 && !completed; i++) yield* Effect.yieldNow;
+
+            assert.equal(completed, true);
+          }).pipe(Effect.provide(workflowEngineLayer(context)))
+        );
+      } finally {
+        context.close();
+      }
+    }
+
+    await Effect.runPromise(
+      Effect.gen(verifyDurableDeadline).pipe(Effect.provide(TestClock.layer()))
     );
   } finally {
     location.cleanup();

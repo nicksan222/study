@@ -39,51 +39,51 @@ test(
       app = await App.open({ path: location.path });
       server = await serve(app);
       await app.workers.start();
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            for (let attempt = 0; attempt < 100; attempt++) {
-              const state = yield* client['sources.sourceProcessing']({ id });
+      function* verifyRecoveredSource() {
+        const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-              if (state.documentId !== null) {
-                yield* client['sources.correctBlock']({
-                  id,
-                  documentId: state.documentId,
-                  ordinal: 0,
-                  before: 'Hello',
-                  after: 'Corrected'
-                });
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const state = yield* client['sources.sourceProcessing']({ id });
 
-                for (let correction = 0; correction < 100; correction++) {
-                  const updated = yield* client['sources.sourceProcessing']({ id });
+          if (state.documentId === null) {
+            yield* Effect.sleep('50 millis');
+            continue;
+          }
 
-                  if (updated.documentId !== null && updated.documentId !== state.documentId) {
-                    const document = yield* Effect.promise(() =>
-                      app.nativeRuntime.runPromise(
-                        Effect.flatMap(Sources, (sources) => sources.sourceDocument(id))
-                      )
-                    );
+          yield* client['sources.correctBlock']({
+            id,
+            documentId: state.documentId,
+            ordinal: 0,
+            before: 'Hello',
+            after: 'Corrected'
+          });
 
-                    assert.equal(document.document.blocks[0]?.text, 'Corrected');
+          for (let correction = 0; correction < 100; correction++) {
+            const updated = yield* client['sources.sourceProcessing']({ id });
 
-                    return;
-                  }
+            if (updated.documentId !== null && updated.documentId !== state.documentId) {
+              const document = yield* Effect.promise(() =>
+                app.nativeRuntime.runPromise(
+                  Effect.flatMap(Sources, (sources) => sources.sourceDocument(id))
+                )
+              );
 
-                  yield* Effect.sleep('50 millis');
-                }
+              assert.equal(document.document.blocks[0]?.text, 'Corrected');
 
-                assert.fail('source correction was not consumed');
-              }
-
-              yield* Effect.sleep('50 millis');
+              return;
             }
 
-            assert.fail('source was not processed');
-          })
-        )
-      );
+            yield* Effect.sleep('50 millis');
+          }
+
+          assert.fail('source correction was not consumed');
+        }
+
+        assert.fail('source was not processed');
+      }
+
+      await Effect.runPromise(Effect.scoped(Effect.gen(verifyRecoveredSource)));
     } finally {
       await server.close();
       await app.close();
@@ -170,85 +170,84 @@ test(
                 limit: 10
               });
 
-              if (page.items.length === 2) {
-                const details = yield* Effect.forEach(page.items, (item) =>
-                  client['materials.material']({ id: item.id })
-                );
-                const original = details.find((item) => item.version.content.kind === 'file');
-                const extracted = details.find((item) => item.version.content.kind === 'document');
+              if (page.items.length !== 2) {
+                yield* Effect.sleep('50 millis');
+                continue;
+              }
 
-                assert.ok(original);
-                assert.ok(extracted);
+              const details = yield* Effect.forEach(page.items, (item) =>
+                client['materials.material']({ id: item.id })
+              );
+              const original = details.find((item) => item.version.content.kind === 'file');
+              const extracted = details.find((item) => item.version.content.kind === 'document');
 
-                if (original.version.content.kind === 'file')
-                  assert.equal(original.version.content.source.id, source.id);
+              assert.ok(original);
+              assert.ok(extracted);
 
-                const inputs = yield* client['materials.inputs']({
-                  id: extracted.version.id,
+              if (original.version.content.kind === 'file')
+                assert.equal(original.version.content.source.id, source.id);
+
+              const inputs = yield* client['materials.inputs']({
+                id: extracted.version.id,
+                limit: 10
+              });
+
+              assert.equal(inputs.items[0]?.id, original.version.id);
+              assert.equal(extracted.version.operation, 'extract');
+              const replaced = yield* client['sources.replaceSource']({
+                id: source.id,
+                expectedRevision: 1,
+                name: 'updated.txt',
+                bytes: new TextEncoder().encode('Chloroplasts capture sunlight')
+              });
+
+              assert.equal(replaced.revision, 2);
+              const originalAfterReplacement = yield* client['materials.material']({
+                id: original.id
+              });
+
+              assert.deepEqual(originalAfterReplacement.version.content, original.version.content);
+
+              for (let nextAttempt = 0; nextAttempt < 100; nextAttempt++) {
+                const nextPage = yield* client['materials.materials']({
+                  projectId: project.id,
+                  archived: false,
                   limit: 10
                 });
 
-                assert.equal(inputs.items[0]?.id, original.version.id);
-                assert.equal(extracted.version.operation, 'extract');
-                const replaced = yield* client['sources.replaceSource']({
-                  id: source.id,
-                  expectedRevision: 1,
-                  name: 'updated.txt',
-                  bytes: new TextEncoder().encode('Chloroplasts capture sunlight')
-                });
-
-                assert.equal(replaced.revision, 2);
-                const originalAfterReplacement = yield* client['materials.material']({
-                  id: original.id
-                });
-
-                assert.deepEqual(
-                  originalAfterReplacement.version.content,
-                  original.version.content
-                );
-
-                for (let nextAttempt = 0; nextAttempt < 100; nextAttempt++) {
-                  const nextPage = yield* client['materials.materials']({
-                    projectId: project.id,
-                    archived: false,
-                    limit: 10
-                  });
-
-                  if (nextPage.items.length === 4) {
-                    const nextDetails = yield* Effect.forEach(nextPage.items, (item) =>
-                      client['materials.material']({ id: item.id })
-                    );
-                    const nextOriginal = nextDetails.find(
-                      (item) => item.id !== original.id && item.version.content.kind === 'file'
-                    );
-                    const nextExtracted = nextDetails.find(
-                      (item) => item.id !== extracted.id && item.version.content.kind === 'document'
-                    );
-
-                    assert.ok(nextOriginal);
-                    assert.ok(nextExtracted);
-                    assert.equal(nextOriginal.version.content.kind, 'file');
-
-                    if (nextOriginal.version.content.kind === 'file')
-                      assert.equal(nextOriginal.version.content.source.name, 'updated.txt');
-
-                    const nextInputs = yield* client['materials.inputs']({
-                      id: nextExtracted.version.id,
-                      limit: 10
-                    });
-
-                    assert.equal(nextInputs.items[0]?.id, nextOriginal.version.id);
-
-                    return;
-                  }
-
+                if (nextPage.items.length !== 4) {
                   yield* Effect.sleep('50 millis');
+                  continue;
                 }
 
-                assert.fail('replacement was not projected into Materials');
+                const nextDetails = yield* Effect.forEach(nextPage.items, (item) =>
+                  client['materials.material']({ id: item.id })
+                );
+                const nextOriginal = nextDetails.find(
+                  (item) => item.id !== original.id && item.version.content.kind === 'file'
+                );
+                const nextExtracted = nextDetails.find(
+                  (item) => item.id !== extracted.id && item.version.content.kind === 'document'
+                );
+
+                assert.ok(nextOriginal);
+                assert.ok(nextExtracted);
+                assert.equal(nextOriginal.version.content.kind, 'file');
+
+                if (nextOriginal.version.content.kind === 'file')
+                  assert.equal(nextOriginal.version.content.source.name, 'updated.txt');
+
+                const nextInputs = yield* client['materials.inputs']({
+                  id: nextExtracted.version.id,
+                  limit: 10
+                });
+
+                assert.equal(nextInputs.items[0]?.id, nextOriginal.version.id);
+
+                return;
               }
 
-              yield* Effect.sleep('50 millis');
+              assert.fail('replacement was not projected into Materials');
             }
 
             assert.fail('source was not projected into Materials');

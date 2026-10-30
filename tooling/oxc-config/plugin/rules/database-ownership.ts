@@ -1,3 +1,4 @@
+import type { ESTree } from 'vite-plus/lint/plugins';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 const factories = new Set(['sqliteTable', 'sqliteTableCreator', 'sqliteView', 'view']);
@@ -26,36 +27,37 @@ export default defineRule({
       return null;
     }
 
+    function registerImports(node: ESTree.ImportDeclaration) {
+      const restricted = kind(node.source.value);
+      const ownerKind = kind(node.source.value, true);
+
+      if (!ownerKind || node.importKind === 'type') return;
+
+      for (const specifier of node.specifiers) {
+        if (specifier.type !== 'ImportSpecifier') {
+          if (!restricted) ownedImports.set(specifier.local.name, ownerKind);
+
+          continue;
+        }
+
+        if (specifier.importKind === 'type') continue;
+
+        const imported =
+          specifier.imported.type === 'Identifier'
+            ? specifier.imported.name
+            : specifier.imported.value;
+
+        if (connectionOwner && ownerKind === 'schema' && migrators.has(imported))
+          ownedImports.set(specifier.local.name, 'connection');
+        else if (!restricted && (ownerKind === 'connection' || factories.has(imported)))
+          ownedImports.set(specifier.local.name, ownerKind);
+      }
+    }
+
     return {
       Program(program) {
-        for (const node of program.body) {
-          if (node.type !== 'ImportDeclaration') continue;
-
-          const restricted = kind(node.source.value);
-          const ownerKind = kind(node.source.value, true);
-
-          if (ownerKind && node.importKind !== 'type') {
-            for (const specifier of node.specifiers) {
-              if (specifier.type !== 'ImportSpecifier') {
-                if (!restricted) ownedImports.set(specifier.local.name, ownerKind);
-
-                continue;
-              }
-
-              if (specifier.importKind === 'type') continue;
-
-              const imported =
-                specifier.imported.type === 'Identifier'
-                  ? specifier.imported.name
-                  : specifier.imported.value;
-
-              if (connectionOwner && ownerKind === 'schema' && migrators.has(imported))
-                ownedImports.set(specifier.local.name, 'connection');
-              else if (!restricted && (ownerKind === 'connection' || factories.has(imported)))
-                ownedImports.set(specifier.local.name, ownerKind);
-            }
-          }
-        }
+        for (const node of program.body)
+          if (node.type === 'ImportDeclaration') registerImports(node);
       },
       ImportDeclaration(node) {
         const restricted = kind(node.source.value);

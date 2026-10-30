@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
@@ -69,4 +70,19 @@ test('does not assume an opaque schedule transformation preserves its bound', ()
     ['src/workers/opaque.ts', message],
     ['src/workers/opaque.ts', message]
   ]);
+});
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-bounded-retries',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; export const task = Effect.retry(other);",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; export const task = Effect.retry(other);"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
