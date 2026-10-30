@@ -5,14 +5,16 @@ import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { Db, sql } from '@study/db';
-import { createStudyClient } from '@study/server/node';
+import { StudyRpc } from '@study/contracts/rpc';
+import { sql } from '@study/db';
+import { Effect } from 'effect';
 
+import { makeStudyClient } from '#server/client/index';
 import { createServerTest } from '#testing/server-test';
 
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
   test(
-    `server entry serves real tRPC and shuts down on ${shutdown}`,
+    `server entry serves native RPC and shuts down on ${shutdown}`,
     { timeout: 30_000 },
     async (t) => {
       const testDatabase = createServerTest(t, { app: false });
@@ -43,6 +45,9 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         stderr += String(chunk);
       });
       const lines = createInterface({ input: child.stdout });
+      const stdout: string[] = [];
+
+      lines.on('line', (line) => stdout.push(line));
 
       try {
         const line = await Promise.race([
@@ -56,21 +61,19 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         };
 
         assert.match(endpoint.url, /^http:\/\/127\.0\.0\.1:/);
-        const client = createStudyClient({
-          baseUrl: endpoint.url
-        });
-
         assert.deepEqual(Object.keys(endpoint), ['url']);
-        const health = await client.system.getHealth.query();
+        const project = await Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const client = yield* makeStudyClient(StudyRpc, { baseUrl: endpoint.url });
 
-        assert.equal(health.workersRunning, true);
-        assert.equal(health.testMode, false);
-        const project = await client.projects.createProject.mutate({
-          name: 'Process persistence'
-        });
+              return yield* client['projects.createProject']({ name: 'Process persistence' });
+            })
+          )
+        );
 
         assert.equal(typeof project.id, 'bigint');
-        const database = createServerTest(t, { app: false }).manage(Db.open(env.STUDY_DATABASE!));
+        const database = createServerTest(t, { app: false }).openDb(env.STUDY_DATABASE!);
 
         try {
           const saved = database.orm.get<{ id: bigint; name: string }>(
@@ -89,6 +92,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         const result = await exit;
 
         assert.equal(result[0], 0, stderr);
+        assert.deepEqual(stdout, [JSON.stringify(endpoint)]);
       } finally {
         lines.close();
 

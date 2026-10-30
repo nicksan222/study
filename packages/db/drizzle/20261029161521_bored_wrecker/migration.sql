@@ -1,0 +1,1 @@
+CREATE INDEX `workflow_events_type_order_idx` ON `workflow_events` (`type`,`created_at`,`event_id`);

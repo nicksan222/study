@@ -35,3 +35,12 @@ test('preserve-error-cause covers direct unsafe forms', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
+
+test('canonical contracts error wrappers retain their original cause', () => {
+  const diagnostics = lintRule('preserve-error-cause', {
+    'src/domains/projects/service.ts':
+      "import {StudyError} from '@study/contracts/errors'; try { work(); } catch(error) { throw new StudyError('internal', 'failed'); }"
+  });
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+});

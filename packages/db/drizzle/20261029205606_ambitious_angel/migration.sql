@@ -1,0 +1,2 @@
+ALTER TABLE `material_versions` ADD `generation_request_id` text REFERENCES material_generation_requests(id);--> statement-breakpoint
+CREATE UNIQUE INDEX `material_versions_generation_request_unique` ON `material_versions` (`generation_request_id`);

@@ -1,84 +1,10 @@
 import { color as parseColor } from '@csstools/css-color-parser';
 import { parseComponentValue } from '@csstools/css-parser-algorithms';
 import { tokenize } from '@csstools/css-tokenizer';
-
-/** Headless theme overrides. Unspecified colors fall back to the application CSS. */
-export const themeColorKeys = [
-  'canvas',
-  'background',
-  'foreground',
-  'card',
-  'card-foreground',
-  'popover',
-  'popover-foreground',
-  'primary',
-  'primary-foreground',
-  'secondary',
-  'secondary-foreground',
-  'muted',
-  'muted-foreground',
-  'accent',
-  'accent-foreground',
-  'border',
-  'input',
-  'ring',
-  'sidebar',
-  'sidebar-foreground',
-  'sidebar-muted-foreground',
-  'sidebar-control-surface',
-  'sidebar-row-hover',
-  'sidebar-row-active',
-  'sidebar-row-selected',
-  'sidebar-border',
-  'error',
-  'error-foreground',
-  'error-surface',
-  'destructive',
-  'destructive-foreground',
-  'success',
-  'success-foreground',
-  'warning',
-  'warning-foreground',
-  'warning-surface',
-  'info',
-  'info-foreground',
-  'surface-raised',
-  'app-chrome-background',
-  'toolbar-background',
-  'toolbar-foreground',
-  'toolbar-border',
-  'toolbar-control',
-  'toolbar-control-foreground',
-  'toolbar-control-hover',
-  'placeholder',
-  'secondary-label',
-  'icon-muted',
-  'sidebar-stage-fade',
-  'code-background',
-  'code-foreground',
-  'media-overlay',
-  'media-foreground',
-  'control-on-destructive',
-  'text-muted',
-  'update-surface',
-  'message-surface',
-  'message-foreground',
-  'message-action',
-  'message-action-foreground',
-  'message-action-hover',
-  'search-match-background',
-  'search-match-foreground',
-  'search-match-active-background',
-  'search-match-active-foreground',
-  'terminal-background',
-  'terminal-foreground',
-  'terminal-cursor',
-  'terminal-selection',
-  'terminal-scrollbar',
-  'terminal-scrollbar-hover'
-] as const;
-
-export type ThemeColorKey = (typeof themeColorKeys)[number];
+import { themeColorKeys } from '@study/contracts/themes/keys';
+import type { ThemeColorKey } from '@study/contracts/themes/keys';
+export { themeColorKeys };
+export type { ThemeColorKey };
 
 export type ThemeColors = Readonly<Partial<Record<ThemeColorKey, string>>>;
 

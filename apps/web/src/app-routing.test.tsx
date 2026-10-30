@@ -1,18 +1,26 @@
 import { catalogs } from '@study/localization';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { Effect as EffectType } from 'effect';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { App } from './app';
 
-vi.mock('./study-client', () => ({
-  studyClient: {
-    projects: { projects: { query: () => Promise.resolve({ items: [] }) } },
-    conversations: { allSessions: { query: () => Promise.resolve({ items: [] }) } },
-    sources: { sources: { query: () => Promise.resolve({ items: [] }) } },
-    materials: { list: { query: () => Promise.resolve({ items: [], nextCursor: null }) } }
-  }
-}));
+vi.mock('./study-client', async () => {
+  const { Effect } = await import('effect');
+  const page = () => Effect.succeed({ items: [], next: null, nextCursor: null });
+  const client = {
+    'projects.projects': page,
+    'conversations.sessions': page,
+    'sources.sources': page,
+    'materials.materials': page
+  };
+
+  return {
+    runStudy: (f: (rpc: typeof client) => EffectType.Effect<unknown>, signal?: AbortSignal) =>
+      Effect.runPromise(f(client), { signal })
+  };
+});
 
 const pages = [
   'Home',

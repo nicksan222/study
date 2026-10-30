@@ -733,5 +733,6 @@ export const italian = Object.freeze({
   UnitSeconds: 's',
   UnitGigaflops: 'GFLOPS',
   UnitBandwidth: 'GB/s',
+  PracticeQuestionTitle: 'Domanda di esercitazione',
   SearchShortcut: 'Ctrl/⌘ K'
 } as const satisfies Record<keyof typeof english, string>);

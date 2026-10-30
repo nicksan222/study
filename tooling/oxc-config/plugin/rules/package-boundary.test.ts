@@ -24,7 +24,7 @@ test('package ownership, public exports, and browser entrypoints are enforced', 
       'packages/ai/src/good.ts': "import '@study/localization';\n",
       'apps/server/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
       'apps/web/src/good.ts':
-        "import '@study/ui/button';\nimport '@study/server';\nimport '@study/server/client';\nimport '@study/server/shared/ids';\n",
+        "import '@study/ui/button';\nimport '@study/server';\nimport '@study/server/client';\n",
       'packages/ui/src/same.ts': "import './other.ts';\n"
     },
     true
@@ -45,13 +45,11 @@ test('package ownership, public exports, and browser entrypoints are enforced', 
         'packages/localization/src/bad.ts',
         '@study/localization cannot depend on @study/ui; use its owning layer.'
       ],
-      ['packages/db/src/bad.ts', '@study/db cannot depend on @study/ai; use its owning layer.'],
+      ['packages/db/src/bad.ts', '@study/ai is not a public package export.'],
       ['packages/ai/src/bad.ts', '@study/ai cannot depend on @study/db; use its owning layer.'],
       ['apps/server/src/bad.ts', '@study/server cannot depend on @study/ui; use its owning layer.'],
-      [
-        'apps/web/src/bad.ts',
-        '@study/web must use browser-safe @study/server root, client, or shared exports.'
-      ],
+      ['apps/web/src/bad.ts', '@study/web cannot depend on @study/server; use its owning layer.'],
+      ['apps/web/src/good.ts', '@study/web cannot depend on @study/server; use its owning layer.'],
       ['apps/web/src/node.ts', '@study/web cannot import Node builtins in browser code.'],
       [
         'apps/web/src/private.ts',
@@ -186,4 +184,61 @@ test('the theme engine remains browser-safe while UI and server can consume its 
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.match(diagnostics[0]!.message, /cannot import Node builtins/);
+});
+
+test('contracts are recognized and unknown workspace packages fail closed', () => {
+  const diagnostics = lintRule(
+    'package-boundary',
+    {
+      'packages/contracts/src/a.ts': "import type { A } from '@study/server';",
+      'apps/server/src/a.ts':
+        "import type { A } from '@study/contracts'; import '@study/ai'; import '@study/missing';",
+      'apps/web/src/a.ts': "import '@study/server/shared/ids';"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+});
+
+test('checks typed and aliased loader edges while honoring shadowing', () => {
+  const diagnostics = lintRule(
+    'package-boundary',
+    {
+      'apps/web/src/loader.ts':
+        "import { createRequire as cr } from 'node:module'; const load = cr(import.meta.url); load(`@study/missing`); type T = import('@study/missing').T; import x = require('@study/missing'); function f(require: (s: string) => void) { require('@study/missing'); }"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+});
+
+test('loader edges follow lexical bindings and direct createRequire calls', () => {
+  const diagnostics = lintRule(
+    'package-boundary',
+    {
+      'apps/server/src/loader.ts':
+        "import * as mod from 'node:module'; const cr = mod.createRequire; const req = cr(import.meta.url); const alias = req; alias(`@study/missing`); cr(import.meta.url)('@study/missing'); globalThis.require('@study/missing'); module.require('@study/missing'); const r = require; r('@study/missing'); function f(globalThis: any, req: any) { globalThis.require('@study/missing'); req('@study/missing'); }"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
+});
+
+test('database storage may reuse canonical contract ID types without depending on server implementation', () => {
+  const diagnostics = lintRule(
+    'package-boundary',
+    {
+      'packages/db/src/schema/ids.ts':
+        "import type { ProjectId } from '@study/contracts'; export type Id = ProjectId;",
+      'packages/db/src/schema/server.ts':
+        "import type { AppRouter } from '@study/server'; export type Router = AppRouter;"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.ok(diagnostics[0]?.filename.endsWith('/server.ts'));
 });

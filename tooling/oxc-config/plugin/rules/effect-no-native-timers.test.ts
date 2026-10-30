@@ -44,3 +44,25 @@ test('ignores unrelated methods and shadowed globals', () => {
 
   assertDiagnostics('effect-no-native-timers', diagnostics, []);
 });
+
+test('rejects native abort deadlines while preserving cancellation composition', () => {
+  const diagnostics = lintRule('effect-no-native-timers', {
+    'src/platform/ai/providers/example.ts': `
+      AbortSignal.timeout(1000);
+      const deadline = globalThis.AbortSignal.timeout;
+      deadline(1000);
+      const { timeout: expire } = AbortSignal;
+      expire(1000);
+      AbortSignal.any([signal]);
+      function local(AbortSignal) { AbortSignal.timeout(1000); }
+      const transport = { timeout(ms) {} };
+      transport.timeout(1000);
+    `
+  });
+
+  assertDiagnostics('effect-no-native-timers', diagnostics, [
+    ['src/platform/ai/providers/example.ts', message],
+    ['src/platform/ai/providers/example.ts', message],
+    ['src/platform/ai/providers/example.ts', message]
+  ]);
+});

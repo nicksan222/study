@@ -4,7 +4,9 @@ import { beforeEach, test } from 'node:test';
 import type { TestContext } from 'node:test';
 
 import { Db, sql } from '@study/db';
+import { Effect } from 'effect';
 
+import { Projects } from '#server/features/projects/index';
 import { App } from '#server/runtime/service';
 
 import { createServerTest } from './server-test.ts';
@@ -46,7 +48,9 @@ if (
       });
     }
 
-    const project = await f.caller.projects.createProject({ name: 'First' });
+    const project = await f.app.nativeRuntime.runPromise(
+      Effect.flatMap(Projects, (projects) => projects.createProject({ name: 'First' }))
+    );
 
     assert.equal(project.name, 'First');
     let reopened: Db;
@@ -75,7 +79,14 @@ if (mode === 'success') {
     const f = await createServerTest(t);
 
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
-    assert.deepEqual((await f.caller.projects.projects({})).items, []);
+    assert.deepEqual(
+      (
+        await f.app.nativeRuntime.runPromise(
+          Effect.flatMap(Projects, (projects) => projects.projects({ limit: 10 }))
+        )
+      ).items,
+      []
+    );
   });
 }
 
@@ -167,7 +178,7 @@ if (mode === 'api-reuse') {
 
     assert.equal(first, again);
     assert.equal(first.app, again.app);
-    assert.equal(first.caller, again.caller);
+    assert.equal(first.app.nativeRuntime, again.app.nativeRuntime);
     console.log('FIXTURE_PATH', JSON.stringify(first.path));
 
     assert.equal(low.path, first.path);

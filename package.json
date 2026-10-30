@@ -12,8 +12,8 @@
     "build": "vp run typecheck && vp run --fail-if-no-match --filter @study/web build",
     "typecheck": "vp exec tsc --noEmit -p tooling/typescript/tooling.json && vp run --fail-if-no-match --filter @study/web typecheck",
     "server:typecheck": "vp exec tsc --noEmit -p tooling/typescript/server.json",
-    "server:test": "vp exec node --import ./apps/server/test/testing/preload.ts --test --test-reporter=spec 'packages/*/test/**/*.test.ts' 'apps/server/test/**/*.test.ts' 'apps/server/src/procedures/**/*.test.ts'",
-    "lint": "node tooling/oxc-config/check-theme-css.ts && vp check --deny-warnings",
+    "server:test": "vp exec node --import ./apps/server/test/testing/preload.ts --test --test-concurrency=2 --test-reporter=spec 'packages/*/test/**/*.test.ts' 'apps/server/test/**/*.test.ts' 'apps/server/src/**/*.test.ts'",
+    "lint": "node tooling/oxc-config/check-theme-css.ts && npm run architecture:check && vp check --deny-warnings",
     "quality:test": "vp exec node --test --test-reporter=spec tooling/oxc-config/plugin/rules/*.test.ts tooling/oxc-config/plugin/test/*.test.ts",
     "test": "vp run --fail-if-no-match --filter @study/web test",
     "gen": "node tooling/development/generate-theme-css.ts && bun run --filter @study/db gen && bun run --filter @study/web gen:routes",
@@ -23,7 +23,8 @@
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "gen:routes": "vp run --fail-if-no-match --filter @study/web gen:routes",
-    "dev": "node tooling/development/dev.ts"
+    "dev": "node tooling/development/dev.ts",
+    "architecture:check": "node tooling/oxc-config/check-architecture.ts"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "5.10.0",
@@ -44,6 +45,8 @@
     "vite-plus": "1.4.0"
   },
   "overrides": {
+    "@effect/platform-node-shared": "4.0.7",
+    "effect": "4.0.7",
     "vite": "$vite",
     "vitest": "5.0.5"
   }

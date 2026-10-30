@@ -1,3 +1,4 @@
+import type { ChunkId, DocumentId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -15,9 +16,9 @@ import { documents } from './documents.ts';
 export const chunks = sqliteTable(
   'chunks',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<ChunkId>(),
     document_id: integer()
-      .$type<bigint>()
+      .$type<DocumentId>()
       .notNull()
       .references((): AnySQLiteColumn => documents.id, { onDelete: 'cascade' }),
     ordinal: integer().$type<bigint>().notNull(),

@@ -39,3 +39,12 @@ test('canonical server error imports retain typed Effect failure enforcement', (
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('public contracts error imports preserve the same typed Effect failure boundary', () => {
+  const diagnostics = lintRule('effect-no-throw', {
+    'src/domains/projects/service.ts':
+      "import {Effect} from 'effect'; import {StudyError} from '@study/contracts/errors'; Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
+  });
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+});

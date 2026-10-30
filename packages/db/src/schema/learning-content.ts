@@ -1,3 +1,11 @@
+import type {
+  MaterialCardId,
+  MaterialId,
+  MaterialVersionId,
+  QuizAttemptId,
+  QuizChoiceId,
+  QuizQuestionId
+} from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -17,7 +25,7 @@ import { materials, material_versions } from './material-versions.ts';
 export const material_quiz_versions = sqliteTable(
   'material_quiz_versions',
   {
-    version_id: integer().$type<bigint>().primaryKey(),
+    version_id: integer().$type<MaterialVersionId>().primaryKey(),
     kind: text({ enum: ['quiz'] })
       .notNull()
       .default('quiz')
@@ -36,8 +44,8 @@ export const material_quiz_versions = sqliteTable(
 export const material_quiz_questions = sqliteTable(
   'material_quiz_questions',
   {
-    id: integer().$type<bigint>().primaryKey({ autoIncrement: true }),
-    version_id: integer().$type<bigint>().notNull(),
+    id: integer().$type<QuizQuestionId>().primaryKey({ autoIncrement: true }),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
     position: integer().$type<bigint>().notNull(),
     kind: text({ enum: ['single_choice', 'multiple_choice', 'open'] }).notNull(),
     prompt: text().notNull(),
@@ -60,8 +68,8 @@ export const material_quiz_questions = sqliteTable(
 export const material_quiz_choices = sqliteTable(
   'material_quiz_choices',
   {
-    id: integer().$type<bigint>().primaryKey({ autoIncrement: true }),
-    question_id: integer().$type<bigint>().notNull(),
+    id: integer().$type<QuizChoiceId>().primaryKey({ autoIncrement: true }),
+    question_id: integer().$type<QuizQuestionId>().notNull(),
     question_kind: text({ enum: ['single_choice', 'multiple_choice'] }).notNull(),
     position: integer().$type<bigint>().notNull(),
     text: text().notNull(),
@@ -86,7 +94,7 @@ export const material_quiz_choices = sqliteTable(
 export const material_quiz_open_answers = sqliteTable(
   'material_quiz_open_answers',
   {
-    question_id: integer().$type<bigint>().primaryKey(),
+    question_id: integer().$type<QuizQuestionId>().primaryKey(),
     kind: text({ enum: ['open'] })
       .notNull()
       .default('open'),
@@ -109,8 +117,8 @@ export const material_quiz_open_answers = sqliteTable(
 export const material_flashcard_versions = sqliteTable(
   'material_flashcard_versions',
   {
-    version_id: integer().$type<bigint>().primaryKey(),
-    material_id: integer().$type<bigint>().notNull(),
+    version_id: integer().$type<MaterialVersionId>().primaryKey(),
+    material_id: integer().$type<MaterialId>().notNull(),
     kind: text({ enum: ['flashcards'] })
       .notNull()
       .default('flashcards')
@@ -131,8 +139,8 @@ export const material_flashcard_versions = sqliteTable(
 export const material_card_identities = sqliteTable(
   'material_card_identities',
   {
-    id: integer().$type<bigint>().primaryKey({ autoIncrement: true }),
-    material_id: integer().$type<bigint>().notNull(),
+    id: integer().$type<MaterialCardId>().primaryKey({ autoIncrement: true }),
+    material_id: integer().$type<MaterialId>().notNull(),
     kind: text({ enum: ['flashcards'] })
       .notNull()
       .default('flashcards')
@@ -150,9 +158,9 @@ export const material_card_identities = sqliteTable(
 export const material_flashcard_entries = sqliteTable(
   'material_flashcard_entries',
   {
-    version_id: integer().$type<bigint>().notNull(),
-    material_id: integer().$type<bigint>().notNull(),
-    card_id: integer().$type<bigint>().notNull(),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
+    material_id: integer().$type<MaterialId>().notNull(),
+    card_id: integer().$type<MaterialCardId>().notNull(),
     position: integer().$type<bigint>().notNull(),
     front: text().notNull(),
     back: text().notNull()
@@ -186,8 +194,8 @@ export const material_flashcard_entries = sqliteTable(
 export const material_quiz_attempts = sqliteTable(
   'material_quiz_attempts',
   {
-    id: integer().$type<bigint>().primaryKey({ autoIncrement: true }),
-    version_id: integer().$type<bigint>().notNull(),
+    id: integer().$type<QuizAttemptId>().primaryKey({ autoIncrement: true }),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
     status: text({ enum: ['in_progress', 'completed'] }).notNull(),
     started_at: integer().$type<bigint>().notNull(),
     finished_at: integer().$type<bigint>()
@@ -208,9 +216,9 @@ export const material_quiz_attempts = sqliteTable(
 export const material_quiz_responses = sqliteTable(
   'material_quiz_responses',
   {
-    attempt_id: integer().$type<bigint>().notNull(),
-    version_id: integer().$type<bigint>().notNull(),
-    question_id: integer().$type<bigint>().notNull(),
+    attempt_id: integer().$type<QuizAttemptId>().notNull(),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
+    question_id: integer().$type<QuizQuestionId>().notNull(),
     question_kind: text({ enum: ['single_choice', 'multiple_choice', 'open'] }).notNull(),
     answer: text(),
     score: real(),
@@ -248,9 +256,9 @@ export const material_quiz_responses = sqliteTable(
 export const material_quiz_selections = sqliteTable(
   'material_quiz_selections',
   {
-    attempt_id: integer().$type<bigint>().notNull(),
-    question_id: integer().$type<bigint>().notNull(),
-    choice_id: integer().$type<bigint>().notNull()
+    attempt_id: integer().$type<QuizAttemptId>().notNull(),
+    question_id: integer().$type<QuizQuestionId>().notNull(),
+    choice_id: integer().$type<QuizChoiceId>().notNull()
   },
   (t) => [
     primaryKey({ columns: [t.attempt_id, t.question_id, t.choice_id] }),
@@ -273,7 +281,7 @@ export const material_quiz_selections = sqliteTable(
 export const material_card_schedules = sqliteTable(
   'material_card_schedules',
   {
-    card_id: integer().$type<bigint>().primaryKey(),
+    card_id: integer().$type<MaterialCardId>().primaryKey(),
     due: integer().$type<bigint>().notNull(),
     last_review: integer().$type<bigint>(),
     elapsed_days: integer()
@@ -310,8 +318,8 @@ export const material_card_reviews = sqliteTable(
   'material_card_reviews',
   {
     id: integer().$type<bigint>().primaryKey({ autoIncrement: true }),
-    card_id: integer().$type<bigint>().notNull(),
-    version_id: integer().$type<bigint>().notNull(),
+    card_id: integer().$type<MaterialCardId>().notNull(),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
     reviewed_at: integer().$type<bigint>().notNull(),
     rating: text({ enum: ['again', 'hard', 'good', 'easy'] }).notNull(),
     elapsed_days: real().notNull()

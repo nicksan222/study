@@ -13,7 +13,7 @@ export default defineRule({
         const study = imported(
           context,
           callee,
-          /(?:shared\/errors(?:\/index)?|@study\/server\/shared\/errors)$/,
+          /(?:shared\/errors(?:\/index)?|@study\/server\/shared\/errors|@study\/contracts(?:\/errors)?)$/,
           'StudyError'
         );
 

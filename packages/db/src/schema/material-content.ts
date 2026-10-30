@@ -1,3 +1,4 @@
+import type { DocumentId, MaterialVersionId, SourceId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -19,7 +20,7 @@ function identity<K extends 'file' | 'audio' | 'video' | 'image' | 'link' | 'doc
   kind: K
 ) {
   return {
-    version_id: integer().$type<bigint>().primaryKey(),
+    version_id: integer().$type<MaterialVersionId>().primaryKey(),
     kind: text({ enum: [kind] })
       .notNull()
       .default(kind)
@@ -41,7 +42,7 @@ function ownership<K extends string>(
 
 function sourceId() {
   return integer()
-    .$type<bigint>()
+    .$type<SourceId>()
     .notNull()
     .references(() => sources.id, { onDelete: 'no action' });
 }
@@ -139,7 +140,7 @@ export const material_document_versions = sqliteTable(
   {
     ...identity('document'),
     document_id: integer()
-      .$type<bigint>()
+      .$type<DocumentId>()
       .notNull()
       .references(() => documents.id, { onDelete: 'no action' })
   },
@@ -167,9 +168,9 @@ export const material_diagram_versions = sqliteTable(
 export const material_version_citations = sqliteTable(
   'material_version_citations',
   {
-    version_id: integer().$type<bigint>().notNull(),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
     marker: integer().$type<bigint>().notNull(),
-    input_version_id: integer().$type<bigint>().notNull(),
+    input_version_id: integer().$type<MaterialVersionId>().notNull(),
     anchor: text().notNull(),
     quote: text().notNull()
   },

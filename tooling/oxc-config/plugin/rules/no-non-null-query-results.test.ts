@@ -25,3 +25,12 @@ test('no-non-null-query-results handles aliases and avoids unrelated bindings', 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
+
+test('missing rows cannot be asserted into required query results', () => {
+  const diagnostics = lintRule('no-non-null-query-results', {
+    'src/bad.ts': 'const a = null!; const b = undefined!; const c = (void 0)!;',
+    'src/good.ts': 'const missing = null; function local(undefined: number) { return undefined!; }'
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});

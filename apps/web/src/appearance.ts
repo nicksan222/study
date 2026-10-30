@@ -1,33 +1,45 @@
-import { Appearance } from '@study/server/shared/settings';
+import { Appearance } from '@study/contracts/settings/types';
 import { applyThemeToDocument, createThemeStore, defaultThemeId } from '@study/ui/theme';
+import { Effect } from 'effect';
 
-import { studyClient } from './study-client';
+import { runStudy } from './study-client';
 
 export function initializeAppearance(document: Document): () => void {
   const store = createThemeStore({ appearance: 'dark' });
   const restore = applyThemeToDocument(store, document);
-  let active = true;
+  const controller = new AbortController();
 
-  void Promise.all([
-    studyClient.settings.getAppSettings.query({}),
-    studyClient.themes.selected.query({}),
-    studyClient.themes.list.query({})
-  ])
-    .then(([settings, selected, themes]) => {
-      if (!active) return;
+  void runStudy(
+    (client) =>
+      Effect.gen(function* () {
+        const [settings, selected] = yield* Effect.all(
+          [client['settings.appSettings']({}), client['themes.selectedTheme']({})],
+          { concurrency: 'unbounded' }
+        );
+        let before: string | undefined;
+        const themeId = selected ?? defaultThemeId;
 
-      const theme = themes.find((item) => item.id === (selected ?? defaultThemeId));
+        do {
+          const page = yield* client['themes.themes']({ limit: 100, before });
+          const theme = page.items.find((item) => item.id === themeId);
 
-      if (theme) store.setTheme(theme);
+          if (theme) {
+            store.setTheme(theme);
+            break;
+          }
 
-      store.setAppearance(settings.appearance === Appearance.LIGHT ? 'light' : 'dark');
-    })
-    .catch(() => {
-      // The generated default palette remains available before the server connects.
-    });
+          before = page.next ?? undefined;
+        } while (before !== undefined);
+
+        store.setAppearance(settings.appearance === Appearance.LIGHT ? 'light' : 'dark');
+      }),
+    controller.signal
+  ).catch(() => {
+    // The generated default palette remains available before the server connects.
+  });
 
   return () => {
-    active = false;
+    controller.abort();
     restore();
   };
 }

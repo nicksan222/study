@@ -1,19 +1,18 @@
+import type { ProjectId, SourceId, MaterialId } from '@study/contracts/ids';
+import type { MaterialSummaryDto as Material } from '@study/contracts/materials/schemas';
+import type { Project as Subject } from '@study/contracts/projects/schemas';
+import type { Source } from '@study/contracts/sources/schemas';
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link, useLocation } from '@tanstack/react-router';
+import { Effect } from 'effect';
 import { FileText, Network, Layers, GraduationCap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useI18n } from './i18n';
-import { studyClient } from './study-client';
-
-type Source = Awaited<ReturnType<typeof studyClient.sources.sources.query>>['items'][number];
-
-type Material = Awaited<ReturnType<typeof studyClient.materials.list.query>>['items'][number];
-
-type Subject = Awaited<ReturnType<typeof studyClient.projects.projects.query>>['items'][number];
+import { runStudy } from './study-client';
 
 export type SidebarItemFilter = 'all' | 'session' | 'source' | 'diagram' | 'flashcards' | 'quiz';
 
@@ -51,7 +50,7 @@ export function SidebarItems({
 }: {
   section: 'library' | 'practice';
   subjects: readonly Subject[];
-  project?: bigint;
+  project?: ProjectId;
   blocked: boolean;
   ready: boolean;
   query: string;
@@ -74,31 +73,52 @@ export function SidebarItems({
 
     const controller = new AbortController();
     const load = async () => {
-      const [sources, materials] = await Promise.all([
-        section === 'library'
-          ? studyClient.sources.sources.query({}, { signal: controller.signal })
-          : Promise.resolve({ items: [] as Source[] }),
-        Promise.all(
-          projectIds.map(async (projectId) => {
-            const items: Material[] = [];
-            let cursor: bigint | undefined;
+      const [sources, materials] = await runStudy(
+        (client) =>
+          Effect.gen(function* () {
+            const sources: Source[] = [];
 
-            do {
-              const page = await studyClient.materials.list.query(
-                { projectId, cursor, take: 100, archived: false },
-                { signal: controller.signal }
-              );
+            if (section === 'library') {
+              let before: SourceId | undefined;
 
-              items.push(...page.items);
-              cursor = page.nextCursor ?? undefined;
-            } while (cursor !== undefined && !controller.signal.aborted);
+              do {
+                const page = yield* client['sources.sources']({ limit: 100, before });
 
-            return items;
-          })
-        )
-      ]);
+                sources.push(...page.items);
+                before = page.next ?? undefined;
+              } while (before !== undefined);
+            }
+
+            const materials = yield* Effect.all(
+              projectIds.map((projectId) =>
+                Effect.gen(function* () {
+                  const items: Material[] = [];
+                  let cursor: MaterialId | undefined;
+
+                  do {
+                    const page = yield* client['materials.materials']({
+                      projectId,
+                      cursor,
+                      limit: 100,
+                      archived: false
+                    });
+
+                    items.push(...page.items);
+                    cursor = page.nextCursor ?? undefined;
+                  } while (cursor !== undefined);
+
+                  return items;
+                })
+              ),
+              { concurrency: 'unbounded' }
+            );
+
+            return [sources, materials] as const;
+          }),
+        controller.signal
+      );
       const items: Item[] = [
-        ...sources.items
+        ...sources
           .filter((source) => !project || source.projectId === project)
           .map((value): Item => ({ type: 'source', value })),
         ...materials

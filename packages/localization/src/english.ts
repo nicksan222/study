@@ -720,5 +720,6 @@ export const english = Object.freeze({
   UnitSeconds: 's',
   UnitGigaflops: 'GFLOPS',
   UnitBandwidth: 'GB/s',
+  PracticeQuestionTitle: 'Practice question',
   SearchShortcut: 'Ctrl/⌘ K'
 } as const);

@@ -18,7 +18,9 @@ export default defineRule({
 
         if (
           node.importKind === 'type' ||
-          !/(?:shared\/errors(?:\/index)?|shared)(?:\.ts)?$/.test(node.source.value)
+          !/(?:shared\/errors(?:\/index)?|shared|@study\/contracts(?:\/errors)?)(?:\.ts)?$/.test(
+            node.source.value
+          )
         )
           return;
 

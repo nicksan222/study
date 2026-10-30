@@ -1,57 +1,38 @@
-import { strict as assert } from 'node:assert';
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { createProject as opCreateProject } from '#server/procedures/projects/operations/create-project';
-import { listProjects as opListProjects } from '#server/procedures/projects/operations/read-projects';
-import { createNote as opCreateNote } from '#server/procedures/sources/operations/create-note';
-import { sourceBytes as opSourceBytes } from '#server/procedures/sources/operations/source';
-import { listSources as opListSources } from '#server/procedures/sources/operations/sources';
-import { App } from '#server/runtime/service';
-import { createServerTest } from '#testing/server-test';
+import { Effect } from 'effect';
 
-test('projects and notes persist in an isolated database', async (t) => {
-  const testDatabase = createServerTest(t, { app: false });
+import { Projects } from '#server/features/projects/index';
+import { Sources } from '#server/features/sources/index';
+import { createStudyTest } from '#testing/server-test';
 
-  const app = createServerTest(t, { app: false }).manage(
-    await App.open({ path: testDatabase.path })
+test('native projects and source inputs persist after reopening the real application', async (t) => {
+  const fixture = await createStudyTest(t);
+  const app = fixture.app;
+  const source = await fixture.run(
+    Effect.gen(function* () {
+      const project = yield* (yield* Projects).createProject({ name: 'Physics' });
+
+      return yield* (yield* Sources).createSource({
+        projectId: project.id,
+        name: 'notes.txt',
+        bytes: new TextEncoder().encode('Hello')
+      });
+    })
   );
 
-  let noteId: ReturnType<typeof opCreateNote>['id'];
+  await app.close();
+  const reopened = await fixture.openApp();
 
-  try {
-    const project = opCreateProject(app.store, 'Physics');
-    const note = opCreateNote(app.store, 'Notes', 'Hello', project.id);
+  await reopened.nativeRuntime.runPromise(
+    Effect.gen(function* () {
+      const projects = yield* (yield* Projects).projects({ limit: 10 });
 
-    noteId = note.id;
-    assert.equal(opListSources(app.store)[0]?.id, note.id);
-  } finally {
-    await app.close();
-  }
+      assert.equal(projects.items[0]?.name, 'Physics');
+      const snapshot = yield* (yield* Sources).sourceSnapshot({ id: source.id, revision: 1 });
 
-  const reopened = createServerTest(t, { app: false }).manage(
-    await App.open({ path: testDatabase.path })
+      assert.equal(new TextDecoder().decode(snapshot.bytes), 'Hello');
+    })
   );
-
-  assert.equal(opListProjects(reopened.store)[0]?.name, 'Physics');
-  assert.equal(new TextDecoder().decode(opSourceBytes(reopened.store, noteId)!), 'Hello');
-});
-
-test('cancelling sign-in closes its listener and leaves the account signed out', async (t) => {
-  const testDatabase = createServerTest(t, { app: false });
-  const app = createServerTest(t, { app: false }).manage(
-    await App.open({ path: testDatabase.path })
-  );
-
-  try {
-    const { url } = await app.startSignIn();
-
-    assert.equal(new URL(url).hostname, 'auth.openai.com');
-    const pending = app.finishSignIn();
-
-    app.cancelSignIn();
-    await assert.rejects(pending);
-    assert.equal(app.signInStatus().signedIn, false);
-  } finally {
-    await app.close();
-  }
 });

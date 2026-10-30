@@ -1,52 +1,83 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { assertDiagnostics, lintRule } from '../test/utils.ts';
+import { lintRule } from '../test/utils.ts';
 
-const boundaryMessage =
-  'Shared contracts and clients must use type-only references to server runtime, procedures, and @study/db.';
+test('browser entrypoints and contracts reject private value edges and contract type edges', () => {
+  const diagnostics = lintRule(
+    'browser-boundary',
+    {
+      'packages/contracts/src/bad.ts':
+        "import type { X } from '@study/db'; export type { Y } from '@study/server';",
+      'packages/contracts/src/good.ts': "import type { Schema } from 'effect';",
+      'apps/server/src/client/bad.ts':
+        "import { db } from '@study/db'; export * from '../domains/jobs/store'; import('../ai/runtime');",
+      'apps/server/src/client/good.ts':
+        "import type { AppRouter } from '../runtime/router'; export type { AppRouter };",
+      'apps/server/src/runtime/good.ts': "import { db } from '@study/db';"
+    },
+    true
+  );
 
-test('shared and client modules allow type references but reject server value edges', () => {
-  const diagnostics = lintRule('browser-boundary', {
-    'src/shared/type-import.ts':
-      "import type { ServerContext } from '#server/runtime/context';\n\nexport type Context = ServerContext;\n",
-    'src/shared/type-export.ts': "export type { rowJob } from '#server/procedures/jobs/worker';\n",
-    'src/client/type-db.ts': "export type { jobs } from '@study/db/schema';\n",
-    'src/shared/error.ts': "export { DrizzleQueryError } from 'drizzle-orm';\n",
-    'src/client/safe.ts': "export { value } from '#server/shared/safe';\n",
-    'src/shared/safe.ts': 'export const value = 1;\n',
-    'src/shared/bad-import.ts':
-      "import { appRouter } from '#server/runtime/router';\n\nexport { appRouter };\n",
-    'src/shared/bad-db.ts': "export { jobs } from '@study/db/schema';\n",
-    'src/shared/bad-runtime.ts': "export * from '#server/runtime/context';\n",
-    'src/client/bad-procedure.ts':
-      "export { run } from '#server/procedures/projects/create-project';\n",
-    'src/client/bad-relative.ts': "export * from './../runtime/context.ts';\n",
-    'src/client/bad-side-effect.ts': "import '@study/db';\n",
-    'src/index.ts': "export * from './runtime/router.ts';\n",
-    'src/runtime/allowed.ts': "export * from '@study/db';\n"
-  });
-
-  assertDiagnostics('browser-boundary', diagnostics, [
-    ['src/client/bad-procedure.ts', boundaryMessage],
-    ['src/client/bad-relative.ts', boundaryMessage],
-    ['src/client/bad-side-effect.ts', boundaryMessage],
-    ['src/index.ts', boundaryMessage],
-    ['src/shared/bad-db.ts', boundaryMessage],
-    ['src/shared/bad-import.ts', boundaryMessage],
-    ['src/shared/bad-runtime.ts', boundaryMessage]
-  ]);
+  assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
 });
 
-test('dynamic server imports also respect browser boundaries and import types stay legal', () => {
+test('browser entrypoints reject private server types', () => {
   const diagnostics = lintRule('browser-boundary', {
-    'src/shared/dynamic-runtime.ts': "export const runtime = import('#server/runtime/context');\n",
-    'src/client/dynamic-db.ts': "export const database = import('@study/db');\n",
-    'src/client/type-query.ts':
-      "import type { createProject } from '#server/procedures/projects/create-project';\n\nexport type Project = ReturnType<typeof createProject>;\n"
+    'src/client/types.ts':
+      "import type { ServerContext } from '../runtime/context'; import type { AppRouter } from '../runtime/router'; import type { Secret } from '../domains/jobs/store';"
   });
 
-  assertDiagnostics('browser-boundary', diagnostics, [
-    ['src/client/dynamic-db.ts', boundaryMessage],
-    ['src/shared/dynamic-runtime.ts', boundaryMessage]
-  ]);
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});
+
+test('public root rejects private server types', () => {
+  const diagnostics = lintRule('browser-boundary', {
+    'src/index.ts':
+      "export type {AppRouter} from './runtime/router'; export type {ServerContext} from './runtime/context';"
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});
+
+test('contracts admit Effect RPC but reject workflow engine and browser clients reject router types', () => {
+  const diagnostics = lintRule(
+    'browser-boundary',
+    {
+      'packages/contracts/src/rpc.ts':
+        "import { RpcGroup } from 'effect/unstable/rpc'; import { Workflow } from 'effect/unstable/workflow';",
+      'apps/server/src/client/types.ts':
+        "import type { AppRouter } from '../runtime/router'; import '../features/source/source.service';"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});
+
+test('browser consumers cannot import server package or retired transports', () => {
+  const diagnostics = lintRule(
+    'browser-boundary',
+    {
+      'apps/web/src/a.ts':
+        "import type { AppRouter } from '@study/server'; export * from '@trpc/client'; const load = require; load('superjson'); function f(require: any) { require('superjson'); }",
+      'packages/contracts/src/a.ts': "export { x } from '@trpc/server';"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+});
+
+test('browser consumers use only the explicit native client entrypoint', () => {
+  const diagnostics = lintRule(
+    'browser-boundary',
+    {
+      'apps/web/src/client.ts':
+        "import { makeStudyClient } from '@study/server/client'; import '@study/server/client/node'; import '@study/server';"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });

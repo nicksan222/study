@@ -1,3 +1,12 @@
+import type {
+  MessageId,
+  PartId,
+  ProjectId,
+  RecordingId,
+  SessionId,
+  SourceId,
+  VersionId
+} from '@study/contracts/ids';
 import { sql, desc } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -18,15 +27,14 @@ import {
   codes_title_source,
   codes_version_origin
 } from './codes.ts';
-import { jobs } from './jobs.ts';
 import { projects, sources } from './sources.ts';
 
 export const message_versions = sqliteTable(
   'message_versions',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<VersionId>(),
     message_id: integer()
-      .$type<bigint>()
+      .$type<MessageId>()
       .notNull()
       .references((): AnySQLiteColumn => messages.id, { onDelete: 'cascade' }),
     number: integer().$type<bigint>().notNull(),
@@ -45,15 +53,11 @@ export const message_versions = sqliteTable(
       .notNull()
       .default(sql`''`),
     based_on: integer()
-      .$type<bigint>()
+      .$type<VersionId>()
       .references((): AnySQLiteColumn => message_versions.id, {
         onDelete: 'set null'
       }),
-    created_at: integer().$type<bigint>().notNull(),
-    owner_job_id: integer()
-      .$type<bigint>()
-      .references((): AnySQLiteColumn => jobs.id, { onDelete: 'set null' }),
-    owner_attempt: integer().$type<bigint>()
+    created_at: integer().$type<bigint>().notNull()
   },
   (t) => [
     uniqueIndex('message_versions_unfinished_idx')
@@ -83,14 +87,14 @@ export const citations = sqliteTable(
   'citations',
   {
     version_id: integer()
-      .$type<bigint>()
+      .$type<VersionId>()
       .notNull()
       .references((): AnySQLiteColumn => message_versions.id, {
         onDelete: 'cascade'
       }),
     marker: integer().$type<bigint>().notNull(),
     source_id: integer()
-      .$type<bigint>()
+      .$type<SourceId>()
       .references((): AnySQLiteColumn => sources.id, { onDelete: 'set null' }),
     source_name: text().notNull(),
     anchor: text().notNull(),
@@ -107,14 +111,14 @@ export const citations = sqliteTable(
 export const message_parts = sqliteTable(
   'message_parts',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<PartId>(),
     message_id: integer()
-      .$type<bigint>()
+      .$type<MessageId>()
       .notNull()
       .references((): AnySQLiteColumn => messages.id, { onDelete: 'cascade' }),
     ordinal: integer().$type<bigint>().notNull(),
     source_id: integer()
-      .$type<bigint>()
+      .$type<SourceId>()
       .references((): AnySQLiteColumn => sources.id, { onDelete: 'set null' }),
     source_name: text().notNull(),
     source_kind: text({ enum: codes_source_kind.code.enumValues })
@@ -133,9 +137,9 @@ export const message_parts = sqliteTable(
 export const messages = sqliteTable(
   'messages',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<MessageId>(),
     session_id: integer()
-      .$type<bigint>()
+      .$type<SessionId>()
       .notNull()
       .references((): AnySQLiteColumn => sessions.id, { onDelete: 'cascade' }),
     role: text({ enum: codes_message_role.code.enumValues })
@@ -144,24 +148,24 @@ export const messages = sqliteTable(
         onDelete: 'no action'
       }),
     reply_to: integer()
-      .$type<bigint>()
+      .$type<MessageId>()
       .references((): AnySQLiteColumn => messages.id, { onDelete: 'cascade' }),
     thread_root: integer()
-      .$type<bigint>()
+      .$type<PartId>()
       .references((): AnySQLiteColumn => message_parts.id, {
         onDelete: 'cascade'
       }),
     recording_ms: integer().$type<bigint>(),
     recording_id: integer()
-      .$type<bigint>()
+      .$type<RecordingId>()
       .references((): AnySQLiteColumn => recordings.id, {
         onDelete: 'set null'
       }),
     recorded_in: integer()
-      .$type<bigint>()
+      .$type<SourceId>()
       .references((): AnySQLiteColumn => sources.id, { onDelete: 'set null' }),
     active_version_id: integer()
-      .$type<bigint>()
+      .$type<VersionId>()
       .references((): AnySQLiteColumn => message_versions.id, {
         onDelete: 'set null'
       }),
@@ -189,7 +193,7 @@ export const recording_chunks = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
     recording_id: integer()
-      .$type<bigint>()
+      .$type<RecordingId>()
       .notNull()
       .references((): AnySQLiteColumn => recordings.id, {
         onDelete: 'cascade'
@@ -207,9 +211,9 @@ export const recording_chunks = sqliteTable(
 export const recordings = sqliteTable(
   'recordings',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<RecordingId>(),
     session_id: integer()
-      .$type<bigint>()
+      .$type<SessionId>()
       .notNull()
       .references((): AnySQLiteColumn => sessions.id, { onDelete: 'cascade' }),
     started_at: integer().$type<bigint>().notNull(),
@@ -221,12 +225,13 @@ export const recordings = sqliteTable(
 export const sessions = sqliteTable(
   'sessions',
   {
-    id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
+    id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
     project_id: integer()
-      .$type<bigint>()
+      .$type<ProjectId>()
       .notNull()
       .references((): AnySQLiteColumn => projects.id, { onDelete: 'cascade' }),
     title: text().notNull(),
+    context_revision: integer().$type<bigint>().notNull().default(0n),
     title_source: text({ enum: codes_title_source.code.enumValues })
       .notNull()
       .references((): AnySQLiteColumn => codes_title_source.code, {
@@ -239,5 +244,25 @@ export const sessions = sqliteTable(
     index('sessions_project_idx').on(t.project_id, desc(t.updated_at)),
     uniqueIndex('sessions_id_project_unique').on(t.id, t.project_id),
     check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)
+  ]
+);
+
+export const conversation_reply_requests = sqliteTable(
+  'conversation_reply_requests',
+  {
+    request_id: text().primaryKey(),
+    session_id: integer()
+      .$type<SessionId>()
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    version_id: integer()
+      .$type<VersionId>()
+      .notNull()
+      .references(() => message_versions.id, { onDelete: 'cascade' }),
+    snapshot: text().notNull()
+  },
+  (t) => [
+    uniqueIndex('conversation_reply_requests_version_idx').on(t.version_id),
+    check('conversation_reply_requests_snapshot_json', sql`json_valid(${t.snapshot})`)
   ]
 );
