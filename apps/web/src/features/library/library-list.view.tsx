@@ -1,6 +1,7 @@
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
+import { Loading } from '@study/ui/loading';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
 import { FileText, Network, Layers, GraduationCap } from 'lucide-react';
@@ -45,8 +46,7 @@ export function LibraryListView({
       </Button>
     );
 
-  if (state.status !== 'success')
-    return <Sidebar.Message role="status">{t('LoadingStudy')}</Sidebar.Message>;
+  if (state.status === 'pending') return <Loading layout="sidebar" label={t('LoadingStudy')} />;
 
   const items = state.data.filter(
     (item) =>

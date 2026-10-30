@@ -122,6 +122,7 @@ export const lint = {
     'study/package-boundary': 'error',
     'study/theme-colors': 'error',
     'study/shared-ui-variants': 'error',
+    'study/shared-loading': 'error',
     'study/web-presentation': 'error',
     'study/web-boundaries': 'error',
     'study/web-page-contract': 'error',
