@@ -10,7 +10,8 @@
     "./utils": "./src/utils.ts",
     "./visible-animation": "./src/visible-animation.ts",
     "./dialog-styles": "./src/components/dialog-styles.ts",
-    "./*": "./src/components/*.tsx"
+    "./*": "./src/components/*.tsx",
+    "./clock": "./src/clock.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

@@ -4,6 +4,7 @@ type FmtConfig = NonNullable<UserConfig['fmt']>;
 
 export const fmt = {
   endOfLine: 'lf',
+  sortPackageJson: {},
   printWidth: 100,
   singleQuote: true,
   trailingComma: 'none',

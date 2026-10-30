@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import './theme.css';
 @import './components/shell.css';
+@import './components/sidebar.css';
 @import './components/list.css';
 @import './components/menu.css';
 @source "./";
@@ -35,7 +36,7 @@
   --sidebar-control-gap: 0.5rem;
   --sidebar-icon-color: color-mix(
     in srgb,
-    var(--contrast-sidebar-muted-foreground) 60%,
+    var(--contrast-sidebar-muted-foreground) 85%,
     var(--sidebar)
   );
   --sidebar-row-content-inset: 0.625rem;

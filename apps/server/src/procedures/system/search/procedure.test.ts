@@ -52,3 +52,19 @@ test('search maps persisted full-text hits, scopes projects, and bounds limits',
     }
   );
 });
+
+test('search filters kinds before applying the result limit', async (t) => {
+  const f = await createServerTest(t);
+  const project = opCreateProject(f.store, 'Gravity');
+
+  opCreateSession(f.store, project.id, 'Gravity lecture');
+  const result = await f.caller.system.search({
+    query: 'gravity',
+    limit: 1,
+    kinds: ['session', 'message']
+  });
+
+  assert.equal(result.hits.length, 1);
+  assert.equal(result.hits[0]?.title, 'Gravity lecture');
+  assert.equal(result.hits[0]?.target.type, 'session');
+});

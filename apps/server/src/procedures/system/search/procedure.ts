@@ -30,7 +30,9 @@ export const run = publicProcedure
     const store = ctx.store;
     const hits = opSearch(store, input.query, {
       projectId: input.project ?? undefined,
-      kinds: ['project', 'session', 'message', 'source', 'passage'],
+      kinds: input.kinds
+        ? [...input.kinds]
+        : ['project', 'session', 'message', 'source', 'passage'],
       limit: input.limit || 30
     });
 

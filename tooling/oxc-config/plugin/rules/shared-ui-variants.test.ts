@@ -18,3 +18,15 @@ export const view = <div className="layout"><Control className="p-2" /><Shell.He
 
   assert.equal(violations.length, 3, JSON.stringify(diagnostics));
 });
+
+test('computed literal style props cannot bypass shared UI variants', () => {
+  const diagnostics = lintRule(
+    'shared-ui-variants',
+    {
+      'apps/web/src/example.tsx': `import { Button } from '@study/ui/button'; export const view = <Button {...{ ['style']: {} }} />;`
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+});

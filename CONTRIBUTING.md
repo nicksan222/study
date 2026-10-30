@@ -70,7 +70,9 @@ workspace and server TypeScript config. Vite+ (`vp`) owns web development, build
 frontend Vitest, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts` imports the
 shared policies from `tooling/oxc-config`; these apply to server, frontend, tests and tooling.
 Run `npm run format` to format, `npm run format:check` to check formatting, and `npm run lint`
-for the combined format/lint gate with warnings denied. Server tests keep the actual Node
+for the combined format/lint gate with warnings denied.
+The Vite+ pipeline uses syntax-only lint analysis, React stability rules and package-manifest
+sorting; dedicated TypeScript checks and Study's architecture rules remain required. Server tests keep the actual Node
 runtime (`npm run server:test`) with the spec reporter; frontend tests use the verbose
 Vitest reporter. TypeScript checks keep `tsc`.
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.

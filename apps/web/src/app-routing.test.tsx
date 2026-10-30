@@ -5,6 +5,15 @@ import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { App } from './app';
 
+vi.mock('./study-client', () => ({
+  studyClient: {
+    projects: { projects: { query: () => Promise.resolve({ items: [] }) } },
+    conversations: { allSessions: { query: () => Promise.resolve({ items: [] }) } },
+    sources: { sources: { query: () => Promise.resolve({ items: [] }) } },
+    materials: { list: { query: () => Promise.resolve({ items: [], nextCursor: null }) } }
+  }
+}));
+
 const pages = [
   'Home',
   'Sessions',
@@ -23,12 +32,14 @@ beforeEach(() => {
 });
 
 it.each(pages)('renders an empty %s page without calling the server', async (page) => {
-  history.replaceState(null, '', `/#/${page}?id=42&project=99`);
+  history.replaceState(null, '', `/#/${page}?id=42`);
   const fetch = vi.spyOn(globalThis, 'fetch');
 
   render(<App />);
   await screen.findByRole('heading', { name: catalogs.english[page] });
-  expect(screen.getByRole('main').textContent).toBe(catalogs.english[page]);
+  expect(screen.getByRole('main').textContent).toBe(
+    `${catalogs.english.AppName}/${catalogs.english[page]}`
+  );
   expect(screen.getByRole('heading', { name: catalogs.english[page] })).toBeInTheDocument();
   expect(fetch).not.toHaveBeenCalled();
 });
@@ -46,5 +57,32 @@ it('navigates between placeholders and restores browser history', async () => {
   ).toBeInTheDocument();
   act(() => history.back());
   expect(await screen.findByRole('heading', { name: catalogs.english.Home })).toBeInTheDocument();
-  expect(screen.getByRole('main').textContent).toBe(catalogs.english.Home);
+  expect(screen.getByRole('main').textContent).toBe(
+    `${catalogs.english.AppName}/${catalogs.english.Home}`
+  );
+});
+
+it('keeps Settings reachable while the sidebar is collapsed', async () => {
+  const user = userEvent.setup();
+
+  render(<App />);
+  await screen.findByRole('heading', { name: catalogs.english.Home });
+
+  const toggle = screen.getByRole('button', { name: catalogs.english.ToggleSidebar });
+
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  await user.click(screen.getByRole('link', { name: catalogs.english.Settings }));
+  expect(
+    await screen.findByRole('heading', { name: catalogs.english.Settings })
+  ).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: catalogs.english.Settings })).toHaveAttribute(
+    'aria-current',
+    'page'
+  );
+
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
 });

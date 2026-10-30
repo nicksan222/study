@@ -10,14 +10,17 @@ import type {
 } from '#server/shared/ids';
 import type { Anchor } from '#server/shared/sources/document';
 
-export type SearchKind =
-  | 'project'
-  | 'session'
-  | 'source'
-  | 'passage'
-  | 'message'
-  | 'material'
-  | 'question';
+export const searchKinds = [
+  'project',
+  'session',
+  'source',
+  'passage',
+  'message',
+  'material',
+  'question'
+] as const;
+
+export type SearchKind = (typeof searchKinds)[number];
 
 export type SearchTarget =
   | { type: 'project'; id: ProjectId }
