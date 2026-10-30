@@ -1,19 +1,19 @@
 import type { ProjectId } from '@study/contracts/ids';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { ItemFilter } from '../../features/library';
-import { useAction } from '../../lib/effect/use-action';
-import { useOperation } from '../../lib/effect/use-operation';
 import type { PageMetadata } from '../../lib/navigation/route-contract';
-import {
-  createProject,
-  createSession as createSessionOperation,
-  listProjects,
-  listSessions
-} from '../../lib/study-client/operations';
 import type { Sessions, Subjects } from '../../lib/study-client/operations';
-import { filterSearchHits, searchSessions } from './sidebar.logic';
+import {
+  createProjectMutationOptions,
+  createSessionMutationOptions,
+  projectsQueryOptions,
+  sessionsQueryOptions,
+  searchQueryOptions
+} from '../../lib/study-client/study.queries';
+import { filterSearchHits } from './sidebar.logic';
 
 const noSubjects: Subjects = [];
 
@@ -32,48 +32,64 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   const selectedSession = metadata.title === 'Sessions' ? (search.id ?? null) : null;
   const global = metadata.scope === 'global';
   const section = metadata.section;
-  const subjectsOperation = useMemo(() => listProjects(), []);
-  const sessionsOperation = useMemo(() => listSessions(), []);
-  const projects = useOperation('projects', subjectsOperation);
-  const sessionList = useOperation('sessions', sessionsOperation, true);
-  const subjects = projects.state.status === 'ready' ? projects.state.value : noSubjects;
-  const sessions = sessionList.state.status === 'ready' ? sessionList.state.value : noSessions;
-  const subjectState = projects.state.status;
-  const sessionState = sessionList.state.status;
+  const queryClient = useQueryClient();
+  const projects = useQuery(projectsQueryOptions());
+  const sessionList = useQuery(sessionsQueryOptions());
+  const subjects = projects.data ?? noSubjects;
+  const sessions = sessionList.data ?? noSessions;
+  const subjectState =
+    projects.status === 'success' ? 'ready' : projects.status === 'pending' ? 'loading' : 'error';
+  const sessionState =
+    sessionList.status === 'success'
+      ? 'ready'
+      : sessionList.status === 'pending'
+        ? 'loading'
+        : 'error';
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ItemFilter>('all');
   const [newSubjectOpen, setNewSubjectOpen] = useState(false);
   const [name, setName] = useState('');
   const [actionError, setActionError] = useState(false);
-  const action = useAction();
-  const creating = action.pending;
+  const subjectMutation = useMutation(createProjectMutationOptions(queryClient));
+  const sessionMutation = useMutation(createSessionMutationOptions(queryClient));
+  const creating = subjectMutation.isPending || sessionMutation.isPending;
   const searchRef = useRef<HTMLInputElement>(null);
   const subject = subjects.find((item) => String(item.id) === requestedProject);
   const project = subjectState === 'ready' ? subject?.id : undefined;
   const invalidSubject =
     !global && Boolean(requestedProject) && subjectState === 'ready' && !subject;
   const canSearch = global || !requestedProject || Boolean(project);
-  const searchKey = JSON.stringify([query.trim(), global, requestedProject, filter]);
-  const searchOperation = useMemo(
-    () =>
-      query.trim() && canSearch && (section === 'sessions' || section === 'pipelines')
-        ? searchSessions({
-            query: query.trim(),
-            project: global ? undefined : project,
-            limit: 30,
-            ...(global ? {} : { kinds: ['session', 'message'] })
-          })
-        : undefined,
-    [query, canSearch, section, global, project]
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 200);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+  const searchEnabled =
+    Boolean(query.trim()) &&
+    query.trim() === debouncedQuery &&
+    canSearch &&
+    (section === 'sessions' || section === 'pipelines');
+  const searchResult = useQuery(
+    searchQueryOptions(
+      {
+        query: query.trim(),
+        project: global ? undefined : project,
+        limit: 30,
+        ...(global ? {} : { kinds: ['session', 'message'] })
+      },
+      searchEnabled
+    )
   );
-  const searchResult = useOperation(searchKey, searchOperation);
-  const result =
-    searchResult.state.status === 'ready'
-      ? { result: searchResult.state.value, error: false }
-      : searchResult.state.status === 'error'
+  const result = searchEnabled
+    ? searchResult.isSuccess
+      ? { result: searchResult.data, error: false }
+      : searchResult.isError
         ? { result: undefined, error: true }
-        : undefined;
+        : undefined
+    : undefined;
   const hits = filterSearchHits(result?.result?.hits ?? [], filter);
   const visibleSessions = invalidSubject
     ? []
@@ -112,47 +128,38 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     clearSearch();
 
     if (global) {
-      void navigate({ to: '/Home', search: { project: String(id) } });
+      void navigate({ to: '/home', search: { project: String(id) } });
     } else {
       void navigate({ to: '.', search: { project: String(id) } });
     }
   };
-  const createSession = async () => {
-    if (!project) return;
+  const createSession = () => {
+    if (!project || creating) return;
 
     setActionError(false);
-    const outcome = await action.run(createSessionOperation(project));
-
-    if (outcome.status === 'error') setActionError(true);
-
-    if (outcome.status !== 'ready') return;
-
-    sessionList.reload();
-    clearSearch();
-    await navigate({
-      to: '/Sessions',
-      search: { project: String(project), id: String(outcome.value.id) }
+    sessionMutation.mutate(project, {
+      onError: () => setActionError(true),
+      onSuccess: (created) => {
+        clearSearch();
+        void navigate({
+          to: '/sessions',
+          search: { project: String(project), id: String(created.id) }
+        });
+      }
     });
   };
-  const createSubject = async () => {
-    if (!name.trim()) return;
+  const createSubject = () => {
+    if (!name.trim() || creating) return;
 
     setActionError(false);
-    const outcome = await action.run(createProject(name.trim()));
-
-    if (outcome.status === 'error') setActionError(true);
-
-    if (outcome.status !== 'ready') return;
-
-    const created = outcome.value;
-
-    projects.replace((items) => [
-      ...(items ?? []).filter((item) => item.id !== created.id),
-      created
-    ]);
-    setNewSubjectOpen(false);
-    setName('');
-    selectSubject(created.id);
+    subjectMutation.mutate(name.trim(), {
+      onError: () => setActionError(true),
+      onSuccess: (created) => {
+        setNewSubjectOpen(false);
+        setName('');
+        selectSubject(created.id);
+      }
+    });
   };
 
   return {
@@ -192,8 +199,12 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     selectSubject,
     createSession,
     createSubject,
-    reloadSubjects: projects.reload,
-    reloadSessions: sessionList.reload
+    reloadSubjects: () => {
+      void projects.refetch();
+    },
+    reloadSessions: () => {
+      void sessionList.refetch();
+    }
   };
 }
 

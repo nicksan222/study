@@ -66,3 +66,17 @@ test('canonical folders, type imports and alternate loaders cannot bypass owners
 
   assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
+
+test('permits Query while keeping raw RPC in the transport adapter', () => {
+  assert.deepEqual(
+    lintRule(
+      'web-boundaries',
+      {
+        'apps/web/src/app/providers.tsx': `import { QueryClientProvider } from '@tanstack/react-query';`,
+        'apps/web/src/features/library/library.queries.ts': `import { queryOptions } from '@tanstack/react-query';`
+      },
+      true
+    ),
+    []
+  );
+});

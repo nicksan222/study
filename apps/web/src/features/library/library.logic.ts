@@ -1,7 +1,5 @@
-import type { ProjectId, MaterialId } from '@study/contracts/ids';
-import { Effect } from 'effect';
+import type { ProjectId } from '@study/contracts/ids';
 
-import { listMaterials, listSources } from '../../lib/study-client/operations';
 import type { Materials, Sources } from '../../lib/study-client/operations';
 
 export type LibraryItem =
@@ -10,56 +8,31 @@ export type LibraryItem =
 
 export type ItemFilter = 'all' | 'session' | 'source' | 'diagram' | 'flashcards' | 'quiz';
 
-export function loadLibraryItems(
+export function libraryItems(
   section: 'library' | 'practice',
-  projectIds: readonly ProjectId[],
-  project?: ProjectId,
-  api = { listSources, listMaterials }
-) {
-  return Effect.gen(function* () {
-    const [sources, materials] = yield* Effect.all(
-      [
-        section === 'library' ? api.listSources() : Effect.succeed([]),
-        Effect.forEach(
-          projectIds,
-          (id) =>
-            Effect.gen(function* () {
-              const items: Materials = [];
-              let cursor: MaterialId | undefined;
-
-              do {
-                const page = yield* api.listMaterials(id, cursor);
-
-                items.push(...page.items);
-                cursor = page.nextCursor ?? undefined;
-              } while (cursor !== undefined);
-
-              return items;
-            }),
-          { concurrency: 4 }
-        )
-      ],
-      { concurrency: 2 }
-    );
-    const items: LibraryItem[] = [
-      ...sources
-        .filter((source) => !project || source.projectId === project)
-        .map((value): LibraryItem => ({ type: 'source', value })),
-      ...materials
-        .flat()
-        .filter((material) =>
-          section === 'library'
+  sources: Sources,
+  materials: Materials,
+  project?: ProjectId
+): LibraryItem[] {
+  const items: LibraryItem[] = [
+    ...sources
+      .filter((source) => section === 'library' && (!project || source.projectId === project))
+      .map((value): LibraryItem => ({ type: 'source', value })),
+    ...materials
+      .filter(
+        (material) =>
+          (!project || material.project_id === project) &&
+          (section === 'library'
             ? material.kind === 'diagram'
-            : material.kind === 'flashcards' || material.kind === 'quiz'
-        )
-        .map((value): LibraryItem => ({ type: 'material', value }))
-    ];
+            : material.kind === 'flashcards' || material.kind === 'quiz')
+      )
+      .map((value): LibraryItem => ({ type: 'material', value }))
+  ];
 
-    return items.sort((a, b) => {
-      const at = a.type === 'source' ? a.value.createdAt : a.value.updated_at;
-      const bt = b.type === 'source' ? b.value.createdAt : b.value.updated_at;
+  return items.sort((a, b) => {
+    const at = a.type === 'source' ? a.value.createdAt : a.value.updated_at;
+    const bt = b.type === 'source' ? b.value.createdAt : b.value.updated_at;
 
-      return at === bt ? 0 : at > bt ? -1 : 1;
-    });
+    return at === bt ? 0 : at > bt ? -1 : 1;
   });
 }

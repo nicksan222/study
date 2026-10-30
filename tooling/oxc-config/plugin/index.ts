@@ -42,6 +42,8 @@ import webBoundaries from './rules/web-boundaries.ts';
 import webPageContract from './rules/web-page-contract.ts';
 import webPresentationPurity from './rules/web-presentation-purity.ts';
 import webPresentation from './rules/web-presentation.ts';
+import webQueryContract from './rules/web-query-contract.ts';
+import webRouterLoaders from './rules/web-router-loaders.ts';
 import webRouterNavigation from './rules/web-router-navigation.ts';
 
 export default definePlugin({
@@ -90,6 +92,8 @@ export default definePlugin({
     'web-boundaries': webBoundaries,
     'web-page-contract': webPageContract,
     'web-presentation-purity': webPresentationPurity,
+    'web-query-contract': webQueryContract,
+    'web-router-loaders': webRouterLoaders,
     'web-router-navigation': webRouterNavigation,
     'web-presentation': webPresentation
   }

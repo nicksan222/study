@@ -8,7 +8,7 @@ export function App() {
   const [router] = useState(createAppRouter);
 
   return (
-    <Providers>
+    <Providers queryClient={router.options.context.queryClient}>
       <RouterProvider router={router} />
     </Providers>
   );

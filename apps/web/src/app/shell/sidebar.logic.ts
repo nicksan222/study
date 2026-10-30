@@ -1,11 +1,5 @@
-import { Effect } from 'effect';
-
 import type { ItemFilter } from '../../features/library';
-import { searchStudy } from '../../lib/study-client/operations';
-import type { SearchInput, SearchResults } from '../../lib/study-client/operations';
-
-export const searchSessions = (input: SearchInput) =>
-  Effect.sleep('200 millis').pipe(Effect.andThen(searchStudy(input)));
+import type { SearchResults } from '../../lib/study-client/operations';
 
 export function filterSearchHits(
   hits: readonly SearchResults['hits'][number][],

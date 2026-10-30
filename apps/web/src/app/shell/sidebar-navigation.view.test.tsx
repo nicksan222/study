@@ -20,7 +20,7 @@ it('builds typed section links retaining the selected project and invokes naviga
   );
   const library = await screen.findByRole('link', { name: catalogs.english.SidebarLibrary });
 
-  expect(library).toHaveAttribute('href', '/MediaList?project=9007199254740993');
+  expect(library).toHaveAttribute('href', '/media-list?project=9007199254740993');
   expect(library).toHaveAttribute('aria-current', 'page');
   await user.click(library);
   expect(onNavigate).toHaveBeenCalledOnce();

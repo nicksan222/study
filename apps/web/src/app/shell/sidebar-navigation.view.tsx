@@ -6,10 +6,10 @@ import { useI18n } from '../../lib/i18n';
 import type { Section } from '../../lib/navigation/route-contract';
 
 const sections = [
-  ['/Sessions', 'sessions', MessagesSquare, 'Sessions'],
-  ['/MediaList', 'library', Library, 'SidebarLibrary'],
-  ['/Practice', 'practice', GraduationCap, 'Practice'],
-  ['/Pipelines', 'pipelines', Activity, 'Pipelines']
+  ['/sessions', 'sessions', MessagesSquare, 'Sessions'],
+  ['/media-list', 'library', Library, 'SidebarLibrary'],
+  ['/practice', 'practice', GraduationCap, 'Practice'],
+  ['/pipelines', 'pipelines', Activity, 'Pipelines']
 ] as const;
 
 export function SidebarNavigation({
@@ -35,7 +35,7 @@ export function SidebarNavigation({
           title={t('Settings')}
           render={
             <Link
-              to="/Settings"
+              to="/settings"
               search={project ? { project } : {}}
               aria-label={t('Settings')}
               onClick={onNavigate}

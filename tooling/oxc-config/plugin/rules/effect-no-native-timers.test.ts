@@ -82,3 +82,22 @@ test('enforces the Effect contract in browser operations', () => {
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('allows a debounce timeout owned by a React hook effect', () => {
+  assert.deepEqual(
+    lintRule(
+      'effect-no-native-timers',
+      {
+        'apps/web/src/app/shell/use-sidebar.ts': `
+      import { useEffect as effect } from 'react';
+      effect(() => {
+        const timer = setTimeout(updateSearch, 200);
+        return () => clearTimeout(timer);
+      }, [query]);
+    `
+      },
+      true
+    ),
+    []
+  );
+});

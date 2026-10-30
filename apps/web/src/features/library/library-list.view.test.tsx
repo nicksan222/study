@@ -10,7 +10,7 @@ import { LibraryListView } from './library-list.view';
 it('renders loading and empty states from props', async () => {
   renderInRouter(
     <LibraryListView
-      state={{ status: 'loading' }}
+      state={{ status: 'pending' }}
       section="library"
       subjects={[]}
       blocked={false}
