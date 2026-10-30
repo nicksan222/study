@@ -17,10 +17,10 @@ import { Sources } from '#server/features/sources/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { fetchPage } from '#server/platform/http/index';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 export const sourceIngestionWorkflow = defineWorkflow({
   name: 'source-ingestion',
@@ -241,15 +241,13 @@ export const sourceIngestionHandler = ({
     )
   );
 
-export const sourceIngestionHandlerLayer = sourceIngestionWorkflow.toLayer(sourceIngestionHandler);
-
-export function sourceProcessingRequestedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'source-ingestion',
-    event: 'SourceProcessingRequested',
-    workflowVersion: 1,
-    workflow: sourceIngestionWorkflow,
-    emits: ['SourceIndexed', 'SourceProcessingFailed'],
-    enabled
-  };
-}
+export const sourceIngestionRegistration = defineWorkflowHandler(sourceIngestionWorkflow, {
+  execute: sourceIngestionHandler,
+  triggers: [
+    {
+      subscription: 'source-ingestion',
+      event: 'SourceProcessingRequested',
+      emits: ['SourceIndexed', 'SourceProcessingFailed']
+    }
+  ]
+});

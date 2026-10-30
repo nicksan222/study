@@ -18,9 +18,9 @@ import { Settings } from '#server/features/settings/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 export const quizGradingWorkflow = defineWorkflow({
   name: 'quiz-grading',
@@ -75,18 +75,16 @@ export const quizGradingHandler = ({ event }: typeof quizGradingWorkflow.payload
     });
   });
 
-export const quizGradingHandlerLayer = quizGradingWorkflow.toLayer(quizGradingHandler);
-
-export function quizAnswerSubmittedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'quiz-grading',
-    event: 'QuizAnswerSubmitted',
-    workflowVersion: 1,
-    workflow: quizGradingWorkflow,
-    emits: [],
-    enabled
-  };
-}
+export const quizGradingRegistration = defineWorkflowHandler(quizGradingWorkflow, {
+  execute: quizGradingHandler,
+  triggers: [
+    {
+      subscription: 'quiz-grading',
+      event: 'QuizAnswerSubmitted',
+      emits: []
+    }
+  ]
+});
 
 export const practiceSlotWorkflow = defineWorkflow({
   name: 'practice-slot',
@@ -151,18 +149,16 @@ export const practiceSlotHandler = ({ event }: typeof practiceSlotWorkflow.paylo
     });
   });
 
-export const practiceSlotHandlerLayer = practiceSlotWorkflow.toLayer(practiceSlotHandler);
-
-export function practiceSlotRequestedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'practice-slot',
-    event: 'PracticeSlotRequested',
-    workflowVersion: 1,
-    workflow: practiceSlotWorkflow,
-    emits: ['MaterialGenerationRequested'],
-    enabled
-  };
-}
+export const practiceSlotRegistration = defineWorkflowHandler(practiceSlotWorkflow, {
+  execute: practiceSlotHandler,
+  triggers: [
+    {
+      subscription: 'practice-slot',
+      event: 'PracticeSlotRequested',
+      emits: ['MaterialGenerationRequested']
+    }
+  ]
+});
 
 export const practiceFailureWorkflow = defineWorkflow({
   name: 'practice-failure',
@@ -198,18 +194,16 @@ export const practiceFailureHandler = ({
     });
   });
 
-export const practiceFailureHandlerLayer = practiceFailureWorkflow.toLayer(practiceFailureHandler);
-
-export function practiceMaterialGenerationFailedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'practice-failure',
-    event: 'MaterialGenerationFailed',
-    workflowVersion: 1,
-    workflow: practiceFailureWorkflow,
-    emits: [],
-    enabled
-  };
-}
+export const practiceFailureRegistration = defineWorkflowHandler(practiceFailureWorkflow, {
+  execute: practiceFailureHandler,
+  triggers: [
+    {
+      subscription: 'practice-failure',
+      event: 'MaterialGenerationFailed',
+      emits: []
+    }
+  ]
+});
 
 export const practicePublicationWorkflow = defineWorkflow({
   name: 'practice-publication',
@@ -244,17 +238,13 @@ export const practicePublicationHandler = ({
     });
   });
 
-export const practicePublicationHandlerLayer = practicePublicationWorkflow.toLayer(
-  practicePublicationHandler
-);
-
-export function practiceMaterialPublishedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'practice-publication',
-    event: 'MaterialPublished',
-    workflowVersion: 1,
-    workflow: practicePublicationWorkflow,
-    emits: [],
-    enabled
-  };
-}
+export const practicePublicationRegistration = defineWorkflowHandler(practicePublicationWorkflow, {
+  execute: practicePublicationHandler,
+  triggers: [
+    {
+      subscription: 'practice-publication',
+      event: 'MaterialPublished',
+      emits: []
+    }
+  ]
+});

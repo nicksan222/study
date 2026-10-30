@@ -27,7 +27,7 @@ test('native ingestion publishes an anchored text document through Sources', asy
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
-    Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+    Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
@@ -87,8 +87,7 @@ test('native ingestion publishes an anchored text document through Sources', asy
 test('superseded requests cannot publish and a cancelled pending execution stays unpublished', async () => {
   const { dispatchPending } = await import('#server/platform/workflows/triggers');
   const { recoverWorkflowEngine } = await import('#server/platform/workflows/engine');
-  const { sourceProcessingRequestedTrigger } =
-    await import('#server/features/sources/workflows/index');
+  const { sourceIngestionRegistration } = await import('#server/features/sources/workflows/index');
   const { workflowStore } = await import('#server/platform/workflows/store');
   const { workflow_executions } = await import('@study/db/schema');
   const { SourceStore } = await import('#server/features/sources/store/index');
@@ -100,7 +99,7 @@ test('superseded requests cannot publish and a cancelled pending execution stays
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
-    Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+    Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
@@ -150,14 +149,14 @@ test('superseded requests cannot publish and a cancelled pending execution stays
           const revisionState = yield* sources.sourceProcessing(revisionSource.id);
 
           assert.ok(revisionState.requestId);
-          yield* transaction(context, (tx) =>
+          yield* transaction((tx) =>
             tx.store(SourceStore).replaceSourceInput({
               id: revisionSource.id,
               expectedRevision: 1,
               bytes: new TextEncoder().encode('second'),
               requestId: 'new-revision'
             })
-          );
+          ).pipe(Effect.provideService(Database, { store: context }));
           const revisionEvent = {
             ...event,
             sourceId: revisionSource.id,
@@ -175,7 +174,7 @@ test('superseded requests cannot publish and a cancelled pending execution stays
           assert.equal(revisionFailure.kind, 'invalid_input');
           assert.equal((yield* sources.sourceProcessing(revisionSource.id)).documentId, null);
           assert.equal(
-            dispatchPending(context, [sourceProcessingRequestedTrigger(() => true)], Date.now()),
+            dispatchPending(context, sourceIngestionRegistration.triggers, Date.now()),
             3
           );
           const pending = context.db.orm
@@ -273,7 +272,7 @@ for (const input of ['attachment', 'link'] as const)
       Layer.mergeAll(
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         Layer.succeed(Database, { store: context }),
-        Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+        Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
         agentsLayer({
           model: () => Effect.succeed(model),
           language: 'en',
@@ -386,7 +385,7 @@ test('ingestion publishes visible HTML, delimited text and Office documents', as
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
-    Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+    Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
@@ -477,7 +476,7 @@ test('ingestion publishes visible HTML, delimited text and Office documents', as
           const { transaction } = yield* Effect.promise(
             () => import('#server/platform/definitions/define-store')
           );
-          const web = yield* transaction(context, (tx) =>
+          const web = yield* transaction((tx) =>
             tx.store(SourceStore).createSource({
               name: 'Web',
               kind: 'web',
@@ -488,7 +487,7 @@ test('ingestion publishes visible HTML, delimited text and Office documents', as
               projectId: null,
               requestId: 'web-request'
             })
-          );
+          ).pipe(Effect.provideService(Database, { store: context }));
           const webEvent = {
             type: 'SourceProcessingRequested' as const,
             sourceId: web.id,
@@ -583,7 +582,7 @@ test('link ingestion follows redirects and anchors HTML to the final URI', async
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
-    Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+    Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
@@ -661,7 +660,7 @@ test('link fetch checkpoint survives SQLite reopen without another request', asy
     Layer.mergeAll(
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       Layer.succeed(Database, { store: context }),
-      Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+      Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
       agentsLayer({
         model: () => Effect.succeed(model),
         language: 'en',
@@ -787,7 +786,7 @@ test('interrupting link ingestion closes the active HTTP request', async () => {
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
-    Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+    Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
@@ -850,7 +849,7 @@ test('correction workflow publishes a new anchored document without changing his
   const services = () =>
     Layer.mergeAll(
       Layer.succeed(Database, { store: context }),
-      Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+      Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
       workflowEngineLayer(context)
     );
 
@@ -887,14 +886,14 @@ test('correction workflow publishes a new anchored document without changing his
               corrected: false
             }
           };
-          const old = yield* transaction(context, (tx) =>
+          const old = yield* transaction((tx) =>
             tx.store(SourceStore).publishSourceDocument({
               id: source.id,
               expectedRevision: 1,
               requestId: state.requestId!,
               document
             })
-          );
+          ).pipe(Effect.provideService(Database, { store: context }));
           const next = yield* sources.correctBlock({
             id: source.id,
             documentId: old.documentId,

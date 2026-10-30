@@ -93,7 +93,7 @@ test('grading checkpoints provider output and fences stale and manual submission
       Layer.succeed(Database, { store: context }),
       Learning.layer
         .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
-        .pipe(Layer.provide(Layer.succeed(Database, { store: context }))),
+        .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
       agentsLayer({
         model: () => Effect.succeed(model),
         language: 'en',
@@ -101,13 +101,15 @@ test('grading checkpoints provider output and fences stale and manual submission
       }),
       workflowEngineLayer(context)
     );
-  const run = <A, E>(effect: Effect.Effect<A, E, Context.Service.Identifier<typeof Learning>>) =>
+  const run = <A, E>(
+    effect: Effect.Effect<A, E, Database | Context.Service.Identifier<typeof Learning>>
+  ) =>
     Effect.runPromise(
       effect.pipe(
         Effect.provide(
           Learning.layer
             .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
-            .pipe(Layer.provide(Layer.succeed(Database, { store: context })))
+            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )
     );

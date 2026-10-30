@@ -34,93 +34,88 @@ import {
 } from '#server/features/learning/store/practice';
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
-import { Database } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction } from '#server/platform/definitions/define-store';
-import { emitEvent } from '#server/platform/workflows/events';
-import { PublicationGuard } from '#server/platform/workflows/publication';
+import type { Transaction } from '#server/platform/definitions/define-store';
+import {
+  transaction,
+  useStore,
+  publicationTransaction
+} from '#server/platform/definitions/define-store';
 
 export const Learning = defineService(
   'study/Learning',
   Effect.gen(function* () {
-    const { store: context } = yield* Database;
+    const readPracticeStore = yield* useStore(PracticeStore);
+    const readPracticeSlotStore = yield* useStore(PracticeSlotStore);
+    const readPracticeControlStore = yield* useStore(PracticeControlStore);
+    const readGradingSnapshotStore = yield* useStore(GradingSnapshotStore);
     const settings = yield* Settings;
     const materials = yield* Materials;
-    const attempts = AttemptStore.make(context),
-      cards = CardStore.make(context),
-      reviews = ReviewStore.make(context);
+    const attempts = yield* useStore(AttemptStore),
+      cards = yield* useStore(CardStore),
+      reviews = yield* useStore(ReviewStore);
 
     const requestSlot = (
+      tx: Transaction,
       slotId: string,
       projectId: typeof practiceInputSchema.Type.projectId,
       epoch: string,
       generationAttempt = 0
     ) => {
-      emitEvent(
-        context,
-        {
-          type: 'PracticeSlotRequested',
-          eventId: randomUUID(),
-          causationId: null,
-          correlationId: slotId,
-          inputVersion: 1,
-          depth: 0,
-          slotId,
-          projectId,
-          epoch,
-          generationAttempt
-        },
-        context.clock.currentTimeMillisUnsafe()
-      );
+      tx.emit({
+        type: 'PracticeSlotRequested',
+        eventId: randomUUID(),
+        causationId: null,
+        correlationId: slotId,
+        inputVersion: 1,
+        depth: 0,
+        slotId,
+        projectId,
+        epoch,
+        generationAttempt
+      });
     };
 
     return {
-      practice: PracticeStore.make(context).practice,
+      practice: readPracticeStore.practice,
       practiceSlot: (slotId: string) =>
-        PracticeSlotStore.make(context)
-          .findPracticeSlot({ slotId })
-          .pipe(Effect.map(Option.getOrNull)),
+        readPracticeSlotStore.findPracticeSlot({ slotId }).pipe(Effect.map(Option.getOrNull)),
       startPractice: (input: typeof startPracticeInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const ids = tx.store(PracticeStore).start(input);
           const result = tx.store(PracticeStore).practice({ projectId: input.projectId });
 
-          for (const id of ids) requestSlot(id, input.projectId, result.epoch!);
+          for (const id of ids) requestSlot(tx, id, input.projectId, result.epoch!);
 
           return result;
         }),
       stopPractice: (input: typeof practiceInputSchema.Type) =>
         Effect.gen(function* () {
-          const current = yield* PracticeControlStore.make(context).findPracticeControl(input);
+          const current = yield* readPracticeControlStore.findPracticeControl(input);
 
           if (Option.isSome(current) && current.value.enabled) {
             yield* materials.closeGenerationScope({
               scopeId: current.value.epoch,
               projectId: input.projectId
             });
-            yield* transaction(context, (tx) =>
+            yield* transaction((tx) =>
               tx.store(PracticeStore).stop({ ...input, epoch: current.value.epoch })
             );
           }
 
-          return yield* PracticeStore.make(context).practice(input);
+          return yield* readPracticeStore.practice(input);
         }),
       publishPracticeSlot: (input: typeof publishPracticeSlotInputSchema.Type) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-
-            return tx.store(PracticeStore).publish(input);
-          });
+        publicationTransaction((tx) => {
+          return tx.store(PracticeStore).publish(input);
         }),
       retryPracticeQuestion: (input: typeof retryPracticeQuestionInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const result = tx.store(PracticeStore).retry(input);
 
           if (result.requested)
             requestSlot(
+              tx,
               result.slot.slotId,
               result.slot.projectId,
               result.slot.epoch,
@@ -135,96 +130,76 @@ export const Learning = defineService(
         generationEventId: string;
         errorKind: ErrorKind;
       }) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-
-            return tx.store(PracticeStore).fail(input);
-          });
+        publicationTransaction((tx) => {
+          return tx.store(PracticeStore).fail(input);
         }),
       answerPracticeQuestion: (input: typeof answerPracticeQuestionInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const result = tx.store(PracticeStore).answer(input);
 
           if (result.slotId && input.answer.type === 'open') {
             const eventId = randomUUID();
 
-            emitEvent(
-              context,
-              {
-                type: 'QuizAnswerSubmitted',
-                eventId,
-                correlationId: eventId,
-                causationId: null,
-                inputVersion: 1,
-                depth: 0,
-                attemptId: result.attempt.id,
-                questionId: result.questionId,
-                answerHash: createHash('sha256')
-                  .update(JSON.stringify([input.answer.answer, eventId]))
-                  .digest('hex')
-              },
-              context.clock.currentTimeMillisUnsafe()
-            );
+            tx.emit({
+              type: 'QuizAnswerSubmitted',
+              eventId,
+              correlationId: eventId,
+              causationId: null,
+              inputVersion: 1,
+              depth: 0,
+              attemptId: result.attempt.id,
+              questionId: result.questionId,
+              answerHash: createHash('sha256')
+                .update(JSON.stringify([input.answer.answer, eventId]))
+                .digest('hex')
+            });
           }
 
-          if (result.slotId) requestSlot(result.slotId, result.projectId, result.epoch);
+          if (result.slotId) requestSlot(tx, result.slotId, result.projectId, result.epoch);
 
           return result.attempt;
         }),
-      gradingSnapshot: GradingSnapshotStore.make(context).gradingSnapshot,
+      gradingSnapshot: readGradingSnapshotStore.gradingSnapshot,
       attempt: attempts.attempt,
       findAttempt: attempts.findAttempt,
       card: cards.card,
       findCard: cards.findCard,
       answerQuestion: (input: typeof answerQuestionInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const result = tx.store(AttemptStore).answerQuestion(input);
 
           if (input.answer.type === 'open') {
             const eventId = randomUUID();
 
-            emitEvent(
-              context,
-              {
-                type: 'QuizAnswerSubmitted',
-                eventId,
-                correlationId: eventId,
-                causationId: null,
-                inputVersion: 1,
-                depth: 0,
-                attemptId: input.attemptId,
-                questionId: input.questionId,
-                answerHash: createHash('sha256')
-                  .update(JSON.stringify([input.answer.answer, eventId]))
-                  .digest('hex')
-              },
-              context.clock.currentTimeMillisUnsafe()
-            );
+            tx.emit({
+              type: 'QuizAnswerSubmitted',
+              eventId,
+              correlationId: eventId,
+              causationId: null,
+              inputVersion: 1,
+              depth: 0,
+              attemptId: input.attemptId,
+              questionId: input.questionId,
+              answerHash: createHash('sha256')
+                .update(JSON.stringify([input.answer.answer, eventId]))
+                .digest('hex')
+            });
           }
 
           return result;
         }),
       finishQuiz: (input: typeof attemptInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(AttemptStore).finishQuiz(input)),
+        transaction((tx) => tx.store(AttemptStore).finishQuiz(input)),
       gradeResponse: (input: typeof gradeResponseInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(AttemptStore).gradeResponse(input)),
+        transaction((tx) => tx.store(AttemptStore).gradeResponse(input)),
       publishGrade: (input: typeof publishGradeInputSchema.Type) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-
-            return tx.store(AttemptStore).publishGrade(input);
-          });
+        publicationTransaction((tx) => {
+          return tx.store(AttemptStore).publishGrade(input);
         }),
       startQuiz: (input: typeof startQuizInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(AttemptStore).startQuiz(input)),
+        transaction((tx) => tx.store(AttemptStore).startQuiz(input)),
       reviewCard: (input: typeof reviewCardInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(CardStore).reviewCard(input)),
+        transaction((tx) => tx.store(CardStore).reviewCard(input)),
       dueCards: (input: typeof dueCardsInputSchema.Type) =>
         Effect.gen(function* () {
           const policy = yield* settings.reviewSettings();

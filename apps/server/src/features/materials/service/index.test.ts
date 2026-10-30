@@ -41,7 +41,7 @@ test('materials versions, links, citations and session membership preserve SQLit
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -209,7 +209,7 @@ test('native materials RPC uses the service and maps canonical failures', async 
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
   const handlers = MaterialsRpcLive.pipe(Layer.provide(services));
 
@@ -248,7 +248,7 @@ test('published image retains its source revision through replacement and draft 
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   const handlers = MaterialsRpcLive.pipe(Layer.provide(services));
@@ -341,7 +341,7 @@ test('generation requests persist immutable published document inputs and an out
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -381,7 +381,7 @@ test('generation validation, rollback, RPC, and persistent snapshots', async () 
   let context = new ServerContext(location.open());
   const makeServices = () =>
     Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-      Layer.provide(Layer.succeed(Database, { store: context }))
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   let requestId = '';
   let documentId = 0n;
@@ -528,7 +528,7 @@ test('caller-owned generation keys replay the same request and reject changed in
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -584,7 +584,7 @@ test('generation scopes retain tombstones and fence requests by project and inte
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -661,7 +661,7 @@ test('explicit generation retries are idempotent and require active captured int
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {

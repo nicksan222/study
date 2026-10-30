@@ -16,9 +16,8 @@ import { Appearance, Language, LlmModel, LlmProvider } from '@study/contracts/se
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
-import { Database } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction } from '#server/platform/definitions/define-store';
+import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 type Preferences = Record<string, JsonValue>;
 
@@ -42,8 +41,7 @@ const llmSettings = (v: Preferences): LlmSettings => {
 };
 
 const make = Effect.gen(function* () {
-  const { store: context } = yield* Database;
-  const store = SettingsStore.make(context);
+  const store = yield* useStore(SettingsStore);
 
   return {
     appSettings: () => store.preference('app').pipe(Effect.map(appSettings)),
@@ -59,7 +57,7 @@ const make = Effect.gen(function* () {
     saveAppSettings: (input: AppSettings) =>
       !Schema.is(appSettingsSchema)(input)
         ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction(context, (tx) => {
+        : transaction((tx) => {
             tx.store(SettingsStore).saveAppSettings(input);
 
             return {};
@@ -67,7 +65,7 @@ const make = Effect.gen(function* () {
     saveLlmSettings: (input: LlmSettings) =>
       !Schema.is(llmSettingsSchema)(input)
         ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction(context, (tx) => {
+        : transaction((tx) => {
             tx.store(SettingsStore).saveLlmSettings(input);
 
             return {};
@@ -75,7 +73,7 @@ const make = Effect.gen(function* () {
     saveMaterialSettings: (input: MaterialSettings) =>
       !Schema.is(materialSettingsSchema)(input)
         ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction(context, (tx) => {
+        : transaction((tx) => {
             tx.store(SettingsStore).saveMaterialSettings(input);
 
             return {};
@@ -83,7 +81,7 @@ const make = Effect.gen(function* () {
     saveReviewSettings: (input: ReviewSettings) =>
       !Schema.is(reviewSettingsSchema)(input)
         ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction(context, (tx) => {
+        : transaction((tx) => {
             tx.store(SettingsStore).saveReviewSettings(input);
 
             return {};

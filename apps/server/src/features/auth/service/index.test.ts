@@ -17,7 +17,7 @@ test('auth uses private SQLite account and guards refresh rotation', async () =>
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
@@ -78,7 +78,7 @@ test('persisted account is public-safe and refresh rotation is atomic', async ()
     .run();
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
@@ -122,7 +122,7 @@ test('concurrent finish rejects and cancelling closes the real listener', async 
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
@@ -172,7 +172,7 @@ test('failed sign-out persistence restores the account and session', async () =>
     .run();
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
@@ -210,7 +210,7 @@ test('closing the service scope closes an unfinished listener', async () => {
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
@@ -243,7 +243,7 @@ test('cancelling during listener acquisition releases the acquired listener', as
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })

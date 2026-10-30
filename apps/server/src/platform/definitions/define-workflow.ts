@@ -4,12 +4,13 @@ import * as Workflow from 'effect/workflow/Workflow';
 /** Declare a versioned native workflow without changing its execution semantics. */
 export function defineWorkflow<
   const Name extends string,
+  const Version extends number,
   P extends Workflow.AnyStructSchema,
   S extends Schema.Top,
   E extends Schema.Top
 >(definition: {
   name: Name;
-  version: number;
+  version: Version;
   payload: P;
   success: S;
   error: E;
@@ -18,5 +19,11 @@ export function defineWorkflow<
   if (!Number.isSafeInteger(definition.version) || definition.version < 1)
     throw new TypeError('Workflow version must be a positive integer');
 
-  return Workflow.make(`${definition.name}/v${definition.version}`, definition);
+  const workflow = Workflow.make(`${definition.name}/v${definition.version}`, definition);
+
+  return Object.defineProperty(workflow, 'version', {
+    value: definition.version
+  }) as typeof workflow & {
+    readonly version: Version;
+  };
 }

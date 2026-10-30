@@ -18,7 +18,7 @@ test('guarded generation publishes once and replays its receipt', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
   let complete = false;
   const workflow = Workflow.make('generation-publication-test', {
@@ -364,7 +364,7 @@ test('receipt persists across reopen and a new workflow execution', async () => 
   let resultId = 0n as MaterialVersionId;
   const run = async (executionId: string, replay: boolean) => {
     const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-      Layer.provide(Layer.succeed(Database, { store: context }))
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
     const workflow = Workflow.make('generation-reopen-test', {
       payload: { id: Schema.String },

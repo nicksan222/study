@@ -113,7 +113,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
   const domain = () =>
     Layer.merge(Conversations.layer, Sources.layer).pipe(
-      Layer.provide(Layer.succeed(Database, { store: context }))
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const services = () =>
     Layer.mergeAll(
@@ -143,7 +143,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       workflowEngineLayer(context)
     );
   const run = <A, E>(
-    effect: Effect.Effect<A, E, Context.Service.Identifier<typeof Conversations>>
+    effect: Effect.Effect<A, E, Database | Context.Service.Identifier<typeof Conversations>>
   ) => Effect.runPromise(effect.pipe(Effect.provide(domain())));
 
   try {

@@ -1,12 +1,17 @@
+import { types } from 'node:util';
+
 import { StudyError } from '@study/contracts/errors';
+import type { WorkflowEvent } from '@study/contracts/events';
 import type { Db } from '@study/db';
-import type { Clock } from 'effect';
-import { Context, Effect, Layer, Option, Schema } from 'effect';
+import type { Clock, Context } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { classifyError } from '#server/platform/errors/classify-error';
 import { observeOperation, observeSyncOperation } from '#server/platform/observability/index';
+import { emitEvent } from '#server/platform/workflows/events';
+import { PublicationGuard } from '#server/platform/workflows/publication';
 
 export type StoreResources = { readonly db: Db; readonly clock: Clock.Clock };
 
@@ -27,6 +32,16 @@ type AnyDefinition = {
 type Definitions = Record<string, AnyDefinition>;
 
 const bindStore = Symbol('bindStore');
+
+const readStore = Symbol('readStore');
+
+const queryBrand: unique symbol = Symbol('storeQuery');
+
+const mutationBrand: unique symbol = Symbol('storeMutation');
+
+type QueryDefinition = AnyDefinition & { readonly [queryBrand]: true; readonly role: string };
+
+type MutationDefinition = AnyDefinition & { readonly [mutationBrand]: true };
 
 type SyncMethods<D extends Definitions> = {
   [K in keyof D]: D[K] extends { input: infer I extends Decoder; output: infer O extends Decoder }
@@ -53,11 +68,11 @@ export function storeQuery<I extends Decoder, O extends Decoder>(
         }
     )
 ) {
-  return definition;
+  return { ...definition, [queryBrand]: true as const };
 }
 
 export function storeMutation<I extends Decoder, O extends Decoder>(definition: Definition<I, O>) {
-  return definition;
+  return { ...definition, [mutationBrand]: true as const };
 }
 
 function failure(error: unknown): StudyError {
@@ -89,7 +104,10 @@ function execute(definition: AnyDefinition, input: unknown) {
   return Schema.decodeUnknownSync(definition.output)(synchronous(definition.run(decoded as never)));
 }
 
-export function defineStore<Q extends Definitions, M extends Definitions>(definition: {
+export function defineStore<
+  Q extends Record<string, QueryDefinition>,
+  M extends Record<string, MutationDefinition>
+>(definition: {
   name: string;
   entity: { singular: string; plural: string };
   make: (resources: StoreResources) => { queries: Q; mutations: M };
@@ -130,7 +148,15 @@ export function defineStore<Q extends Definitions, M extends Definitions>(defini
         throw new TypeError(`Invalid store operation ${name}`);
     }
 
+    for (const operation of Object.values(bound.mutations)) {
+      if (operation[mutationBrand] !== true || queryBrand in operation)
+        throw new TypeError('Mutations require storeMutation descriptors');
+    }
+
     for (const [name, operation] of Object.entries(bound.queries)) {
+      if (operation[queryBrand] !== true || mutationBrand in operation)
+        throw new TypeError('Queries require storeQuery descriptors');
+
       if (Object.hasOwn(bound.mutations, name)) throw new TypeError(`Duplicate operation ${name}`);
 
       const role = (operation as AnyDefinition & { role: string }).role;
@@ -198,8 +224,6 @@ export function defineStore<Q extends Definitions, M extends Definitions>(defini
     return Schema.decodeUnknownSync(operation.output)(result);
   }
 
-  const key = Context.Service<EffectMethods<Q>>(definition.name);
-
   function make(context: ServerContext): EffectMethods<Q> {
     return Object.fromEntries(
       Object.entries(operations(context).queries).map(([name, operation]) => [
@@ -212,11 +236,6 @@ export function defineStore<Q extends Definitions, M extends Definitions>(defini
       ])
     ) as EffectMethods<Q>;
   }
-
-  const layer = Layer.effect(
-    key,
-    Effect.map(Database, ({ store }) => make(store))
-  );
 
   function bind(
     context: ServerContext,
@@ -239,7 +258,7 @@ export function defineStore<Q extends Definitions, M extends Definitions>(defini
     ) as SyncMethods<Q & M>;
   }
 
-  return { key, layer, make, [bindStore]: bind };
+  return { [readStore]: make, [bindStore]: bind };
 }
 
 type StoreDefinition = {
@@ -254,42 +273,89 @@ type SyncResult<T> = T extends PromiseLike<unknown> | Effect.Effect<unknown, unk
   ? never
   : T;
 
-export function transaction<T>(
+export type Transaction = {
+  store<S extends StoreDefinition>(store: S): ReturnType<S[typeof bindStore]>;
+  emit(event: WorkflowEvent): void;
+};
+
+export function useStore<S extends { [readStore]: (context: ServerContext) => object }>(
+  store: S
+): Effect.Effect<ReturnType<S[typeof readStore]>, StudyError, Database> {
+  return Effect.flatMap(Database, ({ store: context }) =>
+    Effect.try({
+      try: () => store[readStore](context) as ReturnType<S[typeof readStore]>,
+      catch: failure
+    })
+  );
+}
+
+function runTransaction<T>(
   context: ServerContext,
-  work: (tx: {
-    store<S extends StoreDefinition>(store: S): ReturnType<S[typeof bindStore]>;
-  }) => T & SyncResult<T>
-): Effect.Effect<T, StudyError> {
+  effectContext: Context.Context<never>,
+  work: (tx: Transaction) => T & SyncResult<T>,
+  guard?: PublicationGuard['Service']
+): T {
+  return context.transaction(() => {
+    if (types.isAsyncFunction(work))
+      throw new TypeError('Transaction callbacks must be synchronous');
+
+    guard?.assert(context);
+
+    let active = true;
+
+    try {
+      function store<S extends StoreDefinition>(definition: S): ReturnType<S[typeof bindStore]> {
+        if (!active) throw new Error('Transaction is no longer active');
+
+        return definition[bindStore](
+          context,
+          () => active,
+          (name, run) => observeSyncOperation(effectContext, name, run)
+        ) as ReturnType<S[typeof bindStore]>;
+      }
+
+      const emit = (event: WorkflowEvent) => {
+        if (!active) throw new Error('Transaction is no longer active');
+
+        emitEvent(context, event, context.clock.currentTimeMillisUnsafe());
+      };
+      const value = work({ store, emit });
+
+      synchronous(value);
+
+      return value;
+    } finally {
+      active = false;
+    }
+  });
+}
+
+function transactionEffect<T>(
+  work: (tx: Transaction) => T & SyncResult<T>,
+  guard?: PublicationGuard['Service']
+): Effect.Effect<T, StudyError, Database> {
   return observeOperation(
     'store.transaction',
-    Effect.withFiber((fiber) =>
-      Effect.try({
-        try: () =>
-          context.transaction(() => {
-            let active = true;
-
-            try {
-              function store<S extends StoreDefinition>(
-                definition: S
-              ): ReturnType<S[typeof bindStore]> {
-                return definition[bindStore](
-                  context,
-                  () => active,
-                  (name, run) => observeSyncOperation(fiber.context, name, run)
-                ) as ReturnType<S[typeof bindStore]>;
-              }
-
-              const value = work({ store });
-
-              synchronous(value);
-
-              return value;
-            } finally {
-              active = false;
-            }
-          }),
-        catch: failure
-      })
+    Effect.flatMap(Database, ({ store: context }) =>
+      Effect.withFiber((fiber) =>
+        Effect.try({
+          try: () => runTransaction<T>(context, fiber.context, work, guard),
+          catch: failure
+        })
+      )
     )
   );
+}
+
+export function transaction<T>(
+  work: (tx: Transaction) => T & SyncResult<T>
+): Effect.Effect<T, StudyError, Database> {
+  return transactionEffect<T>(work);
+}
+
+/** Assert the current activity owner inside the same transaction as publication. */
+export function publicationTransaction<T>(
+  work: (tx: Transaction) => T & SyncResult<T>
+): Effect.Effect<T, StudyError, Database | PublicationGuard> {
+  return Effect.flatMap(PublicationGuard, (guard) => transactionEffect<T>(work, guard));
 }

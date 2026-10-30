@@ -1,5 +1,6 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
+import { canonicalImport } from '../architecture-imports.ts';
 import { effectBindings, propertyName } from '../effect-bindings.ts';
 import { property as field } from './effect-lifecycle-syntax.ts';
 import { isFactory, resolveValue } from './module-factories.ts';
@@ -39,6 +40,18 @@ export default defineRule({
       }
     }
 
+    function operationFields(node: any, seen = new Set<any>()): any[] {
+      const object = value(node);
+
+      if (object?.type !== 'ObjectExpression' || seen.has(object)) return [];
+
+      seen.add(object);
+
+      return object.properties.flatMap((item: any) =>
+        item.type === 'SpreadElement' ? operationFields(item.argument, seen) : [item]
+      );
+    }
+
     function store(node: any) {
       const descriptor = value(node.arguments[0]);
 
@@ -57,9 +70,30 @@ export default defineRule({
 
       const queries = get(value(result) ?? descriptor, 'queries');
 
+      const mutations = get(value(result) ?? descriptor, 'mutations');
+
+      for (const [operations, constructor] of [
+        [queries, 'storeQuery'],
+        [mutations, 'storeMutation']
+      ] as const) {
+        if (operations?.type !== 'ObjectExpression') continue;
+
+        for (const item of operationFields(operations)) {
+          if (item.type !== 'Property') continue;
+
+          const operation = value(item.value);
+
+          if (
+            operation?.type !== 'CallExpression' ||
+            !canonicalImport(context, operation.callee, 'define-store', constructor)
+          )
+            report(item, `Store operations must use the canonical ${constructor} constructor.`);
+        }
+      }
+
       if (queries?.type !== 'ObjectExpression') return;
 
-      for (const item of queries.properties) {
+      for (const item of operationFields(queries)) {
         if (item.type !== 'Property' || (item.computed && item.key.type !== 'Literal')) continue;
 
         const name = propertyName(item.key);

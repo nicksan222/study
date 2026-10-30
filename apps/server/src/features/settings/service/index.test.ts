@@ -13,7 +13,9 @@ import { Database } from '#server/platform/database/database';
 test('settings defaults, updates, model selection and rollback use SQLite', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Settings.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Settings.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
 
   try {
     await Effect.runPromise(

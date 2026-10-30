@@ -27,10 +27,10 @@ import { dispatchPending } from '#server/platform/workflows/triggers';
 import {
   conversationReplyHandler,
   conversationReplyWorkflow,
-  conversationGenerationRequestedTrigger,
+  conversationReplyRegistration,
   conversationAttachmentWakeHandler,
   conversationAttachmentWakeWorkflow,
-  conversationAttachmentWakeTriggers
+  conversationAttachmentWakeRegistration
 } from './index.ts';
 
 test('indexed source wakes the dispatched reply using its persisted receipt', async () => {
@@ -76,7 +76,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
   const database = Layer.succeed(Database, { store: context });
   const services = Layer.mergeAll(
     database,
-    Layer.merge(Conversations.layer, Sources.layer).pipe(Layer.provide(database)),
+    Layer.merge(Conversations.layer, Sources.layer).pipe(Layer.provideMerge(database)),
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     agentsLayer({
       model: () => Effect.succeed(model),
@@ -127,11 +127,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             1
           );
           assert.equal(
-            dispatchPending(
-              context,
-              [conversationGenerationRequestedTrigger(() => true)],
-              Date.now()
-            ),
+            dispatchPending(context, conversationReplyRegistration.triggers, Date.now()),
             1
           );
           const receipt = context.db.orm
@@ -188,7 +184,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
 
           dispatchPending(
             context,
-            conversationAttachmentWakeTriggers(() => true).filter(
+            conversationAttachmentWakeRegistration.triggers.filter(
               (trigger) => trigger.event === 'SourceIndexed'
             ),
             Date.now()
@@ -279,11 +275,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             executionId: 'early-wake',
             payload: { event: earlyIndex }
           });
-          dispatchPending(
-            context,
-            [conversationGenerationRequestedTrigger(() => true)],
-            Date.now()
-          );
+          dispatchPending(context, conversationReplyRegistration.triggers, Date.now());
           const earlyEventRow = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -356,11 +348,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             executionId: 'early-failure-wake',
             payload: { event: failureNotice }
           });
-          dispatchPending(
-            context,
-            [conversationGenerationRequestedTrigger(() => true)],
-            Date.now()
-          );
+          dispatchPending(context, conversationReplyRegistration.triggers, Date.now());
           const failedRow = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -443,11 +431,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             });
             const nextRequest = yield* conversations.requestReply({ sessionId: nextSession.id });
 
-            dispatchPending(
-              context,
-              [conversationGenerationRequestedTrigger(() => true)],
-              Date.now()
-            );
+            dispatchPending(context, conversationReplyRegistration.triggers, Date.now());
             const eventRow = context.db.orm
               .select()
               .from(tables.workflowEvents)
@@ -600,7 +584,7 @@ test('a pending reply survives reopening and wakes on deletion', async () => {
 
     return Layer.mergeAll(
       database,
-      Layer.merge(Conversations.layer, Sources.layer).pipe(Layer.provide(database)),
+      Layer.merge(Conversations.layer, Sources.layer).pipe(Layer.provideMerge(database)),
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       agentsLayer({
         model: () => Effect.succeed(model),
@@ -642,11 +626,7 @@ test('a pending reply survives reopening and wakes on deletion', async () => {
           });
           const request = yield* conversations.requestReply({ sessionId: session.id });
 
-          dispatchPending(
-            context,
-            [conversationGenerationRequestedTrigger(() => true)],
-            Date.now()
-          );
+          dispatchPending(context, conversationReplyRegistration.triggers, Date.now());
           const receipt = context.db.orm
             .select()
             .from(tables.workflowReceipts)

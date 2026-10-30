@@ -4,23 +4,21 @@ import { parseTheme, serializeTheme } from '@study/theme';
 import { Effect } from 'effect';
 
 import { ThemeSelectionStore, ThemeStore } from '#server/features/themes/store/index';
-import { Database } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction } from '#server/platform/definitions/define-store';
+import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 export const Themes = defineService(
   'study/Themes',
   Effect.gen(function* () {
-    const { store: context } = yield* Database;
-    const themes = ThemeStore.make(context);
-    const selection = ThemeSelectionStore.make(context);
+    const themes = yield* useStore(ThemeStore);
+    const selection = yield* useStore(ThemeSelectionStore);
     const save = (json: string, replace: boolean) =>
       Effect.try({
         try: () => parseTheme(json),
         catch: (error) => new StudyError('invalid_input', 'Invalid theme file', { cause: error })
       }).pipe(
         Effect.flatMap((theme) =>
-          transaction(context, (tx) => tx.store(ThemeStore).saveTheme({ theme, replace }))
+          transaction((tx) => tx.store(ThemeStore).saveTheme({ theme, replace }))
         )
       );
 
@@ -44,14 +42,14 @@ export const Themes = defineService(
       importTheme: ({ json }: { json: string }) => save(json, false),
       saveTheme: ({ json }: { json: string }) => save(json, true),
       deleteTheme: ({ id }: { id: string }) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           tx.store(ThemeStore).deleteTheme(id);
           const selected = tx.store(ThemeSelectionStore);
 
           if (selected.selection(undefined).selected === id) selected.setSelection(null);
         }),
       selectTheme: ({ id }: { id: string | null }) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           if (id !== null) tx.store(ThemeStore).theme(id);
 
           tx.store(ThemeSelectionStore).setSelection(id);

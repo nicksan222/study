@@ -35,7 +35,7 @@ test('auth RPC exposes only public account and operations', async () => {
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const handlers = AuthRpcLive.pipe(
     Layer.provide(Auth.layer),
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })

@@ -12,9 +12,9 @@ import { Conversations } from '#server/features/conversations/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 export const conversationTitleWorkflow = defineWorkflow({
   name: 'conversation-title',
@@ -87,16 +87,13 @@ export const conversationTitleHandler = ({
     });
   });
 
-export const conversationTitleHandlerLayer =
-  conversationTitleWorkflow.toLayer(conversationTitleHandler);
-
-export function conversationTitleRequestedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'conversation-title',
-    event: 'ConversationTitleRequested',
-    workflowVersion: 1,
-    workflow: conversationTitleWorkflow,
-    emits: [],
-    enabled
-  };
-}
+export const conversationTitleRegistration = defineWorkflowHandler(conversationTitleWorkflow, {
+  execute: conversationTitleHandler,
+  triggers: [
+    {
+      subscription: 'conversation-title',
+      event: 'ConversationTitleRequested',
+      emits: []
+    }
+  ]
+});

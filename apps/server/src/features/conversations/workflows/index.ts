@@ -25,9 +25,9 @@ import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 export const conversationReplyWorkflow = defineWorkflow({
   name: 'conversation-reply',
@@ -216,19 +216,16 @@ export const conversationReplyHandler = ({
     )
   );
 
-export const conversationReplyHandlerLayer =
-  conversationReplyWorkflow.toLayer(conversationReplyHandler);
-
-export function conversationGenerationRequestedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'conversation-reply',
-    event: 'ConversationGenerationRequested',
-    workflowVersion: 1,
-    workflow: conversationReplyWorkflow,
-    emits: [],
-    enabled
-  };
-}
+export const conversationReplyRegistration = defineWorkflowHandler(conversationReplyWorkflow, {
+  execute: conversationReplyHandler,
+  triggers: [
+    {
+      subscription: 'conversation-reply',
+      event: 'ConversationGenerationRequested',
+      emits: []
+    }
+  ]
+});
 
 const sourceWakeEventSchema = Schema.Union([
   sourceIndexedSchema,
@@ -308,26 +305,23 @@ export const conversationAttachmentWakeHandler = ({
     }
   });
 
-export const conversationAttachmentWakeHandlerLayer = conversationAttachmentWakeWorkflow.toLayer(
-  conversationAttachmentWakeHandler
+export const conversationAttachmentWakeRegistration = defineWorkflowHandler(
+  conversationAttachmentWakeWorkflow,
+  {
+    execute: conversationAttachmentWakeHandler,
+    triggers: (
+      [
+        'SourceIndexed',
+        'SourceDeleted',
+        'SourceProjectChanged',
+        'SourceProcessingFailed',
+        'SourceProcessingRequested',
+        'SourceCorrectionRequested'
+      ] as const
+    ).map((event) => ({
+      subscription: `conversation-attachment-wake/${event.toLowerCase()}`,
+      event,
+      emits: []
+    }))
+  }
 );
-
-export function conversationAttachmentWakeTriggers(enabled: () => boolean): Trigger[] {
-  return (
-    [
-      'SourceIndexed',
-      'SourceDeleted',
-      'SourceProjectChanged',
-      'SourceProcessingFailed',
-      'SourceProcessingRequested',
-      'SourceCorrectionRequested'
-    ] as const
-  ).map((event) => ({
-    subscription: `conversation-attachment-wake/${event.toLowerCase()}`,
-    event,
-    workflowVersion: 1,
-    workflow: conversationAttachmentWakeWorkflow,
-    emits: [],
-    enabled
-  }));
-}

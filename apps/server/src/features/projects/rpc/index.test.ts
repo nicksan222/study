@@ -18,7 +18,7 @@ test('native RPC handlers return projects and typed failures', async () => {
   const context = new ServerContext(location.open());
   const handlers = ProjectsRpcLive.pipe(
     Layer.provide(Projects.layer),
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {

@@ -13,7 +13,7 @@ export class PublicationGuard extends Context.Service<
   PublicationGuard,
   {
     readonly [publicationGuardBrand]: true;
-    readonly assert: () => void;
+    readonly assert: (transactionContext: ServerContext) => void;
   }
 >()('study/PublicationGuard') {}
 
@@ -29,8 +29,13 @@ export function withPublicationGuard<A, E, R>(
       const store = workflowStore(context);
       let rejected = 0;
       const guard = {
-        assert() {
+        assert(transactionContext: ServerContext) {
           try {
+            if (transactionContext !== context)
+              throw new StudyError('cancelled', 'Workflow publication owner was fenced', {
+                cause: new Error('Publication transaction belongs to a different database')
+              });
+
             context.assertTransactionActive();
             const row = store.execution(executionId);
 

@@ -6,7 +6,8 @@ import { createTestDatabase } from '@study/db/testing';
 import { Effect, Option } from 'effect';
 
 import { ServerContext } from '#server/platform/database/context';
-import { transaction } from '#server/platform/definitions/define-store';
+import { Database } from '#server/platform/database/database';
+import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { SourceStore, SourceProcessingStore, SourceSnapshotStore } from './index.ts';
 
@@ -43,7 +44,9 @@ test('snapshots survive replacement and stale publications leave no document', a
 
   try {
     const source = await Effect.runPromise(
-      transaction(context, (tx) => tx.store(SourceStore).createSource(input))
+      transaction((tx) => tx.store(SourceStore).createSource(input)).pipe(
+        Effect.provideService(Database, { store: context })
+      )
     );
 
     assert.equal(source.sizeBytes, 5n);
@@ -52,7 +55,7 @@ test('snapshots survive replacement and stale publications leave no document', a
       'a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e'
     );
     await Effect.runPromise(
-      transaction(context, (tx) =>
+      transaction((tx) =>
         tx.store(SourceStore).replaceSourceInput({
           id: source.id,
           expectedRevision: 1,
@@ -62,21 +65,25 @@ test('snapshots survive replacement and stale publications leave no document', a
           uri: 'https://example.com/replacement',
           requestId: 'request-2'
         })
-      )
+      ).pipe(Effect.provideService(Database, { store: context }))
     );
     await assert.rejects(
       Effect.runPromise(
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(SourceStore).replaceSourceInput({
             id: source.id,
             expectedRevision: 1,
             bytes: new TextEncoder().encode('bad'),
             requestId: 'stale'
           })
-        )
+        ).pipe(Effect.provideService(Database, { store: context }))
       )
     );
-    const updated = await Effect.runPromise(SourceStore.make(context).source(source.id));
+    const updated = await Effect.runPromise(
+      Effect.runSync(
+        useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
+      ).source(source.id)
+    );
 
     assert.equal(updated.sizeBytes, 6n);
     assert.equal(
@@ -84,7 +91,9 @@ test('snapshots survive replacement and stale publications leave no document', a
       '16367aacb67a4a017c8da8ab95682ccb390863780f7114dda0a0e0c55644c7c4'
     );
     const old = await Effect.runPromise(
-      SourceSnapshotStore.make(context).sourceSnapshot({ id: source.id, revision: 1 })
+      Effect.runSync(
+        useStore(SourceSnapshotStore).pipe(Effect.provideService(Database, { store: context }))
+      ).sourceSnapshot({ id: source.id, revision: 1 })
     );
 
     assert.equal(new TextDecoder().decode(old.bytes), 'first');
@@ -93,31 +102,38 @@ test('snapshots survive replacement and stale publications leave no document', a
     assert.equal(old.uri, 'https://example.com/original');
     await assert.rejects(
       Effect.runPromise(
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 1,
             requestId: 'request-1',
             document
           })
-        )
+        ).pipe(Effect.provideService(Database, { store: context }))
       )
     );
     await assert.rejects(
       Effect.runPromise(
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 2,
             requestId: 'request-1',
             document
           })
-        )
+        ).pipe(Effect.provideService(Database, { store: context }))
       )
     );
     assert.equal(
-      (await Effect.runPromise(SourceProcessingStore.make(context).sourceProcessing(source.id)))
-        .documentId,
+      (
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(SourceProcessingStore).pipe(
+              Effect.provideService(Database, { store: context })
+            )
+          ).sourceProcessing(source.id)
+        )
+      ).documentId,
       null
     );
     assert.equal(
@@ -125,27 +141,27 @@ test('snapshots survive replacement and stale publications leave no document', a
       0n
     );
     await Effect.runPromise(
-      transaction(context, (tx) =>
+      transaction((tx) =>
         tx
           .store(SourceStore)
           .requestSourceProcessing({ id: source.id, expectedRevision: 2, requestId: 'request-3' })
-      )
+      ).pipe(Effect.provideService(Database, { store: context }))
     );
     await assert.rejects(
       Effect.runPromise(
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 2,
             requestId: 'request-2',
             document
           })
-        )
+        ).pipe(Effect.provideService(Database, { store: context }))
       )
     );
     await assert.rejects(
       Effect.runPromise(
-        transaction(context, (tx) => {
+        transaction((tx) => {
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 2,
@@ -154,7 +170,7 @@ test('snapshots survive replacement and stale publications leave no document', a
           });
 
           throw new Error('rollback');
-        })
+        }).pipe(Effect.provideService(Database, { store: context }))
       )
     );
     assert.equal(
@@ -162,19 +178,26 @@ test('snapshots survive replacement and stale publications leave no document', a
       0n
     );
     assert.equal(
-      (await Effect.runPromise(SourceProcessingStore.make(context).sourceProcessing(source.id)))
-        .documentId,
+      (
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(SourceProcessingStore).pipe(
+              Effect.provideService(Database, { store: context })
+            )
+          ).sourceProcessing(source.id)
+        )
+      ).documentId,
       null
     );
     const { documentId: id } = await Effect.runPromise(
-      transaction(context, (tx) =>
+      transaction((tx) =>
         tx.store(SourceStore).publishSourceDocument({
           id: source.id,
           expectedRevision: 2,
           requestId: 'request-3',
           document
         })
-      )
+      ).pipe(Effect.provideService(Database, { store: context }))
     );
 
     assert.equal(
@@ -182,22 +205,22 @@ test('snapshots survive replacement and stale publications leave no document', a
       1n
     );
     await Effect.runPromise(
-      transaction(context, (tx) =>
+      transaction((tx) =>
         tx
           .store(SourceStore)
           .requestSourceProcessing({ id: source.id, expectedRevision: 2, requestId: 'request-4' })
-      )
+      ).pipe(Effect.provideService(Database, { store: context }))
     );
     await assert.rejects(
       Effect.runPromise(
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 2,
             requestId: 'request-4',
             document: { ...document, meta: { ...document.meta, extractor: 'nonexistent' } }
           })
-        )
+        ).pipe(Effect.provideService(Database, { store: context }))
       )
     );
     assert.equal(
@@ -205,22 +228,40 @@ test('snapshots survive replacement and stale publications leave no document', a
       1n
     );
     assert.equal(
-      (await Effect.runPromise(SourceProcessingStore.make(context).sourceProcessing(source.id)))
-        .documentId,
+      (
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(SourceProcessingStore).pipe(
+              Effect.provideService(Database, { store: context })
+            )
+          ).sourceProcessing(source.id)
+        )
+      ).documentId,
       id
     );
     context.close();
     context = new ServerContext(location.open());
     assert.equal(
-      (await Effect.runPromise(SourceProcessingStore.make(context).sourceProcessing(source.id)))
-        .documentId,
+      (
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(SourceProcessingStore).pipe(
+              Effect.provideService(Database, { store: context })
+            )
+          ).sourceProcessing(source.id)
+        )
+      ).documentId,
       id
     );
     assert.equal(
       new TextDecoder().decode(
         (
           await Effect.runPromise(
-            SourceSnapshotStore.make(context).sourceSnapshot({ id: source.id, revision: 1 })
+            Effect.runSync(
+              useStore(SourceSnapshotStore).pipe(
+                Effect.provideService(Database, { store: context })
+              )
+            ).sourceSnapshot({ id: source.id, revision: 1 })
           )
         ).bytes
       ),
@@ -238,29 +279,59 @@ test('source reads distinguish absence and enforce bounded pagination', async ()
 
   try {
     const a = await Effect.runPromise(
-      transaction(context, (tx) => tx.store(SourceStore).createSource(input))
+      transaction((tx) => tx.store(SourceStore).createSource(input)).pipe(
+        Effect.provideService(Database, { store: context })
+      )
     );
     const b = await Effect.runPromise(
-      transaction(context, (tx) => tx.store(SourceStore).createSource(input))
+      transaction((tx) => tx.store(SourceStore).createSource(input)).pipe(
+        Effect.provideService(Database, { store: context })
+      )
     );
 
     assert.deepEqual(
-      (await Effect.runPromise(SourceStore.make(context).sources({ limit: 1 }))).map((s) => s.id),
+      (
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
+          ).sources({ limit: 1 })
+        )
+      ).map((s) => s.id),
       [b.id]
     );
     assert.deepEqual(
-      (await Effect.runPromise(SourceStore.make(context).sources({ limit: 1, before: b.id }))).map(
-        (s) => s.id
-      ),
+      (
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
+          ).sources({ limit: 1, before: b.id })
+        )
+      ).map((s) => s.id),
       [a.id]
     );
     assert.ok(
       Option.isNone(
-        await Effect.runPromise(SourceStore.make(context).findSource(999n as typeof a.id))
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
+          ).findSource(999n as typeof a.id)
+        )
       )
     );
-    await assert.rejects(Effect.runPromise(SourceStore.make(context).source(999n as typeof a.id)));
-    await assert.rejects(Effect.runPromise(SourceStore.make(context).sources({ limit: 0 })));
+    await assert.rejects(
+      Effect.runPromise(
+        Effect.runSync(
+          useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
+        ).source(999n as typeof a.id)
+      )
+    );
+    await assert.rejects(
+      Effect.runPromise(
+        Effect.runSync(
+          useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
+        ).sources({ limit: 0 })
+      )
+    );
   } finally {
     context.close();
     location.cleanup();

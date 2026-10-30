@@ -10,6 +10,7 @@ import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
 import { encodeAccount } from '#server/platform/ai/auth/index';
 import { ServerContext } from '#server/platform/database/context';
+import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { App, serve } from '#server/runtime/index';
 
@@ -25,7 +26,7 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
 
         try {
           await Effect.runPromise(
-            transaction(context, (tx) =>
+            transaction((tx) =>
               tx.store(AuthStore).saveAccount(
                 encodeAccount({
                   subject: 'user',
@@ -34,7 +35,7 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
                   sharing: false
                 })
               )
-            )
+            ).pipe(Effect.provideService(Database, { store: context }))
           );
         } finally {
           context.close();

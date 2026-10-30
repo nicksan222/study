@@ -11,8 +11,8 @@ import { Recordings } from '#server/features/recordings/service/index';
 import { Sources } from '#server/features/sources/index';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 export const recordingPostWorkflow = defineWorkflow({
   name: 'recording-post',
@@ -87,15 +87,13 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
     });
   });
 
-export const recordingPostHandlerLayer = recordingPostWorkflow.toLayer(recordingPostHandler);
-
-export function recordingPostRequestedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'recording-post',
-    event: 'RecordingPostRequested',
-    workflowVersion: 1,
-    workflow: recordingPostWorkflow,
-    emits: ['SourceProcessingRequested'],
-    enabled
-  };
-}
+export const recordingPostRegistration = defineWorkflowHandler(recordingPostWorkflow, {
+  execute: recordingPostHandler,
+  triggers: [
+    {
+      subscription: 'recording-post',
+      event: 'RecordingPostRequested',
+      emits: ['SourceProcessingRequested']
+    }
+  ]
+});

@@ -15,7 +15,7 @@ test('sessions support normalized creation, bounded pagination and missing reads
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const database = Layer.succeed(Database, { store: context });
-  const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(Layer.provide(database));
+  const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(Layer.provideMerge(database));
 
   try {
     await Effect.runPromise(
@@ -57,7 +57,7 @@ test('messages retain immutable versions and paginate in chronological order', a
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -129,7 +129,7 @@ test('attachment snapshots enforce project ownership and survive source deletion
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -209,7 +209,7 @@ test('editing and deleting messages update session ordering with a composite cur
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -261,7 +261,7 @@ test('message validation rejects invalid text, incomplete versions, and foreign 
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -328,7 +328,7 @@ test('reply request persists its context and rejects another pending request', a
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -411,7 +411,7 @@ test('reply snapshots retain historical attachments after reopen and reprocessin
   const { eq } = await import('@study/db');
   const layer = () =>
     Layer.merge(Projects.layer, Conversations.layer).pipe(
-      Layer.provide(Layer.succeed(Database, { store: context }))
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
   try {
@@ -515,7 +515,7 @@ test('outbox failure rolls back reply request and pending message', async () => 
   const { sql } = await import('@study/db');
   const { workflowEvents, conversation_reply_requests } = await import('@study/db/schema');
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -550,7 +550,7 @@ test('reply captures pending attachments and invalidates deleted context', async
   const { sources, documents, source_processing } = await import('@study/db/schema');
   const { eq } = await import('@study/db');
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -646,7 +646,7 @@ test('reply history captures a bounded recent window and total text budget', asy
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -696,7 +696,7 @@ test('untitled sessions capture title requests and reject stale context', async 
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -710,14 +710,14 @@ test('untitled sessions capture title requests and reject stale context', async 
           .createUntitledSession({ project: project.id })
           .pipe(
             Effect.provide(
-              Settings.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })))
+              Settings.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
             )
           );
 
         assert.equal(session.titleSource, 'provisional');
         assert.equal(session.title, 'New session');
         const settingsLayer = Settings.layer.pipe(
-          Layer.provide(Layer.succeed(Database, { store: context }))
+          Layer.provideMerge(Layer.succeed(Database, { store: context }))
         );
 
         yield* Effect.gen(function* () {
@@ -762,7 +762,7 @@ test('title context selects the latest fifty messages within its text budget', a
   const context = new ServerContext(location.open());
   const { Settings } = await import('#server/features/settings/index');
   const layer = Layer.mergeAll(Projects.layer, Conversations.layer, Settings.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -799,7 +799,7 @@ test('titles respect the aggregate text budget and do not require ready attachme
     Conversations.layer,
     Settings.layer,
     Sources.layer
-  ).pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
     await Effect.runPromise(
@@ -854,7 +854,7 @@ test('attachment threads are isolated, owned and paginated', async () => {
   const context = new ServerContext(location.open());
   const { sources, documents, source_processing } = await import('@study/db/schema');
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -1002,7 +1002,7 @@ test('posting a message can request a reply explicitly or by assistant mention',
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {

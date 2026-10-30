@@ -1,9 +1,15 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { featureRole, moduleEdges, targetPath } from '../architecture-imports.ts';
+import {
+  canonicalImport,
+  featureRole,
+  importedValue,
+  moduleEdges,
+  targetPath
+} from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import { resolveValue } from './module-factories.ts';
-import { binding } from './synchronous-transactions.ts';
+import { binding, property } from './synchronous-transactions.ts';
 import { production } from './synchronous-transactions.ts';
 
 export default defineRule({
@@ -93,6 +99,64 @@ export default defineRule({
       return null;
     }
 
+    function nativeLayer(node: any, seen = new Set<any>()): boolean {
+      if (!node || seen.has(node)) return false;
+
+      seen.add(node);
+      const def = binding(context, node)?.defs[0]?.node;
+
+      if (
+        def?.type === 'VariableDeclarator' &&
+        def.parent?.kind === 'const' &&
+        def.id.type === 'Identifier'
+      )
+        return nativeLayer(def.init, seen);
+
+      if (
+        def?.type === 'VariableDeclarator' &&
+        def.parent?.kind === 'const' &&
+        def.id.type === 'ObjectPattern'
+      ) {
+        const item = def.id.properties.find(
+          (part: any) => part.type === 'Property' && part.value?.name === node.name
+        );
+        const key = item?.key;
+
+        if (key && (!item.computed || key.type === 'Literal'))
+          return nativeLayer(
+            { type: 'MemberExpression', object: def.init, property: key, computed: item.computed },
+            seen
+          );
+      }
+
+      if (/^(?:rpc[./])?RpcGroup\.toLayer$/.test(effects.resolve(node) ?? '')) return true;
+
+      const imported = importedValue(context, node);
+
+      if (imported?.name.endsWith('.toLayer')) {
+        if (/^@study\/contracts\/.+\/rpc$/.test(imported.source)) return true;
+
+        if (
+          imported.target &&
+          /^features\/[^/]+\//.test(imported.target) &&
+          featureRole(imported.target) === 'workflow'
+        )
+          return true;
+      }
+
+      const resolved = resolveValue(context, node);
+
+      if (property(resolved) !== 'toLayer') return false;
+
+      const object = resolveValue(context, resolved.object);
+
+      return (
+        object?.type === 'CallExpression' &&
+        (canonicalImport(context, object.callee, 'define-workflow', 'defineWorkflow') ||
+          /^(?:rpc[./])?RpcGroup\.make$/.test(effects.resolve(object.callee) ?? ''))
+      );
+    }
+
     const nameOf = (node: any) =>
       effects.resolve(node)?.replace(/^(?:unstable\/)?workflow[./]/, '') ?? '';
     const edges = moduleEdges(context, (node, source) => {
@@ -112,6 +176,12 @@ export default defineRule({
       CallExpression(node: any) {
         edges.CallExpression(node);
         const name = nameOf(node.callee);
+
+        if (/\/features\//.test(path) && nativeLayer(node.callee))
+          context.report({
+            node,
+            message: 'Use defineRpc or defineWorkflowHandler for native handler registration.'
+          });
 
         if (
           !engineOwner &&

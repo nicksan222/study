@@ -1,6 +1,12 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { featureRole, moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
+import {
+  featureRole,
+  importedValue,
+  moduleEdges,
+  serverPath,
+  targetPath
+} from '../architecture-imports.ts';
 import { binding, property } from './synchronous-transactions.ts';
 
 function serviceName(name: string, feature: string): boolean {
@@ -41,6 +47,22 @@ export default defineRule({
         targetRole === 'workflow';
 
       if (feature) {
+        if (role === 'service' && target === 'platform/database/database' && !_typeOnly) {
+          const specifiers = node.specifiers;
+          const database =
+            !specifiers ||
+            specifiers.length === 0 ||
+            specifiers.some(
+              (specifier: any) =>
+                (specifier.type !== 'ImportSpecifier' &&
+                  specifier.type !== 'ImportNamespaceSpecifier') ||
+                (specifier.importKind !== 'type' &&
+                  (specifier.imported?.name ?? specifier.imported?.value) === 'Database')
+            );
+
+          forbidden ||= database;
+        }
+
         if (role !== 'store') forbidden ||= db;
 
         if (role === 'rpc') forbidden ||= !!target && /^platform\/database(?:\/|$)/.test(target);
@@ -160,6 +182,34 @@ export default defineRule({
       );
     }
 
+    function rawDatabase(node: any): boolean {
+      const value = importedValue(context, node);
+
+      return (
+        role === 'service' &&
+        value?.target === 'platform/database/database' &&
+        value.name === 'Database'
+      );
+    }
+
+    function obsolete(node: any): boolean {
+      const imported = importedValue(context, node);
+
+      return (
+        !!imported?.target &&
+        /^features\/[^/]+\//.test(imported.target) &&
+        featureRole(imported.target) === 'store' &&
+        /\.(?:make|key|layer)$/.test(imported.name)
+      );
+    }
+
+    function obsoleteReport(node: any) {
+      context.report({
+        node,
+        message: 'Use useStore or transaction instead of obsolete public store bindings.'
+      });
+    }
+
     return {
       ...edges,
       ImportDeclaration(node: any) {
@@ -199,10 +249,32 @@ export default defineRule({
             preferencesReport(specifier);
       },
       MemberExpression(node: any) {
+        if (rawDatabase(node))
+          context.report({
+            node,
+            message: 'Use store capabilities instead of acquiring raw Database in services.'
+          });
+
+        if (obsolete(node)) obsoleteReport(node);
+
         if (preferencesRestricted && property(node) === 'preferences' && namespace(node.object))
           preferencesReport(node);
       },
       VariableDeclarator(node: any) {
+        function checkBindings(pattern: any) {
+          if (pattern.type === 'Identifier') {
+            if (obsolete(pattern) || rawDatabase(pattern)) obsoleteReport(pattern);
+
+            return;
+          }
+
+          if (pattern.type === 'ObjectPattern')
+            for (const item of pattern.properties)
+              if (item.type === 'Property') checkBindings(item.value);
+        }
+
+        if (node.id.type === 'ObjectPattern') checkBindings(node.id);
+
         if (!preferencesRestricted || node.id.type !== 'ObjectPattern' || !namespace(node.init))
           return;
 

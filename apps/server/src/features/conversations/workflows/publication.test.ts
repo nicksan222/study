@@ -18,7 +18,7 @@ test('guarded publication validates captured citations and replays without write
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {

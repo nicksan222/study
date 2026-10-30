@@ -189,6 +189,7 @@ export const lint = {
     {
       files: ['**/apps/server/**/*.{ts,tsx}'],
       rules: {
+        'react/rules-of-hooks': 'off',
         'typescript/switch-exhaustiveness-check': [
           'error',
           { considerDefaultExhaustiveForUnions: false }

@@ -6,6 +6,8 @@ import { createTestDatabase } from '@study/db/testing';
 import { Effect } from 'effect';
 
 import { ServerContext } from '#server/platform/database/context';
+import { Database } from '#server/platform/database/database';
+import { useStore } from '#server/platform/definitions/define-store';
 
 import { SystemStore } from './index.ts';
 
@@ -20,7 +22,9 @@ test('search reads bounded project and source projections from SQLite', async ()
     context.db.orm.run(
       sql`INSERT INTO sources (id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (1,1,'attachment','text','text/plain','Physics notes',1,zeroblob(32),3)`
     );
-    const store = SystemStore.make(context);
+    const store = Effect.runSync(
+      useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
+    );
     const result = await Effect.runPromise(store.searches({ query: 'physics', limit: 10 }));
 
     assert.deepEqual(result.map((hit) => hit.kind).sort(), ['project', 'source']);
@@ -61,7 +65,9 @@ test('passage search retains anchors and ignores superseded documents', async ()
     context.db.orm.run(
       sql`INSERT INTO source_processing (source_id,revision,request_id,document_id,published_request_id) VALUES (1,1,'request',2,'request')`
     );
-    const store = SystemStore.make(context);
+    const store = Effect.runSync(
+      useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
+    );
 
     assert.equal(
       (await Effect.runPromise(store.searches({ query: 'obsolete', limit: 10 }))).length,
@@ -108,7 +114,9 @@ test('search indexes only current published quiz material and prompts', async ()
     run(
       sql`INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES (1,'Secret reference')`
     );
-    const store = SystemStore.make(context);
+    const store = Effect.runSync(
+      useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
+    );
     const find = (query: string, project?: bigint) =>
       Effect.runPromise(store.searches({ query, limit: 10, project: project as never }));
 
