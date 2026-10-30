@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { Page } from '../pages/sessions/page';
+
 export const Route = createFileRoute('/Sessions')({
-  staticData: { page: 'Sessions' },
-  component: () => null
+  staticData: { title: 'Sessions', section: 'sessions', scope: 'project' },
+  component: Page
 });

@@ -5,7 +5,7 @@ import { businessFile } from './effect-lifecycle-syntax.ts';
 import { nativeGlobal } from './native-global.ts';
 
 const message =
-  'Use Effect.sleep or a scoped Effect schedule instead of native timers in server business code.';
+  'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
 
 export default defineRule({
   meta: { type: 'problem' },

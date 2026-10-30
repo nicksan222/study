@@ -31,6 +31,40 @@ export function dependencyIdentity(
   return issues;
 }
 
+function dependencyIssues(
+  path: string,
+  section: string,
+  dependencies: Record<string, string>,
+  version: string | undefined
+): string[] {
+  const issues: string[] = [];
+
+  for (const [name, requirement] of Object.entries(dependencies)) {
+    if (name.startsWith('@trpc/') || name === 'superjson')
+      issues.push(`${path}: remove retired transport dependency ${name}.`);
+
+    if (name === '@study/ai') issues.push(`${path}: remove the retired @study/ai dependency.`);
+
+    if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
+      issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
+
+    if ((name === 'ai' || name.startsWith('@ai-sdk/')) && path !== 'apps/server')
+      issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
+
+    if (path === 'packages/contracts' && section !== 'devDependencies' && name !== 'effect')
+      issues.push(`${path}: public contracts may depend only on Effect.`);
+
+    if (name === 'effect') {
+      if (!/^4\.\d+\.\d+$/.test(requirement))
+        issues.push(`${path}: pin an exact stable Effect v4 version.`);
+      else if (version && requirement !== version)
+        issues.push(`${path}: Effect ${requirement} differs from the server's ${version}.`);
+    }
+  }
+
+  return issues;
+}
+
 /** Manifest-level ownership complements source import rules, including unused dependencies. */
 export function workspaceArchitecture(manifests: Record<string, WorkspaceManifest>): string[] {
   const issues: string[] = [];
@@ -50,28 +84,7 @@ export function workspaceArchitecture(manifests: Record<string, WorkspaceManifes
       'peerDependencies',
       'optionalDependencies'
     ] as const) {
-      for (const [name, requirement] of Object.entries(manifest[section] ?? {})) {
-        if (name.startsWith('@trpc/') || name === 'superjson')
-          issues.push(`${path}: remove retired transport dependency ${name}.`);
-
-        if (name === '@study/ai') issues.push(`${path}: remove the retired @study/ai dependency.`);
-
-        if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
-          issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
-
-        if ((name === 'ai' || name.startsWith('@ai-sdk/')) && path !== 'apps/server')
-          issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
-
-        if (path === 'packages/contracts' && section !== 'devDependencies' && name !== 'effect')
-          issues.push(`${path}: public contracts may depend only on Effect.`);
-
-        if (name === 'effect') {
-          if (!/^4\.\d+\.\d+$/.test(requirement))
-            issues.push(`${path}: pin an exact stable Effect v4 version.`);
-          else if (version && requirement !== version)
-            issues.push(`${path}: Effect ${requirement} differs from the server's ${version}.`);
-        }
-      }
+      issues.push(...dependencyIssues(path, section, manifest[section] ?? {}, version));
     }
   }
 

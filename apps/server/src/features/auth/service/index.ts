@@ -34,7 +34,7 @@ const cancelled = () => new StudyError('cancelled', 'Sign-in cancelled');
 
 const invalid = (message: string) => new StudyError('invalid_input', message);
 
-const make = Effect.gen(function* () {
+function* makeAuth() {
   const { store: context } = yield* Database;
   const { manager, issuer, hostId, request } = yield* ChatGptSession;
   const store = AuthStore.make(context);
@@ -82,6 +82,127 @@ const make = Effect.gen(function* () {
       }))
     );
 
+  function* signOutAccount() {
+    if (closing || transition) return yield* Effect.fail(invalid('Auth transition in progress'));
+
+    yield* cancel();
+    transition = true;
+
+    function* removeAccount() {
+      yield* Effect.tryPromise({ try: () => manager.signOut(), catch: authFailure });
+      const before = yield* read();
+
+      yield* transaction(context, (tx) => tx.store(AuthStore).deleteAccount(undefined)).pipe(
+        Effect.catch((error) =>
+          Effect.gen(function* () {
+            if (before)
+              yield* Effect.tryPromise({
+                try: () => manager.replace(before),
+                catch: authFailure
+              });
+
+            return yield* Effect.fail(error);
+          })
+        )
+      );
+    }
+
+    return yield* Effect.gen(removeAccount).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          transition = false;
+        })
+      )
+    );
+  }
+
+  function* finishActiveSignIn(input: { attemptId: string }) {
+    const attempt = active;
+
+    if (!attempt || attempt.id !== input.attemptId)
+      return yield* Effect.fail(invalid('Unknown sign-in attempt'));
+
+    if (attempt.finishing) return yield* Effect.fail(invalid('Sign-in is already finishing'));
+
+    attempt.finishing = true;
+
+    return yield* Effect.gen(function* () {
+      const result = yield* Effect.tryPromise({
+        try: (signal) => attempt.signin.finish(300_000, signal),
+        catch: (e) => (closing || active !== attempt ? cancelled() : authFailure(e))
+      });
+
+      function* completeSignIn() {
+        if (closing || active !== attempt) return yield* Effect.fail(cancelled());
+
+        if (transition) return yield* Effect.fail(invalid('Sign-in transition in progress'));
+
+        transition = true;
+
+        function* replaceAndPersistAccount() {
+          const before = yield* read();
+
+          yield* Effect.tryPromise({
+            try: () => manager.replace(result.account, result),
+            catch: authFailure
+          });
+          const after = yield* read();
+          const account =
+            before && after && same(before, result.account) && !same(before, after)
+              ? { ...result.account, refreshToken: after.refreshToken }
+              : result.account;
+          const persist = Effect.gen(function* () {
+            if (closing || active !== attempt) return yield* Effect.fail(cancelled());
+
+            yield* transaction(context, (tx) =>
+              tx.store(AuthStore).saveAccount(encodeAccount(account))
+            );
+
+            return { signedIn: true, email: account.email ?? null, sharing: account.sharing };
+          });
+
+          function* restorePreviousAccount(error: StudyError) {
+            yield* Effect.tryPromise({
+              try: () => (after ? manager.replace(after) : manager.signOut()),
+              catch: authFailure
+            }).pipe(
+              Effect.catch(() =>
+                Effect.tryPromise({
+                  try: () => manager.signOut(),
+                  catch: authFailure
+                })
+              )
+            );
+
+            return yield* Effect.fail(error);
+          }
+
+          return yield* persist.pipe(
+            Effect.catch((error) => Effect.gen(() => restorePreviousAccount(error)))
+          );
+        }
+
+        return yield* Effect.gen(replaceAndPersistAccount).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              transition = false;
+            })
+          )
+        );
+      }
+
+      return yield* Effect.uninterruptibleMask(() => Effect.gen(completeSignIn));
+    }).pipe(
+      Effect.ensuring(
+        Effect.gen(function* () {
+          if (active === attempt) active = undefined;
+
+          yield* Scope.close(attempt.scope, Exit.void);
+        })
+      )
+    );
+  }
+
   return {
     prepareShutdown: () =>
       Effect.gen(function* () {
@@ -112,6 +233,12 @@ const make = Effect.gen(function* () {
             fetch: request
           }).pipe(Scope.provide(scope), Effect.mapError(authFailure));
 
+          function* closeFailedSignIn() {
+            if (active?.signin === signin) active = undefined;
+
+            yield* Scope.close(scope, Exit.void);
+          }
+
           return yield* restore(
             Effect.try({
               try: () => {
@@ -127,139 +254,13 @@ const make = Effect.gen(function* () {
               },
               catch: authFailure
             })
-          ).pipe(
-            Effect.onError(() =>
-              Effect.gen(function* () {
-                if (active?.signin === signin) active = undefined;
-
-                yield* Scope.close(scope, Exit.void);
-              })
-            )
-          );
+          ).pipe(Effect.onError(() => Effect.gen(closeFailedSignIn)));
         })
       ),
-    finishSignIn: (input: { attemptId: string }) =>
-      Effect.gen(function* () {
-        const attempt = active;
-
-        if (!attempt || attempt.id !== input.attemptId)
-          return yield* Effect.fail(invalid('Unknown sign-in attempt'));
-
-        if (attempt.finishing) return yield* Effect.fail(invalid('Sign-in is already finishing'));
-
-        attempt.finishing = true;
-
-        return yield* Effect.gen(function* () {
-          const result = yield* Effect.tryPromise({
-            try: (signal) => attempt.signin.finish(300_000, signal),
-            catch: (e) => (closing || active !== attempt ? cancelled() : authFailure(e))
-          });
-
-          return yield* Effect.uninterruptibleMask(() =>
-            Effect.gen(function* () {
-              if (closing || active !== attempt) return yield* Effect.fail(cancelled());
-
-              if (transition) return yield* Effect.fail(invalid('Sign-in transition in progress'));
-
-              transition = true;
-
-              return yield* Effect.gen(function* () {
-                const before = yield* read();
-
-                yield* Effect.tryPromise({
-                  try: () => manager.replace(result.account, result),
-                  catch: authFailure
-                });
-                const after = yield* read();
-                const account =
-                  before && after && same(before, result.account) && !same(before, after)
-                    ? { ...result.account, refreshToken: after.refreshToken }
-                    : result.account;
-                const persist = Effect.gen(function* () {
-                  if (closing || active !== attempt) return yield* Effect.fail(cancelled());
-
-                  yield* transaction(context, (tx) =>
-                    tx.store(AuthStore).saveAccount(encodeAccount(account))
-                  );
-
-                  return { signedIn: true, email: account.email ?? null, sharing: account.sharing };
-                });
-
-                return yield* persist.pipe(
-                  Effect.catch((error) =>
-                    Effect.gen(function* () {
-                      yield* Effect.tryPromise({
-                        try: () => (after ? manager.replace(after) : manager.signOut()),
-                        catch: authFailure
-                      }).pipe(
-                        Effect.catch(() =>
-                          Effect.tryPromise({
-                            try: () => manager.signOut(),
-                            catch: authFailure
-                          })
-                        )
-                      );
-
-                      return yield* Effect.fail(error);
-                    })
-                  )
-                );
-              }).pipe(
-                Effect.ensuring(
-                  Effect.sync(() => {
-                    transition = false;
-                  })
-                )
-              );
-            })
-          );
-        }).pipe(
-          Effect.ensuring(
-            Effect.gen(function* () {
-              if (active === attempt) active = undefined;
-
-              yield* Scope.close(attempt.scope, Exit.void);
-            })
-          )
-        );
-      }),
+    finishSignIn: (input: { attemptId: string }) => Effect.gen(() => finishActiveSignIn(input)),
     cancelSignIn: (input: { attemptId?: string }) =>
       cancel(input.attemptId).pipe(Effect.map((result) => result.cancelled)),
-    signOut: () =>
-      Effect.uninterruptibleMask(() =>
-        Effect.gen(function* () {
-          if (closing || transition)
-            return yield* Effect.fail(invalid('Auth transition in progress'));
-
-          yield* cancel();
-          transition = true;
-
-          return yield* Effect.gen(function* () {
-            yield* Effect.tryPromise({ try: () => manager.signOut(), catch: authFailure });
-            const before = yield* read();
-
-            yield* transaction(context, (tx) => tx.store(AuthStore).deleteAccount(undefined)).pipe(
-              Effect.catch((error) =>
-                Effect.gen(function* () {
-                  if (before)
-                    yield* Effect.tryPromise({
-                      try: () => manager.replace(before),
-                      catch: authFailure
-                    });
-
-                  return yield* Effect.fail(error);
-                })
-              )
-            );
-          }).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                transition = false;
-              })
-            )
-          );
-        })
-      ),
+    signOut: () => Effect.uninterruptibleMask(() => Effect.gen(signOutAccount)),
     rotateRefreshToken: (input: { previous: Account; token: string }) =>
       transaction(context, (tx) => {
         const value = tx.store(AuthStore).findAccount(undefined);
@@ -276,6 +277,8 @@ const make = Effect.gen(function* () {
         tx.store(AuthStore).saveAccount(encodeAccount(next));
       })
   };
-});
+}
+
+const make = Effect.gen(makeAuth);
 
 export const Auth = defineService('study/Auth', make);

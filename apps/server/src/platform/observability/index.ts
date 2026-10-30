@@ -154,41 +154,45 @@ export function observeOperation<A, E, R>(
   name: string,
   effect: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> {
-  return Effect.uninterruptibleMask((restore) =>
-    Effect.gen(function* () {
-      const inherited = yield* References.CurrentLogAnnotations;
-      const annotations = { ...safeMetadata(inherited), operation: name };
-      const clock = yield* Clock.Clock;
-      const started = clock.monotonicTimeNanosUnsafe();
-      const log = (message: string, duration?: number) =>
-        Effect.logDebug(message).pipe(
-          Effect.provideService(References.CurrentLogAnnotations, {
-            ...annotations,
-            ...(duration === undefined ? {} : { durationMs: duration })
-          })
-        );
-
-      yield* recordMetric(Metric.modify(activeOperations, 1));
-
-      return yield* log('operation.start').pipe(
-        Effect.andThen(restore(effect)),
-        Effect.onExit((exit) =>
-          Effect.gen(function* () {
-            const duration = elapsedMillis(clock, started);
-            const outcome = Exit.isSuccess(exit)
-              ? 'success'
-              : Exit.hasInterrupts(exit)
-                ? 'interrupted'
-                : 'failure';
-
-            yield* recordMetric(Metric.modify(activeOperations, -1));
-            yield* recordMetric(Metric.update(operationDuration, duration));
-            yield* recordMetric(Metric.update(outcomes[outcome], 1));
-            yield* log(Exit.isSuccess(exit) ? 'operation.finish' : 'operation.failure', duration);
-          })
-        )
+  function* runObservedOperation(
+    restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+  ) {
+    const inherited = yield* References.CurrentLogAnnotations;
+    const annotations = { ...safeMetadata(inherited), operation: name };
+    const clock = yield* Clock.Clock;
+    const started = clock.monotonicTimeNanosUnsafe();
+    const log = (message: string, duration?: number) =>
+      Effect.logDebug(message).pipe(
+        Effect.provideService(References.CurrentLogAnnotations, {
+          ...annotations,
+          ...(duration === undefined ? {} : { durationMs: duration })
+        })
       );
-    })
+
+    yield* recordMetric(Metric.modify(activeOperations, 1));
+
+    return yield* log('operation.start').pipe(
+      Effect.andThen(restore(effect)),
+      Effect.onExit((exit) =>
+        Effect.gen(function* () {
+          const duration = elapsedMillis(clock, started);
+          const outcome = Exit.isSuccess(exit)
+            ? 'success'
+            : Exit.hasInterrupts(exit)
+              ? 'interrupted'
+              : 'failure';
+
+          yield* recordMetric(Metric.modify(activeOperations, -1));
+          yield* recordMetric(Metric.update(operationDuration, duration));
+          yield* recordMetric(Metric.update(outcomes[outcome], 1));
+          yield* log(Exit.isSuccess(exit) ? 'operation.finish' : 'operation.failure', duration);
+        })
+      )
+    );
+  }
+
+  return Effect.uninterruptibleMask((restore) =>
+    Effect.gen(() => runObservedOperation(restore))
   ).pipe(Effect.withSpan(name));
 }
 

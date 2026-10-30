@@ -324,13 +324,15 @@ test('cancellation after a delta never publishes completion', async () => {
         const controller = new AbortController();
         const running = Effect.runPromise(
           streamAgent(definition, 'x').pipe(
-            Stream.tap((event) =>
-              Effect.sync(() => {
+            Stream.tap((event) => {
+              function recordAndAbort() {
                 seen.push(event);
                 controller.abort();
                 release();
-              })
-            ),
+              }
+
+              return Effect.sync(recordAndAbort);
+            }),
             Stream.runDrain,
             Effect.provide(service(base, auth))
           ),
@@ -355,11 +357,13 @@ test('rejects empty model output without publishing completion', async () => {
       await assert.rejects(
         Effect.runPromise(
           streamAgent(definition, 'x').pipe(
-            Stream.tap((event) =>
-              Effect.sync(() => {
+            Stream.tap((event) => {
+              function recordEvent() {
                 seen.push(event);
-              })
-            ),
+              }
+
+              return Effect.sync(recordEvent);
+            }),
             Stream.runDrain,
             Effect.provide(service(base, auth))
           )
@@ -603,11 +607,13 @@ test('never retries a failed response after publishing a delta', async () => {
       await assert.rejects(
         Effect.runPromise(
           streamAgent(definition, 'x', { maxRetries: 3 }).pipe(
-            Stream.tap((event) =>
-              Effect.sync(() => {
+            Stream.tap((event) => {
+              function recordEventType() {
                 seen.push(event.type);
-              })
-            ),
+              }
+
+              return Effect.sync(recordEventType);
+            }),
             Stream.runDrain,
             Effect.provide(service(base, auth))
           )

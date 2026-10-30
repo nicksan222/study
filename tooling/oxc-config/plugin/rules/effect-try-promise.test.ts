@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
@@ -42,4 +43,19 @@ test('resolves destructured constants and nested namespaces with shadowing', () 
     }),
     [['src/procedures/destructure.ts', message]]
   );
+});
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-try-promise',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; export const task = Effect.promise(() => Promise.reject('bad'));",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; export const task = Effect.promise(() => Promise.reject('bad'));"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

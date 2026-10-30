@@ -155,31 +155,31 @@ test('committed outbox executions recover through the native engine after reopen
     assert.equal(dispatchPending(context, [trigger], 2), 1);
     context.close();
     context = openContext(location);
+
+    function* resumeCommittedExecution() {
+      const engine = yield* WorkflowEngine.WorkflowEngine;
+
+      yield* engine.register(testWorkflow, () =>
+        Effect.sync(() => {
+          calls++;
+        })
+      );
+      yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
+
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed')
+          break;
+
+        yield* Effect.sleep('5 millis');
+      }
+
+      assert.equal(context.db.orm.select().from(workflow_executions).all()[0]?.status, 'completed');
+      yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
+    }
+
     await Effect.runPromise(
       Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          yield* engine.register(testWorkflow, () =>
-            Effect.sync(() => {
-              calls++;
-            })
-          );
-          yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
-
-          for (let attempt = 0; attempt < 100; attempt++) {
-            if (context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed')
-              break;
-
-            yield* Effect.sleep('5 millis');
-          }
-
-          assert.equal(
-            context.db.orm.select().from(workflow_executions).all()[0]?.status,
-            'completed'
-          );
-          yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
+        Effect.gen(resumeCommittedExecution).pipe(Effect.provide(workflowEngineLayer(context)))
       )
     );
     assert.equal(calls, 1);

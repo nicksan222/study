@@ -172,170 +172,176 @@ test('publication requires a real active workflow grant', async () => {
     context.db.orm.run(
       sql`INSERT INTO projects (id, name, created_at, updated_at) VALUES (1, 'Project', 1, 1)`
     );
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const sources = yield* Sources;
-          const source = yield* sources.createSource({
-            name: 'test.txt',
-            bytes: new Uint8Array([1]),
-            projectId: 1n as ProjectId
-          });
-          const state = yield* sources.sourceProcessing(source.id);
-          const input = {
-            event: {
-              type: 'SourceProcessingRequested' as const,
-              sourceId: source.id,
-              inputVersion: state.revision,
-              requestId: state.requestId!,
-              eventId: 'publication-request-event',
-              causationId: null,
-              correlationId: 'publication-correlation',
-              depth: 2
-            },
-            document
-          };
-          const denied = yield* Effect.flip(
-            withPublicationGuard(context, sources.publishSourceDocument(input))
-          );
 
-          assert.equal(denied.kind, 'internal');
-          assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 0);
-          const workflow = Workflow.make('source-publication-test', {
-            payload: { id: Schema.String },
-            idempotencyKey: ({ id }) => id
+    function* verifyActiveWorkflowGrant() {
+      const sources = yield* Sources;
+      const source = yield* sources.createSource({
+        name: 'test.txt',
+        bytes: new Uint8Array([1]),
+        projectId: 1n as ProjectId
+      });
+      const state = yield* sources.sourceProcessing(source.id);
+      const input = {
+        event: {
+          type: 'SourceProcessingRequested' as const,
+          sourceId: source.id,
+          inputVersion: state.revision,
+          requestId: state.requestId!,
+          eventId: 'publication-request-event',
+          causationId: null,
+          correlationId: 'publication-correlation',
+          depth: 2
+        },
+        document
+      };
+      const denied = yield* Effect.flip(
+        withPublicationGuard(context, sources.publishSourceDocument(input))
+      );
+
+      assert.equal(denied.kind, 'internal');
+      assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 0);
+      const workflow = Workflow.make('source-publication-test', {
+        payload: { id: Schema.String },
+        idempotencyKey: ({ id }) => id
+      });
+      const engine = yield* WorkflowEngine.WorkflowEngine;
+      const activity = Activity.make({
+        name: 'publish-source',
+        execute: withPublicationGuard(context, sources.publishSourceDocument(input)).pipe(
+          Effect.orDie
+        )
+      });
+
+      function runWorkflow() {
+        return Effect.gen(function* () {
+          yield* Activity.make({
+            name: 'reject-source-event',
+            execute: withPublicationGuard(
+              context,
+              Effect.gen(function* () {
+                context.db.orm.run(
+                  sql`CREATE TRIGGER reject_index_event BEFORE INSERT ON workflow_events WHEN NEW.type = 'SourceIndexed' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
+                );
+                yield* Effect.flip(sources.publishSourceDocument(input));
+                assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 0);
+                assert.equal(context.db.orm.all(sql`SELECT * FROM chunks`).length, 0);
+                assert.equal(
+                  context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'hello'`)
+                    .length,
+                  0
+                );
+                context.db.orm.run(sql`DROP TRIGGER reject_index_event`);
+              })
+            ).pipe(Effect.orDie)
           });
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-          const activity = Activity.make({
-            name: 'publish-source',
+          const first = yield* activity;
+          const replayed = yield* Activity.make({
+            name: 'publish-after-missing-checkpoint',
             execute: withPublicationGuard(context, sources.publishSourceDocument(input)).pipe(
               Effect.orDie
             )
           });
 
-          yield* engine.register(workflow, () =>
-            Effect.gen(function* () {
-              yield* Activity.make({
-                name: 'reject-source-event',
-                execute: withPublicationGuard(
-                  context,
-                  Effect.gen(function* () {
-                    context.db.orm.run(
-                      sql`CREATE TRIGGER reject_index_event BEFORE INSERT ON workflow_events WHEN NEW.type = 'SourceIndexed' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
-                    );
-                    yield* Effect.flip(sources.publishSourceDocument(input));
-                    assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 0);
-                    assert.equal(context.db.orm.all(sql`SELECT * FROM chunks`).length, 0);
-                    assert.equal(
-                      context.db.orm.all(
-                        sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'hello'`
-                      ).length,
-                      0
-                    );
-                    context.db.orm.run(sql`DROP TRIGGER reject_index_event`);
-                  })
-                ).pipe(Effect.orDie)
-              });
-              const first = yield* activity;
-              const replayed = yield* Activity.make({
-                name: 'publish-after-missing-checkpoint',
-                execute: withPublicationGuard(context, sources.publishSourceDocument(input)).pipe(
-                  Effect.orDie
-                )
-              });
+          assert.equal(replayed, first);
+          const previousDocumentId = (yield* sources.sourceProcessing(source.id)).documentId;
+          const replacement = yield* sources.replaceSource({
+            id: source.id,
+            expectedRevision: 1,
+            name: '  image.png  ',
+            bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+          });
 
-              assert.equal(replayed, first);
-              const previousDocumentId = (yield* sources.sourceProcessing(source.id)).documentId;
-              const replacement = yield* sources.replaceSource({
+          assert.equal(replacement.revision, 2);
+          assert.equal(replacement.documentId, previousDocumentId);
+          assert.deepEqual((yield* sources.sourceDocument(source.id)).document, document);
+          assert.equal(
+            (yield* sources.sourceSnapshot({ id: source.id, revision: 1 })).kind,
+            'text'
+          );
+          assert.equal(
+            (yield* sources.sourceSnapshot({ id: source.id, revision: 2 })).mime,
+            'image/png'
+          );
+          assert.equal((yield* sources.source(source.id)).name, 'image.png');
+          assert.equal(
+            (yield* Effect.flip(
+              sources.replaceSource({
                 id: source.id,
                 expectedRevision: 1,
-                name: '  image.png  ',
-                bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
-              });
-
-              assert.equal(replacement.revision, 2);
-              assert.equal(replacement.documentId, previousDocumentId);
-              assert.deepEqual((yield* sources.sourceDocument(source.id)).document, document);
-              assert.equal(
-                (yield* sources.sourceSnapshot({ id: source.id, revision: 1 })).kind,
-                'text'
-              );
-              assert.equal(
-                (yield* sources.sourceSnapshot({ id: source.id, revision: 2 })).mime,
-                'image/png'
-              );
-              assert.equal((yield* sources.source(source.id)).name, 'image.png');
-              assert.equal(
-                (yield* Effect.flip(
-                  sources.replaceSource({
-                    id: source.id,
-                    expectedRevision: 1,
-                    name: 'stale.txt',
-                    bytes: new Uint8Array([1])
-                  })
-                )).kind,
-                'invalid_input'
-              );
-              assert.equal((yield* sources.source(source.id)).name, 'image.png');
-              yield* Activity.make({
-                name: 'stale-publication',
-                execute: withPublicationGuard(
-                  context,
-                  Effect.gen(function* () {
-                    assert.equal(
-                      (yield* Effect.flip(sources.publishSourceDocument(input))).kind,
-                      'invalid_input'
-                    );
-                  })
-                ).pipe(Effect.orDie)
-              });
-              const replacementInput = {
-                event: { ...input.event, inputVersion: 2, requestId: replacement.requestId! },
-                document
-              };
-
-              yield* Activity.make({
-                name: 'replacement-publication',
-                execute: withPublicationGuard(
-                  context,
-                  sources.publishSourceDocument(replacementInput)
-                ).pipe(Effect.orDie)
-              });
-            }).pipe(Effect.orDie)
+                name: 'stale.txt',
+                bytes: new Uint8Array([1])
+              })
+            )).kind,
+            'invalid_input'
           );
-          yield* engine.execute(workflow, {
-            executionId: 'source-publication-test',
-            payload: { id: 'one' }
+          assert.equal((yield* sources.source(source.id)).name, 'image.png');
+          yield* Activity.make({
+            name: 'stale-publication',
+            execute: withPublicationGuard(
+              context,
+              Effect.gen(function* () {
+                assert.equal(
+                  (yield* Effect.flip(sources.publishSourceDocument(input))).kind,
+                  'invalid_input'
+                );
+              })
+            ).pipe(Effect.orDie)
           });
-          assert.notEqual((yield* sources.sourceProcessing(source.id)).documentId, null);
-          const hits = context.db.orm.all(
-            sql`SELECT c.text, c.anchor, c.first_block, c.last_block FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid WHERE chunks_fts MATCH 'hello'`
-          );
-
-          assert.deepEqual(yield* sources.sourceDocument(source.id), {
-            id: (yield* sources.sourceProcessing(source.id)).documentId,
+          const replacementInput = {
+            event: { ...input.event, inputVersion: 2, requestId: replacement.requestId! },
             document
-          });
-          const indexed = context.db.orm.all(
-            sql`SELECT causation_id, correlation_id, depth FROM workflow_events WHERE type = 'SourceIndexed'`
-          )[0]!;
+          };
 
-          assert.equal(indexed.causation_id, input.event.eventId);
-          assert.equal(indexed.correlation_id, input.event.correlationId);
-          assert.equal(indexed.depth, 3n);
-          assert.equal(hits.length, 2);
-          assert.equal(hits[0]!.text, 'hello');
-          assert.deepEqual(JSON.parse(hits[0]!.anchor as string), { type: 'page', page: 1 });
-          assert.equal(hits[0]!.first_block, 0n);
-          assert.equal(hits[0]!.last_block, 0n);
-          assert.equal(context.db.orm.all(sql`SELECT * FROM chunks`).length, 2);
-          assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 2);
-          assert.equal(
-            context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
-              .length,
-            2
-          );
-        }).pipe(Effect.provide(layer), Effect.provide(workflowEngineLayer(context)))
+          yield* Activity.make({
+            name: 'replacement-publication',
+            execute: withPublicationGuard(
+              context,
+              sources.publishSourceDocument(replacementInput)
+            ).pipe(Effect.orDie)
+          });
+        }).pipe(Effect.orDie);
+      }
+
+      yield* engine.register(workflow, runWorkflow);
+      yield* engine.execute(workflow, {
+        executionId: 'source-publication-test',
+        payload: { id: 'one' }
+      });
+      assert.notEqual((yield* sources.sourceProcessing(source.id)).documentId, null);
+      const hits = context.db.orm.all(
+        sql`SELECT c.text, c.anchor, c.first_block, c.last_block FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid WHERE chunks_fts MATCH 'hello'`
+      );
+
+      assert.deepEqual(yield* sources.sourceDocument(source.id), {
+        id: (yield* sources.sourceProcessing(source.id)).documentId,
+        document
+      });
+      const indexed = context.db.orm.all(
+        sql`SELECT causation_id, correlation_id, depth FROM workflow_events WHERE type = 'SourceIndexed'`
+      )[0]!;
+
+      assert.equal(indexed.causation_id, input.event.eventId);
+      assert.equal(indexed.correlation_id, input.event.correlationId);
+      assert.equal(indexed.depth, 3n);
+      assert.equal(hits.length, 2);
+      assert.equal(hits[0]!.text, 'hello');
+      assert.deepEqual(JSON.parse(hits[0]!.anchor as string), { type: 'page', page: 1 });
+      assert.equal(hits[0]!.first_block, 0n);
+      assert.equal(hits[0]!.last_block, 0n);
+      assert.equal(context.db.orm.all(sql`SELECT * FROM chunks`).length, 2);
+      assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 2);
+      assert.equal(
+        context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`).length,
+        2
+      );
+    }
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(verifyActiveWorkflowGrant).pipe(
+          Effect.provide(layer),
+          Effect.provide(workflowEngineLayer(context))
+        )
       )
     );
   } finally {
@@ -493,7 +499,11 @@ test('deleting a pending source fences publication and removes indexed content',
   const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
   const document = {
     blocks: [
-      { kind: 'paragraph' as const, text: 'fencedword', anchor: { type: 'page' as const, page: 1 } }
+      {
+        kind: 'paragraph' as const,
+        text: 'fencedword',
+        anchor: { type: 'page' as const, page: 1 }
+      }
     ],
     meta: {
       extractor: null,
@@ -508,89 +518,96 @@ test('deleting a pending source fences publication and removes indexed content',
   };
 
   try {
+    function* verifyDeletedSourceFencing() {
+      const sources = yield* Sources;
+      const source = yield* sources.createSource({
+        name: 'test.txt',
+        bytes: new Uint8Array([1]),
+        projectId: null
+      });
+      const state = yield* sources.sourceProcessing(source.id);
+      const event = {
+        type: 'SourceProcessingRequested' as const,
+        sourceId: source.id,
+        inputVersion: 1,
+        requestId: state.requestId!,
+        eventId: 'event',
+        causationId: null,
+        correlationId: 'correlation',
+        depth: 0
+      };
+      const workflow = Workflow.make('source-delete-test', {
+        payload: { id: Schema.String },
+        idempotencyKey: ({ id }) => id
+      });
+      const engine = yield* WorkflowEngine.WorkflowEngine;
+
+      function runWorkflow() {
+        return Effect.gen(function* () {
+          yield* Activity.make({
+            name: 'publish',
+            execute: withPublicationGuard(
+              context,
+              sources.publishSourceDocument({ event, document })
+            ).pipe(Effect.orDie)
+          });
+          const pending = yield* sources.requestSourceProcessing({
+            id: source.id,
+            expectedRevision: 1
+          });
+
+          assert.equal(yield* sources.deleteSource({ id: source.id }), true);
+          assert.equal(yield* sources.deleteSource({ id: source.id }), false);
+          yield* Activity.make({
+            name: 'publish-deleted',
+            execute: withPublicationGuard(
+              context,
+              Effect.gen(function* () {
+                assert.equal(
+                  (yield* Effect.flip(
+                    sources.publishSourceDocument({
+                      event: { ...event, requestId: pending.requestId! },
+                      document
+                    })
+                  )).kind,
+                  'not_found'
+                );
+              })
+            ).pipe(Effect.orDie)
+          });
+        }).pipe(Effect.orDie);
+      }
+
+      yield* engine.register(workflow, runWorkflow);
+      yield* engine.execute(workflow, {
+        executionId: 'source-delete-test',
+        payload: { id: 'one' }
+      });
+      assert.equal(
+        context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'fencedword'`)
+          .length,
+        0
+      );
+
+      for (const table of [
+        'sources',
+        'source_blobs',
+        'source_snapshots',
+        'source_processing',
+        'documents',
+        'blocks',
+        'chunks'
+      ]) {
+        assert.equal(context.db.orm.all(sql.raw(`SELECT * FROM ${table}`)).length, 0);
+      }
+    }
+
     await Effect.runPromise(
       Effect.scoped(
-        Effect.gen(function* () {
-          const sources = yield* Sources;
-          const source = yield* sources.createSource({
-            name: 'test.txt',
-            bytes: new Uint8Array([1]),
-            projectId: null
-          });
-          const state = yield* sources.sourceProcessing(source.id);
-          const event = {
-            type: 'SourceProcessingRequested' as const,
-            sourceId: source.id,
-            inputVersion: 1,
-            requestId: state.requestId!,
-            eventId: 'event',
-            causationId: null,
-            correlationId: 'correlation',
-            depth: 0
-          };
-          const workflow = Workflow.make('source-delete-test', {
-            payload: { id: Schema.String },
-            idempotencyKey: ({ id }) => id
-          });
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          yield* engine.register(workflow, () =>
-            Effect.gen(function* () {
-              yield* Activity.make({
-                name: 'publish',
-                execute: withPublicationGuard(
-                  context,
-                  sources.publishSourceDocument({ event, document })
-                ).pipe(Effect.orDie)
-              });
-              const pending = yield* sources.requestSourceProcessing({
-                id: source.id,
-                expectedRevision: 1
-              });
-
-              assert.equal(yield* sources.deleteSource({ id: source.id }), true);
-              assert.equal(yield* sources.deleteSource({ id: source.id }), false);
-              yield* Activity.make({
-                name: 'publish-deleted',
-                execute: withPublicationGuard(
-                  context,
-                  Effect.gen(function* () {
-                    assert.equal(
-                      (yield* Effect.flip(
-                        sources.publishSourceDocument({
-                          event: { ...event, requestId: pending.requestId! },
-                          document
-                        })
-                      )).kind,
-                      'not_found'
-                    );
-                  })
-                ).pipe(Effect.orDie)
-              });
-            }).pipe(Effect.orDie)
-          );
-          yield* engine.execute(workflow, {
-            executionId: 'source-delete-test',
-            payload: { id: 'one' }
-          });
-          assert.equal(
-            context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'fencedword'`)
-              .length,
-            0
-          );
-
-          for (const table of [
-            'sources',
-            'source_blobs',
-            'source_snapshots',
-            'source_processing',
-            'documents',
-            'blocks',
-            'chunks'
-          ]) {
-            assert.equal(context.db.orm.all(sql.raw(`SELECT * FROM ${table}`)).length, 0);
-          }
-        }).pipe(Effect.provide(layer), Effect.provide(workflowEngineLayer(context)))
+        Effect.gen(verifyDeletedSourceFencing).pipe(
+          Effect.provide(layer),
+          Effect.provide(workflowEngineLayer(context))
+        )
       )
     );
   } finally {

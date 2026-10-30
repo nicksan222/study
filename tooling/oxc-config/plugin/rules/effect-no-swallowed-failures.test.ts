@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
@@ -49,4 +50,19 @@ test('rejects silent statement blocks and allows explicit propagation and tagged
       ['src/procedures/catches.ts', message]
     ]
   );
+});
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-no-swallowed-failures',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; export const task = Effect.ignore(other);",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; export const task = Effect.ignore(other);"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

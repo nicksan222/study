@@ -32,36 +32,157 @@ function values(db: Db) {
     .map((row) => row.value);
 }
 
+function privateConnection(path: string) {
+  const db = Db.open(path);
+
+  try {
+    assert.equal(db.path, path);
+    assert.equal(db.orm.get(sql.raw('PRAGMA journal_mode'))?.journal_mode, 'wal');
+    assert.equal(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
+    assert.equal(db.orm.get(sql.raw('PRAGMA busy_timeout'))?.timeout, 30000n);
+
+    if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
+
+    initialize(db);
+    db.transaction(() => insert(db, 'persisted'));
+  } finally {
+    db.close();
+  }
+
+  if (process.platform !== 'win32') chmodSync(path, 0o644);
+
+  const reopened = Db.open(path);
+
+  try {
+    if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
+
+    assert.deepEqual(values(reopened), ['persisted']);
+  } finally {
+    reopened.close();
+  }
+}
+
+function nestedCommits(path: string) {
+  const db = Db.open(path);
+
+  try {
+    initialize(db);
+    const outside = db.orm;
+    const marker = {};
+
+    assert.equal(
+      db.transaction(() => {
+        assert.notEqual(db.orm, outside);
+        const outer = db.orm;
+
+        assert.equal(
+          db.transaction(() => {
+            assert.notEqual(db.orm, outer);
+            insert(db, 'nested');
+
+            return marker;
+          }),
+          marker
+        );
+        assert.equal(db.orm, outer);
+
+        return 42;
+      }),
+      42
+    );
+    assert.equal(db.orm, outside);
+    assert.throws(
+      () =>
+        db.transaction(() => {
+          insert(db, 'outer rollback');
+          db.transaction(() => insert(db, 'nested rollback'));
+
+          throw new Error('stop');
+        }),
+      /stop/
+    );
+    assert.equal(db.orm, outside);
+    assert.deepEqual(values(db), ['nested']);
+  } finally {
+    db.close();
+  }
+}
+
+function caughtNestedFailure(path: string) {
+  const db = Db.open(path);
+
+  try {
+    initialize(db);
+    db.transaction(() => {
+      insert(db, 'before');
+      assert.throws(
+        () =>
+          db.transaction(() => {
+            insert(db, 'discarded');
+
+            throw new Error('nested failure');
+          }),
+        /nested failure/
+      );
+      insert(db, 'after');
+    });
+    assert.deepEqual(values(db), ['before', 'after']);
+  } finally {
+    db.close();
+  }
+}
+
+function rejectedAsyncCallbacks(path: string) {
+  const db = Db.open(path);
+
+  try {
+    initialize(db);
+    let invoked = false;
+
+    assert.throws(
+      () =>
+        db.transaction(async () => {
+          invoked = true;
+        }),
+      TypeError
+    );
+    assert.equal(invoked, false);
+
+    // oxlint-disable-next-line unicorn/no-thenable -- Exercise rejection of thenable transaction callbacks.
+    for (const thenable of [{ then() {} }, Object.assign(() => {}, { then() {} })]) {
+      assert.throws(
+        () =>
+          db.transaction(() => {
+            insert(db, 'discarded');
+
+            return thenable;
+          }),
+        TypeError
+      );
+    }
+
+    assert.deepEqual(values(db), []);
+  } finally {
+    db.close();
+  }
+}
+
+function assertExpiredCommit(db: Db) {
+  assert.throws(() => insert(db, 'late commit write'), /transaction scope has ended/);
+}
+
+function assertExpiredScope(db: Db) {
+  assert.throws(() => insert(db, 'late write'), /transaction scope has ended/);
+  assert.throws(() => db.transaction(() => {}), /transaction scope has ended/);
+  assert.throws(() => db.close(), /transaction scope has ended/);
+  assert.throws(
+    () => db.exec("INSERT INTO transaction_test VALUES ('late raw write')"),
+    /transaction scope has ended/
+  );
+}
+
 test('opens a private WAL connection with foreign keys and a busy timeout, and persists across reopen', () =>
-  fixture((path) => {
-    const db = Db.open(path);
-
-    try {
-      assert.equal(db.path, path);
-      assert.equal(db.orm.get(sql.raw('PRAGMA journal_mode'))?.journal_mode, 'wal');
-      assert.equal(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
-      assert.equal(db.orm.get(sql.raw('PRAGMA busy_timeout'))?.timeout, 30000n);
-
-      if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
-
-      initialize(db);
-      db.transaction(() => insert(db, 'persisted'));
-    } finally {
-      db.close();
-    }
-
-    if (process.platform !== 'win32') chmodSync(path, 0o644);
-
-    const reopened = Db.open(path);
-
-    try {
-      if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
-
-      assert.deepEqual(values(reopened), ['persisted']);
-    } finally {
-      reopened.close();
-    }
-  }));
+  fixture(privateConnection));
 
 test('opens an in-memory database and closes the underlying connection', () => {
   const db = Db.open(':memory:');
@@ -72,114 +193,15 @@ test('opens an in-memory database and closes the underlying connection', () => {
 });
 
 test('nested commits return callback values and roll back with the outer transaction', () =>
-  fixture((path) => {
-    const db = Db.open(path);
-
-    try {
-      initialize(db);
-      const outside = db.orm;
-      const marker = {};
-
-      assert.equal(
-        db.transaction(() => {
-          assert.notEqual(db.orm, outside);
-          const outer = db.orm;
-
-          assert.equal(
-            db.transaction(() => {
-              assert.notEqual(db.orm, outer);
-              insert(db, 'nested');
-
-              return marker;
-            }),
-            marker
-          );
-          assert.equal(db.orm, outer);
-
-          return 42;
-        }),
-        42
-      );
-      assert.equal(db.orm, outside);
-      assert.throws(
-        () =>
-          db.transaction(() => {
-            insert(db, 'outer rollback');
-            db.transaction(() => insert(db, 'nested rollback'));
-
-            throw new Error('stop');
-          }),
-        /stop/
-      );
-      assert.equal(db.orm, outside);
-      assert.deepEqual(values(db), ['nested']);
-    } finally {
-      db.close();
-    }
-  }));
+  fixture(nestedCommits));
 
 test('a caught nested failure rolls back its savepoint and preserves outer writes', () =>
-  fixture((path) => {
-    const db = Db.open(path);
-
-    try {
-      initialize(db);
-      db.transaction(() => {
-        insert(db, 'before');
-        assert.throws(
-          () =>
-            db.transaction(() => {
-              insert(db, 'discarded');
-
-              throw new Error('nested failure');
-            }),
-          /nested failure/
-        );
-        insert(db, 'after');
-      });
-      assert.deepEqual(values(db), ['before', 'after']);
-    } finally {
-      db.close();
-    }
-  }));
+  fixture(caughtNestedFailure));
 
 test('rejects native async callbacks before invocation and rolls back thenable callbacks', () =>
-  fixture((path) => {
-    const db = Db.open(path);
+  fixture(rejectedAsyncCallbacks));
 
-    try {
-      initialize(db);
-      let invoked = false;
-
-      assert.throws(
-        () =>
-          db.transaction(async () => {
-            invoked = true;
-          }),
-        TypeError
-      );
-      assert.equal(invoked, false);
-
-      // oxlint-disable-next-line unicorn/no-thenable -- Exercise rejection of thenable transaction callbacks.
-      for (const thenable of [{ then() {} }, Object.assign(() => {}, { then() {} })]) {
-        assert.throws(
-          () =>
-            db.transaction(() => {
-              insert(db, 'discarded');
-
-              return thenable;
-            }),
-          TypeError
-        );
-      }
-
-      assert.deepEqual(values(db), []);
-    } finally {
-      db.close();
-    }
-  }));
-
-test('expired async scopes cannot use orm, start transactions, or close the database', async () => {
+async function expiredAsyncScopes() {
   const db = Db.open(':memory:');
 
   try {
@@ -190,15 +212,7 @@ test('expired async scopes cannot use orm, start transactions, or close the data
       () =>
         db.transaction(() => {
           insert(db, 'rolled back');
-          continuation = Promise.resolve().then(() => {
-            assert.throws(() => insert(db, 'late write'), /transaction scope has ended/);
-            assert.throws(() => db.transaction(() => {}), /transaction scope has ended/);
-            assert.throws(() => db.close(), /transaction scope has ended/);
-            assert.throws(
-              () => db.exec("INSERT INTO transaction_test VALUES ('late raw write')"),
-              /transaction scope has ended/
-            );
-          });
+          continuation = Promise.resolve().then(() => assertExpiredScope(db));
 
           return continuation;
         }),
@@ -207,9 +221,7 @@ test('expired async scopes cannot use orm, start transactions, or close the data
     await continuation;
     assert.deepEqual(values(db), []);
     db.transaction(() => {
-      continuation = Promise.resolve().then(() => {
-        assert.throws(() => insert(db, 'late commit write'), /transaction scope has ended/);
-      });
+      continuation = Promise.resolve().then(() => assertExpiredCommit(db));
       insert(db, 'committed');
     });
     await continuation;
@@ -217,4 +229,9 @@ test('expired async scopes cannot use orm, start transactions, or close the data
   } finally {
     db.close();
   }
-});
+}
+
+test(
+  'expired async scopes cannot use orm, start transactions, or close the database',
+  expiredAsyncScopes
+);

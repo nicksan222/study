@@ -1,6 +1,7 @@
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { StudyError, isRetryable } from '@study/contracts/errors';
 import { streamText, Output, stepCountIs } from 'ai';
+import type { Cause } from 'effect';
 import { Context, Effect, Layer, Option, Queue, References, Schema, Stream } from 'effect';
 
 import { makeAdmission } from '#server/platform/ai/admission';
@@ -73,166 +74,170 @@ export function streamAgent<
   input: I['Type'],
   options: AgentOptions = {}
 ): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents> {
-  return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents>(
-    (queue) =>
+  function* runAgentStream(queue: Queue.Queue<AgentProgress<O['Type']>, StudyError | Cause.Done>) {
+    const service = yield* Agents;
+    const steps = options.maxSteps ?? 5;
+    const retries = options.maxRetries ?? 0;
+
+    if (
+      !Number.isInteger(steps) ||
+      steps < 1 ||
+      steps > 20 ||
+      !Number.isInteger(retries) ||
+      retries < 0 ||
+      retries > 5
+    )
+      return yield* Effect.fail(new StudyError('invalid_input', 'Invalid agent limits'));
+
+    const validated = yield* Effect.try({
+      try: () => Schema.decodeUnknownSync(definition.input)(input),
+      catch: () => new StudyError('invalid_input', 'Invalid agent input')
+    });
+    const model = yield* service.model(definition.model);
+    const language =
+      typeof service.language === 'string' ? service.language : yield* service.language;
+    const span = yield* Effect.currentSpan;
+    const annotations = yield* References.CurrentLogAnnotations;
+    const callbackContext = yield* Effect.context<never>();
+
+    return yield* service.admission.run(
       Effect.gen(function* () {
-        const service = yield* Agents;
-        const steps = options.maxSteps ?? 5;
-        const retries = options.maxRetries ?? 0;
+        if (options.preflight) yield* options.preflight;
 
-        if (
-          !Number.isInteger(steps) ||
-          steps < 1 ||
-          steps > 20 ||
-          !Number.isInteger(retries) ||
-          retries < 0 ||
-          retries > 5
-        )
-          return yield* Effect.fail(new StudyError('invalid_input', 'Invalid agent limits'));
+        const checkedModel = options.preflight
+          ? yield* Effect.try({
+              try: () =>
+                withRequestCheck(
+                  model,
+                  adaptRequestCheck(options.preflight!, span, annotations, callbackContext)
+                ),
+              catch: failure
+            })
+          : model;
+        let retryCount = 0;
+        let published = false;
 
-        const validated = yield* Effect.try({
-          try: () => Schema.decodeUnknownSync(definition.input)(input),
-          catch: () => new StudyError('invalid_input', 'Invalid agent input')
-        });
-        const model = yield* service.model(definition.model);
-        const language =
-          typeof service.language === 'string' ? service.language : yield* service.language;
-        const span = yield* Effect.currentSpan;
-        const annotations = yield* References.CurrentLogAnnotations;
-        const callbackContext = yield* Effect.context<never>();
-
-        return yield* service.admission.run(
-          Effect.gen(function* () {
-            if (options.preflight) yield* options.preflight;
-
-            const checkedModel = options.preflight
-              ? yield* Effect.try({
-                  try: () =>
-                    withRequestCheck(
-                      model,
-                      adaptRequestCheck(options.preflight!, span, annotations, callbackContext)
-                    ),
-                  catch: failure
-                })
-              : model;
-            let retryCount = 0;
-            let published = false;
-
-            const attempt = Effect.gen(function* () {
-              const controller = yield* Effect.acquireRelease(
-                Effect.sync(() => new AbortController()),
-                (controller) => Effect.sync(() => controller.abort())
+        function* runAttempt() {
+          const controller = yield* Effect.acquireRelease(
+            Effect.sync(() => new AbortController()),
+            (controller) => Effect.sync(() => controller.abort())
+          );
+          const result = yield* Effect.try({
+            try: () => {
+              const prompt = definition.prompt(validated);
+              const tools = Object.fromEntries(
+                Object.entries(definition.tools ?? {}).map(([name, value]) => [
+                  name,
+                  adaptTool(value, service, span, annotations, callbackContext)
+                ])
               );
-              const result = yield* Effect.try({
-                try: () => {
-                  const prompt = definition.prompt(validated);
-                  const tools = Object.fromEntries(
-                    Object.entries(definition.tools ?? {}).map(([name, value]) => [
-                      name,
-                      adaptTool(value, service, span, annotations, callbackContext)
-                    ])
-                  );
 
-                  return streamText({
-                    onError: () => {},
-                    model: checkedModel,
-                    system:
-                      typeof definition.instructions === 'function'
-                        ? definition.instructions(language)
-                        : definition.instructions,
-                    ...(typeof prompt === 'string' ? { prompt } : { messages: prompt }),
-                    tools,
-                    stopWhen: stepCountIs(steps),
-                    maxRetries: 0,
-                    abortSignal: controller.signal,
-                    ...(definition.mode === 'object'
-                      ? { output: Output.object({ schema: standardSchema(definition.output) }) }
-                      : {})
-                  });
-                },
-                catch: failure
+              return streamText({
+                onError: () => {},
+                model: checkedModel,
+                system:
+                  typeof definition.instructions === 'function'
+                    ? definition.instructions(language)
+                    : definition.instructions,
+                ...(typeof prompt === 'string' ? { prompt } : { messages: prompt }),
+                tools,
+                stopWhen: stepCountIs(steps),
+                maxRetries: 0,
+                abortSignal: controller.signal,
+                ...(definition.mode === 'object'
+                  ? { output: Output.object({ schema: standardSchema(definition.output) }) }
+                  : {})
               });
-              const iterator = result.fullStream[Symbol.asyncIterator]();
-              let text = '';
-              let finished = false;
+            },
+            catch: failure
+          });
+          const iterator = result.fullStream[Symbol.asyncIterator]();
+          let text = '';
+          let finished = false;
 
-              while (true) {
-                const next = yield* Effect.tryPromise({
-                  try: () => iterator.next(),
-                  catch: failure
-                });
+          while (true) {
+            const next = yield* Effect.tryPromise({
+              try: () => iterator.next(),
+              catch: failure
+            });
 
-                if (next.done) break;
+            if (next.done) break;
 
-                const part = next.value;
+            const part = next.value;
 
-                if (
-                  part.type === 'error' ||
-                  part.type === 'tool-error' ||
-                  part.type === 'tool-output-denied' ||
-                  part.type === 'abort'
+            if (
+              part.type === 'error' ||
+              part.type === 'tool-error' ||
+              part.type === 'tool-output-denied' ||
+              part.type === 'abort'
+            )
+              return yield* Effect.fail(
+                failure(
+                  'error' in part
+                    ? part.error
+                    : new StudyError('transient', 'Agent stream failed', { cause: part })
                 )
-                  return yield* Effect.fail(
-                    failure(
-                      'error' in part
-                        ? part.error
-                        : new StudyError('transient', 'Agent stream failed', { cause: part })
-                    )
-                  );
+              );
 
-                if (part.type === 'text-delta') {
-                  text += part.text;
-                  yield* Queue.offer(queue, { type: 'text-delta', text: part.text });
-                  published = true;
-                }
+            if (part.type === 'text-delta') {
+              text += part.text;
+              yield* Queue.offer(queue, { type: 'text-delta', text: part.text });
+              published = true;
+            }
 
-                if (part.type === 'finish') {
-                  if (part.finishReason !== 'stop')
-                    return yield* Effect.fail(
-                      new StudyError('transient', 'Agent response did not complete')
-                    );
-
-                  finished = true;
-                }
-              }
-
-              if (!finished)
+            if (part.type === 'finish') {
+              if (part.finishReason !== 'stop')
                 return yield* Effect.fail(
                   new StudyError('transient', 'Agent response did not complete')
                 );
 
-              if (!text.trim())
-                return yield* Effect.fail(new StudyError('transient', 'Agent output was empty'));
+              finished = true;
+            }
+          }
 
-              const raw =
-                definition.mode === 'object'
-                  ? yield* Effect.tryPromise({ try: () => result.output, catch: failure })
-                  : text;
-              const output = yield* Effect.try({
-                try: () => Schema.decodeUnknownSync(definition.output)(raw),
-                catch: failure
-              });
-
-              yield* Queue.offer(queue, { type: 'complete', output });
-              yield* Queue.end(queue);
-            }).pipe(Effect.scoped);
-
-            return yield* attempt.pipe(
-              Effect.retry({
-                times: 5,
-                while: (error) => {
-                  if (published || retryCount >= retries || !isRetryable(error.kind))
-                    return Effect.succeed(false);
-
-                  retryCount++;
-
-                  return recordAiRetry().pipe(Effect.as(true));
-                }
-              })
+          if (!finished)
+            return yield* Effect.fail(
+              new StudyError('transient', 'Agent response did not complete')
             );
+
+          if (!text.trim())
+            return yield* Effect.fail(new StudyError('transient', 'Agent output was empty'));
+
+          const raw =
+            definition.mode === 'object'
+              ? yield* Effect.tryPromise({ try: () => result.output, catch: failure })
+              : text;
+          const output = yield* Effect.try({
+            try: () => Schema.decodeUnknownSync(definition.output)(raw),
+            catch: failure
+          });
+
+          yield* Queue.offer(queue, { type: 'complete', output });
+          yield* Queue.end(queue);
+        }
+
+        const attempt = Effect.gen(runAttempt).pipe(Effect.scoped);
+
+        return yield* attempt.pipe(
+          Effect.retry({
+            times: 5,
+            while: (error) => {
+              if (published || retryCount >= retries || !isRetryable(error.kind))
+                return Effect.succeed(false);
+
+              retryCount++;
+
+              return recordAiRetry().pipe(Effect.as(true));
+            }
           })
         );
-      }).pipe(
+      })
+    );
+  }
+
+  return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents>(
+    (queue) =>
+      Effect.gen(() => runAgentStream(queue)).pipe(
         Effect.mapError((error) => (error instanceof StudyError ? error : failure(error))),
         Effect.withSpan(`agent.${definition.id}.stream`)
       ),

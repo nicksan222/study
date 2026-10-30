@@ -26,9 +26,11 @@ try {
 
     const expected = `${current.slice(0, boundary).trimEnd()}\n\n${renderThemeCss(theme)}`;
 
-    if (process.argv.includes('--check')) {
-      if (current !== expected) throw new Error('Theme CSS is stale. Run bun gen.');
-    } else writeFileSync(path, expected);
+    const check = process.argv.includes('--check');
+
+    if (check && current !== expected) throw new Error('Theme CSS is stale. Run bun gen.');
+
+    if (!check) writeFileSync(path, expected);
   } finally {
     db.close();
   }

@@ -1,11 +1,11 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { effectBindings, serverProduction } from '../effect-bindings.ts';
+import { effectBindings, effectProduction } from '../effect-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
-    if (!serverProduction(context.filename)) return {};
+    if (!effectProduction(context.filename)) return {};
 
     const bindings = effectBindings(context);
     const message =

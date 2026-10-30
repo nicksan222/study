@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
@@ -52,4 +53,19 @@ test('rejects invalid numeric limits and spread batches', () => {
     ['src/workers/example.ts', message],
     ['src/workers/example.ts', message]
   ]);
+});
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-bounded-concurrency',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; export const task = Effect.forEach(items, f, { concurrency: 'unbounded' });",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; export const task = Effect.forEach(items, f, { concurrency: 'unbounded' });"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

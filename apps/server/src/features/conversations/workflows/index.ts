@@ -258,7 +258,7 @@ export const conversationAttachmentWakeHandler = ({
     for (;;) {
       const page = yield* conversations.replyWakes({ sourceId: event.sourceId, after, limit: 100 });
 
-      for (const row of page) {
+      function* wakeReply(row: (typeof page)[number]) {
         const readiness = yield* Effect.result(
           conversations.replyReadiness({ requestId: row.requestId })
         );
@@ -299,6 +299,8 @@ export const conversationAttachmentWakeHandler = ({
           }
         }
       }
+
+      for (const row of page) yield* Effect.gen(() => wakeReply(row));
 
       if (page.length < 100) break;
 

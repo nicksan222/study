@@ -72,61 +72,61 @@ test('rejects invalid capacity at construction', () => {
 test('holds a permit until a stream consumer ends and releases it on interruption', async () => {
   const { Queue, Stream } = await import('effect');
 
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const gate = makeAdmission({ concurrency: 1, maxWaiting: 1 });
-      const done = yield* Deferred.make<void>();
-      const stream = Stream.callback<number, StudyError>((queue) =>
-        gate.run(
-          Effect.gen(function* () {
-            yield* Queue.offer(queue, 1);
-            yield* Effect.never;
-          }).pipe(Effect.ensuring(Deferred.succeed(done, undefined)))
-        )
-      );
+  function* verifyStreamPermit() {
+    const gate = makeAdmission({ concurrency: 1, maxWaiting: 1 });
+    const done = yield* Deferred.make<void>();
+    const stream = Stream.callback<number, StudyError>((queue) =>
+      gate.run(
+        Effect.gen(function* () {
+          yield* Queue.offer(queue, 1);
+          yield* Effect.never;
+        }).pipe(Effect.ensuring(Deferred.succeed(done, undefined)))
+      )
+    );
 
-      yield* Stream.runDrain(Stream.take(stream, 1));
-      yield* Deferred.await(done);
-      assert.equal(yield* gate.run(Effect.succeed('free')), 'free');
-    })
-  );
+    yield* Stream.runDrain(Stream.take(stream, 1));
+    yield* Deferred.await(done);
+    assert.equal(yield* gate.run(Effect.succeed('free')), 'free');
+  }
+
+  await Effect.runPromise(Effect.gen(verifyStreamPermit));
 });
 
 test('layer reuse shares the owner across independent consumers and releases on defect', async () => {
   const { AiAdmission, admissionLayer } = await import('#server/platform/ai/admission');
 
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const owner = makeAdmission({ concurrency: 1, maxWaiting: 0 });
-      const layer = admissionLayer(owner);
-      const entered = yield* Deferred.make<void>();
-      const release = yield* Deferred.make<void>();
-      const work = Effect.gen(function* () {
-        const admission = yield* AiAdmission;
+  function* verifySharedAdmission() {
+    const owner = makeAdmission({ concurrency: 1, maxWaiting: 0 });
+    const layer = admissionLayer(owner);
+    const entered = yield* Deferred.make<void>();
+    const release = yield* Deferred.make<void>();
+    const work = Effect.gen(function* () {
+      const admission = yield* AiAdmission;
 
-        return yield* admission.run(
-          Effect.gen(function* () {
-            yield* Deferred.succeed(entered, undefined);
-            yield* Deferred.await(release);
-          })
-        );
-      }).pipe(Effect.provide(layer));
-      const fiber = yield* Effect.forkChild(work);
+      return yield* admission.run(
+        Effect.gen(function* () {
+          yield* Deferred.succeed(entered, undefined);
+          yield* Deferred.await(release);
+        })
+      );
+    }).pipe(Effect.provide(layer));
+    const fiber = yield* Effect.forkChild(work);
 
-      yield* Deferred.await(entered);
-      const other = Effect.gen(function* () {
-        const admission = yield* AiAdmission;
+    yield* Deferred.await(entered);
+    const other = Effect.gen(function* () {
+      const admission = yield* AiAdmission;
 
-        return yield* admission.run(Effect.void);
-      }).pipe(Effect.provide(layer));
+      return yield* admission.run(Effect.void);
+    }).pipe(Effect.provide(layer));
 
-      assert.equal((yield* Effect.flip(other)).kind, 'rate_limited');
-      yield* Deferred.succeed(release, undefined);
-      yield* Fiber.join(fiber);
-      yield* Effect.exit(owner.run(Effect.die('defect')));
-      yield* other;
-    })
-  );
+    assert.equal((yield* Effect.flip(other)).kind, 'rate_limited');
+    yield* Deferred.succeed(release, undefined);
+    yield* Fiber.join(fiber);
+    yield* Effect.exit(owner.run(Effect.die('defect')));
+    yield* other;
+  }
+
+  await Effect.runPromise(Effect.gen(verifySharedAdmission));
 });
 
 test('closing a scope interrupts active and waiting fibers', async () => {

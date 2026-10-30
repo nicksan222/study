@@ -25,72 +25,76 @@ test('duplicate deferred delivery does not restart an activity after the wait ha
   const gate = DurableDeferred.make('gate');
 
   try {
+    function* verifyDuplicateDelivery() {
+      const engine = yield* WorkflowEngine.WorkflowEngine;
+      const started = yield* Deferred.make<void>();
+      const finish = yield* Deferred.make<void>();
+
+      function recordInterruption() {
+        return Effect.sync(() => {
+          interruptions++;
+        });
+      }
+
+      function runWorkflow() {
+        return Effect.gen(function* () {
+          yield* DurableDeferred.await(gate);
+
+          return yield* Activity.make({
+            name: 'paid-operation',
+            success: Schema.Number,
+            execute: Effect.gen(function* () {
+              calls++;
+              yield* Deferred.succeed(started, undefined);
+              yield* Deferred.await(finish);
+
+              return calls;
+            }).pipe(Effect.onInterrupt(recordInterruption))
+          });
+        });
+      }
+
+      yield* engine.register(workflow, runWorkflow);
+      yield* engine.execute(workflow, {
+        executionId: 'one',
+        payload: { id: 'one' },
+        discard: true
+      });
+      let state = yield* engine.poll(workflow, 'one');
+
+      while (Option.isNone(state)) {
+        yield* Effect.sleep('5 millis');
+        state = yield* engine.poll(workflow, 'one');
+      }
+
+      const delivery = {
+        workflowName: workflow._tag,
+        executionId: 'one',
+        deferredName: gate.name,
+        exit: Exit.void
+      };
+
+      yield* engine.deferredDone(gate, delivery);
+      yield* Deferred.await(started);
+      yield* engine.deferredDone(gate, delivery);
+      yield* Deferred.succeed(finish, undefined);
+
+      for (let i = 0; i < 100; i++) {
+        state = yield* engine.poll(workflow, 'one');
+
+        if (Option.isSome(state) && state.value._tag === 'Complete') break;
+
+        yield* Effect.sleep('5 millis');
+      }
+
+      assert.ok(Option.isSome(state) && state.value._tag === 'Complete');
+      assert.equal(interruptions, 0);
+      assert.equal(calls, 1);
+    }
+
     await Effect.runPromise(
       Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-          const started = yield* Deferred.make<void>();
-          const finish = yield* Deferred.make<void>();
-
-          yield* engine.register(workflow, () =>
-            Effect.gen(function* () {
-              yield* DurableDeferred.await(gate);
-
-              return yield* Activity.make({
-                name: 'paid-operation',
-                success: Schema.Number,
-                execute: Effect.gen(function* () {
-                  calls++;
-                  yield* Deferred.succeed(started, undefined);
-                  yield* Deferred.await(finish);
-
-                  return calls;
-                }).pipe(
-                  Effect.onInterrupt(() =>
-                    Effect.sync(() => {
-                      interruptions++;
-                    })
-                  )
-                )
-              });
-            })
-          );
-          yield* engine.execute(workflow, {
-            executionId: 'one',
-            payload: { id: 'one' },
-            discard: true
-          });
-          let state = yield* engine.poll(workflow, 'one');
-
-          while (Option.isNone(state)) {
-            yield* Effect.sleep('5 millis');
-            state = yield* engine.poll(workflow, 'one');
-          }
-
-          const delivery = {
-            workflowName: workflow._tag,
-            executionId: 'one',
-            deferredName: gate.name,
-            exit: Exit.void
-          };
-
-          yield* engine.deferredDone(gate, delivery);
-          yield* Deferred.await(started);
-          yield* engine.deferredDone(gate, delivery);
-          yield* Deferred.succeed(finish, undefined);
-
-          for (let i = 0; i < 100; i++) {
-            state = yield* engine.poll(workflow, 'one');
-
-            if (Option.isSome(state) && state.value._tag === 'Complete') break;
-
-            yield* Effect.sleep('5 millis');
-          }
-
-          assert.ok(Option.isSome(state) && state.value._tag === 'Complete');
-          assert.equal(interruptions, 0);
-          assert.equal(calls, 1);
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
+        Effect.gen(verifyDuplicateDelivery).pipe(Effect.provide(workflowEngineLayer(context)))
       )
     );
   } finally {
@@ -218,16 +222,18 @@ test('a cancelled suspended execution stays cancelled after reopening SQLite', a
     })
   });
   const gate = DurableDeferred.make('gate');
-  const handler = () =>
-    Effect.gen(function* () {
-      yield* Workflow.addFinalizer((exit) =>
-        Effect.sync(() => {
-          if (Exit.isFailure(exit)) finalizers++;
-        })
-      );
-      yield* activity;
-      yield* DurableDeferred.await(gate);
-    });
+
+  function* cancelSuspendedExecution() {
+    yield* Workflow.addFinalizer((exit) =>
+      Effect.sync(() => {
+        if (Exit.isFailure(exit)) finalizers++;
+      })
+    );
+    yield* activity;
+    yield* DurableDeferred.await(gate);
+  }
+
+  const handler = () => Effect.gen(cancelSuspendedExecution);
   let context = new ServerContext(location.open());
 
   try {
@@ -443,52 +449,53 @@ test('an activity receives its captured engine lease and cannot adopt a replacem
   });
 
   try {
+    function* verifyCapturedLease() {
+      const engine = yield* WorkflowEngine.WorkflowEngine;
+
+      function runWorkflow() {
+        return Activity.make({
+          name: 'capture-owner',
+          success: Schema.String,
+          error: failureSchema,
+          execute: Effect.gen(function* () {
+            const owner = yield* currentWorkflowActivityOwner;
+
+            assert.equal(owner.executionId, 'captured');
+            assert.equal(owner.activityName, 'capture-owner');
+            assert.ok(owner.ownerToken.length > 0);
+            const store = workflowStore(context);
+
+            assert.equal(store.execution(owner.executionId)?.owner_token, owner.ownerToken);
+            // A newer lease in SQLite cannot change the granted identity.
+            context.db.orm
+              .update(workflow_executions)
+              .set({ owner_token: 'replacement' })
+              .where(eq(workflow_executions.execution_id, owner.executionId))
+              .run();
+            assert.equal((yield* currentWorkflowActivityOwner).ownerToken, owner.ownerToken);
+            assert.throws(() => store.assertOwner(owner.executionId, owner.ownerToken), /fenced/);
+            context.db.orm
+              .update(workflow_executions)
+              .set({ owner_token: owner.ownerToken })
+              .where(eq(workflow_executions.execution_id, owner.executionId))
+              .run();
+
+            return owner.executionId;
+          })
+        });
+      }
+
+      yield* engine.register(workflow, runWorkflow);
+
+      return yield* engine.execute(workflow, {
+        executionId: 'captured',
+        payload: { id: 'captured' }
+      });
+    }
+
     const result = await Effect.runPromise(
       Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          yield* engine.register(workflow, () =>
-            Activity.make({
-              name: 'capture-owner',
-              success: Schema.String,
-              error: failureSchema,
-              execute: Effect.gen(function* () {
-                const owner = yield* currentWorkflowActivityOwner;
-
-                assert.equal(owner.executionId, 'captured');
-                assert.equal(owner.activityName, 'capture-owner');
-                assert.ok(owner.ownerToken.length > 0);
-                const store = workflowStore(context);
-
-                assert.equal(store.execution(owner.executionId)?.owner_token, owner.ownerToken);
-                // A newer lease in SQLite cannot change the granted identity.
-                context.db.orm
-                  .update(workflow_executions)
-                  .set({ owner_token: 'replacement' })
-                  .where(eq(workflow_executions.execution_id, owner.executionId))
-                  .run();
-                assert.equal((yield* currentWorkflowActivityOwner).ownerToken, owner.ownerToken);
-                assert.throws(
-                  () => store.assertOwner(owner.executionId, owner.ownerToken),
-                  /fenced/
-                );
-                context.db.orm
-                  .update(workflow_executions)
-                  .set({ owner_token: owner.ownerToken })
-                  .where(eq(workflow_executions.execution_id, owner.executionId))
-                  .run();
-
-                return owner.executionId;
-              })
-            })
-          );
-
-          return yield* engine.execute(workflow, {
-            executionId: 'captured',
-            payload: { id: 'captured' }
-          });
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
+        Effect.gen(verifyCapturedLease).pipe(Effect.provide(workflowEngineLayer(context)))
       )
     );
 
@@ -592,46 +599,48 @@ test('a suspended run can resume in the same engine after its fiber completes', 
   });
 
   try {
+    function* verifySameEngineResume() {
+      const engine = yield* WorkflowEngine.WorkflowEngine;
+
+      yield* engine.register(workflow, () =>
+        Effect.gen(function* () {
+          yield* activity;
+          yield* DurableDeferred.await(gate);
+
+          return 'resumed';
+        })
+      );
+      yield* engine.execute(workflow, {
+        executionId: 'same-engine',
+        payload: { id: 'same-engine' },
+        discard: true
+      });
+
+      while (Option.isNone(yield* engine.poll(workflow, 'same-engine')))
+        yield* Effect.sleep('10 millis');
+
+      yield* engine.deferredDone(gate, {
+        workflowName: workflow._tag,
+        executionId: 'same-engine',
+        deferredName: gate.name,
+        exit: Exit.void
+      });
+      let result = yield* engine.poll(workflow, 'same-engine');
+
+      while (Option.isNone(result) || result.value._tag !== 'Complete') {
+        yield* Effect.sleep('10 millis');
+        result = yield* engine.poll(workflow, 'same-engine');
+      }
+
+      return yield* engine.execute(workflow, {
+        executionId: 'same-engine',
+        payload: { id: 'same-engine' }
+      });
+    }
+
     const result = await Effect.runPromise(
       Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          yield* engine.register(workflow, () =>
-            Effect.gen(function* () {
-              yield* activity;
-              yield* DurableDeferred.await(gate);
-
-              return 'resumed';
-            })
-          );
-          yield* engine.execute(workflow, {
-            executionId: 'same-engine',
-            payload: { id: 'same-engine' },
-            discard: true
-          });
-
-          while (Option.isNone(yield* engine.poll(workflow, 'same-engine')))
-            yield* Effect.sleep('10 millis');
-
-          yield* engine.deferredDone(gate, {
-            workflowName: workflow._tag,
-            executionId: 'same-engine',
-            deferredName: gate.name,
-            exit: Exit.void
-          });
-          let result = yield* engine.poll(workflow, 'same-engine');
-
-          while (Option.isNone(result) || result.value._tag !== 'Complete') {
-            yield* Effect.sleep('10 millis');
-            result = yield* engine.poll(workflow, 'same-engine');
-          }
-
-          return yield* engine.execute(workflow, {
-            executionId: 'same-engine',
-            payload: { id: 'same-engine' }
-          });
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
+        Effect.gen(verifySameEngineResume).pipe(Effect.provide(workflowEngineLayer(context)))
       )
     );
 

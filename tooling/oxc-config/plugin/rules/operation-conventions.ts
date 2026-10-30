@@ -18,6 +18,27 @@ export default defineRule({
     const get = (node: any, name: string) => value(field(value(node), name));
     const report = (node: any, message: string) => context.report({ node, message });
 
+    function collectionInput(item: any, operation: any) {
+      const input = get(operation, 'input');
+
+      if (input?.type === 'CallExpression' && effects.resolve(input.callee) === 'Schema.Struct') {
+        const shape = value(input.arguments[0]);
+
+        if (
+          shape?.type === 'ObjectExpression' &&
+          ((!field(shape, 'limit') &&
+            shape.properties.every((property: any) => property.type !== 'SpreadElement')) ||
+            /^Schema\.(?:String|Boolean|Null|Undefined|Void|BigInt)$/.test(
+              effects.resolve(value(field(shape, 'limit'))) ?? ''
+            ))
+        )
+          report(
+            item,
+            'Collection query input must include a limit; the factory enforces its bounds.'
+          );
+      }
+    }
+
     function store(node: any) {
       const descriptor = value(node.arguments[0]);
 
@@ -67,29 +88,7 @@ export default defineRule({
         else if (expected && name && name !== expected)
           report(item, `The ${role} query must be named ${expected}.`);
 
-        if (role === 'collection') {
-          const input = get(operation, 'input');
-
-          if (
-            input?.type === 'CallExpression' &&
-            effects.resolve(input.callee) === 'Schema.Struct'
-          ) {
-            const shape = value(input.arguments[0]);
-
-            if (
-              shape?.type === 'ObjectExpression' &&
-              ((!field(shape, 'limit') &&
-                shape.properties.every((property: any) => property.type !== 'SpreadElement')) ||
-                /^Schema\.(?:String|Boolean|Null|Undefined|Void|BigInt)$/.test(
-                  effects.resolve(value(field(shape, 'limit'))) ?? ''
-                ))
-            )
-              report(
-                item,
-                'Collection query input must include a limit; the factory enforces its bounds.'
-              );
-          }
-        }
+        if (role === 'collection') collectionInput(item, operation);
       }
     }
 

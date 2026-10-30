@@ -392,107 +392,113 @@ test('generation validation, rollback, RPC, and persistent snapshots', async () 
     const services = makeServices();
     const handlers = MaterialsRpcLive.pipe(Layer.provide(services));
 
+    function* verifyGenerationSnapshots() {
+      const projects = yield* Projects;
+      const materials = yield* Materials;
+      const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+      const project = yield* projects.createProject({ name: 'One' });
+      const other = yield* projects.createProject({ name: 'Two' });
+      const doc = yield* materials.create({ projectId: project.id, title: 'Doc', content });
+      const foreign = yield* materials.create({ projectId: other.id, title: 'Foreign', content });
+      const draft = yield* materials.create({
+        projectId: project.id,
+        title: 'Draft',
+        content,
+        publish: false
+      });
+      const archived = yield* materials.create({
+        projectId: project.id,
+        title: 'Archived',
+        content
+      });
+
+      yield* materials.archive({ id: archived.id });
+      const diagram = yield* materials.create({
+        projectId: project.id,
+        title: 'Diagram',
+        content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD' }
+      });
+      const base = { projectId: project.id, title: 'Generated', kind: 'quiz' as const };
+
+      for (const id of [
+        foreign.version.id,
+        draft.version.id,
+        archived.version.id,
+        diagram.version.id
+      ]) {
+        assert.equal(
+          (yield* Effect.flip(
+            materials.requestMaterialGeneration({ ...base, inputVersionIds: [id] })
+          )).kind,
+          'invalid_input'
+        );
+      }
+
+      const parse = Schema.decodeUnknownSync(requestMaterialGenerationInputSchema);
+
+      assert.throws(() => parse({ ...base, inputVersionIds: [doc.version.id, doc.version.id] }));
+      assert.throws(() => parse({ ...base, inputVersionIds: [] }));
+      assert.throws(() =>
+        parse({ ...base, inputVersionIds: Array.from({ length: 21 }, (_, i) => BigInt(i + 1)) })
+      );
+      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
+      context.db.exec(
+        "CREATE TRIGGER reject_generation_event BEFORE INSERT ON workflow_events WHEN new.type='MaterialGenerationRequested' BEGIN SELECT RAISE(ABORT, 'rejected'); END"
+      );
+      yield* Effect.flip(
+        materials.requestMaterialGeneration({ ...base, inputVersionIds: [doc.version.id] })
+      );
+      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
+      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_inputs`).length, 0);
+      context.db.exec('DROP TRIGGER reject_generation_event');
+      const request = yield* client('materials.requestMaterialGeneration', {
+        ...base,
+        inputVersionIds: [doc.version.id],
+        instruction: 'Focus'
+      });
+      const snapshot = yield* materials.materialGeneration({ requestId: request.id });
+
+      requestId = request.id;
+      versionId = doc.version.id;
+      documentId = snapshot.documentIds[0]!;
+      assert.equal(snapshot.instruction, 'Focus');
+      const event = context.db.orm
+        .select()
+        .from(workflowEvents)
+        .all()
+        .find((row) => row.eventId === request.id)!;
+
+      assert.deepEqual(decodeEvent(event.payload), {
+        type: 'MaterialGenerationRequested',
+        eventId: request.id,
+        causationId: null,
+        correlationId: request.id,
+        inputVersion: 1,
+        depth: 0,
+        requestId: request.id,
+        projectId: project.id,
+        kind: 'quiz'
+      });
+      yield* materials.createVersion({ materialId: doc.id, content });
+      const otherRequest = yield* materials.requestMaterialGeneration({
+        projectId: other.id,
+        title: 'Other',
+        kind: 'diagram',
+        inputVersionIds: [foreign.version.id]
+      });
+
+      otherRequestId = otherRequest.id;
+      assert.throws(() =>
+        context.db.orm.run(sql`DELETE FROM material_versions WHERE id=${doc.version.id}`)
+      );
+    }
+
     await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const materials = yield* Materials;
-        const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-        const project = yield* projects.createProject({ name: 'One' });
-        const other = yield* projects.createProject({ name: 'Two' });
-        const doc = yield* materials.create({ projectId: project.id, title: 'Doc', content });
-        const foreign = yield* materials.create({ projectId: other.id, title: 'Foreign', content });
-        const draft = yield* materials.create({
-          projectId: project.id,
-          title: 'Draft',
-          content,
-          publish: false
-        });
-        const archived = yield* materials.create({
-          projectId: project.id,
-          title: 'Archived',
-          content
-        });
-
-        yield* materials.archive({ id: archived.id });
-        const diagram = yield* materials.create({
-          projectId: project.id,
-          title: 'Diagram',
-          content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD' }
-        });
-        const base = { projectId: project.id, title: 'Generated', kind: 'quiz' as const };
-
-        for (const id of [
-          foreign.version.id,
-          draft.version.id,
-          archived.version.id,
-          diagram.version.id
-        ]) {
-          assert.equal(
-            (yield* Effect.flip(
-              materials.requestMaterialGeneration({ ...base, inputVersionIds: [id] })
-            )).kind,
-            'invalid_input'
-          );
-        }
-
-        const parse = Schema.decodeUnknownSync(requestMaterialGenerationInputSchema);
-
-        assert.throws(() => parse({ ...base, inputVersionIds: [doc.version.id, doc.version.id] }));
-        assert.throws(() => parse({ ...base, inputVersionIds: [] }));
-        assert.throws(() =>
-          parse({ ...base, inputVersionIds: Array.from({ length: 21 }, (_, i) => BigInt(i + 1)) })
-        );
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
-        context.db.exec(
-          "CREATE TRIGGER reject_generation_event BEFORE INSERT ON workflow_events WHEN new.type='MaterialGenerationRequested' BEGIN SELECT RAISE(ABORT, 'rejected'); END"
-        );
-        yield* Effect.flip(
-          materials.requestMaterialGeneration({ ...base, inputVersionIds: [doc.version.id] })
-        );
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_inputs`).length, 0);
-        context.db.exec('DROP TRIGGER reject_generation_event');
-        const request = yield* client('materials.requestMaterialGeneration', {
-          ...base,
-          inputVersionIds: [doc.version.id],
-          instruction: 'Focus'
-        });
-        const snapshot = yield* materials.materialGeneration({ requestId: request.id });
-
-        requestId = request.id;
-        versionId = doc.version.id;
-        documentId = snapshot.documentIds[0]!;
-        assert.equal(snapshot.instruction, 'Focus');
-        const event = context.db.orm
-          .select()
-          .from(workflowEvents)
-          .all()
-          .find((row) => row.eventId === request.id)!;
-
-        assert.deepEqual(decodeEvent(event.payload), {
-          type: 'MaterialGenerationRequested',
-          eventId: request.id,
-          causationId: null,
-          correlationId: request.id,
-          inputVersion: 1,
-          depth: 0,
-          requestId: request.id,
-          projectId: project.id,
-          kind: 'quiz'
-        });
-        yield* materials.createVersion({ materialId: doc.id, content });
-        const otherRequest = yield* materials.requestMaterialGeneration({
-          projectId: other.id,
-          title: 'Other',
-          kind: 'diagram',
-          inputVersionIds: [foreign.version.id]
-        });
-
-        otherRequestId = otherRequest.id;
-        assert.throws(() =>
-          context.db.orm.run(sql`DELETE FROM material_versions WHERE id=${doc.version.id}`)
-        );
-      }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
+      Effect.gen(verifyGenerationSnapshots).pipe(
+        Effect.provide(services),
+        Effect.provide(handlers),
+        Effect.scoped
+      )
     );
     context.close();
     context = new ServerContext(location.open());

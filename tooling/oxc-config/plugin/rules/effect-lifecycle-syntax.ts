@@ -1,11 +1,14 @@
 import type { ESTree } from 'vite-plus/lint/plugins';
 
+import { webFile } from '../web-files.ts';
+
 export function businessFile(filename: string): boolean {
   const path = filename.replaceAll('\\', '/');
 
   return (
-    path.includes('/apps/server/src/') &&
-    !/\/(?:client|test|tests)\/|\.(?:test|spec)\.ts$/.test(path)
+    Boolean(webFile(filename)) ||
+    (path.includes('/apps/server/src/') &&
+      !/\/(?:client|test|tests)\/|\.(?:test|spec)\.ts$/.test(path))
   );
 }
 
@@ -46,8 +49,7 @@ export function walk(node: ESTree.Node, visit: (node: ESTree.Node) => void): voi
     if (key === 'parent') continue;
 
     if (Array.isArray(value)) {
-      for (const item of value)
-        if (item && typeof item === 'object' && typeof item.type === 'string') walk(item, visit);
+      walkChildren(value, visit);
     } else if (
       value &&
       typeof value === 'object' &&
@@ -56,4 +58,9 @@ export function walk(node: ESTree.Node, visit: (node: ESTree.Node) => void): voi
     )
       walk(value as ESTree.Node, visit);
   }
+}
+
+function walkChildren(children: any[], visit: (node: ESTree.Node) => void): void {
+  for (const item of children)
+    if (item && typeof item === 'object' && typeof item.type === 'string') walk(item, visit);
 }

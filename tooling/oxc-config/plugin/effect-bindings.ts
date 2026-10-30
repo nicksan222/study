@@ -1,9 +1,15 @@
+import { webFile } from './web-files.ts';
+
 export function serverProduction(filename: string): boolean {
   const path = filename.replaceAll('\\', '/');
 
   return (
     /\/apps\/server\//.test(path) && !/\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests)\//.test(path)
   );
+}
+
+export function effectProduction(filename: string): boolean {
+  return serverProduction(filename) || Boolean(webFile(filename));
 }
 
 export function propertyName(node: any): string | null {

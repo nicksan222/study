@@ -48,3 +48,18 @@ test('public contracts error imports preserve the same typed Effect failure boun
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('enforces the Effect contract in browser operations', () => {
+  const diagnostics = lintRule(
+    'effect-no-throw',
+    {
+      'apps/web/src/features/example/page.logic.ts':
+        "import { Effect } from 'effect'; import { StudyError } from '@study/contracts/errors'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });",
+      'apps/web/src/features/example/page.logic.test.ts':
+        "import { Effect } from 'effect'; import { StudyError } from '@study/contracts/errors'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+});
