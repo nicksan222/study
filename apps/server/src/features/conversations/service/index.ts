@@ -31,20 +31,22 @@ import {
 } from '#server/features/conversations/store/reply';
 import { TitleStore } from '#server/features/conversations/store/title';
 import { Settings } from '#server/features/settings/index';
-import { Database } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction } from '#server/platform/definitions/define-store';
-import { emitEvent } from '#server/platform/workflows/events';
-import { PublicationGuard } from '#server/platform/workflows/publication';
+import {
+  transaction,
+  useStore,
+  publicationTransaction
+} from '#server/platform/definitions/define-store';
 
 export const Conversations = defineService(
   'study/Conversations',
   Effect.gen(function* () {
-    const { store: context } = yield* Database;
-    const store = SessionStore.make(context);
-    const messages = MessageStore.make(context);
-    const replies = ReplyStore.make(context);
-    const titles = TitleStore.make(context);
+    const readReplyReadinessStore = yield* useStore(ReplyReadinessStore);
+    const readReplyWakeStore = yield* useStore(ReplyWakeStore);
+    const store = yield* useStore(SessionStore);
+    const messages = yield* useStore(MessageStore);
+    const replies = yield* useStore(ReplyStore);
+    const titles = yield* useStore(TitleStore);
 
     return {
       titleSnapshot: titles.titleSnapshot,
@@ -53,7 +55,7 @@ export const Conversations = defineService(
           const settings = yield* Settings;
           const language = yield* settings.language();
 
-          return yield* transaction(context, (tx) =>
+          return yield* transaction((tx) =>
             tx.store(SessionStore).createSession({
               ...input,
               title: text(language, 'NewSession'),
@@ -62,134 +64,94 @@ export const Conversations = defineService(
           );
         }),
       requestTitle: (input: { sessionId: SessionId }) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const requestId = randomUUID();
           const snapshot = tx.store(TitleStore).captureTitle({ ...input, requestId });
 
-          emitEvent(
-            context,
-            {
-              type: 'ConversationTitleRequested',
-              eventId: randomUUID(),
-              causationId: null,
-              correlationId: requestId,
-              inputVersion: 1,
-              depth: 0,
-              ...snapshot
-            },
-            context.clock.currentTimeMillisUnsafe()
-          );
+          tx.emit({
+            type: 'ConversationTitleRequested',
+            eventId: randomUUID(),
+            causationId: null,
+            correlationId: requestId,
+            inputVersion: 1,
+            depth: 0,
+            ...snapshot
+          });
 
           return { requestId, sessionId: input.sessionId };
         }),
       publishTitle: (input: typeof publishTitleInputSchema.Type) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-
-            return tx.store(TitleStore).publishTitle(input);
-          });
+        publicationTransaction((tx) => {
+          return tx.store(TitleStore).publishTitle(input);
         }),
       replySnapshot: replies.replySnapshot,
-      replyReadiness: ReplyReadinessStore.make(context).replyReadiness,
-      replyWakes: ReplyWakeStore.make(context).replyWakes,
+      replyReadiness: readReplyReadinessStore.replyReadiness,
+      replyWakes: readReplyWakeStore.replyWakes,
       sealReplyAttachments: (input: { requestId: string }) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-
-            return tx.store(ReplyStore).sealReplyAttachments(input);
-          });
+        publicationTransaction((tx) => {
+          return tx.store(ReplyStore).sealReplyAttachments(input);
         }),
       abandonReply: (input: typeof replyRequestSchema.Type) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-
-            return tx.store(ReplyStore).abandonReply(input);
-          });
+        publicationTransaction((tx) => {
+          return tx.store(ReplyStore).abandonReply(input);
         }),
       publishReply: (input: typeof publishReplyInputSchema.Type) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-
-            return tx.store(ReplyStore).publishReply(input);
-          });
+        publicationTransaction((tx) => {
+          return tx.store(ReplyStore).publishReply(input);
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const requestId = randomUUID();
           const result = tx.store(ReplyStore).requestReply({ ...input, requestId });
 
-          emitEvent(
-            context,
-            {
-              type: 'ConversationGenerationRequested',
-              eventId: randomUUID(),
-              causationId: null,
-              correlationId: requestId,
-              inputVersion: 1,
-              depth: 0,
-              ...result,
-              operation: 'reply'
-            },
-            context.clock.currentTimeMillisUnsafe()
-          );
+          tx.emit({
+            type: 'ConversationGenerationRequested',
+            eventId: randomUUID(),
+            causationId: null,
+            correlationId: requestId,
+            inputVersion: 1,
+            depth: 0,
+            ...result,
+            operation: 'reply'
+          });
 
           return result;
         }),
       reanswer: (input: typeof reanswerInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const requestId = randomUUID();
           const result = tx
             .store(ReplyStore)
             .requestTarget({ ...input, requestId, origin: 'answer' });
 
-          emitEvent(
-            context,
-            {
-              type: 'ConversationGenerationRequested',
-              eventId: randomUUID(),
-              causationId: null,
-              correlationId: requestId,
-              inputVersion: 1,
-              depth: 0,
-              ...result,
-              operation: 'reply'
-            },
-            context.clock.currentTimeMillisUnsafe()
-          );
+          tx.emit({
+            type: 'ConversationGenerationRequested',
+            eventId: randomUUID(),
+            causationId: null,
+            correlationId: requestId,
+            inputVersion: 1,
+            depth: 0,
+            ...result,
+            operation: 'reply'
+          });
 
           return result;
         }),
       rewriteMessage: (input: typeof rewriteMessageInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const requestId = randomUUID();
           const result = tx.store(ReplyStore).requestTarget({ ...input, requestId });
 
-          emitEvent(
-            context,
-            {
-              type: 'ConversationGenerationRequested',
-              eventId: randomUUID(),
-              causationId: null,
-              correlationId: requestId,
-              inputVersion: 1,
-              depth: 0,
-              ...result,
-              operation: 'rewrite'
-            },
-            context.clock.currentTimeMillisUnsafe()
-          );
+          tx.emit({
+            type: 'ConversationGenerationRequested',
+            eventId: randomUUID(),
+            causationId: null,
+            correlationId: requestId,
+            inputVersion: 1,
+            depth: 0,
+            ...result,
+            operation: 'rewrite'
+          });
 
           return result;
         }),
@@ -217,27 +179,22 @@ export const Conversations = defineService(
         projectId: ProjectId;
         durationMs: number;
       }) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
+        publicationTransaction((tx) => {
+          const recording = tx.store(RecordingPostStore);
+          const existing = recording.prepareRecordingPost(input);
 
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-            const recording = tx.store(RecordingPostStore);
-            const existing = recording.prepareRecordingPost(input);
+          if (existing !== null) return existing;
 
-            if (existing !== null) return existing;
-
-            const message = tx.store(MessageStore).postMessage({
-              sessionId: input.sessionId,
-              text: '',
-              sourceIds: [input.sourceId]
-            });
-
-            return recording.finishRecordingPost({ ...input, messageId: message.id });
+          const message = tx.store(MessageStore).postMessage({
+            sessionId: input.sessionId,
+            text: '',
+            sourceIds: [input.sourceId]
           });
+
+          return recording.finishRecordingPost({ ...input, messageId: message.id });
         }),
       postMessage: (input: typeof postMessageInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const message = tx.store(MessageStore).postMessage(input);
           const mentioned = [...input.text.matchAll(/(?:^|\s)(@[a-z]+)/giu)].some(
             (match) => match[1]!.toLowerCase() === mentionLabel('assistant')
@@ -251,32 +208,28 @@ export const Conversations = defineService(
               requestId
             });
 
-            emitEvent(
-              context,
-              {
-                type: 'ConversationGenerationRequested',
-                eventId: randomUUID(),
-                causationId: null,
-                correlationId: requestId,
-                inputVersion: 1,
-                depth: 0,
-                ...result,
-                operation: 'reply'
-              },
-              context.clock.currentTimeMillisUnsafe()
-            );
+            tx.emit({
+              type: 'ConversationGenerationRequested',
+              eventId: randomUUID(),
+              causationId: null,
+              correlationId: requestId,
+              inputVersion: 1,
+              depth: 0,
+              ...result,
+              operation: 'reply'
+            });
           }
 
           return message;
         }),
       editMessage: (input: typeof editMessageInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(MessageStore).editMessage(input)),
+        transaction((tx) => tx.store(MessageStore).editMessage(input)),
       setActiveVersion: (input: typeof setActiveVersionInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(MessageStore).setActiveVersion(input)),
+        transaction((tx) => tx.store(MessageStore).setActiveVersion(input)),
       deleteMessage: (id: MessageId) =>
-        transaction(context, (tx) => tx.store(MessageStore).deleteMessage(id)),
+        transaction((tx) => tx.store(MessageStore).deleteMessage(id)),
       renameSession: (input: typeof renameSessionInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(SessionStore).renameSession(input)),
+        transaction((tx) => tx.store(SessionStore).renameSession(input)),
       session: store.session,
       findSession: store.findSession,
       sessions: (input: typeof sessionPageInputSchema.Type) =>
@@ -297,11 +250,11 @@ export const Conversations = defineService(
           };
         }),
       createSession: (input: typeof createSessionInputSchema.Type) =>
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(SessionStore).createSession({ ...input, titleSource: 'user' })
         ),
       deleteSession: (id: SessionId) =>
-        transaction(context, (tx) => tx.store(SessionStore).deleteSession(id))
+        transaction((tx) => tx.store(SessionStore).deleteSession(id))
     };
   })
 );

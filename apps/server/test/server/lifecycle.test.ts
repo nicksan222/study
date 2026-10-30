@@ -3,6 +3,8 @@ import { test } from 'node:test';
 
 import { sql } from '@study/db';
 
+import { Database } from '#server/platform/database/database';
+import { useStore } from '#server/platform/definitions/define-store';
 import { App } from '#server/runtime/service';
 import { createServerTest } from '#testing/server-test';
 
@@ -82,7 +84,7 @@ for (const failPersistence of [false, true])
     const context = new ServerContext(resources.openDb());
 
     await Effect.runPromise(
-      transaction(context, (tx) =>
+      transaction((tx) =>
         tx.store(AuthStore).saveAccount(
           encodeAccount({
             subject: 'user',
@@ -91,7 +93,7 @@ for (const failPersistence of [false, true])
             sharing: true
           })
         )
-      )
+      ).pipe(Effect.provideService(Database, { store: context }))
     );
     context.close();
     const options = { path: resources.path, issuer: `http://127.0.0.1:${address.port}` };
@@ -118,7 +120,7 @@ for (const failPersistence of [false, true])
       if (failPersistence) {
         await assert.rejects(closing);
         const retained = await app.nativeRuntime.runPromise(
-          AuthStore.make(app.store).findAccount(undefined)
+          useStore(AuthStore).pipe(Effect.flatMap((store) => store.findAccount(undefined)))
         );
 
         assert.ok(Option.isSome(retained));
@@ -129,7 +131,7 @@ for (const failPersistence of [false, true])
 
       app = await resources.openApp(options);
       const account = await app.nativeRuntime.runPromise(
-        AuthStore.make(app.store).findAccount(undefined)
+        useStore(AuthStore).pipe(Effect.flatMap((store) => store.findAccount(undefined)))
       );
 
       assert.ok(Option.isSome(account));

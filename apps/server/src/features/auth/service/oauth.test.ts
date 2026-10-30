@@ -126,7 +126,7 @@ async function peer() {
 
 async function withAuth(
   run: (
-    layer: Layer.Layer<Context.Service.Identifier<typeof Auth>, unknown, never>,
+    layer: Layer.Layer<Database | Context.Service.Identifier<typeof Auth>, unknown, never>,
     context: ServerContext,
     oauth: Awaited<ReturnType<typeof peer>>,
     manager: AuthManager
@@ -137,7 +137,7 @@ async function withAuth(
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: oauth.issuer, saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: oauth.issuer, hostId: 'test' })
@@ -292,7 +292,7 @@ test('refresh rotation settling during OAuth finish survives the sign-in commit'
     saveRefresh: (account, token) => saveRefresh(account as typeof previous, token)
   });
   const layer = Auth.layer.pipe(
-    Layer.provide(
+    Layer.provideMerge(
       Layer.merge(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(ChatGptSession, { manager, issuer: oauth.issuer, hostId: 'test' })
@@ -307,7 +307,11 @@ test('refresh rotation settling during OAuth finish survives the sign-in commit'
           const auth = yield* Auth;
 
           saveRefresh = (account, token) =>
-            Effect.runPromise(auth.rotateRefreshToken({ previous: account, token }));
+            Effect.runPromise(
+              auth
+                .rotateRefreshToken({ previous: account, token })
+                .pipe(Effect.provideService(Database, { store: context }))
+            );
           const refresh = manager.token().catch(() => undefined);
 
           yield* Effect.promise(() => oauth.refreshRequest);

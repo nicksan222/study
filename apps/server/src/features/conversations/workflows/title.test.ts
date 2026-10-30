@@ -73,7 +73,7 @@ test('title workflow checkpoints and fences stale and renamed sessions', async (
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
   const domain = () =>
     Layer.merge(Conversations.layer, Settings.layer).pipe(
-      Layer.provide(Layer.succeed(Database, { store: context }))
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const services = () =>
     Layer.mergeAll(
@@ -91,7 +91,9 @@ test('title workflow checkpoints and fences stale and renamed sessions', async (
     effect: Effect.Effect<
       A,
       E,
-      Context.Service.Identifier<typeof Conversations> | Context.Service.Identifier<typeof Settings>
+      | Database
+      | Context.Service.Identifier<typeof Conversations>
+      | Context.Service.Identifier<typeof Settings>
     >
   ) => Effect.runPromise(effect.pipe(Effect.provide(domain())));
 

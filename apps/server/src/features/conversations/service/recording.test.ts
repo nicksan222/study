@@ -23,7 +23,7 @@ test('recording publication posts once and rejects changed or deleted results', 
   let context = new ServerContext(location.open());
   const layer = () =>
     Layer.merge(Projects.layer, Conversations.layer).pipe(
-      Layer.provide(Layer.succeed(Database, { store: context }))
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const run = async (
     id: string,
@@ -32,6 +32,7 @@ test('recording publication posts once and rejects changed or deleted results', 
       never,
       | Context.Service.Identifier<typeof Conversations>
       | Context.Service.Identifier<typeof Projects>
+      | Database
       | PublicationGuard
     >
   ) => {

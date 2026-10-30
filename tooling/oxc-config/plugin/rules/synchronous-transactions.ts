@@ -1,6 +1,6 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { targetPath } from '../architecture-imports.ts';
+import { canonicalImport, targetPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import { walk } from './effect-lifecycle-syntax.ts';
 
@@ -271,8 +271,9 @@ export function typedOwner(context: any, node: any, seen = new Set<any>()): bool
 export function transaction(context: any, node: any): boolean {
   return (
     node?.type === 'CallExpression' &&
-    property(node.callee) === 'transaction' &&
-    typedOwner(context, node.callee.object)
+    ((property(node.callee) === 'transaction' && typedOwner(context, node.callee.object)) ||
+      canonicalImport(context, node.callee, 'define-store', 'transaction') ||
+      canonicalImport(context, node.callee, 'define-store', 'publicationTransaction'))
   );
 }
 

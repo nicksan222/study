@@ -12,7 +12,7 @@ import { Database } from '#server/platform/database/database';
 test('themes catalog, mutations and selection preserve transactional rules', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Themes.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Themes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const json = (id: string, name = id) =>
     JSON.stringify({ version: 1, id, name, colors: { primary: ' red ' } });
 

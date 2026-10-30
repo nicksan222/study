@@ -37,7 +37,7 @@ function wav() {
 test('recording imports are fenced, atomic, and replayed only for identical inputs', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   let completed = false;
 
   try {

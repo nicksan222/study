@@ -16,7 +16,7 @@ import { Sources } from './index.ts';
 test('sources service persists requests and pages, and rolls back invalid requests', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
     await Effect.runPromise(
@@ -86,7 +86,7 @@ test('sources service persists requests and pages, and rolls back invalid reques
 test('a failed event insertion rolls back source creation', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
     const existing = await Effect.runPromise(
@@ -147,7 +147,7 @@ test('a failed event insertion rolls back source creation', async () => {
 test('publication requires a real active workflow grant', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
   const { Schema } = await import('effect');
   const { withPublicationGuard } = await import('#server/platform/workflows/publication');
@@ -353,7 +353,7 @@ test('publication requires a real active workflow grant', async () => {
 test('replacement fences stale publication and search follows the current source project', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const document = {
     blocks: [
       { kind: 'paragraph' as const, text: '   ', anchor: { type: 'page' as const, page: 1 } },
@@ -390,9 +390,9 @@ test('replacement fences stale publication and search follows the current source
         const state = yield* sources.sourceProcessing(source.id);
         const first = { id: source.id, expectedRevision: 1, requestId: state.requestId!, document };
 
-        const firstDocumentId = yield* transaction(context, (tx) =>
+        const firstDocumentId = yield* transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument(first)
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
         const documentKey = {
           id: firstDocumentId.documentId,
           sourceId: source.id,
@@ -411,17 +411,19 @@ test('replacement fences stale publication and search follows the current source
         assert.equal(rows.length, 1);
         assert.equal(rows[0]!.first_block, 1n);
         assert.deepEqual(JSON.parse(rows[0]!.anchor as string), { type: 'page', page: 2 });
-        yield* transaction(context, (tx) =>
+        yield* transaction((tx) =>
           tx.store(SourceStore).replaceSourceInput({
             id: source.id,
             expectedRevision: 1,
             requestId: 'replacement',
             bytes: new Uint8Array([2])
           })
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
         assert.equal(
           (yield* Effect.flip(
-            transaction(context, (tx) => tx.store(SourceStore).publishSourceDocument(first))
+            transaction((tx) => tx.store(SourceStore).publishSourceDocument(first)).pipe(
+              Effect.provideService(Database, { store: context })
+            )
           )).kind,
           'invalid_input'
         );
@@ -437,14 +439,14 @@ test('replacement fences stale publication and search follows the current source
           ]
         };
 
-        yield* transaction(context, (tx) =>
+        yield* transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 2,
             requestId: 'replacement',
             document: replacement
           })
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
         assert.deepEqual((yield* sources.sourceDocument(source.id)).document, replacement);
         assert.deepEqual((yield* sources.document(documentKey)).document, document);
         assert.equal(search('firstword', 1n).length, 0);
@@ -467,14 +469,14 @@ test('replacement fences stale publication and search follows the current source
         });
         const unassignedState = yield* sources.sourceProcessing(unassigned.id);
 
-        yield* transaction(context, (tx) =>
+        yield* transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: unassigned.id,
             expectedRevision: 1,
             requestId: unassignedState.requestId!,
             document
           })
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
         assert.deepEqual((yield* sources.sourceDocument(unassigned.id)).document, document);
         assert.equal(
           context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'firstword'`)
@@ -492,7 +494,7 @@ test('replacement fences stale publication and search follows the current source
 test('deleting a pending source fences publication and removes indexed content', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
   const { Schema } = await import('effect');
   const { withPublicationGuard } = await import('#server/platform/workflows/publication');
@@ -621,7 +623,7 @@ test('published and archived source-backed materials prevent source deletion', a
   const context = new ServerContext(location.open());
   const { Materials } = await import('#server/features/materials/index');
   const layer = Layer.mergeAll(Sources.layer, Materials.layer).pipe(
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -665,7 +667,7 @@ test('published and archived source-backed materials prevent source deletion', a
 test('source export returns the stored bytes and canonical link URI', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
     await Effect.runPromise(
@@ -700,7 +702,7 @@ test('source export returns the stored bytes and canonical link URI', async () =
 test('correction compares the current document and fences previous requests', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const document = {
     blocks: [
       { kind: 'paragraph' as const, text: 'before', anchor: { type: 'page' as const, page: 1 } }
@@ -727,14 +729,14 @@ test('correction compares the current document and fences previous requests', as
           projectId: null
         });
         const state = yield* sources.sourceProcessing(source.id);
-        const published = yield* transaction(context, (tx) =>
+        const published = yield* transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 1,
             requestId: state.requestId!,
             document
           })
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
         const input = {
           id: source.id,
           documentId: published.documentId,
@@ -754,14 +756,14 @@ test('correction compares the current document and fences previous requests', as
         assert.deepEqual((yield* sources.sourceDocument(source.id)).document, document);
         assert.equal(
           (yield* Effect.flip(
-            transaction(context, (tx) =>
+            transaction((tx) =>
               tx.store(SourceStore).publishSourceDocument({
                 id: source.id,
                 expectedRevision: 1,
                 requestId: state.requestId!,
                 document
               })
-            )
+            ).pipe(Effect.provideService(Database, { store: context }))
           )).kind,
           'invalid_input'
         );
@@ -786,14 +788,14 @@ test('correction compares the current document and fences previous requests', as
           ).length,
           1
         );
-        yield* transaction(context, (tx) =>
+        yield* transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 2,
             requestId: replacement.requestId!,
             document: { ...document, blocks: [{ ...document.blocks[0]!, text: 'new input' }] }
           })
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
         assert.equal(
           (yield* sources.sourceDocument(source.id)).document.blocks[0]?.text,
           'new input'
@@ -809,7 +811,7 @@ test('correction compares the current document and fences previous requests', as
 test('assigning a ready unowned source emits an index event without reprocessing', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
     context.db.orm.run(
@@ -843,14 +845,14 @@ test('assigning a ready unowned source emits an index event without reprocessing
             corrected: false
           }
         };
-        const published = yield* transaction(context, (tx) =>
+        const published = yield* transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 1,
             requestId: state.requestId!,
             document
           })
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
         const assigned = yield* sources.setSourceProject({
           id: source.id,
           projectId: 1n as ProjectId
@@ -881,7 +883,7 @@ test('assigning a ready unowned source emits an index event without reprocessing
 test('correction request rolls back when outbox insertion fails', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
     await Effect.runPromise(
@@ -912,14 +914,14 @@ test('correction request rolls back when outbox insertion fails', async () => {
             corrected: false
           }
         };
-        const old = yield* transaction(context, (tx) =>
+        const old = yield* transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
             id: source.id,
             expectedRevision: 1,
             requestId: state.requestId!,
             document
           })
-        );
+        ).pipe(Effect.provideService(Database, { store: context }));
 
         context.db.orm.run(
           sql`CREATE TRIGGER reject_correction BEFORE INSERT ON workflow_events WHEN NEW.type = 'SourceCorrectionRequested' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
@@ -954,7 +956,7 @@ test('correction request rolls back when outbox insertion fails', async () => {
 test('project reassignment rejects an incompatible message attachment', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Sources.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
     context.db.orm.run(

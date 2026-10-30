@@ -19,7 +19,7 @@ test('native scoped HTTP RPC reaches Source SQLite transactions and closes its l
   const context = new ServerContext(location.open());
   const handlers = SourcesRpcLive.pipe(
     Layer.provide(Sources.layer),
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
   let url = '';
 

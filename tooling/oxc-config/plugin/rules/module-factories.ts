@@ -1,14 +1,22 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { targetPath } from '../architecture-imports.ts';
+import { canonicalImport, featureRole, targetPath } from '../architecture-imports.ts';
+import { property as field, walk } from './effect-lifecycle-syntax.ts';
 import { binding, production, property } from './synchronous-transactions.ts';
+
+type FactoryOwner = 'service' | 'store' | 'rpc' | 'workflow' | 'workflow-handler';
 
 export function entry(
   filename: string
-): { domain: string; owner: 'service' | 'store'; index: boolean } | null {
+): { domain: string; owner: FactoryOwner; index: boolean } | null {
   const path = filename.replaceAll('\\', '/');
 
   if (!production(path)) return null;
+
+  const role = featureRole(path);
+
+  if (/\/apps\/server\/src\/features\//.test(path) && (role === 'rpc' || role === 'workflow'))
+    return { domain: /features\/([^/]+)/.exec(path)![1], owner: role, index: false };
 
   const match =
     /\/apps\/server\/src\/features\/([^/]+)\/(index\.ts|(?:service|store)\/index\.ts)$/.exec(path);
@@ -49,6 +57,8 @@ export function resolveValue(context: any, node: any, seen = new Set<any>()): an
   if (node.type === 'Identifier') {
     const def = binding(context, node)?.defs[0]?.node;
 
+    if (def?.type === 'FunctionDeclaration') return def;
+
     if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
       return resolveValue(context, def.init, seen);
   }
@@ -56,60 +66,16 @@ export function resolveValue(context: any, node: any, seen = new Set<any>()): an
   return node;
 }
 
-export function isFactory(
-  context: any,
-  node: any,
-  owner: 'service' | 'store',
-  seen = new Set<any>()
-): boolean {
-  if (!node || seen.has(node)) return false;
+export function isFactory(context: any, node: any, owner: FactoryOwner): boolean {
+  const expected =
+    owner === 'workflow-handler'
+      ? 'defineWorkflowHandler'
+      : `define${owner[0].toUpperCase()}${owner.slice(1)}`;
 
-  seen.add(node);
-
-  if (
-    [
-      'TSAsExpression',
-      'TSSatisfiesExpression',
-      'TSNonNullExpression',
-      'ParenthesizedExpression'
-    ].includes(node.type)
-  )
-    return isFactory(context, node.expression, owner, seen);
-
-  const expected = owner === 'service' ? 'defineService' : 'defineStore';
-
-  if (node.type === 'Identifier') {
-    const def = binding(context, node)?.defs[0]?.node;
-
-    if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-      return isFactory(context, def.init, owner, seen);
-
-    return (
-      def?.type === 'ImportSpecifier' &&
-      (def.imported.name ?? def.imported.value) === expected &&
-      def.importKind !== 'type' &&
-      def.parent.importKind !== 'type' &&
-      targetPath(context.filename, def.parent.source.value) ===
-        `platform/definitions/define-${owner}`
-    );
-  }
-
-  if (property(node) === expected && node.object?.type === 'Identifier') {
-    const object = resolveValue(context, node.object);
-    const def = binding(context, object)?.defs[0]?.node;
-
-    return (
-      def?.type === 'ImportNamespaceSpecifier' &&
-      def.parent.importKind !== 'type' &&
-      targetPath(context.filename, def.parent.source.value) ===
-        `platform/definitions/define-${owner}`
-    );
-  }
-
-  return false;
+  return canonicalImport(context, node, `define-${owner}`, expected);
 }
 
-export function factoryCall(context: any, node: any, owner: 'service' | 'store'): any {
+export function factoryCall(context: any, node: any, owner: FactoryOwner): any {
   const value = resolveValue(context, node);
 
   return value?.type === 'CallExpression' && isFactory(context, value.callee, owner) ? value : null;
@@ -134,15 +100,30 @@ export default defineRule({
     if (!info) return {};
 
     const { owner, domain, index } = info;
-    const expected = owner === 'service' ? 'defineService' : 'defineStore';
+    const expected =
+      owner === 'workflow'
+        ? 'defineWorkflowHandler'
+        : `define${owner[0].toUpperCase()}${owner.slice(1)}`;
     let runtimeExport = false;
+    const executions = new Set<any>();
 
     function check(node: any, value: any) {
       runtimeExport = true;
 
       if (factoryCall(context, value, owner)) return;
 
+      if (owner === 'workflow' && factoryCall(context, value, 'workflow-handler')) return;
+
       const resolved = resolveValue(context, value);
+
+      if (
+        owner === 'workflow' &&
+        executions.has(resolved) &&
+        ['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(
+          resolved?.type
+        )
+      )
+        return;
 
       if (
         owner === 'service' &&
@@ -155,6 +136,21 @@ export default defineRule({
     }
 
     return {
+      Program(node: any) {
+        if (owner !== 'workflow') return;
+
+        walk(node, (part: any) => {
+          if (
+            part.type !== 'CallExpression' ||
+            !isFactory(context, part.callee, 'workflow-handler')
+          )
+            return;
+
+          const options = resolveValue(context, part.arguments[1]);
+
+          executions.add(resolveValue(context, field(options, 'execute')));
+        });
+      },
       ExportNamedDeclaration(node: any) {
         if (node.exportKind === 'type') return;
 

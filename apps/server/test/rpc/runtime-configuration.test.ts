@@ -9,6 +9,7 @@ import { AuthStore } from '#server/features/auth/store/index';
 import { Settings } from '#server/features/settings/index';
 import { Agents } from '#server/platform/ai/agents';
 import { encodeAccount } from '#server/platform/ai/auth/index';
+import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { App } from '#server/runtime/index';
@@ -30,11 +31,15 @@ test('same-account credential replacement changes the durable nonsecret fingerpr
           sharing: true
         });
 
-        yield* transaction(app.store, (tx) => tx.store(AuthStore).saveAccount(account));
+        yield* transaction((tx) => tx.store(AuthStore).saveAccount(account)).pipe(
+          Effect.provideService(Database, { store: app.store })
+        );
         const before = yield* configuration.revision;
         const publicAccount = yield* auth.publicAccount();
 
-        yield* transaction(app.store, (tx) => tx.store(AuthStore).saveAccount(account));
+        yield* transaction((tx) => tx.store(AuthStore).saveAccount(account)).pipe(
+          Effect.provideService(Database, { store: app.store })
+        );
         savedRevision = yield* configuration.revision;
 
         assert.notEqual(savedRevision, before);

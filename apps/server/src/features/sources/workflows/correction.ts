@@ -8,8 +8,8 @@ import { Activity } from 'effect/workflow';
 import { Sources } from '#server/features/sources/service/index';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 export const sourceCorrectionWorkflow = defineWorkflow({
   name: 'source-correction',
@@ -86,16 +86,13 @@ export const sourceCorrectionHandler = ({
     )
   );
 
-export const sourceCorrectionHandlerLayer =
-  sourceCorrectionWorkflow.toLayer(sourceCorrectionHandler);
-
-export function sourceCorrectionRequestedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'source-correction',
-    event: 'SourceCorrectionRequested',
-    workflowVersion: 1,
-    workflow: sourceCorrectionWorkflow,
-    emits: ['SourceIndexed', 'SourceProcessingFailed'],
-    enabled
-  };
-}
+export const sourceCorrectionRegistration = defineWorkflowHandler(sourceCorrectionWorkflow, {
+  execute: sourceCorrectionHandler,
+  triggers: [
+    {
+      subscription: 'source-correction',
+      event: 'SourceCorrectionRequested',
+      emits: ['SourceIndexed', 'SourceProcessingFailed']
+    }
+  ]
+});

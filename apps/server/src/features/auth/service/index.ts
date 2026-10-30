@@ -7,9 +7,8 @@ import { AuthGenerationStore, AuthStore } from '#server/features/auth/store/inde
 import { acquireSignIn, decodeAccount, encodeAccount } from '#server/platform/ai/auth/index';
 import type { Account, SignIn } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
-import { Database } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction } from '#server/platform/definitions/define-store';
+import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { classifyError } from '#server/platform/errors/classify-error';
 
 const same = (a: Account, b: Account) =>
@@ -35,9 +34,9 @@ const cancelled = () => new StudyError('cancelled', 'Sign-in cancelled');
 const invalid = (message: string) => new StudyError('invalid_input', message);
 
 function* makeAuth() {
-  const { store: context } = yield* Database;
+  const readAuthGenerationStore = yield* useStore(AuthGenerationStore);
   const { manager, issuer, hostId, request } = yield* ChatGptSession;
-  const store = AuthStore.make(context);
+  const store = yield* useStore(AuthStore);
   const read = () =>
     store
       .findAccount(undefined)
@@ -92,7 +91,7 @@ function* makeAuth() {
       yield* Effect.tryPromise({ try: () => manager.signOut(), catch: authFailure });
       const before = yield* read();
 
-      yield* transaction(context, (tx) => tx.store(AuthStore).deleteAccount(undefined)).pipe(
+      yield* transaction((tx) => tx.store(AuthStore).deleteAccount(undefined)).pipe(
         Effect.catch((error) =>
           Effect.gen(function* () {
             if (before)
@@ -154,9 +153,7 @@ function* makeAuth() {
           const persist = Effect.gen(function* () {
             if (closing || active !== attempt) return yield* Effect.fail(cancelled());
 
-            yield* transaction(context, (tx) =>
-              tx.store(AuthStore).saveAccount(encodeAccount(account))
-            );
+            yield* transaction((tx) => tx.store(AuthStore).saveAccount(encodeAccount(account)));
 
             return { signedIn: true, email: account.email ?? null, sharing: account.sharing };
           });
@@ -209,7 +206,7 @@ function* makeAuth() {
         closing = true;
         yield* cancel();
       }),
-    credentialGeneration: () => AuthGenerationStore.make(context).credentialGeneration(undefined),
+    credentialGeneration: () => readAuthGenerationStore.credentialGeneration(undefined),
     status,
     publicAccount: () =>
       read().pipe(
@@ -262,7 +259,7 @@ function* makeAuth() {
       cancel(input.attemptId).pipe(Effect.map((result) => result.cancelled)),
     signOut: () => Effect.uninterruptibleMask(() => Effect.gen(signOutAccount)),
     rotateRefreshToken: (input: { previous: Account; token: string }) =>
-      transaction(context, (tx) => {
+      transaction((tx) => {
         const value = tx.store(AuthStore).findAccount(undefined);
         const saved = Option.isSome(value) ? decodeAccount(value.value) : undefined;
 

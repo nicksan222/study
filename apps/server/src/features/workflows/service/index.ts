@@ -6,14 +6,15 @@ import type { Cause } from 'effect';
 import { Effect, Queue, Stream } from 'effect';
 
 import { ExecutionStore } from '#server/features/workflows/store/index';
-import { Database } from '#server/platform/database/database';
+import { databaseChanges } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
+import { useStore } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
 function* makeWorkflows() {
-  const { store: context } = yield* Database;
+  const changes = yield* databaseChanges;
   const control = yield* WorkflowControl;
-  const store = ExecutionStore.make(context);
+  const store = yield* useStore(ExecutionStore);
 
   const executions = (input: typeof executionsInputSchema.Type) =>
     Effect.gen(function* () {
@@ -31,7 +32,7 @@ function* makeWorkflows() {
   function* watchExecutions(queue: Queue.Queue<void, Cause.Done>) {
     yield* Effect.acquireRelease(
       Effect.sync(() =>
-        context.subscribe(() => {
+        changes.subscribe(() => {
           Queue.offerUnsafe(queue, undefined);
         })
       ),

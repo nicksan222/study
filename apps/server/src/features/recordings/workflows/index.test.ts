@@ -24,7 +24,7 @@ for (const deleteCommittedMessage of [false, true])
     let context = new ServerContext(location.open());
     const services = () =>
       Layer.mergeAll(Projects.layer, Conversations.layer, Sources.layer, Recordings.layer).pipe(
-        Layer.provide(Layer.succeed(Database, { store: context }))
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
 
     try {

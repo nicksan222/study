@@ -18,8 +18,8 @@ test('native session RPC returns typed missing failures and optional reads', asy
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const handlers = ConversationsRpcLive.pipe(
-    Layer.provide(Layer.merge(Conversations.layer, Settings.layer)),
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.merge(Conversations.layer, Settings.layer)),
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -53,8 +53,8 @@ test('native message RPC persists and reads a versioned message', async () => {
     .returning()
     .get();
   const handlers = ConversationsRpcLive.pipe(
-    Layer.provide(Layer.merge(Conversations.layer, Settings.layer)),
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.merge(Conversations.layer, Settings.layer)),
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {
@@ -169,8 +169,8 @@ test('native RPC keeps attachment thread messages isolated', async () => {
     .returning()
     .get();
   const handlers = ConversationsRpcLive.pipe(
-    Layer.provide(Layer.merge(Conversations.layer, Settings.layer)),
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.merge(Conversations.layer, Settings.layer)),
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {

@@ -9,9 +9,8 @@ import type {
 import { Effect } from 'effect';
 
 import { ProjectsStore } from '#server/features/projects/store/index';
-import { Database } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction } from '#server/platform/definitions/define-store';
+import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 function nameOf(value: string) {
   const name = value.trim();
@@ -44,8 +43,7 @@ function examOf(day: string | null) {
 export const Projects = defineService(
   'study/Projects',
   Effect.gen(function* () {
-    const { store: context } = yield* Database;
-    const store = ProjectsStore.make(context);
+    const store = yield* useStore(ProjectsStore);
 
     return {
       project: store.project,
@@ -62,17 +60,15 @@ export const Projects = defineService(
           return { items, next: more.length && last ? last.id : null };
         }),
       createProject: (input: typeof createProjectInputSchema.Type) =>
-        transaction(context, (tx) =>
-          tx.store(ProjectsStore).createProject({ name: nameOf(input.name) })
-        ),
+        transaction((tx) => tx.store(ProjectsStore).createProject({ name: nameOf(input.name) })),
       renameProject: (input: typeof renameProjectInputSchema.Type) =>
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(ProjectsStore).renameProject({ ...input, name: nameOf(input.name) })
         ),
       deleteProject: (input: typeof projectIdInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(ProjectsStore).deleteProject(input)),
+        transaction((tx) => tx.store(ProjectsStore).deleteProject(input)),
       setExam: (input: typeof setExamInputSchema.Type) =>
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(ProjectsStore).setExam({ ...input, examOn: examOf(input.examOn) })
         )
     };

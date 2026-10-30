@@ -35,7 +35,7 @@ test('source ingestion projects published materials and replay survives reopen',
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       Layer.succeed(Database, { store: context }),
       Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-        Layer.provide(Layer.succeed(Database, { store: context }))
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
       ),
       agentsLayer({
         model: () => Effect.succeed(model),

@@ -30,7 +30,7 @@ test('missing attempts are optional or typed failures', async () => {
         Effect.provide(
           Learning.layer
             .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
-            .pipe(Layer.provide(Layer.succeed(Database, { store: context })))
+            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )
     );
@@ -287,10 +287,12 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
           feedback: 'Good'
         };
 
-        yield* transaction(context, (tx) => tx.store(AttemptStore).publishGrade(grade));
-        yield* transaction(context, (tx) =>
-          tx.store(AttemptStore).publishGrade({ ...grade, score: 1 })
+        yield* transaction((tx) => tx.store(AttemptStore).publishGrade(grade)).pipe(
+          Effect.provideService(Database, { store: context })
         );
+        yield* transaction((tx) =>
+          tx.store(AttemptStore).publishGrade({ ...grade, score: 1 })
+        ).pipe(Effect.provideService(Database, { store: context }));
         assert.equal(db.select().from(s.material_quiz_responses).get()?.score, 0.5);
         yield* learning.answerQuestion({
           ...input,
@@ -298,7 +300,9 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
         });
         assert.equal(
           (yield* Effect.flip(
-            transaction(context, (tx) => tx.store(AttemptStore).publishGrade(grade))
+            transaction((tx) => tx.store(AttemptStore).publishGrade(grade)).pipe(
+              Effect.provideService(Database, { store: context })
+            )
           )).kind,
           'invalid_input'
         );
@@ -341,7 +345,7 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
         Effect.provide(
           Learning.layer
             .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
-            .pipe(Layer.provide(Layer.succeed(Database, { store: context })))
+            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )
     );
@@ -446,7 +450,7 @@ test('daily allowance limits new cards and review schedules persist', async () =
         Effect.provide(
           Learning.layer
             .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
-            .pipe(Layer.provide(Layer.succeed(Database, { store: context })))
+            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )
     );
@@ -562,7 +566,7 @@ test('practice starts idempotently with two captured pending slots', async () =>
         Effect.provide(
           Learning.layer
             .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
-            .pipe(Layer.provide(Layer.succeed(Database, { store: context })))
+            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )
     );

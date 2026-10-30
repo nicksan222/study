@@ -9,6 +9,7 @@ import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
 import { encodeAccount } from '#server/platform/ai/auth/persistence';
 import { ServerContext } from '#server/platform/database/context';
+import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { serve } from '#server/runtime/index';
 import { createStudyTest } from '#testing/server-test';
@@ -150,7 +151,7 @@ for (const mode of [
       const context = new ServerContext(resources.openDb());
 
       await Effect.runPromise(
-        transaction(context, (tx) =>
+        transaction((tx) =>
           tx.store(AuthStore).saveAccount(
             encodeAccount({
               subject: 'practice-user',
@@ -159,7 +160,7 @@ for (const mode of [
               sharing: true
             })
           )
-        )
+        ).pipe(Effect.provideService(Database, { store: context }))
       );
       context.close();
       const app = await resources.openApp({

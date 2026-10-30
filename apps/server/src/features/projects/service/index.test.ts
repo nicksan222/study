@@ -13,7 +13,9 @@ import { Projects } from './index.ts';
 test('projects enforce validation, distinguish missing records and page accurately', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Projects.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Projects.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
 
   try {
     await Effect.runPromise(
@@ -54,7 +56,9 @@ test('projects enforce validation, distinguish missing records and page accurate
 test('large project IDs survive reads and deletion cascades, while constraints roll back', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Projects.layer.pipe(Layer.provide(Layer.succeed(Database, { store: context })));
+  const layer = Projects.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
 
   try {
     const { sql } = await import('@study/db');

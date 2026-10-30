@@ -7,8 +7,8 @@ import { Activity } from 'effect/workflow';
 import { Materials } from '#server/features/materials/service/index';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 const resultSchema = Schema.Struct({
   original: materialDetailSchema,
@@ -37,15 +37,13 @@ export const sourceIndexedHandler = ({ event }: typeof sourceIndexedWorkflow.pay
     });
   });
 
-export const sourceIndexedHandlerLayer = sourceIndexedWorkflow.toLayer(sourceIndexedHandler);
-
-export function sourceIndexedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'source-material-projection',
-    event: 'SourceIndexed',
-    workflowVersion: 1,
-    workflow: sourceIndexedWorkflow,
-    emits: ['MaterialPublished'],
-    enabled
-  };
-}
+export const sourceIndexedRegistration = defineWorkflowHandler(sourceIndexedWorkflow, {
+  execute: sourceIndexedHandler,
+  triggers: [
+    {
+      subscription: 'source-material-projection',
+      event: 'SourceIndexed',
+      emits: ['MaterialPublished']
+    }
+  ]
+});

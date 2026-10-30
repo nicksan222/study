@@ -16,5 +16,6 @@ test('workflow retains versioned identity and native schemas', () => {
   });
 
   assert.equal(workflow._tag, 'study/test/v2');
+  assert.equal(workflow.version, 2);
   assert.equal(workflow.idempotencyKey({ id: 'abc' }), 'abc');
 });

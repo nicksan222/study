@@ -18,7 +18,7 @@ test('RPC handlers use the source service and return canonical failures', async 
   const context = new ServerContext(location.open());
   const handlers = SourcesRpcLive.pipe(
     Layer.provide(Sources.layer),
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {

@@ -17,7 +17,7 @@ test('native themes RPC exposes the catalog and typed failures', async () => {
   const context = new ServerContext(location.open());
   const handlers = ThemesRpcLive.pipe(
     Layer.provide(Themes.layer),
-    Layer.provide(Layer.succeed(Database, { store: context }))
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
   try {

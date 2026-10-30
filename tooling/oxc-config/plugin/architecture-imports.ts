@@ -163,3 +163,94 @@ export function featureRole(path: string): string | undefined {
 
   return /(?:^|\.)(service|store|rpc|workflow|agent|tool|decoder)$/.exec(name)?.[1];
 }
+
+/** Resolve runtime imports through lexical const aliases without trusting identifier spelling. */
+export function importedValue(
+  context: any,
+  node: any,
+  seen = new Set<any>()
+): { source: string; target: string | null; name: string } | null {
+  if (!node || seen.has(node)) return null;
+
+  seen.add(node);
+
+  if (
+    [
+      'TSAsExpression',
+      'TSSatisfiesExpression',
+      'TSNonNullExpression',
+      'ParenthesizedExpression'
+    ].includes(node.type)
+  )
+    return importedValue(context, node.expression, seen);
+
+  if (node.type === 'Identifier') {
+    const def = binding(context, node)?.defs[0]?.node;
+
+    if (
+      def?.parent?.type === 'ImportDeclaration' &&
+      def.parent.importKind !== 'type' &&
+      def.importKind !== 'type'
+    ) {
+      const name =
+        def.type === 'ImportSpecifier'
+          ? (def.imported.name ?? def.imported.value)
+          : def.type === 'ImportNamespaceSpecifier'
+            ? ''
+            : def.type === 'ImportDefaultSpecifier'
+              ? 'default'
+              : null;
+
+      return name === null
+        ? null
+        : {
+            source: def.parent.source.value,
+            target: targetPath(context.filename, def.parent.source.value),
+            name
+          };
+    }
+
+    if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
+      const base = importedValue(context, def.init, seen);
+
+      if (!base || def.id.type === 'Identifier') return base;
+
+      function path(pattern: any, names: string[]): string[] | null {
+        if (pattern.type === 'Identifier') return pattern.name === node.name ? names : null;
+
+        if (pattern.type !== 'ObjectPattern') return null;
+
+        for (const part of pattern.properties) {
+          if (part.type !== 'Property' || (part.computed && part.key.type !== 'Literal')) continue;
+
+          const found = path(part.value, [...names, part.key.name ?? part.key.value]);
+
+          if (found) return found;
+        }
+
+        return null;
+      }
+
+      const names = path(def.id, []);
+
+      return names ? { ...base, name: [base.name, ...names].filter(Boolean).join('.') } : null;
+    }
+  }
+
+  if (node.type === 'MemberExpression' && (!node.computed || node.property.type === 'Literal')) {
+    const base = importedValue(context, node.object, seen);
+    const name = node.property.name ?? node.property.value;
+
+    return base && typeof name === 'string'
+      ? { ...base, name: [base.name, name].filter(Boolean).join('.') }
+      : null;
+  }
+
+  return null;
+}
+
+export function canonicalImport(context: any, node: any, module: string, name: string): boolean {
+  const value = importedValue(context, node);
+
+  return value?.target === `platform/definitions/${module}` && value.name === name;
+}

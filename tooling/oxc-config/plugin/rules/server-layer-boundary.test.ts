@@ -19,7 +19,7 @@ test('RPC adapters delegate subscriptions instead of owning database capabilitie
       import { Workflows } from './service';
     `,
     'src/features/workflows/service.ts': `
-      import { Database } from '#server/platform/database/database';
+      import { databaseChanges } from '#server/platform/database/database';
     `
   });
 

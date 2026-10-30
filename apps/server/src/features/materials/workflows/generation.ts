@@ -17,9 +17,9 @@ import { diagramFeedback } from '#server/platform/ai/diagram/validator';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
-import type { Trigger } from '#server/platform/workflows/triggers';
 
 export const materialGenerationWorkflow = defineWorkflow({
   name: 'material-generation',
@@ -223,16 +223,13 @@ export const materialGenerationHandler = ({
 }: typeof materialGenerationWorkflow.payloadSchema.Type) =>
   Effect.gen(() => generateMaterial(event));
 
-export const materialGenerationHandlerLayer =
-  materialGenerationWorkflow.toLayer(materialGenerationHandler);
-
-export function materialGenerationRequestedTrigger(enabled: () => boolean): Trigger {
-  return {
-    subscription: 'material-generation',
-    event: 'MaterialGenerationRequested',
-    workflowVersion: 1,
-    workflow: materialGenerationWorkflow,
-    emits: ['MaterialPublished', 'MaterialGenerationFailed'],
-    enabled
-  };
-}
+export const materialGenerationRegistration = defineWorkflowHandler(materialGenerationWorkflow, {
+  execute: materialGenerationHandler,
+  triggers: [
+    {
+      subscription: 'material-generation',
+      event: 'MaterialGenerationRequested',
+      emits: ['MaterialPublished', 'MaterialGenerationFailed']
+    }
+  ]
+});

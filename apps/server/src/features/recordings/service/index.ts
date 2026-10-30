@@ -14,19 +14,19 @@ import {
   RecordingPostSnapshotStore
 } from '#server/features/recordings/store/index';
 import type { finishRecordingPostInputSchema } from '#server/features/recordings/store/schemas';
-import { Database } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction } from '#server/platform/definitions/define-store';
-import { emitEvent } from '#server/platform/workflows/events';
-import { PublicationGuard } from '#server/platform/workflows/publication';
+import {
+  transaction,
+  useStore,
+  publicationTransaction
+} from '#server/platform/definitions/define-store';
 
 export const Recordings = defineService(
   'study/Recordings',
   Effect.gen(function* () {
-    const { store: context } = yield* Database;
-    const recordings = RecordingStore.make(context);
-    const posts = RecordingPostStore.make(context);
-    const snapshots = RecordingPostSnapshotStore.make(context);
+    const recordings = yield* useStore(RecordingStore);
+    const posts = yield* useStore(RecordingPostStore);
+    const snapshots = yield* useStore(RecordingPostSnapshotStore);
 
     return {
       recording: recordings.recording,
@@ -45,13 +45,13 @@ export const Recordings = defineService(
           return { items, next: more.length && last ? last.id : null };
         }),
       createRecording: (id: SessionId) =>
-        transaction(context, (tx) => tx.store(RecordingStore).createRecording(id)),
+        transaction((tx) => tx.store(RecordingStore).createRecording(id)),
       appendRecording: (input: typeof appendRecordingInputSchema.Type) =>
-        transaction(context, (tx) => tx.store(RecordingStore).appendRecording(input)),
+        transaction((tx) => tx.store(RecordingStore).appendRecording(input)),
       deleteRecording: (id: RecordingId) =>
-        transaction(context, (tx) => tx.store(RecordingStore).deleteRecording(id)),
+        transaction((tx) => tx.store(RecordingStore).deleteRecording(id)),
       postRecording: (input: typeof postRecordingInputSchema.Type) =>
-        transaction(context, (tx) => {
+        transaction((tx) => {
           const requestId = randomUUID();
           const post = tx.store(RecordingPostStore).captureRecordingPost({ ...input, requestId });
 
@@ -60,38 +60,29 @@ export const Recordings = defineService(
               .store(RecordingPostSnapshotStore)
               .recordingPostSnapshot({ requestId });
 
-            emitEvent(
-              context,
-              {
-                type: 'RecordingPostRequested',
-                eventId: requestId,
-                requestId,
-                recordingId: snapshot.recordingId,
-                sessionId: snapshot.sessionId,
-                projectId: snapshot.projectId,
-                causationId: null,
-                correlationId: requestId,
-                inputVersion: 1,
-                depth: 0
-              },
-              context.clock.currentTimeMillisUnsafe()
-            );
+            tx.emit({
+              type: 'RecordingPostRequested',
+              eventId: requestId,
+              requestId,
+              recordingId: snapshot.recordingId,
+              sessionId: snapshot.sessionId,
+              projectId: snapshot.projectId,
+              causationId: null,
+              correlationId: requestId,
+              inputVersion: 1,
+              depth: 0
+            });
           }
 
           return post;
         }),
       finishRecordingPost: (input: typeof finishRecordingPostInputSchema.Type) =>
-        Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
-
-          return yield* transaction(context, (tx) => {
-            guard.assert();
-            tx.store(RecordingPostSnapshotStore).recordingPostSnapshot({
-              requestId: input.requestId
-            });
-
-            return tx.store(RecordingPostStore).finishRecordingPost(input);
+        publicationTransaction((tx) => {
+          tx.store(RecordingPostSnapshotStore).recordingPostSnapshot({
+            requestId: input.requestId
           });
+
+          return tx.store(RecordingPostStore).finishRecordingPost(input);
         })
     };
   })
