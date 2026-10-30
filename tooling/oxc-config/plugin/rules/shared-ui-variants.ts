@@ -1,5 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
+import { isPresentationAttribute } from '../presentation-attributes.ts';
+
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
@@ -38,24 +40,7 @@ export default defineRule({
           return;
 
         for (const attribute of node.attributes) {
-          const explicit =
-            attribute.type === 'JSXAttribute' &&
-            attribute.name.type === 'JSXIdentifier' &&
-            (attribute.name.name === 'className' || attribute.name.name === 'style');
-          const spread =
-            attribute.type === 'JSXSpreadAttribute' &&
-            attribute.argument.type === 'ObjectExpression' &&
-            attribute.argument.properties.some(
-              (property) =>
-                property.type === 'Property' &&
-                !property.computed &&
-                ((property.key.type === 'Identifier' &&
-                  (property.key.name === 'className' || property.key.name === 'style')) ||
-                  (property.key.type === 'Literal' &&
-                    (property.key.value === 'className' || property.key.value === 'style')))
-            );
-
-          if (explicit || spread)
+          if (isPresentationAttribute(attribute))
             context.report({
               node: attribute,
               message: 'Define a shared UI component variant instead of styling it in app code.'

@@ -51,8 +51,10 @@ test('migration upserts its palette and runtime reopen does not reseed it', asyn
   const { readFileSync, readdirSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const folder = fileURLToPath(new URL('../drizzle/', import.meta.resolve('@study/db')));
-  const migration = readdirSync(folder).find((name) => name.endsWith('_theme-t3-code'))!;
-  const statement = readFileSync(`${folder}/${migration}/migration.sql`, 'utf8');
+  const statements = readdirSync(folder)
+    .filter((name) => name.includes('_theme-'))
+    .sort()
+    .map((name) => readFileSync(`${folder}/${name}/migration.sql`, 'utf8'));
   const original = f.store.db.orm.select().from(themes).where(eq(themes.id, 't3-code')).get()!;
   const modified = { ...original.definition, name: 'Modified' };
 
@@ -73,8 +75,10 @@ test('migration upserts its palette and runtime reopen does not reseed it', asyn
     reopened.close();
   }
 
-  f.store.db.orm.run(sql.raw(statement));
-  f.store.db.orm.run(sql.raw(statement));
+  for (const statement of statements) f.store.db.orm.run(sql.raw(statement));
+
+  for (const statement of statements) f.store.db.orm.run(sql.raw(statement));
+
   assert.deepEqual(
     f.store.db.orm.select().from(themes).where(eq(themes.id, 't3-code')).get(),
     original

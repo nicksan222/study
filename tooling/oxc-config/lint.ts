@@ -45,8 +45,8 @@ export const lint = {
     { name: 'study', specifier: './tooling/oxc-config/plugin/index.ts' }
   ],
   categories: { correctness: 'error' },
-  // tsc owns type checking; Oxlint also uses type information for correctness rules.
-  options: { typeAware: true, typeCheck: false },
+  // Dedicated tsc checks own type analysis; lint checks syntax and architecture.
+  options: { typeAware: false, typeCheck: false, reportUnusedDisableDirectives: 'error' },
   ignorePatterns: [
     '**/node_modules/**',
     '**/dist/**',
@@ -58,6 +58,12 @@ export const lint = {
     'target/**'
   ],
   rules: {
+    'react/no-array-index-key': 'error',
+    'react/no-unstable-nested-components': 'error',
+    'oxc/no-accumulating-spread': 'error',
+    'eslint/no-unsafe-optional-chaining': 'error',
+    'eslint/no-empty-pattern': 'error',
+    'unicorn/no-useless-spread': 'error',
     'study/drizzle-boundary': 'error',
     'study/effect-scoped-fibers': 'error',
     'study/effect-no-native-timers': 'error',
@@ -90,6 +96,7 @@ export const lint = {
     'study/package-boundary': 'error',
     'study/theme-colors': 'error',
     'study/shared-ui-variants': 'error',
+    'study/web-presentation': 'error',
     'vite-plus/prefer-vite-plus-imports': 'error',
     '@stylistic/padding-line-between-statements': [
       'error',

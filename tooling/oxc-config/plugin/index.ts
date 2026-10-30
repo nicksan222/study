@@ -29,6 +29,7 @@ import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
 import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
+import webPresentation from './rules/web-presentation.ts';
 
 export default definePlugin({
   meta: { name: 'study' },
@@ -63,6 +64,7 @@ export default definePlugin({
     'browser-boundary': browserBoundary,
     'package-boundary': packageBoundary,
     'theme-colors': themeRule,
-    'shared-ui-variants': sharedUiVariants
+    'shared-ui-variants': sharedUiVariants,
+    'web-presentation': webPresentation
   }
 });

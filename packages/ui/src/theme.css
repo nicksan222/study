@@ -32,6 +32,12 @@
   --success: #8fbaad;
 }
 
+/* Share one tiled texture across chrome and raised workspace surfaces. */
+:root {
+  --surface-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  --surface-grain-size: 256px 256px;
+}
+
 /* Generated from the T3 Code database theme. */
 :root {
   --search-match-background: #ffde8b;
@@ -107,34 +113,34 @@
   --search-match-foreground: #f5f5f5;
   --search-match-active-background: #eea52b;
   --search-match-active-foreground: #21180a;
-  --canvas: #0a0a0a;
-  --app-chrome-background: #0a0a0a;
-  --toolbar-background: #0a0a0a;
-  --toolbar-foreground: #f5f5f5;
-  --toolbar-border: #191919;
-  --toolbar-control: #111111;
-  --toolbar-control-foreground: #f5f5f5;
-  --toolbar-control-hover: #141414;
-  --background: #111111;
-  --card: #111111;
-  --surface-raised: #111111;
-  --popover: #111111;
-  --foreground: #f5f5f5;
-  --card-foreground: #f5f5f5;
-  --popover-foreground: #f5f5f5;
-  --text-muted: #818181;
-  --border: #191919;
-  --input: #1e1e1e;
-  --ring: #346bf1;
-  --primary: #346bf1;
-  --primary-foreground: #ffffff;
-  --secondary: #111111;
-  --secondary-foreground: #f5f5f5;
-  --muted: #111111;
-  --muted-foreground: #818181;
-  --placeholder: #818181;
-  --secondary-label: #818181;
-  --icon-muted: #818181;
+  --canvas: #16161f;
+  --app-chrome-background: #16161f;
+  --toolbar-background: #16161f;
+  --toolbar-foreground: #b9bee0;
+  --toolbar-border: #242633;
+  --toolbar-control: #1e1f2c;
+  --toolbar-control-foreground: #b9bee0;
+  --toolbar-control-hover: #242633;
+  --background: #1a1c26;
+  --card: #1e1f2c;
+  --surface-raised: #1e1f2c;
+  --popover: #1e2230;
+  --foreground: #b9bee0;
+  --card-foreground: #b9bee0;
+  --popover-foreground: #b9bee0;
+  --text-muted: #7b819e;
+  --border: #2b2e40;
+  --input: #34384e;
+  --ring: #7aa2f7;
+  --primary: #3d59a1;
+  --primary-foreground: #e3e8ff;
+  --secondary: #212330;
+  --secondary-foreground: #b9bee0;
+  --muted: #212330;
+  --muted-foreground: #7b819e;
+  --placeholder: #7b819e;
+  --secondary-label: #7b819e;
+  --icon-muted: #7b819e;
   --error: #fb414a;
   --destructive: #fb414a;
   --error-foreground: #ff6467;
@@ -146,27 +152,27 @@
   --info: #346bf1;
   --info-foreground: #51a2ff;
   --update-surface: #121b34;
-  --accent: #141414;
-  --accent-foreground: #f5f5f5;
-  --message-surface: #141414;
-  --message-foreground: #f5f5f5;
-  --message-action: #346bf1;
-  --message-action-foreground: #ffffff;
-  --message-action-hover: #3061d9;
-  --code-background: #111111;
-  --code-foreground: #f5f5f5;
-  --sidebar: #000000;
-  --sidebar-foreground: #f1f3f7;
-  --sidebar-muted-foreground: #a3a3a3;
-  --sidebar-control-surface: #0a0a0a;
-  --sidebar-row-hover: #131313;
-  --sidebar-row-active: #1a1b1b;
-  --sidebar-row-selected: #111111;
-  --sidebar-border: #141414;
-  --terminal-background: #0a0a0a;
-  --terminal-foreground: #f5f5f5;
-  --terminal-cursor: #b4cbff;
-  --terminal-selection: #343a47;
-  --terminal-scrollbar: #222222;
-  --terminal-scrollbar-hover: #363636;
+  --accent: #242633;
+  --accent-foreground: #b9bee0;
+  --message-surface: #1e1f2c;
+  --message-foreground: #b9bee0;
+  --message-action: #3d59a1;
+  --message-action-foreground: #e3e8ff;
+  --message-action-hover: #4866af;
+  --code-background: #16161f;
+  --code-foreground: #b9bee0;
+  --sidebar: #1a1a22;
+  --sidebar-foreground: #b9bee0;
+  --sidebar-muted-foreground: #7b819e;
+  --sidebar-control-surface: #16161f;
+  --sidebar-row-hover: #20212d;
+  --sidebar-row-active: #292c3d;
+  --sidebar-row-selected: #242633;
+  --sidebar-border: #242633;
+  --terminal-background: #16161f;
+  --terminal-foreground: #b9bee0;
+  --terminal-cursor: #b9bee0;
+  --terminal-selection: #34384e;
+  --terminal-scrollbar: #242633;
+  --terminal-scrollbar-hover: #34384e;
 }
