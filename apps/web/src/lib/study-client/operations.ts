@@ -1,5 +1,5 @@
 import type { SessionDto } from '@study/contracts/conversations/schemas';
-import type { ProjectId, MaterialId, SourceId } from '@study/contracts/ids';
+import type { ProjectId, SourceId, MaterialId } from '@study/contracts/ids';
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
 import type { Project } from '@study/contracts/projects/schemas';
 import type { Source } from '@study/contracts/sources/schemas';
@@ -11,6 +11,7 @@ import { runRequest } from '../effect/runtime';
 import { studyClient } from './client';
 import type { StudyClient } from './client';
 import { toStudyError } from './errors';
+import { collectPages } from './pagination';
 
 function request<A, E>(invoke: (client: StudyClient) => Effect.Effect<A, E>, signal?: AbortSignal) {
   return runRequest(
@@ -34,79 +35,39 @@ export type SearchInput = typeof searchInputSchema.Type;
 export const listProjects = (signal?: AbortSignal) =>
   request(
     (client) =>
-      Effect.gen(function* () {
-        const items: Project[] = [];
-        let before: ProjectId | undefined;
-
-        do {
-          const page = yield* client['projects.projects']({ limit: 100, before });
-
-          items.push(...page.items);
-          before = page.next ?? undefined;
-        } while (before !== undefined);
-
-        return items;
-      }),
+      collectPages((before: ProjectId | undefined) =>
+        client['projects.projects']({ limit: 100, before })
+      ),
     signal
   );
 
 export const listSessions = (signal?: AbortSignal) =>
   request(
     (client) =>
-      Effect.gen(function* () {
-        const items: SessionDto[] = [];
-        let before: Parameters<(typeof client)['conversations.sessions']>[0]['before'];
-
-        do {
-          const page = yield* client['conversations.sessions']({ limit: 100, before });
-
-          items.push(...page.items);
-          before = page.next ?? undefined;
-        } while (before !== undefined);
-
-        return items;
-      }),
+      collectPages((before: Parameters<StudyClient['conversations.sessions']>[0]['before']) =>
+        client['conversations.sessions']({ limit: 100, before })
+      ),
     signal
   );
 
 export const listSources = (signal?: AbortSignal) =>
   request(
     (client) =>
-      Effect.gen(function* () {
-        const items: Source[] = [];
-        let before: SourceId | undefined;
-
-        do {
-          const page = yield* client['sources.sources']({ limit: 100, before });
-
-          items.push(...page.items);
-          before = page.next ?? undefined;
-        } while (before !== undefined);
-
-        return items;
-      }),
+      collectPages((before: SourceId | undefined) =>
+        client['sources.sources']({ limit: 100, before })
+      ),
     signal
   );
 
 function listAllMaterials(client: StudyClient, projectId: ProjectId) {
-  return Effect.gen(function* () {
-    const items: Materials = [];
-    let cursor: MaterialId | undefined;
-
-    do {
-      const page = yield* client['materials.materials']({
-        projectId,
-        cursor,
-        limit: 100,
-        archived: false
-      });
-
-      items.push(...page.items);
-      cursor = page.nextCursor ?? undefined;
-    } while (cursor !== undefined);
-
-    return items;
-  });
+  return collectPages((cursor: MaterialId | undefined) =>
+    client['materials.materials']({
+      projectId,
+      cursor,
+      limit: 100,
+      archived: false
+    }).pipe(Effect.map((page) => ({ items: page.items, next: page.nextCursor })))
+  );
 }
 
 export const listMaterialsForProjects = (projectIds: readonly ProjectId[], signal?: AbortSignal) =>
@@ -135,15 +96,9 @@ export const loadAppearance = (signal?: AbortSignal) =>
           [client['settings.appSettings']({}), client['themes.selectedTheme']({})],
           { concurrency: 2 }
         );
-        const themes = [];
-        let before: string | undefined;
-
-        do {
-          const page = yield* client['themes.themes']({ limit: 100, before });
-
-          themes.push(...page.items);
-          before = page.next ?? undefined;
-        } while (before !== undefined);
+        const themes = yield* collectPages((before: string | undefined) =>
+          client['themes.themes']({ limit: 100, before })
+        );
 
         return { settings, selected, themes };
       }),
