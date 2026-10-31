@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { StudyError } from '@study/contracts/errors';
+
+import { normalizeError } from '#server/platform/errors/classify-error';
+
+test('normalization preserves domain failure identity and retry metadata', () => {
+  const cause = new Error('provider');
+  const failure = new StudyError('rate_limited', 'slow down', { cause, retryAfterMs: 42 });
+
+  assert.equal(normalizeError(failure), failure);
+  assert.equal(normalizeError(failure).cause, cause);
+});
+
+test('normalization classifies unknown causes without exposing their messages', () => {
+  const cause = Object.assign(new Error('private path'), { code: 'EACCES' });
+  const failure = normalizeError(cause);
+
+  assert.equal(failure.kind, 'config');
+  assert.equal(failure.message, 'Required resource is not accessible');
+  assert.equal(failure.cause, cause);
+  assert.equal(failure.retryAfterMs, null);
+});

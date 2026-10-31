@@ -55,3 +55,15 @@ function isTransient(errcode: number | undefined, code: string) {
     )
   );
 }
+
+/** Preserve domain failures and normalize unknown exceptions at synchronous boundaries. */
+export function normalizeError(error: unknown): StudyError {
+  if (error instanceof StudyError) return error;
+
+  const classified = classifyError(error);
+
+  return new StudyError(classified.kind, classified.message, {
+    cause: error,
+    retryAfterMs: classified.retryAfterMs
+  });
+}
