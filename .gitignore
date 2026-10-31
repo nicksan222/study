@@ -46,6 +46,7 @@ __pycache__/
 /dist/
 
 # Design tool working files; its settings in .impeccable/config.json are kept.
+/.taste-skill/
 **/.impeccable/*
 !/.impeccable/config.json
 

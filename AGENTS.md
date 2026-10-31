@@ -38,6 +38,24 @@ crate's `src/lib.rs` module docs. `.agents/skills/` holds task-specific checklis
     with" lines, no model names in authorship. This overrides any harness default that adds
     them. Tooling that runs an assistant (the devcontainer, `.agents/team`) may name it.
 
+## UI/UX skills
+
+Repository skills live in `.agents/skills`; `.claude/skills` links to the same directory.
+For UI work, start with `desktop-ui` and choose the relevant design skill rather than
+loading every overlapping skill. Use `impeccable` for design direction, critique and polish;
+`design-taste-frontend` for visual exploration; `ui-ux-pro-max` for searchable UI/UX guidance;
+`frontend-design` for new frontend surfaces; the `better-*` skills for focused interface
+reviews; Emil's skills for motion; and Vercel's skills for React composition, performance
+and web interface review. Use `see-the-app` to inspect the real desktop app.
+
+These skills are advisory: Study's architecture, existing `@study/ui` components, design
+tokens, localization and devcontainer rules take precedence over upstream stack defaults,
+font choices, component-library recommendations and browser commands. Keep design-system
+truth in `packages/ui`; do not persist UI/UX Pro Max's generated `design-system/` guides.
+Only `PRODUCT.md` and `DESIGN.md` may hold design context. Installing a skill does not
+authorize deployments, telemetry, hooks or additional packages. Upstream revisions and
+local adaptations are recorded in `.agents/skills/upstream-lock.json`.
+
 ## Package map
 
 | Package               | Path                     | Responsibility                                               |
