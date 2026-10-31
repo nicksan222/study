@@ -11,6 +11,7 @@ import { Effect } from 'effect';
 import { ProjectsStore } from '#server/features/projects/store/index';
 import { defineService } from '#server/platform/definitions/define-service';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
+import { pageById } from '#server/platform/definitions/page-by-id';
 
 function nameOf(value: string) {
   const name = value.trim();
@@ -48,17 +49,7 @@ export const Projects = defineService(
     return {
       project: store.project,
       findProject: store.findProject,
-      projects: (input: typeof projectPageInputSchema.Type) =>
-        Effect.gen(function* () {
-          const items = yield* store.projects(input);
-          const last = items.at(-1);
-          const more =
-            last && items.length === input.limit
-              ? yield* store.projects({ limit: 1, before: last.id })
-              : [];
-
-          return { items, next: more.length && last ? last.id : null };
-        }),
+      projects: (input: typeof projectPageInputSchema.Type) => pageById(store.projects, input),
       createProject: (input: typeof createProjectInputSchema.Type) =>
         transaction((tx) => tx.store(ProjectsStore).createProject({ name: nameOf(input.name) })),
       renameProject: (input: typeof renameProjectInputSchema.Type) =>
