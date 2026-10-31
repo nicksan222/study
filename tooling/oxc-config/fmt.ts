@@ -1,5 +1,7 @@
 import type { UserConfig } from 'vite-plus';
 
+import { upstreamSkillPatterns } from './upstream-skills.ts';
+
 type FmtConfig = NonNullable<UserConfig['fmt']>;
 
 export const fmt = {
@@ -10,6 +12,7 @@ export const fmt = {
   trailingComma: 'none',
   sortImports: { newlinesBetween: true, partitionByNewline: false },
   ignorePatterns: [
+    ...upstreamSkillPatterns,
     '**/node_modules/**',
     '**/dist/**',
     '**/coverage/**',
