@@ -143,7 +143,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
               .get()!.payload
           );
 
-          if (generation.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+          assertEventType(generation, 'ConversationGenerationRequested', 'wrong event');
 
           yield* engine.execute(conversationReplyWorkflow, {
             executionId: receipt.executionId,
@@ -166,8 +166,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             .map((row) => decodeEvent(row.payload))
             .find((event) => event.type === 'SourceProcessingRequested');
 
-          if (!sourceEvent || sourceEvent.type !== 'SourceProcessingRequested')
-            throw new Error('missing event');
+          assertEventType(sourceEvent, 'SourceProcessingRequested', 'missing event');
 
           yield* engine.execute(sourceIngestionWorkflow, {
             executionId: 'ingestion',
@@ -180,7 +179,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             .map((row) => decodeEvent(row.payload))
             .find((event) => event.type === 'SourceIndexed');
 
-          if (!indexed || indexed.type !== 'SourceIndexed') throw new Error('missing index event');
+          assertEventType(indexed, 'SourceIndexed', 'missing index event');
 
           dispatchPending(
             context,
@@ -255,8 +254,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
                 item.type === 'SourceProcessingRequested' && item.sourceId === earlySource.id
             );
 
-          if (!earlyIngestion || earlyIngestion.type !== 'SourceProcessingRequested')
-            throw new Error('missing ingestion');
+          assertEventType(earlyIngestion, 'SourceProcessingRequested', 'missing ingestion');
 
           yield* engine.execute(sourceIngestionWorkflow, {
             executionId: 'early-ingestion',
@@ -269,7 +267,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             .map((item) => decodeEvent(item.payload))
             .find((item) => item.type === 'SourceIndexed' && item.sourceId === earlySource.id);
 
-          if (!earlyIndex || earlyIndex.type !== 'SourceIndexed') throw new Error('missing index');
+          assertEventType(earlyIndex, 'SourceIndexed', 'missing index');
 
           yield* engine.execute(conversationAttachmentWakeWorkflow, {
             executionId: 'early-wake',
@@ -283,7 +281,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             .get()!;
           const earlyEvent = decodeEvent(earlyEventRow.payload);
 
-          if (earlyEvent.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+          assertEventType(earlyEvent, 'ConversationGenerationRequested', 'wrong event');
 
           const earlyReceipt = context.db.orm
             .select()
@@ -323,8 +321,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
                 item.type === 'SourceProcessingRequested' && item.sourceId === failedSource.id
             );
 
-          if (!failedIngestion || failedIngestion.type !== 'SourceProcessingRequested')
-            throw new Error('missing ingestion');
+          assertEventType(failedIngestion, 'SourceProcessingRequested', 'missing ingestion');
 
           yield* Effect.flip(
             engine.execute(sourceIngestionWorkflow, {
@@ -341,8 +338,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
               (item) => item.type === 'SourceProcessingFailed' && item.sourceId === failedSource.id
             );
 
-          if (!failureNotice || failureNotice.type !== 'SourceProcessingFailed')
-            throw new Error('missing failure notice');
+          assertEventType(failureNotice, 'SourceProcessingFailed', 'missing failure notice');
 
           yield* engine.execute(conversationAttachmentWakeWorkflow, {
             executionId: 'early-failure-wake',
@@ -381,6 +377,12 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             'later-pending',
             'ready-reference'
           ] as const) {
+            yield* assertInvalidationResumesReply(mode);
+          }
+
+          function* assertInvalidationResumesReply(
+            mode: 'delete' | 'replace' | 'unsupported' | 'later-pending' | 'ready-reference'
+          ) {
             const nextSession = yield* conversations.createSession({
               project: project.id,
               title: mode
@@ -411,8 +413,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
                     item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
                 );
 
-              if (!ingestion || ingestion.type !== 'SourceProcessingRequested')
-                throw new Error('missing ingestion');
+              assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
 
               yield* engine.execute(sourceIngestionWorkflow, {
                 executionId: 'ready-reference-source',
@@ -465,34 +466,37 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             if (['delete', 'later-pending', 'ready-reference'].includes(mode))
               yield* sources.deleteSource({ id: nextSource.id });
 
-            if (mode === 'replace')
-              yield* sources.replaceSource({
-                id: nextSource.id,
-                expectedRevision: 1,
-                name: 'new.txt',
-                bytes: new TextEncoder().encode('new')
-              });
+            yield* invalidateSource();
 
-            if (mode === 'unsupported') {
-              const ingestion = context.db.orm
-                .select()
-                .from(tables.workflowEvents)
-                .all()
-                .map((item) => decodeEvent(item.payload))
-                .find(
-                  (item) =>
-                    item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
+            function* invalidateSource() {
+              if (mode === 'replace')
+                yield* sources.replaceSource({
+                  id: nextSource.id,
+                  expectedRevision: 1,
+                  name: 'new.txt',
+                  bytes: new TextEncoder().encode('new')
+                });
+
+              if (mode === 'unsupported') {
+                const ingestion = context.db.orm
+                  .select()
+                  .from(tables.workflowEvents)
+                  .all()
+                  .map((item) => decodeEvent(item.payload))
+                  .find(
+                    (item) =>
+                      item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
+                  );
+
+                assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
+
+                yield* Effect.flip(
+                  engine.execute(sourceIngestionWorkflow, {
+                    executionId: `ingestion-${mode}`,
+                    payload: { event: ingestion }
+                  })
                 );
-
-              if (!ingestion || ingestion.type !== 'SourceProcessingRequested')
-                throw new Error('missing ingestion');
-
-              yield* Effect.flip(
-                engine.execute(sourceIngestionWorkflow, {
-                  executionId: `ingestion-${mode}`,
-                  payload: { event: ingestion }
-                })
-              );
+              }
             }
 
             const wake = context.db.orm
@@ -509,40 +513,38 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
                     item.type === 'SourceProcessingFailed')
               );
 
-            if (
-              !wake ||
-              !('sourceId' in wake) ||
-              (wake.type !== 'SourceDeleted' &&
-                wake.type !== 'SourceProcessingRequested' &&
-                wake.type !== 'SourceProcessingFailed')
-            )
-              throw new Error('missing wake');
+            assertWakeEvent(wake);
 
             yield* engine.execute(conversationAttachmentWakeWorkflow, {
               executionId: `wake-${mode}`,
               payload: { event: wake }
             });
-            let completed = false;
+            yield* assertReplyCompleted();
 
-            for (let i = 0; i < 100; i++) {
-              const observed = yield* engine.poll(
-                conversationReplyWorkflow,
-                nextReceipt.executionId
-              );
+            function* assertReplyCompleted() {
+              let completed = false;
 
-              if (Option.isSome(observed) && observed.value._tag === 'Complete') {
-                completed = true;
-                break;
+              for (let i = 0; i < 100; i++) {
+                const observed = yield* engine.poll(
+                  conversationReplyWorkflow,
+                  nextReceipt.executionId
+                );
+
+                if (Option.isSome(observed) && observed.value._tag === 'Complete') {
+                  completed = true;
+                  break;
+                }
+
+                yield* Effect.sleep('10 millis');
               }
 
-              yield* Effect.sleep('10 millis');
+              assert.equal(
+                completed,
+                true,
+                `source invalidation must resume the blocked ${mode} reply`
+              );
             }
 
-            assert.equal(
-              completed,
-              true,
-              `source invalidation must resume the blocked ${mode} reply`
-            );
             const error = yield* Effect.flip(
               engine.execute(conversationReplyWorkflow, {
                 executionId: nextReceipt.executionId,
@@ -640,7 +642,7 @@ test('a pending reply survives reopening and wakes on deletion', async () => {
               .get()!.payload
           );
 
-          if (event.type !== 'ConversationGenerationRequested') throw new Error('wrong event');
+          assertEventType(event, 'ConversationGenerationRequested', 'wrong event');
 
           yield* engine.execute(conversationReplyWorkflow, {
             executionId: receipt.executionId,
@@ -682,7 +684,7 @@ test('a pending reply survives reopening and wakes on deletion', async () => {
             .map((row) => decodeEvent(row.payload))
             .find((event) => event.type === 'SourceDeleted' && event.sourceId === saved.sourceId);
 
-          if (!deleted || deleted.type !== 'SourceDeleted') throw new Error('missing deletion');
+          assertEventType(deleted, 'SourceDeleted', 'missing deletion');
 
           yield* engine.execute(conversationAttachmentWakeWorkflow, {
             executionId: 'reopen-wake',
@@ -713,3 +715,26 @@ test('a pending reply survives reopening and wakes on deletion', async () => {
     location.cleanup();
   }
 });
+
+function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  event: ReturnType<typeof decodeEvent> | undefined,
+  type: T,
+  message: string
+): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
+  assert.ok(event && event.type === type, message);
+}
+
+function assertWakeEvent(
+  event: ReturnType<typeof decodeEvent> | undefined
+): asserts event is Extract<
+  ReturnType<typeof decodeEvent>,
+  { type: 'SourceDeleted' | 'SourceProcessingRequested' | 'SourceProcessingFailed' }
+> {
+  assert.ok(
+    event &&
+      (event.type === 'SourceDeleted' ||
+        event.type === 'SourceProcessingRequested' ||
+        event.type === 'SourceProcessingFailed'),
+    'missing wake'
+  );
+}

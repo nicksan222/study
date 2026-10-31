@@ -3,7 +3,7 @@
 // with every section that quotes it (Hero, Material, Learn).
 import type { Shape } from '../strings';
 
-export const en = {
+export const lectureEn = {
   passage: {
     label: 'Sample lecture',
     source: 'lecture-mitosis.mp3',
@@ -50,7 +50,7 @@ export const en = {
   ]
 } as const;
 
-export const it: Shape<typeof en> = {
+export const lectureIt: Shape<typeof lectureEn> = {
   passage: {
     label: 'Lezione di esempio',
     source: 'lecture-mitosis.mp3',

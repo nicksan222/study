@@ -3,6 +3,7 @@ import { and, desc, eq, lt } from '@study/db';
 import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
+import { cursorPage } from '#server/platform/pagination';
 
 import { makeCards } from './cards.ts';
 
@@ -36,10 +37,7 @@ export function makeReviewHistory(resources: StoreResources) {
       .limit(input.limit + 1)
       .all();
 
-    return {
-      items: rows.slice(0, input.limit),
-      nextCursor: rows.length > input.limit ? rows[input.limit - 1]!.review.id : null
-    };
+    return cursorPage(rows, input.limit, (row) => row.review.id);
   };
 
   return {

@@ -60,23 +60,8 @@ export function LibraryListView({
     <Sidebar.Items aria-label={t(section === 'library' ? 'SidebarLibrary' : 'Practice')}>
       {items.map((item) => {
         const kind = item.type === 'source' ? 'source' : item.value.kind;
-        const Icon =
-          kind === 'source'
-            ? FileText
-            : kind === 'diagram'
-              ? Network
-              : kind === 'flashcards'
-                ? Layers
-                : GraduationCap;
-        const label = t(
-          kind === 'source'
-            ? 'SearchKindFile'
-            : kind === 'diagram'
-              ? 'Diagrams'
-              : kind === 'flashcards'
-                ? 'Flashcards'
-                : 'SidebarQuiz'
-        );
+        const { Icon, labelKey } = libraryItemPresentation(kind);
+        const label = t(labelKey);
         const title = item.type === 'source' ? item.value.name : item.value.title;
         const projectId = item.type === 'source' ? item.value.projectId : item.value.project_id;
         const updated = item.type === 'source' ? item.value.createdAt : item.value.updated_at;
@@ -118,4 +103,17 @@ export function LibraryListView({
       )}
     </Sidebar.Items>
   );
+}
+
+function libraryItemPresentation(kind: string) {
+  switch (kind) {
+    case 'source':
+      return { Icon: FileText, labelKey: 'SearchKindFile' as const };
+    case 'diagram':
+      return { Icon: Network, labelKey: 'Diagrams' as const };
+    case 'flashcards':
+      return { Icon: Layers, labelKey: 'Flashcards' as const };
+    default:
+      return { Icon: GraduationCap, labelKey: 'SidebarQuiz' as const };
+  }
 }

@@ -60,35 +60,13 @@ export default defineRule({
 
         if (!view) return;
 
-        const names = node.specifiers?.map((item: any) =>
-          item.type === 'ImportSpecifier' && item.imported.type === 'Identifier'
-            ? item.imported.name
-            : '*'
-        ) ?? ['*'];
-        const hooks = names.some((name: string) => name.startsWith('use'));
-        const presentationHook =
-          source.startsWith('@study/ui/') ||
-          (/(?:^|\/)i18n$/.test(source) && names.every((name: string) => name === 'useI18n'));
-
-        if (
-          source === 'effect' ||
-          source.startsWith('effect/') ||
-          /(?:^|\/)(?:use-[^/]+|[^/]+\.logic)(?:\.tsx?)?$/.test(source) ||
-          /study-client\//.test(source) ||
-          (source === '@tanstack/react-router' && names.some((name: string) => name !== 'Link')) ||
-          (hooks && !presentationHook) ||
-          (source === 'react' &&
-            names.some((name: string) => name === '*' || name.startsWith('use')))
-        )
-          report(node);
+        if (impureViewImport(node, source)) report(node);
       }),
       Identifier(node) {
         if (!view || !browserGlobals.has(node.name) || bindings.definition(node)) return;
 
         const parent = node.parent;
-        const propertyKey =
-          (parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
-          (parent?.type === 'Property' && parent.key === node && !parent.computed);
+        const propertyKey = isPropertyKey(parent, node);
 
         if (!propertyKey) report(node);
       },
@@ -116,3 +94,44 @@ export default defineRule({
     };
   }
 });
+
+function impureViewImport(node: any, source: string): boolean {
+  const names = importedNames(node);
+  const hooks = names.some((name: string) => name.startsWith('use'));
+  const presentationHook =
+    source.startsWith('@study/ui/') ||
+    (/(?:^|\/)i18n$/.test(source) && names.every((name: string) => name === 'useI18n'));
+
+  return (
+    executionImport(source) ||
+    (source === '@tanstack/react-router' && names.some((name: string) => name !== 'Link')) ||
+    (hooks && !presentationHook) ||
+    (source === 'react' && names.some((name: string) => name === '*' || name.startsWith('use')))
+  );
+}
+
+function isPropertyKey(parent: any, node: any): boolean {
+  return (
+    (parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
+    (parent?.type === 'Property' && parent.key === node && !parent.computed)
+  );
+}
+
+function importedNames(node: any): string[] {
+  return (
+    node.specifiers?.map((item: any) =>
+      item.type === 'ImportSpecifier' && item.imported.type === 'Identifier'
+        ? item.imported.name
+        : '*'
+    ) ?? ['*']
+  );
+}
+
+function executionImport(source: string): boolean {
+  return (
+    source === 'effect' ||
+    source.startsWith('effect/') ||
+    /(?:^|\/)(?:use-[^/]+|[^/]+\.logic)(?:\.tsx?)?$/.test(source) ||
+    /study-client\//.test(source)
+  );
+}

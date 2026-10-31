@@ -50,6 +50,11 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just lint
 
+      - name: 🌱 Check dead code, complexity and duplication
+        id: fallow
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: just fallow-check
+
       - name: 🛡️ Audit Rust dependencies
         id: dependencies
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -120,6 +125,7 @@ jobs:
             'shell': '🐚 Check shell scripts',
             'format': '🎨 Check formatting',
             'lint': '🔎 Lint Rust and TypeScript',
+            'fallow': '🌱 Check dead code, complexity and duplication',
             'dependencies': '🛡️ Audit Rust dependencies',
             'server_types': '🧩 Type-check server packages',
             'server_tests': '🧪 Test server, AI, database and localization',

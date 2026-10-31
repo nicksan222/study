@@ -2,7 +2,7 @@ import { createLocalization } from '@study/localization';
 import type { Locale } from '@study/localization';
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-export type { Locale, MessageKey, StaticMessageKey } from '@study/localization';
+export type { Locale } from '@study/localization';
 
 const LanguageContext = createContext(createLocalization('english'));
 

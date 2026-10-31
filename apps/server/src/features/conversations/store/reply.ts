@@ -36,6 +36,7 @@ import { unixSeconds } from '#server/platform/time/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeHistory } from './history.ts';
+import { makePersistence } from './persistence.ts';
 import { makeThread } from './thread.ts';
 
 const codec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
@@ -49,6 +50,7 @@ const persistedCodec = Schema.fromJsonString(
 const requestInput = Schema.Struct({ ...replyRequestInputSchema.fields, requestId: Schema.String });
 
 function makeHelpers({ db, clock }: StoreResources) {
+  const { insertSelectedVersion } = makePersistence({ db, clock });
   const { conversationHistory, conversationRoot } = makeHistory({ db, clock });
   const { assertThreadRoot } = makeThread({ db, clock });
 
@@ -60,9 +62,15 @@ function makeHelpers({ db, clock }: StoreResources) {
       instruction: string | null;
     }
   ) {
-    const session = db.orm.select().from(sessions).where(eq(sessions.id, input.sessionId)).get();
+    const foundSession = db.orm
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, input.sessionId))
+      .get();
 
-    if (!session) throw new StudyError('not_found', 'session not found');
+    if (!foundSession) throw new StudyError('not_found', 'session not found');
+
+    const session = foundSession;
 
     let totalAttachments = 0;
     const existing =
@@ -72,53 +80,124 @@ function makeHelpers({ db, clock }: StoreResources) {
 
     if (threadRoot != null) assertThreadRoot(session.id, threadRoot);
 
-    let captured = conversationHistory(session.id, target?.messageId, threadRoot ?? undefined);
+    const captured = captureConversation();
 
-    if (target && (!existing || existing.session_id !== session.id))
-      throw new StudyError('not_found', 'message not found');
+    function captureConversation() {
+      let captured = conversationHistory(session.id, target?.messageId, threadRoot ?? undefined);
 
-    if (
-      target?.origin === 'answer' &&
-      (existing?.role !== 'assistant' || existing.reply_to === null)
-    )
-      throw new StudyError('invalid_input', 'reanswer target must be an assistant reply');
+      assertSnapshotTarget();
 
-    if (target) {
-      const index = captured.findIndex((item) => item.messageId === target.messageId);
+      captured = targetHistory(captured);
 
-      if (index < 0)
-        throw new StudyError('invalid_input', 'target is outside conversation context');
+      if (threadRoot != null && !target && captured.at(-1)?.role !== 'user')
+        throw new StudyError('invalid_input', 'reply target must be a user message');
 
-      captured = captured.slice(0, target.origin === 'answer' ? index : index + 1);
-
-      if (target.origin === 'answer' && captured.at(-1)?.messageId !== existing!.reply_to)
-        throw new StudyError('invalid_input', 'reply context is unavailable');
+      return captureThread(captured);
     }
 
-    if (threadRoot != null && !target && captured.at(-1)?.role !== 'user')
-      throw new StudyError('invalid_input', 'reply target must be a user message');
+    function assertSnapshotTarget() {
+      if (target && (!existing || existing.session_id !== session.id))
+        throw new StudyError('not_found', 'message not found');
 
-    if (threadRoot != null) {
-      const rootPart = db.orm
-        .select()
-        .from(message_parts)
-        .where(eq(message_parts.id, threadRoot))
-        .get();
+      if (
+        target?.origin === 'answer' &&
+        (existing?.role !== 'assistant' || existing.reply_to === null)
+      )
+        throw new StudyError('invalid_input', 'reanswer target must be an assistant reply');
+    }
 
-      if (!rootPart) throw new StudyError('invalid_input', 'invalid thread root');
+    function targetHistory(captured: ReturnType<typeof conversationHistory>) {
+      if (target) {
+        const index = captured.findIndex((item) => item.messageId === target.messageId);
 
-      const root = conversationRoot(session.id, rootPart.message_id);
-      let total = root.text.length + captured.reduce((sum, item) => sum + item.text.length, 0);
+        if (index < 0)
+          throw new StudyError('invalid_input', 'target is outside conversation context');
 
-      while (total > 200_000 && captured.length > 1) total -= captured.shift()!.text.length;
+        captured = captured.slice(0, target.origin === 'answer' ? index : index + 1);
 
-      if (total > 200_000)
-        throw new StudyError('invalid_input', 'thread exceeds conversation context limit');
+        if (target.origin === 'answer' && captured.at(-1)?.messageId !== existing!.reply_to)
+          throw new StudyError('invalid_input', 'reply context is unavailable');
+      }
 
-      captured = [root, ...captured];
+      return captured;
+    }
+
+    function captureThread(captured: ReturnType<typeof conversationHistory>) {
+      if (threadRoot != null) {
+        const rootPart = db.orm
+          .select()
+          .from(message_parts)
+          .where(eq(message_parts.id, threadRoot))
+          .get();
+
+        if (!rootPart) throw new StudyError('invalid_input', 'invalid thread root');
+
+        const root = conversationRoot(session.id, rootPart.message_id);
+        let total = root.text.length + captured.reduce((sum, item) => sum + item.text.length, 0);
+
+        while (total > 200_000 && captured.length > 1) total -= captured.shift()!.text.length;
+
+        if (total > 200_000)
+          throw new StudyError('invalid_input', 'thread exceeds conversation context limit');
+
+        captured = [root, ...captured];
+      }
+
+      return captured;
     }
 
     const pendingAttachments: (typeof pendingReplyAttachmentSchema.Type)[] = [];
+
+    function resolveAttachment(
+      part: typeof message_parts.$inferSelect,
+      messageId: typeof messages.$inferSelect.id
+    ) {
+      if (part.source_id === null)
+        throw new StudyError('invalid_input', 'attachment is unavailable');
+
+      const source = db.orm.select().from(sources).where(eq(sources.id, part.source_id)).get();
+
+      if (!source || source.project_id !== session.project_id)
+        throw new StudyError(
+          'invalid_input',
+          'attachment belongs to another project or is unavailable'
+        );
+
+      const processing = db.orm
+        .select()
+        .from(source_processing)
+        .where(eq(source_processing.source_id, source.id))
+        .get();
+      const document = attachmentDocument(processing, source.id);
+
+      if (!document || processing?.published_request_id !== processing?.request_id) {
+        if (!processing)
+          throw new StudyError('invalid_input', 'attachment processing is unavailable');
+
+        pendingAttachments.push({
+          messageId,
+          partId: part.id,
+          sourceId: source.id,
+          sourceName: part.source_name,
+          projectId: session.project_id,
+          inputRevision: processing.revision,
+          requestId: processing.request_id
+        });
+
+        return [];
+      }
+
+      return [
+        {
+          partId: part.id,
+          sourceId: source.id,
+          sourceName: part.source_name,
+          documentId: document.id,
+          projectId: session.project_id
+        }
+      ];
+    }
+
     const history = captured.map((message) => {
       const parts = db.orm
         .select()
@@ -138,103 +217,54 @@ function makeHelpers({ db, clock }: StoreResources) {
           ? parts.filter((part) => part.id === threadRoot)
           : parts;
       const attachments = selectedParts.flatMap((part) => {
-        if (part.source_id === null)
-          throw new StudyError('invalid_input', 'attachment is unavailable');
-
-        const source = db.orm.select().from(sources).where(eq(sources.id, part.source_id)).get();
-
-        if (!source || source.project_id !== session.project_id)
-          throw new StudyError(
-            'invalid_input',
-            'attachment belongs to another project or is unavailable'
-          );
-
-        const processing = db.orm
-          .select()
-          .from(source_processing)
-          .where(eq(source_processing.source_id, source.id))
-          .get();
-        const document =
-          processing?.document_id == null
-            ? undefined
-            : db.orm
-                .select()
-                .from(documents)
-                .where(
-                  and(eq(documents.id, processing.document_id), eq(documents.source_id, source.id))
-                )
-                .get();
-
-        if (!document || processing?.published_request_id !== processing?.request_id) {
-          if (!processing)
-            throw new StudyError('invalid_input', 'attachment processing is unavailable');
-
-          pendingAttachments.push({
-            messageId: message.messageId,
-            partId: part.id,
-            sourceId: source.id,
-            sourceName: part.source_name,
-            projectId: session.project_id,
-            inputRevision: processing.revision,
-            requestId: processing.request_id
-          });
-
-          return [];
-        }
-
-        return [
-          {
-            partId: part.id,
-            sourceId: source.id,
-            sourceName: part.source_name,
-            documentId: document.id,
-            projectId: session.project_id
-          }
-        ];
+        return resolveAttachment(part, message.messageId);
       });
 
       return { ...message, attachments };
     });
-    const now = unixSeconds(clock);
-    const message =
-      existing ??
-      db.orm
-        .insert(messages)
-        .values({
-          session_id: session.id,
-          role: 'assistant',
-          thread_root: threadRoot ?? null,
-          reply_to: history.at(-1)?.role === 'user' ? history.at(-1)!.messageId : null,
-          created_at: now
-        })
-        .returning()
-        .get();
-    const previous = db.orm
-      .select()
-      .from(message_versions)
-      .where(eq(message_versions.message_id, message.id))
-      .orderBy(desc(message_versions.number))
-      .get();
-    const version = db.orm
-      .insert(message_versions)
-      .values({
-        message_id: message.id,
-        number: (previous?.number ?? 0n) + 1n,
+    const { now, message, version } = createPendingReply();
+
+    function generationFields() {
+      return {
         origin: target?.origin ?? 'answer',
         instruction: target?.origin === 'instruction' ? target.instruction : null,
-        based_on: existing?.active_version_id ?? null,
+        based_on: existing?.active_version_id ?? null
+      };
+    }
+
+    function createPendingReply() {
+      const now = unixSeconds(clock);
+      const message =
+        existing ??
+        db.orm
+          .insert(messages)
+          .values({
+            session_id: session.id,
+            role: 'assistant',
+            thread_root: threadRoot ?? null,
+            reply_to: history.at(-1)?.role === 'user' ? history.at(-1)!.messageId : null,
+            created_at: now
+          })
+          .returning()
+          .get();
+      const previous = db.orm
+        .select()
+        .from(message_versions)
+        .where(eq(message_versions.message_id, message.id))
+        .orderBy(desc(message_versions.number))
+        .get();
+      const version = insertSelectedVersion({
+        message_id: message.id,
+        number: (previous?.number ?? 0n) + 1n,
+        ...generationFields(),
         status: 'pending',
         text: '',
         created_at: now
-      })
-      .returning()
-      .get();
+      });
 
-    db.orm
-      .update(messages)
-      .set({ active_version_id: version.id })
-      .where(eq(messages.id, message.id))
-      .run();
+      return { now, message, version };
+    }
+
     const result = {
       requestId: input.requestId,
       sessionId: session.id,
@@ -261,11 +291,35 @@ function makeHelpers({ db, clock }: StoreResources) {
     return result;
   }
 
-  function readReplySnapshot(input: typeof replySnapshotInputSchema.Type) {
+  function attachmentSource(part: {
+    sourceId: typeof sources.$inferSelect.id;
+    projectId: typeof sources.$inferSelect.project_id;
+  }) {
+    return db.orm
+      .select()
+      .from(sources)
+      .where(and(eq(sources.id, part.sourceId), eq(sources.project_id, part.projectId!)))
+      .get();
+  }
+
+  function attachmentDocument(
+    processing: typeof source_processing.$inferSelect | undefined,
+    sourceId: typeof sources.$inferSelect.id
+  ) {
+    if (processing?.document_id == null) return undefined;
+
+    return db.orm
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, processing.document_id), eq(documents.source_id, sourceId)))
+      .get();
+  }
+
+  function replyContext(requestId: string) {
     const row = db.orm
       .select()
       .from(conversation_reply_requests)
-      .where(eq(conversation_reply_requests.request_id, input.requestId))
+      .where(eq(conversation_reply_requests.request_id, requestId))
       .get();
 
     if (!row) throw new StudyError('not_found', 'reply request not found');
@@ -279,20 +333,27 @@ function makeHelpers({ db, clock }: StoreResources) {
       .where(eq(message_versions.id, row.version_id))
       .get();
 
+    return { row, result, session, target, version };
+  }
+
+  function readReplySnapshot(input: typeof replySnapshotInputSchema.Type) {
+    const { row, result, session, target, version } = replyContext(input.requestId);
+
     if (
       !session ||
-      result.requestId !== row.request_id ||
-      result.sessionId !== row.session_id ||
-      result.versionId !== row.version_id ||
+      !matchesRequest(result, row) ||
       session.project_id !== result.projectId ||
       session.context_revision !== result.contextRevision ||
-      target?.session_id !== result.sessionId ||
-      target.active_version_id !== result.versionId ||
-      version?.message_id !== result.messageId ||
-      version.status === 'complete'
+      !replySelectionMatches(target, version, result)
     )
       throw new StudyError('invalid_input', 'reply request is stale');
 
+    assertSnapshotAttachments(result);
+
+    return result;
+  }
+
+  function assertSnapshotAttachments(result: typeof replySnapshotSchema.Type) {
     for (const item of result.messages)
       for (const part of item.attachments) {
         const document = db.orm
@@ -300,22 +361,18 @@ function makeHelpers({ db, clock }: StoreResources) {
           .from(documents)
           .where(and(eq(documents.id, part.documentId), eq(documents.source_id, part.sourceId)))
           .get();
-        const source = db.orm
-          .select()
-          .from(sources)
-          .where(and(eq(sources.id, part.sourceId), eq(sources.project_id, part.projectId)))
-          .get();
+        const source = attachmentSource(part);
 
         if (!document || !source)
           throw new StudyError('invalid_input', 'captured attachment is unavailable');
       }
 
-    for (const part of result.pendingAttachments ?? []) {
-      const source = db.orm
-        .select()
-        .from(sources)
-        .where(and(eq(sources.id, part.sourceId), eq(sources.project_id, part.projectId)))
-        .get();
+    assertPendingAttachments(result.pendingAttachments ?? []);
+  }
+
+  function assertPendingAttachments(parts: readonly (typeof pendingReplyAttachmentSchema.Type)[]) {
+    for (const part of parts) {
+      const source = attachmentSource(part);
       const processing = db.orm
         .select()
         .from(source_processing)
@@ -342,8 +399,6 @@ function makeHelpers({ db, clock }: StoreResources) {
       )
         throw new StudyError('invalid_input', 'captured attachment processing is unavailable');
     }
-
-    return result;
   }
 
   function discardPending(
@@ -385,14 +440,15 @@ function makeHelpers({ db, clock }: StoreResources) {
     } else db.orm.delete(messages).where(eq(messages.id, message.id)).run();
   }
 
-  return { snapshot, readReplySnapshot, discardPending };
+  return { snapshot, readReplySnapshot, discardPending, replyContext, attachmentDocument };
 }
 
 export const ReplyStore = defineStore({
   name: 'study/ConversationReplyStore',
   entity: { singular: 'replySnapshot', plural: 'replySnapshots' },
   make: ({ db, clock }) => {
-    const { snapshot, readReplySnapshot, discardPending } = makeHelpers({ db, clock });
+    const { snapshot, readReplySnapshot, discardPending, replyContext, attachmentDocument } =
+      makeHelpers({ db, clock });
 
     return {
       queries: {
@@ -423,19 +479,7 @@ export const ReplyStore = defineStore({
                 .from(source_processing)
                 .where(eq(source_processing.source_id, part.sourceId))
                 .get();
-              const document =
-                state?.document_id == null
-                  ? undefined
-                  : db.orm
-                      .select()
-                      .from(documents)
-                      .where(
-                        and(
-                          eq(documents.id, state.document_id),
-                          eq(documents.source_id, part.sourceId)
-                        )
-                      )
-                      .get();
+              const document = attachmentDocument(state, part.sourceId);
               const message = messages.find((item) => item.messageId === part.messageId);
 
               if (!state || state.published_request_id !== part.requestId || !document || !message)
@@ -508,15 +552,19 @@ export const ReplyStore = defineStore({
               .where(eq(messages.id, version.message_id))
               .get();
 
-            if (
-              !message ||
-              message.session_id !== request.session_id ||
-              message.id !== input.messageId ||
-              (version.origin === 'answer' && message.role !== 'assistant')
-            )
-              throw new StudyError('invalid_input', 'invalid reply target');
+            assertAbandonTarget();
 
-            discardPending(message, version);
+            function assertAbandonTarget() {
+              if (
+                !message ||
+                message.session_id !== request!.session_id ||
+                message.id !== input.messageId ||
+                (version!.origin === 'answer' && message.role !== 'assistant')
+              )
+                throw new StudyError('invalid_input', 'invalid reply target');
+            }
+
+            discardPending(message!, version);
 
             return true;
           }
@@ -529,11 +577,10 @@ export const ReplyStore = defineStore({
               throw new StudyError('invalid_input', 'invalid reply publication');
             };
 
-            if (!input.text.trim() || [...input.text].length > 100_000) invalid();
-
-            const markers = new Set<number>();
-
-            for (const citation of input.citations) {
+            function assertCitation(
+              citation: (typeof input.citations)[number],
+              markers: Set<number>
+            ) {
               if (
                 !Number.isInteger(citation.marker) ||
                 citation.marker < 1 ||
@@ -544,61 +591,53 @@ export const ReplyStore = defineStore({
                 !citation.quote.trim()
               )
                 invalid();
-
-              markers.add(citation.marker);
             }
 
-            const references = new Set(
-              Array.from(input.text.matchAll(/\[(\d+)\]/g), (match) => Number(match[1]))
-            );
+            validatePublicationInput();
 
-            if (
-              references.size !== markers.size ||
-              [...references].some((marker) => !markers.has(marker))
-            )
-              invalid();
+            function validatePublicationInput() {
+              if (!input.text.trim() || [...input.text].length > 100_000) invalid();
 
-            const row = db.orm
-              .select()
-              .from(conversation_reply_requests)
-              .where(eq(conversation_reply_requests.request_id, input.requestId))
-              .get();
+              const markers = new Set<number>();
 
-            if (!row) throw new StudyError('not_found', 'reply request not found');
+              for (const citation of input.citations) {
+                assertCitation(citation, markers);
 
-            const snapshot = Schema.decodeUnknownSync(codec)(row.snapshot);
-            const session = db.orm
-              .select()
-              .from(sessions)
-              .where(eq(sessions.id, row.session_id))
-              .get();
-            const target = db.orm
-              .select()
-              .from(messages)
-              .where(eq(messages.id, snapshot.messageId))
-              .get();
-            const version = db.orm
-              .select()
-              .from(message_versions)
-              .where(eq(message_versions.id, row.version_id))
-              .get();
+                markers.add(citation.marker);
+              }
 
-            if (
-              !session ||
-              snapshot.requestId !== row.request_id ||
-              snapshot.sessionId !== row.session_id ||
-              snapshot.versionId !== row.version_id ||
-              session.project_id !== snapshot.projectId ||
-              target?.session_id !== session.id ||
-              version?.message_id !== target.id ||
-              (version.origin === 'answer' && target.role !== 'assistant') ||
-              version.origin !== (snapshot.generation?.origin ?? 'answer') ||
-              version.instruction !==
-                (snapshot.generation?.origin === 'instruction'
-                  ? snapshot.generation.instruction
-                  : null)
-            )
-              invalid();
+              const references = new Set(
+                Array.from(input.text.matchAll(/\[(\d+)\]/g), (match) => Number(match[1]))
+              );
+
+              if (
+                references.size !== markers.size ||
+                [...references].some((marker) => !markers.has(marker))
+              )
+                invalid();
+            }
+
+            const {
+              row,
+              result: snapshot,
+              session,
+              target,
+              version
+            } = replyContext(input.requestId);
+
+            assertPublicationIdentity();
+
+            function assertPublicationIdentity() {
+              if (
+                !session ||
+                !matchesRequest(snapshot, row) ||
+                session.project_id !== snapshot.projectId ||
+                target?.session_id !== session.id ||
+                version?.message_id !== target.id ||
+                !generationMatches(version, snapshot, target.role)
+              )
+                invalid();
+            }
 
             const payload = JSON.stringify(input, (_key, value) =>
               typeof value === 'bigint' ? value.toString() : value
@@ -665,7 +704,32 @@ export const ReplyStore = defineStore({
               };
             });
 
-            if (version!.status === 'complete') {
+            function assertPublicationAttachments() {
+              for (const item of snapshot.messages.flatMap((message) => message.attachments)) {
+                if (
+                  !db.orm
+                    .select()
+                    .from(sources)
+                    .where(
+                      and(
+                        eq(sources.id, item.sourceId),
+                        eq(sources.project_id, session!.project_id)
+                      )
+                    )
+                    .get() ||
+                  !db.orm
+                    .select()
+                    .from(documents)
+                    .where(
+                      and(eq(documents.id, item.documentId), eq(documents.source_id, item.sourceId))
+                    )
+                    .get()
+                )
+                  invalid();
+              }
+            }
+
+            function assertPublicationReplay() {
               const existing = db.orm
                 .select()
                 .from(citations)
@@ -691,6 +755,10 @@ export const ReplyStore = defineStore({
                 })
               )
                 invalid();
+            }
+
+            if (version!.status === 'complete') {
+              assertPublicationReplay();
 
               return row.version_id;
             }
@@ -704,25 +772,7 @@ export const ReplyStore = defineStore({
             )
               invalid();
 
-            for (const item of snapshot.messages.flatMap((message) => message.attachments)) {
-              if (
-                !db.orm
-                  .select()
-                  .from(sources)
-                  .where(
-                    and(eq(sources.id, item.sourceId), eq(sources.project_id, session!.project_id))
-                  )
-                  .get() ||
-                !db.orm
-                  .select()
-                  .from(documents)
-                  .where(
-                    and(eq(documents.id, item.documentId), eq(documents.source_id, item.sourceId))
-                  )
-                  .get()
-              )
-                invalid();
-            }
+            assertPublicationAttachments();
 
             db.orm
               .update(message_versions)
@@ -970,3 +1020,40 @@ export const ReplyWakeStore = defineStore({
     };
   }
 });
+
+function matchesRequest(
+  snapshot: typeof replySnapshotSchema.Type,
+  row: typeof conversation_reply_requests.$inferSelect
+) {
+  return (
+    snapshot.requestId === row.request_id &&
+    snapshot.sessionId === row.session_id &&
+    snapshot.versionId === row.version_id
+  );
+}
+
+function generationMatches(
+  version: typeof message_versions.$inferSelect,
+  snapshot: typeof replySnapshotSchema.Type,
+  role: typeof messages.$inferSelect.role
+) {
+  return (
+    (version.origin !== 'answer' || role === 'assistant') &&
+    version.origin === (snapshot.generation?.origin ?? 'answer') &&
+    version.instruction ===
+      (snapshot.generation?.origin === 'instruction' ? snapshot.generation.instruction : null)
+  );
+}
+
+function replySelectionMatches(
+  target: typeof messages.$inferSelect | undefined,
+  version: typeof message_versions.$inferSelect | undefined,
+  result: typeof replySnapshotSchema.Type
+) {
+  return (
+    target?.session_id === result.sessionId &&
+    target.active_version_id === result.versionId &&
+    version?.message_id === result.messageId &&
+    version.status !== 'complete'
+  );
+}

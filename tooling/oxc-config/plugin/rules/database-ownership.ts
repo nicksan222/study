@@ -1,6 +1,8 @@
 import type { ESTree } from 'vite-plus/lint/plugins';
 import { defineRule } from 'vite-plus/lint/plugins';
 
+import { propertyName } from '../effect-bindings.ts';
+
 const factories = new Set(['sqliteTable', 'sqliteTableCreator', 'sqliteView', 'view']);
 
 const connectionMessage = 'SQLite connections and migrations belong in packages/db/src/db.ts.';
@@ -34,23 +36,65 @@ export default defineRule({
       if (!ownerKind || node.importKind === 'type') return;
 
       for (const specifier of node.specifiers) {
-        if (specifier.type !== 'ImportSpecifier') {
-          if (!restricted) ownedImports.set(specifier.local.name, ownerKind);
+        registerSpecifier(specifier, restricted, ownerKind);
+      }
+    }
 
-          continue;
-        }
+    function registerSpecifier(
+      specifier: any,
+      restricted: any,
+      ownerKind: 'connection' | 'schema'
+    ) {
+      if (specifier.type !== 'ImportSpecifier') {
+        if (!restricted) ownedImports.set(specifier.local.name, ownerKind);
 
-        if (specifier.importKind === 'type') continue;
+        return;
+      }
 
-        const imported =
-          specifier.imported.type === 'Identifier'
-            ? specifier.imported.name
-            : specifier.imported.value;
+      if (specifier.importKind === 'type') return;
 
-        if (connectionOwner && ownerKind === 'schema' && migrators.has(imported))
-          ownedImports.set(specifier.local.name, 'connection');
-        else if (!restricted && (ownerKind === 'connection' || factories.has(imported)))
-          ownedImports.set(specifier.local.name, ownerKind);
+      const imported = propertyName(specifier.imported)!;
+
+      if (connectionOwner && ownerKind === 'schema' && migrators.has(imported))
+        ownedImports.set(specifier.local.name, 'connection');
+      else if (!restricted && (ownerKind === 'connection' || factories.has(imported)))
+        ownedImports.set(specifier.local.name, ownerKind);
+    }
+
+    function restrictedImport(node: ESTree.ImportDeclaration, restricted: any) {
+      if (!restricted) return;
+
+      if (restricted === 'connection') {
+        if (
+          node.specifiers.length === 0 ||
+          node.specifiers.some((s) => s.type !== 'ImportSpecifier' || s.importKind !== 'type')
+        )
+          context.report({ node, message: connectionMessage });
+      } else if (
+        node.specifiers.some(
+          (s) =>
+            s.type !== 'ImportSpecifier' ||
+            (s.importKind !== 'type' &&
+              factories.has(s.imported.type === 'Identifier' ? s.imported.name : s.imported.value))
+        )
+      ) {
+        context.report({ node, message: schemaMessage });
+      }
+    }
+
+    function exportedBindings(node: ESTree.ExportNamedDeclaration) {
+      for (const specifier of node.specifiers) {
+        if (specifier.exportKind === 'type') continue;
+
+        const name =
+          specifier.local.type === 'Identifier' ? specifier.local.name : specifier.local.value;
+        const owned = ownedImports.get(name);
+
+        if (owned)
+          context.report({
+            node,
+            message: owned === 'connection' ? connectionMessage : schemaMessage
+          });
       }
     }
 
@@ -90,44 +134,13 @@ export default defineRule({
           return;
         }
 
-        if (!restricted) return;
-
-        if (restricted === 'connection') {
-          if (
-            node.specifiers.length === 0 ||
-            node.specifiers.some((s) => s.type !== 'ImportSpecifier' || s.importKind !== 'type')
-          )
-            context.report({ node, message: connectionMessage });
-        } else if (
-          node.specifiers.some(
-            (s) =>
-              s.type !== 'ImportSpecifier' ||
-              (s.importKind !== 'type' &&
-                factories.has(
-                  s.imported.type === 'Identifier' ? s.imported.name : s.imported.value
-                ))
-          )
-        ) {
-          context.report({ node, message: schemaMessage });
-        }
+        restrictedImport(node, restricted);
       },
       ExportNamedDeclaration(node) {
         if (node.exportKind === 'type') return;
 
         if (!node.source) {
-          for (const specifier of node.specifiers) {
-            if (specifier.exportKind === 'type') continue;
-
-            const name =
-              specifier.local.type === 'Identifier' ? specifier.local.name : specifier.local.value;
-            const owned = ownedImports.get(name);
-
-            if (owned)
-              context.report({
-                node,
-                message: owned === 'connection' ? connectionMessage : schemaMessage
-              });
-          }
+          exportedBindings(node);
 
           return;
         }
@@ -137,24 +150,10 @@ export default defineRule({
         if (restricted === 'connection' && node.specifiers.some((s) => s.exportKind !== 'type'))
           context.report({ node, message: connectionMessage });
 
-        if (
-          restricted === 'schema' &&
-          node.specifiers.some(
-            (s) =>
-              s.exportKind !== 'type' &&
-              migrators.has(s.local.type === 'Identifier' ? s.local.name : s.local.value)
-          )
-        )
+        if (restricted === 'schema' && exportsAny(node, migrators))
           context.report({ node, message: connectionMessage });
 
-        if (
-          restricted === 'schema' &&
-          node.specifiers.some(
-            (s) =>
-              s.exportKind !== 'type' &&
-              factories.has(s.local.type === 'Identifier' ? s.local.name : s.local.value)
-          )
-        )
+        if (restricted === 'schema' && exportsAny(node, factories))
           context.report({ node, message: schemaMessage });
       },
       ExportAllDeclaration(node) {
@@ -186,3 +185,11 @@ export default defineRule({
     };
   }
 });
+
+function exportsAny(node: ESTree.ExportNamedDeclaration, names: Set<string>): boolean {
+  return node.specifiers.some(
+    (s) =>
+      s.exportKind !== 'type' &&
+      names.has(s.local.type === 'Identifier' ? s.local.name : s.local.value)
+  );
+}

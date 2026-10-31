@@ -78,38 +78,32 @@ function Header({
               </span>
             )}
           </div>
-          {(actions || lead) && (
-            <div className="groam-shell-header-controls">
-              {lead && <div className="groam-shell-header-lead">{lead}</div>}
-              {lead && actions && (
-                <span className="groam-shell-header-divider" aria-hidden="true" />
-              )}
-              {actions && (
-                <div className="groam-shell-header-actions" data-slot="shell-header-actions">
-                  {actions}
-                </div>
-              )}
-            </div>
-          )}
+          <HeaderControls actions={actions} lead={lead} />
         </div>
-        {meta && (
-          <div className="groam-shell-header-meta" data-slot="shell-header-meta">
-            <div className="groam-shell-header-meta-clip">
-              <div className="groam-shell-header-meta-row">
-                {typeof meta === 'string' ? (
-                  <span className="groam-shell-header-fact">{meta}</span>
-                ) : (
-                  meta
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <HeaderMeta meta={meta} />
       </div>
       {tabs}
       {notice}
       {children}
     </div>
+  );
+}
+
+function HeaderControls({ actions, lead }: Pick<HeaderProps, 'actions' | 'lead'>) {
+  return (
+    <>
+      {(actions || lead) && (
+        <div className="groam-shell-header-controls">
+          {lead && <div className="groam-shell-header-lead">{lead}</div>}
+          {lead && actions && <span className="groam-shell-header-divider" aria-hidden="true" />}
+          {actions && (
+            <div className="groam-shell-header-actions" data-slot="shell-header-actions">
+              {actions}
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -192,5 +186,23 @@ export const Shell = Object.assign(Header, {
   Title
 });
 
-export { Header, PageBody, SectionHeader, Title };
-export type { HeaderProps };
+function HeaderMeta({ meta }: Pick<HeaderProps, 'meta'>) {
+  return (
+    <>
+      {' '}
+      {meta && (
+        <div className="groam-shell-header-meta" data-slot="shell-header-meta">
+          <div className="groam-shell-header-meta-clip">
+            <div className="groam-shell-header-meta-row">
+              {typeof meta === 'string' ? (
+                <span className="groam-shell-header-fact">{meta}</span>
+              ) : (
+                meta
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

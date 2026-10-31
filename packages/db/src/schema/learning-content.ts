@@ -119,9 +119,7 @@ export const material_flashcard_versions = sqliteTable(
   {
     version_id: integer().$type<MaterialVersionId>().primaryKey(),
     material_id: integer().$type<MaterialId>().notNull(),
-    kind: text({ enum: ['flashcards'] })
-      .notNull()
-      .default('flashcards')
+    kind: flashcardsKind()
   },
   (t) => [
     foreignKey({
@@ -141,9 +139,7 @@ export const material_card_identities = sqliteTable(
   {
     id: integer().$type<MaterialCardId>().primaryKey({ autoIncrement: true }),
     material_id: integer().$type<MaterialId>().notNull(),
-    kind: text({ enum: ['flashcards'] })
-      .notNull()
-      .default('flashcards')
+    kind: flashcardsKind()
   },
   (t) => [
     foreignKey({ columns: [t.material_id, t.kind], foreignColumns: [materials.id, materials.kind] })
@@ -339,3 +335,9 @@ export const material_card_reviews = sqliteTable(
     )
   ]
 );
+
+function flashcardsKind() {
+  return text({ enum: ['flashcards'] })
+    .notNull()
+    .default('flashcards');
+}

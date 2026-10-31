@@ -28,6 +28,7 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
+import { makePersistence } from './persistence.ts';
 import { makeThread } from './thread.ts';
 
 function textOf(value: string, allowEmpty = false) {
@@ -131,6 +132,7 @@ export const MessageStore = defineStore({
   name: 'study/ConversationMessageStore',
   entity: { singular: 'message', plural: 'messages' },
   make: ({ db, clock }) => {
+    const { requiredSession, insertSelectedVersion } = makePersistence({ db, clock });
     const { read, required, touch, assertThreadRoot } = makeHelpers({ db, clock });
 
     return {
@@ -182,13 +184,7 @@ export const MessageStore = defineStore({
           input: postMessageInputSchema,
           output: chatMessageSchema,
           run: (input) => {
-            const session = db.orm
-              .select()
-              .from(sessions)
-              .where(eq(sessions.id, input.sessionId))
-              .get();
-
-            if (!session) throw new StudyError('not_found', 'session not found');
+            const session = requiredSession(input.sessionId);
 
             if (input.threadRoot !== undefined) assertThreadRoot(session.id, input.threadRoot);
 
@@ -218,24 +214,16 @@ export const MessageStore = defineStore({
               })
               .returning()
               .get();
-            const version = db.orm
-              .insert(message_versions)
-              .values({
-                message_id: message.id,
-                number: 1n,
-                origin: 'typed',
-                status: 'complete',
-                text,
-                created_at: unixSeconds(clock)
-              })
-              .returning()
-              .get();
 
-            db.orm
-              .update(messages)
-              .set({ active_version_id: version.id })
-              .where(eq(messages.id, message.id))
-              .run();
+            insertSelectedVersion({
+              message_id: message.id,
+              number: 1n,
+              origin: 'typed',
+              status: 'complete',
+              text,
+              created_at: unixSeconds(clock)
+            });
+
             attachments.forEach((source, ordinal) =>
               db.orm
                 .insert(message_parts)

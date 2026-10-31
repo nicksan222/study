@@ -2,7 +2,7 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { featureRole, serverPath, targetPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
-import { binding } from './synchronous-transactions.ts';
+import { binding, constantDeclarator, enterNode } from '../lexical-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -17,9 +17,7 @@ export default defineRule({
     const effects = effectBindings(context);
 
     function target(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (node.type === 'Identifier') {
         const def = binding(context, node)?.defs[0]?.node;
@@ -31,10 +29,13 @@ export default defineRule({
               'platform/definitions/define-agent'
           );
 
-        if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-          return target(def.init, seen);
+        if (constantDeclarator(def)) return target(def.init, seen);
       }
 
+      return targetNamespace(node);
+    }
+
+    function targetNamespace(node: any): boolean {
       if (
         node.type === 'MemberExpression' &&
         node.property.name === 'defineAgent' &&
@@ -53,9 +54,7 @@ export default defineRule({
     }
 
     function unwrap(node: any, seen = new Set<any>()): any {
-      if (!node || seen.has(node)) return node;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return node;
 
       if (
         [
@@ -70,17 +69,14 @@ export default defineRule({
       if (node.type === 'Identifier') {
         const def = binding(context, node)?.defs[0]?.node;
 
-        if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-          return unwrap(def.init, seen);
+        if (constantDeclarator(def)) return unwrap(def.init, seen);
       }
 
       return node;
     }
 
     function canonical(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (
         [
@@ -92,18 +88,7 @@ export default defineRule({
       )
         return canonical(node.expression, seen);
 
-      if (node.type === 'Identifier') {
-        const def = binding(context, node)?.defs[0]?.node;
-
-        if (
-          def?.parent?.type === 'ImportDeclaration' &&
-          /^@study\/contracts(?:\/|$)/.test(def.parent.source.value)
-        )
-          return true;
-
-        if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-          return canonical(def.init, seen);
-      }
+      if (node.type === 'Identifier') return canonicalIdentifier(node, seen);
 
       if (node.type === 'ArrayExpression')
         return (
@@ -113,29 +98,47 @@ export default defineRule({
 
       if (node.type === 'MemberExpression') return canonical(node.object, seen);
 
-      if (node.type === 'CallExpression') {
-        if (
-          node.callee.type === 'CallExpression' &&
-          ['Schema.decodeTo', 'Schema.encodeTo'].includes(effects.resolve(node.callee.callee) ?? '')
-        )
-          return (
-            canonical(node.callee.arguments[0], new Set(seen)) &&
-            canonical(node.arguments[0], new Set(seen))
-          );
+      if (node.type === 'CallExpression') return canonicalCall(node, seen);
 
-        const name = effects.resolve(node.callee);
+      return false;
+    }
 
-        if (name === 'Schema.Struct') return false;
+    function canonicalIdentifier(node: any, seen: Set<any>): boolean {
+      const def = binding(context, node)?.defs[0]?.node;
 
-        if (name?.startsWith('Schema.'))
-          return node.arguments.some((arg: any) => canonical(arg, new Set(seen)));
+      if (
+        def?.parent?.type === 'ImportDeclaration' &&
+        /^@study\/contracts(?:\/|$)/.test(def.parent.source.value)
+      )
+        return true;
 
-        if (
-          node.callee.type === 'MemberExpression' &&
-          ['pipe', 'check'].includes(node.callee.property.name)
-        )
-          return canonical(node.callee.object, seen);
-      }
+      if (constantDeclarator(def)) return canonical(def.init, seen);
+
+      return false;
+    }
+
+    function canonicalCall(node: any, seen: Set<any>): boolean {
+      if (
+        node.callee.type === 'CallExpression' &&
+        ['Schema.decodeTo', 'Schema.encodeTo'].includes(effects.resolve(node.callee.callee) ?? '')
+      )
+        return (
+          canonical(node.callee.arguments[0], new Set(seen)) &&
+          canonical(node.arguments[0], new Set(seen))
+        );
+
+      const name = effects.resolve(node.callee);
+
+      if (name === 'Schema.Struct') return false;
+
+      if (name?.startsWith('Schema.'))
+        return node.arguments.some((arg: any) => canonical(arg, new Set(seen)));
+
+      if (
+        node.callee.type === 'MemberExpression' &&
+        ['pipe', 'check'].includes(node.callee.property.name)
+      )
+        return canonical(node.callee.object, seen);
 
       return false;
     }
@@ -154,6 +157,29 @@ export default defineRule({
         (init.type !== 'CallExpression' || !target(init.callee))
       )
         context.report({ node, message: 'Agent exports must use defineAgent.' });
+    }
+
+    function invalidConfiguration(
+      properties: any[],
+      values: Map<any, any>,
+      keys: Set<any>
+    ): boolean {
+      return (
+        properties.some((p: any) => p.type === 'SpreadElement') ||
+        !canonical(values.get('input')) ||
+        !canonical(values.get('output')) ||
+        (unwrap(values.get('id')) as any)?.value !==
+          context.filename
+            .replaceAll('\\', '/')
+            .split('/')
+            .at(-1)
+            ?.replace(/(?:\.agent)?\.[^.]+$/, '') ||
+        !['tiny', 'medium', 'smart'].includes((unwrap(values.get('model')) as any)?.value) ||
+        ['id', 'input', 'output', 'model', 'instructions', 'prompt'].some(
+          (key) => !keys.has(key)
+        ) ||
+        ['limits', 'maxSteps', 'maxTokens'].some((key) => keys.has(key))
+      );
     }
 
     return {
@@ -187,22 +213,7 @@ export default defineRule({
             .map((p: any) => p.key.name ?? p.key.value)
         );
 
-        if (
-          properties.some((p: any) => p.type === 'SpreadElement') ||
-          !canonical(values.get('input')) ||
-          !canonical(values.get('output')) ||
-          (unwrap(values.get('id')) as any)?.value !==
-            context.filename
-              .replaceAll('\\', '/')
-              .split('/')
-              .at(-1)
-              ?.replace(/(?:\.agent)?\.[^.]+$/, '') ||
-          !['tiny', 'medium', 'smart'].includes((unwrap(values.get('model')) as any)?.value) ||
-          ['id', 'input', 'output', 'model', 'instructions', 'prompt'].some(
-            (key) => !keys.has(key)
-          ) ||
-          ['limits', 'maxSteps', 'maxTokens'].some((key) => keys.has(key))
-        )
+        if (invalidConfiguration(properties, values, keys))
           context.report({
             node,
             message:

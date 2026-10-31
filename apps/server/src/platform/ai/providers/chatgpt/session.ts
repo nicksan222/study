@@ -4,6 +4,8 @@ import { Clock, Effect, Schema } from 'effect';
 import { requestBytes, runHttpPromise } from '#server/platform/http/index';
 import { liveClock } from '#server/platform/time/index';
 
+import { assertTokenResponse } from './token-response.ts';
+
 export interface Account {
   subject: string;
   clientId: string;
@@ -155,27 +157,9 @@ class Session {
       }).pipe(Effect.provideService(Clock.Clock, this.clock))
     );
 
-    if (response.status < 200 || response.status >= 300)
-      throw new StudyError(
-        [400, 401, 403].includes(response.status)
-          ? 'auth'
-          : response.status === 429
-            ? 'rate_limited'
-            : 'transient',
-        'ChatGPT token refresh failed'
-      );
+    assertTokenResponse(response.status, 'ChatGPT token refresh failed');
 
-    let tokens: typeof tokensSchema.Type;
-
-    try {
-      tokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokensSchema))(
-        new TextDecoder().decode(response.bytes)
-      );
-    } catch {
-      throw new Error('Invalid ChatGPT token response');
-    }
-
-    if (!tokens || typeof tokens !== 'object') throw new Error('Invalid ChatGPT token response');
+    const tokens = readRefreshTokens(response.bytes);
 
     if (tokens.refresh_token) {
       this.account.refreshToken = tokens.refresh_token;
@@ -295,4 +279,20 @@ export class AuthManager {
 
     return operation;
   }
+}
+
+function readRefreshTokens(bytes: Uint8Array) {
+  let tokens: typeof tokensSchema.Type;
+
+  try {
+    tokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokensSchema))(
+      new TextDecoder().decode(bytes)
+    );
+  } catch {
+    throw new Error('Invalid ChatGPT token response');
+  }
+
+  if (!tokens || typeof tokens !== 'object') throw new Error('Invalid ChatGPT token response');
+
+  return tokens;
 }

@@ -2,7 +2,12 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { featureRole, moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
 import { effectBindings, serverProduction } from '../effect-bindings.ts';
-import { binding, property } from './synchronous-transactions.ts';
+import {
+  binding,
+  memberName as property,
+  constantDeclarator,
+  enterNode
+} from '../lexical-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -22,124 +27,96 @@ export default defineRule({
       }
 
       const target = targetPath(context.filename, source);
-      const sdk = source === 'ai' || source.startsWith('ai/') || source.startsWith('@ai-sdk/');
+      const sdk = sdkModule(source);
       const db = /^@study\/db(?:\/|$)|^drizzle-orm(?:\/|$)/.test(source);
       const definitionType = current === 'platform/definitions/define-agent.ts' && typeOnly;
       let forbidden = sdk && !inAi && !definitionType;
 
       if (['agent', 'tool'].includes(featureRole(current) ?? ''))
-        forbidden ||= db || (!!target && featureRole(target) === 'store');
+        forbidden ||= storeImport(db, target);
 
       if (forbidden) context.report({ node, message: 'Import crosses the AI ownership boundary.' });
     });
 
     function sdkBinding(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (node.type === 'MemberExpression') return sdkBinding(node.object, seen);
 
       if (node.type !== 'Identifier') return false;
 
-      let scope: ReturnType<typeof context.sourceCode.getScope> | null =
-        context.sourceCode.getScope(node);
+      return (
+        binding(context, node)?.defs.some((def: any) => {
+          const declaration = def.node;
 
-      while (scope) {
-        const variable = scope.set.get(node.name);
-
-        if (variable)
-          return variable.defs.some((def: any) => {
-            const declaration = def.node;
-
-            if (
-              declaration.parent?.type === 'ImportDeclaration' &&
-              declaration.parent.source.value === 'ai'
-            ) {
-              return (
-                declaration.type === 'ImportNamespaceSpecifier' ||
-                /^(?:ToolLoopAgent|generateText|generateObject|streamText|streamObject)$/.test(
-                  declaration.imported?.name ?? ''
-                )
-              );
-            }
-
+          if (
+            declaration.parent?.type === 'ImportDeclaration' &&
+            declaration.parent.source.value === 'ai'
+          ) {
             return (
-              declaration.type === 'VariableDeclarator' &&
-              declaration.parent?.kind === 'const' &&
-              sdkBinding(declaration.init, seen)
+              declaration.type === 'ImportNamespaceSpecifier' ||
+              /^(?:ToolLoopAgent|generateText|generateObject|streamText|streamObject)$/.test(
+                declaration.imported?.name ?? ''
+              )
             );
-          });
+          }
 
-        scope = scope.upper;
-      }
-
-      return false;
+          return (
+            declaration.type === 'VariableDeclarator' &&
+            declaration.parent?.kind === 'const' &&
+            sdkBinding(declaration.init, seen)
+          );
+        }) ?? false
+      );
     }
 
     function agentNamespace(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
+      if (!enterNode(node, seen)) return false;
 
-      seen.add(node);
       const def = binding(context, node)?.defs[0]?.node;
 
       if (def?.type === 'ImportNamespaceSpecifier')
         return targetPath(context.filename, def.parent.source.value) === 'platform/ai/agents';
 
-      return (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        agentNamespace(def.init, seen)
-      );
+      return constantDeclarator(def) && agentNamespace(def.init, seen);
     }
 
     function agentBinding(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
+      if (!enterNode(node, seen)) return false;
 
-      seen.add(node);
-
-      if (
-        node.type === 'MemberExpression' &&
-        ['generateAgent', 'streamAgent'].includes(property(node) ?? '')
-      ) {
-        return agentNamespace(node.object);
-      }
+      if (agentMember(node)) return agentNamespace(node.object);
 
       const def = binding(context, node)?.defs[0]?.node;
 
-      if (def?.type === 'ImportSpecifier')
-        return (
-          ['generateAgent', 'streamAgent'].includes(def.imported.name ?? def.imported.value) &&
-          targetPath(context.filename, def.parent.source.value) === 'platform/ai/agents'
-        );
+      if (def?.type === 'ImportSpecifier') return namedAgent(def);
 
-      if (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        def.id.type === 'ObjectPattern'
-      ) {
-        const item = def.id.properties.find(
-          (p: any) => p.type === 'Property' && p.value.name === node.name
-        );
+      if (constantDeclarator(def) && def.id.type === 'ObjectPattern')
+        return destructuredAgent(node, def);
 
-        return (
-          item &&
-          ['generateAgent', 'streamAgent'].includes(item.key.name ?? item.key.value) &&
-          agentNamespace(def.init)
-        );
-      }
+      return constantDeclarator(def) && agentBinding(def.init, seen);
+    }
+
+    function namedAgent(def: any): boolean {
+      return (
+        ['generateAgent', 'streamAgent'].includes(def.imported.name ?? def.imported.value) &&
+        targetPath(context.filename, def.parent.source.value) === 'platform/ai/agents'
+      );
+    }
+
+    function destructuredAgent(node: any, def: any): boolean {
+      const item = def.id.properties.find(
+        (p: any) => p.type === 'Property' && p.value.name === node.name
+      );
 
       return (
-        def?.type === 'VariableDeclarator' &&
-        def.parent?.kind === 'const' &&
-        agentBinding(def.init, seen)
+        item &&
+        ['generateAgent', 'streamAgent'].includes(item.key.name ?? item.key.value) &&
+        agentNamespace(def.init)
       );
     }
 
     function constant(node: any, seen = new Set<any>()): any {
-      if (!node || seen.has(node)) return node;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return node;
 
       if (node.type === 'TSAsExpression' || node.type === 'TSSatisfiesExpression')
         return constant(node.expression, seen);
@@ -147,8 +124,7 @@ export default defineRule({
       if (node.type === 'Identifier') {
         const def = binding(context, node)?.defs[0]?.node;
 
-        if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-          return constant(def.init, seen);
+        if (constantDeclarator(def)) return constant(def.init, seen);
       }
 
       return node;
@@ -179,24 +155,43 @@ export default defineRule({
       if (!current.startsWith('features/') || featureRole(current) !== 'workflow') return false;
 
       for (let parent = node.parent; parent; parent = parent.parent) {
-        if (
-          parent.type === 'Property' &&
-          (parent.key.name ?? parent.key.value) === 'execute' &&
-          parent.parent?.type === 'ObjectExpression'
-        ) {
-          const call = parent.parent.parent;
-
-          if (
-            call?.type === 'CallExpression' &&
-            effects.resolve(call.callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') ===
-              'Activity.make'
-          )
-            return true;
-        }
+        if (activityExecute(parent)) return true;
       }
 
       return false;
     };
+
+    function activityExecute(parent: any): boolean {
+      if (
+        parent.type === 'Property' &&
+        (parent.key.name ?? parent.key.value) === 'execute' &&
+        parent.parent?.type === 'ObjectExpression'
+      ) {
+        const call = parent.parent.parent;
+
+        if (
+          call?.type === 'CallExpression' &&
+          effects.resolve(call.callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') ===
+            'Activity.make'
+        )
+          return true;
+      }
+
+      return false;
+    }
+
+    function sdkAgentMethod(node: any): boolean {
+      const object =
+        node.callee.type === 'MemberExpression' &&
+        /^(?:generate|stream)$/.test(node.callee.property.name)
+          ? node.callee.object
+          : null;
+      const definition = binding(context, object)?.defs[0]?.node;
+      const init = definition?.init;
+      const agent = init?.type === 'NewExpression' && sdkBinding(init.callee);
+
+      return agent;
+    }
 
     return {
       ...edges,
@@ -221,19 +216,7 @@ export default defineRule({
             });
         }
 
-        const object =
-          node.callee.type === 'MemberExpression' &&
-          /^(?:generate|stream)$/.test(node.callee.property.name)
-            ? node.callee.object
-            : null;
-        const variable = object?.type === 'Identifier' ? context.sourceCode.getScope(object) : null;
-        let scope = variable;
-
-        while (scope && !scope.set.has(object.name)) scope = scope.upper;
-
-        const definition: any = scope?.set.get(object?.name)?.defs[0]?.node;
-        const init = definition?.init;
-        const agent = init?.type === 'NewExpression' && sdkBinding(init.callee);
+        const agent = sdkAgentMethod(node);
 
         if (inAi && !generationOwner && (sdkBinding(node.callee) || agent))
           context.report({ node, message: 'AI generation belongs in AI runtime.' });
@@ -245,3 +228,18 @@ export default defineRule({
     };
   }
 });
+
+function storeImport(db: boolean, target: string | null): boolean {
+  return db || (!!target && featureRole(target) === 'store');
+}
+
+function sdkModule(source: string): boolean {
+  return source === 'ai' || source.startsWith('ai/') || source.startsWith('@ai-sdk/');
+}
+
+function agentMember(node: any): boolean {
+  return (
+    node.type === 'MemberExpression' &&
+    ['generateAgent', 'streamAgent'].includes(property(node) ?? '')
+  );
+}

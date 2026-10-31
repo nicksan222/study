@@ -840,7 +840,7 @@ test('interrupting link ingestion closes the active HTTP request', async () => {
 });
 
 test('correction workflow publishes a new anchored document without changing history', async () => {
-  const { sourceCorrectionWorkflow, sourceCorrectionHandler } = await import('./correction.ts');
+  const { sourceCorrectionWorkflow, sourceCorrectionHandler } = await import('./index.ts');
   const { sql } = await import('@study/db');
   const { SourceStore } = await import('#server/features/sources/store/index');
   const { transaction } = await import('#server/platform/definitions/define-store');

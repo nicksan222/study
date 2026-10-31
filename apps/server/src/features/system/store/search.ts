@@ -67,6 +67,21 @@ export function makeSearch({ db }: StoreResources) {
     const project = options.projectId ?? null;
     const hits: SearchHit[] = [];
 
+    searchPassages(expression, kinds, project, limit, hits);
+    searchMessages(expression, kinds, project, limit, hits);
+    searchCatalog(expression, kinds, project, limit, hits);
+    searchNames(query, kinds, project, limit, hits);
+
+    return hits.sort((a, b) => a.rank - b.rank).slice(0, limit);
+  }
+
+  function searchPassages(
+    expression: string,
+    kinds: readonly SearchKind[],
+    project: ProjectId | null,
+    limit: number,
+    hits: SearchHit[]
+  ) {
     if (kinds.includes('passage')) {
       const rows = db.orm.all(
         sql`SELECT c.id,c.document_id,c.anchor,c.text,d.source_id,s.project_id,bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c ON c.id=chunks_fts.rowid JOIN documents d ON d.id=c.document_id JOIN sources s ON s.id=d.source_id WHERE chunks_fts MATCH ${expression} AND d.id=(SELECT published.document_id FROM source_processing published WHERE published.source_id=d.source_id) AND (${project} IS NULL OR s.project_id=${project}) ORDER BY rank LIMIT ${limit}`
@@ -86,7 +101,15 @@ export function makeSearch({ db }: StoreResources) {
           rank: r.rank as number
         });
     }
+  }
 
+  function searchMessages(
+    expression: string,
+    kinds: readonly SearchKind[],
+    project: ProjectId | null,
+    limit: number,
+    hits: SearchHit[]
+  ) {
     if (kinds.includes('message')) {
       const rows = db.orm.all(
         sql`SELECT m.id,m.session_id,s.project_id,v.text,bm25(message_fts) AS rank FROM message_fts JOIN message_versions v ON v.id=message_fts.rowid JOIN messages m ON m.active_version_id=v.id JOIN sessions s ON s.id=m.session_id WHERE message_fts MATCH ${expression} AND (${project} IS NULL OR s.project_id=${project}) ORDER BY rank LIMIT ${limit}`
@@ -103,7 +126,15 @@ export function makeSearch({ db }: StoreResources) {
           rank: r.rank as number
         });
     }
+  }
 
+  function searchCatalog(
+    expression: string,
+    kinds: readonly SearchKind[],
+    project: ProjectId | null,
+    limit: number,
+    hits: SearchHit[]
+  ) {
     const catalog: SearchKind[] = kinds.filter((k) =>
       ['project', 'session', 'source', 'material', 'question'].includes(k)
     );
@@ -119,18 +150,7 @@ export function makeSearch({ db }: StoreResources) {
       for (const r of rows) {
         const id = BigInt(r.target_id as string | number | bigint);
 
-        const target: SearchTarget | undefined =
-          r.kind === 'project'
-            ? { type: 'project', id: id as ProjectId }
-            : r.kind === 'session'
-              ? { type: 'session', id: id as SessionId }
-              : r.kind === 'source'
-                ? { type: 'source', id: id as SourceId }
-                : r.kind === 'material'
-                  ? { type: 'material', id: id as MaterialTarget['materialId'] }
-                  : r.kind === 'question'
-                    ? { type: 'question', id: id as QuestionTarget['questionId'] }
-                    : undefined;
+        const target = catalogTarget(r.kind, id);
 
         if (!target) continue;
 
@@ -145,70 +165,76 @@ export function makeSearch({ db }: StoreResources) {
         });
       }
     }
+  }
 
-    // Names also support fragments inside a word; FTS only matches token prefixes.
+  function searchNames(
+    query: string,
+    kinds: readonly SearchKind[],
+    project: ProjectId | null,
+    limit: number,
+    hits: SearchHit[]
+  ) {
+    for (const kind of ['project', 'session', 'source'] as const) {
+      if (!kinds.includes(kind)) continue;
+
+      for (const row of nameRows(kind, query, project, limit)) {
+        if (hits.some((hit) => hit.target.type === kind && hit.target.id === row.id)) continue;
+
+        hits.push({
+          target: catalogTarget(kind, row.id)!,
+          projectId: row.projectId,
+          text: row.text,
+          rank: 0
+        });
+      }
+    }
+  }
+
+  function nameRows(
+    kind: 'project' | 'session' | 'source',
+    query: string,
+    project: ProjectId | null,
+    limit: number
+  ) {
+    const table =
+      kind === 'project' ? schema.projects : kind === 'session' ? schema.sessions : schema.sources;
+    const label =
+      kind === 'session'
+        ? schema.sessions.title
+        : kind === 'project'
+          ? schema.projects.name
+          : schema.sources.name;
+    const scope =
+      kind === 'project'
+        ? schema.projects.id
+        : kind === 'session'
+          ? schema.sessions.project_id
+          : schema.sources.project_id;
     const pattern = `%${query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
 
-    if (kinds.includes('project'))
-      for (const row of db.orm
-        .select()
-        .from(schema.projects)
-        .where(sql`name LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR id=${project})`)
-        .limit(limit)
-        .all())
-        if (!hits.some((hit) => hit.target.type === 'project' && hit.target.id === row.id))
-          hits.push({
-            target: {
-              type: 'project',
-              id: row.id as ProjectId
-            },
-            projectId: row.id as ProjectId,
-            text: row.name,
-            rank: 0
-          });
-
-    if (kinds.includes('session'))
-      for (const row of db.orm
-        .select()
-        .from(schema.sessions)
-        .where(
-          sql`title LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR project_id=${project})`
-        )
-        .limit(limit)
-        .all())
-        if (!hits.some((hit) => hit.target.type === 'session' && hit.target.id === row.id))
-          hits.push({
-            target: {
-              type: 'session',
-              id: row.id as SessionId
-            },
-            projectId: row.project_id as ProjectId,
-            text: row.title,
-            rank: 0
-          });
-
-    if (kinds.includes('source'))
-      for (const row of db.orm
-        .select()
-        .from(schema.sources)
-        .where(
-          sql`name LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR project_id=${project})`
-        )
-        .limit(limit)
-        .all())
-        if (!hits.some((hit) => hit.target.type === 'source' && hit.target.id === row.id))
-          hits.push({
-            target: {
-              type: 'source',
-              id: row.id as SourceId
-            },
-            projectId: row.project_id as ProjectId | null,
-            text: row.name,
-            rank: 0
-          });
-
-    return hits.sort((a, b) => a.rank - b.rank).slice(0, limit);
+    return db.orm
+      .select({ id: table.id, projectId: scope, text: label })
+      .from(table)
+      .where(
+        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${scope}=${project})`
+      )
+      .limit(limit)
+      .all();
   }
 
   return { search };
+}
+
+function catalogTarget(kind: unknown, id: bigint): SearchTarget | undefined {
+  return kind === 'project'
+    ? { type: 'project', id: id as ProjectId }
+    : kind === 'session'
+      ? { type: 'session', id: id as SessionId }
+      : kind === 'source'
+        ? { type: 'source', id: id as SourceId }
+        : kind === 'material'
+          ? { type: 'material', id: id as MaterialTarget['materialId'] }
+          : kind === 'question'
+            ? { type: 'question', id: id as QuestionTarget['questionId'] }
+            : undefined;
 }

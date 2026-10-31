@@ -5,7 +5,7 @@ import type { Card as FsrsCard, State } from 'ts-fsrs';
 
 export type Rating = typeof learningRatingSchema.Type;
 
-export type MemoryState = 0 | 1 | 2 | 3;
+type MemoryState = 0 | 1 | 2 | 3;
 
 export type Memory = ReturnType<typeof fromCard>;
 

@@ -1,9 +1,10 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { serverPath } from '../architecture-imports.ts';
+import { binding, constantDeclarator, enterNode } from '../lexical-bindings.ts';
 import { property as field } from './effect-lifecycle-syntax.ts';
 import { isFactory, resolveValue } from './module-factories.ts';
-import { binding, resourceType } from './synchronous-transactions.ts';
+import { resourceType } from './synchronous-transactions.ts';
 
 const roles = new Set([
   'store',
@@ -29,9 +30,8 @@ export default defineRule({
     const report = (node: any, message: string) => context.report({ node, message });
 
     function factory(node: any, names: string[], seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
+      if (!enterNode(node, seen)) return false;
 
-      seen.add(node);
       const def = binding(context, node)?.defs[0]?.node;
 
       if (def?.type === 'ImportSpecifier')
@@ -40,9 +40,12 @@ export default defineRule({
           /(?:^|\/)define-store(?:\.ts)?$/.test(def.parent.source.value)
         );
 
-      if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-        return factory(def.init, names, seen);
+      if (constantDeclarator(def)) return factory(def.init, names, seen);
 
+      return factoryNamespace(node, names);
+    }
+
+    function factoryNamespace(node: any, names: string[]): boolean {
       if (
         node.type === 'MemberExpression' &&
         names.includes(node.property.name ?? node.property.value)
@@ -67,15 +70,56 @@ export default defineRule({
 
         if (!kind) continue;
 
-        const allowed =
-          parts[0] === 'store' &&
-          /^make(?:[A-Z].*)?$/.test(name ?? '') &&
-          node.params.length === 1 &&
-          kind === 'StoreResources';
+        const allowed = boundMake(node, kind, name);
 
         if (!allowed)
           report(param, 'Bind store resources once in a make* factory accepting StoreResources.');
       }
+    }
+
+    function boundMake(node: any, kind: string, name: string | undefined): boolean {
+      const allowed =
+        parts[0] === 'store' &&
+        /^make(?:[A-Z].*)?$/.test(name ?? '') &&
+        node.params.length === 1 &&
+        kind === 'StoreResources';
+
+      return allowed;
+    }
+
+    function checkStore(node: any) {
+      if (isFactory(context, node.callee, 'store')) {
+        const descriptor = resolveValue(context, node.arguments[0]);
+        const make = resolveValue(context, field(descriptor, 'make'));
+
+        if (
+          !make ||
+          !['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(
+            make.type
+          )
+        )
+          report(node, 'defineStore requires a make factory for bound descriptors.');
+        else {
+          const result = makeResult(make);
+
+          if (
+            result?.type === 'ObjectExpression' &&
+            result.properties.every((item: any) => item.type !== 'SpreadElement') &&
+            (!field(result, 'queries') || !field(result, 'mutations'))
+          )
+            report(make, 'Store make must return queries and mutations.');
+        }
+      }
+    }
+
+    function makeResult(make: any): any {
+      const body =
+        make.body?.type === 'BlockStatement'
+          ? make.body.body.find((statement: any) => statement.type === 'ReturnStatement')?.argument
+          : make.body;
+      const result = resolveValue(context, body);
+
+      return result;
     }
 
     return {
@@ -115,33 +159,7 @@ export default defineRule({
       FunctionExpression: checkFunction,
       ArrowFunctionExpression: checkFunction,
       CallExpression(node: any) {
-        if (isFactory(context, node.callee, 'store')) {
-          const descriptor = resolveValue(context, node.arguments[0]);
-          const make = resolveValue(context, field(descriptor, 'make'));
-
-          if (
-            !make ||
-            !['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(
-              make.type
-            )
-          )
-            report(node, 'defineStore requires a make factory for bound descriptors.');
-          else {
-            const body =
-              make.body?.type === 'BlockStatement'
-                ? make.body.body.find((statement: any) => statement.type === 'ReturnStatement')
-                    ?.argument
-                : make.body;
-            const result = resolveValue(context, body);
-
-            if (
-              result?.type === 'ObjectExpression' &&
-              result.properties.every((item: any) => item.type !== 'SpreadElement') &&
-              (!field(result, 'queries') || !field(result, 'mutations'))
-            )
-              report(make, 'Store make must return queries and mutations.');
-          }
-        }
+        checkStore(node);
 
         if (factory(node.callee, ['storeQuery', 'storeMutation'])) {
           const descriptor = resolveValue(context, node.arguments[0]);

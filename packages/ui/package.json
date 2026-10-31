@@ -8,7 +8,6 @@
     "./theme.css": "./src/theme.css",
     "./styles.css": "./src/styles.css",
     "./utils": "./src/utils.ts",
-    "./visible-animation": "./src/visible-animation.ts",
     "./dialog-styles": "./src/components/dialog-styles.ts",
     "./*": "./src/components/*.tsx",
     "./clock": "./src/clock.ts"
@@ -18,7 +17,8 @@
     "@study/theme": "*",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^1.61.0",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "4.3.3"
   },
   "peerDependencies": {
     "react": "^19.3.1",

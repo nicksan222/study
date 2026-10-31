@@ -39,15 +39,17 @@ function textBlocks(input: TextInput): Block[] {
 
     current = '';
   };
-  const lines = text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
 
-  for (const [index, line] of lines.entries()) {
-    const n = index + 1,
-      size = Buffer.byteLength(line),
-      trimmed = line.trim();
-    const marker = markdown ? /^(\x60{3,}|~{3,})/.exec(trimmed)?.[0] : undefined;
+  function consumeFence(
+    line: string,
+    size: number,
+    trimmed: string,
+    marker: string | undefined,
+    n: number
+  ) {
+    if (!fence) return false;
 
-    if (fence) {
+    {
       current += line;
       offset += size;
 
@@ -56,13 +58,30 @@ function textBlocks(input: TextInput): Block[] {
         flush(n);
       }
 
-      continue;
+      return true;
     }
+  }
+
+  const lines = text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+
+  function finishLine(marker: string | undefined, n: number) {
+    if (marker) fence = marker;
+    else if (currentKind === 'heading') flush(n);
+  }
+
+  function consumeLine(index: number, line: string) {
+    const n = index + 1,
+      size = Buffer.byteLength(line),
+      trimmed = line.trim();
+    const marker = markdown ? /^(\x60{3,}|~{3,})/.exec(trimmed)?.[0] : undefined;
+
+    if (consumeFence(line, size, trimmed, marker, n)) return;
 
     if (!trimmed) {
       flush(n - 1);
       offset += size;
-      continue;
+
+      return;
     }
 
     if (marker || (markdown && /^#{1,6}\s/.test(trimmed))) flush(n - 1);
@@ -70,21 +89,17 @@ function textBlocks(input: TextInput): Block[] {
     if (!current) {
       start = offset;
       startLine = n;
-      currentKind =
-        code || marker
-          ? 'code'
-          : markdown && /^#{1,6}\s/.test(trimmed)
-            ? 'heading'
-            : markdown && /^([-*+]\s|\d+[.)]\s)/.test(trimmed)
-              ? 'list_item'
-              : 'paragraph';
+      currentKind = blockKind(code, marker, markdown, trimmed);
     }
 
     current += line;
     offset += size;
 
-    if (marker) fence = marker;
-    else if (currentKind === 'heading') flush(n);
+    finishLine(marker, n);
+  }
+
+  for (const [index, line] of lines.entries()) {
+    consumeLine(index, line);
   }
 
   flush(lines.length);
@@ -106,4 +121,21 @@ export function decodeText(input: TextInput): Document {
       corrected: false
     }
   };
+}
+
+function blockKind(
+  code: boolean,
+  marker: string | undefined,
+  markdown: boolean,
+  trimmed: string
+): Block['kind'] {
+  if (code || marker) return 'code';
+
+  if (!markdown) return 'paragraph';
+
+  if (/^#{1,6}\s/.test(trimmed)) return 'heading';
+
+  if (/^([-*+]\s|\d+[.)]\s)/.test(trimmed)) return 'list_item';
+
+  return 'paragraph';
 }

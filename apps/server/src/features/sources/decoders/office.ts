@@ -224,10 +224,7 @@ function readDocx(parts: Map<string, string>): Block[] {
   return blocks;
 }
 
-function readPptx(parts: Map<string, string>): {
-  blocks: Block[];
-  pageCount: number;
-} {
+function presentationSlides(parts: Map<string, string>) {
   const presentation = parts.get('ppt/presentation.xml'),
     rels = parts.get('ppt/_rels/presentation.xml.rels');
   let slides: string[] = [];
@@ -263,6 +260,15 @@ function readPptx(parts: Map<string, string>): {
       'invalid_input',
       'Slide deck has no readable slides or exceeds the slide limit'
     );
+
+  return slides;
+}
+
+function readPptx(parts: Map<string, string>): {
+  blocks: Block[];
+  pageCount: number;
+} {
+  const slides = presentationSlides(parts);
 
   const blocks: Block[] = [];
 

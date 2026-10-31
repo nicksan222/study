@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, propertyName } from '../effect-bindings.ts';
+import { enterNode, constantDeclarator, globalMember, binding } from '../lexical-bindings.ts';
 import { businessFile, property, walk } from './effect-lifecycle-syntax.ts';
 
 export default defineRule({
@@ -12,9 +13,7 @@ export default defineRule({
     const fetchImports = new Set<any>();
 
     function nativeFetch(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (node.type === 'Identifier') {
         const def = bindings.definition(node);
@@ -23,37 +22,10 @@ export default defineRule({
 
         if (fetchImports.has(def)) return true;
 
-        return (
-          def.type === 'VariableDeclarator' &&
-          def.parent?.kind === 'const' &&
-          nativeFetch(def.init, seen)
-        );
+        return constantDeclarator(def) && nativeFetch(def.init, seen);
       }
 
-      return (
-        node.type === 'MemberExpression' &&
-        (!node.computed || node.property.type === 'Literal') &&
-        node.object.type === 'Identifier' &&
-        node.object.name === 'globalThis' &&
-        !bindings.definition(node.object) &&
-        propertyName(node.property) === 'fetch'
-      );
-    }
-
-    function variable(node: any): any {
-      if (node?.type !== 'Identifier') return null;
-
-      let scope = context.sourceCode.getScope(node);
-
-      while (scope) {
-        const found = scope.set.get(node.name);
-
-        if (found) return found;
-
-        scope = scope.upper!;
-      }
-
-      return null;
+      return globalMember(context, node, ['globalThis'], ['fetch']);
     }
 
     return {
@@ -83,14 +55,14 @@ export default defineRule({
           return;
 
         const signal = callback.params[0];
-        const signalVariable = variable(signal);
+        const signalVariable = binding(context, signal);
 
         walk(callback.body, (child) => {
           if (child.type !== 'CallExpression' || !nativeFetch(child.callee)) return;
 
           const supplied = property(child.arguments[1], 'signal');
 
-          if (!signalVariable || variable(supplied) !== signalVariable)
+          if (!signalVariable || binding(context, supplied) !== signalVariable)
             context.report({
               node: child,
               message: 'Pass the Effect.tryPromise cancellation signal to fetch.'

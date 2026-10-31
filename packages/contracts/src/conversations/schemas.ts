@@ -28,8 +28,6 @@ export const versionOriginSchema = Schema.Literals([
   'typed'
 ]);
 
-export { sourceKindSchema };
-
 export const sessionSchema = Schema.Struct({
   id: sessionIdSchema,
   projectId: projectIdSchema,
@@ -41,7 +39,7 @@ export const sessionSchema = Schema.Struct({
 
 export { anchorSchema };
 
-export const citationSchema = Schema.Struct({
+const citationSchema = Schema.Struct({
   marker: Schema.Number,
   sourceId: Schema.NullOr(sourceIdSchema),
   sourceName: Schema.String,
@@ -84,8 +82,6 @@ export const chatMessageSchema = Schema.Struct({
 });
 
 export type SessionDto = typeof sessionSchema.Type;
-
-export type ChatMessageDto = typeof chatMessageSchema.Type;
 
 export const replyRequestInputSchema = Schema.Struct({
   sessionId: sessionIdSchema,

@@ -1,10 +1,10 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { effectBindings, propertyName } from '../effect-bindings.ts';
+import { effectBindings } from '../effect-bindings.ts';
+import { imported, enterNode, constantDeclarator, globalMember } from '../lexical-bindings.ts';
 import { webFile } from '../web-files.ts';
 import { businessFile } from './effect-lifecycle-syntax.ts';
 import { nativeGlobal } from './native-global.ts';
-import { imported } from './synchronous-transactions.ts';
 
 const message =
   'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
@@ -21,28 +21,17 @@ export default defineRule({
     const bindings = effectBindings(context);
 
     function timer(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (node.type === 'Identifier') {
         const def = bindings.definition(node);
 
         return !def
           ? ['setTimeout', 'setInterval'].includes(node.name)
-          : def.type === 'VariableDeclarator' &&
-              def.parent?.kind === 'const' &&
-              timer(def.init, seen);
+          : constantDeclarator(def) && timer(def.init, seen);
       }
 
-      return (
-        node.type === 'MemberExpression' &&
-        (!node.computed || node.property.type === 'Literal') &&
-        node.object.type === 'Identifier' &&
-        ['globalThis', 'global'].includes(node.object.name) &&
-        !bindings.definition(node.object) &&
-        ['setTimeout', 'setInterval'].includes(propertyName(node.property) ?? '')
-      );
+      return globalMember(context, node, ['globalThis', 'global'], ['setTimeout', 'setInterval']);
     }
 
     function uiDebounce(node: any): boolean {

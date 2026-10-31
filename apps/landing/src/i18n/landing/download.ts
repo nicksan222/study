@@ -1,7 +1,7 @@
 // The landing's last call to download: the call, the other platforms in a line, and the notes.
 import type { Os, Shape } from '../strings';
 
-export const en = {
+export const downloadEn = {
   get: {
     download: 'Download',
     downloadFor: {
@@ -31,7 +31,7 @@ export const en = {
   }
 } as const;
 
-export const it: Shape<typeof en> = {
+export const downloadIt: Shape<typeof downloadEn> = {
   get: {
     download: 'Scarica',
     downloadFor: {

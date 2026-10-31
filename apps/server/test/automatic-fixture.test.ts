@@ -32,19 +32,14 @@ for (const mode of [
 
     assert.equal(
       child.status,
-      mode === 'failure' ||
-        mode === 'setup-failure' ||
-        mode === 'cleanup-throw' ||
-        mode === 'failure-cleanup-throw'
-        ? 1
-        : 0,
+      ['failure', 'setup-failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode) ? 1 : 0,
       child.stderr + child.stdout
     );
     const paths = [...child.stdout.matchAll(/FIXTURE_PATH (".*")/g)].map(
       (match) => JSON.parse(match[1]!) as string
     );
 
-    assert.equal(paths.length, mode === 'success' || mode === 'concurrent' ? 2 : 1, child.stdout);
+    assert.equal(paths.length, ['success', 'concurrent'].includes(mode) ? 2 : 1, child.stdout);
     assert.equal(new Set(paths).size, paths.length);
 
     for (const path of paths) {
@@ -56,20 +51,15 @@ for (const mode of [
       assert.equal(existsSync(dirname(path)), false, dirname(path));
     }
 
-    if (
-      mode === 'success' ||
-      mode === 'failure' ||
-      mode === 'cleanup-throw' ||
-      mode === 'failure-cleanup-throw'
-    ) {
+    if (['success', 'failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
       assert.match(child.stdout, /LIVE_SQL_DURING_DISPOSAL/);
       assert.match(child.stdout, /EXTRA_CONNECTION_CLOSED/);
     }
 
-    if (mode === 'retry-sync' || mode === 'retry-async')
+    if (['retry-sync', 'retry-async'].includes(mode))
       assert.match(child.stdout, /RETRIED_CLOSE_BEFORE_FILE_CLEANUP/);
 
-    if (mode === 'cleanup-throw' || mode === 'failure-cleanup-throw') {
+    if (['cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
       if (mode === 'failure-cleanup-throw') assert.match(child.stdout, /intentional test failure/);
       else assert.match(child.stdout, /Test resource cleanup failed/);
 

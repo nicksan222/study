@@ -126,5 +126,3 @@ export const List = Object.assign(Root, {
   Meta,
   Footer
 });
-
-export { Root, Row, Main, Title, Description, Leading, Icon, Meta, Footer };

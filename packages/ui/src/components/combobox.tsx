@@ -8,8 +8,6 @@ import { Input } from './input';
 // Single-select pieces adapted from coss/ui's MIT-licensed combobox.
 export const Combobox: typeof Primitive.Root = Primitive.Root;
 
-export const createComboboxItems: typeof Primitive.createItems = Primitive.createItems;
-
 export function ComboboxTrigger({ className, ...props }: Primitive.Trigger.Props) {
   return <Primitive.Trigger className={className} data-slot="combobox-trigger" {...props} />;
 }

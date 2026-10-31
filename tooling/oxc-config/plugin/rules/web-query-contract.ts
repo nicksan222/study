@@ -16,18 +16,26 @@ export default defineRule({
       current === 'lib/effect/runtime.ts' || (current.startsWith('lib/study-client/') && !queries);
     const bindings = effectBindings(context);
     const report = (node: any, message: string) => context.report({ node, message });
+
+    function checkQueryOptions(node: any, source: string) {
+      if (
+        !queries &&
+        source === '@tanstack/react-query' &&
+        node.type === 'ImportDeclaration' &&
+        node.specifiers.some((item: any) =>
+          ['queryOptions', 'infiniteQueryOptions', 'mutationOptions'].includes(
+            propertyName(item.imported) ?? ''
+          )
+        )
+      )
+        report(node, 'Define shared query and mutation options in .queries.ts modules.');
+    }
+
     const edges = moduleEdges(context, (node, source, typeOnly) => {
       if (typeOnly || source === null) return;
 
-      if (!adapter && (source === 'effect' || source.startsWith('effect/'))) {
-        const schemaOnly =
-          source === 'effect/Schema' ||
-          (source === 'effect' &&
-            node.type === 'ImportDeclaration' &&
-            node.specifiers.length > 0 &&
-            node.specifiers.every(
-              (item: any) => item.importKind === 'type' || propertyName(item.imported) === 'Schema'
-            ));
+      if (requiresEffectAdapter(adapter, source)) {
+        const schemaOnly = schemaImport(node, source);
 
         if (!schemaOnly)
           report(
@@ -50,17 +58,7 @@ export default defineRule({
           'Call browser requests from .queries.ts modules; consume shared Query options in hooks and loaders.'
         );
 
-      if (
-        !queries &&
-        source === '@tanstack/react-query' &&
-        node.type === 'ImportDeclaration' &&
-        node.specifiers.some((item: any) =>
-          ['queryOptions', 'infiniteQueryOptions', 'mutationOptions'].includes(
-            propertyName(item.imported) ?? ''
-          )
-        )
-      )
-        report(node, 'Define shared query and mutation options in .queries.ts modules.');
+      checkQueryOptions(node, source);
     });
 
     return {
@@ -95,3 +93,19 @@ export default defineRule({
     };
   }
 });
+
+function schemaImport(node: any, source: string): boolean {
+  return (
+    source === 'effect/Schema' ||
+    (source === 'effect' &&
+      node.type === 'ImportDeclaration' &&
+      node.specifiers.length > 0 &&
+      node.specifiers.every(
+        (item: any) => item.importKind === 'type' || propertyName(item.imported) === 'Schema'
+      ))
+  );
+}
+
+function requiresEffectAdapter(adapter: boolean, source: string): boolean {
+  return !adapter && (source === 'effect' || source.startsWith('effect/'));
+}

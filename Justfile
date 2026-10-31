@@ -249,8 +249,12 @@ tooling-test:
     python3 -m unittest discover -s tooling/development -p 'test_*.py'
     python3 -m unittest discover -s tooling/release -p 'test_*.py'
 
+# Enforce full-repository dead-code, complexity and duplication limits.
+fallow-check:
+    npm run fallow:check
+
 # Run checks required for pull requests.
-check: check-shell fmt-check lint deny test docs server-check frontend-check gen-check tooling-test landing-check
+check: check-shell fmt-check lint fallow-check deny test docs server-check frontend-check gen-check tooling-test landing-check
 
 # Format-check, lint, test, and document one Rust package.
 check-crate package:

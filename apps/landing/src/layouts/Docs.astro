@@ -35,6 +35,10 @@ const title = doc ? `${doc.data.title} · ${s.docs.title} · Study` : `${s.docs.
 
 const description = doc ? doc.data.description : s.docs.lead;
 
+const homeCurrent = () => doc ? undefined : 'page';
+
+const pageCurrent = (d: Doc) => slug(d) === current ? 'page' : undefined;
+
 const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
 ---
 
@@ -46,7 +50,7 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
         <span>{s.docs.menu}</span>
       </summary>
       <nav class="side-nav" aria-label={s.docs.title}>
-        <a class="side-link side-home" href={href(lang, 'docs/')} aria-current={doc ? undefined : 'page'}>{s.docs.title}</a>
+        <a class="side-link side-home" href={href(lang, 'docs/')} aria-current={homeCurrent()}>{s.docs.title}</a>
         {
           sections.map((section) => (
             <div class="side-group">
@@ -56,7 +60,7 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
                   .filter((d) => d.data.section === section)
                   .map((d) => (
                     <li>
-                      <a class="side-link" href={link(d)} aria-current={slug(d) === current ? 'page' : undefined}>
+                      <a class="side-link" href={link(d)} aria-current={pageCurrent(d)}>
                         {d.data.title}
                       </a>
                     </li>

@@ -70,16 +70,7 @@ export const RecordingPostStore = defineStore({
             .get();
           const source = db.orm.select().from(sources).where(eq(sources.id, input.sourceId)).get();
 
-          if (
-            !session ||
-            session.project_id !== input.projectId ||
-            !source ||
-            source.project_id !== input.projectId ||
-            source.origin !== 'recording' ||
-            source.kind !== 'audio' ||
-            !source.mime.startsWith('audio/')
-          )
-            throw new StudyError('invalid_input', 'recording session or source is unavailable');
+          assertRecordingContext(input, session, source);
 
           return null;
         }
@@ -109,3 +100,20 @@ export const RecordingPostStore = defineStore({
     }
   })
 });
+
+function assertRecordingContext(
+  input: typeof inputSchema.Type,
+  session: typeof sessions.$inferSelect | undefined,
+  source: typeof sources.$inferSelect | undefined
+) {
+  if (
+    !session ||
+    session.project_id !== input.projectId ||
+    !source ||
+    source.project_id !== input.projectId ||
+    source.origin !== 'recording' ||
+    source.kind !== 'audio' ||
+    !source.mime.startsWith('audio/')
+  )
+    throw new StudyError('invalid_input', 'recording session or source is unavailable');
+}

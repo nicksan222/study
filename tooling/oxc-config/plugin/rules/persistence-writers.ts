@@ -1,5 +1,14 @@
+import {
+  binding,
+  imported,
+  memberName as property,
+  constantDeclarator,
+  runtimeImport,
+  enterNode,
+  destructuredBinding
+} from '../lexical-bindings.ts';
 import { resolveValue } from './module-factories.ts';
-import { binding, imported, property, typedOwner } from './synchronous-transactions.ts';
+import { typedOwner } from './synchronous-transactions.ts';
 
 const names: Record<string, string> = {
   workflowEvents: 'workflow_events',
@@ -8,17 +17,13 @@ const names: Record<string, string> = {
 
 export function persistenceWriters(context: any, report: (node: any, table: string) => void) {
   const source = (def: any, sql = false) =>
-    def?.parent?.type === 'ImportDeclaration' &&
-    def.parent.importKind !== 'type' &&
-    def.importKind !== 'type' &&
+    runtimeImport(def) &&
     (sql ? /^(?:@study\/db(?:\/schema)?|drizzle-orm(?:\/.*)?)$/ : /^@study\/db(?:\/schema)?$/).test(
       def.parent.source.value
     );
 
   function importedName(node: any, sql = false, seen = new Set<any>()): string | undefined {
-    if (!node || seen.has(node)) return;
-
-    seen.add(node);
+    if (!enterNode(node, seen)) return;
 
     if (
       [
@@ -31,14 +36,7 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
     )
       return importedName(node.expression, sql, seen);
 
-    if (node.type === 'MemberExpression') {
-      const object = resolveValue(context, node.object);
-      const def = binding(context, object)?.defs[0]?.node;
-
-      return def?.type === 'ImportNamespaceSpecifier' && source(def, sql)
-        ? property(node)
-        : undefined;
-    }
+    if (node.type === 'MemberExpression') return namespaceMember(node, sql);
 
     if (node.type !== 'Identifier') return;
 
@@ -47,12 +45,23 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
     if (def?.type === 'ImportSpecifier' && source(def, sql))
       return def.imported.name ?? def.imported.value;
 
-    if (def?.type !== 'VariableDeclarator' || def.parent?.kind !== 'const') return;
+    return aliasedName(node, def, sql, seen);
+  }
+
+  function namespaceMember(node: any, sql: boolean): string | undefined {
+    const object = resolveValue(context, node.object);
+    const def = binding(context, object)?.defs[0]?.node;
+
+    return def?.type === 'ImportNamespaceSpecifier' && source(def, sql)
+      ? property(node)
+      : undefined;
+  }
+
+  function aliasedName(node: any, def: any, sql: boolean, seen: Set<any>): string | undefined {
+    if (!constantDeclarator(def)) return;
 
     if (def.id.type === 'ObjectPattern') {
-      const prop = def.id.properties.find(
-        (p: any) => p.type === 'Property' && (p.value.name ?? p.value.left?.name) === node.name
-      );
+      const prop = destructuredBinding(def.id, node.name);
       const object = resolveValue(context, def.init);
       const namespace = binding(context, object)?.defs[0]?.node;
 
@@ -73,9 +82,7 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
   const isSql = (node: any) => importedName(node, true) === 'sql';
 
   function databaseReceiver(node: any, seen = new Set<any>()): boolean {
-    if (!node || seen.has(node)) return false;
-
-    seen.add(node);
+    if (!enterNode(node, seen)) return false;
 
     if (typedOwner(context, node)) return true;
 
@@ -85,6 +92,13 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
       return databaseReceiver(node.callee.object, seen);
 
     const def = binding(context, node)?.defs[0]?.node;
+
+    if (databaseAnnotation(node, def)) return true;
+
+    return constantDeclarator(def) ? databaseReceiver(def.init, seen) : false;
+  }
+
+  function databaseAnnotation(node: any, def: any): boolean {
     const annotation =
       def?.type === 'VariableDeclarator'
         ? def.id.typeAnnotation?.typeAnnotation
@@ -96,34 +110,11 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
     )
       return true;
 
-    return def?.type === 'VariableDeclarator' && def.parent?.kind === 'const'
-      ? databaseReceiver(def.init, seen)
-      : false;
+    return false;
   }
 
   function sqlWrites(node: any, text: string, expressions: any[] = []) {
-    // Keep string values opaque, but retain quoted identifiers and interpolation positions.
-    const re =
-      /(--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)|('(?:''|[^'])*')|("(?:""|[^"])*"|`(?:``|[^`])*`|\[(?:[^\]]|\]\])*\])|(__INTERPOLATION_\d+__|[a-zA-Z_][\w$]*|[(),.;])/g;
-    const tokens: string[] = [];
-
-    for (const match of text.matchAll(re)) {
-      if (match[1]) continue;
-
-      if (match[2]) tokens.push('__STRING__');
-      else if (match[3])
-        tokens.push(
-          '@' +
-            match[3]
-              .slice(1, -1)
-              .replaceAll(
-                match[3][0] === '[' ? ']]' : match[3][0].repeat(2),
-                match[3][0] === '[' ? ']' : match[3][0]
-              )
-              .toLowerCase()
-        );
-      else tokens.push(match[4].toLowerCase());
-    }
+    const tokens = sqlTokens(text);
 
     let depth = 0;
     let statement = false;
@@ -131,13 +122,10 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
     for (let i = 0; i < tokens.length; i++) {
       const word = tokens[i];
 
-      if (word === '(') {
-        depth++;
-        continue;
-      }
+      const nesting = bracketDepth(word);
 
-      if (word === ')') {
-        depth--;
+      if (nesting) {
+        depth += nesting;
         continue;
       }
 
@@ -148,35 +136,24 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
 
       if (depth || statement) continue;
 
-      if (word === 'with' || word === 'recursive') continue;
-
-      // A statement's first top-level operation owns its target. SELECT columns,
-      // CTE names and UPSERT assignments cannot start another mutation.
-      if (!['select', 'insert', 'replace', 'update', 'delete'].includes(word)) continue;
-
-      if (tokens[i + 1] === 'as' || tokens[i + 1] === ',' || tokens[i + 1] === '(') continue;
+      // Only the first top-level operation owns a statement's target.
+      if (!statementStart(tokens, i)) continue;
 
       statement = true;
-      let at = i + 1;
+      const at = mutationTarget(tokens, i, word);
 
-      if (word === 'insert' || word === 'replace') {
-        if (tokens[at] === 'or') at += 2;
+      if (at === null) continue;
 
-        if (tokens[at++] !== 'into') continue;
-      } else if (word === 'update') {
-        if (tokens[at] === 'or') at += 2;
-      } else if (word === 'delete') {
-        if (tokens[at++] !== 'from') continue;
-      } else continue;
-
-      if (tokens[at + 1] === '.') at += 2;
-
-      const token = tokens[at]?.replace(/^@/, '');
-      const interpolation = /^__interpolation_(\d+)__$/.exec(token ?? '');
-      const table = interpolation ? tableName(expressions[Number(interpolation[1])]) : token;
-
-      if (table) report(node, table);
+      reportTable(node, tokens[at], expressions);
     }
+  }
+
+  function reportTable(node: any, target: string | undefined, expressions: any[]) {
+    const token = target?.replace(/^@/, '');
+    const interpolation = /^__interpolation_(\d+)__$/.exec(token ?? '');
+    const table = interpolation ? tableName(expressions[Number(interpolation[1])]) : token;
+
+    if (table) report(node, table);
   }
 
   function inspectLiteral(node: any, value: any) {
@@ -222,4 +199,64 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
       sqlWrites(node, text, node.quasi.expressions);
     }
   };
+}
+
+function sqlTokens(text: string): string[] {
+  // Keep string values opaque, but retain quoted identifiers and interpolation positions.
+  const re =
+    /(--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)|('(?:''|[^'])*')|("(?:""|[^"])*"|`(?:``|[^`])*`|\[(?:[^\]]|\]\])*\])|(__INTERPOLATION_\d+__|[a-zA-Z_][\w$]*|[(),.;])/g;
+  const tokens: string[] = [];
+
+  for (const match of text.matchAll(re)) {
+    if (match[1]) continue;
+
+    if (match[2]) tokens.push('__STRING__');
+    else if (match[3])
+      tokens.push(
+        '@' +
+          match[3]
+            .slice(1, -1)
+            .replaceAll(
+              match[3][0] === '[' ? ']]' : match[3][0].repeat(2),
+              match[3][0] === '[' ? ']' : match[3][0]
+            )
+            .toLowerCase()
+      );
+    else tokens.push(match[4].toLowerCase());
+  }
+
+  return tokens;
+}
+
+function mutationTarget(tokens: string[], i: number, word: string): number | null {
+  let at = i + 1;
+
+  if (word === 'insert' || word === 'replace') {
+    if (tokens[at] === 'or') at += 2;
+
+    if (tokens[at++] !== 'into') return null;
+  } else if (word === 'update') {
+    if (tokens[at] === 'or') at += 2;
+  } else if (word === 'delete') {
+    if (tokens[at++] !== 'from') return null;
+  } else return null;
+
+  if (tokens[at + 1] === '.') at += 2;
+
+  return at;
+}
+
+function bracketDepth(word: string): number {
+  if (word === '(') return 1;
+
+  if (word === ')') return -1;
+
+  return 0;
+}
+
+function statementStart(tokens: string[], i: number): boolean {
+  return (
+    ['select', 'insert', 'replace', 'update', 'delete'].includes(tokens[i]) &&
+    !['as', ',', '('].includes(tokens[i + 1])
+  );
 }

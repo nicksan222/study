@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { binding, production, property } from './synchronous-transactions.ts';
+import { binding, memberName as property } from '../lexical-bindings.ts';
+import { production } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -15,17 +16,21 @@ export default defineRule({
       return ['from', 'orm', 'returning'].includes(property(node) ?? '') || query(node.object);
     }
 
+    function missingValue(expression: any): boolean {
+      return (
+        (expression.type === 'Literal' && expression.value === null) ||
+        (expression.type === 'Identifier' &&
+          expression.name === 'undefined' &&
+          !binding(context, expression)?.defs.length) ||
+        (expression.type === 'UnaryExpression' && expression.operator === 'void')
+      );
+    }
+
     return {
       TSNonNullExpression(node) {
         const expression = node.expression;
 
-        if (
-          (expression.type === 'Literal' && expression.value === null) ||
-          (expression.type === 'Identifier' &&
-            expression.name === 'undefined' &&
-            !binding(context, expression)?.defs.length) ||
-          (expression.type === 'UnaryExpression' && expression.operator === 'void')
-        ) {
+        if (missingValue(expression)) {
           context.report({
             node,
             message:

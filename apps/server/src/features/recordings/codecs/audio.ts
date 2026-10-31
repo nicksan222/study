@@ -2,8 +2,6 @@ import { StudyError } from '@study/contracts/errors';
 
 export const MAX_RECORDING_SAMPLES = 16000 * 60 * 60;
 
-export const MAX_RECORDING_CHUNK_SAMPLES = 16000 * 60;
-
 /** Encode already validated little-endian signed PCM in the recording format. */
 export function encodeRecordingWav(chunks: readonly Uint8Array[]): Uint8Array {
   let size = 0;

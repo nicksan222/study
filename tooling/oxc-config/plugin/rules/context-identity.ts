@@ -1,8 +1,8 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings } from '../effect-bindings.ts';
+import { binding, memberName as property } from '../lexical-bindings.ts';
 import { resolveValue } from './module-factories.ts';
-import { binding, property } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },

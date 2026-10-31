@@ -2,8 +2,9 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { targetPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
+import { binding } from '../lexical-bindings.ts';
 import { resolveValue } from './module-factories.ts';
-import { binding, production } from './synchronous-transactions.ts';
+import { production } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -19,6 +20,20 @@ export default defineRule({
     function safeHelper(node: any): boolean {
       node = resolveValue(context, node);
 
+      if (namespaceHelper(node)) return true;
+
+      if (node?.type !== 'Identifier') return false;
+
+      const def = binding(context, node)?.defs[0]?.node;
+
+      return (
+        def?.type === 'ImportSpecifier' &&
+        (def.imported.name ?? def.imported.value) === 'safeMetadata' &&
+        targetPath(context.filename, def.parent.source.value) === 'platform/observability/index'
+      );
+    }
+
+    function namespaceHelper(node: any): boolean {
       if (
         node?.type === 'MemberExpression' &&
         !node.computed &&
@@ -33,15 +48,7 @@ export default defineRule({
         );
       }
 
-      if (node?.type !== 'Identifier') return false;
-
-      const def = binding(context, node)?.defs[0]?.node;
-
-      return (
-        def?.type === 'ImportSpecifier' &&
-        (def.imported.name ?? def.imported.value) === 'safeMetadata' &&
-        targetPath(context.filename, def.parent.source.value) === 'platform/observability/index'
-      );
+      return false;
     }
 
     function safeAnnotation(node: any): boolean {
@@ -58,13 +65,18 @@ export default defineRule({
           allowed.has(item.key.name ?? item.key.value) &&
           ((item.value.type === 'Literal' &&
             ['string', 'number', 'boolean'].includes(typeof item.value.value)) ||
-            (terminal &&
-              item.key.name === 'requestId' &&
-              item.value.type === 'CallExpression' &&
-              item.value.callee.type === 'Identifier' &&
-              item.value.callee.name === 'randomUUID' &&
-              binding(context, item.value.callee)?.defs[0]?.node?.parent?.source?.value ===
-                'node:crypto'))
+            terminalRequestId(item))
+      );
+    }
+
+    function terminalRequestId(item: any): boolean {
+      return (
+        terminal &&
+        item.key.name === 'requestId' &&
+        item.value.type === 'CallExpression' &&
+        item.value.callee.type === 'Identifier' &&
+        item.value.callee.name === 'randomUUID' &&
+        binding(context, item.value.callee)?.defs[0]?.node?.parent?.source?.value === 'node:crypto'
       );
     }
 
@@ -92,20 +104,16 @@ export default defineRule({
       CallExpression(node: any) {
         const name = effects.resolve(node.callee);
 
-        if (
-          name &&
-          /^Effect\.log(?:Trace|Debug|Info|Warning|Error|Fatal)?$/.test(name) &&
-          !observation &&
-          !terminal
-        )
+        const logging = logCall(name);
+
+        if (logging && !observation && !terminal)
           context.report({
             node,
             message: 'Effect logging belongs in observability or a terminal error owner.'
           });
 
         if (
-          name &&
-          /^Effect\.log(?:Trace|Debug|Info|Warning|Error|Fatal)?$/.test(name) &&
+          logging &&
           terminal &&
           !node.arguments.every(
             (arg: any) => arg.type === 'Literal' && typeof arg.value === 'string'
@@ -126,3 +134,7 @@ export default defineRule({
     };
   }
 });
+
+function logCall(name: string | null): boolean {
+  return !!name && /^Effect\.log(?:Trace|Debug|Info|Warning|Error|Fatal)?$/.test(name);
+}

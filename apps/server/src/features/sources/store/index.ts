@@ -159,6 +159,39 @@ export const SourceStore = defineStore({
   make: ({ db, clock }) => {
     const { selectSources, sourceRow, find, state, checkState } = makeHelpers({ db, clock });
 
+    function documentVersionReferences() {
+      return db.orm
+        .select({
+          id: tables.material_document_versions.version_id,
+          projectId: tables.material_versions.project_id
+        })
+        .from(tables.material_document_versions)
+        .innerJoin(
+          tables.documents,
+          eq(tables.documents.id, tables.material_document_versions.document_id)
+        )
+        .innerJoin(
+          tables.material_versions,
+          eq(tables.material_versions.id, tables.material_document_versions.version_id)
+        );
+    }
+
+    function setProcessingRequest(id: SourceId, requestId: string) {
+      db.orm
+        .update(tables.source_processing)
+        .set({ request_id: requestId })
+        .where(eq(tables.source_processing.source_id, id))
+        .run();
+    }
+
+    function processingPublication(id: SourceId) {
+      return db.orm
+        .select({ requestId: tables.source_processing.published_request_id })
+        .from(tables.source_processing)
+        .where(eq(tables.source_processing.source_id, id))
+        .get();
+    }
+
     return {
       queries: {
         source: storeQuery({
@@ -315,17 +348,7 @@ export const SourceStore = defineStore({
                 throw new StudyError('invalid_input', 'Published source content is immutable');
             }
 
-            const publishedDocument = db.orm
-              .select({ id: tables.material_document_versions.version_id })
-              .from(tables.material_document_versions)
-              .innerJoin(
-                tables.documents,
-                eq(tables.documents.id, tables.material_document_versions.document_id)
-              )
-              .innerJoin(
-                tables.material_versions,
-                eq(tables.material_versions.id, tables.material_document_versions.version_id)
-              )
+            const publishedDocument = documentVersionReferences()
               .where(
                 and(
                   eq(tables.documents.source_id, id),
@@ -347,11 +370,7 @@ export const SourceStore = defineStore({
           output: sourceProcessingSchema,
           run: (input) => {
             checkState(input.id, input.expectedRevision);
-            db.orm
-              .update(tables.source_processing)
-              .set({ request_id: input.requestId })
-              .where(eq(tables.source_processing.source_id, input.id))
-              .run();
+            setProcessingRequest(input.id, input.requestId);
 
             return state(input.id)!;
           }
@@ -397,17 +416,7 @@ export const SourceStore = defineStore({
                 throw new StudyError('invalid_input', 'material source ownership is immutable');
             }
 
-            const refs = db.orm
-              .select({ projectId: tables.material_versions.project_id })
-              .from(tables.material_document_versions)
-              .innerJoin(
-                tables.documents,
-                eq(tables.documents.id, tables.material_document_versions.document_id)
-              )
-              .innerJoin(
-                tables.material_versions,
-                eq(tables.material_versions.id, tables.material_document_versions.version_id)
-              )
+            const refs = documentVersionReferences()
               .where(eq(tables.documents.source_id, input.id))
               .all();
             const attachments = db.orm
@@ -445,11 +454,7 @@ export const SourceStore = defineStore({
             if (!current || current.documentId !== input.documentId)
               throw new StudyError('invalid_input', 'source document is stale');
 
-            const publication = db.orm
-              .select({ requestId: tables.source_processing.published_request_id })
-              .from(tables.source_processing)
-              .where(eq(tables.source_processing.source_id, input.id))
-              .get();
+            const publication = processingPublication(input.id);
 
             if (current.requestId === null || publication?.requestId !== current.requestId)
               throw new StudyError('invalid_input', 'source processing is pending');
@@ -468,11 +473,7 @@ export const SourceStore = defineStore({
             if (!block || block.text !== input.before)
               throw new StudyError('invalid_input', 'source block is stale');
 
-            db.orm
-              .update(tables.source_processing)
-              .set({ request_id: input.requestId })
-              .where(eq(tables.source_processing.source_id, input.id))
-              .run();
+            setProcessingRequest(input.id, input.requestId);
 
             return state(input.id)!;
           }
@@ -484,11 +485,7 @@ export const SourceStore = defineStore({
             const current = checkState(input.id, input.expectedRevision, input.requestId);
 
             // An activity may retry after the document committed but before its checkpoint did.
-            const publication = db.orm
-              .select({ requestId: tables.source_processing.published_request_id })
-              .from(tables.source_processing)
-              .where(eq(tables.source_processing.source_id, input.id))
-              .get();
+            const publication = processingPublication(input.id);
 
             if (current.documentId !== null && publication?.requestId === input.requestId)
               return { documentId: current.documentId, published: false };

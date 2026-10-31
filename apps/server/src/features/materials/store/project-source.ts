@@ -14,34 +14,37 @@ export function makeProjectSource(resources: StoreResources) {
   const { createMaterial, createMaterialFromDocument } = makeCreateMaterial(resources);
   const { readMaterial, readVersion } = makeReads(resources);
 
-  function projectSource(event: SourceIndexed) {
-    const source = db.orm.select().from(s.sources).where(eq(s.sources.id, event.sourceId)).get();
-    const state = db.orm
-      .select()
-      .from(s.source_processing)
-      .where(eq(s.source_processing.source_id, event.sourceId))
-      .get();
-    const document = db.orm
-      .select()
-      .from(s.documents)
-      .where(eq(s.documents.id, event.documentId))
-      .get();
+  function originalContent(source: typeof s.sources.$inferSelect): MaterialContentInput {
+    const common = { sourceId: source.id };
+    let content: MaterialContentInput;
 
-    if (
-      !source ||
-      source.project_id !== event.projectId ||
-      !document ||
-      document.source_id !== event.sourceId ||
-      !state ||
-      state.document_id !== event.documentId ||
-      state.revision !== BigInt(event.inputVersion) ||
-      state.published_request_id !== state.request_id
-    )
-      throw new StudyError(
-        'invalid_input',
-        'Source projection is stale or belongs to another project'
-      );
+    switch (source.kind) {
+      case 'image':
+        content = { kind: 'image', ...common, width: null, height: null };
+        break;
+      case 'audio':
+        content = {
+          kind: 'audio',
+          ...common,
+          durationMs: null,
+          sampleRate: null,
+          channels: null
+        };
+        break;
+      case 'video':
+        content = { kind: 'video', ...common, durationMs: null, width: null, height: null };
+        break;
+      case 'link':
+        content = { kind: 'link', ...common };
+        break;
+      default:
+        content = { kind: 'file', ...common };
+    }
 
+    return content;
+  }
+
+  function findOriginal(event: SourceIndexed) {
     let originalId: typeof s.material_versions.$inferSelect.id | undefined;
 
     for (const table of [
@@ -76,48 +79,52 @@ export function makeProjectSource(resources: StoreResources) {
       if (row && (originalId === undefined || row.id < originalId)) originalId = row.id;
     }
 
+    return originalId;
+  }
+
+  function projectionSource(event: SourceIndexed) {
+    const source = db.orm.select().from(s.sources).where(eq(s.sources.id, event.sourceId)).get();
+    const state = db.orm
+      .select()
+      .from(s.source_processing)
+      .where(eq(s.source_processing.source_id, event.sourceId))
+      .get();
+    const document = db.orm
+      .select()
+      .from(s.documents)
+      .where(eq(s.documents.id, event.documentId))
+      .get();
+
+    if (
+      !source ||
+      source.project_id !== event.projectId ||
+      !document ||
+      document.source_id !== event.sourceId ||
+      !state ||
+      state.document_id !== event.documentId ||
+      state.revision !== BigInt(event.inputVersion) ||
+      state.published_request_id !== state.request_id
+    )
+      throw new StudyError(
+        'invalid_input',
+        'Source projection is stale or belongs to another project'
+      );
+
+    return source;
+  }
+
+  function projectSource(event: SourceIndexed) {
+    const source = projectionSource(event);
+
+    let originalId = findOriginal(event);
+
     let originalCreated = false;
 
     if (originalId === undefined) {
-      const common = { sourceId: source.id };
-      let content: MaterialContentInput;
-
-      switch (source.kind) {
-        case 'image':
-          content = { kind: 'image', ...common, width: null, height: null };
-          break;
-        case 'audio':
-          content = {
-            kind: 'audio',
-            ...common,
-            durationMs: null,
-            sampleRate: null,
-            channels: null
-          };
-          break;
-        case 'video':
-          content = { kind: 'video', ...common, durationMs: null, width: null, height: null };
-          break;
-        case 'link':
-          content = { kind: 'link', ...common };
-          break;
-        case 'archive':
-        case 'code':
-        case 'document':
-        case 'note':
-        case 'other':
-        case 'pdf':
-        case 'slides':
-        case 'spreadsheet':
-        case 'text':
-        case 'web':
-          content = { kind: 'file', ...common };
-      }
-
       originalId = createMaterial({
         projectId: event.projectId,
         title: source.name.trim().slice(0, 200),
-        content,
+        content: originalContent(source),
         operation: 'original'
       }).version.id;
       originalCreated = true;

@@ -1,16 +1,28 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {
-  api,
   chain,
   sqlStatements,
   statementKind,
   topLevelWhere,
-  trivialPredicate,
-  sqlTokens,
-  templateText
+  trivialPredicate
 } from './persistence-syntax.ts';
+import { templateTokens } from './sql-template.ts';
 import { production } from './synchronous-transactions.ts';
+
+function unguarded(context: any, predicate: any): boolean {
+  if (!predicate) return true;
+
+  if (predicate.type === 'Identifier' && predicate.name === 'undefined') return true;
+
+  if (predicate.type === 'Literal' && predicate.value === true) return true;
+
+  if (predicate.type !== 'TaggedTemplateExpression') return false;
+
+  const tokens = templateTokens(context, predicate);
+
+  return tokens !== undefined && trivialPredicate(tokens);
+}
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -30,31 +42,17 @@ export default defineRule({
 
         const where = query.methods.find(({ name }) => name === 'where');
         const predicate = where?.args[0];
-        const text =
-          predicate?.type === 'TaggedTemplateExpression' && api(context, predicate.tag, 'sql')
-            ? templateText(predicate.quasi)
-            : undefined;
-        const tokens = text === undefined ? [] : sqlTokens(text);
 
-        if (
-          !predicate ||
-          (predicate.type === 'Identifier' && predicate.name === 'undefined') ||
-          (predicate.type === 'Literal' && predicate.value === true) ||
-          (text !== undefined && trivialPredicate(tokens))
-        )
+        if (unguarded(context, predicate))
           context.report({
             node,
             message: 'Guard update and delete queries with a nontrivial where predicate.'
           });
       },
       TaggedTemplateExpression(node) {
-        if (!api(context, node.tag, 'sql')) return;
+        const tokens = templateTokens(context, node);
 
-        const text = templateText(node.quasi);
-
-        if (text === undefined) return;
-
-        const tokens = sqlTokens(text);
+        if (!tokens) return;
 
         for (const statement of sqlStatements(tokens)) {
           if (!['UPDATE', 'DELETE'].includes(statementKind(statement) ?? '')) continue;

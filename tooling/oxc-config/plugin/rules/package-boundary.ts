@@ -119,55 +119,59 @@ export default defineRule({
 
     const owner: Owner = currentOwner;
 
-    function check(
-      node: NonNullable<Parameters<typeof context.report>[0]['node']>,
-      source: string
+    type ReportNode = NonNullable<Parameters<typeof context.report>[0]['node']>;
+
+    function disallowedPackage(name: string): boolean {
+      return name !== owner && !allowed[owner].includes(name as Owner);
+    }
+
+    function checkPackageAccess(
+      node: ReportNode,
+      name: string,
+      subpath: string,
+      nativeClient: boolean
     ) {
-      const packageMatch = /^(@study\/[^/]+)(\/.*)?$/.exec(source);
+      if (!exportsByPackage.has(name) && disallowedPackage(name)) {
+        context.report({
+          node,
+          message: `${owner} cannot depend on ${name}; use its owning layer.`
+        });
+      } else if (!isPublic(name, subpath)) {
+        context.report({ node, message: `${name}${subpath} is not a public package export.` });
+      } else if (disallowedPackage(name) && !nativeClient) {
+        context.report({
+          node,
+          message: `${owner} cannot depend on ${name}; use its owning layer.`
+        });
+      } else if (
+        owner === '@study/web' &&
+        name === '@study/server' &&
+        subpath !== '' &&
+        subpath !== '/client'
+      ) {
+        context.report({
+          node,
+          message: '@study/web must use browser-safe @study/server root or client exports.'
+        });
+      }
+    }
 
-      if (packageMatch) {
-        const name = packageMatch[1]!;
-        const subpath = packageMatch[2] ?? '';
-        const nativeClient =
-          owner === '@study/web' && name === '@study/server' && subpath === '/client';
+    function checkPackage(node: ReportNode, match: RegExpExecArray) {
+      const name = match[1]!;
+      const subpath = match[2] ?? '';
+      const nativeClient =
+        owner === '@study/web' && name === '@study/server' && subpath === '/client';
 
-        if (!Object.values(directories).includes(name as Owner)) {
-          context.report({ node, message: `Unknown workspace package ${name}.` });
-
-          return;
-        }
-
-        if (
-          !exportsByPackage.has(name) &&
-          name !== owner &&
-          !allowed[owner].includes(name as Owner)
-        ) {
-          context.report({
-            node,
-            message: `${owner} cannot depend on ${name}; use its owning layer.`
-          });
-        } else if (!isPublic(name, subpath)) {
-          context.report({ node, message: `${name}${subpath} is not a public package export.` });
-        } else if (name !== owner && !allowed[owner].includes(name as Owner) && !nativeClient) {
-          context.report({
-            node,
-            message: `${owner} cannot depend on ${name}; use its owning layer.`
-          });
-        } else if (
-          owner === '@study/web' &&
-          name === '@study/server' &&
-          subpath !== '' &&
-          subpath !== '/client'
-        ) {
-          context.report({
-            node,
-            message: '@study/web must use browser-safe @study/server root or client exports.'
-          });
-        }
+      if (!Object.values(directories).includes(name as Owner)) {
+        context.report({ node, message: `Unknown workspace package ${name}.` });
 
         return;
       }
 
+      checkPackageAccess(node, name, subpath, nativeClient);
+    }
+
+    function checkBrowserBuiltin(node: ReportNode, source: string): boolean {
       if (
         (owner === '@study/web' ||
           owner === '@study/ui' ||
@@ -181,8 +185,25 @@ export default defineRule({
       ) {
         context.report({ node, message: `${owner} cannot import Node builtins in browser code.` });
 
+        return true;
+      }
+
+      return false;
+    }
+
+    function check(
+      node: NonNullable<Parameters<typeof context.report>[0]['node']>,
+      source: string
+    ) {
+      const packageMatch = /^(@study\/[^/]+)(\/.*)?$/.exec(source);
+
+      if (packageMatch) {
+        checkPackage(node, packageMatch);
+
         return;
       }
+
+      if (checkBrowserBuiltin(node, source)) return;
 
       if (!source.startsWith('.') && !source.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(source))
         return;

@@ -80,19 +80,7 @@ export const conversationReplyHandler = ({
         execute: Effect.gen(function* () {
           const snapshot = yield* conversations.replySnapshot({ requestId: event.requestId });
 
-          if (
-            (snapshot.pendingAttachments?.length ?? 0) > 0 ||
-            snapshot.requestId !== event.requestId ||
-            snapshot.sessionId !== event.sessionId ||
-            snapshot.messageId !== event.messageId ||
-            snapshot.versionId !== event.versionId ||
-            (snapshot.generation?.origin === undefined || snapshot.generation.origin === 'answer'
-              ? 'reply'
-              : 'rewrite') !== event.operation
-          )
-            return yield* Effect.fail(
-              new StudyError('invalid_input', 'Reply event identity mismatch')
-            );
+          yield* validateReplyEvent(snapshot, event);
 
           const catalog = createEvidenceCatalog<{
             sourceId: SourceId;
@@ -325,3 +313,26 @@ export const conversationAttachmentWakeRegistration = defineWorkflowHandler(
     }))
   }
 );
+
+function validateReplyEvent(
+  snapshot: typeof replySnapshotSchema.Type,
+  event: typeof conversationGenerationRequestedSchema.Type
+) {
+  if (
+    (snapshot.pendingAttachments?.length ?? 0) > 0 ||
+    snapshot.requestId !== event.requestId ||
+    snapshot.sessionId !== event.sessionId ||
+    snapshot.messageId !== event.messageId ||
+    snapshot.versionId !== event.versionId ||
+    replyOperation(snapshot) !== event.operation
+  )
+    return Effect.fail(new StudyError('invalid_input', 'Reply event identity mismatch'));
+
+  return Effect.void;
+}
+
+function replyOperation(snapshot: typeof replySnapshotSchema.Type) {
+  return snapshot.generation?.origin === undefined || snapshot.generation.origin === 'answer'
+    ? 'reply'
+    : 'rewrite';
+}

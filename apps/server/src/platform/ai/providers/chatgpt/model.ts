@@ -142,11 +142,11 @@ export function createChatGptModel({
       const signal = init?.signal;
 
       for (let attempt = 0; attempt < 2; attempt++) {
-        if (signal?.aborted) throw signal.reason;
+        signal?.throwIfAborted();
 
         const token = await waitForToken(auth, signal);
 
-        if (signal?.aborted) throw signal.reason;
+        signal?.throwIfAborted();
 
         const headers = new Headers(init?.headers);
 
@@ -154,7 +154,7 @@ export function createChatGptModel({
         headers.set('accept', 'text/event-stream');
         await beforeRequest?.(signal ?? undefined);
 
-        if (signal?.aborted) throw signal.reason;
+        signal?.throwIfAborted();
 
         const response = await streamingFetch(
           url,
@@ -174,36 +174,8 @@ export function createChatGptModel({
 
         if (response.ok) return requireTerminal(response);
 
-        let code = '';
-
-        try {
-          const body = (await response.json()) as {
-            error?: { code?: unknown };
-          };
-
-          if (typeof body?.error?.code === 'string') code = body.error.code;
-        } catch {
-          /* Body is intentionally discarded. */
-        }
-
-        const known = [
-          'subscription_sharing_usage_limit_exceeded',
-          'subscription_sharing_invalid_user',
-          'subscription_sharing_user_not_eligible',
-          'subscription_sharing_unsupported_capability'
-        ].includes(code)
-          ? code
-          : 'request_failed';
-        const kind =
-          known === 'subscription_sharing_usage_limit_exceeded' || response.status === 429
-            ? 'rate_limited'
-            : known === 'subscription_sharing_unsupported_capability'
-              ? 'unsupported'
-              : [401, 403].includes(response.status) ||
-                  known === 'subscription_sharing_invalid_user' ||
-                  known === 'subscription_sharing_user_not_eligible'
-                ? 'auth'
-                : 'transient';
+        const code = await responseErrorCode(response);
+        const kind = requestFailureKind(code, response.status);
 
         throw new ChatGptRequestError(kind);
       }
@@ -243,17 +215,7 @@ export function createChatGptModel({
     } catch (error) {
       if (options.abortSignal?.aborted) throw options.abortSignal.reason;
 
-      if (error instanceof ChatGptRequestError || error instanceof StudyError) throw error;
-
-      if (
-        error &&
-        typeof error === 'object' &&
-        'cause' in error &&
-        (error.cause instanceof ChatGptRequestError || error.cause instanceof StudyError)
-      )
-        throw error.cause;
-
-      throw new ChatGptRequestError('transient');
+      throwProviderFailure(error);
     }
 
     const reader = result.stream.getReader();
@@ -328,15 +290,8 @@ export function createChatGptModel({
       let warnings: LanguageModelV3GenerateResult['warnings'] = [];
       let metadata: LanguageModelV3GenerateResult['response'];
 
-      for await (const part of streamed.stream) {
-        if (part.type === 'stream-start') warnings = part.warnings;
-        else if (part.type === 'response-metadata')
-          metadata = {
-            id: part.id,
-            timestamp: part.timestamp,
-            modelId: part.modelId
-          };
-        else if (part.type === 'text-start' || part.type === 'reasoning-start') {
+      function appendText(part: ImportedLanguageModelV3StreamPart) {
+        if (part.type === 'text-start' || part.type === 'reasoning-start') {
           const item = {
             type: part.type === 'text-start' ? ('text' as const) : ('reasoning' as const),
             text: ''
@@ -348,14 +303,21 @@ export function createChatGptModel({
           const item = text.get(part.id);
 
           if (item) item.text += part.delta;
-        } else if (
-          part.type === 'tool-call' ||
-          part.type === 'tool-result' ||
-          part.type === 'tool-approval-request' ||
-          part.type === 'file' ||
-          part.type === 'source'
-        )
-          content.push(part);
+        } else return false;
+
+        return true;
+      }
+
+      for await (const part of streamed.stream) {
+        if (part.type === 'stream-start') warnings = part.warnings;
+        else if (part.type === 'response-metadata')
+          metadata = {
+            id: part.id,
+            timestamp: part.timestamp,
+            modelId: part.modelId
+          };
+        else if (appendText(part)) continue;
+        else if (isContentPart(part)) content.push(part);
         else if (part.type === 'error') throw new Error('ChatGPT stream failed');
         else if (part.type === 'finish') finish = part;
       }
@@ -373,4 +335,68 @@ export function createChatGptModel({
       };
     }
   };
+}
+
+async function responseErrorCode(response: Response) {
+  let code = '';
+
+  try {
+    const body = (await response.json()) as {
+      error?: { code?: unknown };
+    };
+
+    if (typeof body?.error?.code === 'string') code = body.error.code;
+  } catch {
+    /* Body is intentionally discarded. */
+  }
+
+  return code;
+}
+
+function requestFailureKind(code: string, status: number) {
+  const known = [
+    'subscription_sharing_usage_limit_exceeded',
+    'subscription_sharing_invalid_user',
+    'subscription_sharing_user_not_eligible',
+    'subscription_sharing_unsupported_capability'
+  ].includes(code)
+    ? code
+    : 'request_failed';
+  const kind =
+    known === 'subscription_sharing_usage_limit_exceeded' || status === 429
+      ? 'rate_limited'
+      : known === 'subscription_sharing_unsupported_capability'
+        ? 'unsupported'
+        : [401, 403].includes(status) ||
+            known === 'subscription_sharing_invalid_user' ||
+            known === 'subscription_sharing_user_not_eligible'
+          ? 'auth'
+          : 'transient';
+
+  return kind;
+}
+
+function throwProviderFailure(error: unknown): never {
+  if (error instanceof ChatGptRequestError || error instanceof StudyError) throw error;
+
+  if (
+    error &&
+    typeof error === 'object' &&
+    'cause' in error &&
+    (error.cause instanceof ChatGptRequestError || error.cause instanceof StudyError)
+  )
+    throw error.cause;
+
+  throw new ChatGptRequestError('transient');
+}
+
+function isContentPart(
+  part: ImportedLanguageModelV3StreamPart
+): part is Extract<
+  ImportedLanguageModelV3StreamPart,
+  { type: 'tool-call' | 'tool-result' | 'tool-approval-request' | 'file' | 'source' }
+> {
+  return ['tool-call', 'tool-result', 'tool-approval-request', 'file', 'source'].includes(
+    part.type
+  );
 }

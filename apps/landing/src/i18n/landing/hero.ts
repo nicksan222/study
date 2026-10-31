@@ -1,7 +1,7 @@
 // The landing hero's copy: headline, lead, actions and margin note.
 import type { Shape } from '../strings';
 
-export const en = {
+export const heroEn = {
   hero: {
     title: 'A calm place for everything you learn.',
     lead: 'Bring your lectures, slides and PDFs. Study reads them, answers your questions with citations, and turns them into flashcards and practice.',
@@ -12,7 +12,7 @@ export const en = {
   }
 } as const;
 
-export const it: Shape<typeof en> = {
+export const heroIt: Shape<typeof heroEn> = {
   hero: {
     title: 'Un posto tranquillo per tutto ciò che impari.',
     lead: 'Porta lezioni, slide e PDF. Study li legge, risponde alle tue domande citando le fonti e li trasforma in flashcard ed esercizi.',

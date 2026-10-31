@@ -20,6 +20,7 @@
     "drizzle-orm": "1.0.0-rc.5"
   },
   "devDependencies": {
-    "drizzle-kit": "1.0.0-rc.5"
+    "drizzle-kit": "1.0.0-rc.5",
+    "effect": "4.0.7"
   }
 }

@@ -48,12 +48,12 @@ const en = {
     description:
       'Bring your lectures, slides and PDFs. Study reads them, answers your questions with citations, and turns them into flashcards and practice.'
   },
-  ...lecture.en,
-  ...hero.en,
-  ...material.en,
-  ...learn.en,
-  ...yours.en,
-  ...download.en,
+  ...lecture.lectureEn,
+  ...hero.heroEn,
+  ...material.materialEn,
+  ...learn.learnEn,
+  ...yours.yoursEn,
+  ...download.downloadEn,
   footer: {
     license: 'Apache 2.0 or MIT',
     contribute: 'Contribute',
@@ -91,12 +91,12 @@ const it: Shape<typeof en> = {
     description:
       'Porta lezioni, slide e PDF. Study li legge, risponde alle tue domande citando le fonti e li trasforma in flashcard ed esercizi.'
   },
-  ...lecture.it,
-  ...hero.it,
-  ...material.it,
-  ...learn.it,
-  ...yours.it,
-  ...download.it,
+  ...lecture.lectureIt,
+  ...hero.heroIt,
+  ...material.materialIt,
+  ...learn.learnIt,
+  ...yours.yoursIt,
+  ...download.downloadIt,
   footer: {
     license: 'Apache 2.0 o MIT',
     contribute: 'Contribuisci',
@@ -117,6 +117,6 @@ const it: Shape<typeof en> = {
   }
 };
 
-export const strings = { en, it };
+const strings = { en, it };
 
 export const t = (lang: Lang) => strings[lang];

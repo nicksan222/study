@@ -2,6 +2,14 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport, targetPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
+import {
+  binding,
+  imported,
+  memberName as property,
+  constantDeclarator,
+  runtimeImport,
+  enterNode
+} from '../lexical-bindings.ts';
 import { walk } from './effect-lifecycle-syntax.ts';
 
 export function production(filename: string): boolean {
@@ -11,59 +19,14 @@ export function production(filename: string): boolean {
   );
 }
 
-export function property(node: any): string | undefined {
-  return node?.type === 'MemberExpression'
-    ? !node.computed && node.property.type === 'Identifier'
-      ? node.property.name
-      : node.property.value
-    : undefined;
-}
-
-export function binding(context: any, node: any): any {
-  if (node?.type !== 'Identifier') return;
-
-  let scope = context.sourceCode.getScope(node);
-
-  while (scope) {
-    const variable = scope.set.get(node.name);
-
-    if (variable) return variable;
-
-    scope = scope.upper;
-  }
-}
-
-export function imported(context: any, node: any, source: RegExp, name?: string): boolean {
-  return (
-    binding(context, node)?.defs.some((definition: any) => {
-      const specifier = definition.node;
-      const declaration = specifier.parent;
-
-      return (
-        declaration?.type === 'ImportDeclaration' &&
-        source.test(declaration.source.value) &&
-        (!name || specifier.imported?.name === name || specifier.imported?.value === name)
-      );
-    }) ?? false
-  );
-}
-
 export function resourceType(context: any, type: any, seen = new Set<any>()): string | undefined {
-  if (!type || seen.has(type)) return;
-
-  seen.add(type);
+  if (!enterNode(type, seen)) return;
 
   if (type.type === 'TSTypeAnnotation') return resourceType(context, type.typeAnnotation, seen);
 
   if (type.type !== 'TSTypeReference') return;
 
-  let root = type.typeName;
-  const members: string[] = [];
-
-  while (root?.type === 'TSQualifiedName') {
-    members.unshift(root.right.name);
-    root = root.left;
-  }
+  const { root, members } = qualifiedType(type);
 
   const def = binding(context, root)?.defs[0]?.node;
 
@@ -72,6 +35,10 @@ export function resourceType(context: any, type: any, seen = new Set<any>()): st
 
   if (!def?.parent || def.parent.type !== 'ImportDeclaration') return;
 
+  return importedResource(context, def, members);
+}
+
+function importedResource(context: any, def: any, members: string[]): string | undefined {
   const source = def.parent.source.value;
   const target = targetPath(context.filename, source);
   const name =
@@ -81,15 +48,16 @@ export function resourceType(context: any, type: any, seen = new Set<any>()): st
         ? members[0]
         : undefined;
 
-  if (source === '@study/db' && name === 'Db') return name;
+  const resources: Record<string, string> = {
+    '@study/db': 'Db',
+    effect: 'Clock',
+    'runtime/context': 'ServerContext',
+    'platform/database/context': 'ServerContext',
+    'platform/definitions/define-store': 'StoreResources'
+  };
+  const key = ['@study/db', 'effect'].includes(source) ? source : target;
 
-  if (source === 'effect' && name === 'Clock') return name;
-
-  if (target === 'runtime/context' && name === 'ServerContext') return name;
-
-  if (target === 'platform/database/context' && name === 'ServerContext') return name;
-
-  if (target === 'platform/definitions/define-store' && name === 'StoreResources') return name;
+  if (key !== null && resources[key] === name) return name;
 }
 
 function storeFactory(
@@ -98,38 +66,34 @@ function storeFactory(
   seen = new Set<any>(),
   names = ['storeQuery', 'storeMutation']
 ): boolean {
-  if (!node || seen.has(node)) return false;
+  if (!enterNode(node, seen)) return false;
 
-  seen.add(node);
   const native = (specifier: any) =>
-    specifier?.parent?.type === 'ImportDeclaration' &&
-    specifier.importKind !== 'type' &&
-    specifier.parent.importKind !== 'type' &&
+    runtimeImport(specifier) &&
     targetPath(context.filename, specifier.parent.source.value) ===
       'platform/definitions/define-store';
   const def = binding(context, node)?.defs[0]?.node;
 
-  if (def?.type === 'ImportSpecifier' && native(def))
-    return names.includes(def.imported.name ?? def.imported.value);
+  if (nativeSpecifier(def, native)) return names.includes(def.imported.name ?? def.imported.value);
 
-  if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-    return storeFactory(context, def.init, seen, names);
+  if (constantDeclarator(def)) return storeFactory(context, def.init, seen, names);
 
-  if (node.type === 'MemberExpression' && names.includes(property(node) ?? '')) {
-    let object = node.object;
-    const visited = new Set<any>();
+  if (node.type === 'MemberExpression' && names.includes(property(node) ?? ''))
+    return storeNamespace(context, node.object, native);
 
-    while (object && !visited.has(object)) {
-      visited.add(object);
-      const declaration = binding(context, object)?.defs[0]?.node;
+  return false;
+}
 
-      if (declaration?.type === 'ImportNamespaceSpecifier') return native(declaration);
+function storeNamespace(context: any, object: any, native: (node: any) => boolean): boolean {
+  const visited = new Set<any>();
 
-      object =
-        declaration?.type === 'VariableDeclarator' && declaration.parent?.kind === 'const'
-          ? declaration.init
-          : undefined;
-    }
+  while (object && !visited.has(object)) {
+    visited.add(object);
+    const declaration = binding(context, object)?.defs[0]?.node;
+
+    if (declaration?.type === 'ImportNamespaceSpecifier') return native(declaration);
+
+    object = constantDeclarator(declaration) ? declaration.init : undefined;
   }
 
   return false;
@@ -141,15 +105,7 @@ function boundDatabase(context: any, definition: any): boolean {
 
   if (!pattern || !['Identifier', 'ObjectPattern'].includes(pattern.type)) return false;
 
-  const database =
-    pattern.type === 'Identifier'
-      ? pattern === definition.name
-      : pattern.properties.find(
-          (part: any) =>
-            part.type === 'Property' &&
-            (part.key.name ?? part.key.value) === 'db' &&
-            (part.value === definition.name || part.value?.left === definition.name)
-        );
+  const database = databaseParameter(pattern, definition);
 
   if (!database) return false;
 
@@ -157,53 +113,33 @@ function boundDatabase(context: any, definition: any): boolean {
 
   if (resourceType(context, type) === 'StoreResources') return true;
 
-  let field = fn.parent;
+  const field = makeField(context, fn);
 
-  if (field?.type === 'VariableDeclarator' && field.id.type === 'Identifier') {
-    const variable = binding(context, field.id);
+  return storeMakeField(context, field);
+}
 
-    field = variable?.references.find(
-      (ref: any) =>
-        ref.identifier.parent?.type === 'Property' &&
-        (ref.identifier.parent.key.name ?? ref.identifier.parent.key.value) === 'make'
-    )?.identifier.parent;
-  }
-
-  function descriptorOwner(object: any, seen = new Set<any>()): boolean {
-    if (!object || seen.has(object)) return false;
-
-    seen.add(object);
-    const parent = object.parent;
-
-    if (parent?.type === 'CallExpression' && parent.arguments[0] === object)
-      return storeFactory(context, parent.callee, new Set(), ['defineStore']);
-
-    if (
-      parent?.type === 'VariableDeclarator' &&
-      parent.init === object &&
-      parent.parent?.kind === 'const'
-    )
-      return (
-        binding(context, parent.id)?.references.some((ref: any) =>
-          descriptorOwner(ref.identifier, seen)
-        ) ?? false
-      );
-
-    return false;
-  }
-
+function storeMakeField(context: any, field: any): boolean {
   return (
     field?.type === 'Property' &&
     (field.key.name ?? field.key.value) === 'make' &&
     field.parent?.type === 'ObjectExpression' &&
-    descriptorOwner(field.parent)
+    descriptorOwner(context, field.parent)
   );
 }
 
-export function typedOwner(context: any, node: any, seen = new Set<any>()): boolean {
-  if (!node || seen.has(node)) return false;
+function databaseParameter(pattern: any, definition: any) {
+  return pattern.type === 'Identifier'
+    ? pattern === definition.name
+    : pattern.properties.find(
+        (part: any) =>
+          part.type === 'Property' &&
+          (part.key.name ?? part.key.value) === 'db' &&
+          (part.value === definition.name || part.value?.left === definition.name)
+      );
+}
 
-  seen.add(node);
+export function typedOwner(context: any, node: any, seen = new Set<any>()): boolean {
+  if (!enterNode(node, seen)) return false;
 
   if (node.type === 'ThisExpression')
     return context.filename
@@ -218,57 +154,68 @@ export function typedOwner(context: any, node: any, seen = new Set<any>()): bool
     binding(context, node)?.defs.some((definition: any) => {
       if (boundDatabase(context, definition)) return true;
 
-      const declaration = definition.node;
-      const annotation =
-        declaration.type === 'VariableDeclarator'
-          ? declaration.id.typeAnnotation
-          : definition.name?.typeAnnotation;
-      const type = annotation?.typeAnnotation;
-
-      if (['Db', 'ServerContext', 'StoreResources'].includes(resourceType(context, type) ?? ''))
-        return true;
-
-      if (
-        type?.type === 'TSTypeReference' &&
-        imported(
-          context,
-          type.typeName,
-          /(?:^@study\/db$|(?:runtime|platform\/database)\/context(?:\.ts)?$|platform\/definitions\/define-store(?:\.ts)?$)/
-        )
-      )
-        return true;
-
-      const init = declaration.init;
-
-      if (
-        declaration.type === 'VariableDeclarator' &&
-        declaration.parent?.kind === 'const' &&
-        (init?.type === 'Identifier' || init?.type === 'MemberExpression')
-      ) {
-        if (
-          declaration.id.type === 'ObjectPattern' &&
-          !declaration.id.properties.some(
-            (part: any) =>
-              part.type === 'Property' &&
-              (part.key.name ?? part.key.value) === 'db' &&
-              (part.value === definition.name || part.value?.left === definition.name)
-          )
-        )
-          return false;
-
-        return typedOwner(context, init, seen);
-      }
-
-      return (
-        init?.type === 'CallExpression' &&
-        property(init.callee) === 'open' &&
-        imported(context, init.callee.object, /^@study\/db$/, 'Db')
-      );
+      return definitionOwner(context, definition, seen);
     }) ?? false
   );
 }
 
-export function transaction(context: any, node: any): boolean {
+function definitionOwner(context: any, definition: any, seen: Set<any>): boolean {
+  const declaration = definition.node;
+
+  if (annotatedOwner(context, definition)) return true;
+
+  if (constantDeclarator(declaration)) return aliasedOwner(context, definition, seen);
+
+  return openedDatabase(context, declaration.init);
+}
+
+function aliasedOwner(context: any, definition: any, seen: Set<any>): boolean {
+  const declaration = definition.node;
+  const init = declaration.init;
+
+  if (init?.type === 'Identifier' || init?.type === 'MemberExpression') {
+    if (declaration.id.type === 'ObjectPattern' && !databaseParameter(declaration.id, definition))
+      return false;
+
+    return typedOwner(context, init, seen);
+  }
+
+  return openedDatabase(context, init);
+}
+
+function openedDatabase(context: any, init: any): boolean {
+  return (
+    init?.type === 'CallExpression' &&
+    property(init.callee) === 'open' &&
+    imported(context, init.callee.object, /^@study\/db$/, 'Db')
+  );
+}
+
+function annotatedOwner(context: any, definition: any): boolean {
+  const declaration = definition.node;
+  const annotation =
+    declaration.type === 'VariableDeclarator'
+      ? declaration.id.typeAnnotation
+      : definition.name?.typeAnnotation;
+  const type = annotation?.typeAnnotation;
+
+  if (['Db', 'ServerContext', 'StoreResources'].includes(resourceType(context, type) ?? ''))
+    return true;
+
+  if (
+    type?.type === 'TSTypeReference' &&
+    imported(
+      context,
+      type.typeName,
+      /(?:^@study\/db$|(?:runtime|platform\/database)\/context(?:\.ts)?$|platform\/definitions\/define-store(?:\.ts)?$)/
+    )
+  )
+    return true;
+
+  return false;
+}
+
+function transaction(context: any, node: any): boolean {
   return (
     node?.type === 'CallExpression' &&
     ((property(node.callee) === 'transaction' && typedOwner(context, node.callee.object)) ||
@@ -278,9 +225,7 @@ export function transaction(context: any, node: any): boolean {
 }
 
 export function callbackTarget(context: any, node: any, seen = new Set<any>()): any {
-  if (!node || seen.has(node)) return;
-
-  seen.add(node);
+  if (!enterNode(node, seen)) return;
 
   if (['FunctionExpression', 'ArrowFunctionExpression', 'FunctionDeclaration'].includes(node.type))
     return node;
@@ -291,8 +236,7 @@ export function callbackTarget(context: any, node: any, seen = new Set<any>()): 
 
   if (definition?.type === 'FunctionDeclaration') return definition;
 
-  if (definition?.type === 'VariableDeclarator' && definition.parent?.kind === 'const')
-    return callbackTarget(context, definition.init, seen);
+  if (constantDeclarator(definition)) return callbackTarget(context, definition.init, seen);
 }
 
 export function transactionCallbacks(context: any, program: any): Set<any> {
@@ -335,29 +279,17 @@ export default defineRule({
     let callbacks = new Set<any>();
 
     function deferred(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (node.type === 'Identifier') {
         const definition = binding(context, node)?.defs[0]?.node;
 
-        return (
-          definition?.type === 'VariableDeclarator' &&
-          definition.parent?.kind === 'const' &&
-          deferred(definition.init, seen)
-        );
+        return constantDeclarator(definition) && deferred(definition.init, seen);
       }
 
       if (node.type !== 'CallExpression') return false;
 
-      const api = effects.resolve(node.callee);
-
-      if (
-        api?.startsWith('Effect.') &&
-        !['Effect.isEffect', 'Effect.runSync', 'Effect.runSyncExit'].includes(api)
-      )
-        return true;
+      if (deferredEffect(effects.resolve(node.callee))) return true;
 
       const object = node.callee.object;
 
@@ -392,3 +324,60 @@ export default defineRule({
     };
   }
 });
+
+function descriptorOwner(context: any, object: any, seen = new Set<any>()): boolean {
+  if (!enterNode(object, seen)) return false;
+
+  const parent = object.parent;
+
+  if (parent?.type === 'CallExpression' && parent.arguments[0] === object)
+    return storeFactory(context, parent.callee, new Set(), ['defineStore']);
+
+  if (constantDeclarator(parent) && parent.init === object)
+    return (
+      binding(context, parent.id)?.references.some((ref: any) =>
+        descriptorOwner(context, ref.identifier, seen)
+      ) ?? false
+    );
+
+  return false;
+}
+
+function deferredEffect(api: string | null | undefined): boolean {
+  return (
+    !!api?.startsWith('Effect.') &&
+    !['Effect.isEffect', 'Effect.runSync', 'Effect.runSyncExit'].includes(api)
+  );
+}
+
+function qualifiedType(type: any) {
+  let root = type.typeName;
+  const members: string[] = [];
+
+  while (root?.type === 'TSQualifiedName') {
+    members.unshift(root.right.name);
+    root = root.left;
+  }
+
+  return { root, members };
+}
+
+function makeField(context: any, fn: any) {
+  let field = fn.parent;
+
+  if (field?.type === 'VariableDeclarator' && field.id.type === 'Identifier') {
+    const variable = binding(context, field.id);
+
+    field = variable?.references.find(
+      (ref: any) =>
+        ref.identifier.parent?.type === 'Property' &&
+        (ref.identifier.parent.key.name ?? ref.identifier.parent.key.value) === 'make'
+    )?.identifier.parent;
+  }
+
+  return field;
+}
+
+function nativeSpecifier(def: any, native: (node: any) => boolean): boolean {
+  return def?.type === 'ImportSpecifier' && native(def);
+}

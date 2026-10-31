@@ -1,13 +1,13 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { isPresentationAttribute } from '../presentation-attributes.ts';
+import { isPresentationAttribute, webPresentationSource } from '../presentation-attributes.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     const filename = context.filename.replaceAll('\\', '/');
 
-    if (!/\/apps\/web\/src\//.test(filename) || /\.test\.[jt]sx?$/.test(filename)) return {};
+    if (!webPresentationSource(filename, /\.test\.[jt]sx?$/)) return {};
 
     const components = new Set<string>();
     const namespaces = new Set<string>();

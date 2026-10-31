@@ -48,22 +48,20 @@ export const stepOf = (l: Locale, n: number, t: number) =>
 export const cardsReviewed = (l: Locale, n: number) =>
   noun(l, n, ['card reviewed', 'cards reviewed'], ['flashcard ripassate', 'flashcard ripassate']);
 
-export const examCountdown = (l: Locale, n: number) =>
-  l === 'english'
-    ? n < 0
-      ? 'The exam has passed'
-      : n === 0
-        ? 'Exam today'
-        : n === 1
-          ? 'Exam tomorrow'
-          : `Exam in ${n} days`
-    : n < 0
-      ? "L'esame è passato"
-      : n === 0
-        ? 'Esame oggi'
-        : n === 1
-          ? 'Esame domani'
-          : `Esame tra ${n} giorni`;
+export const examCountdown = (l: Locale, n: number) => {
+  const labels =
+    l === 'english'
+      ? ['The exam has passed', 'Exam today', 'Exam tomorrow']
+      : ["L'esame è passato", 'Esame oggi', 'Esame domani'];
+
+  if (n < 0) return labels[0];
+
+  if (n === 0) return labels[1];
+
+  if (n === 1) return labels[2];
+
+  return l === 'english' ? `Exam in ${n} days` : `Esame tra ${n} giorni`;
+};
 
 export const reviewsThisWeek = (l: Locale, n: number) =>
   l === 'english'

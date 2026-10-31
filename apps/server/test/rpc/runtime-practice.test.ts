@@ -71,65 +71,51 @@ for (const mode of [
           return;
         }
 
-        const content = {
-          kind: 'quiz',
-          questions: [
-            open
-              ? {
-                  kind: 'open',
-                  prompt: 'Explain alpha [1]',
-                  explanation: 'Alpha is evidence [1]',
-                  referenceAnswer: 'Alpha evidence'
-                }
-              : {
-                  kind: 'single_choice',
-                  prompt: 'Which is evidence? [1]',
-                  explanation: 'Alpha [1]',
-                  choices: [
-                    { text: 'Alpha', isCorrect: true },
-                    { text: 'Other', isCorrect: false }
-                  ]
-                }
-          ]
-        };
-        const call = {
-          type: 'function_call',
-          id: 'tool-item',
-          call_id: 'source-call',
-          name: 'sources',
-          arguments: '{"query":"alpha"}'
-        };
-        const invalid = toolResult && invalidResponse;
+        const content = practiceContent(open);
+        const events = providerEvents();
 
-        if (invalid) invalidResponse = false;
+        function providerEvents() {
+          const call = {
+            type: 'function_call',
+            id: 'tool-item',
+            call_id: 'source-call',
+            name: 'sources',
+            arguments: '{"query":"alpha"}'
+          };
+          const invalid = toolResult && invalidResponse;
 
-        const events = toolResult
-          ? [
-              {
-                type: 'response.output_item.added',
-                output_index: 0,
-                item: { type: 'message', id: 'answer' }
-              },
-              {
-                type: 'response.output_text.delta',
-                item_id: 'answer',
-                delta: JSON.stringify(
-                  invalid
-                    ? { ...content, questions: [content.questions[0], content.questions[0]] }
-                    : content
-                )
-              },
-              { type: 'response.completed', response: {} }
-            ]
-          : [
-              { type: 'response.output_item.added', output_index: 0, item: call },
-              {
-                type: 'response.output_item.done',
-                output_index: 0,
-                item: { ...call, status: 'completed' }
-              },
-              { type: 'response.completed', response: {} }
-            ];
+          if (invalid) invalidResponse = false;
+
+          const events = toolResult
+            ? [
+                {
+                  type: 'response.output_item.added',
+                  output_index: 0,
+                  item: { type: 'message', id: 'answer' }
+                },
+                {
+                  type: 'response.output_text.delta',
+                  item_id: 'answer',
+                  delta: JSON.stringify(
+                    invalid
+                      ? { ...content, questions: [content.questions[0], content.questions[0]] }
+                      : content
+                  )
+                },
+                { type: 'response.completed', response: {} }
+              ]
+            : [
+                { type: 'response.output_item.added', output_index: 0, item: call },
+                {
+                  type: 'response.output_item.done',
+                  output_index: 0,
+                  item: { ...call, status: 'completed' }
+                },
+                { type: 'response.completed', response: {} }
+              ];
+
+          return events;
+        }
 
         response.writeHead(200, { 'content-type': 'text/event-stream' });
 
@@ -234,40 +220,44 @@ for (const mode of [
             if (mode === 'archived-before-request')
               yield* client['materials.unarchive']({ id: document.id });
 
-            if (mode !== 'normal') {
-              mark('recovery');
-              transient = false;
-              const failed = ready.slots.filter((slot) => slot.status === 'failed');
+            yield* recoverFailedPractice();
 
-              assert.equal(failed.length, mode === 'invalid-model' ? 1 : 2);
+            function* recoverFailedPractice() {
+              if (mode !== 'normal') {
+                mark('recovery');
+                transient = false;
+                const failed = ready.slots.filter((slot) => slot.status === 'failed');
 
-              if (mode === 'transient-exhausted')
-                assert.equal(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
+                assert.equal(failed.length, mode === 'invalid-model' ? 1 : 2);
 
-              if (mode === 'invalid-model') {
-                const settings = yield* client['settings.appSettings']({});
+                if (mode === 'transient-exhausted')
+                  assert.equal(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
 
-                yield* client['settings.saveAppSettings']({ ...settings, language: 2 });
-              }
+                if (mode === 'invalid-model') {
+                  const settings = yield* client['settings.appSettings']({});
 
-              for (const slot of failed) {
-                mark('manual-retry');
-                const retried = yield* client['learning.retryPracticeQuestion']({
-                  slotId: slot.slotId
-                });
+                  yield* client['settings.saveAppSettings']({ ...settings, language: 2 });
+                }
 
-                assert.equal(retried.slotId, slot.slotId);
-                assert.equal(retried.kind, slot.kind);
-                mark('duplicate-manual-retry');
-                yield* client['learning.retryPracticeQuestion']({ slotId: slot.slotId });
-              }
+                for (const slot of failed) {
+                  mark('manual-retry');
+                  const retried = yield* client['learning.retryPracticeQuestion']({
+                    slotId: slot.slotId
+                  });
 
-              for (let i = 0; i < 150; i++) {
-                ready = yield* client['learning.practice']({ projectId: project.id });
+                  assert.equal(retried.slotId, slot.slotId);
+                  assert.equal(retried.kind, slot.kind);
+                  mark('duplicate-manual-retry');
+                  yield* client['learning.retryPracticeQuestion']({ slotId: slot.slotId });
+                }
 
-                if (ready.slots.every((slot) => slot.status === 'ready')) break;
+                for (let i = 0; i < 150; i++) {
+                  ready = yield* client['learning.practice']({ projectId: project.id });
 
-                yield* Effect.sleep('25 millis');
+                  if (ready.slots.every((slot) => slot.status === 'ready')) break;
+
+                  yield* Effect.sleep('25 millis');
+                }
               }
             }
 
@@ -334,29 +324,34 @@ for (const mode of [
 
             yield* client['system.stopWorkers']({});
             yield* client['system.startWorkers']({});
-            const refillSlot = refill.slots.find((slot) => slot.kind === 'open')!;
-            let drained = false;
+            yield* assertRefillDrained();
 
-            for (let i = 0; i < 100; i++) {
-              const executions = yield* client['workflows.executions']({
-                limit: 100,
-                correlationId: refillSlot.slotId
-              });
+            function* assertRefillDrained() {
+              const refillSlot = refill.slots.find((slot) => slot.kind === 'open')!;
+              let drained = false;
 
-              if (
-                executions.items.length &&
-                executions.items.every((execution) =>
-                  ['completed', 'cancelled'].includes(execution.status)
-                )
-              ) {
-                drained = true;
-                break;
+              for (let i = 0; i < 100; i++) {
+                const executions = yield* client['workflows.executions']({
+                  limit: 100,
+                  correlationId: refillSlot.slotId
+                });
+
+                if (
+                  executions.items.length &&
+                  executions.items.every((execution) =>
+                    ['completed', 'cancelled'].includes(execution.status)
+                  )
+                ) {
+                  drained = true;
+                  break;
+                }
+
+                yield* Effect.sleep('25 millis');
               }
 
-              yield* Effect.sleep('25 millis');
+              assert.equal(drained, true);
             }
 
-            assert.equal(drained, true);
             assert.equal(generations, count);
             assert.equal(yield* client['projects.deleteProject']({ id: project.id }), true);
             assert.deepEqual(app.store.db.orm.all('PRAGMA foreign_key_check'), []);
@@ -365,3 +360,27 @@ for (const mode of [
       );
     }
   );
+
+function practiceContent(open: boolean) {
+  return {
+    kind: 'quiz',
+    questions: [
+      open
+        ? {
+            kind: 'open',
+            prompt: 'Explain alpha [1]',
+            explanation: 'Alpha is evidence [1]',
+            referenceAnswer: 'Alpha evidence'
+          }
+        : {
+            kind: 'single_choice',
+            prompt: 'Which is evidence? [1]',
+            explanation: 'Alpha [1]',
+            choices: [
+              { text: 'Alpha', isCorrect: true },
+              { text: 'Other', isCorrect: false }
+            ]
+          }
+    ]
+  };
+}

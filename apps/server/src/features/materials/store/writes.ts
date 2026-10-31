@@ -36,6 +36,24 @@ export function makeWrites(resources: StoreResources) {
       throw new StudyError('invalid_input', 'Session belongs to another project');
   }
 
+  function assertLinkTarget(
+    version: typeof s.material_versions.$inferSelect,
+    id: MaterialVersionId,
+    parent: boolean
+  ) {
+    const target = versionRow(id);
+
+    materialRow(target.material_id, true);
+
+    if (
+      id === version.id ||
+      target.status !== 'published' ||
+      target.project_id !== version.project_id ||
+      (parent && target.material_id !== version.material_id)
+    )
+      throw new StudyError('invalid_input', 'Invalid material version link');
+  }
+
   function insertLinks(
     version: typeof s.material_versions.$inferSelect,
     links: { inputs?: readonly MaterialVersionId[]; parents?: readonly MaterialVersionId[] }
@@ -48,17 +66,7 @@ export function makeWrites(resources: StoreResources) {
         throw new StudyError('invalid_input', 'Duplicate version links');
 
       for (const id of ids) {
-        const target = versionRow(id);
-
-        materialRow(target.material_id, true);
-
-        if (
-          id === version.id ||
-          target.status !== 'published' ||
-          target.project_id !== version.project_id ||
-          (parent && target.material_id !== version.material_id)
-        )
-          throw new StudyError('invalid_input', 'Invalid material version link');
+        assertLinkTarget(version, id, parent);
 
         if (parent)
           store.orm

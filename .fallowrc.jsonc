@@ -1,0 +1,222 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  "minimumVersion": "3.38.0",
+  "workspaces": {
+    "patterns": ["apps/landing"]
+  },
+  // Build output and generated framework wiring are not authored source.
+  "ignorePatterns": [
+    "target/**",
+    "graphify-out/**",
+    "apps/web/src/routeTree.gen.ts",
+    "apps/desktop/src-tauri/gen/**"
+  ],
+  // Private workspace exports must have a real consumer.
+  "includeEntryExports": true,
+  "failOnParseError": true,
+  "rules": {
+    "unused-files": "error",
+    "unused-exports": "error",
+    "unused-types": "error",
+    "unused-dependencies": "error",
+    "unused-dev-dependencies": "error",
+    "unused-optional-dependencies": "error",
+    "unused-enum-members": "error",
+    "unused-class-members": "error",
+    "unresolved-imports": "error",
+    "unlisted-dependencies": "error",
+    "duplicate-exports": "error",
+    "circular-dependencies": "error",
+    "re-export-cycle": "error",
+    "package-cycle": "error",
+    "boundary-violation": "error",
+    "stale-suppressions": "error",
+    "require-suppression-reason": "error"
+  },
+  // Complexity ceilings fail the gate; unit size is an advisory report.
+  // CRAP needs measured coverage, so its estimate does not gate this repository.
+  "health": {
+    "maxCyclomatic": 10,
+    "maxCognitive": 15,
+    "maxUnitSize": 60,
+    "maxCrap": 0
+  },
+  // --fail-on-issues rejects every clone group; threshold: 0 alone would not.
+  "duplicates": {
+    "mode": "mild",
+    "minTokens": 50,
+    "minLines": 5,
+    "minOccurrences": 2,
+    // The 51-token open-answer join belongs to two independent feature stores.
+    // Sharing it would expose a private store or move domain queries into @study/db.
+    // This exact content/count exception expires if either query or copy count changes.
+    "ignoredClones": ["dup:328fd34f:2"]
+  },
+  "boundaries": {
+    "zones": [
+      {
+        "name": "tests",
+        "patterns": ["**/*.test.*", "**/test/**", "**/tests/**"]
+      },
+      {
+        "name": "contracts",
+        "patterns": ["packages/contracts/src/**"]
+      },
+      {
+        "name": "theme",
+        "patterns": ["packages/theme/src/**"]
+      },
+      {
+        "name": "localization",
+        "patterns": ["packages/localization/src/**"]
+      },
+      {
+        "name": "ui",
+        "patterns": ["packages/ui/src/**"]
+      },
+      {
+        "name": "db",
+        "patterns": ["packages/db/src/**"]
+      },
+      {
+        "name": "server-client",
+        "patterns": ["apps/server/src/client/**"]
+      },
+      {
+        "name": "server-platform",
+        "patterns": ["apps/server/src/platform/**"]
+      },
+      {
+        "name": "server-features",
+        "patterns": ["apps/server/src/features/**"]
+      },
+      {
+        "name": "server-runtime",
+        "patterns": ["apps/server/src/runtime/**"]
+      },
+      {
+        "name": "web",
+        "patterns": ["apps/web/src/**", "apps/web/index.html"]
+      },
+      {
+        "name": "landing",
+        "patterns": ["apps/landing/src/**"]
+      },
+      {
+        "name": "tooling",
+        "patterns": [
+          "tooling/**",
+          "**/*.config.*",
+          "apps/desktop/**",
+          "apps/web/tsr.config.json",
+          "apps/web/*.ts",
+          "apps/landing/*.ts",
+          "apps/landing/scripts/**"
+        ]
+      }
+    ],
+    "rules": [
+      {
+        "from": "contracts",
+        "allow": []
+      },
+      {
+        "from": "theme",
+        "allow": ["contracts"]
+      },
+      {
+        "from": "localization",
+        "allow": []
+      },
+      {
+        "from": "ui",
+        "allow": ["theme"]
+      },
+      {
+        "from": "db",
+        "allow": ["contracts", "theme"]
+      },
+      {
+        "from": "server-client",
+        "allow": ["contracts"]
+      },
+      {
+        "from": "server-platform",
+        "allow": ["contracts", "db", "localization", "theme"]
+      },
+      {
+        "from": "server-features",
+        "allow": ["server-platform", "contracts", "db", "localization", "theme"]
+      },
+      {
+        "from": "server-runtime",
+        "allow": [
+          "server-platform",
+          "server-features",
+          "server-client",
+          "contracts",
+          "db",
+          "localization",
+          "theme"
+        ]
+      },
+      {
+        "from": "web",
+        "allow": ["server-client", "contracts", "ui", "localization", "theme"]
+      },
+      {
+        "from": "landing",
+        "allow": ["theme", "localization"]
+      },
+      {
+        "from": "tests",
+        "allow": [
+          "tests",
+          "contracts",
+          "theme",
+          "localization",
+          "ui",
+          "db",
+          "server-client",
+          "server-platform",
+          "server-features",
+          "server-runtime",
+          "web",
+          "landing",
+          "tooling"
+        ]
+      },
+      {
+        "from": "tooling",
+        "allow": [
+          "tests",
+          "contracts",
+          "theme",
+          "localization",
+          "ui",
+          "db",
+          "server-client",
+          "server-platform",
+          "server-features",
+          "server-runtime",
+          "web",
+          "landing",
+          "tooling"
+        ]
+      }
+    ],
+    "coverage": {
+      "requireAllFiles": true
+    }
+  },
+  // Compile-only public API assertions are intentionally never executed.
+  "entry": ["packages/localization/test/api.types.ts"],
+  // Oxlint loads this plugin from the specifier in tooling/oxc-config/lint.ts.
+  "framework": [
+    {
+      "name": "study-oxlint",
+      "enablers": ["vite-plus"],
+      "toolingDependencies": ["@stylistic/eslint-plugin"]
+    }
+  ]
+}

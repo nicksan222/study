@@ -1,6 +1,14 @@
 import { dirname, relative, resolve } from 'node:path';
 
-import { binding, imported, property } from './rules/synchronous-transactions.ts';
+import {
+  binding,
+  constantDeclarator,
+  runtimeImport,
+  staticMember,
+  namedProperty,
+  enterNode
+} from './lexical-bindings.ts';
+import { requireBindings } from './require-bindings.ts';
 
 export function serverPath(filename: string): string | null {
   const normalized = filename.replaceAll('\\', '/');
@@ -44,55 +52,7 @@ export function moduleEdges(
     return null;
   }
 
-  function createRequire(node: any, seen = new Set<any>()): boolean {
-    if (!node || seen.has(node)) return false;
-
-    seen.add(node);
-
-    if (imported(context, node, /^(?:node:)?module$/, 'createRequire')) return true;
-
-    if (property(node) === 'createRequire' && imported(context, node.object, /^(?:node:)?module$/))
-      return true;
-
-    const definition = binding(context, node)?.defs[0]?.node;
-
-    return (
-      definition?.type === 'VariableDeclarator' &&
-      definition.parent?.kind === 'const' &&
-      createRequire(definition.init, seen)
-    );
-  }
-
-  function requireFunction(node: any, seen = new Set<any>()): boolean {
-    if (!node || seen.has(node)) return false;
-
-    seen.add(node);
-
-    if (
-      node.type === 'Identifier' &&
-      node.name === 'require' &&
-      !binding(context, node)?.defs.length
-    )
-      return true;
-
-    if (
-      property(node) === 'require' &&
-      node.object.type === 'Identifier' &&
-      ['module', 'globalThis', 'global'].includes(node.object.name) &&
-      !binding(context, node.object)?.defs.length
-    )
-      return true;
-
-    if (node.type === 'CallExpression' && createRequire(node.callee)) return true;
-
-    const definition = binding(context, node)?.defs[0]?.node;
-
-    return (
-      definition?.type === 'VariableDeclarator' &&
-      definition.parent?.kind === 'const' &&
-      requireFunction(definition.init, seen)
-    );
-  }
+  const requireFunction = requireBindings(context);
 
   return {
     TSImportType(node: any) {
@@ -170,9 +130,7 @@ export function importedValue(
   node: any,
   seen = new Set<any>()
 ): { source: string; target: string | null; name: string } | null {
-  if (!node || seen.has(node)) return null;
-
-  seen.add(node);
+  if (!enterNode(node, seen)) return null;
 
   if (
     [
@@ -187,57 +145,14 @@ export function importedValue(
   if (node.type === 'Identifier') {
     const def = binding(context, node)?.defs[0]?.node;
 
-    if (
-      def?.parent?.type === 'ImportDeclaration' &&
-      def.parent.importKind !== 'type' &&
-      def.importKind !== 'type'
-    ) {
-      const name =
-        def.type === 'ImportSpecifier'
-          ? (def.imported.name ?? def.imported.value)
-          : def.type === 'ImportNamespaceSpecifier'
-            ? ''
-            : def.type === 'ImportDefaultSpecifier'
-              ? 'default'
-              : null;
+    const direct = directImport(context, def);
 
-      return name === null
-        ? null
-        : {
-            source: def.parent.source.value,
-            target: targetPath(context.filename, def.parent.source.value),
-            name
-          };
-    }
+    if (direct) return direct;
 
-    if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
-      const base = importedValue(context, def.init, seen);
-
-      if (!base || def.id.type === 'Identifier') return base;
-
-      function path(pattern: any, names: string[]): string[] | null {
-        if (pattern.type === 'Identifier') return pattern.name === node.name ? names : null;
-
-        if (pattern.type !== 'ObjectPattern') return null;
-
-        for (const part of pattern.properties) {
-          if (part.type !== 'Property' || (part.computed && part.key.type !== 'Literal')) continue;
-
-          const found = path(part.value, [...names, part.key.name ?? part.key.value]);
-
-          if (found) return found;
-        }
-
-        return null;
-      }
-
-      const names = path(def.id, []);
-
-      return names ? { ...base, name: [base.name, ...names].filter(Boolean).join('.') } : null;
-    }
+    return aliasedImport(context, node, def, seen);
   }
 
-  if (node.type === 'MemberExpression' && (!node.computed || node.property.type === 'Literal')) {
+  if (staticMember(node)) {
     const base = importedValue(context, node.object, seen);
     const name = node.property.name ?? node.property.value;
 
@@ -253,4 +168,62 @@ export function canonicalImport(context: any, node: any, module: string, name: s
   const value = importedValue(context, node);
 
   return value?.target === `platform/definitions/${module}` && value.name === name;
+}
+
+function directImport(context: any, def: any): ReturnType<typeof importedValue> {
+  if (runtimeImport(def)) {
+    const name =
+      def.type === 'ImportSpecifier'
+        ? (def.imported.name ?? def.imported.value)
+        : def.type === 'ImportNamespaceSpecifier'
+          ? ''
+          : def.type === 'ImportDefaultSpecifier'
+            ? 'default'
+            : null;
+
+    return name === null
+      ? null
+      : {
+          source: def.parent.source.value,
+          target: targetPath(context.filename, def.parent.source.value),
+          name
+        };
+  }
+
+  return null;
+}
+
+function aliasedImport(
+  context: any,
+  node: any,
+  def: any,
+  seen: Set<any>
+): ReturnType<typeof importedValue> {
+  if (constantDeclarator(def)) {
+    const base = importedValue(context, def.init, seen);
+
+    if (!base || def.id.type === 'Identifier') return base;
+
+    const names = destructuredPath(def.id, node.name, []);
+
+    return names ? { ...base, name: [base.name, ...names].filter(Boolean).join('.') } : null;
+  }
+
+  return null;
+}
+
+function destructuredPath(pattern: any, target: string, names: string[]): string[] | null {
+  if (pattern.type === 'Identifier') return pattern.name === target ? names : null;
+
+  if (pattern.type !== 'ObjectPattern') return null;
+
+  for (const part of pattern.properties) {
+    if (!namedProperty(part)) continue;
+
+    const found = destructuredPath(part.value, target, [...names, part.key.name ?? part.key.value]);
+
+    if (found) return found;
+  }
+
+  return null;
 }

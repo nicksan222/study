@@ -12,8 +12,6 @@ import { materialKindSchema } from '../materials/schemas.ts';
 import { anchorSchema } from '../sources/schemas.ts';
 import { sourceKinds } from '../sources/sniff.ts';
 
-export { anchorSchema };
-
 export const searchKindSchema = Schema.Literals([
   'project',
   'session',

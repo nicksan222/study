@@ -70,7 +70,7 @@ export const sourceCorrectionRequestedSchema = Schema.Struct({
   after: Schema.String
 });
 
-export const sourcePublicationRequestedSchema = Schema.Union([
+const sourcePublicationRequestedSchema = Schema.Union([
   sourceProcessingRequestedSchema,
   sourceCorrectionRequestedSchema
 ]);
@@ -165,30 +165,8 @@ export const workflowEventSchema = Schema.Union([
 
 export type SourceIndexed = typeof sourceIndexedSchema.Type;
 
-export type SourceDeleted = typeof sourceDeletedSchema.Type;
-
-export type SourceProjectChanged = typeof sourceProjectChangedSchema.Type;
-
-export type SourceProcessingFailed = typeof sourceProcessingFailedSchema.Type;
-
 export type SourcePublicationRequested = typeof sourcePublicationRequestedSchema.Type;
-
-export type SourceCorrectionRequested = typeof sourceCorrectionRequestedSchema.Type;
-
-export type SourceProcessingRequested = typeof sourceProcessingRequestedSchema.Type;
-
-export type MaterialGenerationRequested = typeof materialGenerationRequestedSchema.Type;
-
-export type MaterialGenerationFailed = typeof materialGenerationFailedSchema.Type;
-
-export type MaterialPublished = typeof materialPublishedSchema.Type;
-
-export type ConversationGenerationRequested = typeof conversationGenerationRequestedSchema.Type;
-
-export type ConversationTitleRequested = typeof conversationTitleRequestedSchema.Type;
 
 export type QuizAnswerSubmitted = typeof quizAnswerSubmittedSchema.Type;
 
 export type WorkflowEvent = typeof workflowEventSchema.Type;
-
-export type PracticeSlotRequested = typeof practiceSlotRequestedSchema.Type;

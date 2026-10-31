@@ -5,7 +5,6 @@
   "exports": {
     "./ai/grade": "./src/ai/grade.ts",
     "./ai/reply": "./src/ai/reply.ts",
-    "./ai/rewrite": "./src/ai/rewrite.ts",
     "./ai/shared": "./src/ai/shared.ts",
     "./ai/sources": "./src/ai/sources.ts",
     "./ai/title": "./src/ai/title.ts",
@@ -20,7 +19,6 @@
     "./ids": "./src/ids.ts",
     ".": "./src/index.ts",
     "./json": "./src/json.ts",
-    "./learning": "./src/learning/index.ts",
     "./learning/schemas": "./src/learning/schemas.ts",
     "./materials": "./src/materials/index.ts",
     "./materials/schemas": "./src/materials/schemas.ts",
@@ -30,7 +28,6 @@
     "./projects/types": "./src/projects/types.ts",
     "./recordings/rpc": "./src/recordings/rpc.ts",
     "./recordings/schemas": "./src/recordings/schemas.ts",
-    "./schema-validator": "./src/schema-validator.ts",
     "./settings": "./src/settings/index.ts",
     "./settings/schemas": "./src/settings/schemas.ts",
     "./settings/types": "./src/settings/types.ts",

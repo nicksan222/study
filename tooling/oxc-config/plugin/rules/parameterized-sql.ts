@@ -1,6 +1,17 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { production, property, imported, typedOwner } from './synchronous-transactions.ts';
+import { memberName as property, imported } from '../lexical-bindings.ts';
+import { production, typedOwner } from './synchronous-transactions.ts';
+
+function rawSql(context: any, callee: any): boolean {
+  if (property(callee) !== 'raw') return false;
+
+  return (
+    imported(context, callee.object, /^(?:drizzle-orm|@study\/db)$/, 'sql') ||
+    (property(callee.object) === 'sql' &&
+      imported(context, callee.object.object, /^(?:drizzle-orm|@study\/db)$/))
+  );
+}
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -21,15 +32,7 @@ export default defineRule({
           return;
         }
 
-        if (
-          property(callee) !== 'raw' ||
-          !(
-            imported(context, callee.object, /^(?:drizzle-orm|@study\/db)$/, 'sql') ||
-            (property(callee.object) === 'sql' &&
-              imported(context, callee.object.object, /^(?:drizzle-orm|@study\/db)$/))
-          )
-        )
-          return;
+        if (!rawSql(context, callee)) return;
 
         const value = node.arguments[0];
 

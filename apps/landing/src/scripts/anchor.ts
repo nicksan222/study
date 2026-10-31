@@ -206,17 +206,9 @@ const route = (
     tried = true;
 
     for (const bowTry of new Set([bowAsked, bowAsked * 0.4, -bowAsked])) {
-      const bend = bowTry * len * 0.45;
-      const [c1, c2] = bow(s, e, bend);
-      let clean = true;
+      const found = cleanRoute(s, e, bowTry * len * 0.45, len, page, blocks);
 
-      for (let i = 1; i <= 22 && clean; i++) {
-        const p = along(s, c1, c2, e, 0.04 + (i / 22) * 0.88);
-
-        clean = p[0] > 2 && p[0] < page - 2 && !blocks.some((box) => inside(p, box));
-      }
-
-      if (clean) return { s, e, bend, len };
+      if (found) return found;
     }
   }
 
@@ -434,18 +426,11 @@ const draw = (piece: Piece, obstacles: (scope: Element) => { box: Box; el: Eleme
 
   if (piece.drawn === 'drawing') return void (piece.stale = true);
 
-  const min = Number(svg.dataset.arrowMin ?? 0);
+  const targets = drawingTargets(piece);
 
-  if (min && !matchMedia(`(min-width: ${min}px)`).matches) return hide(piece, 'min');
+  if (!targets) return;
 
-  const arrow = svg.hasAttribute('data-arrow');
-  const from = (piece.from = arrow ? find(piece.scope, svg.dataset.from) : null);
-  const to = (piece.to = find(piece.scope, svg.dataset.to));
-
-  if (!to || (arrow && !from)) return hide(piece, 'missing');
-
-  if (!shown(to) || (from && !shown(from)) || !svg.parentElement || !shown(svg.parentElement))
-    return hide(piece, 'unseen');
+  const { arrow, from, to } = targets;
 
   delete svg.dataset.inkHidden;
   const origin = svg.getBoundingClientRect();
@@ -466,25 +451,7 @@ const draw = (piece: Piece, obstacles: (scope: Element) => { box: Box; el: Eleme
     );
   }
 
-  const found = route(
-    from!,
-    to,
-    clamp(Number(svg.dataset.bow ?? 0.2) || 0, -1, 1),
-    obstacles(piece.scope)
-  );
-
-  if (typeof found === 'string') return hide(piece, found);
-
-  const head = clamp(found.len * 0.12, 8, 13);
-  const first = ink.bowed(at(found.s), at(found.e), found.bend, head);
-  const second = ink.bowed(at(found.s), at(found.e), found.bend, head * 0.92);
-
-  paths(piece, [
-    { d: first.shaft, cls: 'shaft' },
-    { d: second.shaft, cls: 'shaft pass' },
-    { d: first.head, cls: 'head' },
-    { d: second.head, cls: 'head pass' }
-  ]);
+  drawArrow(piece, from!, to, ink, at, obstacles);
 };
 
 const redraw = () => {
@@ -523,19 +490,7 @@ const pump = () => {
     lastStart = performance.now();
     running.add(piece);
     piece.drawn = 'drawing';
-    let delay = 0;
-
-    for (const path of piece.svg.querySelectorAll<SVGPathElement>('path')) {
-      const len = path.getTotalLength();
-      const head = path.classList.contains('head');
-      const pass = path.classList.contains('pass');
-      const duration = head ? HEAD_MS : clamp(len * 1.4, DRAW_MS * 0.6, DRAW_MS);
-
-      path.style.transition = `stroke-dashoffset ${duration}ms var(--ease-out) ${delay + (pass ? STAGGER_MS / 2 : 0)}ms`;
-      path.style.strokeDashoffset = '0';
-
-      if (!pass) delay += duration * (head ? 1 : 0.92);
-    }
+    const delay = animatePiecePaths(piece);
 
     window.setTimeout(() => {
       running.delete(piece);
@@ -643,4 +598,91 @@ function start(piece: Piece) {
     if (pieces.some((piece) => el === piece.from || el === piece.to || el.contains(piece.svg)))
       schedule();
   });
+}
+
+function cleanRoute(s: Pt, e: Pt, bend: number, len: number, page: number, blocks: Box[]) {
+  const [c1, c2] = bow(s, e, bend);
+
+  for (let i = 1; i <= 22; i++) {
+    const p = along(s, c1, c2, e, 0.04 + (i / 22) * 0.88);
+
+    if (!(p[0] > 2 && p[0] < page - 2 && !blocks.some((box) => inside(p, box)))) return null;
+  }
+
+  return { s, e, bend, len };
+}
+
+function drawArrow(
+  piece: Piece,
+  from: Element,
+  to: Element,
+  ink: ReturnType<typeof pen>,
+  at: (p: Pt) => Pt,
+  obstacles: (scope: Element) => { box: Box; el: Element }[]
+) {
+  const { svg } = piece;
+  const found = route(
+    from,
+    to,
+    clamp(Number(svg.dataset.bow ?? 0.2) || 0, -1, 1),
+    obstacles(piece.scope)
+  );
+
+  if (typeof found === 'string') return hide(piece, found);
+
+  const head = clamp(found.len * 0.12, 8, 13);
+  const first = ink.bowed(at(found.s), at(found.e), found.bend, head);
+  const second = ink.bowed(at(found.s), at(found.e), found.bend, head * 0.92);
+
+  paths(piece, [
+    { d: first.shaft, cls: 'shaft' },
+    { d: second.shaft, cls: 'shaft pass' },
+    { d: first.head, cls: 'head' },
+    { d: second.head, cls: 'head pass' }
+  ]);
+}
+
+function pieceTargetsShown(svg: SVGSVGElement, from: Element | null, to: Element) {
+  return shown(to) && (!from || shown(from)) && !!svg.parentElement && shown(svg.parentElement);
+}
+
+function animatePiecePaths(piece: Piece) {
+  let delay = 0;
+
+  for (const path of piece.svg.querySelectorAll<SVGPathElement>('path')) {
+    const len = path.getTotalLength();
+    const head = path.classList.contains('head');
+    const pass = path.classList.contains('pass');
+    const duration = head ? HEAD_MS : clamp(len * 1.4, DRAW_MS * 0.6, DRAW_MS);
+
+    path.style.transition = `stroke-dashoffset ${duration}ms var(--ease-out) ${delay + (pass ? STAGGER_MS / 2 : 0)}ms`;
+    path.style.strokeDashoffset = '0';
+
+    if (!pass) delay += duration * (head ? 1 : 0.92);
+  }
+
+  return delay;
+}
+
+function hiddenTargets(piece: Piece, reason: string) {
+  hide(piece, reason);
+
+  return null;
+}
+
+function drawingTargets(piece: Piece) {
+  const { svg } = piece;
+  const min = Number(svg.dataset.arrowMin ?? 0);
+
+  if (min && !matchMedia(`(min-width: ${min}px)`).matches) return hiddenTargets(piece, 'min');
+
+  const arrow = svg.hasAttribute('data-arrow');
+  const from = (piece.from = arrow ? find(piece.scope, svg.dataset.from) : null);
+  const to = (piece.to = find(piece.scope, svg.dataset.to));
+
+  if (!to || (arrow && !from)) return hiddenTargets(piece, 'missing');
+
+  if (!pieceTargetsShown(svg, from, to)) return hiddenTargets(piece, 'unseen');
+
+  return { arrow, from, to };
 }

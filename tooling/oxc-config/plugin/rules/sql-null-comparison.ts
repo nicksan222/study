@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { api, sqlTokens, templateText, nullComparison } from './persistence-syntax.ts';
+import { api, nullComparison } from './persistence-syntax.ts';
+import { templateTokens } from './sql-template.ts';
 import { production } from './synchronous-transactions.ts';
 
 export default defineRule({
@@ -20,13 +21,9 @@ export default defineRule({
           });
       },
       TaggedTemplateExpression(node) {
-        if (!api(context, node.tag, 'sql')) return;
+        const tokens = templateTokens(context, node);
 
-        const text = templateText(node.quasi);
-
-        if (text === undefined) return;
-
-        const tokens = sqlTokens(text);
+        if (!tokens) return;
 
         if (nullComparison(tokens))
           context.report({

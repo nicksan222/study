@@ -159,6 +159,53 @@ export function detectedMime(mime: string): Detected {
   return { kind: 'other', mime };
 }
 
+const magicSignatures: readonly (readonly [string, string])[] = [
+  ['89504e470d0a1a0a', 'image/png'],
+  ['ffd8ff', 'image/jpeg'],
+  ['474946383761', 'image/gif'],
+  ['474946383961', 'image/gif'],
+  ['424d', 'image/bmp'],
+  ['49492a00', 'image/tiff'],
+  ['4d4d002a', 'image/tiff'],
+  ['255044462d', 'application/pdf'],
+  ['504b0304', 'application/zip'],
+  ['504b0506', 'application/zip'],
+  ['504b0708', 'application/zip'],
+  ['1f8b08', 'application/gzip'],
+  ['377abcaf271c', 'application/x-7z-compressed'],
+  ['526172211a07', 'application/vnd.rar'],
+  ['425a68', 'application/x-bzip2'],
+  ['fd377a585a00', 'application/x-xz']
+];
+
+function riffMime(bytes: Uint8Array, ascii: (start: number, end: number) => string) {
+  if (bytes.length < 12 || ascii(0, 4) !== 'RIFF') return null;
+
+  const types: Record<string, string> = {
+    WAVE: 'audio/x-wav',
+    WEBP: 'image/webp',
+    'AVI ': 'video/x-msvideo'
+  };
+
+  return types[ascii(8, 12)] ?? null;
+}
+
+function ftypMime(bytes: Uint8Array, ascii: (start: number, end: number) => string) {
+  if (bytes.length < 12 || ascii(4, 8) !== 'ftyp') return null;
+
+  const brand = ascii(8, 12);
+
+  if (['heic', 'heix', 'hevc', 'hevx'].includes(brand)) return 'image/heic';
+
+  if (['avif', 'avis'].includes(brand)) return 'image/avif';
+
+  if (brand === 'M4A ') return 'audio/mp4';
+
+  if (brand === 'qt  ') return 'video/quicktime';
+
+  return 'video/mp4';
+}
+
 function signature(bytes: Uint8Array): string | null {
   const b = bytes;
   const starts = (hex: string) => {
@@ -172,64 +219,41 @@ function signature(bytes: Uint8Array): string | null {
   };
   const ascii = (start: number, end: number) => String.fromCharCode(...b.subarray(start, end));
 
-  if (starts('89504e470d0a1a0a')) return 'image/png';
+  const magic = magicSignatures.find(([hex]) => starts(hex));
 
-  if (starts('ffd8ff')) return 'image/jpeg';
+  if (magic) return magic[1];
 
-  if (starts('474946383761') || starts('474946383961')) return 'image/gif';
+  const riff = riffMime(b, ascii);
 
-  if (starts('424d')) return 'image/bmp';
-
-  if (starts('49492a00') || starts('4d4d002a')) return 'image/tiff';
-
-  if (starts('255044462d')) return 'application/pdf';
-
-  if (starts('504b0304') || starts('504b0506') || starts('504b0708')) return 'application/zip';
-
-  if (starts('1f8b08')) return 'application/gzip';
-
-  if (starts('377abcaf271c')) return 'application/x-7z-compressed';
-
-  if (starts('526172211a07')) return 'application/vnd.rar';
-
-  if (starts('425a68')) return 'application/x-bzip2';
-
-  if (starts('fd377a585a00')) return 'application/x-xz';
-
-  if (b.length >= 12 && ascii(0, 4) === 'RIFF') {
-    const type = ascii(8, 12);
-
-    if (type === 'WAVE') return 'audio/x-wav';
-
-    if (type === 'WEBP') return 'image/webp';
-
-    if (type === 'AVI ') return 'video/x-msvideo';
-  }
+  if (riff) return riff;
 
   if (starts('664c6143')) return 'audio/x-flac';
 
   if (starts('4f676753')) return 'audio/ogg';
 
-  if (starts('494433') || (b.length >= 2 && b[0] === 0xff && (b[1] & 0xe0) === 0xe0))
-    return 'audio/mpeg';
+  if (starts('494433') || mpegFrame(b)) return 'audio/mpeg';
 
-  if (b.length >= 12 && ascii(4, 8) === 'ftyp') {
-    const brand = ascii(8, 12);
+  const ftyp = ftypMime(b, ascii);
 
-    if (['heic', 'heix', 'hevc', 'hevx'].includes(brand)) return 'image/heic';
-
-    if (['avif', 'avis'].includes(brand)) return 'image/avif';
-
-    if (brand === 'M4A ') return 'audio/mp4';
-
-    if (brand === 'qt  ') return 'video/quicktime';
-
-    return 'video/mp4';
-  }
+  if (ftyp) return ftyp;
 
   if (b.length > 262 && ascii(257, 262) === 'ustar') return 'application/x-tar';
 
   return null;
+}
+
+function preferSignature(
+  found: Detected | null | '',
+  mime: string | null,
+  named: Detected | undefined
+): found is Detected {
+  if (!found || found.kind === 'other') return false;
+
+  return !(
+    mime === 'application/zip' &&
+    named &&
+    ['document', 'spreadsheet', 'slides'].includes(named.kind)
+  );
 }
 
 export function sniff(name: string, head: Uint8Array): Detected {
@@ -241,16 +265,7 @@ export function sniff(name: string, head: Uint8Array): Detected {
   const mime = signature(head);
   const found = mime && detectedMime(mime);
 
-  if (
-    found &&
-    found.kind !== 'other' &&
-    !(
-      mime === 'application/zip' &&
-      named &&
-      ['document', 'spreadsheet', 'slides'].includes(named.kind)
-    )
-  )
-    return found;
+  if (preferSignature(found, mime, named)) return found;
 
   if (named) return named;
 
@@ -263,4 +278,8 @@ export function sniff(name: string, head: Uint8Array): Detected {
   }
 
   return { kind: 'other', mime: 'application/octet-stream' };
+}
+
+function mpegFrame(b: Uint8Array) {
+  return b.length >= 2 && b[0] === 0xff && (b[1] & 0xe0) === 0xe0;
 }

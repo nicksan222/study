@@ -1,7 +1,7 @@
 // The landing's tabbed stage: its heading, then answers, quiz, flashcard and diagram.
 import type { Shape } from '../strings';
 
-export const en = {
+export const learnEn = {
   stage: {
     title: 'One lecture, four ways to learn it.',
     key: 'four ways',
@@ -85,7 +85,7 @@ export const en = {
 /** Which of the quiz's choices is right, the same in every language. */
 export const quizAnswer = 1;
 
-export const it: Shape<typeof en> = {
+export const learnIt: Shape<typeof learnEn> = {
   stage: {
     title: 'Una lezione, quattro modi per impararla.',
     key: 'quattro modi',

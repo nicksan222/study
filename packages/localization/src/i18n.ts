@@ -2,7 +2,7 @@ import { catalogs } from './catalog.ts';
 import type { Locale, MessageKey } from './catalog.ts';
 import type { ParameterNames } from './parameters.ts';
 
-export const localeCode = (locale: Locale): 'en' | 'it' => (locale === 'italian' ? 'it' : 'en');
+const localeCode = (locale: Locale): 'en' | 'it' => (locale === 'italian' ? 'it' : 'en');
 
 /** Values are inserted literally; renderers remain responsible for escaping HTML. */
 export type MessageParameters<K extends MessageKey> = {
@@ -18,13 +18,6 @@ type ParameterizedMessageKey = Exclude<MessageKey, StaticMessageKey>;
 
 type ExactParameters<K extends ParameterizedMessageKey, P extends MessageParameters<K>> = P &
   Record<Exclude<keyof P, keyof MessageParameters<K>>, never>;
-
-/** A tuple union preserves the relationship between each key and its parameters. */
-export type TranslationArguments =
-  | [key: StaticMessageKey]
-  | {
-      [K in ParameterizedMessageKey]: [key: K, parameters: MessageParameters<K>];
-    }[ParameterizedMessageKey];
 
 export interface Translate {
   (key: StaticMessageKey): string;

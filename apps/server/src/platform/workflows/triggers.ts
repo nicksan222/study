@@ -21,7 +21,7 @@ export type Trigger = {
   readonly enabled: () => boolean;
 };
 
-export const workflowPayloadSchema = Schema.Struct({ event: workflowEventSchema });
+const workflowPayloadSchema = Schema.Struct({ event: workflowEventSchema });
 
 const payloadCodec = Schema.toCodecJson(workflowPayloadSchema);
 

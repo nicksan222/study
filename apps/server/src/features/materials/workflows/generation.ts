@@ -137,14 +137,7 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
                   : new StudyError('invalid_input', 'Invalid quiz specification', { cause })
             });
 
-            if (
-              (content.kind === 'flashcards' && content.cards.length > 50) ||
-              (content.kind === 'quiz' && content.questions.length > 10) ||
-              (content.kind === 'diagram' && content.payload.length > 100_000)
-            )
-              return yield* Effect.fail(
-                new StudyError('invalid_input', 'Generated content exceeds limits')
-              );
+            yield* checkGeneratedLimits(content);
 
             const safeContent =
               content.kind === 'flashcards'
@@ -233,3 +226,16 @@ export const materialGenerationRegistration = defineWorkflowHandler(materialGene
     }
   ]
 });
+
+function checkGeneratedLimits(
+  content: (typeof materialGenerationPublicationSchema.Type)['content']
+) {
+  if (
+    (content.kind === 'flashcards' && content.cards.length > 50) ||
+    (content.kind === 'quiz' && content.questions.length > 10) ||
+    (content.kind === 'diagram' && content.payload.length > 100_000)
+  )
+    return Effect.fail(new StudyError('invalid_input', 'Generated content exceeds limits'));
+
+  return Effect.void;
+}

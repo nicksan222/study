@@ -221,10 +221,7 @@ export function makeGeneration(resources: StoreResources) {
     return request;
   }
 
-  function assertGenerationEvent(
-    request: NonNullable<ReturnType<typeof readGeneration>>,
-    eventId: string
-  ) {
+  function generationEventRow(eventId: string) {
     const row = db.orm
       .select()
       .from(s.workflowEvents)
@@ -232,6 +229,15 @@ export function makeGeneration(resources: StoreResources) {
       .get();
 
     if (!row) throw new StudyError('invalid_input', 'Generation event is unavailable');
+
+    return row;
+  }
+
+  function assertGenerationEvent(
+    request: NonNullable<ReturnType<typeof readGeneration>>,
+    eventId: string
+  ) {
+    const row = generationEventRow(eventId);
 
     const event = decodeEvent(row.payload);
 

@@ -20,6 +20,14 @@ export default defineRule({
       if (call) calls.add(call);
     }
 
+    const serviceReexport = (node: any): boolean => {
+      return Boolean(
+        info.index &&
+        entryReexport(context, node, info.domain) &&
+        /(?:^|[/.])service(?:\/index)?(?:\.ts)?$/.test(node.source.value)
+      );
+    };
+
     return {
       ExportNamedDeclaration(node: any) {
         if (node.exportKind === 'type') return;
@@ -27,9 +35,7 @@ export default defineRule({
         if (node.source) {
           if (
             node.specifiers.some((specifier: any) => specifier.exportKind !== 'type') &&
-            info.index &&
-            entryReexport(context, node, info.domain) &&
-            /(?:^|[/.])service(?:\/index)?(?:\.ts)?$/.test(node.source.value)
+            serviceReexport(node)
           )
             reexport = true;
 
@@ -46,13 +52,7 @@ export default defineRule({
         collect(node.declaration);
       },
       ExportAllDeclaration(node: any) {
-        if (
-          node.exportKind !== 'type' &&
-          info.index &&
-          entryReexport(context, node, info.domain) &&
-          /(?:^|[/.])service(?:\/index)?(?:\.ts)?$/.test(node.source.value)
-        )
-          reexport = true;
+        if (node.exportKind !== 'type' && serviceReexport(node)) reexport = true;
       },
       'Program:exit'(node: any) {
         if (calls.size !== 1 && !(calls.size === 0 && reexport)) {

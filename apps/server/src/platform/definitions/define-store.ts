@@ -122,18 +122,7 @@ export function defineStore<
 
   const implementations = new WeakMap<ServerContext, { queries: Q; mutations: M }>();
 
-  function operations(context: ServerContext) {
-    const existing = implementations.get(context);
-
-    if (existing) return existing;
-
-    const bound = definition.make({ db: context.db, clock: context.clock });
-
-    synchronous(bound);
-
-    if (!bound || !bound.queries || !bound.mutations)
-      throw new TypeError('Store construction must return queries and mutations');
-
+  function validateOperationShapes(bound: { queries: Q; mutations: M }) {
     for (const [name, operation] of Object.entries({
       ...bound.queries,
       ...bound.mutations
@@ -147,12 +136,16 @@ export function defineStore<
       )
         throw new TypeError(`Invalid store operation ${name}`);
     }
+  }
 
+  function validateMutationDescriptors(bound: { queries: Q; mutations: M }) {
     for (const operation of Object.values(bound.mutations)) {
       if (operation[mutationBrand] !== true || queryBrand in operation)
         throw new TypeError('Mutations require storeMutation descriptors');
     }
+  }
 
+  function validateQueryDescriptors(bound: { queries: Q; mutations: M }) {
     for (const [name, operation] of Object.entries(bound.queries)) {
       if (operation[queryBrand] !== true || mutationBrand in operation)
         throw new TypeError('Queries require storeQuery descriptors');
@@ -174,6 +167,23 @@ export function defineStore<
 
       if (name !== expected) throw new TypeError(`Query ${name} must be named ${expected}`);
     }
+  }
+
+  function operations(context: ServerContext) {
+    const existing = implementations.get(context);
+
+    if (existing) return existing;
+
+    const bound = definition.make({ db: context.db, clock: context.clock });
+
+    synchronous(bound);
+
+    if (!bound || !bound.queries || !bound.mutations)
+      throw new TypeError('Store construction must return queries and mutations');
+
+    validateOperationShapes(bound);
+    validateMutationDescriptors(bound);
+    validateQueryDescriptors(bound);
 
     implementations.set(context, bound);
 
@@ -184,39 +194,14 @@ export function defineStore<
     const role = (operation as AnyDefinition & { role: string }).role;
     const decoded = Schema.decodeUnknownSync(operation.input)(input);
 
-    if (
-      role === 'collection' &&
-      (!decoded ||
-        typeof decoded !== 'object' ||
-        !('limit' in decoded) ||
-        typeof decoded.limit !== 'number' ||
-        !Number.isSafeInteger(decoded.limit) ||
-        decoded.limit < 1 ||
-        decoded.limit > 1000)
-    )
-      throw new TypeError('Collection queries require a bounded limit');
+    if (role === 'collection') assertCollectionLimit(decoded);
 
     const result = synchronous(operation.run(decoded as never));
 
     if (role === 'required' && result == null)
       throw new StudyError('not_found', `${definition.entity.singular} not found`);
 
-    if (role === 'collection') {
-      const items = Array.isArray(result)
-        ? result
-        : result !== null &&
-            typeof result === 'object' &&
-            'items' in result &&
-            ('next' in result || 'nextCursor' in result)
-          ? result.items
-          : undefined;
-
-      if (!Array.isArray(items))
-        throw new TypeError('Collection queries must return an array or a page');
-
-      if (items.length > (decoded as { limit: number }).limit)
-        throw new TypeError('Collection result exceeds its requested limit');
-    }
+    if (role === 'collection') assertCollectionResult(result, (decoded as { limit: number }).limit);
 
     if (role === 'optional' && !Option.isOption(result))
       throw new TypeError('Optional queries must return Option');
@@ -358,4 +343,33 @@ export function publicationTransaction<T>(
   work: (tx: Transaction) => T & SyncResult<T>
 ): Effect.Effect<T, StudyError, Database | PublicationGuard> {
   return Effect.flatMap(PublicationGuard, (guard) => transactionEffect<T>(work, guard));
+}
+
+function assertCollectionLimit(decoded: unknown) {
+  if (
+    !decoded ||
+    typeof decoded !== 'object' ||
+    !('limit' in decoded) ||
+    typeof decoded.limit !== 'number' ||
+    !Number.isSafeInteger(decoded.limit) ||
+    decoded.limit < 1 ||
+    decoded.limit > 1000
+  )
+    throw new TypeError('Collection queries require a bounded limit');
+}
+
+function assertCollectionResult(result: unknown, limit: number) {
+  const items = Array.isArray(result)
+    ? result
+    : result !== null &&
+        typeof result === 'object' &&
+        'items' in result &&
+        ('next' in result || 'nextCursor' in result)
+      ? result.items
+      : undefined;
+
+  if (!Array.isArray(items))
+    throw new TypeError('Collection queries must return an array or a page');
+
+  if (items.length > limit) throw new TypeError('Collection result exceeds its requested limit');
 }

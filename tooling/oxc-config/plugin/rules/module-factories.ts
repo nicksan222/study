@@ -1,8 +1,14 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport, featureRole, targetPath } from '../architecture-imports.ts';
+import {
+  binding,
+  memberName as property,
+  constantDeclarator,
+  enterNode
+} from '../lexical-bindings.ts';
 import { property as field, walk } from './effect-lifecycle-syntax.ts';
-import { binding, production, property } from './synchronous-transactions.ts';
+import { production } from './synchronous-transactions.ts';
 
 type FactoryOwner = 'service' | 'store' | 'rpc' | 'workflow' | 'workflow-handler';
 
@@ -40,9 +46,7 @@ export function entry(
 }
 
 export function resolveValue(context: any, node: any, seen = new Set<any>()): any {
-  if (!node || seen.has(node)) return null;
-
-  seen.add(node);
+  if (!enterNode(node, seen)) return null;
 
   if (
     [
@@ -59,8 +63,7 @@ export function resolveValue(context: any, node: any, seen = new Set<any>()): an
 
     if (def?.type === 'FunctionDeclaration') return def;
 
-    if (def?.type === 'VariableDeclarator' && def.parent?.kind === 'const')
-      return resolveValue(context, def.init, seen);
+    if (constantDeclarator(def)) return resolveValue(context, def.init, seen);
   }
 
   return node;
@@ -116,14 +119,7 @@ export default defineRule({
 
       const resolved = resolveValue(context, value);
 
-      if (
-        owner === 'workflow' &&
-        executions.has(resolved) &&
-        ['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(
-          resolved?.type
-        )
-      )
-        return;
+      if (workflowExecution(resolved)) return;
 
       if (
         owner === 'service' &&
@@ -133,6 +129,33 @@ export default defineRule({
         return;
 
       context.report({ node, message: `Exported feature ${owner} modules must use ${expected}.` });
+    }
+
+    function workflowExecution(resolved: any): boolean {
+      return (
+        owner === 'workflow' &&
+        executions.has(resolved) &&
+        ['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(
+          resolved?.type
+        )
+      );
+    }
+
+    function checkReexport(node: any) {
+      if (
+        node.specifiers.length > 0 &&
+        node.specifiers.every((specifier: any) => specifier.exportKind === 'type')
+      )
+        return;
+
+      if (node.specifiers.some((specifier: any) => specifier.exportKind !== 'type'))
+        runtimeExport = true;
+
+      if (!index || !entryReexport(context, node, domain))
+        context.report({
+          node,
+          message: `Feature ${owner} exports must be defined by ${expected}.`
+        });
     }
 
     return {
@@ -155,20 +178,7 @@ export default defineRule({
         if (node.exportKind === 'type') return;
 
         if (node.source) {
-          if (
-            node.specifiers.length > 0 &&
-            node.specifiers.every((specifier: any) => specifier.exportKind === 'type')
-          )
-            return;
-
-          if (node.specifiers.some((specifier: any) => specifier.exportKind !== 'type'))
-            runtimeExport = true;
-
-          if (!index || !entryReexport(context, node, domain))
-            context.report({
-              node,
-              message: `Feature ${owner} exports must be defined by ${expected}.`
-            });
+          checkReexport(node);
 
           return;
         }

@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';
+import { pipeCall, enterNode, constantDeclarator } from '../lexical-bindings.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -49,9 +50,7 @@ export default defineRule({
     ]);
 
     function computation(node: any, seen = new Set<any>()): boolean {
-      if (!node || seen.has(node)) return false;
-
-      seen.add(node);
+      if (!enterNode(node, seen)) return false;
 
       if (['TSAsExpression', 'TSNonNullExpression', 'ChainExpression'].includes(node.type))
         return computation(node.expression, seen);
@@ -61,15 +60,15 @@ export default defineRule({
       if (node.type === 'Identifier') {
         const def = bindings.definition(node);
 
-        return (
-          def?.type === 'VariableDeclarator' &&
-          def.parent?.kind === 'const' &&
-          computation(def.init, seen)
-        );
+        return constantDeclarator(def) && computation(def.init, seen);
       }
 
       if (node.type !== 'CallExpression') return false;
 
+      return computationCall(node, seen);
+    }
+
+    function computationCall(node: any, seen: Set<any>): boolean {
       const name = bindings.resolve(node.callee);
 
       if (name?.startsWith('Effect.') && constructors.has(name.slice(7))) return true;
@@ -80,11 +79,7 @@ export default defineRule({
       )
         return true;
 
-      if (
-        node.callee.type === 'MemberExpression' &&
-        node.callee.property.type === 'Identifier' &&
-        node.callee.property.name === 'pipe'
-      )
+      if (pipeCall(node))
         return (
           !node.arguments.some((argument: any) =>
             /^Effect\.run(?:Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$/.test(
@@ -93,8 +88,12 @@ export default defineRule({
           ) && computation(node.callee.object, seen)
         );
 
-      if (node.callee.type === 'Identifier') {
-        const def = bindings.definition(node.callee);
+      return effectFunction(node.callee);
+    }
+
+    function effectFunction(callee: any): boolean {
+      if (callee.type === 'Identifier') {
+        const def = bindings.definition(callee);
 
         if (def?.type === 'VariableDeclarator' && def.init?.type === 'CallExpression') {
           const wrapper = bindings.resolve(def.init.callee);

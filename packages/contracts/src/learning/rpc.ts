@@ -86,7 +86,7 @@ export const reviewedCardSchema = Schema.Struct({
 
 export const dueCardSchema = Schema.Struct({ ...cardSchema.fields, due: Schema.BigInt });
 
-export const dueCardsPageSchema = Schema.Struct({
+const dueCardsPageSchema = Schema.Struct({
   items: Schema.Array(dueCardSchema),
   nextCursor: Schema.NullOr(Schema.Struct({ due: Schema.BigInt, cardId: materialCardIdSchema }))
 });
@@ -97,7 +97,7 @@ export const attemptSummarySchema = Schema.Struct({
   projectId: projectIdSchema
 });
 
-export const attemptsPageSchema = Schema.Struct({
+const attemptsPageSchema = Schema.Struct({
   items: Schema.Array(attemptSummarySchema),
   nextCursor: Schema.NullOr(quizAttemptIdSchema)
 });
@@ -107,7 +107,7 @@ export const reviewHistoryItemSchema = Schema.Struct({
   snapshot: flashcardSnapshotSchema
 });
 
-export const reviewHistoryPageSchema = Schema.Struct({
+const reviewHistoryPageSchema = Schema.Struct({
   items: Schema.Array(reviewHistoryItemSchema),
   nextCursor: Schema.NullOr(learningIdSchema)
 });

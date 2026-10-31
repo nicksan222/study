@@ -7,7 +7,6 @@ import {
   DIALOG_MOBILE_SHEET_CLASS,
   DIALOG_POPUP_CLASS
 } from '@study/ui/dialog-styles';
-import { ScrollArea } from '@study/ui/scroll-area';
 import { cn } from '@study/ui/utils';
 import { XIcon } from 'lucide-react';
 import { createContext, use, useState } from 'react';
@@ -44,14 +43,6 @@ function Dialog<Payload>(props: DialogPrimitive.Root.Props<Payload>) {
 }
 
 const DialogPortal = DialogPrimitive.Portal;
-
-function DialogTrigger(props: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
-}
-
-function DialogClose(props: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
-}
 
 function DialogBackdrop({
   className,
@@ -181,50 +172,4 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   );
 }
 
-function DialogDescription({ className, ...props }: DialogPrimitive.Description.Props) {
-  return (
-    <DialogPrimitive.Description
-      className={cn('text-muted-foreground text-sm', className)}
-      data-slot="dialog-description"
-      {...props}
-    />
-  );
-}
-
-function DialogPanel({
-  className,
-  scrollFade = true,
-  ...props
-}: React.ComponentProps<'div'> & { scrollFade?: boolean }) {
-  return (
-    <ScrollArea scrollFade={scrollFade}>
-      <div
-        className={cn(
-          'space-y-4 p-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-header])]:pt-1 in-[[data-slot=dialog-popup]:has([data-slot=dialog-footer]:not(.border-t))]:pb-1',
-          className
-        )}
-        data-slot="dialog-panel"
-        {...props}
-      />
-    </ScrollArea>
-  );
-}
-
-export {
-  ControlledOpenContext,
-  renderRetainedPopup,
-  Dialog,
-  DialogTrigger,
-  DialogPortal,
-  DialogClose,
-  DialogBackdrop,
-  DialogBackdrop as DialogOverlay,
-  DialogPopup,
-  DialogPopup as DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-  DialogPanel,
-  DialogViewport
-};
+export { Dialog, DialogPopup, DialogHeader, DialogFooter, DialogTitle };

@@ -2,6 +2,8 @@ import { dirname, resolve } from 'node:path';
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
+import { boundSpecifier } from '../lexical-bindings.ts';
+
 const message =
   'Server tests must use real dependencies, not mock APIs or fabricated database contexts.';
 
@@ -16,22 +18,6 @@ export default defineRule({
 
     const namedTypes = new Map<string, any>();
     const namespaces = new Map<string, { types: readonly string[]; specifier: any }>();
-
-    function bound(node: any, specifier: any): boolean {
-      if (!specifier) return false;
-
-      let scope = context.sourceCode.getScope(node);
-
-      while (scope) {
-        const variable = scope.set.get(node.name);
-
-        if (variable) return variable.defs.some((definition) => definition.node === specifier);
-
-        scope = scope.upper!;
-      }
-
-      return false;
-    }
 
     function ownedTypes(source: string): readonly string[] {
       if (source === '@study/db') return ['Db'];
@@ -48,6 +34,10 @@ export default defineRule({
         .replaceAll('\\', '/')
         .replace(/\.(?:[cm]?[jt]s)$/, '');
 
+      return relativeOwnedTypes(target);
+    }
+
+    function relativeOwnedTypes(target: string): readonly string[] {
       if (target.endsWith('/apps/server/src/runtime/context')) return ['ServerContext'];
 
       if (
@@ -114,13 +104,18 @@ export default defineRule({
         if (
           node.typeAnnotation.type !== 'TSTypeReference' ||
           !(node.typeAnnotation.typeName.type === 'Identifier'
-            ? bound(node.typeAnnotation.typeName, namedTypes.get(node.typeAnnotation.typeName.name))
+            ? boundSpecifier(
+                context,
+                node.typeAnnotation.typeName,
+                namedTypes.get(node.typeAnnotation.typeName.name)
+              )
             : node.typeAnnotation.typeName.type === 'TSQualifiedName' &&
               node.typeAnnotation.typeName.left.type === 'Identifier' &&
               namespaces
                 .get(node.typeAnnotation.typeName.left.name)
                 ?.types.includes(node.typeAnnotation.typeName.right.name) &&
-              bound(
+              boundSpecifier(
+                context,
                 node.typeAnnotation.typeName.left,
                 namespaces.get(node.typeAnnotation.typeName.left.name)?.specifier
               ))

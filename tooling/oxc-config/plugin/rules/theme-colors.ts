@@ -6,10 +6,7 @@ import { hasLiteralColor, hasRawColor, hasRawColorClass } from '../theme-color-v
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
-    const filename = context.filename.replaceAll('\\', '/');
-
-    if (!/\/(?:apps\/web|packages\/ui)\/src\//.test(filename) || /\.test\.[jt]sx?$/.test(filename))
-      return {};
+    if (!checksThemeColors(context.filename)) return {};
 
     const message = 'Use semantic theme colors instead of raw colors or palette utilities.';
 
@@ -42,16 +39,7 @@ function isColorValue(node: ESTree.Node): boolean {
   while (parent?.type === 'TemplateLiteral' || parent?.type === 'JSXExpressionContainer')
     parent = parent.parent;
 
-  const key =
-    parent?.type === 'Property'
-      ? parent.key.type === 'Identifier'
-        ? parent.key.name
-        : parent.key.type === 'Literal' && typeof parent.key.value === 'string'
-          ? parent.key.value
-          : ''
-      : parent?.type === 'JSXAttribute' && parent.name.type === 'JSXIdentifier'
-        ? parent.name.name
-        : '';
+  const key = colorContainerKey(parent);
 
   return (
     key.startsWith('--') ||
@@ -59,4 +47,24 @@ function isColorValue(node: ESTree.Node): boolean {
       key.replaceAll('-', '')
     )
   );
+}
+
+function checksThemeColors(path: string): boolean {
+  const filename = path.replaceAll('\\', '/');
+
+  return /\/(?:apps\/web|packages\/ui)\/src\//.test(filename) && !/\.test\.[jt]sx?$/.test(filename);
+}
+
+function colorPropertyName(key: ESTree.Node): string {
+  if (key.type === 'Identifier') return key.name;
+
+  return key.type === 'Literal' && typeof key.value === 'string' ? key.value : '';
+}
+
+function colorContainerKey(parent: ESTree.Node | null | undefined): string {
+  if (parent?.type === 'Property') return colorPropertyName(parent.key);
+
+  return parent?.type === 'JSXAttribute' && parent.name.type === 'JSXIdentifier'
+    ? parent.name.name
+    : '';
 }

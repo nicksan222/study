@@ -14,7 +14,6 @@ import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { materialKinds, materialOperations } from '../material-kinds.ts';
 import { sessions } from './conversations.ts';
-import { material_generation_requests } from './material-generation.ts';
 import { projects } from './sources.ts';
 
 /** Project-owned content. Session membership is organization, never provenance. */
@@ -182,5 +181,55 @@ export const material_version_inputs = sqliteTable(
     index('material_version_inputs_input_idx').on(t.input_version_id, t.version_id),
     index('material_version_inputs_project_idx').on(t.project_id),
     check('material_version_inputs_distinct_check', sql`version_id != input_version_id`)
+  ]
+);
+
+export const material_generation_requests = sqliteTable(
+  'material_generation_requests',
+  {
+    id: text().primaryKey(),
+    project_id: integer()
+      .$type<ProjectId>()
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    payload: text().notNull(),
+    result_version_id: integer().$type<MaterialVersionId>(),
+    result_hash: text(),
+    created_at: integer().$type<bigint>().notNull()
+  },
+  (t) => [
+    uniqueIndex('material_generation_requests_id_project_unique').on(t.id, t.project_id),
+    check('material_generation_payload_check', sql`json_valid(${t.payload})`),
+    check(
+      'material_generation_result_pair_check',
+      sql`(${t.result_version_id} IS NULL) = (${t.result_hash} IS NULL)`
+    ),
+    foreignKey({
+      columns: [t.result_version_id, t.project_id],
+      foreignColumns: [material_versions.id, material_versions.project_id]
+    }).onDelete('no action')
+  ]
+);
+
+export const material_generation_inputs = sqliteTable(
+  'material_generation_inputs',
+  {
+    request_id: text().notNull(),
+    project_id: integer().$type<ProjectId>().notNull(),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
+    position: integer().$type<bigint>().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.request_id, t.version_id] }),
+    uniqueIndex('material_generation_inputs_position_unique').on(t.request_id, t.position),
+    foreignKey({
+      columns: [t.request_id, t.project_id],
+      foreignColumns: [material_generation_requests.id, material_generation_requests.project_id]
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.version_id, t.project_id],
+      foreignColumns: [material_versions.id, material_versions.project_id]
+    }).onDelete('no action'),
+    check('material_generation_inputs_position_check', sql`${t.position} >= 0`)
   ]
 );

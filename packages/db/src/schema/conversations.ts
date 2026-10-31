@@ -33,10 +33,7 @@ export const message_versions = sqliteTable(
   'message_versions',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<VersionId>(),
-    message_id: integer()
-      .$type<MessageId>()
-      .notNull()
-      .references((): AnySQLiteColumn => messages.id, { onDelete: 'cascade' }),
+    message_id: messageReference(),
     number: integer().$type<bigint>().notNull(),
     origin: text({ enum: codes_version_origin.code.enumValues })
       .notNull()
@@ -112,10 +109,7 @@ export const message_parts = sqliteTable(
   'message_parts',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<PartId>(),
-    message_id: integer()
-      .$type<MessageId>()
-      .notNull()
-      .references((): AnySQLiteColumn => messages.id, { onDelete: 'cascade' }),
+    message_id: messageReference(),
     ordinal: integer().$type<bigint>().notNull(),
     source_id: integer()
       .$type<SourceId>()
@@ -138,10 +132,7 @@ export const messages = sqliteTable(
   'messages',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<MessageId>(),
-    session_id: integer()
-      .$type<SessionId>()
-      .notNull()
-      .references((): AnySQLiteColumn => sessions.id, { onDelete: 'cascade' }),
+    session_id: sessionReference(),
     role: text({ enum: codes_message_role.code.enumValues })
       .notNull()
       .references((): AnySQLiteColumn => codes_message_role.code, {
@@ -212,10 +203,7 @@ export const recordings = sqliteTable(
   'recordings',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<RecordingId>(),
-    session_id: integer()
-      .$type<SessionId>()
-      .notNull()
-      .references((): AnySQLiteColumn => sessions.id, { onDelete: 'cascade' }),
+    session_id: sessionReference(),
     started_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
@@ -266,3 +254,17 @@ export const conversation_reply_requests = sqliteTable(
     check('conversation_reply_requests_snapshot_json', sql`json_valid(${t.snapshot})`)
   ]
 );
+
+function messageReference() {
+  return integer()
+    .$type<MessageId>()
+    .notNull()
+    .references((): AnySQLiteColumn => messages.id, { onDelete: 'cascade' });
+}
+
+function sessionReference() {
+  return integer()
+    .$type<SessionId>()
+    .notNull()
+    .references((): AnySQLiteColumn => sessions.id, { onDelete: 'cascade' });
+}

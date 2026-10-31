@@ -10,21 +10,22 @@ export type Anchor =
   | { kind: 'url'; fragment?: string | null };
 
 export function anchorLabel(l: Locale, a: Anchor): string | undefined {
+  const words =
+    l === 'english'
+      ? { page: 'p.', slide: 'slide', paragraph: '¶' }
+      : { page: 'pag.', slide: 'diapositiva', paragraph: '§' };
+
   switch (a.kind) {
     case 'time':
-      return Math.floor(a.endMs / 1000) > Math.floor(a.startMs / 1000)
-        ? `${timestamp(a.startMs)}–${timestamp(a.endMs)}`
-        : timestamp(a.startMs);
+      return timeAnchorLabel(a);
     case 'page':
-      return `${l === 'english' ? 'p.' : 'pag.'} ${a.page}`;
+      return `${words.page} ${a.page}`;
     case 'text':
-      return a.lineStart === a.lineEnd
-        ? `${l === 'english' ? 'line' : 'riga'} ${a.lineStart}`
-        : `${l === 'english' ? 'lines' : 'righe'} ${a.lineStart}–${a.lineEnd}`;
+      return textAnchorLabel(l, a);
     case 'slide':
-      return `${l === 'english' ? 'slide' : 'diapositiva'} ${a.index}`;
+      return `${words.slide} ${a.index}`;
     case 'paragraph':
-      return `${l === 'english' ? '¶' : '§'} ${a.index}`;
+      return `${words.paragraph} ${a.index}`;
     case 'url':
       return a.fragment == null ? undefined : `#${a.fragment}`;
   }
@@ -32,3 +33,17 @@ export function anchorLabel(l: Locale, a: Anchor): string | undefined {
 
 export const citationLabel = (l: Locale, n: number, source: string, a: Anchor) =>
   `[${n}] ${joined([source, anchorLabel(l, a) ?? ''])}`;
+
+function textAnchorLabel(l: Locale, a: Extract<Anchor, { kind: 'text' }>) {
+  const words = l === 'english' ? ['line', 'lines'] : ['riga', 'righe'];
+
+  return a.lineStart === a.lineEnd
+    ? `${words[0]} ${a.lineStart}`
+    : `${words[1]} ${a.lineStart}–${a.lineEnd}`;
+}
+
+function timeAnchorLabel(a: Extract<Anchor, { kind: 'time' }>) {
+  return Math.floor(a.endMs / 1000) > Math.floor(a.startMs / 1000)
+    ? `${timestamp(a.startMs)}–${timestamp(a.endMs)}`
+    : timestamp(a.startMs);
+}

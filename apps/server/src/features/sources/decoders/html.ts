@@ -35,6 +35,23 @@ export function decodeHtml(
 
     pending = '';
   };
+
+  function appendTableRow(node: Node) {
+    flush();
+    const text = $(node)
+      .find('th,td')
+      .map((_, cell) => $(cell).text().replace(/\s+/g, ' ').trim())
+      .get()
+      .join(' | ');
+
+    if (text) {
+      pending = text;
+      kind = 'table';
+      fragment = $(node).attr('id') ?? $(node).closest('[id]').attr('id') ?? null;
+      flush();
+    }
+  }
+
   const walk = (node: Node): void => {
     if (node.type === 'text') {
       pending += node.data;
@@ -53,19 +70,7 @@ export function decodeHtml(
     }
 
     if (name === 'tr') {
-      flush();
-      const text = $(node)
-        .find('th,td')
-        .map((_, cell) => $(cell).text().replace(/\s+/g, ' ').trim())
-        .get()
-        .join(' | ');
-
-      if (text) {
-        pending = text;
-        kind = 'table';
-        fragment = $(node).attr('id') ?? $(node).closest('[id]').attr('id') ?? null;
-        flush();
-      }
+      appendTableRow(node);
 
       return;
     }
@@ -76,13 +81,7 @@ export function decodeHtml(
 
     if (block) {
       flush();
-      kind = /^h[1-6]$/.test(name)
-        ? 'heading'
-        : name === 'li'
-          ? 'list_item'
-          : name === 'pre'
-            ? 'code'
-            : 'paragraph';
+      kind = htmlBlockKind(name);
       fragment = $(node).attr('id') ?? $(node).closest('[id]').attr('id') ?? null;
     }
 
@@ -99,4 +98,14 @@ export function decodeHtml(
   flush();
 
   return document(blocks, 'web');
+}
+
+function htmlBlockKind(name: string): Block['kind'] {
+  if (/^h[1-6]$/.test(name)) return 'heading';
+
+  if (name === 'li') return 'list_item';
+
+  if (name === 'pre') return 'code';
+
+  return 'paragraph';
 }

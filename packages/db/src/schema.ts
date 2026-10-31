@@ -13,7 +13,6 @@ export * from './schema/workflow-events.ts';
 export * from './schema/source-processing.ts';
 export * from './schema/workflow-configuration.ts';
 
-export * from './schema/material-generation.ts';
 export * from './schema/conversation-recording-posts.ts';
 export * from './schema/source-recording-imports.ts';
 export * from './schema/recording-posts.ts';

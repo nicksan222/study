@@ -8,8 +8,8 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 /** Capture a bounded window of complete, selected versions without reading attachments. */
 export function makeHistory({ db }: StoreResources) {
-  function conversationHistory(sessionId: SessionId, through?: MessageId, threadRoot?: PartId) {
-    const rows = db.orm
+  function selectedMessages() {
+    return db.orm
       .select({ message: messages, version: message_versions })
       .from(messages)
       .leftJoin(
@@ -18,7 +18,11 @@ export function makeHistory({ db }: StoreResources) {
           eq(message_versions.id, messages.active_version_id),
           eq(message_versions.message_id, messages.id)
         )
-      )
+      );
+  }
+
+  function conversationHistory(sessionId: SessionId, through?: MessageId, threadRoot?: PartId) {
+    const rows = selectedMessages()
       .where(
         and(
           eq(messages.session_id, sessionId),
@@ -62,16 +66,7 @@ export function makeHistory({ db }: StoreResources) {
 
   /** Read a specific complete message for use as an attachment thread's root. */
   function conversationRoot(sessionId: SessionId, messageId: MessageId) {
-    const row = db.orm
-      .select({ message: messages, version: message_versions })
-      .from(messages)
-      .leftJoin(
-        message_versions,
-        and(
-          eq(message_versions.id, messages.active_version_id),
-          eq(message_versions.message_id, messages.id)
-        )
-      )
+    const row = selectedMessages()
       .where(
         and(
           eq(messages.session_id, sessionId),
