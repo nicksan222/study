@@ -233,7 +233,7 @@ export function streamAgent<
   return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents>(
     (queue) =>
       Effect.gen(() => runAgentStream(queue)).pipe(
-        Effect.mapError((error) => (error instanceof StudyError ? error : failure(error))),
+        Effect.mapError(failure),
         Effect.withSpan(`agent.${definition.id}.stream`)
       ),
     { bufferSize: 16, strategy: 'suspend' }
