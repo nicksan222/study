@@ -39,7 +39,10 @@ const queryBrand: unique symbol = Symbol('storeQuery');
 
 const mutationBrand: unique symbol = Symbol('storeMutation');
 
-type QueryDefinition = AnyDefinition & { readonly [queryBrand]: true; readonly role: string };
+type QueryDefinition = AnyDefinition & {
+  readonly [queryBrand]: true;
+  readonly role: 'required' | 'optional' | 'collection';
+};
 
 type MutationDefinition = AnyDefinition & { readonly [mutationBrand]: true };
 
@@ -141,7 +144,7 @@ export function defineStore<
 
       if (Object.hasOwn(bound.mutations, name)) throw new TypeError(`Duplicate operation ${name}`);
 
-      const role = (operation as AnyDefinition & { role: string }).role;
+      const role = operation.role;
 
       if (!['required', 'optional', 'collection'].includes(role))
         throw new TypeError(`Invalid query role ${role}`);
@@ -179,8 +182,8 @@ export function defineStore<
     return bound;
   }
 
-  function runQuery(operation: AnyDefinition, input: unknown) {
-    const role = (operation as AnyDefinition & { role: string }).role;
+  function runQuery(operation: QueryDefinition, input: unknown) {
+    const role = operation.role;
     const decoded = Schema.decodeUnknownSync(operation.input)(input);
 
     if (role === 'collection') assertCollectionLimit(decoded);
@@ -225,7 +228,9 @@ export function defineStore<
           if (!active()) throw new Error('Transaction is no longer active');
 
           return instrument(`${definition.name}.${name}`, () =>
-            name in bound.queries ? runQuery(operation, input) : execute(operation, input)
+            name in bound.queries
+              ? runQuery(bound.queries[name]!, input)
+              : execute(operation, input)
           );
         }
       ])
