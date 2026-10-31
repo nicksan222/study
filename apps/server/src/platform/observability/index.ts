@@ -1,3 +1,5 @@
+import { errorKindSchema } from '@study/contracts/errors';
+import type { ErrorKind } from '@study/contracts/errors';
 import type { Context } from 'effect';
 import { Clock, Effect, Exit, Metric, References } from 'effect';
 
@@ -5,36 +7,13 @@ import { elapsedMillis } from '#server/platform/time/index';
 
 type MetricLabels = {
   readonly outcome?: 'success' | 'failure' | 'interrupted';
-  readonly errorKind?:
-    | 'auth'
-    | 'cancelled'
-    | 'config'
-    | 'internal'
-    | 'invalid_input'
-    | 'model_unavailable'
-    | 'not_enough'
-    | 'not_found'
-    | 'rate_limited'
-    | 'transient'
-    | 'unsupported';
+  readonly errorKind?: ErrorKind;
   readonly modelTier?: 'tiny' | 'medium' | 'smart';
 };
 
 const metricLabelValues: Record<keyof MetricLabels, ReadonlySet<string>> = {
   outcome: new Set(['success', 'failure', 'interrupted']),
-  errorKind: new Set([
-    'auth',
-    'cancelled',
-    'config',
-    'internal',
-    'invalid_input',
-    'model_unavailable',
-    'not_enough',
-    'not_found',
-    'rate_limited',
-    'transient',
-    'unsupported'
-  ]),
+  errorKind: new Set(errorKindSchema.literals),
   modelTier: new Set(['tiny', 'medium', 'smart'])
 };
 
