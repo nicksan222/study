@@ -3,8 +3,10 @@ import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
 import { Input } from '@study/ui/input';
+import { Loading } from '@study/ui/loading';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from '@study/ui/menu';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
+import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
 import {
   Home,
@@ -93,7 +95,8 @@ function SidebarSearchResults({
 
   return (
     <SidebarUI.Items aria-label={t('Search')} aria-busy={canSearch && !result}>
-      <SidebarSearchStatus canSearch={canSearch} result={result} empty={hits.length === 0} />
+      {canSearch && !result && <Loading layout="sidebar" label={t('Searching')} />}
+      <SidebarSearchStatus result={result} empty={hits.length === 0} />
       {hits.map((hit) => (
         <SidebarSearchHit
           key={searchHitKey(hit)}
@@ -123,9 +126,7 @@ function SidebarSessions({
 
   return (
     <SidebarUI.Items id="study-sidebar-sessions" aria-label={t('Sessions')}>
-      {sessionState === 'loading' && (
-        <SidebarUI.Message role="status">{t('LoadingSessions')}</SidebarUI.Message>
-      )}
+      {sessionState === 'loading' && <Loading layout="sidebar" label={t('LoadingSessions')} />}
       {sessionState === 'error' && (
         <Button variant="ghost-muted" onClick={() => reloadSessions()}>
           {t('SessionsLoadError')}
@@ -387,7 +388,7 @@ function SidebarToolbar({
         disabled={!project || creating}
         onClick={() => void createSession()}
       >
-        <SquarePen aria-hidden="true" />
+        <SidebarCreateSessionIcon creating={creating} />
       </Button>
     </SidebarUI.Toolbar>
   );
@@ -466,7 +467,7 @@ function NewProjectDialog({
               {t('Cancel')}
             </Button>
             <Button type="submit" disabled={!name.trim() || creating}>
-              {t(creating ? 'Saving' : 'CreateProject')}
+              {creating ? <Loading label={t('Saving')} /> : t('CreateProject')}
             </Button>
           </DialogFooter>
         </form>
@@ -506,19 +507,12 @@ function searchHitKey(hit: SidebarModel['hits'][number]) {
   return `${target.type}:${id}:${hit.at}:${hit.excerpt ?? ''}`;
 }
 
-function SidebarSearchStatus({
-  canSearch,
-  result,
-  empty
-}: Pick<SidebarModel, 'canSearch' | 'result'> & { empty: boolean }) {
+function SidebarSearchStatus({ result, empty }: Pick<SidebarModel, 'result'> & { empty: boolean }) {
   const { t } = useI18n();
 
   return (
     <>
       {' '}
-      {canSearch && !result && (
-        <SidebarUI.Message role="status">{t('Searching')}</SidebarUI.Message>
-      )}
       {result?.error && <SidebarUI.Message role="alert">{t('SearchFailed')}</SidebarUI.Message>}
       {keywordOnly(result) && <SidebarUI.Message>{t('SearchKeywordOnly')}</SidebarUI.Message>}
       {hasEmptyResults(result, empty) && (
@@ -537,7 +531,7 @@ function SidebarProjectStatus({
   return (
     <>
       {subjectState === 'loading' ? (
-        <SidebarUI.Message role="status">{t('LoadingSubjects')}</SidebarUI.Message>
+        <Loading layout="sidebar" label={t('LoadingSubjects')} />
       ) : subjectState === 'error' ? (
         <Button variant="ghost-muted" layout="navigation" onClick={() => reloadSubjects()}>
           {t('SubjectsLoadError')}
@@ -632,4 +626,10 @@ function SidebarSearchControl({
       )}
     </>
   );
+}
+
+function SidebarCreateSessionIcon({ creating }: Pick<SidebarModel, 'creating'>) {
+  const { t } = useI18n();
+
+  return creating ? <Spinner label={t('Saving')} /> : <SquarePen aria-hidden="true" />;
 }

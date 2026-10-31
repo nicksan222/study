@@ -7,6 +7,7 @@
     "./theme": "./src/theme.ts",
     "./theme.css": "./src/theme.css",
     "./styles.css": "./src/styles.css",
+    "./visible-animation": "./src/visible-animation.ts",
     "./utils": "./src/utils.ts",
     "./dialog-styles": "./src/components/dialog-styles.ts",
     "./*": "./src/components/*.tsx",

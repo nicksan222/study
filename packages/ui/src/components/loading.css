@@ -1,0 +1,59 @@
+.study-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  font-size: inherit;
+  overflow-wrap: anywhere;
+}
+
+.study-loading > svg {
+  flex-shrink: 0;
+}
+
+.study-loading[data-layout='panel'] {
+  display: flex;
+  justify-content: center;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  min-height: 160px;
+  padding: 32px;
+}
+
+.study-loading[data-layout='sidebar'],
+.study-loading-skeleton[data-layout='sidebar'] {
+  display: flex;
+  padding: 10px 8px;
+  color: var(--contrast-sidebar-muted-foreground);
+  font-size: 12px;
+}
+
+.study-loading-skeleton {
+  padding: 32px;
+}
+
+.study-loading-placeholder {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+}
+
+.study-loading-placeholder > span {
+  display: block;
+  height: 12px;
+  border-radius: var(--control-radius);
+  background: var(--muted);
+}
+
+.study-loading-placeholder > span:first-child {
+  width: 60%;
+}
+
+.study-loading-placeholder > span:last-child {
+  width: 80%;
+}
+
+.study-shell[data-sidebar-collapsed='true']
+  :is(.study-loading, .study-loading-skeleton)[data-layout='sidebar'] {
+  display: none;
+}

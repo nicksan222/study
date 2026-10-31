@@ -3,6 +3,7 @@
 @import './components/shell.css';
 @import './components/sidebar.css';
 @import './components/list.css';
+@import './components/loading.css';
 @import './components/menu.css';
 @source "./";
 @source "../../../apps/web/src";

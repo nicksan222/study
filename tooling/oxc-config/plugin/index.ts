@@ -34,6 +34,7 @@ import parameterizedSql from './rules/parameterized-sql.ts';
 import preserveErrorCause from './rules/preserve-error-cause.ts';
 import serverNoMocks from './rules/server-no-mocks.ts';
 import serviceDefinition from './rules/service-definition.ts';
+import sharedLoading from './rules/shared-loading.ts';
 import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
 import themeRule from './rules/theme-colors.ts';
@@ -49,6 +50,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'shared-loading': sharedLoading,
     'feature-orchestration': featureOrchestration,
     'native-clock': nativeClock,
     'metric-cardinality': metricCardinality,
