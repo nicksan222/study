@@ -13,21 +13,6 @@
       "path": "skills/taste-skill"
     },
     {
-      "name": "ui-ux-pro-max",
-      "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
-      "revision": "9a3f14f7423037ccb8feeb4fee7482291b9c820e",
-      "path": ".claude/skills/ui-ux-pro-max",
-      "adaptations": [
-        "SKILL.md commands use python3 and the repository-local .agents/skills path instead of CLAUDE_PLUGIN_ROOT."
-      ]
-    },
-    {
-      "name": "web-design-guidelines",
-      "repository": "https://github.com/vercel-labs/agent-skills",
-      "revision": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
-      "path": "skills/web-design-guidelines"
-    },
-    {
       "name": "react-best-practices",
       "repository": "https://github.com/vercel-labs/agent-skills",
       "revision": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
@@ -41,114 +26,6 @@
       "repository": "https://github.com/vercel-labs/agent-skills",
       "revision": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
       "path": "skills/composition-patterns"
-    },
-    {
-      "name": "emil-design-eng",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/emil-design-eng"
-    },
-    {
-      "name": "animate",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/animate"
-    },
-    {
-      "name": "review-animations",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/review-animations"
-    },
-    {
-      "name": "improve-animations",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/improve-animations"
-    },
-    {
-      "name": "find-animation-opportunities",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/find-animation-opportunities"
-    },
-    {
-      "name": "remove-animations",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/remove-animations"
-    },
-    {
-      "name": "animation-performance",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/animation-performance"
-    },
-    {
-      "name": "animation-vocabulary",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/animation-vocabulary"
-    },
-    {
-      "name": "break-ui",
-      "repository": "https://github.com/emilkowalski/skill",
-      "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
-      "path": "skills/break-ui"
-    },
-    {
-      "name": "better-interface",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/better-interface"
-    },
-    {
-      "name": "better-ui",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/better-ui"
-    },
-    {
-      "name": "better-typography",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/better-typography"
-    },
-    {
-      "name": "better-colors",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/better-colors"
-    },
-    {
-      "name": "better-accessibility",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/better-accessibility"
-    },
-    {
-      "name": "better-layout",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/better-layout"
-    },
-    {
-      "name": "better-writing",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/better-writing"
-    },
-    {
-      "name": "interface-review",
-      "repository": "https://github.com/jakubkrehel/skills",
-      "revision": "592aedc44d7d5b3e29740984252902f3e5402a1c",
-      "path": "skills/interface-review"
-    },
-    {
-      "name": "frontend-design",
-      "repository": "https://github.com/anthropics/skills",
-      "revision": "ca45fc496a3436251f191354091d557da31c15b5",
-      "path": "skills/frontend-design"
     }
   ]
 }
