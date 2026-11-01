@@ -30,13 +30,22 @@ export function validateTriggerGraph(
   maxFanout = 16,
   maxDepth = 8
 ): void {
+  const childrenByEvent = new Map<EventType, EventType[]>();
+
+  for (const edge of edges) {
+    const children = childrenByEvent.get(edge.event) ?? [];
+
+    children.push(...edge.emits);
+    childrenByEvent.set(edge.event, children);
+  }
+
   const visit = (type: EventType, path: readonly EventType[]): number => {
     if (path.includes(type))
       throw new Error(`automatic workflow cycle: ${[...path, type].join(' -> ')}`);
 
     if (path.length >= maxDepth) throw new Error('automatic workflow depth exceeded');
 
-    const children = edges.filter((edge) => edge.event === type).flatMap((edge) => edge.emits);
+    const children = childrenByEvent.get(type) ?? [];
     const count = children.reduce((n, child) => n + 1 + visit(child, [...path, type]), 0);
 
     if (count > maxFanout) throw new Error('automatic workflow fanout exceeded');
