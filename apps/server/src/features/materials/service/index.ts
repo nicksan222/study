@@ -55,6 +55,7 @@ import {
   retryDocumentTransform,
   assertDocumentContext
 } from './document-transform.ts';
+import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 
 function* makeMaterials() {
   const materials = yield* useStore(MaterialsStore),
@@ -173,18 +174,7 @@ function* makeMaterials() {
           tx.store(MaterialGenerationStore).publishGeneration(value)
         );
 
-        if (result.event && result.materialId !== undefined)
-          tx.emit({
-            type: 'MaterialPublished',
-            eventId: randomUUID(),
-            causationId: result.event.eventId,
-            correlationId: result.event.correlationId,
-            inputVersion: 1,
-            depth: result.event.depth + 1,
-            materialId: result.materialId,
-            materialVersionId: result.versionId,
-            generationRequestId: value.requestId
-          });
+        emitGenerationPublication(tx, value.requestId, result);
 
         return result.versionId;
       }),
@@ -445,17 +435,6 @@ function resolveSessionSelection(
   target: typeof sessionSelectionTargetSchema.Type
 ) {
   return tx.store(MaterialSelectionStore).materialSelection(target);
-}
-
-function assertGenerationActive(tx: Transaction, requestId: string) {
-  if (
-    Workflows.correlatedExecutions(tx, requestId).some(
-      (run) =>
-        run.workflow === 'material-generation/v1' &&
-        (run.status === 'cancelled' || run.status === 'cancelling')
-    )
-  )
-    throw new StudyError('cancelled', 'Cancelled generation cannot resume');
 }
 
 /** Read the owned generation request within a cross-feature transaction. */

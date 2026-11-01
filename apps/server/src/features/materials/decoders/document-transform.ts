@@ -98,25 +98,7 @@ function validateCitationScope(
   if ([...citedText.matchAll(/\[(\d+)\]/g)].some((match) => !markers.has(match[1]!)))
     throw new StudyError('invalid_input', 'Output cites unavailable evidence');
 
-  for (const citation of publication.citations) {
-    const target = context.inputs.find((input) => input.versionId === citation.inputVersionId);
-    const location = citation.target;
-
-    if (
-      !location ||
-      location.versionId !== citation.inputVersionId ||
-      location.documentId !== target?.documentId ||
-      !target?.excerpts.some(
-        (excerpt) =>
-          excerpt.blockOrdinal === citation.blockOrdinal &&
-          excerpt.blockId === location.blockId &&
-          excerpt.start === location.start &&
-          excerpt.end === location.end &&
-          excerpt.text.includes(citation.quote)
-      )
-    )
-      throw new StudyError('invalid_input', 'Citation is outside captured passages');
-  }
+  for (const citation of publication.citations) validateCapturedCitation(context, citation);
 
   if (context.inputs.length && !publication.citations.length)
     throw new StudyError('invalid_input', 'Document must cite captured passages');
@@ -131,5 +113,37 @@ export function authorizedTransformAssets(context: typeof runSelectionContextSch
           ? input.document.blocks.map((block) => block.content)
           : input.excerpts.flatMap((excerpt) => (excerpt.content ? [excerpt.content] : []))
         ).flatMap((content) => (content.type === 'image' ? [content] : []))
+  );
+}
+
+function validateCapturedCitation(
+  context: typeof runSelectionContextSchema.Type,
+  citation: (typeof materialGenerationPublicationSchema.Type.citations)[number]
+) {
+  const target = context.inputs.find((input) => input.versionId === citation.inputVersionId);
+  const location = citation.target;
+
+  if (!location || !target)
+    throw new StudyError('invalid_input', 'Citation is outside captured passages');
+
+  if (
+    location.versionId !== citation.inputVersionId ||
+    location.documentId !== target.documentId ||
+    !target.excerpts.some((excerpt) => matchesCapturedPassage(excerpt, citation, location))
+  )
+    throw new StudyError('invalid_input', 'Citation is outside captured passages');
+}
+
+function matchesCapturedPassage(
+  excerpt: (typeof runSelectionContextSchema.Type.inputs)[number]['excerpts'][number],
+  citation: (typeof materialGenerationPublicationSchema.Type.citations)[number],
+  location: NonNullable<typeof citation.target>
+) {
+  return (
+    excerpt.blockOrdinal === citation.blockOrdinal &&
+    excerpt.blockId === location.blockId &&
+    excerpt.start === location.start &&
+    excerpt.end === location.end &&
+    excerpt.text.includes(citation.quote)
   );
 }

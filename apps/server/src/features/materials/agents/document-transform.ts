@@ -11,32 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import { promptInputSchema } from '@study/contracts/ai/shared';
-import { blockContentSchema } from '@study/contracts/sources/schemas';
-import { Schema } from 'effect';
 
 import { sourcesTool } from '#server/features/materials/tools/sources';
 import { defineAgent } from '#server/platform/definitions/define-agent';
-
-export const documentTransformOutputSchema = Schema.Struct({
-  blocks: Schema.Array(Schema.toEncoded(Schema.toCodecJson(blockContentSchema))).check(
-    Schema.isBetweenLength(1, 200)
-  ),
-  notes: Schema.Array(
-    Schema.Struct({
-      kind: Schema.Literals([
-        'addition',
-        'omission',
-        'conflict',
-        'uncertainty',
-        'correction_proposal',
-        'limit'
-      ]),
-      explanation: Schema.String.check(Schema.isBetweenLength(1, 4000)),
-      blockOrdinals: Schema.Array(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
-    })
-  ).check(Schema.isBetweenLength(1, 200))
-});
 
 export const documentTransformAgent = defineAgent({
   id: 'document-transform',

@@ -345,9 +345,28 @@ test('cancelled and deleted session captures reject retries and late publication
             operations: ['explain']
           });
 
-          if (mode === 'cancel')
-            yield* materials.cancelMaterialGeneration({ requestId: request.id });
-          else yield* chats.deleteSession(session.id);
+          if (mode === 'cancel') {
+            const cancelled = yield* materials.cancelMaterialGeneration({ requestId: request.id });
+
+            assert.equal(cancelled.cancelled, true);
+            const persisted = context.db.orm.get<{ cancelled: bigint }>(
+              sql`SELECT cancelled FROM material_generation_requests WHERE id = ${request.id}`
+            );
+
+            assert.equal(persisted?.cancelled, 1n);
+            const duplicate = yield* chats.requestDocumentTransform({
+              contextRequestId: capture.requestId,
+              title: mode,
+              operations: ['explain']
+            });
+
+            assert.equal(duplicate.id, request.id);
+            assert.equal(
+              (yield* materials.materialGeneration({ requestId: request.id, verifyOnly: true }))
+                .cancelled,
+              true
+            );
+          } else yield* chats.deleteSession(session.id);
 
           assert.equal(
             (yield* Effect.flip(

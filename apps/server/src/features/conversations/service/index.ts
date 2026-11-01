@@ -106,35 +106,13 @@ export const Conversations = defineService(
         }),
       publishDocumentTransform: (value: typeof materialGenerationPublicationSchema.Type) =>
         publicationTransaction((tx) => {
-          const request = Materials.readGeneration(tx, {
-            requestId: value.requestId,
-            verifyOnly: true
-          });
-
-          if (!request.documentTransform)
-            throw new StudyError('invalid_input', 'Not a session transform');
-
-          const context =
-            request.resultVersionId === null
-              ? readCapturedContext(tx, request.documentTransform.contextRequestId)
-              : undefined;
+          const context = pendingTransformContext(tx, value.requestId);
 
           return Materials.publishDocumentTransform(tx, context, value);
         }),
       retryDocumentTransform: (value: { requestId: string; retryId: string }) =>
         transaction((tx) => {
-          const request = Materials.readGeneration(tx, {
-            requestId: value.requestId,
-            verifyOnly: true
-          });
-
-          if (!request.documentTransform)
-            throw new StudyError('invalid_input', 'Not a session transform');
-
-          const context =
-            request.resultVersionId === null
-              ? readCapturedContext(tx, request.documentTransform.contextRequestId)
-              : undefined;
+          const context = pendingTransformContext(tx, value.requestId);
 
           return Materials.retryDocumentTransform(tx, context, value);
         }),
@@ -500,4 +478,15 @@ function readCapturedContext(tx: Transaction, requestId: string) {
   for (const target of snapshot.inputs) assertCapturedTarget(tx, target);
 
   return snapshot;
+}
+
+/** Completed receipts no longer require a retained session capture. */
+function pendingTransformContext(tx: Transaction, requestId: string) {
+  const request = Materials.readGeneration(tx, { requestId, verifyOnly: true });
+
+  if (!request.documentTransform) throw new StudyError('invalid_input', 'Not a session transform');
+
+  return request.resultVersionId === null
+    ? readCapturedContext(tx, request.documentTransform.contextRequestId)
+    : undefined;
 }

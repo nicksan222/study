@@ -13,6 +13,7 @@
 
 import { createServer } from 'node:http';
 
+import type { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import type { materialGenerationRequestedSchema } from '@study/contracts/events';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -20,7 +21,6 @@ import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/index';
-import type { documentTransformOutputSchema } from '#server/features/materials/agents/document-transform';
 import { Materials } from '#server/features/materials/index';
 import {
   materialGenerationWorkflow,
@@ -80,132 +80,204 @@ function responseEvents(reply: Exclude<Reply, { kind: 'transient' }>, ordinal: n
 }
 
 export async function documentTransformFixture() {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
-  const bodies: string[] = [];
-  const replies: Reply[] = [];
-  let beforeResponse: (() => Promise<void>) | undefined;
-  const peer = createServer(async (req, res) => {
-    let body = '';
+  const cleanups: (() => void | Promise<void>)[] = [];
+  let closing: Promise<void> | undefined;
 
-    for await (const chunk of req) body += chunk;
+  function close() {
+    closing ??= disposeFixture(cleanups);
 
-    bodies.push(body);
-    const reply = replies.shift();
+    return closing;
+  }
 
-    const action = beforeResponse;
+  try {
+    const location = createTestDatabase();
 
-    beforeResponse = undefined;
-    await action?.();
+    cleanups.push(() => location.cleanup());
+    const openContext = () => {
+      const db = location.open();
 
-    if (!reply || reply.kind === 'transient') {
-      res.writeHead(503, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Controlled unavailable transport' } }));
+      try {
+        return new ServerContext(db);
+      } catch (error) {
+        db.close();
 
-      return;
-    }
+        throw error;
+      }
+    };
+    let context = openContext();
+    let contextOpen = true;
+    const closeContext = () => {
+      if (!contextOpen) return;
 
-    res.writeHead(200, { 'content-type': 'text/event-stream' });
-
-    for (const event of responseEvents(reply, bodies.length))
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-    res.end('data: [DONE]\n\n');
-  });
-
-  await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-  const address = peer.address();
-
-  if (!address || typeof address === 'string') throw new Error('Missing provider address');
-
-  const base = `http://127.0.0.1:${address.port}`;
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-  await auth.replace(
-    { subject: 'fixture', clientId: 'fixture', sharing: true, refreshToken: 'fixture' },
-    { accessToken: 'fixture', expiresIn: 3600 }
-  );
-  const model = createChatGptModel({ auth, modelId: 'fixture', baseUrl: base });
-  const domain = () =>
-    Layer.mergeAll(Materials.layer, Conversations.layer, Settings.layer, Sources.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-  const services = () => {
-    const engine = workflowEngineLayer(context);
-    const control = Layer.effect(
-      WorkflowControl,
-      Effect.map(WorkflowEngine.WorkflowEngine, (engine) => ({
-        cancel: (input: Parameters<typeof cancelExecution>[2]) =>
-          cancelExecution(context, [materialGenerationWorkflow], input).pipe(
-            Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
-          )
-      }))
-    ).pipe(Layer.provideMerge(engine));
-
-    return Layer.mergeAll(
-      domain(),
-      control,
-      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('fixture') }),
-      agentsLayer({
-        model: () => Effect.succeed(model),
-        language: 'en',
-        searchSources: () => Effect.die('Global retrieval is forbidden')
-      })
-    );
-  };
-
-  return {
-    get context() {
-      return context;
-    },
-    bodies,
-    replies,
-    domain,
-    services,
-    beforeResponse(action: () => Promise<void>) {
-      beforeResponse = action;
-    },
-    reopen() {
+      contextOpen = false;
       context.close();
-      context = new ServerContext(location.open());
-    },
-    event(requestId: string): typeof materialGenerationRequestedSchema.Type {
-      const event = context.db.orm
-        .select()
-        .from(s.workflowEvents)
-        .all()
-        .map((row) => decodeEvent(row.payload))
-        .findLast(
-          (event) => event.type === 'MaterialGenerationRequested' && event.requestId === requestId
-        );
+    };
 
-      if (event?.type !== 'MaterialGenerationRequested') throw new Error('Missing request event');
+    cleanups.push(closeContext);
+    const bodies: string[] = [];
+    const replies: Reply[] = [];
+    let beforeResponse: (() => Promise<void>) | undefined;
+    const peer = createServer(async (req, res) => {
+      let body = '';
 
-      return event;
-    },
-    execute(event: typeof materialGenerationRequestedSchema.Type, executionId: string) {
-      return Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const engine = yield* WorkflowEngine.WorkflowEngine;
+      for await (const chunk of req) body += chunk;
 
-            yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
+      bodies.push(body);
+      const reply = replies.shift();
 
-            return yield* engine.execute(materialGenerationWorkflow, {
-              executionId,
-              payload: { event }
-            });
-          }).pipe(Effect.provide(services()))
-        )
-      );
-    },
-    async close() {
-      await new Promise<void>((resolve, reject) => {
-        peer.close((error) => (error ? reject(error) : resolve()));
-        peer.closeAllConnections();
+      const action = beforeResponse;
+
+      beforeResponse = undefined;
+      await action?.();
+
+      if (!reply || reply.kind === 'transient') {
+        res.writeHead(503, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Controlled unavailable transport' } }));
+
+        return;
+      }
+
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+
+      for (const event of responseEvents(reply, bodies.length))
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+      res.end('data: [DONE]\n\n');
+    });
+
+    cleanups.push(() => closePeer(peer));
+    await new Promise<void>((resolve, reject) => {
+      peer.once('error', reject);
+      peer.listen(0, '127.0.0.1', () => {
+        peer.off('error', reject);
+        resolve();
       });
-      context.close();
-      location.cleanup();
+    });
+    const address = peer.address();
+
+    if (!address || typeof address === 'string') throw new Error('Missing provider address');
+
+    const base = `http://127.0.0.1:${address.port}`;
+    const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
+
+    cleanups.push(() => auth.dispose());
+    await auth.replace(
+      { subject: 'fixture', clientId: 'fixture', sharing: true, refreshToken: 'fixture' },
+      { accessToken: 'fixture', expiresIn: 3600 }
+    );
+    const model = createChatGptModel({ auth, modelId: 'fixture', baseUrl: base });
+    const domain = () =>
+      Layer.mergeAll(Materials.layer, Conversations.layer, Settings.layer, Sources.layer).pipe(
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
+      );
+    const services = () => {
+      const engine = workflowEngineLayer(context);
+      const control = Layer.effect(
+        WorkflowControl,
+        Effect.map(WorkflowEngine.WorkflowEngine, (engine) => ({
+          cancel: (input: Parameters<typeof cancelExecution>[2]) =>
+            cancelExecution(context, [materialGenerationWorkflow], input).pipe(
+              Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+            )
+        }))
+      ).pipe(Layer.provideMerge(engine));
+
+      return Layer.mergeAll(
+        domain(),
+        control,
+        Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('fixture') }),
+        agentsLayer({
+          model: () => Effect.succeed(model),
+          language: 'en',
+          searchSources: () => Effect.die('Global retrieval is forbidden')
+        })
+      );
+    };
+
+    return {
+      get context() {
+        return context;
+      },
+      bodies,
+      replies,
+      domain,
+      services,
+      beforeResponse(action: () => Promise<void>) {
+        beforeResponse = action;
+      },
+      beforeOutput(action: () => Promise<void>) {
+        beforeResponse = async () => {
+          beforeResponse = action;
+        };
+      },
+      reopen() {
+        closeContext();
+        context = openContext();
+        contextOpen = true;
+      },
+      event(requestId: string): typeof materialGenerationRequestedSchema.Type {
+        const event = context.db.orm
+          .select()
+          .from(s.workflowEvents)
+          .all()
+          .map((row) => decodeEvent(row.payload))
+          .findLast(
+            (event) => event.type === 'MaterialGenerationRequested' && event.requestId === requestId
+          );
+
+        if (event?.type !== 'MaterialGenerationRequested') throw new Error('Missing request event');
+
+        return event;
+      },
+      execute(event: typeof materialGenerationRequestedSchema.Type, executionId: string) {
+        return Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine;
+
+              yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
+
+              return yield* engine.execute(materialGenerationWorkflow, {
+                executionId,
+                payload: { event }
+              });
+            }).pipe(Effect.provide(services()))
+          )
+        );
+      },
+      close
+    };
+  } catch (error) {
+    try {
+      await close();
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'Fixture acquisition and cleanup failed');
     }
-  };
+
+    throw error;
+  }
+}
+
+/** Release every acquired resource even when another disposer fails. */
+async function disposeFixture(cleanups: (() => void | Promise<void>)[]) {
+  const errors: unknown[] = [];
+
+  for (const cleanup of cleanups.reverse()) {
+    try {
+      await cleanup();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  if (errors.length) throw new AggregateError(errors, 'Document fixture cleanup failed');
+}
+
+async function closePeer(peer: ReturnType<typeof createServer>) {
+  if (!peer.listening) return;
+
+  await new Promise<void>((resolve, reject) => {
+    peer.close((error) => (error ? reject(error) : resolve()));
+    peer.closeAllConnections();
+  });
 }

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./ai/document-transform": "./src/ai/document-transform.ts",
     "./ai/grade": "./src/ai/grade.ts",
     "./ai/reply": "./src/ai/reply.ts",
     "./ai/shared": "./src/ai/shared.ts",

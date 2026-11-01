@@ -440,15 +440,12 @@ test(
             const received = yield* Deferred.make<void>();
             const release = yield* Deferred.make<void>();
 
-            fixture.beforeResponse(async () => {
-              fixture.beforeResponse(() =>
-                Effect.runPromise(
-                  Deferred.succeed(received, undefined).pipe(
-                    Effect.andThen(Deferred.await(release))
-                  )
-                )
-              );
-            });
+            yield* Effect.addFinalizer(() => Deferred.succeed(release, undefined));
+            fixture.beforeOutput(() =>
+              Effect.runPromise(
+                Deferred.succeed(received, undefined).pipe(Effect.andThen(Deferred.await(release)))
+              )
+            );
             yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
             const fiber = yield* Effect.forkChild(
               engine.execute(materialGenerationWorkflow, {
@@ -533,11 +530,10 @@ test(
             const published = yield* Deferred.make<void>();
             const finish = yield* Deferred.make<void>();
 
-            yield* engine.register(materialGenerationWorkflow, (payload) =>
-              materialGenerationHandler(payload).pipe(
-                Effect.tap(() => Deferred.succeed(published, undefined)),
-                Effect.tap(() => Deferred.await(finish))
-              )
+            yield* Effect.addFinalizer(() => Deferred.succeed(finish, undefined));
+            yield* engine.register(
+              materialGenerationWorkflow,
+              holdAfterPublication(published, finish)
             );
             const fiber = yield* Effect.forkChild(
               engine.execute(materialGenerationWorkflow, {
@@ -750,4 +746,13 @@ for (const barrier of ['cancel', 'session-delete'] as const) {
       await fixture.close();
     }
   });
+}
+
+/** Hold the real handler after publication while the native checkpoint is still pending. */
+function holdAfterPublication(published: Deferred.Deferred<void>, finish: Deferred.Deferred<void>) {
+  return (payload: typeof materialGenerationWorkflow.payloadSchema.Type) =>
+    materialGenerationHandler(payload).pipe(
+      Effect.tap(Deferred.succeed(published, undefined)),
+      Effect.tap(Deferred.await(finish))
+    );
 }

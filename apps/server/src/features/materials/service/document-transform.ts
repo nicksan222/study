@@ -12,21 +12,21 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { StudyError } from '@study/contracts/errors';
 import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
 import type {
   materialGenerationInputSchema,
-  materialGenerationPublicationSchema
+  materialGenerationPublicationSchema,
+  materialGenerationSnapshotSchema
 } from '@study/contracts/materials/schemas';
 
 import { validateDocumentTransform } from '#server/features/materials/decoders/document-transform';
 import { MaterialGenerationStore, MaterialsStore } from '#server/features/materials/store/index';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
-import { Workflows } from '#server/features/workflows/index';
 import type { Transaction } from '#server/platform/definitions/define-store';
+
+import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 
 type Context = typeof runSelectionContextSchema.Type;
 
@@ -95,16 +95,9 @@ function publishCapturedDocument(
     .store(MaterialGenerationStore)
     .materialGeneration({ requestId: value.requestId, verifyOnly: true });
 
-  if (!request.documentTransform) throw new StudyError('invalid_input', 'Not a session transform');
+  const captured = requirePendingDocumentContext(tx, request, context);
 
-  if (request.resultVersionId === null) {
-    assertActive(tx, request.id);
-
-    if (!context) throw new StudyError('not_found', 'Captured context is unavailable');
-
-    assertDocumentContext(request, context);
-    validateDocumentTransform(context, value);
-  }
+  if (captured) validateDocumentTransform(captured, value);
 
   const result = tx.store(MaterialGenerationStore).publishGeneration(value);
 
@@ -114,18 +107,7 @@ function publishCapturedDocument(
       materialId: result.materialId
     });
 
-  if (result.event && result.materialId !== undefined)
-    tx.emit({
-      type: 'MaterialPublished',
-      eventId: randomUUID(),
-      causationId: result.event.eventId,
-      correlationId: result.event.correlationId,
-      inputVersion: 1,
-      depth: result.event.depth + 1,
-      materialId: result.materialId,
-      materialVersionId: result.versionId,
-      generationRequestId: value.requestId
-    });
+  emitGenerationPublication(tx, value.requestId, result);
 
   return result.versionId;
 }
@@ -137,15 +119,7 @@ export function retryDocumentTransform(
 ) {
   const { request, created } = tx.store(MaterialGenerationStore).prepareRetry(value);
 
-  if (!request.documentTransform) throw new StudyError('invalid_input', 'Not a session transform');
-
-  if (request.resultVersionId === null) {
-    assertActive(tx, request.id);
-
-    if (!context) throw new StudyError('not_found', 'Captured context is unavailable');
-
-    assertDocumentContext(request, context);
-  }
+  requirePendingDocumentContext(tx, request, context);
 
   if (created)
     tx.emit({
@@ -162,13 +136,20 @@ export function retryDocumentTransform(
   return request;
 }
 
-function assertActive(tx: Transaction, requestId: string) {
-  if (
-    Workflows.correlatedExecutions(tx, requestId).some(
-      (run) =>
-        run.workflow === 'material-generation/v1' &&
-        (run.status === 'cancelled' || run.status === 'cancelling')
-    )
-  )
-    throw new StudyError('cancelled', 'Cancelled generation cannot resume');
+function requirePendingDocumentContext(
+  tx: Transaction,
+  request: typeof materialGenerationSnapshotSchema.Type,
+  context: Context | undefined
+) {
+  if (!request.documentTransform) throw new StudyError('invalid_input', 'Not a session transform');
+
+  if (request.resultVersionId !== null) return undefined;
+
+  assertGenerationActive(tx, request.id);
+
+  if (!context) throw new StudyError('not_found', 'Captured context is unavailable');
+
+  assertDocumentContext(request, context);
+
+  return context;
 }

@@ -130,11 +130,11 @@ export const requestDocumentTransformInputSchema = Schema.Struct({
   ...documentTransformSchema.fields
 });
 
-export const generationKeySchema = Schema.Struct({
+const generationKeySchema = Schema.Struct({
   requestId: Schema.String.check(Schema.isMinLength(1))
 });
 
-export const retryGenerationSchema = Schema.Struct({
+const retryGenerationSchema = Schema.Struct({
   ...generationKeySchema.fields,
   retryId: Schema.String.check(Schema.isMinLength(1))
 });

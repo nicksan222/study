@@ -99,23 +99,7 @@ export function makeGeneration(resources: StoreResources) {
 
     assertActiveScope(request);
 
-    for (const id of request.inputVersionIds) {
-      const version = versionRow(id);
-      const material = materialRow(version.material_id);
-
-      if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
-
-      if (version.status !== 'published' || material.archived_at !== null)
-        throw new StudyError(
-          'invalid_input',
-          'Generation requires active published documents in the project'
-        );
-
-      if (versionDocumentId(id) === null)
-        throw new StudyError('invalid_input', 'Generation requires an extracted document revision');
-    }
-
-    for (const id of request.inputVersionIds) assertTextEvidence(required(versionDocumentId(id)));
+    assertRequestedInputVersions(request);
 
     const { title, kind, instruction, scopeId, questionSpec, documentTransform } = request;
 
@@ -150,6 +134,26 @@ export function makeGeneration(resources: StoreResources) {
         .run();
 
     return { id: value.requestId, ...request };
+  }
+
+  function assertRequestedInputVersions(request: typeof materialGenerationInputSchema.Type) {
+    for (const id of request.inputVersionIds) {
+      const version = versionRow(id);
+      const material = materialRow(version.material_id);
+
+      if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
+
+      if (version.status !== 'published' || material.archived_at !== null)
+        throw new StudyError(
+          'invalid_input',
+          'Generation requires active published documents in the project'
+        );
+
+      if (versionDocumentId(id) === null)
+        throw new StudyError('invalid_input', 'Generation requires an extracted document revision');
+    }
+
+    for (const id of request.inputVersionIds) assertTextEvidence(required(versionDocumentId(id)));
   }
 
   function readGeneration(requestId: string) {

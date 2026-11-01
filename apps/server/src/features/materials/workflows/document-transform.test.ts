@@ -213,7 +213,7 @@ test('native transform consumes immutable excerpts and policy, validates output,
         assert.ok(reportTargets.length);
         const savedBlocks = saved.content.kind === 'document' ? saved.content.blocks : [];
 
-        assert.ok(reportTargets.every((id) => savedBlocks.some((block) => block.id === id)));
+        assertReportTargets(savedBlocks, reportTargets);
         assert.equal(saved.creator, 'agent');
         assert.deepEqual(saved.inputs, [setup.original.version.id]);
         assert.deepEqual(
@@ -259,19 +259,20 @@ test('native transform consumes immutable excerpts and policy, validates output,
     );
 
     fixture.replies.push({ kind: 'sources', query: 'alpha' }, { kind: 'output', output });
-    fixture.beforeResponse(async () => {
-      fixture.beforeResponse(() =>
-        Effect.runPromise(
-          Effect.flatMap(Conversations, (chats) => chats.deleteSession(setup.session.id)).pipe(
-            Effect.asVoid,
-            Effect.provide(domain())
-          )
-        )
-      );
-    });
+    const deleteSession = Effect.flatMap(Conversations, (chats) =>
+      chats.deleteSession(setup.session.id)
+    ).pipe(Effect.asVoid, Effect.provide(domain()));
+
+    fixture.beforeOutput(() => Effect.runPromise(deleteSession));
     await assert.rejects(execute(late, 'late-document'));
     assert.equal(fixture.context.db.orm.select().from(s.materials).all().length, 2);
   } finally {
     await fixture.close();
   }
 });
+
+function assertReportTargets(blocks: readonly { id: string }[], targets: readonly string[]) {
+  const ids = new Set(blocks.map((block) => block.id));
+
+  assert.ok(targets.every((id) => ids.has(id)));
+}

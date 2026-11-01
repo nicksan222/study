@@ -27,6 +27,7 @@ import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { makeMaterialOutput } from '#testing/material-output';
 import { withTestPublication } from '#testing/publication';
 
 const paragraph = (text: string) =>
@@ -47,11 +48,13 @@ const meta = {
 function fixture() {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
+  let output = makeMaterialOutput({ db: context.db, clock: context.clock });
 
   return {
     get context() {
       return context;
     },
+    output: () => output(),
     services: () =>
       Layer.mergeAll(Materials.layer, Conversations.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -59,30 +62,12 @@ function fixture() {
     reopen() {
       context.close();
       context = new ServerContext(location.open());
+      output = makeMaterialOutput({ db: context.db, clock: context.clock });
     },
     close() {
       context.close();
       location.cleanup();
     }
-  };
-}
-
-function durableOutput(context: ServerContext) {
-  return {
-    materials: context.db.orm.select().from(s.materials).all(),
-    versions: context.db.orm.select().from(s.material_versions).all(),
-    documents: context.db.orm.select().from(s.material_document_versions).all(),
-    blocks: context.db.orm.select().from(s.blocks).all(),
-    assets: context.db.orm.select().from(s.document_assets).all(),
-    inputs: context.db.orm.select().from(s.material_version_inputs).all(),
-    citations: context.db.orm.select().from(s.material_version_citations).all(),
-    memberships: context.db.orm.select().from(s.session_materials).all(),
-    requests: context.db.orm.select().from(s.material_generation_requests).all(),
-    published: context.db.orm
-      .select()
-      .from(s.workflowEvents)
-      .all()
-      .filter((event) => event.type === 'MaterialPublished')
   };
 }
 
@@ -203,7 +188,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
       { ...citation, blockOrdinal: 1 },
       { ...citation, quote: '😀' }
     ];
-    const before = durableOutput(f.context);
+    const before = f.output();
 
     for (const forged of invalid) {
       await assert.rejects(
@@ -212,11 +197,11 @@ test('only the selected duplicate range can publish; target identity is hashed, 
           citations: [forged]
         })
       );
-      assert.deepEqual(durableOutput(f.context), before);
+      assert.deepEqual(f.output(), before);
     }
 
     await publish(setup.publication);
-    const after = durableOutput(f.context);
+    const after = f.output();
 
     await publish({
       ...setup.publication,
@@ -231,7 +216,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
         }
       }))
     });
-    assert.deepEqual(durableOutput(f.context), after);
+    assert.deepEqual(f.output(), after);
 
     for (const changed of [
       {
@@ -248,7 +233,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
       }
     ]) {
       await assert.rejects(publish(changed));
-      assert.deepEqual(durableOutput(f.context), after);
+      assert.deepEqual(f.output(), after);
     }
 
     const versionId = after.requests.find((row) => row.id === setup.request.id)!.result_version_id;
@@ -264,7 +249,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
       sql`UPDATE material_generation_requests SET result_metadata=NULL WHERE id=${setup.request.id}`
     ]) {
       assert.throws(() => f.context.db.orm.run(mutation));
-      assert.deepEqual(durableOutput(f.context), after);
+      assert.deepEqual(f.output(), after);
     }
 
     await Effect.runPromise(
@@ -426,7 +411,7 @@ test('guarded conversation-only publication rejects separator tables without res
           title: 'Empty table',
           operations: ['explain']
         });
-        const before = durableOutput(f.context);
+        const before = f.output();
         const table = createBlock({
           type: 'table',
           rows: [
@@ -457,7 +442,7 @@ test('guarded conversation-only publication rejects separator tables without res
         );
 
         assert.equal(error.kind, 'invalid_input');
-        assert.deepEqual(durableOutput(f.context), before);
+        assert.deepEqual(f.output(), before);
         assert.equal(
           f.context.db.orm
             .select()

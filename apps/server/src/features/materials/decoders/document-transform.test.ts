@@ -14,6 +14,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { sourceIdSchema } from '@study/contracts/ids';
 import {
@@ -23,7 +24,6 @@ import {
 import { createBlock } from '@study/contracts/sources/document';
 import { Schema } from 'effect';
 
-import { documentTransformOutputSchema } from '#server/features/materials/agents/document-transform';
 import { standardSchema } from '#server/platform/ai/schema';
 
 import { authorizedTransformAssets, validateDocumentTransform } from './document-transform.ts';
