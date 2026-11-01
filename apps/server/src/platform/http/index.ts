@@ -203,18 +203,14 @@ export function streamingFetch(
         settled = true;
 
         if (!noBody) {
-          let size = 0;
-
-          yield* Stream.runForEach(response.stream, (chunk) => {
-            size += chunk.byteLength;
-
-            if (size > options.maxBytes)
-              return Effect.fail(
-                new StudyError('transient', 'HTTP response exceeds the size limit')
-              );
-
-            return Effect.sync(() => output?.enqueue(chunk));
-          });
+          yield* Stream.runForEach(
+            limitResponseBytes(
+              response.stream,
+              options.maxBytes,
+              new StudyError('transient', 'HTTP response exceeds the size limit')
+            ),
+            (chunk) => Effect.sync(() => output?.enqueue(chunk))
+          );
           output?.close();
         }
       })
@@ -276,17 +272,13 @@ function readResponseBytes(
   return Effect.gen(function* () {
     yield* checkResponseSize(response, limit, error);
     const chunks: Uint8Array[] = [];
-    let size = 0;
 
-    yield* Stream.runForEach(response.stream, (chunk) => {
-      size += chunk.byteLength;
-
-      if (size > limit) return Effect.fail(error);
-
+    yield* Stream.runForEach(limitResponseBytes(response.stream, limit, error), (chunk) => {
       chunks.push(chunk);
 
       return Effect.void;
     });
+    const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
     const bytes = new Uint8Array(size);
     let offset = 0;
 
@@ -297,6 +289,24 @@ function readResponseBytes(
 
     return bytes;
   });
+}
+
+/** Bound cumulative bytes independently for each consumption of a response stream. */
+function limitResponseBytes<E, R>(
+  stream: Stream.Stream<Uint8Array, E, R>,
+  limit: number,
+  error: StudyError
+) {
+  return stream.pipe(
+    Stream.mapAccumEffect(
+      () => 0,
+      (size, chunk) => {
+        const total = size + chunk.byteLength;
+
+        return total > limit ? Effect.fail(error) : Effect.succeed([total, [chunk]] as const);
+      }
+    )
+  );
 }
 
 function checkPageStatus(status: number) {
