@@ -72,3 +72,45 @@ test('enforces the Effect contract in browser operations', () => {
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('propagates the signal from native callback bridges', () => {
+  assertDiagnostics(
+    'effect-abort-signal',
+    lintRule('effect-abort-signal', {
+      'src/bad.ts':
+        "import {Effect as E} from 'effect'; E.callback((resume, signal) => { fetch(url); }); E.callback((resume, signal) => { fetch(url, {signal: other}); });",
+      'src/good.ts':
+        "import {Effect as E} from 'effect'; E.callback((resume, signal) => { fetch(url, {signal}); }); E.callback(resume => { otherWork(resume); }); function f(E: any) { E.callback(() => fetch(url)); }"
+    }),
+    [
+      ['src/bad.ts', 'Pass the Effect.callback cancellation signal to fetch.'],
+      ['src/bad.ts', 'Pass the Effect.callback cancellation signal to fetch.']
+    ]
+  );
+});
+
+test('retains cancellation checks for extracted bridge callbacks', () => {
+  assertDiagnostics(
+    'effect-abort-signal',
+    lintRule('effect-abort-signal', {
+      'src/bad.ts':
+        "import {Effect} from 'effect'; const request = signal => fetch(url); Effect.tryPromise(request);",
+      'src/good.ts':
+        "import {Effect} from 'effect'; const request = signal => fetch(url, {signal}); Effect.tryPromise(request);"
+    }),
+    [['src/bad.ts', 'Pass the Effect.tryPromise cancellation signal to fetch.']]
+  );
+});
+
+test('attributes nested fetches to their nearest native cancellation bridge', () => {
+  assertDiagnostics(
+    'effect-abort-signal',
+    lintRule('effect-abort-signal', {
+      'src/good.ts':
+        "import {Effect as E} from 'effect'; E.callback(resume => { resume(E.tryPromise(signal => fetch(url, {signal}))); }); E.callback(resume => { const inner = signal => fetch(url, {signal}); resume(E.tryPromise(inner)); });",
+      'src/bad.ts':
+        "import {Effect as E} from 'effect'; E.callback(resume => { resume(E.tryPromise(signal => fetch(url))); });"
+    }),
+    [['src/bad.ts', message]]
+  );
+});
