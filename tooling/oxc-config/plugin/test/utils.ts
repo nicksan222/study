@@ -130,6 +130,21 @@ export function lintRule(
   return lintFiles(files, rule, workspace, manifests);
 }
 
+/** Run workspace fixtures through the shared runner and retain their supplied paths. */
+export function lintRulePaths(rule: string, files: Record<string, string>): string[] {
+  const paths = Object.keys(files).sort((a, b) => b.length - a.length);
+
+  return lintRule(rule, files, true)
+    .map(({ filename }) => {
+      const path = paths.find((candidate) => filename.endsWith(`/${candidate}`));
+
+      assert.ok(path, filename);
+
+      return path;
+    })
+    .sort();
+}
+
 export function checkWiring(
   rules: string[],
   configured: Record<string, unknown>,
