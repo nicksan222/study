@@ -14,9 +14,6 @@
 
 import { StudyError } from '@study/contracts/errors';
 import type { setCitationsInputSchema } from '@study/contracts/materials/rpc';
-
-type Input = typeof setCitationsInputSchema.Type;
-
 import { validDocumentTextRange } from '@study/contracts/sources/document';
 import { documentTextRangeSchema } from '@study/contracts/sources/schemas';
 import { eq } from '@study/db';
@@ -28,6 +25,8 @@ import { materialIntegrity } from '#server/features/materials/store/transactions
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeCitations } from './citations.ts';
+
+type Input = typeof setCitationsInputSchema.Type;
 
 const targetCodec = Schema.fromJsonString(Schema.toCodecJson(documentTextRangeSchema));
 
@@ -64,11 +63,14 @@ export function makeSetCitationsAction(resources: StoreResources) {
       for (const citation of input.citations) {
         if (citation.target) {
           const documentId = versionDocumentId(citation.inputVersionId);
+
           if (documentId === null)
             throw new StudyError('invalid_input', 'Citation Document is unavailable');
+
           const document = readCanonicalDocument(documentId);
           const target = citation.target;
           const block = document.blocks.find((item) => item.id === target.blockId);
+
           if (
             !validDocumentTextRange(
               document,
@@ -79,6 +81,7 @@ export function makeSetCitationsAction(resources: StoreResources) {
           )
             throw new StudyError('invalid_input', 'Citation target does not match input evidence');
         }
+
         db.insert(s.material_version_citations)
           .values({
             version_id: input.id,

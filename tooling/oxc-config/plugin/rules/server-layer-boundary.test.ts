@@ -198,3 +198,23 @@ test('cross-feature capture uses public synchronous participants without exposin
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/capture.ts')));
 });
+
+test('session transform coordinators use public participants and cannot import another feature private stores', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/features/conversations/service/document-transform.ts': `
+      import { Materials } from '#server/features/materials/index';
+      import { publicationTransaction } from '#server/platform/definitions/define-store';
+      export const publish = (context, output) =>
+        publicationTransaction((tx) => Materials.publishDocumentTransform(tx, context, output));
+    `,
+    'src/features/materials/service/bypass.ts': `
+      import { SessionContextStore } from '#server/features/conversations/store/index';
+    `,
+    'src/features/conversations/service/bypass.ts': `
+      import { MaterialGenerationStore } from '#server/features/materials/store/index';
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/bypass.ts')));
+});

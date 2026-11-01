@@ -69,6 +69,7 @@ export function makeGeneration(resources: StoreResources) {
         scopeId: input.scopeId,
         questionSpec: input.questionSpec
       });
+
       if (!same(canonical(existing), canonical(request)))
         throw new StudyError('invalid_input', 'Generation request key has different intent');
 
@@ -95,6 +96,7 @@ export function makeGeneration(resources: StoreResources) {
         'invalid_input',
         'Document request must use its captured context identity'
       );
+
     assertActiveScope(request);
 
     for (const id of request.inputVersionIds) {
@@ -134,6 +136,7 @@ export function makeGeneration(resources: StoreResources) {
         created_at: now(clock)
       })
       .run();
+
     if (request.inputVersionIds.length)
       db.orm
         .insert(s.material_generation_inputs)
@@ -218,6 +221,7 @@ export function makeGeneration(resources: StoreResources) {
       const material = materialRow(version.material_id, true);
 
       if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
+
       const documentId = versionDocumentId(id);
 
       if (documentId !== null) assertTextEvidence(documentId);
@@ -286,7 +290,9 @@ export function makeGeneration(resources: StoreResources) {
 
   function prepareGenerationRetry(value: { requestId: string; retryId: string }) {
     const request = required(readGeneration(value.requestId));
+
     if (request.resultVersionId === null) assertNotCancelled(request);
+
     const existing = db.orm
       .select()
       .from(s.workflowEvents)
@@ -384,31 +390,7 @@ export function makeGeneration(resources: StoreResources) {
     assertNotCancelled(request);
     assertActiveScope(request);
     validateInputs(request);
-    assertQuestionSpec(request.questionSpec, value.content);
-
-    if (value.content.kind !== request.kind)
-      throw new StudyError('invalid_input', 'Generation kind mismatch');
-    if (
-      value.content.kind === 'document' &&
-      value.content.blocks.length &&
-      db.orm
-        .select({ id: s.blocks.id })
-        .from(s.blocks)
-        .where(
-          inArray(
-            s.blocks.editing_id,
-            value.content.blocks.map((block) => block.id)
-          )
-        )
-        .get()
-    )
-      throw new StudyError('invalid_input', 'Derivative block identities must be fresh');
-
-    if (request.kind !== 'document' && citations.length === 0)
-      throw new StudyError('invalid_input', 'Generated content must cite captured evidence');
-
-    if (new Set(citations.map((c) => c.marker)).size !== citations.length)
-      throw new StudyError('invalid_input', 'Duplicate citation markers');
+    assertGenerationContent(request, value);
 
     const resolved = citations.map((citation) => {
       const index = request.inputVersionIds.indexOf(citation.inputVersionId);
@@ -476,6 +458,44 @@ export function makeGeneration(resources: StoreResources) {
     return { versionId: material.version.id, event, materialId: material.id };
   }
 
+  function assertGenerationContent(
+    request: NonNullable<ReturnType<typeof readGeneration>>,
+    value: typeof materialGenerationPublicationSchema.Type
+  ) {
+    assertQuestionSpec(request.questionSpec, value.content);
+
+    if (value.content.kind !== request.kind)
+      throw new StudyError('invalid_input', 'Generation kind mismatch');
+
+    assertFreshDerivativeIds(value.content);
+
+    if (request.kind !== 'document' && value.citations.length === 0)
+      throw new StudyError('invalid_input', 'Generated content must cite captured evidence');
+
+    if (new Set(value.citations.map((c) => c.marker)).size !== value.citations.length)
+      throw new StudyError('invalid_input', 'Duplicate citation markers');
+  }
+
+  function assertFreshDerivativeIds(
+    content: typeof materialGenerationPublicationSchema.Type.content
+  ) {
+    if (
+      content.kind === 'document' &&
+      content.blocks.length &&
+      db.orm
+        .select({ id: s.blocks.id })
+        .from(s.blocks)
+        .where(
+          inArray(
+            s.blocks.editing_id,
+            content.blocks.map((block) => block.id)
+          )
+        )
+        .get()
+    )
+      throw new StudyError('invalid_input', 'Derivative block identities must be fresh');
+  }
+
   type Scope = {
     scopeId: string;
     projectId: NonNullable<(typeof materialGenerationInputSchema.Type)['projectId']>;
@@ -521,8 +541,10 @@ export function makeGeneration(resources: StoreResources) {
     kind?: string;
   }) {
     if (request.kind === 'document') return;
+
     if (request.projectId === undefined)
       throw new StudyError('invalid_input', 'Collection generation requires a project');
+
     assertProject(request.projectId);
 
     if (request.scopeId === undefined) return;
@@ -543,12 +565,14 @@ export function makeGeneration(resources: StoreResources) {
 
   function cancelGeneration(value: { requestId: string }) {
     const request = required(readGeneration(value.requestId));
+
     if (request.resultVersionId === null)
       db.orm
         .update(s.material_generation_requests)
         .set({ cancelled: true })
         .where(eq(s.material_generation_requests.id, value.requestId))
         .run();
+
     return required(readGeneration(value.requestId));
   }
 
@@ -568,6 +592,7 @@ export function makeGeneration(resources: StoreResources) {
 function canonicalJson(encoded: string): string {
   return JSON.stringify(JSON.parse(encoded), (_, value: unknown) => {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+
     return Object.fromEntries(
       Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
     );

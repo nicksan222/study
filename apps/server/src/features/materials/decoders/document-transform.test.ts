@@ -30,6 +30,7 @@ import { authorizedTransformAssets, validateDocumentTransform } from './document
 
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
+
 const meta = {
   extractor: null,
   extractorVersion: 1,
@@ -98,11 +99,13 @@ function fixture() {
       ]
     }
   });
+
   return { context, publication, image, output };
 }
 
 test('managed images require captured structured authorization; an alt-text range grants only text', () => {
   const { context, publication, image } = fixture();
+
   assert.equal(authorizedTransformAssets(context).length, 1);
   const copied = createBlock(image.content);
   const withImage = {
@@ -112,6 +115,7 @@ test('managed images require captured structured authorization; an alt-text rang
       notes: [{ kind: 'limit' as const, explanation: 'No external verification', blockIds: [] }]
     }
   };
+
   validateDocumentTransform(context, withImage);
   const range = Schema.decodeUnknownSync(runSelectionContextSchema)({
     ...context,
@@ -137,6 +141,7 @@ test('managed images require captured structured authorization; an alt-text rang
       }))
     }))
   });
+
   assert.equal(authorizedTransformAssets(range).length, 0);
   assert.throws(() => validateDocumentTransform(range, withImage));
   assert.throws(() =>
@@ -181,7 +186,9 @@ test('managed images require captured structured authorization; an alt-text rang
 
 test('empty, malformed, reused identity, fabricated source anchor and unscoped citations reject', () => {
   const { context, publication, image, output } = fixture();
+
   validateDocumentTransform(context, publication);
+
   for (const blocks of [
     [],
     [paragraph('')],
@@ -199,6 +206,7 @@ test('empty, malformed, reused identity, fabricated source anchor and unscoped c
       )
     );
   }
+
   assert.throws(() => validateDocumentTransform(context, { ...publication, citations: [] }));
   assert.throws(() => validateDocumentTransform(context, { ...publication, report: undefined }));
   assert.throws(() =>
@@ -211,6 +219,7 @@ test('empty, malformed, reused identity, fabricated source anchor and unscoped c
 
 test('collection generation still requires a project and Document generation requires explicit captured session scope', () => {
   const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
+
   assert.throws(() => decode({ title: 'Cards', kind: 'flashcards', inputVersionIds: [1n] }));
   assert.throws(() =>
     decode({ title: 'Doc', kind: 'document', inputVersionIds: [1n], projectId: 1n })
@@ -256,6 +265,7 @@ test('provider JSON accepts authorized image identifiers without native bigint v
   const result = await standardSchema(documentTransformOutputSchema)['~standard'].validate(
     JSON.parse(JSON.stringify(output))
   );
+
   assert.equal(result.issues, undefined);
 });
 
@@ -272,6 +282,7 @@ test('separator-only tables are not completed conversation-only Documents', () =
       }
     ]
   });
+
   assert.ok(table.text.trim());
   assert.throws(() =>
     validateDocumentTransform(
@@ -283,5 +294,29 @@ test('separator-only tables are not completed conversation-only Documents', () =
         report: { notes: [{ kind: 'limit', explanation: 'No evidence', blockIds: [] }] }
       }
     )
+  );
+});
+
+test('report-only evidence markers and captured target locations obey the same scope barrier', () => {
+  const { context, publication, output } = fixture();
+  const note = {
+    kind: 'correction_proposal' as const,
+    explanation: 'Proposal [1]',
+    blockIds: [output.id]
+  };
+
+  validateDocumentTransform(context, { ...publication, report: { notes: [note] } });
+  assert.throws(() =>
+    validateDocumentTransform(context, {
+      ...publication,
+      report: { notes: [{ ...note, explanation: 'Fabricated evidence [2]' }] }
+    })
+  );
+  assert.throws(() =>
+    validateDocumentTransform(context, {
+      ...publication,
+      report: { notes: [note] },
+      citations: [{ ...publication.citations[0]!, target: undefined }]
+    })
   );
 });

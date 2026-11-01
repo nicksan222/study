@@ -73,3 +73,26 @@ test('workflow model calls declare a last-boundary preflight and leave retries t
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('extracted transform workflows retain explicit Activity ownership and provider preflight', () => {
+  const diagnostics = lintRule('ai-boundary', {
+    'src/features/materials/workflows/unguarded.ts': `
+      import { generateAgent } from '#server/platform/ai/agents';
+      export const generate = (input) => generateAgent(agent, input, { maxRetries: 0, preflight: check });
+    `,
+    'src/features/materials/workflows/document-transform.ts': `
+      import { Activity } from 'effect/workflow';
+      import { Effect } from 'effect';
+      import { generateAgent } from '#server/platform/ai/agents';
+      export const generate = (input) => Activity.make({
+        name: 'generate-material-1',
+        execute: Effect.gen(function* () {
+          return yield* generateAgent(agent, input, { maxRetries: 0, preflight: check });
+        })
+      });
+    `
+  });
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.ok(diagnostics[0].filename.endsWith('/workflows/unguarded.ts'));
+});

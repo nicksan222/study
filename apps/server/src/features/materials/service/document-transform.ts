@@ -50,6 +50,7 @@ export function requestDocumentTransform(
 ) {
   if (context.requestId !== value.contextRequestId)
     throw new StudyError('invalid_input', 'Captured context mismatch');
+
   const requestId = `document/${context.requestId}`;
   const result = tx.store(MaterialGenerationStore).requestOnce({
     requestId,
@@ -61,6 +62,7 @@ export function requestDocumentTransform(
       documentTransform: { contextRequestId: context.requestId, operations: value.operations }
     }
   });
+
   if (result.created)
     tx.emit({
       type: 'MaterialGenerationRequested',
@@ -72,6 +74,7 @@ export function requestDocumentTransform(
       requestId,
       kind: 'document'
     });
+
   return result.request;
 }
 
@@ -91,19 +94,26 @@ function publishCapturedDocument(
   const request = tx
     .store(MaterialGenerationStore)
     .materialGeneration({ requestId: value.requestId, verifyOnly: true });
+
   if (!request.documentTransform) throw new StudyError('invalid_input', 'Not a session transform');
+
   if (request.resultVersionId === null) {
     assertActive(tx, request.id);
+
     if (!context) throw new StudyError('not_found', 'Captured context is unavailable');
+
     assertDocumentContext(request, context);
     validateDocumentTransform(context, value);
   }
+
   const result = tx.store(MaterialGenerationStore).publishGeneration(value);
+
   if (context && result.materialId !== undefined)
     tx.store(MaterialsStore).attach({
       sessionId: context.sessionId,
       materialId: result.materialId
     });
+
   if (result.event && result.materialId !== undefined)
     tx.emit({
       type: 'MaterialPublished',
@@ -116,6 +126,7 @@ function publishCapturedDocument(
       materialVersionId: result.versionId,
       generationRequestId: value.requestId
     });
+
   return result.versionId;
 }
 
@@ -125,12 +136,17 @@ export function retryDocumentTransform(
   value: { requestId: string; retryId: string }
 ) {
   const { request, created } = tx.store(MaterialGenerationStore).prepareRetry(value);
+
   if (!request.documentTransform) throw new StudyError('invalid_input', 'Not a session transform');
+
   if (request.resultVersionId === null) {
     assertActive(tx, request.id);
+
     if (!context) throw new StudyError('not_found', 'Captured context is unavailable');
+
     assertDocumentContext(request, context);
   }
+
   if (created)
     tx.emit({
       type: 'MaterialGenerationRequested',
@@ -142,6 +158,7 @@ export function retryDocumentTransform(
       requestId: request.id,
       kind: 'document'
     });
+
   return request;
 }
 

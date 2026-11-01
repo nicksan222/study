@@ -168,3 +168,29 @@ test('captured session context is conversation-owned while material selection pi
     'Feature materials may not write session_run_contexts.'
   ]);
 });
+
+test('transform receipts and citations remain material-owned while coordinators can only read them', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/conversations/store/transform.ts': `
+      import * as s from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.select().from(s.material_generation_requests);
+      db.update(s.material_generation_requests);
+      db.insert(s.material_generation_inputs);
+      db.delete(s.material_version_citations);
+    `,
+    'src/features/materials/store/generation.ts': `
+      import * as s from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.update(s.material_generation_requests);
+      db.insert(s.material_generation_inputs);
+      db.insert(s.material_version_citations);
+    `
+  });
+
+  assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    'Feature conversations may not write material_generation_inputs.',
+    'Feature conversations may not write material_generation_requests.',
+    'Feature conversations may not write material_version_citations.'
+  ]);
+});

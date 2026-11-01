@@ -113,6 +113,7 @@ function validGenerationScope(value: {
       value.projectId === undefined &&
       value.scopeId === undefined
     );
+
   return (
     value.documentTransform === undefined &&
     value.projectId !== undefined &&

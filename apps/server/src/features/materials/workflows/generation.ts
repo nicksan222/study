@@ -113,120 +113,136 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
         ),
         Effect.provideService(Database, database)
       );
+    const promptForAttempt = (previous: string, issue: string) =>
+      `Title: ${initial.title}\nStudent instruction (data): ${initial.instruction ?? ''}${initial.questionSpec ? `\nProduce exactly one ${initial.questionSpec.kind === 'choice' ? 'choice (single_choice or multiple_choice)' : 'open'} question.` : ''}${issue ? `\nPrevious diagram (data):\n${previous}\nValidation feedback: ${issue}` : ''}`;
+
+    const generationActivity = (attempt: number, prompt: string) =>
+      initial.documentTransform
+        ? generateDocumentTransform({
+            context: sessions
+              ? sessions.documentTransformContext({ requestId: initial.id })
+              : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
+            request: initial,
+            eventId: event.eventId,
+            preflight
+          })
+        : Activity.make({
+            name: `generate-material-${attempt}`,
+            success: materialGenerationPublicationSchema,
+            error: failureSchema,
+            execute: Effect.gen(function* () {
+              yield* preflight;
+              const catalog = createEvidenceCatalog<{ inputVersionId: MaterialVersionId }>([]);
+
+              for (const [index, id] of initial.inputVersionIds.entries()) {
+                const version = yield* materials.materialVersion({ id });
+
+                const document = evidenceDocument(version.content);
+
+                if (!document)
+                  return yield* Effect.fail(
+                    new StudyError('invalid_input', 'Captured document is unavailable')
+                  );
+
+                catalog.addDocument({
+                  key: String(id),
+                  name: `Document ${index + 1}`,
+                  reference: { inputVersionId: id },
+                  blocks: document.blocks
+                });
+              }
+
+              const scoped = {
+                ...agents,
+                searchSources: (query: string) => Effect.sync(() => catalog.search(query))
+              };
+              const options = { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) };
+              const content =
+                event.kind === 'flashcards'
+                  ? yield* generateAgent(flashcardsAgent, { prompt }, options).pipe(
+                      Effect.provideService(Agents, scoped)
+                    )
+                  : event.kind === 'quiz'
+                    ? yield* generateAgent(quizAgent, { prompt }, options).pipe(
+                        Effect.provideService(Agents, scoped)
+                      )
+                    : yield* generateAgent(diagramAgent, { prompt }, options).pipe(
+                        Effect.provideService(Agents, scoped)
+                      );
+
+              yield* Effect.try({
+                try: () => assertQuestionSpec(initial.questionSpec, content),
+                catch: (cause) =>
+                  cause instanceof StudyError
+                    ? cause
+                    : new StudyError('invalid_input', 'Invalid quiz specification', { cause })
+              });
+
+              yield* checkGeneratedLimits(content);
+
+              const safeContent =
+                content.kind === 'flashcards'
+                  ? {
+                      kind: 'flashcards' as const,
+                      cards: content.cards.map(({ front, back }) => ({ front, back }))
+                    }
+                  : content;
+
+              if (JSON.stringify(safeContent).length > 100_000)
+                return yield* Effect.fail(
+                  new StudyError('invalid_input', 'Generated content exceeds limits')
+                );
+
+              const citations = yield* Effect.try({
+                try: () =>
+                  catalog
+                    .citations(JSON.stringify(safeContent))
+                    .map(({ marker, reference, ...rest }) => ({
+                      marker: BigInt(marker),
+                      ...reference,
+                      ...rest
+                    })),
+                catch: (cause) =>
+                  cause instanceof StudyError
+                    ? cause
+                    : new StudyError('invalid_input', 'Invalid citations', { cause })
+              });
+
+              if (citations.length === 0)
+                return yield* Effect.fail(
+                  new StudyError('invalid_input', 'Generated content must cite captured evidence')
+                );
+
+              return {
+                requestId: event.requestId,
+                generationEventId: event.eventId,
+                content: safeContent,
+                citations
+              };
+            })
+          });
+
+    const publish = (publication: typeof materialGenerationPublicationSchema.Type) =>
+      Activity.make({
+        name: 'publish-material',
+        success: materialVersionIdSchema,
+        error: failureSchema,
+        execute: withPublicationGuard(
+          store,
+          publication.content.kind === 'document'
+            ? sessions
+              ? sessions.publishDocumentTransform(publication)
+              : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'))
+            : materials.publishMaterialGeneration(publication)
+        )
+      });
+
     let previous = '';
     let issue = '';
 
     for (let attempt = 1; attempt <= (event.kind === 'diagram' ? 3 : 1); attempt++) {
-      const prompt = `Title: ${initial.title}\nStudent instruction (data): ${initial.instruction ?? ''}${initial.questionSpec ? `\nProduce exactly one ${initial.questionSpec.kind === 'choice' ? 'choice (single_choice or multiple_choice)' : 'open'} question.` : ''}${issue ? `\nPrevious diagram (data):\n${previous}\nValidation feedback: ${issue}` : ''}`;
       const publication = yield* retryResumableActivity(
-        Activity.make({
-          name: `generate-material-${attempt}`,
-          success: materialGenerationPublicationSchema,
-          error: failureSchema,
-          execute: Effect.gen(function* () {
-            yield* preflight;
-            if (initial.documentTransform) {
-              if (!sessions)
-                return yield* Effect.fail(
-                  new StudyError('unsupported', 'Session service is unavailable')
-                );
-              const context = yield* sessions.documentTransformContext({ requestId: initial.id });
-              return yield* generateDocumentTransform({
-                context,
-                request: initial,
-                eventId: event.eventId,
-                preflight
-              });
-            }
-            const catalog = createEvidenceCatalog<{ inputVersionId: MaterialVersionId }>([]);
-
-            for (const [index, id] of initial.inputVersionIds.entries()) {
-              const version = yield* materials.materialVersion({ id });
-
-              const document = evidenceDocument(version.content);
-
-              if (!document)
-                return yield* Effect.fail(
-                  new StudyError('invalid_input', 'Captured document is unavailable')
-                );
-
-              catalog.addDocument({
-                key: String(id),
-                name: `Document ${index + 1}`,
-                reference: { inputVersionId: id },
-                blocks: document.blocks
-              });
-            }
-
-            const scoped = {
-              ...agents,
-              searchSources: (query: string) => Effect.sync(() => catalog.search(query))
-            };
-            const options = { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) };
-            const content =
-              event.kind === 'flashcards'
-                ? yield* generateAgent(flashcardsAgent, { prompt }, options).pipe(
-                    Effect.provideService(Agents, scoped)
-                  )
-                : event.kind === 'quiz'
-                  ? yield* generateAgent(quizAgent, { prompt }, options).pipe(
-                      Effect.provideService(Agents, scoped)
-                    )
-                  : yield* generateAgent(diagramAgent, { prompt }, options).pipe(
-                      Effect.provideService(Agents, scoped)
-                    );
-
-            yield* Effect.try({
-              try: () => assertQuestionSpec(initial.questionSpec, content),
-              catch: (cause) =>
-                cause instanceof StudyError
-                  ? cause
-                  : new StudyError('invalid_input', 'Invalid quiz specification', { cause })
-            });
-
-            yield* checkGeneratedLimits(content);
-
-            const safeContent =
-              content.kind === 'flashcards'
-                ? {
-                    kind: 'flashcards' as const,
-                    cards: content.cards.map(({ front, back }) => ({ front, back }))
-                  }
-                : content;
-
-            if (JSON.stringify(safeContent).length > 100_000)
-              return yield* Effect.fail(
-                new StudyError('invalid_input', 'Generated content exceeds limits')
-              );
-
-            const citations = yield* Effect.try({
-              try: () =>
-                catalog
-                  .citations(JSON.stringify(safeContent))
-                  .map(({ marker, reference, ...rest }) => ({
-                    marker: BigInt(marker),
-                    ...reference,
-                    ...rest
-                  })),
-              catch: (cause) =>
-                cause instanceof StudyError
-                  ? cause
-                  : new StudyError('invalid_input', 'Invalid citations', { cause })
-            });
-
-            if (citations.length === 0)
-              return yield* Effect.fail(
-                new StudyError('invalid_input', 'Generated content must cite captured evidence')
-              );
-
-            return {
-              requestId: event.requestId,
-              generationEventId: event.eventId,
-              content: safeContent,
-              citations
-            };
-          })
-        })
+        generationActivity(attempt, promptForAttempt(previous, issue))
       );
 
       if (publication.content.kind === 'diagram') {
@@ -246,19 +262,7 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
         }
       }
 
-      return yield* Activity.make({
-        name: 'publish-material',
-        success: materialVersionIdSchema,
-        error: failureSchema,
-        execute: withPublicationGuard(
-          store,
-          publication.content.kind === 'document'
-            ? sessions
-              ? sessions.publishDocumentTransform(publication)
-              : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'))
-            : materials.publishMaterialGeneration(publication)
-        )
-      });
+      return yield* publish(publication);
     }
 
     return yield* Effect.fail(new StudyError('invalid_input', 'Diagram could not be validated'));

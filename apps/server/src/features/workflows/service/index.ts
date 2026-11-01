@@ -85,11 +85,15 @@ export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflo
 function correlatedExecutions(tx: Transaction, correlationId: string) {
   const rows: (typeof executionSchema.Type)[] = [];
   let before: typeof executionsInputSchema.Type.before;
+
   for (;;) {
     const page = tx.store(ExecutionStore).executions({ correlationId, limit: 100, before });
+
     rows.push(...page);
     const last = page.at(-1);
+
     if (page.length < 100 || !last) return rows;
+
     before = { id: last.id, createdAtMs: last.createdAtMs };
   }
 }

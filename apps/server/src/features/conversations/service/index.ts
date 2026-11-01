@@ -94,10 +94,14 @@ export const Conversations = defineService(
       documentTransformContext: (value: { requestId: string }) =>
         transaction((tx) => {
           const request = Materials.readGeneration(tx, value);
+
           if (!request.documentTransform)
             throw new StudyError('invalid_input', 'Not a session transform');
+
           const context = readCapturedContext(tx, request.documentTransform.contextRequestId);
+
           Materials.assertDocumentContext(request, context);
+
           return context;
         }),
       publishDocumentTransform: (value: typeof materialGenerationPublicationSchema.Type) =>
@@ -106,12 +110,15 @@ export const Conversations = defineService(
             requestId: value.requestId,
             verifyOnly: true
           });
+
           if (!request.documentTransform)
             throw new StudyError('invalid_input', 'Not a session transform');
+
           const context =
             request.resultVersionId === null
               ? readCapturedContext(tx, request.documentTransform.contextRequestId)
               : undefined;
+
           return Materials.publishDocumentTransform(tx, context, value);
         }),
       retryDocumentTransform: (value: { requestId: string; retryId: string }) =>
@@ -120,12 +127,15 @@ export const Conversations = defineService(
             requestId: value.requestId,
             verifyOnly: true
           });
+
           if (!request.documentTransform)
             throw new StudyError('invalid_input', 'Not a session transform');
+
           const context =
             request.resultVersionId === null
               ? readCapturedContext(tx, request.documentTransform.contextRequestId)
               : undefined;
+
           return Materials.retryDocumentTransform(tx, context, value);
         }),
       sessionSelection: selections.sessionSelection,
@@ -484,7 +494,10 @@ function assertCapturedTarget(tx: Transaction, target: typeof resolvedSelectionS
 /** Availability checked immutable context, composed inside another feature transaction. */
 function readCapturedContext(tx: Transaction, requestId: string) {
   const snapshot = tx.store(SessionContextStore).sessionContext({ requestId });
+
   tx.store(SessionStore).session(snapshot.sessionId);
+
   for (const target of snapshot.inputs) assertCapturedTarget(tx, target);
+
   return snapshot;
 }

@@ -119,15 +119,18 @@ function* makeMaterials() {
                 run.workflow === 'material-generation/v1' &&
                 (run.status === 'cancelled' || run.status === 'cancelling')
             ));
+
         if (!value.verifyOnly && request.resultVersionId === null) {
           assertGenerationActive(tx, request.id);
         }
+
         return { ...request, cancelled };
       }),
     cancelMaterialGeneration: (value: { requestId: string }) =>
       Effect.gen(function* () {
         const result = yield* transaction((tx) => {
           const request = tx.store(MaterialGenerationStore).cancelGeneration(value);
+
           return {
             request,
             runs:
@@ -138,14 +141,18 @@ function* makeMaterials() {
                 : []
           };
         });
+
         if (result.runs.length) {
           const control = yield* Effect.serviceOption(WorkflowControl);
+
           if (Option.isNone(control))
             return yield* Effect.fail(
               new StudyError('unsupported', 'Native cancellation control is unavailable')
             );
+
           for (const run of result.runs) yield* control.value.cancel({ id: run.id, mode: 'safe' });
         }
+
         return result.request;
       }),
     publishMaterialGeneration: (value: typeof materialGenerationPublicationSchema.Type) =>
@@ -153,12 +160,15 @@ function* makeMaterials() {
         const request = tx
           .store(MaterialGenerationStore)
           .materialGeneration({ requestId: value.requestId, verifyOnly: true });
+
         if (request.documentTransform)
           throw new StudyError(
             'invalid_input',
             'Session publication requires captured context coordination'
           );
+
         if (request.resultVersionId === null) assertGenerationActive(tx, request.id);
+
         const result = materialIntegrity(() =>
           tx.store(MaterialGenerationStore).publishGeneration(value)
         );
@@ -181,7 +191,9 @@ function* makeMaterials() {
     retryMaterialGenerationOnce: (value: { requestId: string; retryId: string }) =>
       transaction((tx) => {
         const { request, created } = tx.store(MaterialGenerationStore).prepareRetry(value);
+
         if (request.resultVersionId === null) assertGenerationActive(tx, request.id);
+
         if (request.documentTransform)
           throw new StudyError(
             'invalid_input',
@@ -449,6 +461,8 @@ function assertGenerationActive(tx: Transaction, requestId: string) {
 /** Read the owned generation request within a cross-feature transaction. */
 function readGeneration(tx: Transaction, value: { requestId: string; verifyOnly?: boolean }) {
   const request = tx.store(MaterialGenerationStore).materialGeneration(value);
+
   if (!value.verifyOnly && request.resultVersionId === null) assertGenerationActive(tx, request.id);
+
   return request;
 }

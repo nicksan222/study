@@ -64,3 +64,24 @@ test('captured preferences and context use canonical schema codecs at persistenc
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('durable citation targets and transform reports use canonical codecs instead of unchecked casts', () => {
+  const diagnostics = lintRule('decode-persisted-json', {
+    'src/features/materials/store/citations.ts': `
+      import { Schema } from 'effect';
+      import { documentTextRangeSchema } from '@study/contracts/sources/schemas';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(documentTextRangeSchema));
+      const target = Schema.decodeUnknownSync(codec)(row.target);
+      const unsafe = JSON.parse(row.target) as typeof documentTextRangeSchema.Type;
+    `,
+    'src/features/materials/store/generation.ts': `
+      import { Schema } from 'effect';
+      import { documentTransformReportSchema } from '@study/contracts/materials/schemas';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(documentTransformReportSchema));
+      const report = Schema.decodeUnknownSync(codec)(row.result_metadata);
+      const unsafe: typeof documentTransformReportSchema.Type = JSON.parse(row.result_metadata);
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

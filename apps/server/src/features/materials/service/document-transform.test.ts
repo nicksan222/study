@@ -43,6 +43,7 @@ const meta = {
   corrected: false,
   omissions: []
 };
+
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
@@ -56,6 +57,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
     Projects.layer
   ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const handlers = MaterialsRpcLive.pipe(Layer.provide(domain));
+
   try {
     const setup = await Effect.runPromise(
       Effect.gen(function* () {
@@ -71,6 +73,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           publish: true
         });
         const versionId = original.version.id;
+
         yield* conversations.updateSessionSelection({
           sessionId: session.id,
           expectedRevision: 0n,
@@ -83,6 +86,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           preferences: {}
         });
         const documentId = whole.inputs[0]!.documentId;
+
         yield* conversations.updateSessionSelection({
           sessionId: session.id,
           expectedRevision: 1n,
@@ -94,6 +98,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           instruction: 'Read',
           preferences: {}
         });
+
         assert.equal(selectedBlock.inputs[0]!.excerpts[0]!.blockId, block.id);
         yield* conversations.updateSessionSelection({
           sessionId: session.id,
@@ -115,6 +120,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           instruction: 'Keep qualifiers',
           preferences: { language: 'italian', detail: 'brief' }
         });
+
         return { session, block, original, versionId, capture, collection };
       }).pipe(Effect.provide(domain))
     );
@@ -129,6 +135,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
           const first = yield* client('materials.requestDocumentTransform', requestInput);
           const replay = yield* client('materials.requestDocumentTransform', requestInput);
+
           assert.equal(first.id, replay.id);
           assert.equal(first.projectId, undefined);
           assert.equal(
@@ -137,14 +144,17 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
             )).kind,
             'invalid_input'
           );
+
           return first;
         }).pipe(Effect.provide(handlers))
       )
     );
+
     await Effect.runPromise(
       Effect.gen(function* () {
         const chats = yield* Conversations;
         const materials = yield* Materials;
+
         yield* chats.updateSessionSelection({
           sessionId: setup.session.id,
           expectedRevision: 3n,
@@ -159,6 +169,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
         const retained = yield* (yield* Conversations).documentTransformContext({
           requestId: request.id
         });
+
         assert.equal(retained.inputs[0]!.excerpts[0]!.text, 'alpha selected');
         assert.deepEqual(retained.preferences, { language: 'italian', detail: 'brief' });
       }).pipe(Effect.provide(domain))
@@ -198,6 +209,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
         }).pipe(Effect.provide(domain))
       );
     const before = context.db.orm.select().from(s.materials).all().length;
+
     await assert.rejects(
       publish({
         ...publication,
@@ -232,9 +244,11 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           requestId: request.id,
           verifyOnly: true
         });
+
         assert.ok(result.resultVersionId);
         assert.deepEqual(result.report, publication.report);
         const derivative = yield* materials.materialVersion({ id: result.resultVersionId });
+
         assert.deepEqual(derivative.inputs, [setup.versionId]);
         assert.equal(derivative.content.kind, 'document');
         assert.deepEqual(
@@ -259,6 +273,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           (yield* materials.citations({ id: result.resultVersionId, limit: 10 })).items[0]?.target,
           publication.citations[0]!.target
         );
+
         for (const status of ['running', 'cancelled'] as const) {
           context.db.orm
             .insert(s.workflow_executions)
@@ -277,10 +292,13 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
             requestId: request.id,
             verifyOnly: true
           });
+
           assert.equal(read.cancelled, false);
           assert.equal(read.resultVersionId, result.resultVersionId);
         }
+
         const cancelled = yield* materials.cancelMaterialGeneration({ requestId: request.id });
+
         assert.equal(cancelled.cancelled, false);
         assert.equal(cancelled.resultVersionId, result.resultVersionId);
       }).pipe(Effect.provide(domain))
@@ -300,13 +318,16 @@ test('cancelled and deleted session captures reject retries and late publication
     Settings.layer,
     Projects.layer
   ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         const materials = yield* Materials;
         const chats = yield* Conversations;
+
         for (const mode of ['cancel', 'delete'] as const) {
           const session = yield* chats.createSession({ title: mode });
+
           yield* chats.postMessage({
             sessionId: session.id,
             text: 'Conversation input',
@@ -323,9 +344,11 @@ test('cancelled and deleted session captures reject retries and late publication
             title: mode,
             operations: ['explain']
           });
+
           if (mode === 'cancel')
             yield* materials.cancelMaterialGeneration({ requestId: request.id });
           else yield* chats.deleteSession(session.id);
+
           assert.equal(
             (yield* Effect.flip(
               (yield* Conversations).retryDocumentTransform({
@@ -351,8 +374,10 @@ test('cancelled and deleted session captures reject retries and late publication
                 .pipe(Effect.asVoid)
             )
           );
+
           assert.equal(failure.kind, mode === 'cancel' ? 'cancelled' : 'not_found');
         }
+
         assert.equal((yield* materials.materials({ archived: false, limit: 10 })).items.length, 0);
       }).pipe(Effect.provide(domain))
     );
