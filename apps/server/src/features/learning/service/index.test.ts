@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Covers optional versus typed missing-attempt results, quiz ownership and durable   │
+ * │ submission events, daily new-card limits and review scheduling, and idempotent practice  │
+ * │ slots.                                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses SQLite-backed quiz, practice, and review records to assert service invariants.    │
+ * │ - Uses database fixtures to verify service-visible invariants and failures.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses real SQLite fixtures and service dependencies; domain state remains owned │
+ * │ by the feature implementation.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

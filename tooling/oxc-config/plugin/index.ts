@@ -32,6 +32,7 @@ import noNonNullQueryResults from './rules/no-non-null-query-results.ts';
 import packageBoundary from './rules/package-boundary.ts';
 import parameterizedSql from './rules/parameterized-sql.ts';
 import preserveErrorCause from './rules/preserve-error-cause.ts';
+import serverFileDescription from './rules/server-file-description.ts';
 import serverNoMocks from './rules/server-no-mocks.ts';
 import serviceDefinition from './rules/service-definition.ts';
 import sharedLoading from './rules/shared-loading.ts';
@@ -84,6 +85,7 @@ export default definePlugin({
     'no-error-message-matching': noErrorMessageMatching,
     'preserve-error-cause': preserveErrorCause,
 
+    'server-file-description': serverFileDescription,
     'server-no-mocks': serverNoMocks,
     'database-ownership': databaseOwnership,
     'effect-v4-api': effectV4Api,

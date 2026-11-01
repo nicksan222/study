@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Creates a project and source through native services, reopens the application, and │
+ * │ verifies both project data and source snapshot bytes persist.                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: native projects and source inputs persist after reopening the real            │
+ * │   application.                                                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/features/projects/index, #server/features/sources/index with real SQLite    │
+ * │ and application resources; fixture cleanup closes owned resources.                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

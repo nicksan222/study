@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Attaches the Study RPC group to a dedicated Effect scope using the application’s   │
+ * │ shared service context. Closing the returned server shuts down the listener and active   │
+ * │ requests.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports ServeOptions, serve. Closing the returned server shuts down the listener and   │
+ * │   active requests.                                                                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses StudyRpc and serveRpc; the returned Effect scope owns the listener and active       │
+ * │ requests.                                                                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyRpc } from '@study/contracts/rpc';
 import { Effect, Exit, Layer, Scope } from 'effect';
 

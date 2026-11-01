@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Declares a versioned native Effect Workflow with typed payload, result, error, and │
+ * │ idempotency key. Version validation is performed before attaching the version to the     │
+ * │ workflow identity.                                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports defineWorkflow. Version validation is performed before attaching the version   │
+ * │   to the workflow identity.                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature modules use this typed declaration helper; it checks contracts but leaves domain │
+ * │ data and business policy in the feature.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { Schema } from 'effect';
 import * as Workflow from 'effect/workflow/Workflow';
 

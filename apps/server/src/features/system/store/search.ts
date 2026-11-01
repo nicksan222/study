@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Builds bounded SQLite full-text search across feature records and returns typed    │
+ * │ internal targets with passage anchors.                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature stores own SQLite access and map rows to typed contracts.                      │
+ * │ - Queries or mutates feature-owned database records.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Keeps SQL and schema mapping behind typed store operations.                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type {
   DocumentId,

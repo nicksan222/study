@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies title workflow checkpointing and rejects stale context or sessions        │
+ * │ renamed before publication.                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Tests the workflow against stale snapshots and concurrent user title changes.          │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';

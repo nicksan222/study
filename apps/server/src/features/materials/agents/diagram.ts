@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the agent that generates diagrams from selected source evidence.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Defines diagram format and payload output for the generation workflow.                 │
+ * │ - Supplies localized instructions and structured input and output schemas.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The shared agent platform owns model execution; this definition provides task schemas,   │
+ * │ prompts, and feature tools.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { materialDiagramContentInputSchema } from '@study/contracts/materials/schemas';
 

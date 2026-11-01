@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Tests typed workflow registration, event subscriptions, and native execution       │
+ * │ against SQLite-backed workflow infrastructure. Compile-time assertions check payload,    │
+ * │ result, error, and trigger compatibility.                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: registration retains native definition, derived version and independent       │
+ * │   subscriptions; registered subscriptions retain disabled events and recover native      │
+ * │   executions after reopen.                                                               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/definitions/define-workflow,    │
+ * │ #server/platform/definitions/define-workflow-handler with real SQLite and application    │
+ * │ resources; fixture cleanup closes owned resources.                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

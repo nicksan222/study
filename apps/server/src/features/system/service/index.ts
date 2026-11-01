@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Combines health and search stores with worker lifecycle controls for the system    │
+ * │ service.                                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature services own application rules and coordinate typed store operations.          │
+ * │ - Validates or coordinates feature-level operations.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses owned stores and platform transactions rather than querying SQLite directly.        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { searchInputSchema } from '@study/contracts/system/rpc';
 import { Effect } from 'effect';
 

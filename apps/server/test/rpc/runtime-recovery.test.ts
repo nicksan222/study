@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Makes a workflow dispatcher tick fail through a temporary SQLite trigger, then     │
+ * │ removes the failure and wakes the worker. The persisted source request must recover      │
+ * │ without restarting the application.                                                      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: a failed dispatcher tick recovers without restarting the application.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/runtime/index with real SQLite and application        │
+ * │ resources; fixture cleanup closes owned resources.                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

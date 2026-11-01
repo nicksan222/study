@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Registers durable learning workflows for grading and publishing completed learning │
+ * │ activity.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Connects grading and practice events to native durable workflow handlers.              │
+ * │ - Uses checkpoints and publication guards around durable state changes.                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Effect Workflow owns durable execution; the learning service owns domain writes          │
+ * │ performed by guarded activities.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { gradeOutputSchema } from '@study/contracts/ai/grade';
 import { failureSchema } from '@study/contracts/errors';
 import {

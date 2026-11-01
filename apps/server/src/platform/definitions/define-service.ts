@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Constructs an Effect service from dependency-aware operations and wraps each       │
+ * │ operation with error normalization and observability. The inferred service interface     │
+ * │ retains operation inputs and outputs.                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports defineService. The inferred service interface retains operation inputs and     │
+ * │   outputs.                                                                               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature modules use this typed declaration helper; it checks contracts but leaves domain │
+ * │ data and business policy in the feature.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { StudyError } from '@study/contracts/errors';
 import { Context, Effect, Layer } from 'effect';
 

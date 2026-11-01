@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises workflow execution listing, bounded public status, and persisted         │
+ * │ cancellation while workers stop and restart. It also checks invalid cursors and that     │
+ * │ payloads and owner tokens stay private.                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: native workflow RPC exposes bounded status and persists cancellation while    │
+ * │   the worker is stopped; workflow status distinguishes terminal failures and paginates   │
+ * │   without exposing checkpoints.                                                          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/runtime/index with real SQLite and application        │
+ * │ resources; fixture cleanup closes owned resources.                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

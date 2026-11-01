@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises bounded HTTP page fetching and streaming transport against local peers.  │
+ * │ Coverage checks redirects, size and time limits, cancellation, and typed                 │
+ * │ transport/status failures.                                                               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: HTTP transport failures preserve their private cause; HTTP redirects,         │
+ * │   response size, timeout and cancellation are bounded.                                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts ./index.ts against a local HTTP peer; the test owns and closes that peer.         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { strict as assert } from 'node:assert';
 import { createServer } from 'node:http';
 import { test } from 'node:test';

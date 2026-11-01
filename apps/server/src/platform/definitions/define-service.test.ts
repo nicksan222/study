@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies defineService preserves operation types and typed failures while          │
+ * │ normalizing thrown errors. Tests also cover lazy construction, dependency acquisition,   │
+ * │ cancellation, and instrumentation behavior.                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: service acquires dependencies and runs operations; service preserves typed    │
+ * │   failure identity and fields.                                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/definitions/define-service directly with node:test; no          │
+ * │ application or database fixture is involved.                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

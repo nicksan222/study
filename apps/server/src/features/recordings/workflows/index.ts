@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Implements durable recording-post activities that turn completed recordings into   │
+ * │ source and conversation content.                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature workflows own durable execution and scoped activity behavior.                  │
+ * │ - Coordinates workflow activities and publication outcomes.                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses feature services for state changes and platform workflow primitives for execution.  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import { recordingPostRequestedSchema } from '@study/contracts/events';
 import { messageIdSchema, sourceIdSchema } from '@study/contracts/ids';

@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises AI admission at the agent boundary with a local Responses API peer. It   │
+ * │ verifies queued calls defer preflight work and cancelled waiters never dispatch model    │
+ * │ requests.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: queued agents cannot preflight or dispatch until admitted and cancelled       │
+ * │   waiters never dispatch.                                                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts #server/platform/ai/agents, #server/platform/ai/providers/chatgpt/model,          │
+ * │ #server/platform/ai/providers/chatgpt/session against a local HTTP peer; the test owns   │
+ * │ and closes that peer.                                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';

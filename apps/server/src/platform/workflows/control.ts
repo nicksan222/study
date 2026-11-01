@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Provides application-owned workflow cancellation against the scoped native engine. │
+ * │ It validates typed cancellation input, resolves the persisted workflow definition, and   │
+ * │ maps engine failures to StudyError.                                                      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports WorkflowControl, cancelExecution. It validates typed cancellation input,       │
+ * │   resolves the persisted workflow definition, and maps engine failures to StudyError.    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Runtime exposes cancellation through WorkflowControl; this function resolves workflow    │
+ * │ identity from SQLite before engine interruption.                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
 import { Cause, Context, Effect, Schema } from 'effect';

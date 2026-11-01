@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks workflow RPC subscriptions emit an initial database snapshot and then       │
+ * │ reflect both hinted and unhinted commits. Scope shutdown must release both database      │
+ * │ listeners.                                                                               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: workflow subscription reseeds, follows <hinted ? 'commit hints' : 'unhinted   │
+ * │   commits'>, and releases its listener.                                                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/runtime/index with real SQLite and application        │
+ * │ resources; fixture cleanup closes owned resources.                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

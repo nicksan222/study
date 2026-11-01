@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists reply-generation state and its resulting assistant message.               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists pending reply context and the assistant message produced on completion.       │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the conversations service applies policy and    │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { reanswerInputSchema } from '@study/contracts/conversations/schemas';
 import {
   anchorSchema,

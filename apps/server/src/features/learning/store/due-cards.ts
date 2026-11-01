@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Selects cards eligible for review based on their scheduling state.                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Applies due-time and daily allowance conditions in the card query.                     │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { dueCardsInputSchema } from '@study/contracts/learning/rpc';
 import { and, asc, eq, gt, isNull, lte, or, sql } from '@study/db';
 import * as s from '@study/db/schema';

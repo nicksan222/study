@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates source persistence, decoding, processing requests, corrections, and    │
+ * │ publication transactions across source-owned stores.                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature services own application rules and coordinate typed store operations.          │
+ * │ - Validates or coordinates feature-level operations.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses owned stores and platform transactions rather than querying SQLite directly.        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';

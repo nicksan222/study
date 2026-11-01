@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies the native HTTP RPC endpoint preserves int64 IDs, bytes, settings, and    │
+ * │ typed failures, and enforces browser origins. The server uses the shared application     │
+ * │ database.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: native HTTP RPC preserves int64 IDs, bytes, typed failures and settings;      │
+ * │   native listener enforces browser origins and exposes the RPC endpoint.                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/runtime/index with real SQLite and application        │
+ * │ resources; fixture cleanup closes owned resources.                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createConnection } from 'node:net';

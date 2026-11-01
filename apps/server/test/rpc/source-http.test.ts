@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies the native Node RPC listener reaches source SQLite transactions,          │
+ * │ preserves typed lookup and revision failures, and commits workflow events. Closing the   │
+ * │ scoped listener releases its endpoint and rejects untrusted origins.                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: native scoped HTTP RPC reaches Source SQLite transactions and closes its      │
+ * │   listener.                                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/features/sources/rpc/index,                           │
+ * │ #server/features/sources/service/index with real SQLite and application resources;       │
+ * │ fixture cleanup closes owned resources.                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

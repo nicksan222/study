@@ -3,7 +3,17 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { lintFiles, root } from './utils.ts';
+import { header } from './file-description.ts';
+import { lintFiles as lintSources, root } from './utils.ts';
+
+// These fixtures exercise other policies; keep their module guides valid.
+const lintFiles: typeof lintSources = (files, ...options) =>
+  lintSources(
+    Object.fromEntries(
+      Object.entries(files).map(([name, source]) => [name, header + '\n\n' + source])
+    ),
+    ...options
+  );
 
 test('whole import type remains enforced by built-in rules without a boundary false positive', () => {
   const diagnostics = lintFiles({

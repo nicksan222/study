@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates and serializes theme files, coordinates catalog mutations, and maintains │
+ * │ selected-theme preferences transactionally.                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature services own application rules and coordinate typed store operations.          │
+ * │ - Validates or coordinates feature-level operations.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses owned stores and platform transactions rather than querying SQLite directly.        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { themePageInputSchema } from '@study/contracts/themes/rpc';
 import { parseTheme, serializeTheme } from '@study/theme';

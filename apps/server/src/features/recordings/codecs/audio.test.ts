@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks WAV encoding headers, PCM payload preservation, and invalid or oversized    │
+ * │ recording rejection.                                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises encodes signed PCM samples as 16 kHz mono 16-bit WAV.                        │
+ * │ - Checks focused behavior using the file’s test fixtures.                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Builds feature behavior through its service, store, RPC, or workflow test layer;         │
+ * │ fixtures stay local to these tests.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

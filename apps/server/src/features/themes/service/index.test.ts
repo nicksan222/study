@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks theme catalog paging, serialization, selection, and transactional mutation  │
+ * │ rules.                                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises themes catalog, mutations and selection preserve transactional rules.        │
+ * │ - Checks focused behavior using the file’s test fixtures.                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Builds feature behavior through its service, store, RPC, or workflow test layer;         │
+ * │ fixtures stay local to these tests.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

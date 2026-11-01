@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads a conversation’s ordered message history and associated source references.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Keeps message ordering and source references in the persistence read model.            │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the conversations service applies policy and    │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { conversationMessageSnapshotSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, PartId, SessionId } from '@study/contracts/ids';

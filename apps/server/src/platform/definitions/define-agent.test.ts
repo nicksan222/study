@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks that defineAgent retains its input schema and rejects invalid agent         │
+ * │ identifiers. This covers the declaration boundary used by feature-owned agents.          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: defineAgent preserves schemas and rejects invalid identifiers.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/definitions/define-agent directly with node:test; no            │
+ * │ application or database fixture is involved.                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

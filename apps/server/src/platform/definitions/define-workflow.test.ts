@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks that defineWorkflow preserves the versioned native workflow identity and    │
+ * │ its idempotency-key function.                                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: workflow retains versioned identity and native schemas.                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/definitions/define-workflow directly with node:test; no         │
+ * │ application or database fixture is involved.                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

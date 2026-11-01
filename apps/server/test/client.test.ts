@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises the scoped Study RPC client against a real application and HTTP server.  │
+ * │ It covers lazy endpoint discovery, project and settings operations, binary source data,  │
+ * │ theme operations, and typed validation failures.                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: scoped native client exchanges projects, settings, bytes and typed errors     │
+ * │   over HTTP.                                                                             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/runtime/index with real SQLite and application        │
+ * │ resources; fixture cleanup closes owned resources.                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

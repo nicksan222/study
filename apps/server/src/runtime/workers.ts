@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Runs the application’s durable workflow consumer in a restartable scoped runtime.  │
+ * │ Commit notifications accelerate polling, while each tick dispatches events, resumes      │
+ * │ configuration waits, and recovers persisted executions.                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports Workers. Commit notifications accelerate polling, while each tick dispatches   │
+ * │   events, resumes configuration waits, and recovers persisted executions.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses workflow platform services and ServerContext; App owns lifecycle transitions while  │
+ * │ this class owns the consumer scope.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
 import { Cause, Effect, Fiber, Queue, Semaphore } from 'effect';

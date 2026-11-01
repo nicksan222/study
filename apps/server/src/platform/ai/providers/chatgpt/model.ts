@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Adapts the signed-in ChatGPT plan to the AI SDK LanguageModelV3 interface. It      │
+ * │ supplies OAuth tokens, checks request preflight, and validates streamed Responses        │
+ * │ termination.                                                                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports ChatGptRequestError, ChatGptModel, withRequestCheck, ChatGptModelOptions,      │
+ * │   createChatGptModel. It supplies OAuth tokens, checks request preflight, and validates  │
+ * │   streamed Responses termination.                                                        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ ChatGptSession and model construction consume this provider API; OAuth transport uses    │
+ * │ platform/http and persisted credentials remain in Auth-owned storage.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModelV3StreamPart as ImportedLanguageModelV3StreamPart } from '@ai-sdk/provider';
 import type {

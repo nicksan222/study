@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates generated question specifications against supported question kinds and   │
+ * │ required fields.                                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Rejects unsupported kinds and malformed generated question counts.                     │
+ * │ - Rejects invalid values before downstream feature operations consume them.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ This materials validation boundary consumes canonical values; persistence and            │
+ * │ orchestration remain with feature services.                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type {
   materialGenerationInputSchema,

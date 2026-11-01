@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates execution queries with workflow controls and database change           │
+ * │ notifications for live execution subscriptions.                                          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature services own application rules and coordinate typed store operations.          │
+ * │ - Validates or coordinates feature-level operations.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses owned stores and platform transactions rather than querying SQLite directly.        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type {
   cancelExecutionInputSchema,
   executionsInputSchema

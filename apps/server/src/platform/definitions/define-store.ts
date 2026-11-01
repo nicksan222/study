@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines typed SQLite stores with schema-validated synchronous queries and          │
+ * │ mutations. It binds implementations to each ServerContext, requires transaction views    │
+ * │ for writes, and publishes workflow events through the commit guard.                      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports StoreResources, storeQuery, storeMutation, defineStore, Transaction, and       │
+ * │   related typed APIs. It binds implementations to each ServerContext, requires           │
+ * │   transaction views for writes, and publishes workflow events through the commit guard.  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature modules use this typed declaration helper; it checks contracts but leaves domain │
+ * │ data and business policy in the feature.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { types } from 'node:util';
 
 import { StudyError } from '@study/contracts/errors';

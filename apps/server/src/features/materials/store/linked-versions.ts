@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads and validates parent and input version relationships.                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks parent and input links against project, status, and material ownership.         │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { inputsInputSchema } from '@study/contracts/materials/rpc';
 import { and, asc, eq, gt } from '@study/db';
 import * as s from '@study/db/schema';

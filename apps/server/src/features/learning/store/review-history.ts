@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads the learner’s completed flashcard review history.                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Reads review outcomes used to present a learner’s study history.                       │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { reviewHistoryInputSchema } from '@study/contracts/learning/rpc';
 import { and, desc, eq, lt } from '@study/db';
 import * as s from '@study/db/schema';

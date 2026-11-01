@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Tests the native RPC handler builder across scoped construction, streaming and     │
+ * │ ordinary results, and error mapping. It verifies StudyError fields survive the wire      │
+ * │ boundary without losing handler dependencies.                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: maps StudyError through native RPC without losing retryAfterMs; handler       │
+ * │   creation is lazy and scoped, and operations retain their dependencies.                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/definitions/define-rpc directly with node:test; no application  │
+ * │ or database fixture is involved.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

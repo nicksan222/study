@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks generation rejects mismatched event identity before provider access and     │
+ * │ publishes each material kind with captured evidence and replayable receipts.             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses provider stubs to verify identity checks precede generation and publication.      │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

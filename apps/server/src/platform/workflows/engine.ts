@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Implements the native Effect WorkflowEngine over SQLite-backed durable             │
+ * │ checkpoints. It manages execution lifetimes and leases, persists activity results, and   │
+ * │ recovers registered workflow executions.                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports workflowEngineLayer, recoverWorkflowEngine. It manages execution lifetimes and │
+ * │   leases, persists activity results, and recovers registered workflow executions.        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Implements Effect WorkflowEngine over workflowStore and ServerContext; SQLite            │
+ * │ checkpoints survive engine scopes and process restarts.                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';

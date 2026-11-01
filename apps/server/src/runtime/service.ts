@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Owns the database, authentication manager, native service runtime, and workflow    │
+ * │ consumer for one application instance. Acquisition and shutdown are scoped so dependents │
+ * │ close before SQLite.                                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports App. Acquisition and shutdown are scoped so dependents close before SQLite.    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Owns shared database and service lifetime; HTTP and worker scopes close before App       │
+ * │ releases authentication and SQLite.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 

@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises workflow event trigger graph validation and transactional dispatch.      │
+ * │ Tests cover cycle rejection, durable receipts, disabled subscriptions, rollback, and     │
+ * │ reenabled policies.                                                                      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: automatic trigger cycles are rejected; dispatch commits bounded executions    │
+ * │   and receipts and survives reopening.                                                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/workflows/engine,               │
+ * │ #server/platform/workflows/events with real SQLite and application resources; fixture    │
+ * │ cleanup closes owned resources.                                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

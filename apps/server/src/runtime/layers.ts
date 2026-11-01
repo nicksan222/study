@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Builds asynchronous managed runtimes for shared native services and per-start      │
+ * │ workflow scopes. runNative is the synchronous application boundary for promise-based     │
+ * │ host operations.                                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports createNativeRuntime, createWorkflowRuntime, runNative. RunNative is the        │
+ * │   synchronous application boundary for promise-based host operations.                    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Builds runtimes from nativeLayers; managed scopes own async resources and each worker    │
+ * │ start receives a fresh workflow scope.                                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { Effect } from 'effect';
 import { Layer, ManagedRuntime } from 'effect';
 

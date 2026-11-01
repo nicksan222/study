@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies the AI concurrency gate’s capacity, interruption, release, and metric     │
+ * │ behavior. These tests cover both direct use and reuse through an Effect layer.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts the concurrency cap, cancellation before dispatch, permit release, stream      │
+ * │   cleanup, and active-work metrics.                                                      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes makeAdmission directly with Effect fibers and streams; this unit test needs no   │
+ * │ SQLite or provider fixture.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

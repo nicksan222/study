@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Deletes an unpublished draft version while preserving published material history.  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Restricts deletion to drafts so published version history stays durable.               │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { deleteDraftInputSchema } from '@study/contracts/materials/rpc';
 

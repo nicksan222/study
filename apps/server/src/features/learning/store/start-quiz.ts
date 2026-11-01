@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Creates a quiz attempt and initializes its question state.                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Creates attempt snapshots that remain stable during subsequent grading.                │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { startQuizInputSchema } from '@study/contracts/learning/rpc';
 import * as s from '@study/db/schema';
 

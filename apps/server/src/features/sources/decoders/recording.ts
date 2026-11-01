@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates imported WAV metadata, PCM format, payload length, and duration before   │
+ * │ recording ingestion.                                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Source decoders convert bounded input bytes into canonical document data.              │
+ * │ - Validates format input and constructs decoded content.                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Does not choose ingestion policy or persist source state.                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 
 export function validateRecordingImport(input: {

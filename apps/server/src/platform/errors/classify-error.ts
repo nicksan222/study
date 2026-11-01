@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Classifies database and system exceptions into public Failure kinds and normalizes │
+ * │ them to StudyError at synchronous boundaries. Unknown exception messages stay private    │
+ * │ while the original cause is retained.                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports classifyError, normalizeError. Unknown exception messages stay private while   │
+ * │   the original cause is retained.                                                        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Server service boundaries normalize failures here; callers expose ErrorKind while        │
+ * │ preserving raw exceptions only as private causes.                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { Failure } from '@study/contracts/errors';
 import { DrizzleQueryError } from '@study/db';

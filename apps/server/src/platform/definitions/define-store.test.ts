@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises schema-checked store queries and mutations against real SQLite contexts. │
+ * │ It verifies per-database binding, transaction-only mutation views, and typed operation   │
+ * │ behavior.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: a store binds resources once per application without sharing database         │
+ * │   handles; store runs decoded operations on the real database and rejects leaked         │
+ * │   transaction views.                                                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/database/database,              │
+ * │ #server/platform/definitions/define-store with real SQLite and application resources;    │
+ * │ fixture cleanup closes owned resources.                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

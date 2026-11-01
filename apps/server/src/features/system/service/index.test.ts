@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks health response shape and search input schema bounds.                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises health reports the lifecycle state in the canonical health shape.            │
+ * │ - Checks focused behavior using the file’s test fixtures.                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Builds feature behavior through its service, store, RPC, or workflow test layer;         │
+ * │ fixtures stay local to these tests.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

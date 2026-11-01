@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Manages a ChatGPT account’s private OAuth session and access-token lifecycle.      │
+ * │ Concurrent refresh is shared, rotated credentials are persisted before access is         │
+ * │ returned, and replaced sessions are invalidated.                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports Account, AuthOptions, AccessSeed, AuthManager. Concurrent refresh is shared,   │
+ * │   rotated credentials are persisted before access is returned, and replaced sessions are │
+ * │   invalidated.                                                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ ChatGptSession and model construction consume this provider API; OAuth transport uses    │
+ * │ platform/http and persisted credentials remain in Auth-owned storage.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { Clock, Effect, Schema } from 'effect';
 

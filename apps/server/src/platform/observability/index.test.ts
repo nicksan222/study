@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies operation instrumentation filters log metadata and records completion,    │
+ * │ duration, and active-work metrics. Tests ensure private values and ambient identifiers   │
+ * │ do not leak into telemetry.                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: only approved scalar operation metadata reaches the log sink; operation logs  │
+ * │   inherit only allowed annotations and carry a span.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/observability/index directly with node:test; no application or  │
+ * │ database fixture is involved.                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 

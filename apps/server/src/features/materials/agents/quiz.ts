@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the agent that generates quiz questions from selected source evidence.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Produces typed quiz content that is checked against question specifications.           │
+ * │ - Supplies localized instructions and structured input and output schemas.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The shared agent platform owns model execution; this definition provides task schemas,   │
+ * │ prompts, and feature tools.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { materialQuizContentInputSchema } from '@study/contracts/materials/schemas';
 

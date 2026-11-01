@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Binds the settings RPC contract to the settings service methods.                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - RPC handlers adapt declared schemas to the owning feature service; transport wiring    │
+ * │   stays here.                                                                            │
+ * │ - Maps declared operations to the feature service.                                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Leaves input validation and domain behavior to contracts and service.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { SettingsRpc } from '@study/contracts/settings/rpc';
 import { Effect } from 'effect';
 

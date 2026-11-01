@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Encodes and decodes canonical workflow events and persists them inside the         │
+ * │ caller’s active SQLite transaction. Event rows act as durable work records for later     │
+ * │ trigger dispatch.                                                                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports encodeEvent, decodeEvent, emitEvent. Event rows act as durable work records    │
+ * │   for later trigger dispatch.                                                            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses canonical WorkflowEvent schemas and the caller’s active ServerContext transaction;  │
+ * │ the worker later dispatches persisted events.                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { workflowEventSchema } from '@study/contracts/events';
 import type { WorkflowEvent } from '@study/contracts/events';
 import { workflowEvents } from '@study/db/schema';

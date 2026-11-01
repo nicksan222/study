@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Maps the browser-safe authentication RPC requests to the auth service operations.  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Keeps wire request names and typed payloads aligned with auth service methods.         │
+ * │ - Preserves the public contract while delegating domain behavior to the service.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ RPC schemas come from @study/contracts; domain decisions and persistence remain owned by │
+ * │ the auth service.                                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { AuthRpc } from '@study/contracts/auth/rpc';
 import { Effect } from 'effect';
 

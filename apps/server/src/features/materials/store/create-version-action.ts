@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Creates a new material version with its validated input and parent links.          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks version kind and links before inserting the draft version.                      │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { createVersionInputSchema } from '@study/contracts/materials/rpc';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Adapts an Effect schema to the Standard Schema interface used by AI SDK tools and  │
+ * │ outputs. The adapter preserves the corresponding JSON Schema for provider requests.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports standardSchema. It combines Standard Schema validation with the JSON Schema    │
+ * │   generated from the same Effect schema.                                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ AI SDK tool and output adapters call this conversion; Effect schemas remain the          │
+ * │ canonical validation definitions.                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { Schema } from 'effect';
 
 /** Expose the same Effect schema for validation and JSON Schema generation. */

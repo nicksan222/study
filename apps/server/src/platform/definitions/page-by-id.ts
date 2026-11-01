@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Pages a descending ID query with one-row lookahead when the requested page is      │
+ * │ full. The returned cursor marks the last included item only when another row exists.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports pageById. The returned cursor marks the last included item only when another   │
+ * │   row exists.                                                                            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature modules use this typed declaration helper; it checks contracts but leaves domain │
+ * │ data and business policy in the feature.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { Effect } from 'effect';
 
 /** Preserve ID-based paging with a one-row lookahead only when the page is full. */

@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies guarded conversation publication validates captured citations and replays │
+ * │ its receipt without repeating writes.                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks publication guard receipts against citations and persisted conversation state.  │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

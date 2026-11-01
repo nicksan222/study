@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises validated agent generation and streaming against a local Responses API   │
+ * │ peer. Coverage includes structured output, tool calls, provider failures, and            │
+ * │ cancellation behavior.                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: generates validated output through the Responses provider; rejects malformed  │
+ * │   structured output.                                                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts #server/platform/ai/agents, #server/platform/ai/providers/chatgpt/model,          │
+ * │ #server/platform/ai/providers/chatgpt/session against a local HTTP peer; the test owns   │
+ * │ and closes that peer.                                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';

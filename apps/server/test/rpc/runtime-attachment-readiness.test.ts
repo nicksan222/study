@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises an HTTP conversation reply with a source still downloading. It verifies  │
+ * │ the registered attachment wake resumes the durable reply into its later authentication   │
+ * │ wait.                                                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: HTTP attachment replies wake through registered source subscriptions before   │
+ * │   waiting for authentication.                                                            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/features/conversations/index, #server/runtime/index   │
+ * │ with real SQLite and application resources; fixture cleanup closes owned resources.      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies workflow leases, due clocks, and durable sleeps follow Effect’s           │
+ * │ controllable test clock. SQLite deadlines and recovery behavior are checked at explicit  │
+ * │ clock advances.                                                                          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: SQLite workflow leases and due clocks follow the native test clock; native    │
+ * │   durable sleep persists and fires at the controlled deadline.                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/workflows/store with real       │
+ * │ SQLite and application resources; fixture cleanup closes owned resources.                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

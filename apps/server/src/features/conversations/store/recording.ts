@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Stores and retrieves conversation recording state and captured content.            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Owns persisted recording state used by capture and publication operations.             │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the conversations service applies policy and    │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';

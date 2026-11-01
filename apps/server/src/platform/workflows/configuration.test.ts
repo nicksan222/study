@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies configuration waits persist across SQLite reopen and retry only after the │
+ * │ opaque configuration revision changes. It also exercises changes racing with failures    │
+ * │ and cancellation of waiting executions.                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: configuration waits survive reopening and retry only when the fingerprint     │
+ * │   changes; configuration changes during a failed call are retained, and cancelled waits  │
+ * │   never retry.                                                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/database/database,              │
+ * │ #server/platform/workflows/configuration with real SQLite and application resources;     │
+ * │ fixture cleanup closes owned resources.                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

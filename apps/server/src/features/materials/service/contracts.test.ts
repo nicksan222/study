@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks source-backed material content uses the canonical public source shape and   │
+ * │ that the native RPC request names cover the public materials API.                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses canonical contract schemas and RPC definitions to catch public shape drift.       │
+ * │ - Uses database fixtures to verify service-visible invariants and failures.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses real SQLite fixtures and service dependencies; domain state remains owned │
+ * │ by the feature implementation.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

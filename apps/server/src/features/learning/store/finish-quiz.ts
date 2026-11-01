@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Finalizes a quiz attempt and persists its completion state.                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Commits quiz completion and derived attempt state through typed mutations.             │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { attemptInputSchema } from '@study/contracts/learning/rpc';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';

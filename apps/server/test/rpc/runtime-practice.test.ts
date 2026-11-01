@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises HTTP practice generation across normal, invalid-model, archived-request, │
+ * │ and exhausted-transient scenarios. It verifies recovery and replenishment stop once the  │
+ * │ practice request is no longer eligible.                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: HTTP practice <mode> recovers, replenishes and stops without further provider │
+ * │   work.                                                                                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/features/auth/store/index,                            │
+ * │ #server/platform/ai/auth/persistence with real SQLite and application resources; fixture │
+ * │ cleanup closes owned resources.                                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';

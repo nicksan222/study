@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies the web RPC adapter round-trips unary values, typed failures, bigint IDs, │
+ * │ and bytes over HTTP. Closing a client scope cancels its streaming handler, and           │
+ * │ disallowed origins are rejected.                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: serves unary values, typed failures and binary codecs over HTTP; cancels a    │
+ * │   streaming handler when its client scope closes.                                        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts #server/client/index, #server/platform/rpc/index against a local HTTP peer; the   │
+ * │ test owns and closes that peer.                                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';

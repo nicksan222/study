@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Covers SQLite invariants for material versions, links, citations, and membership;  │
+ * │ RPC failure mapping; source-revision retention; and generation snapshots, idempotency,   │
+ * │ rollback, scope fencing, and retries.                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses real SQLite state to verify linked-version integrity and generation retries.      │
+ * │ - Uses database fixtures to verify service-visible invariants and failures.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses real SQLite fixtures and service dependencies; domain state remains owned │
+ * │ by the feature implementation.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

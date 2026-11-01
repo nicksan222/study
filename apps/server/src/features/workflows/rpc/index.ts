@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Binds workflow execution lookup, listing, subscription, and cancellation RPCs to   │
+ * │ the workflow service.                                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - RPC handlers adapt declared schemas to the owning feature service; transport wiring    │
+ * │   stays here.                                                                            │
+ * │ - Maps declared operations to the feature service.                                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Leaves input validation and domain behavior to contracts and service.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { WorkflowsRpc } from '@study/contracts/workflows/rpc';
 import { Effect, Stream } from 'effect';
 

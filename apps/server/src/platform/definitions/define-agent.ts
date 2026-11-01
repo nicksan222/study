@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines typed feature agent declarations, including their input and output         │
+ * │ schemas, model tier, prompt, tools, and source-search environment. defineAgent validates │
+ * │ the stable identifier while preserving the declaration’s inferred types.                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports CitationEvidence, AgentEnvironment, AgentTool, AgentDefinition, defineAgent.   │
+ * │   DefineAgent validates the stable identifier while preserving the declaration’s         │
+ * │   inferred types.                                                                        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature modules use this typed declaration helper; it checks contracts but leaves domain │
+ * │ data and business policy in the feature.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { sourceEvidenceSchema } from '@study/contracts/ai/sources';
 import type { StudyError } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';

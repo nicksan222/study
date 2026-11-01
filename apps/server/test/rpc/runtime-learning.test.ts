@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises open-answer grading over RPC while signed out or with sharing disabled.  │
+ * │ The grading workflow waits durably, and a manual grade remains authoritative when the    │
+ * │ quiz is finished.                                                                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: an RPC open answer waits durably when <accountState> and keeps a manual       │
+ * │   grade.                                                                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/features/auth/store/index,                            │
+ * │ #server/platform/ai/auth/index with real SQLite and application resources; fixture       │
+ * │ cleanup closes owned resources.                                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Owns one SQLite connection, synchronous transactions, and post-commit change hints │
+ * │ for server services. Subscribers are notified only after successful outer transactions   │
+ * │ and must reread persisted state.                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports ServerContext. Subscribers are notified only after successful outer            │
+ * │   transactions and must reread persisted state.                                          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Db owns the SQLite connection; ServerContext owns synchronous transaction nesting and    │
+ * │ emits hints only after outer commits.                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { types } from 'node:util';
 
 import { StudyError } from '@study/contracts/errors';

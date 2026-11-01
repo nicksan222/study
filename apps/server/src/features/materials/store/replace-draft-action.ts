@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Replaces the content of an existing unpublished material draft.                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Replaces draft payloads while preserving published version records.                    │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { replaceDraftInputSchema } from '@study/contracts/materials/rpc';
 

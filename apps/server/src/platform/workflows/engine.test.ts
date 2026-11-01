@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises durable native workflow execution, deferred delivery, activity replay,   │
+ * │ suspension, and SQLite reopening. The tests check duplicate wake delivery does not rerun │
+ * │ completed activity work.                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: duplicate deferred delivery does not restart an activity after the wait has   │
+ * │   completed; replays a completed native activity after suspension and reopening SQLite.  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/workflows/engine,               │
+ * │ #server/platform/workflows/store with real SQLite and application resources; fixture     │
+ * │ cleanup closes owned resources.                                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

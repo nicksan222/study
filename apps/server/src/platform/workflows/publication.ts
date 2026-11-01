@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Provides a publication guard captured from the current activity lease. Store       │
+ * │ publication checks database identity, active execution state, and lease ownership        │
+ * │ synchronously in the transaction.                                                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports PublicationGuard, withPublicationGuard. Store publication checks database      │
+ * │   identity, active execution state, and lease ownership synchronously in the             │
+ * │   transaction.                                                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature store mutations supply publication transactions; workflowStore checks SQLite     │
+ * │ lease ownership in the same transaction.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { Context, Effect } from 'effect';
 

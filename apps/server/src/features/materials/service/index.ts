@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates material creation, versioning, links, citations, and generation        │
+ * │ through feature-owned stores.                                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Owns public material behavior and coordinates private persistence with workflows.      │
+ * │ - Coordinates typed failures and persistence effects for feature callers.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ This is the materials feature boundary for RPC and workflow callers; store               │
+ * │ implementations stay private to the service.                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import type { ErrorKind } from '@study/contracts/errors';

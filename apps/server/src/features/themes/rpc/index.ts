@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Binds the themes RPC contract to catalog, import/export, persistence, and          │
+ * │ selection service operations.                                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - RPC handlers adapt declared schemas to the owning feature service; transport wiring    │
+ * │   stays here.                                                                            │
+ * │ - Maps declared operations to the feature service.                                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Leaves input validation and domain behavior to contracts and service.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { ThemesRpc } from '@study/contracts/themes/rpc';
 import { Effect } from 'effect';
 

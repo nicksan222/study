@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the vision transcription agent contract and instructions for ordered,      │
+ * │ structured page transcription.                                                           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature agent definitions specify model-facing task behavior and schemas.              │
+ * │ - Provides structured instructions and typed input/output.                               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Workflow callers own invocation and validate or publish returned results.                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   visionTranscriptionInputSchema,
   visionTranscriptionOutputSchema

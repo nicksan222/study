@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Creates and corrects sources through HTTP while the durable worker is stopped or   │
+ * │ running. Reopening the application must recover pending requests and publish corrected   │
+ * │ document content.                                                                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: runtime consumes source requests made over HTTP and recovers pending requests │
+ * │   on reopen; running worker processes a source created through HTTP.                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/features/sources/index, #server/runtime/index with    │
+ * │ real SQLite and application resources; fixture cleanup closes owned resources.           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

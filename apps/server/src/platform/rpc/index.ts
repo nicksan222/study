@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Composes native Effect HTTP RPC routes with NDJSON serialization and allowed-      │
+ * │ origin policy. It exposes both a web handler with explicit disposal and shared route     │
+ * │ construction.                                                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports desktopOrigins, RpcServerOptions, rpcRoutes, createRpcWebHandler. It exposes   │
+ * │   both a web handler with explicit disposal and shared route construction.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Runtime/server mounts these routes using canonical RPC contracts; caller Effect scopes   │
+ * │ own the listener and in-flight requests.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { Layer } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { RpcServer, RpcSerialization } from 'effect/rpc';

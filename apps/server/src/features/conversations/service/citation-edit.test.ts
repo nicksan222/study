@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies edits retain and renumber surviving citation evidence while leaving       │
+ * │ historical message versions unchanged.                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts citation anchors survive edits and prior message versions remain immutable.    │
+ * │ - Uses database fixtures to verify service-visible invariants and failures.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses real SQLite fixtures and service dependencies; domain state remains owned │
+ * │ by the feature implementation.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

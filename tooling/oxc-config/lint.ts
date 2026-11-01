@@ -117,6 +117,7 @@ export const lint = {
     'study/no-error-message-matching': 'error',
     'study/preserve-error-cause': 'error',
 
+    'study/server-file-description': 'error',
     'study/server-no-mocks': 'error',
     'study/effect-native-combinators': 'error',
     'study/effect-v4-api': 'error',

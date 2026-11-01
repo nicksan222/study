@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks source decoder behavior for text and PDF inputs, including document block   │
+ * │ anchors.                                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises text decoding preserves UTF-8 byte anchors and markdown fences.              │
+ * │ - Checks focused behavior using the file’s test fixtures.                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Calls decoder modules directly and keeps ingestion workflows outside these focused       │
+ * │ format tests.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';

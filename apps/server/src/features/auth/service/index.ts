@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Implements sign-in lifecycle, persisted account state, cancellation, refresh       │
+ * │ rotation, and sign-out coordination.                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Fences concurrent account transitions and cleans up scoped sign-in listeners.          │
+ * │ - Coordinates typed failures and persistence effects for feature callers.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ This is the auth feature boundary for RPC and workflow callers; store implementations    │
+ * │ stay private to the service.                                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';

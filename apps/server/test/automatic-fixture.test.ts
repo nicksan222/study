@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Runs isolated child-process scenarios to verify automatic server test fixtures     │
+ * │ clean SQLite files and directories after success, failures, retries, and concurrent      │
+ * │ tests.                                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Spawns automatic-fixture-scenario.ts in child Node test processes for success,         │
+ * │   failure, retry, cleanup, and concurrency modes. It asserts fixture files and           │
+ * │   directories are removed.                                                               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Launches the scenario with the testing preload and STUDY_TEST_SCENARIO; the child emits  │
+ * │ paths that this parent test checks after exit.                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';

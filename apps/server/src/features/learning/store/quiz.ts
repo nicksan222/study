@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads and updates quiz definitions and active quiz state.                          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Provides quiz reads and attempt-level state mutations to learning services.            │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId, QuizAttemptId } from '@study/contracts/ids';
 import type { QuizQuestionId, QuizChoiceId } from '@study/contracts/ids';

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Covers private account persistence, atomic refresh rotation, concurrent sign-in    │
+ * │ rejection, listener cleanup on cancel or scope close, and rollback when sign-out         │
+ * │ persistence fails.                                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses a test database and managed auth session to assert rollback and cleanup behavior. │
+ * │ - Uses database fixtures to verify service-visible invariants and failures.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses real SQLite fixtures and service dependencies; domain state remains owned │
+ * │ by the feature implementation.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

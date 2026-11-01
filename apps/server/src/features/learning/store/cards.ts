@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Queries and mutates learning flashcard records.                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Stores flashcard content and review scheduling fields for learning operations.         │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId, MaterialCardId } from '@study/contracts/ids';
 import { and, eq } from '@study/db';

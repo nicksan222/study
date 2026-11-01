@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines bounded observability helpers for operation and AI metrics, tracing, and   │
+ * │ safe log metadata. Metric labels and log fields are explicitly allowlisted to avoid      │
+ * │ recording payloads or secrets.                                                           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports safeMetricLabels, recordAiAdmission, observeActiveAi, recordAiRetry,           │
+ * │   recordConfigurationWait, and related typed APIs. Metric labels and log fields are      │
+ * │   explicitly allowlisted to avoid recording payloads or secrets.                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Runtime and platform operations call these instrumentation functions; labels and         │
+ * │ metadata are allowlisted before recording.                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { errorKindSchema } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import { llmSettingsSchema } from '@study/contracts/settings/schemas';

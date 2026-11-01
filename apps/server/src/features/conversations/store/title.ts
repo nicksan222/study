@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists generated or user-edited conversation titles.                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Stores title request state and the accepted session title.                             │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the conversations service applies policy and    │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   publishTitleInputSchema,
   titleRequestSchema,

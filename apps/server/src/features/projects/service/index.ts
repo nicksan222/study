@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Implements project operations over the project store, validating names and exam    │
+ * │ dates and committing mutations transactionally.                                          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature services own application rules and coordinate typed store operations.          │
+ * │ - Validates or coordinates feature-level operations.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses owned stores and platform transactions rather than querying SQLite directly.        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type {
   projectPageInputSchema,

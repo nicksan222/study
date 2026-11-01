@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads supported Office archive documents and converts their structured text and    │
+ * │ tables into canonical document blocks.                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Source decoders convert bounded input bytes into canonical document data.              │
+ * │ - Validates format input and constructs decoded content.                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Does not choose ingestion policy or persist source state.                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { posix } from 'node:path';
 
 import { StudyError } from '@study/contracts/errors';

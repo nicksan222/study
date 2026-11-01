@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Serves native Effect RPC on a loopback Node HTTP listener. The returned Effect     │
+ * │ scope owns the server and active requests, with CORS origin checks applied before        │
+ * │ dispatch.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports serveRpc. The returned Effect scope owns the server and active requests, with  │
+ * │   CORS origin checks applied before dispatch.                                            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Runtime/server mounts these routes using canonical RPC contracts; caller Effect scopes   │
+ * │ own the listener and in-flight requests.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createServer } from 'node:http';
 
 import { NodeHttpServer } from '@effect/platform-node';

@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies captured question specifications enforce the requested question count and │
+ * │ selected question kind.                                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks captured specifications at the decoder boundary without invoking generation.    │
+ * │ - Covers malformed and boundary values without invoking provider behavior.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite exercises the decoder boundary directly; it does not depend on database or     │
+ * │ provider behavior.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises the ChatGPT Responses model adapter against a local HTTP peer. It checks │
+ * │ OAuth token rotation after authorization failure and consumption of the streamed         │
+ * │ response.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: Responses adapter retries 401 with rotated OAuth token and consumes SSE.      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts #server/features/conversations/agents/title, #server/platform/ai/agents,          │
+ * │ #server/platform/ai/providers/chatgpt/model against a local HTTP peer; the test owns and │
+ * │ closes that peer.                                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
