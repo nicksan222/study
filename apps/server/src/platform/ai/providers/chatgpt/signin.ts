@@ -291,8 +291,6 @@ function signInResult(
     throw new Error('Invalid sign-in token response');
   }
 
-  if (!tokens || typeof tokens !== 'object') throw new Error('Invalid sign-in token response');
-
   const claims = readIdClaims(tokens.id_token);
 
   assertIdClaims(claims, options, clientId, nonce);
@@ -324,8 +322,6 @@ function readIdClaims(idToken: string | undefined) {
   } catch {
     throw new Error('Invalid ID token');
   }
-
-  if (!claims || typeof claims !== 'object') throw new Error('Invalid ID token');
 
   return claims;
 }

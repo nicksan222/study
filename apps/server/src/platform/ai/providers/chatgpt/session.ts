@@ -292,7 +292,5 @@ function readRefreshTokens(bytes: Uint8Array) {
     throw new Error('Invalid ChatGPT token response');
   }
 
-  if (!tokens || typeof tokens !== 'object') throw new Error('Invalid ChatGPT token response');
-
   return tokens;
 }
