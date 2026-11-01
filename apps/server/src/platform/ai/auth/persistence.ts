@@ -13,7 +13,9 @@ const accountSchema = Schema.Struct({
 /** Validate private credentials read from the preferences database. */
 export const decodeAccount = Schema.decodeUnknownSync(accountSchema);
 
+const encode = Schema.encodeSync(accountSchema);
+
 /** Return a JSON-compatible copy of the private credentials. */
 export function encodeAccount(account: Account): Schema.Json {
-  return Schema.encodeSync(accountSchema)(account);
+  return encode(account);
 }
