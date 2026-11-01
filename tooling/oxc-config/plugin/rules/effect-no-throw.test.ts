@@ -63,3 +63,19 @@ test('enforces the Effect contract in browser operations', () => {
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('keeps typed failures in native untraced generators', () => {
+  assertDiagnostics(
+    'effect-no-throw',
+    lintRule('effect-no-throw', {
+      'src/bad.ts':
+        "import {Effect as E} from 'effect'; import {StudyError as Failure} from '@study/contracts/errors'; E.fnUntraced(function* () { throw new Failure('internal', 'bad'); }); E.fnUntracedEager(function* () { throw new Failure('internal', 'bad'); });",
+      'src/good.ts':
+        "import {Effect as E} from 'effect'; import {StudyError} from '@study/contracts/errors'; E.fnUntraced(function* () { yield* E.fail(new StudyError('internal', 'bad')); }); E.fnUntraced(function* () { function nested() { throw new StudyError('internal', 'sync'); } throw new Error('defect'); }); function f(E: any) { E.fnUntraced(function* () { throw new StudyError('internal', 'sync'); }); }"
+    }),
+    [
+      ['src/bad.ts', message],
+      ['src/bad.ts', message]
+    ]
+  );
+});
