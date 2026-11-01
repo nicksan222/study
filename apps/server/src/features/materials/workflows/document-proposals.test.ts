@@ -139,6 +139,45 @@ function undoAppliedProposal(
     assert.equal(cited.evidence?.availability, 'available');
 
     assert.deepEqual(applied.parents, [setup.target.version.id]);
+    if (!cited.target || cited.evidence?.availability !== 'available')
+      throw new Error('Expected exact proposal citation');
+    const claimBlock = applied.content.blocks[0]!;
+    const claimEvidence = yield* materials.resolveEvidence({
+      kind: 'anchor',
+      versionId: applied.id,
+      anchor: { type: 'authored' },
+      quote: ''
+    });
+
+    if (
+      claimEvidence.availability !== 'available' ||
+      claimEvidence.revision.inputDocumentId === null
+    )
+      throw new Error('Expected retained applied Document');
+    const assessed = yield* materials.assessCitation({
+      claim: {
+        materialId: applied.material_id,
+        range: {
+          versionId: applied.id,
+          documentId: claimEvidence.revision.inputDocumentId,
+          blockId: claimBlock.id,
+          start: 0,
+          end: claimBlock.text.length
+        }
+      },
+      evidence: { materialId: cited.evidence.materialId, range: cited.target },
+      marker: 1n,
+      judgment: 'uncertain',
+      note: 'Manual judgment on the applied revision'
+    });
+
+    assert.notEqual(assessed.state, 'unassessed');
+    if (assessed.state !== 'unassessed') {
+      assert.equal(assessed.claim.availability, 'available');
+      assert.equal(assessed.evidence.availability, 'available');
+      assert.equal(assessed.assessment.suppliedBy, 'user');
+      assert.equal(assessed.assessment.independentVerification, false);
+    }
 
     const value = {
       materialId: setup.target.id,
@@ -166,6 +205,14 @@ function undoAppliedProposal(
         assert.equal(historical.excerpt?.includes(cited.quote), true);
     }
 
+    const historicSupport = yield* materials.citationSupport({ versionId: applied.id, marker: 1n });
+
+    assert.equal(historicSupport.state, 'stale');
+    if (historicSupport.state !== 'unassessed' && assessed.state !== 'unassessed') {
+      assert.ok(historicSupport.reasons.includes('claim_changed'));
+      assert.deepEqual(historicSupport.assessment, assessed.assessment);
+      assert.equal(historicSupport.evidence.availability, 'available');
+    }
     assert.equal((yield* materials.undoDocument(value)).replayed, true);
   });
 }
@@ -508,6 +555,14 @@ for (const scenario of [
           assert.equal(f.context.db.orm.select().from(s.materials).all().length, 4);
 
           yield* undoAppliedProposal(setup, proposalId, result.resultVersionId);
+          assert.equal(
+            (yield* materials.citationSupport({ versionId: independent.id, marker: 1n })).state,
+            'unassessed'
+          );
+          assert.equal(
+            (yield* materials.citationSupport({ versionId: proposalId, marker: 1n })).state,
+            'unassessed'
+          );
 
           return {
             independentId: independent.id,
@@ -535,6 +590,19 @@ for (const scenario of [
             outcomes.independentId
           );
 
+          if (outcomes.resultVersionId !== null)
+            assert.equal(
+              (yield* materials.citationSupport({
+                versionId: outcomes.resultVersionId,
+                marker: 1n
+              })).state,
+              'stale'
+            );
+          assert.equal(
+            (yield* materials.citationSupport({ versionId: outcomes.independentId, marker: 1n }))
+              .state,
+            'unassessed'
+          );
           yield* chats.deleteSession(setup.session.id);
 
           assert.equal(

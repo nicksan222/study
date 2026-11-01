@@ -729,6 +729,197 @@ test('selected image blocks retain exact asset revisions while ranges expose onl
   }
 });
 
+test('retained legacy and attachment citations keep bounded precision; wrong exact identities never use latest content', async () => {
+  const location = createTestDatabase();
+  let context = new ServerContext(location.open());
+  const handlers = () =>
+    ConversationsRpcLive.pipe(
+      Layer.provideMerge(Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer)),
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+  try {
+    const retained = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const rpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+          const materials = yield* Materials;
+          const session = yield* rpc('conversations.createSession', { title: 'Historic shapes' });
+          const body = content('Same words in distinct documents');
+          const material = yield* materials.create({
+            title: 'Published',
+            content: body,
+            publish: true
+          });
+          const latest = yield* materials.createVersion({
+            materialId: material.id,
+            content: content(body.blocks[0]!.text),
+            publish: true
+          });
+          const draft = yield* materials.createVersion({
+            materialId: material.id,
+            content: body,
+            publish: false
+          });
+          const documentId = context.db.orm
+            .select()
+            .from(s.material_document_versions)
+            .where(eq(s.material_document_versions.version_id, material.version.id))
+            .get()!.document_id;
+          const latestDocumentId = context.db.orm
+            .select()
+            .from(s.material_document_versions)
+            .where(eq(s.material_document_versions.version_id, latest.id))
+            .get()!.document_id;
+          const source = yield* (yield* Sources).createSource({
+            projectId: null,
+            name: 'attachment.txt',
+            bytes: new TextEncoder().encode('Retained attachment')
+          });
+          const message = yield* rpc('conversations.postMessage', {
+            sessionId: session.id,
+            text: 'Legacy [1], mismatch [2], unpublished [3], attachment [4]'
+          });
+          const anchor = { type: 'text' as const, lineStart: 4, lineEnd: 4, start: 100, end: 140 };
+          const base = {
+            version_id: message.activeVersionId!,
+            source_id: null,
+            material_version_id: material.version.id,
+            document_id: null,
+            block_id: null,
+            range_start: null,
+            range_end: null,
+            source_name: 'Retained original name',
+            anchor: JSON.stringify(anchor),
+            quote: 'Same words'
+          };
+
+          // Seed retained legacy shapes; keep all foreign keys and permanent retention guards enabled.
+          context.db.orm
+            .insert(s.citations)
+            .values([
+              { ...base, marker: 1n },
+              {
+                ...base,
+                marker: 2n,
+                document_id: latestDocumentId,
+                block_id: body.blocks[0]!.id,
+                range_start: 0n,
+                range_end: 10n
+              },
+              {
+                ...base,
+                marker: 3n,
+                material_version_id: draft.id,
+                document_id: documentId,
+                block_id: body.blocks[0]!.id,
+                range_start: 0n,
+                range_end: 10n
+              },
+              {
+                ...base,
+                marker: 4n,
+                material_version_id: null,
+                source_id: source.id,
+                quote: 'Retained attachment'
+              }
+            ])
+            .run();
+          const rows = context.db.orm.select().from(s.citations).all();
+          const read = yield* rpc('conversations.message', { id: message.id });
+          const [legacy, mismatch, unpublished, attachment] = read.citations;
+
+          assert.equal(legacy!.precision, 'approximate');
+          assert.equal(legacy!.evidence?.availability, 'available');
+          if (legacy!.evidence?.availability !== 'available')
+            throw new Error('Expected retained anchor');
+          assert.equal(legacy!.evidence.precision, 'approximate');
+          assert.equal(legacy!.evidence.excerpt, null);
+          assert.equal(legacy!.evidence.block, null);
+          assert.deepEqual(legacy!.evidence.location, anchor);
+          assert.equal(legacy!.evidence.revision.inputVersionId, material.version.id);
+          assert.equal(legacy!.evidence.revision.currentVersionId, latest.id);
+          assert.equal(legacy!.evidence.revision.state, 'stale');
+          assert.equal(legacy!.documentId, null);
+          assert.equal(legacy!.rangeStart, null);
+          assert.equal(mismatch!.precision, 'unavailable');
+          assert.equal(mismatch!.evidence?.availability, 'unavailable');
+          if (mismatch!.evidence?.availability !== 'unavailable')
+            throw new Error('Expected mismatched identity');
+          assert.equal(mismatch!.evidence.reason, 'document_mismatch');
+          assert.equal(unpublished!.precision, 'unavailable');
+          assert.equal(unpublished!.evidence?.availability, 'unavailable');
+          if (unpublished!.evidence?.availability !== 'unavailable')
+            throw new Error('Expected unpublished identity');
+          assert.equal(unpublished!.evidence.reason, 'version_missing');
+          assert.equal(unpublished!.materialVersionId, draft.id);
+          assert.equal(attachment!.precision, 'approximate');
+          assert.deepEqual(attachment!.evidence, {
+            availability: 'unavailable',
+            precision: 'approximate',
+            reason: 'attachment_target_unresolved',
+            sourceId: source.id,
+            anchor,
+            quote: 'Retained attachment'
+          });
+          for (const citation of read.citations) {
+            assert.deepEqual(citation.support, { state: 'unassessed' });
+            assert.equal(
+              citation.rangeStart === null || typeof citation.rangeStart === 'number',
+              true
+            );
+          }
+          assert.deepEqual(
+            (yield* rpc('conversations.thread', { sessionId: session.id, limit: 10 })).items[0]!
+              .citations,
+            read.citations
+          );
+          const edited = yield* rpc('conversations.editMessage', {
+            messageId: message.id,
+            text: 'Reordered [4] [2] [1] [3]'
+          });
+
+          assert.deepEqual(edited.citations, read.citations);
+          assert.deepEqual(
+            (yield* rpc('conversations.setActiveVersion', {
+              messageId: message.id,
+              versionId: message.activeVersionId!
+            })).citations,
+            read.citations
+          );
+          assert.deepEqual(
+            context.db.orm
+              .select()
+              .from(s.citations)
+              .where(eq(s.citations.version_id, message.activeVersionId!))
+              .all(),
+            rows
+          );
+          return { id: message.id, citations: read.citations };
+        }).pipe(Effect.provide(handlers()))
+      )
+    );
+
+    context.close();
+    context = new ServerContext(location.open());
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const rpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+
+          assert.deepEqual(
+            (yield* rpc('conversations.message', { id: retained.id })).citations,
+            retained.citations
+          );
+        }).pipe(Effect.provide(handlers()))
+      )
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
 test('native capture rejects foreign or deleted boundaries and preserves exact bounded replay', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());

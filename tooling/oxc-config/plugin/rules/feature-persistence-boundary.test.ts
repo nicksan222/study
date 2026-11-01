@@ -224,3 +224,46 @@ test('edit and proposal receipts stay Material-owned and asset roots stay trigge
     'Feature materials may not write document_assets.'
   ]);
 });
+
+test('historic annotations and manual judgments stay Materials-owned while message citations stay Conversations-owned', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/conversations/store/evidence.ts': `
+      import * as s from '@study/db/schema';
+      import { sql } from '@study/db';
+      import type { Db } from '@study/db'; declare const db: Db;
+      const { material_annotations: annotations } = s;
+      db.select().from(annotations);
+      db.insert(annotations);
+      db.update(s['material_annotation_revisions']);
+      sql\`DELETE FROM material_citation_assessments WHERE marker=1\`;
+      db.insert(s.citations);
+    `,
+    'src/features/sources/store/correction.ts': `
+      import * as s from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.material_citation_assessments);
+      db.delete(s.material_annotation_revisions);
+    `,
+    'src/features/materials/store/evidence.ts': `
+      import * as s from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.material_annotations);
+      db.insert(s.material_annotation_revisions);
+      db.insert(s.material_citation_assessments);
+      db.select().from(s.citations);
+      db.update(s.citations);
+    `
+  });
+
+  assert.deepEqual(
+    diagnostics.map(({ message }) => message).sort(),
+    [
+      'Feature conversations may not write material_annotations.',
+      'Feature conversations may not write material_annotation_revisions.',
+      'Feature conversations may not write material_citation_assessments.',
+      'Feature sources may not write material_citation_assessments.',
+      'Feature sources may not write material_annotation_revisions.',
+      'Feature materials may not write citations.'
+    ].sort()
+  );
+});

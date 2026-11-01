@@ -238,3 +238,26 @@ test('proposal coordinators compose public Materials participants instead of rea
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
 });
+
+test('conversation evidence composition consumes the public Materials participant and keeps all evidence stores private', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/features/conversations/service/citations.ts': `
+      import { Materials } from '#server/features/materials/index';
+      import type { evidenceReferenceSchema } from '@study/contracts/materials/evidence';
+      import { transaction } from '#server/platform/definitions/define-store';
+      export const resolve = reference => transaction(tx => Materials.resolveEvidence(tx, reference));
+    `,
+    'src/features/conversations/service/private-evidence.ts': `
+      import { EvidenceStore } from '#server/features/materials/store/evidence';
+      import { CitationSupportStore } from '#server/features/materials/store/citation-support';
+      import { AnnotationsStore } from '#server/features/materials/store/annotations';
+    `,
+    'src/features/materials/index.ts': `
+      export { Materials } from './service/index';
+      export { EvidenceStore } from './store/evidence';
+    `
+  });
+
+  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/citations.ts')));
+});

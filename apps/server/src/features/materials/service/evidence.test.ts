@@ -13,6 +13,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { ConversationsRpc } from '@study/contracts/conversations/rpc';
+import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { documentIdSchema, materialVersionIdSchema } from '@study/contracts/ids';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { createBlock, correctBlockText } from '@study/contracts/sources/document';
@@ -22,14 +24,18 @@ import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
+import { Conversations } from '#server/features/conversations/index';
+import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { MaterialsStore } from '#server/features/materials/store/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { withTestPublication } from '#testing/publication';
 
 const meta = {
   extractor: null,
@@ -52,6 +58,50 @@ function handlers(context: ServerContext) {
     Layer.provideMerge(Layer.mergeAll(Materials.layer, Sources.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
+}
+
+function annotationState(context: ServerContext) {
+  return {
+    heads: context.db.orm.select().from(s.material_annotations).all(),
+    revisions: context.db.orm.select().from(s.material_annotation_revisions).all(),
+    events: context.db.orm.select().from(s.workflowEvents).all()
+  };
+}
+
+function assertHistoricCitation(
+  message: typeof chatMessageSchema.Type,
+  original: typeof chatMessageSchema.Type,
+  source: {
+    sourceId: NonNullable<(typeof original.citations)[number]['sourceId']>;
+    inputRevision: number;
+    currentRevision: number;
+    inputDocumentId: NonNullable<(typeof original.citations)[number]['documentId']>;
+    currentDocumentId: NonNullable<(typeof original.citations)[number]['documentId']>;
+  }
+) {
+  const citation = message.citations[0]!;
+  const { evidence: _evidence, ...stored } = citation;
+  const { evidence: _originalEvidence, ...originalStored } = original.citations[0]!;
+
+  assert.deepEqual(stored, originalStored);
+  assert.equal(citation.precision, 'exact');
+  assert.deepEqual(citation.support, { state: 'unassessed' });
+  assert.equal(citation.evidence?.availability, 'available');
+  if (citation.evidence?.availability !== 'available')
+    throw new Error('Expected historic evidence');
+  assert.equal(citation.evidence.origin, 'import');
+  assert.equal(citation.evidence.excerpt, '😀');
+  assert.equal(citation.evidence.precision, 'exact');
+  assert.equal(citation.evidence.locationPrecision, 'approximate');
+  assert.deepEqual(citation.evidence.location, {
+    type: 'text',
+    lineStart: 0,
+    lineEnd: 0,
+    start: 0,
+    end: 15
+  });
+  assert.equal(citation.evidence.revision.state, 'stale');
+  assert.deepEqual(citation.evidence.revision.source, source);
 }
 
 test('standalone annotation CRUD preserves exact rich Unicode history, conflicts, outbox atomicity and reopen', async () => {
@@ -121,6 +171,7 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
           });
 
           assert.equal(updated.outcome, 'saved');
+          const beforeConflicts = annotationState(context);
           const staleNote = yield* rpc('materials.updateAnnotation', {
             id: created.annotation.id,
             expectedRevision: 1n,
@@ -151,8 +202,37 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
           if (conflict.outcome === 'conflict') {
             assert.equal(conflict.current.note, 'First edit');
             assert.deepEqual(conflict.current.target, target);
-            assert.ok('target' in conflict.submitted);
+            assert.deepEqual(conflict.submitted, {
+              id: created.annotation.id,
+              expectedRevision: 1n,
+              target: { ...target, range: { ...target.range, start: 3, end: 4 } }
+            });
           }
+          assert.equal(
+            (yield* rpc('materials.deleteAnnotation', {
+              id: created.annotation.id,
+              expectedRevision: 1n
+            })).outcome,
+            'conflict'
+          );
+          assert.deepEqual(annotationState(context), beforeConflicts);
+          const other = yield* rpc('materials.createManualDocument', {
+            title: 'Other identity',
+            document: { blocks: [paragraph('A😀B rich')], meta }
+          });
+          const beforeWrongOwner = annotationState(context);
+
+          assert.equal(
+            (yield* Effect.flip(
+              rpc('materials.reanchorAnnotation', {
+                id: created.annotation.id,
+                expectedRevision: 2n,
+                target: { ...target, materialId: other.id }
+              })
+            )).kind,
+            'invalid_input'
+          );
+          assert.deepEqual(annotationState(context), beforeWrongOwner);
           const changed = yield* rpc('materials.saveDocument', {
             materialId: material.id,
             expectedVersionId: material.version.id,
@@ -192,37 +272,110 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
             (yield* rpc('materials.resolveEvidence', { kind: 'range', target })).availability,
             'available'
           );
-          const before = context.db.orm.select().from(s.material_annotation_revisions).all();
-          const outboxBefore = context.db.orm.select().from(s.workflowEvents).all();
+          const before = annotationState(context);
 
           context.db.orm.run(
             sql.raw(
               "CREATE TRIGGER reject_annotation_event BEFORE INSERT ON workflow_events WHEN NEW.type = 'MaterialAnnotationChanged' BEGIN SELECT RAISE(ABORT, 'injected outbox failure'); END"
             )
           );
-          yield* Effect.flip(
+          for (const mutation of [
+            materials.createAnnotation({ target, kind: 'note', note: 'Rolled back identity' }),
             materials.updateAnnotation({
               id: created.annotation.id,
               expectedRevision: 3n,
               kind: 'note',
-              note: 'Rolled back'
-            })
-          );
-          assert.deepEqual(
-            context.db.orm.select().from(s.material_annotation_revisions).all(),
-            before
-          );
-          assert.deepEqual(context.db.orm.select().from(s.workflowEvents).all(), outboxBefore);
+              note: 'Rolled back note'
+            }),
+            materials.reanchorAnnotation({
+              id: created.annotation.id,
+              expectedRevision: 3n,
+              target
+            }),
+            materials.deleteAnnotation({ id: created.annotation.id, expectedRevision: 3n })
+          ]) {
+            yield* Effect.flip(mutation);
+            assert.deepEqual(annotationState(context), before);
+          }
           assert.equal(
             (yield* rpc('materials.annotation', { id: created.annotation.id })).revision,
             3n
           );
           context.db.orm.run(sql.raw('DROP TRIGGER reject_annotation_event'));
 
+          const revisionRow = before.revisions[0]!;
+          const otherDocumentId = context.db.orm
+            .select()
+            .from(s.material_document_versions)
+            .where(eq(s.material_document_versions.version_id, other.version.id))
+            .get()!.document_id;
+          const foreignRevision = {
+            ...JSON.parse(revisionRow.payload),
+            revision: '4',
+            target: {
+              materialId: String(other.id),
+              range: {
+                ...JSON.parse(revisionRow.payload).target.range,
+                versionId: String(other.version.id),
+                documentId: String(otherDocumentId)
+              }
+            }
+          };
+
+          assert.throws(() =>
+            context.db.orm
+              .insert(s.material_annotation_revisions)
+              .values({
+                annotation_id: created.annotation.id,
+                revision: 4n,
+                version_id: other.version.id,
+                document_id: otherDocumentId,
+                payload: JSON.stringify(foreignRevision)
+              })
+              .run()
+          );
+          assert.throws(() => context.db.orm.delete(s.material_annotations).run());
+          assert.throws(() =>
+            context.db.orm.update(s.material_annotations).set({ revision: 9n }).run()
+          );
+          assert.throws(() =>
+            context.db.orm.update(s.material_annotations).set({ material_id: other.id }).run()
+          );
           assert.throws(() => context.db.orm.delete(s.material_annotation_revisions).run());
           assert.throws(() =>
             context.db.orm.update(s.material_annotation_revisions).set({ payload: '{}' }).run()
           );
+          assert.deepEqual(annotationState(context), before);
+          const retry = yield* rpc('materials.updateAnnotation', {
+            id: created.annotation.id,
+            expectedRevision: 3n,
+            kind: 'note',
+            note: 'Retried after rollback'
+          });
+
+          assert.equal(retry.outcome, 'saved');
+          assert.equal(annotationState(context).events.length, before.events.length + 1);
+          const historyPage = yield* rpc('materials.annotationHistory', {
+            id: created.annotation.id,
+            limit: 2
+          });
+
+          assert.deepEqual(
+            historyPage.items.map((item) => item.revision),
+            [1n, 2n]
+          );
+          assert.equal(historyPage.nextCursor, 2n);
+          const historyTail = yield* rpc('materials.annotationHistory', {
+            id: created.annotation.id,
+            limit: 2,
+            cursor: historyPage.nextCursor!
+          });
+
+          assert.deepEqual(
+            historyTail.items.map((item) => item.revision),
+            [3n, 4n]
+          );
+          assert.equal(historyTail.nextCursor, null);
           const page = yield* rpc('materials.annotations', { materialId: material.id, limit: 1 });
 
           assert.equal(page.items.length, 1);
@@ -239,10 +392,10 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
           const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
           const reopened = yield* rpc('materials.annotation', { id: retained.id });
 
-          assert.equal(reopened.revision, 3n);
-          assert.equal(reopened.note, 'First edit');
+          assert.equal(reopened.revision, 4n);
+          assert.equal(reopened.note, 'Retried after rollback');
           assert.equal(
-            (yield* rpc('materials.deleteAnnotation', { id: retained.id, expectedRevision: 3n }))
+            (yield* rpc('materials.deleteAnnotation', { id: retained.id, expectedRevision: 4n }))
               .outcome,
             'saved'
           );
@@ -254,12 +407,40 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
           assert.equal(
             (yield* rpc('materials.annotationHistory', { id: retained.id, limit: 10 })).items
               .length,
-            4
+            5
           );
           assert.equal(
             (yield* rpc('materials.material', { id: retained.materialId })).id,
             retained.materialId
           );
+          const tombstoneState = annotationState(context);
+          const deleted = yield* rpc('materials.annotation', { id: retained.id });
+
+          assert.equal(deleted.deleted, true);
+          assert.equal(deleted.revision, 5n);
+          assert.equal(
+            (yield* rpc('materials.updateAnnotation', {
+              id: retained.id,
+              expectedRevision: 5n,
+              kind: 'note',
+              note: 'No resurrection'
+            })).outcome,
+            'unavailable'
+          );
+          assert.equal(
+            (yield* rpc('materials.reanchorAnnotation', {
+              id: retained.id,
+              expectedRevision: 5n,
+              target: retained.target
+            })).outcome,
+            'unavailable'
+          );
+          assert.equal(
+            (yield* rpc('materials.deleteAnnotation', { id: retained.id, expectedRevision: 5n }))
+              .outcome,
+            'unavailable'
+          );
+          assert.deepEqual(annotationState(context), tombstoneState);
           const missing = yield* rpc('materials.resolveEvidence', {
             kind: 'range',
             target: {
@@ -272,6 +453,8 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
           });
 
           assert.equal(missing.availability, 'unavailable');
+          if (missing.availability === 'unavailable')
+            assert.equal(missing.reason, 'version_missing');
           const mismatch = yield* rpc('materials.resolveEvidence', {
             kind: 'range',
             target: {
@@ -284,6 +467,23 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
           });
 
           assert.equal(mismatch.availability, 'unavailable');
+          if (mismatch.availability === 'unavailable')
+            assert.equal(mismatch.reason, 'document_mismatch');
+          for (const [range, reason] of [
+            [{ ...retained.target.range, blockId: paragraph('A😀B rich').id }, 'block_missing'],
+            [{ ...retained.target.range, start: 2, end: 3 }, 'range_invalid'],
+            [{ ...retained.target.range, start: 1, end: 1 }, 'range_invalid']
+          ] as const) {
+            const reference = { kind: 'range' as const, target: { ...retained.target, range } };
+            const unresolved = yield* rpc('materials.resolveEvidence', reference);
+
+            assert.deepEqual(unresolved, {
+              availability: 'unavailable',
+              precision: 'unavailable',
+              reference,
+              reason
+            });
+          }
           const old = yield* rpc('materials.resolveEvidence', {
             kind: 'range',
             target: retained.target
@@ -371,6 +571,46 @@ test('user support is pinned to both rich ranges; claim edit, citation copy and 
               .state,
             'unassessed'
           );
+          const assessmentInput = {
+            claim: target,
+            evidence,
+            marker: 1n,
+            judgment: 'supports' as const,
+            note: 'My judgment'
+          };
+          const assessmentsBefore = context.db.orm
+            .select()
+            .from(s.material_citation_assessments)
+            .all();
+
+          for (const invalidAssessment of [
+            { ...assessmentInput, evidence: { ...evidence, range: { ...evidence.range, end: 5 } } },
+            { ...assessmentInput, claim: { ...target, materialId: input.id } },
+            { ...assessmentInput, marker: 2n }
+          ]) {
+            assert.equal(
+              (yield* Effect.flip(rpc('materials.assessCitation', invalidAssessment))).kind,
+              'invalid_input'
+            );
+            assert.deepEqual(
+              context.db.orm.select().from(s.material_citation_assessments).all(),
+              assessmentsBefore
+            );
+          }
+          context.db.orm.run(
+            sql`CREATE TRIGGER reject_assessment_insert AFTER INSERT ON material_citation_assessments BEGIN SELECT RAISE(ABORT, 'injected assessment failure'); END`
+          );
+          yield* Effect.flip(rpc('materials.assessCitation', assessmentInput));
+          assert.deepEqual(
+            context.db.orm.select().from(s.material_citation_assessments).all(),
+            assessmentsBefore
+          );
+          assert.equal(
+            (yield* rpc('materials.citationSupport', { versionId: claim.version.id, marker: 1n }))
+              .state,
+            'unassessed'
+          );
+          context.db.orm.run(sql`DROP TRIGGER reject_assessment_insert`);
           const assessed = yield* rpc('materials.assessCitation', {
             claim: target,
             evidence,
@@ -463,7 +703,35 @@ test('user support is pinned to both rich ranges; claim edit, citation copy and 
                 row.state === 'stale'
             )
           );
+          const assessmentRows = context.db.orm
+            .select()
+            .from(s.material_citation_assessments)
+            .all();
+
           assert.throws(() => context.db.orm.delete(s.material_citation_assessments).run());
+          assert.throws(() =>
+            context.db.orm.update(s.material_citation_assessments).set({ payload: '{}' }).run()
+          );
+          const retainedAssessment = assessmentRows[0]!;
+
+          assert.throws(() =>
+            context.db.orm
+              .insert(s.material_citation_assessments)
+              .values({
+                claim_version_id: retainedAssessment.claim_version_id,
+                evidence_version_id: retainedAssessment.evidence_version_id,
+                marker: retainedAssessment.marker,
+                payload: JSON.stringify({
+                  ...JSON.parse(retainedAssessment.payload),
+                  independentVerification: true
+                })
+              })
+              .run()
+          );
+          assert.deepEqual(
+            context.db.orm.select().from(s.material_citation_assessments).all(),
+            assessmentRows
+          );
           assert.equal(
             context.db.orm.select().from(s.material_citation_assessments).all().length,
             1
@@ -526,6 +794,65 @@ test('source correction and replacement preserve exact historic navigation and e
               })
             );
           const projected = yield* project(first.documentId, 'initial-evidence');
+          const chats = yield* Conversations;
+          const chatRpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+          const session = yield* chatRpc('conversations.createSession', {
+            title: 'Historic source'
+          });
+
+          yield* chatRpc('conversations.updateSessionSelection', {
+            sessionId: session.id,
+            expectedRevision: 0n,
+            targets: [
+              {
+                versionId: projected.extracted.version.id,
+                documentId: first.documentId,
+                scope: {
+                  kind: 'ranges',
+                  ranges: [
+                    {
+                      versionId: projected.extracted.version.id,
+                      documentId: first.documentId,
+                      blockId: block.id,
+                      start: 1,
+                      end: 3
+                    }
+                  ]
+                }
+              }
+            ]
+          });
+          const request = yield* chatRpc('conversations.requestReply', {
+            sessionId: session.id,
+            intentKey: 'historic-source-reply',
+            instruction: 'Explain the selected passage'
+          });
+
+          yield* withTestPublication(
+            context,
+            chats
+              .publishReply({
+                requestId: request.requestId,
+                text: 'Historic citation [1]',
+                citations: [
+                  {
+                    marker: 1,
+                    sourceId: null,
+                    materialVersionId: projected.extracted.version.id,
+                    documentId: first.documentId,
+                    blockOrdinal: 0,
+                    quote: '😀'
+                  }
+                ]
+              })
+              .pipe(Effect.asVoid)
+          );
+          const originalReply = yield* chatRpc('conversations.message', { id: request.messageId });
+
+          assert.equal(originalReply.citations[0]?.evidence?.availability, 'available');
+          if (originalReply.citations[0]?.evidence?.availability === 'available')
+            assert.equal(originalReply.citations[0].evidence.revision.state, 'current');
+          const storedCitations = context.db.orm.select().from(s.citations).all();
           const target = {
             materialId: projected.extracted.id,
             range: {
@@ -626,6 +953,31 @@ test('source correction and replacement preserve exact historic navigation and e
               currentDocumentId: corrected.documentId
             });
           }
+          const sourceRevision = {
+            sourceId: source.id,
+            inputRevision: 1,
+            currentRevision: 1,
+            inputDocumentId: first.documentId,
+            currentDocumentId: corrected.documentId
+          };
+          const correctedReply = yield* chatRpc('conversations.message', { id: request.messageId });
+
+          assertHistoricCitation(correctedReply, originalReply, sourceRevision);
+          const correctedThread = yield* chatRpc('conversations.thread', {
+            sessionId: session.id,
+            limit: 10
+          });
+
+          assert.deepEqual(
+            correctedThread.items.find((item) => item.id === request.messageId)?.citations,
+            correctedReply.citations
+          );
+          const editedReply = yield* chatRpc('conversations.editMessage', {
+            messageId: request.messageId,
+            text: 'Qualified historic citation [1]'
+          });
+
+          assertHistoricCitation(editedReply, originalReply, sourceRevision);
           const pendingSupport = yield* rpc('materials.citationSupport', {
             versionId: derived.version.id,
             marker: 1n
@@ -647,6 +999,12 @@ test('source correction and replacement preserve exact historic navigation and e
           assert.equal(pendingDependency?.source?.currentDocumentId, corrected.documentId);
           assert.equal(pendingDependency?.state, 'stale');
           const current = yield* project(corrected.documentId, 'corrected-evidence');
+          const projectedReply = yield* chatRpc('conversations.setActiveVersion', {
+            messageId: request.messageId,
+            versionId: originalReply.activeVersionId!
+          });
+
+          assertHistoricCitation(projectedReply, originalReply, sourceRevision);
           const old = yield* rpc('materials.resolveEvidence', { kind: 'range', target });
 
           assert.equal(old.availability, 'available');
@@ -704,6 +1062,53 @@ test('source correction and replacement preserve exact historic navigation and e
             name: 'replacement.txt',
             bytes: new TextEncoder().encode('replacement')
           });
+          const replacedSource = { ...sourceRevision, currentRevision: 2 };
+          const replacedReply = yield* chatRpc('conversations.message', { id: request.messageId });
+
+          assertHistoricCitation(replacedReply, originalReply, replacedSource);
+          const replacedThread = yield* chatRpc('conversations.thread', {
+            sessionId: session.id,
+            limit: 10
+          });
+
+          assert.deepEqual(
+            replacedThread.items.find((item) => item.id === request.messageId)?.citations,
+            replacedReply.citations
+          );
+          assertHistoricCitation(
+            yield* chatRpc('conversations.editMessage', {
+              messageId: request.messageId,
+              text: 'Replacement still cites history [1]'
+            }),
+            originalReply,
+            replacedSource
+          );
+          assertHistoricCitation(
+            yield* chatRpc('conversations.setActiveVersion', {
+              messageId: request.messageId,
+              versionId: editedReply.activeVersionId!
+            }),
+            originalReply,
+            replacedSource
+          );
+          assert.deepEqual(
+            context.db.orm
+              .select()
+              .from(s.citations)
+              .where(eq(s.citations.version_id, originalReply.activeVersionId!))
+              .all(),
+            storedCitations
+          );
+          const replacedSupport = yield* rpc('materials.citationSupport', {
+            versionId: derived.version.id,
+            marker: 1n
+          });
+
+          assert.equal(replacedSupport.state, 'stale');
+          if (replacedSupport.state !== 'unassessed' && judgment.state !== 'unassessed') {
+            assert.deepEqual(replacedSupport.assessment, judgment.assessment);
+            assert.deepEqual(replacedSupport.reasons, ['evidence_changed']);
+          }
           const replaced = yield* rpc('materials.resolveEvidence', { kind: 'range', target });
 
           if (replaced.availability !== 'available')
@@ -729,7 +1134,16 @@ test('source correction and replacement preserve exact historic navigation and e
             (yield* materials.materialVersionExport({ id: projected.original.version.id })).bytes,
             new TextEncoder().encode('A😀B original')
           );
-        }).pipe(Effect.provide(handlers(context)))
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(MaterialsRpcLive, ConversationsRpcLive).pipe(
+              Layer.provideMerge(
+                Layer.mergeAll(Materials.layer, Sources.layer, Conversations.layer, Settings.layer)
+              ),
+              Layer.provideMerge(Layer.succeed(Database, { store: context }))
+            )
+          )
+        )
       )
     );
   } finally {
