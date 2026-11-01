@@ -8,6 +8,7 @@ import {
 
 import type { ServerContext } from '#server/platform/database/context';
 import { requireRow } from '#server/platform/database/rows';
+import { isTerminalExecution } from '#server/platform/workflows/status';
 
 const leaseMs = 30_000;
 
@@ -61,7 +62,7 @@ export function workflowStore(context: ServerContext) {
           .where(eq(workflow_executions.execution_id, id))
           .get();
 
-        if (!row || row.status === 'completed' || row.status === 'cancelled') return;
+        if (!row || isTerminalExecution(row.status)) return;
 
         const requested = row.result === '"__interrupt_unsafe__"' ? 'unsafe' : mode;
 
