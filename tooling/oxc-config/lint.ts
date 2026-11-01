@@ -118,6 +118,7 @@ export const lint = {
     'study/preserve-error-cause': 'error',
 
     'study/server-no-mocks': 'error',
+    'study/effect-native-combinators': 'error',
     'study/effect-v4-api': 'error',
     'eslint/no-restricted-imports': ['error', { patterns: effectV4Imports }],
     'study/database-ownership': 'error',
