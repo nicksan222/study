@@ -120,3 +120,66 @@ test('acquisition atomically registers independent uncollected imports before ex
     location.cleanup();
   }
 });
+
+for (const kind of ['image', 'link'] as const)
+  test(`import replacement from ${kind} preserves identity and exact revision exports`, async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const domain = Layer.mergeAll(Sources.layer, Materials.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const sources = yield* Sources;
+          const materials = yield* Materials;
+          const source =
+            kind === 'image'
+              ? yield* sources.createSource({
+                  projectId: null,
+                  name: 'image.png',
+                  bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0])
+                })
+              : yield* sources.addLink({ projectId: null, url: 'https://example.com/original' });
+          const original = yield* materials.material({
+            id: (yield* materials.materials({ archived: false, limit: 10 })).items[0]!.id
+          });
+          const oldExport = yield* materials.materialVersionExport({ id: original.version.id });
+          assert.equal(original.kind, kind);
+          const replacementBytes = new TextEncoder().encode('Replacement text');
+          yield* sources.replaceSource({
+            id: source.id,
+            expectedRevision: 1,
+            name: 'replacement.txt',
+            bytes: replacementBytes
+          });
+          const current = yield* materials.material({ id: original.id });
+          assert.equal(current.id, original.id);
+          assert.equal(current.kind, kind);
+          assert.notEqual(current.version.id, original.version.id);
+          assert.equal(
+            (yield* materials.materials({ archived: false, limit: 10 })).items.length,
+            1
+          );
+          const replacementExport = yield* materials.materialVersionExport({
+            id: current.version.id
+          });
+          assert.equal(replacementExport.source.id, source.id);
+          assert.equal(replacementExport.source.kind, 'text');
+          assert.equal(replacementExport.source.mime, 'text/plain');
+          assert.deepEqual(replacementExport.bytes, replacementBytes);
+          assert.deepEqual(
+            yield* materials.materialVersionExport({ id: original.version.id }),
+            oldExport
+          );
+          assert.deepEqual(
+            (yield* materials.materialVersion({ id: original.version.id })).content,
+            original.version.content
+          );
+        }).pipe(Effect.provide(domain))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  });

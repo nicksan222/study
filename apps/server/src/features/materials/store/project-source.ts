@@ -152,13 +152,6 @@ export function makeProjectSource(resources: StoreResources) {
     const source = projectionSource(event);
     const { original, originalCreated } = registerSource(source.id);
 
-    if (event.projectId !== null)
-      db.orm
-        .insert(s.project_materials)
-        .values({ material_id: original.id, project_id: event.projectId })
-        .onConflictDoNothing()
-        .run();
-
     const existing = db.orm
       .select({ id: s.material_source_snapshots.version_id })
       .from(s.material_source_snapshots)
