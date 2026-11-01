@@ -18,6 +18,8 @@ export const llmSettingsSchema = Schema.Struct({
   smart: tierSetupSchema
 });
 
+export type ModelTier = keyof typeof llmSettingsSchema.fields;
+
 export const materialSettingsSchema = Schema.Struct({
   sift: Schema.Boolean
 });

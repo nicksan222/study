@@ -1,9 +1,8 @@
 import type { sourceEvidenceSchema } from '@study/contracts/ai/sources';
 import type { StudyError } from '@study/contracts/errors';
+import type { ModelTier } from '@study/contracts/settings/schemas';
 import type { ModelMessage } from 'ai';
 import type { Effect, Schema } from 'effect';
-
-export type ModelTier = 'tiny' | 'medium' | 'smart';
 
 export type CitationEvidence = typeof sourceEvidenceSchema.Type;
 

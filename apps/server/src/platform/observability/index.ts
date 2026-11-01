@@ -1,5 +1,7 @@
 import { errorKindSchema } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
+import { llmSettingsSchema } from '@study/contracts/settings/schemas';
+import type { ModelTier } from '@study/contracts/settings/schemas';
 import type { Context } from 'effect';
 import { Clock, Effect, Exit, Metric, References } from 'effect';
 
@@ -8,13 +10,13 @@ import { elapsedMillis } from '#server/platform/time/index';
 type MetricLabels = {
   readonly outcome?: 'success' | 'failure' | 'interrupted';
   readonly errorKind?: ErrorKind;
-  readonly modelTier?: 'tiny' | 'medium' | 'smart';
+  readonly modelTier?: ModelTier;
 };
 
 const metricLabelValues: Record<keyof MetricLabels, ReadonlySet<string>> = {
   outcome: new Set(['success', 'failure', 'interrupted']),
   errorKind: new Set(errorKindSchema.literals),
-  modelTier: new Set(['tiny', 'medium', 'smart'])
+  modelTier: new Set(Object.keys(llmSettingsSchema.fields))
 };
 
 /** Only finite, canonical dimensions are accepted, including at untyped boundaries. */
