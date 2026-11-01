@@ -88,15 +88,11 @@ export function defineRpc<R extends Rpc.Any, H extends Handlers<R>, E, Init>(
 
         if (!Rpc.isRpc(request)) throw new TypeError(`Unknown RPC handler: ${tag}`);
 
-        const streaming = request.successSchema;
+        const streaming = RpcSchema.isStreamSchema(request.successSchema);
+        const mapResponse = (result: Parameters<typeof mapResult>[1]) =>
+          mapResult(streaming, result);
 
-        return [
-          tag,
-          (...args: readonly unknown[]) =>
-            Rpc.wrapMap(invoke(...args), (result) => {
-              return mapResult(RpcSchema.isStreamSchema(streaming), result);
-            })
-        ];
+        return [tag, (...args: readonly unknown[]) => Rpc.wrapMap(invoke(...args), mapResponse)];
       })
     );
 
