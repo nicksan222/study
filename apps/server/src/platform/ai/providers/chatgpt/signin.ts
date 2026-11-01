@@ -21,6 +21,18 @@ const claimsSchema = Schema.Struct({
   email: Schema.optional(Schema.String)
 });
 
+const tokenSchema = Schema.Struct({
+  id_token: Schema.optional(Schema.String),
+  access_token: Schema.optional(Schema.String),
+  refresh_token: Schema.optional(Schema.String),
+  expires_in: Schema.optional(Schema.Number),
+  scope: Schema.optional(Schema.String)
+});
+
+const decodeSignInTokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokenSchema));
+
+const decodeIdClaims = Schema.decodeUnknownSync(Schema.fromJsonString(claimsSchema));
+
 const random = () => randomBytes(32).toString('base64url');
 
 const resource = 'https://api.openai.com/v1';
@@ -271,19 +283,10 @@ function signInResult(
   options: SignInOptions,
   nonce: string
 ): SignInResult {
-  const tokenSchema = Schema.Struct({
-    id_token: Schema.optional(Schema.String),
-    access_token: Schema.optional(Schema.String),
-    refresh_token: Schema.optional(Schema.String),
-    expires_in: Schema.optional(Schema.Number),
-    scope: Schema.optional(Schema.String)
-  });
   let tokens: typeof tokenSchema.Type;
 
   try {
-    tokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokenSchema))(
-      new TextDecoder().decode(bytes)
-    );
+    tokens = decodeSignInTokens(new TextDecoder().decode(bytes));
   } catch {
     throw new Error('Invalid sign-in token response');
   }
@@ -317,9 +320,7 @@ function readIdClaims(idToken: string | undefined) {
   let claims: typeof claimsSchema.Type;
 
   try {
-    claims = Schema.decodeUnknownSync(Schema.fromJsonString(claimsSchema))(
-      Buffer.from(payload, 'base64url').toString()
-    );
+    claims = decodeIdClaims(Buffer.from(payload, 'base64url').toString());
   } catch {
     throw new Error('Invalid ID token');
   }
