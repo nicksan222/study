@@ -85,7 +85,7 @@ Bilingual copy lives in `packages/localization`.
   typechecking/tests, repository-wide Vite+ format/lint, Fallow dead-code/complexity/duplication/architecture checks, frontend type/tests/build, database generation drift, tooling tests and landing
   checks. Run it before calling a change done.
 - `just server-check` and `just frontend-check`: focused package checks.
-- `just fallow-check` / `npm run fallow:check`: pinned full-repository Fallow gate; keep `.fallowrc.jsonc` strict and document any narrow analyzer exceptions there.
+- `just fallow-check` / `npm run fallow:check`: pinned full-repository Fallow gate; keep `tooling/fallow.jsonc` strict and document any narrow analyzer exceptions there.
 - `npm run lint`: repository-wide `vp check --deny-warnings` (Oxfmt and Oxlint).
   `npm run format` applies formatting; `npm run format:check` checks it.
 - `just check-crate <package>`: focused Rust formatting, lint, tests and docs.

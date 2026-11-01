@@ -83,7 +83,7 @@ const ogImage = new URL(href(lang, 'og.png'), Astro.site);
         <ul class="footer-links">
           <li><a href={href(lang, 'docs/')}>{s.nav.docs}</a></li>
           <li><a href={releases}>{s.nav.download}</a></li>
-          <li><a href={`${repo}/blob/main/CONTRIBUTING.md`}>{s.footer.contribute}</a></li>
+          <li><a href={`${repo}/blob/main/.github/CONTRIBUTING.md`}>{s.footer.contribute}</a></li>
           <li><a href={`${repo}/issues`}>{s.footer.bug}</a></li>
           <li><a href={repo}>{s.nav.github}</a></li>
           <li><a href={href(other, path)} hreflang={other} lang={other}>{s.otherLang}</a></li>

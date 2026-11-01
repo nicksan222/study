@@ -1,4 +1,4 @@
-# Workspace tasks. Run `just --list` for commands; see CONTRIBUTING.md for setup.
+# Workspace tasks. Run `just --list` for commands; see .github/CONTRIBUTING.md for setup.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
@@ -211,7 +211,7 @@ landing-check:
 build:
     npm run desktop:build -- --no-bundle -- --locked
 
-# Build and sign the native installer/AppImage (see CONTRIBUTING.md for signing setup).
+# Build and sign the native installer/AppImage (see .github/CONTRIBUTING.md for signing setup).
 package platform *args:
     exec bash tooling/release/release.sh build "$@"
 

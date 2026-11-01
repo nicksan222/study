@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo/study.svg" width="88" height="88" alt="">
+<img src="packages/ui/assets/logo/study.svg" width="88" height="88" alt="">
 
 # Study
 
@@ -11,7 +11,7 @@ citations, and turns them into flashcards and practice.
 
 [Website](https://nicksan222.github.io/study/) ·
 [Download](https://github.com/nicksan222/study/releases) ·
-[Contribute](CONTRIBUTING.md) ·
+[Contribute](.github/CONTRIBUTING.md) ·
 [Report a bug](https://github.com/nicksan222/study/issues)
 
 ![A short tour of Study: Home, an answer citing the lecture recording, a diagram, a flashcard review, a quiz and search](https://nicksan222.github.io/study/demo.gif)
@@ -56,7 +56,7 @@ choose to.
 ## Contribute
 
 Study is built in the open, and contributions are welcome. Start with
-[CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 The desktop shell runs a private TypeScript server. Application procedures use tRPC and
 Drizzle over one local SQLite database. Model calls use your ChatGPT provider sign-in.

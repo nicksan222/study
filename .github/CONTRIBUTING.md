@@ -4,7 +4,7 @@ Thank you for helping with Study.
 
 ## The rules
 
-- **Read [AGENTS.md](AGENTS.md) first.** Its golden rules, crate map and commands apply to
+- **Read [AGENTS.md](../AGENTS.md) first.** Its golden rules, crate map and commands apply to
   people as much as to agents. Everything else is in the code, beginning with each crate's
   `src/lib.rs`.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
@@ -78,7 +78,7 @@ Vitest reporter. TypeScript checks keep `tsc`.
 Run `npm run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.
 It checks the full repository for dead code, code health and duplication and fails on
 any reported issue. Local `just check` and the required CI `Test and build` job both
-run it; there is no baseline or new-issues-only mode. `.fallowrc.jsonc` enforces maximum
+run it; there is no baseline or new-issues-only mode. `tooling/fallow.jsonc` enforces maximum
 cyclomatic complexity of 10 and cognitive complexity of 15. Functions longer than
 60 lines are reported as advisory refactoring targets. CRAP enforcement is disabled
 until measured coverage is configured. Clone detection starts
@@ -183,7 +183,7 @@ platform `release/bundle` directory. CI uses the same Tauri config at
 
 Unless you explicitly state otherwise, any contribution you intentionally submit for
 inclusion in Study, as defined in the Apache-2.0 license, is dual licensed under
-[Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), without any additional terms or
+[Apache 2.0](../LICENSE-APACHE) or [MIT](../LICENSE-MIT), without any additional terms or
 conditions.
 
 The TypeScript server uses Drizzle with schema modules in `packages/db/src/schema`.
