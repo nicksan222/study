@@ -6,6 +6,7 @@ import { DurableDeferred } from 'effect/workflow';
 import type { WorkflowEngine } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
+import { isTerminalExecution } from '#server/platform/workflows/status';
 
 /** Runtime-supplied opaque, nonsecret fingerprint of model configuration. */
 export class WorkflowConfiguration extends Context.Service<
@@ -44,7 +45,7 @@ export function notifyConfigurationChanged(
     });
 
     for (const row of rows) {
-      if (row.status !== 'completed' && row.status !== 'cancelled')
+      if (!isTerminalExecution(row.status))
         yield* engine.deferredDone(DurableDeferred.make(row.deferredName), {
           workflowName: row.workflowName,
           executionId: row.executionId,

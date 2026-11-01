@@ -5,6 +5,7 @@ import { WorkflowEngine } from 'effect/workflow';
 import type { Workflow } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
+import { isTerminalExecution } from '#server/platform/workflows/status';
 
 import { workflowStore } from './store.ts';
 
@@ -35,7 +36,7 @@ export function cancelExecution(
 
     if (!row) return yield* Effect.fail(new StudyError('not_found', 'Workflow execution missing'));
 
-    if (row.status === 'completed' || row.status === 'cancelled') return;
+    if (isTerminalExecution(row.status)) return;
 
     const workflow = definitions.find((definition) => definition._tag === row.workflow_tag);
 

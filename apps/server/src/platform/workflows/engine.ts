@@ -17,6 +17,7 @@ import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
 import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
+import { isTerminalExecution } from '#server/platform/workflows/status';
 import { workflowStore } from '#server/platform/workflows/store';
 
 // Checkpoints are synchronous SQLite values; the native engine erases schema services.
@@ -219,7 +220,7 @@ export function workflowEngineLayer(context: ServerContext) {
     const resume = Effect.fnUntraced(function* (workflow: Workflow.Any, id: string) {
       const row = yield* Effect.sync(() => store.execution(id));
 
-      if (!row || row.status === 'completed' || row.status === 'cancelled') return;
+      if (!row || isTerminalExecution(row.status)) return;
 
       const w = workflow as StoredWorkflow;
       const payload = yield* checkpoint(() =>
@@ -250,7 +251,7 @@ export function workflowEngineLayer(context: ServerContext) {
           )
         );
 
-        if ((row?.status === 'completed' || row?.status === 'cancelled') && row.result)
+        if (row && isTerminalExecution(row.status) && row.result)
           return decode(codec(w), JSON.parse(row.result)) as any;
 
         const fiber = yield* start(w, options.executionId, options.payload);
