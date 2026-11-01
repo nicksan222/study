@@ -5,6 +5,7 @@ import {
   binding,
   memberName as property,
   constantAliasValue,
+  constantDeclarator,
   lexicalResolver
 } from '../lexical-bindings.ts';
 import { property as field } from './effect-lifecycle-syntax.ts';
@@ -87,12 +88,44 @@ export default defineRule({
       return found;
     }
 
+    function schemaDecoder(node: any, seen = new Set<any>()): boolean {
+      if (!node || seen.has(node)) return false;
+
+      seen.add(node);
+
+      if (node.type === 'CallExpression')
+        return /^Schema\.(?:decodeUnknownSync|decodeSync|encodeUnknownSync|encodeSync)$/.test(
+          effects.resolve(node.callee) ?? ''
+        );
+
+      if (node.type !== 'Identifier') return false;
+
+      const definition = effects.definition(node);
+
+      return constantDeclarator(definition) && schemaDecoder(definition.init, seen);
+    }
+
+    function fallibleCallback(node: any): boolean {
+      if (schemaDecoder(node)) return true;
+
+      const callback = callbackTarget(context, node);
+      let bad = false;
+
+      if (callback)
+        immediate(callback.body, (part: any) => {
+          if (fallibleSync(part)) bad = true;
+        });
+
+      return bad;
+    }
+
     function fallibleSync(node: any): boolean {
       if (node?.type !== 'CallExpression') return false;
 
       const api = resolve(node.callee) ?? '';
 
       return (
+        schemaDecoder(node.callee) ||
         api === 'JSON.parse' ||
         /^fs\.(?:readFileSync|writeFileSync|appendFileSync|statSync|lstatSync|readdirSync|realpathSync|accessSync|openSync|mkdirSync|unlinkSync|renameSync|rmSync)$/.test(
           api
@@ -168,14 +201,9 @@ export default defineRule({
         const name = effects.resolve(node.callee);
         const arg = node.arguments[0];
         const tryArg = callbackArgument(name, arg);
-        const cb = callbackTarget(context, tryArg);
         let bad = (name === 'Effect.sync' || name === 'Effect.try') && callbackPromise(tryArg);
 
-        if (name === 'Effect.sync' && cb) {
-          immediate(cb.body, (part: any) => {
-            if (fallibleSync(part)) bad = true;
-          });
-        }
+        if (name === 'Effect.sync' && fallibleCallback(tryArg)) bad = true;
 
         if (name === 'Effect.succeed' && knownIo(arg)) bad = true;
 
