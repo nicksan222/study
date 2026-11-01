@@ -29,7 +29,7 @@ export function defineService<const Name extends string, T extends Record<string
               observeOperation(
                 `${name}.${operation}`,
                 Effect.try({ try: () => handler(...args), catch: normalizeError }).pipe(
-                  Effect.flatMap((effect) => effect)
+                  Effect.flatten
                 )
               )
           ])
