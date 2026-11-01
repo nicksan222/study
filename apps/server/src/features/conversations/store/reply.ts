@@ -473,6 +473,21 @@ function makeHelpers({ db, clock }: StoreResources) {
     } else db.orm.delete(messages).where(eq(messages.id, message.id)).run();
   }
 
+  function retirePending(message: typeof messages.$inferSelect) {
+    const pending = db.orm
+      .select()
+      .from(message_versions)
+      .where(
+        and(
+          eq(message_versions.message_id, message.id),
+          sql`${message_versions.status} != 'complete'`
+        )
+      )
+      .all();
+
+    for (const version of pending) discardPending(message, version);
+  }
+
   function prepareReply(input: typeof replyRequestInputSchema.Type) {
     const pending = db.orm
       .select({ message: messages, version: message_versions })
@@ -518,35 +533,42 @@ function makeHelpers({ db, clock }: StoreResources) {
   return {
     snapshot,
     readReplySnapshot,
-    discardPending,
+    retirePending,
     replyContext,
     attachmentDocument,
     prepareReply
   };
 }
 
-export const ReplyStore = defineStore({
-  name: 'study/ConversationReplyStore',
-  entity: { singular: 'replySnapshot', plural: 'replySnapshots' },
-  make: ({ db, clock }) => {
-    const {
-      snapshot,
-      readReplySnapshot,
-      discardPending,
-      replyContext,
-      attachmentDocument,
-      prepareReply
-    } = makeHelpers({ db, clock });
+export const RetainedReplySnapshotStore = defineStore({
+  name: 'study/RetainedReplySnapshotStore',
+  entity: { singular: 'retainedReplySnapshot', plural: 'retainedReplySnapshots' },
+  make: (resources) => {
+    const { replyContext } = makeHelpers(resources);
 
     return {
       queries: {
-        inspectSnapshot: storeQuery({
+        retainedReplySnapshot: storeQuery({
           role: 'required',
           input: replySnapshotInputSchema,
           output: replySnapshotSchema,
           run: ({ requestId }) => replyContext(requestId).result
-        }),
-        findRequest: storeQuery({
+        })
+      },
+      mutations: {}
+    };
+  }
+});
+
+export const ReplyRequestStore = defineStore({
+  name: 'study/ReplyRequestStore',
+  entity: { singular: 'replyRequest', plural: 'replyRequests' },
+  make: (resources) => {
+    const { db } = resources;
+
+    return {
+      queries: {
+        findReplyRequest: storeQuery({
           role: 'optional',
           input: replySnapshotInputSchema,
           output: Schema.Option(replyRequestSchema),
@@ -556,9 +578,31 @@ export const ReplyStore = defineStore({
               .from(conversation_reply_requests)
               .where(eq(conversation_reply_requests.request_id, requestId))
               .get();
+
             return row ? Option.some(Schema.decodeUnknownSync(codec)(row.snapshot)) : Option.none();
           }
-        }),
+        })
+      },
+      mutations: {}
+    };
+  }
+});
+
+export const ReplyStore = defineStore({
+  name: 'study/ConversationReplyStore',
+  entity: { singular: 'replySnapshot', plural: 'replySnapshots' },
+  make: ({ db, clock }) => {
+    const {
+      snapshot,
+      readReplySnapshot,
+      retirePending,
+      replyContext,
+      attachmentDocument,
+      prepareReply
+    } = makeHelpers({ db, clock });
+
+    return {
+      queries: {
         replySnapshot: storeQuery({
           role: 'required',
           input: replySnapshotInputSchema,
@@ -749,40 +793,48 @@ export const ReplyStore = defineStore({
               typeof value === 'bigint' ? value.toString() : value
             );
             const saved = Schema.decodeUnknownSync(persistedCodec)(row.snapshot);
-            const validated = input.citations.map((citation) => {
-              if (citation.materialVersionId !== undefined) {
-                const selected = snapshot.context?.inputs.find(
-                  (item) =>
-                    item.versionId === citation.materialVersionId &&
-                    item.documentId === citation.documentId
-                );
-                const excerpt = selected?.excerpts.find(
-                  (item) =>
-                    item.blockOrdinal === citation.blockOrdinal &&
-                    item.text.includes(citation.quote)
-                );
-                const document = db.orm
-                  .select()
-                  .from(documents)
-                  .where(eq(documents.id, citation.documentId))
-                  .get();
-                if (citation.sourceId !== null || !selected || !excerpt || !document)
-                  return invalid();
-                return {
-                  version_id: row.version_id,
-                  marker: BigInt(citation.marker),
-                  source_id: null,
-                  material_version_id: selected.versionId,
-                  document_id: selected.documentId,
-                  block_id: excerpt.blockId,
-                  range_start: excerpt.start,
-                  range_end: excerpt.end,
-                  source_name: selected.name,
-                  anchor: JSON.stringify(excerpt.anchor),
-                  quote: citation.quote
-                };
-              }
+
+            function selectedCitation(
+              citation: (typeof publishReplyInputSchema.Type.citations)[number]
+            ) {
+              const selected = snapshot.context?.inputs.find(
+                (item) =>
+                  item.versionId === citation.materialVersionId &&
+                  item.documentId === citation.documentId
+              );
+              const excerpt = selected?.excerpts.find(
+                (item) =>
+                  item.blockOrdinal === citation.blockOrdinal && item.text.includes(citation.quote)
+              );
+              const document = db.orm
+                .select()
+                .from(documents)
+                .where(eq(documents.id, citation.documentId))
+                .get();
+
+              if (citation.sourceId !== null || !selected || !excerpt || !document)
+                return invalid();
+
+              return {
+                version_id: row.version_id,
+                marker: BigInt(citation.marker),
+                source_id: null,
+                material_version_id: selected.versionId,
+                document_id: selected.documentId,
+                block_id: excerpt.blockId,
+                range_start: excerpt.start,
+                range_end: excerpt.end,
+                source_name: selected.name,
+                anchor: JSON.stringify(excerpt.anchor),
+                quote: citation.quote
+              };
+            }
+
+            function attachmentCitation(
+              citation: (typeof publishReplyInputSchema.Type.citations)[number]
+            ) {
               if (citation.sourceId === null) return invalid();
+
               const attachment = snapshot.messages
                 .flatMap((message) => message.attachments)
                 .find(
@@ -839,7 +891,13 @@ export const ReplyStore = defineStore({
                 anchor: JSON.stringify(anchor),
                 quote: citation.quote
               };
-            });
+            }
+
+            const validated = input.citations.map((citation) =>
+              citation.materialVersionId !== undefined
+                ? selectedCitation(citation)
+                : attachmentCitation(citation)
+            );
 
             function assertPublicationAttachments() {
               for (const item of snapshot.messages.flatMap((message) => message.attachments)) {
@@ -949,18 +1007,10 @@ export const ReplyStore = defineStore({
           output: Schema.Void,
           run: ({ messageId }) => {
             const message = db.orm.select().from(messages).where(eq(messages.id, messageId)).get();
+
             if (!message) throw new StudyError('not_found', 'message not found');
-            const pending = db.orm
-              .select()
-              .from(message_versions)
-              .where(
-                and(
-                  eq(message_versions.message_id, message.id),
-                  sql`${message_versions.status} != 'complete'`
-                )
-              )
-              .all();
-            for (const version of pending) discardPending(message, version);
+
+            retirePending(message);
           }
         }),
         requestTarget: storeMutation({
@@ -985,18 +1035,7 @@ export const ReplyStore = defineStore({
             if (input.origin === 'instruction' && instruction === null)
               throw new StudyError('invalid_input', 'invalid instruction');
 
-            const pending = db.orm
-              .select()
-              .from(message_versions)
-              .where(
-                and(
-                  eq(message_versions.message_id, message.id),
-                  sql`${message_versions.status} != 'complete'`
-                )
-              )
-              .all();
-
-            for (const version of pending) discardPending(message, version);
+            retirePending(message);
 
             return snapshot(
               { sessionId: message.session_id, requestId: input.requestId, context: input.context },

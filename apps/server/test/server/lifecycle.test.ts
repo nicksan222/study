@@ -91,6 +91,12 @@ for (const failPersistence of [false, true])
         );
     });
 
+    t.after(async () => {
+      release();
+      peer.closeAllConnections();
+      await new Promise<void>((resolve) => peer.close(() => resolve()));
+    });
+
     await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
     const address = peer.address();
 

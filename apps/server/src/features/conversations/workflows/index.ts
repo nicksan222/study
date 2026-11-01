@@ -63,7 +63,8 @@ export const conversationReplyHandler = ({
     const conversations = yield* Conversations;
     const sources = yield* Sources;
     const agents = yield* Agents;
-    const { store } = yield* Database;
+    const database = yield* Database;
+    const { store } = database;
 
     const pending = yield* conversations.replyReadiness({ requestId: event.requestId });
 
@@ -97,27 +98,10 @@ export const conversationReplyHandler = ({
 
           yield* validateReplyEvent(snapshot, event);
 
-          const catalog = createEvidenceCatalog<{
-            sourceId: SourceId | null;
-            materialVersionId?: MaterialVersionId;
-            documentId: DocumentId;
-          }>([]);
-          if (snapshot.context) {
+          if (snapshot.context)
             yield* conversations.sessionContext({ requestId: snapshot.requestId });
-            for (const input of snapshot.context.inputs)
-              for (const [index, excerpt] of input.excerpts.entries())
-                catalog.addDocument({
-                  key: `selection:${input.versionId}:${index}`,
-                  name: input.name,
-                  quoteLimit: 100000,
-                  reference: {
-                    sourceId: null,
-                    materialVersionId: input.versionId,
-                    documentId: input.documentId
-                  },
-                  blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
-                });
-          }
+
+          const catalog = selectionCatalog(snapshot);
           const seen = new Set<string>();
 
           for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
@@ -161,7 +145,8 @@ export const conversationReplyHandler = ({
                     ? conversations.sessionContext({ requestId: event.requestId })
                     : Effect.void
                 ),
-                Effect.asVoid
+                Effect.asVoid,
+                Effect.provideService(Database, database)
               )
           };
           const agentServices = {
@@ -368,6 +353,30 @@ export const conversationAttachmentWakeRegistration = defineWorkflowHandler(
     }))
   }
 );
+
+function selectionCatalog(snapshot: typeof replySnapshotSchema.Type) {
+  const catalog = createEvidenceCatalog<{
+    sourceId: SourceId | null;
+    materialVersionId?: MaterialVersionId;
+    documentId: DocumentId;
+  }>([]);
+
+  for (const input of snapshot.context?.inputs ?? [])
+    for (const [index, excerpt] of input.excerpts.entries())
+      catalog.addDocument({
+        key: `selection:${input.versionId}:${index}`,
+        name: input.name,
+        quoteLimit: 100000,
+        reference: {
+          sourceId: null,
+          materialVersionId: input.versionId,
+          documentId: input.documentId
+        },
+        blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
+      });
+
+  return catalog;
+}
 
 function validateReplyEvent(
   snapshot: typeof replySnapshotSchema.Type,

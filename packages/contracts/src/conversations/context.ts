@@ -42,23 +42,29 @@ export const sessionSelectionTargetSchema = Schema.Struct({
     })
   ])
 });
+
 export const selectionTargetsSchema = Schema.Array(sessionSelectionTargetSchema).check(
   Schema.isMaxLength(20)
 );
+
 export const sessionSelectionInputSchema = Schema.Struct({ sessionId: sessionIdSchema });
+
 export const sessionSelectionSchema = Schema.Struct({
   revision: Schema.BigInt,
   targets: selectionTargetsSchema
 });
+
 export const updateSessionSelectionSchema = Schema.Struct({
   sessionId: sessionIdSchema,
   expectedRevision: Schema.BigInt,
   targets: selectionTargetsSchema
 });
+
 export const runPreferencesSchema = Schema.Struct({
   language: Schema.optional(Schema.Literals(['english', 'italian'])),
   detail: Schema.optional(Schema.Literals(['brief', 'balanced', 'detailed']))
 });
+
 export const captureSessionContextSchema = Schema.Struct({
   sessionId: sessionIdSchema,
   threadRoot: Schema.optional(partIdSchema),
@@ -67,6 +73,7 @@ export const captureSessionContextSchema = Schema.Struct({
   instruction: Schema.String.check(Schema.isMaxLength(100000)),
   preferences: runPreferencesSchema
 });
+
 export const resolvedSelectionSchema = Schema.Struct({
   ...sessionSelectionTargetSchema.fields,
   documentId: documentIdSchema,
@@ -85,6 +92,7 @@ export const resolvedSelectionSchema = Schema.Struct({
     })
   )
 });
+
 export const runSelectionContextSchema = Schema.Struct({
   requestId: Schema.String,
   ...captureSessionContextSchema.fields,

@@ -33,6 +33,7 @@ import {
 import { Schema, Option } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeHistory } from './history.ts';
 
@@ -42,128 +43,81 @@ const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContex
 
 const intentCodec = Schema.fromJsonString(Schema.toCodecJson(captureSessionContextSchema));
 
-export const SessionContextStore = defineStore({
-  name: 'study/SessionContextStore',
-  entity: { singular: 'sessionContext', plural: 'sessionContexts' },
-  make: ({ db, clock }) => {
-    const { conversationHistory, conversationRoot } = makeHistory({ db, clock });
+function makeContextReads({ db }: StoreResources) {
+  function session(id: typeof sessionSelectionInputSchema.Type.sessionId) {
+    const row = db.orm.select().from(sessions).where(eq(sessions.id, id)).get();
 
-    function session(id: typeof sessionSelectionInputSchema.Type.sessionId) {
-      const row = db.orm.select().from(sessions).where(eq(sessions.id, id)).get();
+    if (!row) throw new StudyError('not_found', 'Session is unavailable');
 
-      if (!row) throw new StudyError('not_found', 'Session is unavailable');
+    return row;
+  }
 
-      return row;
-    }
+  function selection(input: typeof sessionSelectionInputSchema.Type) {
+    const row = session(input.sessionId);
 
-    function selection(input: typeof sessionSelectionInputSchema.Type) {
-      const row = session(input.sessionId);
+    return {
+      revision: row.selection_revision,
+      targets: Schema.decodeUnknownSync(targetsCodec)(row.selection)
+    };
+  }
 
-      return {
-        revision: row.selection_revision,
-        targets: Schema.decodeUnknownSync(targetsCodec)(row.selection)
-      };
-    }
+  function decodeContext(value: string) {
+    const snapshot = Schema.decodeUnknownSync(contextCodec)(value);
 
-    function decodeContext(value: string) {
-      const snapshot = Schema.decodeUnknownSync(contextCodec)(value);
-
-      for (const item of snapshot.messages) {
-        const version = db.orm
-          .select()
-          .from(message_versions)
-          .where(
-            and(
-              eq(message_versions.id, item.versionId),
-              eq(message_versions.message_id, item.messageId)
-            )
+    for (const item of snapshot.messages) {
+      const version = db.orm
+        .select()
+        .from(message_versions)
+        .where(
+          and(
+            eq(message_versions.id, item.versionId),
+            eq(message_versions.message_id, item.messageId)
           )
-          .get();
+        )
+        .get();
 
-        if (!version || version.text !== item.text || version.status !== 'complete')
-          throw new StudyError('not_found', 'Captured conversation version is unavailable');
-      }
-
-      return snapshot;
+      if (!version || version.text !== item.text || version.status !== 'complete')
+        throw new StudyError('not_found', 'Captured conversation version is unavailable');
     }
+
+    return snapshot;
+  }
+
+  function retainedContext(requestId: string) {
+    return db.orm
+      .select()
+      .from(session_run_contexts)
+      .where(eq(session_run_contexts.request_id, requestId))
+      .get();
+  }
+
+  function requiredContext(requestId: string, available: boolean) {
+    const row = retainedContext(requestId);
+
+    if (!row) throw new StudyError('not_found', 'Captured context is unavailable');
+
+    return available
+      ? decodeContext(row.snapshot)
+      : Schema.decodeUnknownSync(contextCodec)(row.snapshot);
+  }
+
+  return { session, selection, decodeContext, retainedContext, requiredContext };
+}
+
+export const SessionSelectionStore = defineStore({
+  name: 'study/SessionSelectionStore',
+  entity: { singular: 'sessionSelection', plural: 'sessionSelections' },
+  make: (resources) => {
+    const { db } = resources;
+    const { session, selection } = makeContextReads(resources);
 
     return {
       queries: {
-        selection: storeQuery({
+        sessionSelection: storeQuery({
           role: 'required',
           input: sessionSelectionInputSchema,
           output: sessionSelectionSchema,
           run: selection
-        }),
-        inspectContext: storeQuery({
-          role: 'required',
-          input: replySnapshotInputSchema,
-          output: runSelectionContextSchema,
-          run: ({ requestId }) => {
-            const row = db.orm
-              .select()
-              .from(session_run_contexts)
-              .where(eq(session_run_contexts.request_id, requestId))
-              .get();
-
-            if (!row) throw new StudyError('not_found', 'Captured context is unavailable');
-
-            return Schema.decodeUnknownSync(contextCodec)(row.snapshot);
-          }
-        }),
-        findContext: storeQuery({
-          role: 'optional',
-          input: replySnapshotInputSchema,
-          output: Schema.Option(runSelectionContextSchema),
-          run: ({ requestId }) => {
-            const row = db.orm
-              .select()
-              .from(session_run_contexts)
-              .where(eq(session_run_contexts.request_id, requestId))
-              .get();
-
-            return row ? Option.some(decodeContext(row.snapshot)) : Option.none();
-          }
-        }),
-        context: storeQuery({
-          role: 'required',
-          input: replySnapshotInputSchema,
-          output: runSelectionContextSchema,
-          run: ({ requestId }) => {
-            const row = db.orm
-              .select()
-              .from(session_run_contexts)
-              .where(eq(session_run_contexts.request_id, requestId))
-              .get();
-
-            if (!row) throw new StudyError('not_found', 'Captured context is unavailable');
-
-            return decodeContext(row.snapshot);
-          }
-        }),
-        existing: storeQuery({
-          role: 'optional',
-          input: captureSessionContextSchema,
-          output: Schema.Option(runSelectionContextSchema),
-          run: (input) => {
-            const row = db.orm
-              .select()
-              .from(session_run_contexts)
-              .where(
-                and(
-                  eq(session_run_contexts.session_id, input.sessionId),
-                  eq(session_run_contexts.intent_key, input.intentKey)
-                )
-              )
-              .get();
-
-            if (!row) return Option.none();
-
-            if (row.intent !== Schema.encodeSync(intentCodec)(input))
-              throw new StudyError('invalid_input', 'Intent key already captures different work');
-
-            return Option.some(decodeContext(row.snapshot));
-          }
         })
       },
       mutations: {
@@ -192,7 +146,100 @@ export const SessionContextStore = defineStore({
 
             return selection(input);
           }
+        })
+      }
+    };
+  }
+});
+
+export const RetainedSessionContextStore = defineStore({
+  name: 'study/RetainedSessionContextStore',
+  entity: { singular: 'retainedSessionContext', plural: 'retainedSessionContexts' },
+  make: (resources) => {
+    const { requiredContext } = makeContextReads(resources);
+
+    return {
+      queries: {
+        retainedSessionContext: storeQuery({
+          role: 'required',
+          input: replySnapshotInputSchema,
+          output: runSelectionContextSchema,
+          run: ({ requestId }) => requiredContext(requestId, false)
+        })
+      },
+      mutations: {}
+    };
+  }
+});
+
+export const SessionContextIntentStore = defineStore({
+  name: 'study/SessionContextIntentStore',
+  entity: { singular: 'sessionContextIntent', plural: 'sessionContextIntents' },
+  make: (resources) => {
+    const { db } = resources;
+    const { decodeContext } = makeContextReads(resources);
+
+    return {
+      queries: {
+        findSessionContextIntent: storeQuery({
+          role: 'optional',
+          input: captureSessionContextSchema,
+          output: Schema.Option(runSelectionContextSchema),
+          run: (input) => {
+            const row = db.orm
+              .select()
+              .from(session_run_contexts)
+              .where(
+                and(
+                  eq(session_run_contexts.session_id, input.sessionId),
+                  eq(session_run_contexts.intent_key, input.intentKey)
+                )
+              )
+              .get();
+
+            if (!row) return Option.none();
+
+            if (row.intent !== Schema.encodeSync(intentCodec)(input))
+              throw new StudyError('invalid_input', 'Intent key already captures different work');
+
+            return Option.some(decodeContext(row.snapshot));
+          }
+        })
+      },
+      mutations: {}
+    };
+  }
+});
+
+export const SessionContextStore = defineStore({
+  name: 'study/SessionContextStore',
+  entity: { singular: 'sessionContext', plural: 'sessionContexts' },
+  make: (resources) => {
+    const { db } = resources;
+    const { session, requiredContext, retainedContext, decodeContext } =
+      makeContextReads(resources);
+    const { conversationHistory, conversationRoot } = makeHistory(resources);
+
+    return {
+      queries: {
+        sessionContext: storeQuery({
+          role: 'required',
+          input: replySnapshotInputSchema,
+          output: runSelectionContextSchema,
+          run: ({ requestId }) => requiredContext(requestId, true)
         }),
+        findSessionContext: storeQuery({
+          role: 'optional',
+          input: replySnapshotInputSchema,
+          output: Schema.Option(runSelectionContextSchema),
+          run: ({ requestId }) => {
+            const row = retainedContext(requestId);
+
+            return row ? Option.some(decodeContext(row.snapshot)) : Option.none();
+          }
+        })
+      },
+      mutations: {
         capture: storeMutation({
           input: Schema.Struct({
             ...captureSessionContextSchema.fields,

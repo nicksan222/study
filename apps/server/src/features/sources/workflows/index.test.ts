@@ -32,6 +32,7 @@ import {
   sourceIndexedHandler,
   sourceIndexedWorkflow
 } from '#server/features/materials/workflows/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/service/index';
 import {
   sourceIngestionWorkflow,
@@ -52,7 +53,7 @@ test('native ingestion and projection let quick sessions capture a historic impo
   const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
   const domain = () =>
-    Layer.mergeAll(Sources.layer, Materials.layer, Conversations.layer).pipe(
+    Layer.mergeAll(Sources.layer, Materials.layer, Conversations.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const services = () =>

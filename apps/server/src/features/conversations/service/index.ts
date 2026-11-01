@@ -42,12 +42,19 @@ import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
-import { SessionContextStore } from '#server/features/conversations/store/context';
+import {
+  SessionContextStore,
+  SessionSelectionStore,
+  RetainedSessionContextStore,
+  SessionContextIntentStore
+} from '#server/features/conversations/store/context';
 import { SessionStore } from '#server/features/conversations/store/index';
 import { MessageStore } from '#server/features/conversations/store/message';
 import { RecordingPostStore } from '#server/features/conversations/store/recording';
 import {
   ReplyStore,
+  ReplyRequestStore,
+  RetainedReplySnapshotStore,
   ReplyReadinessStore,
   ReplyWakeStore
 } from '#server/features/conversations/store/reply';
@@ -70,22 +77,23 @@ export const Conversations = defineService(
     const store = yield* useStore(SessionStore);
     const messages = yield* useStore(MessageStore);
     const titles = yield* useStore(TitleStore);
-    const contexts = yield* useStore(SessionContextStore);
+    const selections = yield* useStore(SessionSelectionStore);
+    const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
-      sessionSelection: contexts.selection,
+      sessionSelection: selections.sessionSelection,
       updateSessionSelection: (input: typeof updateSessionSelectionSchema.Type) =>
         transaction((tx) => {
           resolveTargets(tx, input.targets);
 
-          return tx.store(SessionContextStore).updateSelection(input);
+          return tx.store(SessionSelectionStore).updateSelection(input);
         }),
       captureSessionContext: (input: typeof captureSessionContextSchema.Type) =>
         transaction((tx) => captureContext(tx, input, randomUUID())),
-      inspectSessionContext: contexts.inspectContext,
+      inspectSessionContext: retainedContexts.retainedSessionContext,
       sessionContext: (input: { requestId: string }) =>
         transaction((tx) => {
-          const snapshot = tx.store(SessionContextStore).context(input);
+          const snapshot = tx.store(SessionContextStore).sessionContext(input);
 
           for (const target of snapshot.inputs) assertCapturedTarget(tx, target);
 
@@ -131,7 +139,7 @@ export const Conversations = defineService(
           const snapshot = tx.store(ReplyStore).replySnapshot(input);
 
           if (snapshot.context) {
-            tx.store(SessionContextStore).context(input);
+            tx.store(SessionContextStore).sessionContext(input);
 
             for (const target of snapshot.context.inputs) assertCapturedTarget(tx, target);
           }
@@ -139,7 +147,7 @@ export const Conversations = defineService(
           return snapshot;
         }),
       inspectReplySnapshot: (input: { requestId: string }) =>
-        transaction((tx) => tx.store(ReplyStore).inspectSnapshot(input)),
+        transaction((tx) => tx.store(RetainedReplySnapshotStore).retainedReplySnapshot(input)),
       replyReadiness: readReplyReadinessStore.replyReadiness,
       replyWakes: readReplyWakeStore.replyWakes,
       sealReplyAttachments: (input: { requestId: string }) =>
@@ -152,7 +160,9 @@ export const Conversations = defineService(
         }),
       publishReply: (input: typeof publishReplyInputSchema.Type) =>
         publicationTransaction((tx) => {
-          const context = tx.store(SessionContextStore).findContext({ requestId: input.requestId });
+          const context = tx
+            .store(SessionContextStore)
+            .findSessionContext({ requestId: input.requestId });
 
           if (Option.isSome(context))
             for (const target of context.value.inputs) assertCapturedTarget(tx, target);
@@ -168,12 +178,12 @@ export const Conversations = defineService(
             instruction: input.instruction ?? '',
             preferences: input.preferences ?? {}
           };
-          const existing = tx.store(SessionContextStore).existing(intent);
+          const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
 
           if (Option.isSome(existing)) {
             const previous = tx
-              .store(ReplyStore)
-              .findRequest({ requestId: existing.value.requestId });
+              .store(ReplyRequestStore)
+              .findReplyRequest({ requestId: existing.value.requestId });
 
             if (Option.isSome(previous)) {
               for (const target of existing.value.inputs) assertCapturedTarget(tx, target);
@@ -187,93 +197,20 @@ export const Conversations = defineService(
           tx.store(ReplyStore).prepareReply(input);
           const context = captureContext(tx, intent, randomUUID());
           const requestId = context.requestId;
-          const previous = tx.store(ReplyStore).findRequest({ requestId });
+          const previous = tx.store(ReplyRequestStore).findReplyRequest({ requestId });
 
           if (Option.isSome(previous)) return previous.value;
 
           const result = tx.store(ReplyStore).requestReply({ ...input, requestId, context });
 
-          tx.emit({
-            type: 'ConversationGenerationRequested',
-            eventId: randomUUID(),
-            causationId: null,
-            correlationId: requestId,
-            inputVersion: 1,
-            depth: 0,
-            ...result,
-            operation: 'reply'
-          });
+          emitReplyRequest(tx, result, 'reply');
 
           return result;
         }),
       reanswer: (input: typeof reanswerInputSchema.Type) =>
-        transaction((tx) => {
-          const requestId = randomUUID();
-
-          tx.store(ReplyStore).retireTargetPending(input);
-          const message = tx.store(MessageStore).message(input.messageId);
-          const context = captureContext(
-            tx,
-            {
-              sessionId: message.sessionId,
-              threadRoot: message.threadRoot ?? undefined,
-              throughMessageId: message.replyTo ?? undefined,
-              intentKey: requestId,
-              instruction: '',
-              preferences: {}
-            },
-            requestId
-          );
-          const result = tx
-            .store(ReplyStore)
-            .requestTarget({ ...input, requestId, origin: 'answer', context });
-
-          tx.emit({
-            type: 'ConversationGenerationRequested',
-            eventId: randomUUID(),
-            causationId: null,
-            correlationId: requestId,
-            inputVersion: 1,
-            depth: 0,
-            ...result,
-            operation: 'reply'
-          });
-
-          return result;
-        }),
+        transaction((tx) => requestTarget(tx, { ...input, origin: 'answer' })),
       rewriteMessage: (input: typeof rewriteMessageInputSchema.Type) =>
-        transaction((tx) => {
-          const requestId = randomUUID();
-
-          tx.store(ReplyStore).retireTargetPending(input);
-          const message = tx.store(MessageStore).message(input.messageId);
-          const context = captureContext(
-            tx,
-            {
-              sessionId: message.sessionId,
-              threadRoot: message.threadRoot ?? undefined,
-              throughMessageId: message.id,
-              intentKey: requestId,
-              instruction: input.instruction ?? '',
-              preferences: {}
-            },
-            requestId
-          );
-          const result = tx.store(ReplyStore).requestTarget({ ...input, requestId, context });
-
-          tx.emit({
-            type: 'ConversationGenerationRequested',
-            eventId: randomUUID(),
-            causationId: null,
-            correlationId: requestId,
-            inputVersion: 1,
-            depth: 0,
-            ...result,
-            operation: 'rewrite'
-          });
-
-          return result;
-        }),
+        transaction((tx) => requestTarget(tx, input)),
       message: messages.message,
       thread: (input: typeof threadInputSchema.Type) =>
         Effect.gen(function* () {
@@ -418,13 +355,59 @@ function resolveTargets(
   return resolved;
 }
 
+function requestTarget(
+  tx: Transaction,
+  input:
+    | typeof rewriteMessageInputSchema.Type
+    | (typeof reanswerInputSchema.Type & { origin: 'answer' })
+) {
+  const requestId = randomUUID();
+
+  tx.store(ReplyStore).retireTargetPending(input);
+  const message = tx.store(MessageStore).message(input.messageId);
+  const context = captureContext(
+    tx,
+    {
+      sessionId: message.sessionId,
+      threadRoot: message.threadRoot ?? undefined,
+      throughMessageId: input.origin === 'answer' ? (message.replyTo ?? undefined) : message.id,
+      intentKey: requestId,
+      instruction: input.origin === 'answer' ? '' : (input.instruction ?? ''),
+      preferences: {}
+    },
+    requestId
+  );
+  const result = tx.store(ReplyStore).requestTarget({ ...input, requestId, context });
+
+  emitReplyRequest(tx, result, input.origin === 'answer' ? 'reply' : 'rewrite');
+
+  return result;
+}
+
+function emitReplyRequest(
+  tx: Transaction,
+  result: typeof replyRequestSchema.Type,
+  operation: 'reply' | 'rewrite'
+) {
+  tx.emit({
+    type: 'ConversationGenerationRequested',
+    eventId: randomUUID(),
+    causationId: null,
+    correlationId: result.requestId,
+    inputVersion: 1,
+    depth: 0,
+    ...result,
+    operation
+  });
+}
+
 function captureContext(
   tx: Transaction,
   input: typeof captureSessionContextSchema.Type,
   requestId: string
 ) {
   const store = tx.store(SessionContextStore);
-  const existing = store.existing(input);
+  const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(input);
 
   if (Option.isSome(existing)) {
     for (const target of existing.value.inputs) assertCapturedTarget(tx, target);
@@ -432,7 +415,9 @@ function captureContext(
     return existing.value;
   }
 
-  const selection = store.selection({ sessionId: input.sessionId });
+  const selection = tx
+    .store(SessionSelectionStore)
+    .sessionSelection({ sessionId: input.sessionId });
 
   return store.capture({ ...input, requestId, inputs: resolveTargets(tx, selection.targets) });
 }

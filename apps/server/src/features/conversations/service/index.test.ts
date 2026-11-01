@@ -24,6 +24,7 @@ import { Effect, Layer, Option } from 'effect';
 import { Projects } from '#server/features/projects/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { withTestPublication } from '#testing/publication';
 
 import { Conversations } from './index.ts';
 
@@ -386,7 +387,10 @@ test('reply request persists its context and rejects another pending request', a
           (yield* conversations.replySnapshot({ requestId: request.requestId })).messages[0]?.text,
           'hello'
         );
-        yield* conversations.abandonReply(request);
+        yield* withTestPublication(
+          context,
+          conversations.abandonReply(request).pipe(Effect.asVoid)
+        );
         const replacement = yield* conversations.requestReply({ sessionId: session.id });
 
         assert.notEqual(replacement.requestId, request.requestId);

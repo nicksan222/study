@@ -26,9 +26,11 @@ import { RpcTest } from 'effect/rpc';
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Materials } from '#server/features/materials/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { withTestPublication } from '#testing/publication';
 
 const content = (value: string) => ({
   kind: 'document' as const,
@@ -50,7 +52,7 @@ test('native selection guards exact historic ranges, captures once and survives 
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const services = () =>
-    Layer.merge(Conversations.layer, Materials.layer).pipe(
+    Layer.mergeAll(Conversations.layer, Materials.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const handlers = () => ConversationsRpcLive.pipe(Layer.provideMerge(services()));
@@ -210,9 +212,34 @@ test('native selection guards exact historic ranges, captures once and survives 
 
           assert.equal(
             (yield* Effect.flip(
-              conversations.publishReply({
+              withTestPublication(
+                context,
+                conversations
+                  .publishReply({
+                    requestId: request.requestId,
+                    text: 'Outside [1]',
+                    citations: [
+                      {
+                        marker: 1,
+                        sourceId: null,
+                        materialVersionId: material.version.id,
+                        documentId,
+                        blockOrdinal: 0,
+                        quote: 'before'
+                      }
+                    ]
+                  })
+                  .pipe(Effect.asVoid)
+              )
+            )).kind,
+            'invalid_input'
+          );
+          yield* withTestPublication(
+            context,
+            conversations
+              .publishReply({
                 requestId: request.requestId,
-                text: 'Outside [1]',
+                text: 'Inside [1] and [2]',
                 citations: [
                   {
                     marker: 1,
@@ -220,35 +247,20 @@ test('native selection guards exact historic ranges, captures once and survives 
                     materialVersionId: material.version.id,
                     documentId,
                     blockOrdinal: 0,
-                    quote: 'before'
+                    quote: 'selected'
+                  },
+                  {
+                    marker: 2,
+                    sourceId: null,
+                    materialVersionId: material.version.id,
+                    documentId,
+                    blockOrdinal: 0,
+                    quote: 'selected'
                   }
                 ]
               })
-            )).kind,
-            'invalid_input'
+              .pipe(Effect.asVoid)
           );
-          yield* conversations.publishReply({
-            requestId: request.requestId,
-            text: 'Inside [1] and [2]',
-            citations: [
-              {
-                marker: 1,
-                sourceId: null,
-                materialVersionId: material.version.id,
-                documentId,
-                blockOrdinal: 0,
-                quote: 'selected'
-              },
-              {
-                marker: 2,
-                sourceId: null,
-                materialVersionId: material.version.id,
-                documentId,
-                blockOrdinal: 0,
-                quote: 'selected'
-              }
-            ]
-          });
           const answer = yield* client('conversations.message', { id: request.messageId });
 
           assert.equal(answer.citations[0]!.materialVersionId, material.version.id);
@@ -352,7 +364,7 @@ test('reply outbox rejection rolls back the logical context and retry uses origi
 test('selection order is independent of membership and bounded history reports omitted messages', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const layer = Layer.merge(Conversations.layer, Materials.layer).pipe(
+  const layer = Layer.mergeAll(Conversations.layer, Materials.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
@@ -507,7 +519,7 @@ test('selected image blocks retain exact asset revisions while ranges expose onl
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const services = () =>
-    Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer).pipe(
+    Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const handlers = () => ConversationsRpcLive.pipe(Layer.provideMerge(services()));

@@ -23,7 +23,7 @@ import type { StudyError } from '@study/contracts/errors';
 import type { SourceId } from '@study/contracts/ids';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -900,3 +900,43 @@ test('async callbacks are rejected before their continuation can escape the tran
     location.cleanup();
   }
 });
+
+for (const [role, name] of [
+  ['required', 'selection'],
+  ['optional', 'existing']
+] as const)
+  test('rejects a noncanonical ' + role + ' read during store initialization', async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const operation =
+      role === 'required'
+        ? storeQuery({
+            role,
+            input: Schema.Number,
+            output: Schema.Number,
+            run: (id) => id
+          })
+        : storeQuery({
+            role,
+            input: Schema.Number,
+            output: Schema.Option(Schema.Number),
+            run: (id) => Option.some(id)
+          });
+    const invalid = defineStore({
+      name: 'test/NoncanonicalRead',
+      entity: { singular: 'item', plural: 'items' },
+      make: () => ({ queries: { [name]: operation }, mutations: {} })
+    });
+
+    try {
+      const error = await Effect.runPromise(
+        useStore(invalid).pipe(Effect.provideService(Database, { store: context }), Effect.flip)
+      );
+
+      assert.equal(error.kind, 'internal');
+      assert.ok(error.cause instanceof TypeError);
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  });

@@ -191,17 +191,43 @@ export const MaterialsStore = defineStore({
   }
 });
 
-export const MaterialVersionsStore = defineStore({
-  name: 'study/MaterialVersionsStore',
-  entity: { singular: 'materialVersion', plural: 'materialVersions' },
+function selectionSpans(
+  document: ReturnType<ReturnType<typeof makeReads>['readCanonicalDocument']>,
+  target: typeof sessionSelectionTargetSchema.Type,
+  versionId: typeof target.versionId,
+  documentId: NonNullable<typeof target.documentId>
+) {
+  const scope = target.scope;
+
+  const spans =
+    scope.kind === 'ranges'
+      ? scope.ranges
+      : document.blocks.flatMap((block) =>
+          (scope.kind === 'document' && block.text.length > 0) ||
+          (scope.kind === 'blocks' && scope.blockIds.includes(block.id))
+            ? [{ versionId, documentId, blockId: block.id, start: 0, end: block.text.length }]
+            : []
+        );
+
+  if (
+    scope.kind === 'blocks' &&
+    (new Set(scope.blockIds).size !== scope.blockIds.length ||
+      spans.length !== scope.blockIds.length)
+  )
+    throw new StudyError('invalid_input', 'Invalid selected blocks');
+
+  return spans;
+}
+
+export const MaterialSelectionStore = defineStore({
+  name: 'study/MaterialSelectionStore',
+  entity: { singular: 'materialSelection', plural: 'materialSelections' },
   make: (resources) => {
-    const { getVersion } = makeGetVersionAction(resources);
     const reads = makeReads(resources);
-    const { listVersions } = makeListVersionsAction(resources);
 
     return {
       queries: {
-        resolveSelection: storeQuery({
+        materialSelection: storeQuery({
           role: 'required',
           input: sessionSelectionTargetSchema,
           output: resolvedSelectionSchema,
@@ -218,30 +244,7 @@ export const MaterialVersionsStore = defineStore({
             const document = reads.readCanonicalDocument(documentId);
             const material = reads.materialRow(version.material_id);
             const scope = target.scope;
-            const spans =
-              scope.kind === 'ranges'
-                ? scope.ranges
-                : document.blocks.flatMap((block) =>
-                    (scope.kind === 'document' && block.text.length > 0) ||
-                    (scope.kind === 'blocks' && scope.blockIds.includes(block.id))
-                      ? [
-                          {
-                            versionId: version.id,
-                            documentId,
-                            blockId: block.id,
-                            start: 0,
-                            end: block.text.length
-                          }
-                        ]
-                      : []
-                  );
-
-            if (
-              scope.kind === 'blocks' &&
-              (new Set(scope.blockIds).size !== scope.blockIds.length ||
-                spans.length !== scope.blockIds.length)
-            )
-              throw new StudyError('invalid_input', 'Invalid selected blocks');
+            const spans = selectionSpans(document, target, version.id, documentId);
 
             const seen = new Set<string>();
             const excerpts = spans.map((range) => {
@@ -285,7 +288,22 @@ export const MaterialVersionsStore = defineStore({
               excerpts
             };
           }
-        }),
+        })
+      },
+      mutations: {}
+    };
+  }
+});
+
+export const MaterialVersionsStore = defineStore({
+  name: 'study/MaterialVersionsStore',
+  entity: { singular: 'materialVersion', plural: 'materialVersions' },
+  make: (resources) => {
+    const { getVersion } = makeGetVersionAction(resources);
+    const { listVersions } = makeListVersionsAction(resources);
+
+    return {
+      queries: {
         materialVersion: storeQuery({
           role: 'required',
           input: input.materialVersionInputSchema,

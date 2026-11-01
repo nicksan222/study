@@ -1,5 +1,14 @@
 import type { MaterialId, ProjectId, SessionId } from '@study/contracts/ids';
-import { integer, primaryKey, index, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+import {
+  integer,
+  primaryKey,
+  index,
+  sqliteTable,
+  foreignKey,
+  uniqueIndex,
+  check
+} from 'drizzle-orm/sqlite-core';
 
 import { sessions } from './conversations.ts';
 import { materials } from './material-versions.ts';
@@ -39,5 +48,28 @@ export const project_sessions = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.project_id, t.session_id] }),
     index('project_sessions_session_idx').on(t.session_id)
+  ]
+);
+
+export const session_materials = sqliteTable(
+  'session_materials',
+  {
+    session_id: integer().$type<SessionId>().notNull(),
+    material_id: integer().$type<MaterialId>().notNull(),
+    position: integer().$type<bigint>().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.session_id, t.material_id] }),
+    foreignKey({
+      columns: [t.session_id],
+      foreignColumns: [sessions.id]
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.material_id],
+      foreignColumns: [materials.id]
+    }).onDelete('cascade'),
+    uniqueIndex('session_materials_position_unique').on(t.session_id, t.position),
+    index('session_materials_material_idx').on(t.material_id, t.session_id),
+    check('session_materials_position_check', sql`typeof(position) = 'integer' AND position >= 0`)
   ]
 );

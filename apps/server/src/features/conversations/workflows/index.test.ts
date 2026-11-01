@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 
+import type { messageVersionSchema } from '@study/contracts/conversations/schemas';
 import { createBlock } from '@study/contracts/sources/document';
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
@@ -279,7 +280,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
 
     assert.equal(reanswer.messageId, current.messageId);
     assert.equal(answered.versions.length, 2);
-    assert.equal(answered.versions.at(-1)?.text, 'Another answer');
+    assert.equal(latestVersion(answered.versions).text, 'Another answer');
     const rewrite = await run(
       Effect.flatMap(Conversations, (c) =>
         c.rewriteMessage({
@@ -317,8 +318,8 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     const rewritten = await run(Effect.flatMap(Conversations, (c) => c.message(current.messageId)));
 
     assert.equal(rewrite.messageId, current.messageId);
-    assert.equal(rewritten.versions.at(-1)?.origin, 'instruction');
-    assert.equal(rewritten.versions.at(-1)?.instruction, 'Use bullet points');
+    assert.equal(latestVersion(rewritten.versions).origin, 'instruction');
+    assert.equal(latestVersion(rewritten.versions).instruction, 'Use bullet points');
     assert.match(bodies.at(-1)!, /Another answer/);
     assert.equal(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
     assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
@@ -338,7 +339,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
     const userResult = await run(Effect.flatMap(Conversations, (c) => c.message(first.id)));
 
-    assert.equal(userResult.versions.at(-1)?.origin, 'summarize');
+    assert.equal(latestVersion(userResult.versions).origin, 'summarize');
     assert.equal(userResult.activeVersionId, userRewrite.versionId);
     const oldRequest = await run(
       Effect.flatMap(Conversations, (c) =>
@@ -728,4 +729,12 @@ function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
   assert.ok(event && event.type === type, message);
+}
+
+function latestVersion(versions: ReadonlyArray<typeof messageVersionSchema.Type>) {
+  const version = versions.at(-1);
+
+  assert.ok(version, 'expected a retained message version');
+
+  return version;
 }

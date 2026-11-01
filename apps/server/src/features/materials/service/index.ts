@@ -28,6 +28,7 @@ import type {
 import { Effect } from 'effect';
 
 import {
+  MaterialSelectionStore,
   MaterialGenerationStore,
   MaterialsStore,
   MaterialVersionsStore,
@@ -363,5 +364,5 @@ function resolveSessionSelection(
   tx: Transaction,
   target: typeof sessionSelectionTargetSchema.Type
 ) {
-  return tx.store(MaterialVersionsStore).resolveSelection(target);
+  return tx.store(MaterialSelectionStore).materialSelection(target);
 }
