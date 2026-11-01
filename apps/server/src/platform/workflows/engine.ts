@@ -8,6 +8,7 @@ import {
   Exit,
   Fiber,
   FiberMap,
+  Function,
   Layer,
   Option,
   Schema,
@@ -93,10 +94,14 @@ export function workflowEngineLayer(context: ServerContext) {
         lifetimes.clear();
       })
     );
-    const codec = (workflow: StoredWorkflow) =>
+    const codec = Function.memoize((workflow: StoredWorkflow) =>
       Schema.toCodecJson(
         Workflow.Result({ success: workflow.successSchema, error: workflow.errorSchema })
-      );
+      )
+    );
+    const payloadCodec = Function.memoize((workflow: StoredWorkflow) =>
+      Schema.toCodecJson(workflow.payloadSchema)
+    );
     const start = Effect.fnUntraced(function* (
       workflow: StoredWorkflow,
       id: string,
@@ -223,9 +228,7 @@ export function workflowEngineLayer(context: ServerContext) {
       if (!row || isTerminalExecution(row.status)) return;
 
       const w = workflow as StoredWorkflow;
-      const payload = yield* checkpoint(() =>
-        decode(Schema.toCodecJson(w.payloadSchema), JSON.parse(row.payload))
-      );
+      const payload = yield* checkpoint(() => decode(payloadCodec(w), JSON.parse(row.payload)));
 
       yield* start(w, id, payload);
     });
@@ -240,7 +243,7 @@ export function workflowEngineLayer(context: ServerContext) {
       execute: Effect.fnUntraced(function* (workflow, options) {
         const w = workflow as StoredWorkflow;
         const payload = yield* Effect.sync(() =>
-          JSON.stringify(encode(Schema.toCodecJson(w.payloadSchema), options.payload))
+          JSON.stringify(encode(payloadCodec(w), options.payload))
         );
         const row = yield* Effect.sync(() =>
           store.start(
