@@ -592,6 +592,7 @@ test('first extraction and fresh reprocessing preserve explicit pending membersh
     }),
     workflowEngineLayer(context)
   );
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -609,16 +610,20 @@ test('first extraction and fresh reprocessing preserve explicit pending membersh
           archived: false,
           limit: 10
         })).items[0]!;
+
         yield* projects.removeMaterial({ projectId: collection.id, materialId: pending.id });
         const engine = yield* WorkflowEngine.WorkflowEngine;
+
         yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
         yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
+
         for (const executionId of ['first', 'fresh']) {
           if (executionId === 'fresh')
             yield* sources.requestSourceProcessing({
               id: source.id,
               expectedRevision: (yield* sources.sourceProcessing(source.id)).revision
             });
+
           const requestRow = context.db.orm
             .select()
             .from(workflowEvents)
@@ -626,6 +631,7 @@ test('first extraction and fresh reprocessing preserve explicit pending membersh
             .filter((entry) => entry.type === 'SourceProcessingRequested')
             .at(-1)!;
           const request = decodeEvent(requestRow.payload);
+
           assert.equal(request.type, 'SourceProcessingRequested');
           yield* engine.execute(sourceIngestionWorkflow, {
             executionId: 'ingest-' + executionId,
@@ -638,11 +644,13 @@ test('first extraction and fresh reprocessing preserve explicit pending membersh
             .filter((entry) => entry.type === 'SourceIndexed')
             .at(-1)!;
           const indexed = decodeEvent(indexedRow.payload);
+
           assert.equal(indexed.type, 'SourceIndexed');
           const result = yield* engine.execute(sourceIndexedWorkflow, {
             executionId: 'project-' + executionId,
             payload: { event: indexed }
           });
+
           assert.equal(result.original.id, pending.id);
           assert.equal(
             (yield* materials.materials({
@@ -654,7 +662,9 @@ test('first extraction and fresh reprocessing preserve explicit pending membersh
             executionId + ' extraction preserves removal'
           );
         }
+
         const destination = yield* projects.createProject({ name: 'Explicit destination' });
+
         yield* sources.setSourceProject({ id: source.id, projectId: destination.id });
         assert.equal(
           (yield* materials.materials({

@@ -121,39 +121,55 @@ test('acquisition atomically registers independent uncollected imports before ex
   }
 });
 
-for (const kind of ['image', 'link'] as const)
+const originalFixtures = {
+  image: { name: 'image.png', bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]) },
+  audio: { name: 'audio.wav', bytes: new TextEncoder().encode('RIFF0000WAVE') },
+  video: {
+    name: 'video.mp4',
+    bytes: new Uint8Array([0, 0, 0, 12, 102, 116, 121, 112, 105, 115, 111, 109])
+  }
+};
+
+for (const kind of ['image', 'audio', 'video', 'link'] as const)
   test(`import replacement from ${kind} preserves identity and exact revision exports`, async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const domain = Layer.mergeAll(Sources.layer, Materials.layer).pipe(
+    const domain = SourcesRpcLive.pipe(
+      Layer.provideMerge(Layer.mergeAll(Sources.layer, Materials.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
-          const sources = yield* Sources;
+          const client = yield* RpcTest.makeClient(SourcesRpc, { flatten: true });
           const materials = yield* Materials;
           const source =
-            kind === 'image'
-              ? yield* sources.createSource({
+            kind === 'link'
+              ? yield* client('sources.addLink', {
                   projectId: null,
-                  name: 'image.png',
-                  bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0])
+                  url: 'https://example.com/original'
                 })
-              : yield* sources.addLink({ projectId: null, url: 'https://example.com/original' });
+              : yield* client('sources.createSource', {
+                  projectId: null,
+                  ...originalFixtures[kind]
+                });
           const original = yield* materials.material({
             id: (yield* materials.materials({ archived: false, limit: 10 })).items[0]!.id
           });
           const oldExport = yield* materials.materialVersionExport({ id: original.version.id });
+
           assert.equal(original.kind, kind);
           const replacementBytes = new TextEncoder().encode('Replacement text');
-          yield* sources.replaceSource({
+
+          yield* client('sources.replaceSource', {
             id: source.id,
             expectedRevision: 1,
             name: 'replacement.txt',
             bytes: replacementBytes
           });
           const current = yield* materials.material({ id: original.id });
+
           assert.equal(current.id, original.id);
           assert.equal(current.kind, kind);
           assert.notEqual(current.version.id, original.version.id);
@@ -164,6 +180,7 @@ for (const kind of ['image', 'link'] as const)
           const replacementExport = yield* materials.materialVersionExport({
             id: current.version.id
           });
+
           assert.equal(replacementExport.source.id, source.id);
           assert.equal(replacementExport.source.kind, 'text');
           assert.equal(replacementExport.source.mime, 'text/plain');
@@ -176,7 +193,7 @@ for (const kind of ['image', 'link'] as const)
             (yield* materials.materialVersion({ id: original.version.id })).content,
             original.version.content
           );
-        }).pipe(Effect.provide(domain))
+        }).pipe(Effect.scoped, Effect.provide(domain))
       );
     } finally {
       context.close();
