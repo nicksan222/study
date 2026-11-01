@@ -31,8 +31,7 @@ export function positive(node: any, zero = false): boolean {
   return (
     node?.type === 'Literal' &&
     typeof node.value === 'number' &&
-    Number.isFinite(node.value) &&
-    Number.isInteger(node.value) &&
+    Number.isSafeInteger(node.value) &&
     (zero ? node.value >= 0 : node.value > 0)
   );
 }
