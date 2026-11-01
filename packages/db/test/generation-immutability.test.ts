@@ -249,3 +249,62 @@ test('closed scopes fence direct publication of a valid generated draft', () => 
     close();
   }
 });
+
+test('generation publication rejects a captured input removed from its collection', () => {
+  const { db, close } = fixture();
+  try {
+    db.exec(
+      "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_materials WHERE material_id=1;"
+    );
+    assert.throws(() =>
+      db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2")
+    );
+  } finally {
+    close();
+  }
+});
+
+test('the first generation receipt rejects an input removed after output publication', () => {
+  const { db, close } = fixture();
+  try {
+    db.exec(
+      "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_materials WHERE material_id=1;"
+    );
+    assert.throws(() =>
+      db.exec(
+        "UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+          '0'.repeat(64) +
+          "' WHERE id='request'"
+      )
+    );
+  } finally {
+    close();
+  }
+});
+
+test('a committed generation receipt remains stable after its input leaves the collection', () => {
+  const { db, close } = fixture();
+  try {
+    db.exec(
+      "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+        '0'.repeat(64) +
+        "' WHERE id='request'; DELETE FROM project_materials WHERE material_id=1;"
+    );
+    assert.doesNotThrow(() =>
+      db.exec(
+        "UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+          '0'.repeat(64) +
+          "' WHERE id='request'"
+      )
+    );
+    assert.throws(() =>
+      db.exec(
+        "UPDATE material_generation_requests SET result_hash='" +
+          '1'.repeat(64) +
+          "' WHERE id='request'"
+      )
+    );
+  } finally {
+    close();
+  }
+});

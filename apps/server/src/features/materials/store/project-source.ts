@@ -126,6 +126,17 @@ export function makeProjectSource(resources: StoreResources) {
     return source;
   }
 
+  function includeInProject(
+    materialId: typeof s.materials.$inferSelect.id,
+    projectId: SourceIndexed['projectId']
+  ) {
+    db.orm
+      .insert(s.project_materials)
+      .values({ material_id: materialId, project_id: projectId })
+      .onConflictDoNothing()
+      .run();
+  }
+
   function projectSource(event: SourceIndexed) {
     const source = projectionSource(event);
 
@@ -144,6 +155,7 @@ export function makeProjectSource(resources: StoreResources) {
     }
 
     const originalVersion = required(readVersion(originalId));
+    includeInProject(originalVersion.material_id, event.projectId);
     const original = {
       ...required(readMaterial(originalVersion.material_id)),
       version: originalVersion
@@ -177,6 +189,7 @@ export function makeProjectSource(resources: StoreResources) {
 
     if (existing) {
       const version = required(readVersion(existing.id));
+      includeInProject(version.material_id, event.projectId);
 
       extracted = { ...required(readMaterial(version.material_id)), version };
     } else {
