@@ -116,8 +116,8 @@ function makeHelpers({ db, clock }: StoreResources) {
                 materialVersionId: c.material_version_id,
                 documentId: c.document_id,
                 blockId: c.block_id,
-                rangeStart: c.range_start,
-                rangeEnd: c.range_end,
+                rangeStart: c.range_start === null ? null : Number(c.range_start),
+                rangeEnd: c.range_end === null ? null : Number(c.range_end),
                 sourceName: c.source_name,
                 anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(c.anchor)),
                 quote: c.quote
@@ -298,8 +298,8 @@ export const MessageStore = defineStore({
                   material_version_id: citation.materialVersionId,
                   document_id: citation.documentId,
                   block_id: citation.blockId,
-                  range_start: citation.rangeStart,
-                  range_end: citation.rangeEnd,
+                  range_start: citation.rangeStart == null ? null : BigInt(citation.rangeStart),
+                  range_end: citation.rangeEnd == null ? null : BigInt(citation.rangeEnd),
                   source_name: citation.sourceName,
                   anchor: JSON.stringify(citation.anchor),
                   quote: citation.quote

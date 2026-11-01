@@ -824,8 +824,8 @@ export const ReplyStore = defineStore({
                 material_version_id: selected.versionId,
                 document_id: selected.documentId,
                 block_id: excerpt.blockId,
-                range_start: excerpt.start,
-                range_end: excerpt.end,
+                range_start: BigInt(excerpt.start),
+                range_end: BigInt(excerpt.end),
                 source_name: selected.name,
                 anchor: JSON.stringify(excerpt.anchor),
                 quote: citation.quote

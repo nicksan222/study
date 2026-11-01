@@ -245,37 +245,40 @@ test('native selection guards exact historic ranges, captures once and survives 
             )).kind,
             'invalid_input'
           );
-          yield* withTestPublication(
-            context,
-            conversations
-              .publishReply({
-                requestId: request.requestId,
-                text: 'Inside [1] and [2]',
-                citations: [
-                  {
-                    marker: 1,
-                    sourceId: null,
-                    materialVersionId: material.version.id,
-                    documentId,
-                    blockOrdinal: 0,
-                    quote: 'selected'
-                  },
-                  {
-                    marker: 2,
-                    sourceId: null,
-                    materialVersionId: material.version.id,
-                    documentId,
-                    blockOrdinal: 0,
-                    quote: 'selected'
-                  }
-                ]
-              })
-              .pipe(Effect.asVoid)
-          );
+          const publication = {
+            requestId: request.requestId,
+            text: 'Inside [1] and [2]',
+            citations: [
+              {
+                marker: 1,
+                sourceId: null,
+                materialVersionId: material.version.id,
+                documentId,
+                blockOrdinal: 0,
+                quote: 'selected'
+              },
+              {
+                marker: 2,
+                sourceId: null,
+                materialVersionId: material.version.id,
+                documentId,
+                blockOrdinal: 0,
+                quote: 'selected'
+              }
+            ]
+          };
+
+          for (let replay = 0; replay < 2; replay++)
+            yield* withTestPublication(
+              context,
+              conversations.publishReply(publication).pipe(Effect.asVoid)
+            );
+
           const answer = yield* client('conversations.message', { id: request.messageId });
 
           assert.equal(answer.citations[0]!.materialVersionId, material.version.id);
           assert.equal(answer.citations[0]!.rangeStart, 10);
+          assert.equal(answer.citations[0]!.rangeEnd, 18);
           const edited = yield* client('conversations.editMessage', {
             messageId: request.messageId,
             text: 'Edited wording [2]'

@@ -104,8 +104,8 @@ export const citations = sqliteTable(
       .$type<DocumentId>()
       .references((): AnySQLiteColumn => documents.id, { onDelete: 'set null' }),
     block_id: text().$type<BlockId>(),
-    range_start: integer(),
-    range_end: integer(),
+    range_start: integer().$type<bigint>(),
+    range_end: integer().$type<bigint>(),
     source_name: text().notNull(),
     anchor: text().notNull(),
     quote: text().notNull()
