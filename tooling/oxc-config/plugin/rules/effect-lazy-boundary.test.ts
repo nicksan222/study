@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { lintRule } from '../test/utils.ts';
+import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 test('reports the prohibited pattern', () => {
   const diagnostics = lintRule(
@@ -56,4 +56,23 @@ test('direct SQL execution stays deferred until a store operation runs', () => {
   });
 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});
+
+const message = 'Keep Effect work lazy, synchronous where required, bounded and interruptible.';
+
+test('keeps throwing schema codecs out of infallible Effect constructors', () => {
+  assertDiagnostics(
+    'effect-lazy-boundary',
+    lintRule('effect-lazy-boundary', {
+      'src/bad.ts':
+        "import {Effect as E, Schema as S} from 'effect'; E.sync(() => S.decodeUnknownSync(schema)(input)); E.succeed(S.encodeSync(schema)(input)); const decode = S.decodeUnknownSync(schema); E.sync(() => decode(input));",
+      'src/good.ts':
+        "import {Effect as E, Schema as S} from 'effect'; const decode = S.decodeUnknownSync(schema); E.try({try: () => decode(input), catch: error => error}); E.sync(() => S.decodeUnknownEffect(schema)(input)); E.sync(() => S.decodeUnknownSync(schema)); function f(S: any) { return E.sync(() => S.decodeUnknownSync(schema)(input)); }"
+    }),
+    [
+      ['src/bad.ts', message],
+      ['src/bad.ts', message],
+      ['src/bad.ts', message]
+    ]
+  );
 });
