@@ -33,6 +33,7 @@ import { assertQuestionSpec } from '#server/features/materials/decoders/question
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { decodeEvent } from '#server/platform/workflows/events';
 
+import { canonicalJson } from '../decoders/edit-intent.ts';
 import { makeCreateMaterial } from './create-material.ts';
 import { makeReads, required } from './reads.ts';
 import { anchorSchema } from './schemas.ts';
@@ -46,9 +47,9 @@ const codec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayload
 export function makeGeneration(resources: StoreResources) {
   const { db, clock } = resources;
   const { createMaterial } = makeCreateMaterial(resources);
-  const { materialRow, versionRow, versionDocumentId } = makeReads(resources);
+  const { materialRow, versionRow, versionDocumentId, readVersion } = makeReads(resources);
   const { setCitations } = makeSetCitationsAction(resources);
-  const { publish, assertProject, assertMembership } = makeWrites(resources);
+  const { publish, insertVersion, assertProject, assertMembership } = makeWrites(resources);
 
   function requestGenerationOnce(value: {
     requestId: string;
@@ -426,16 +427,24 @@ export function makeGeneration(resources: StoreResources) {
     });
     const event = assertGenerationEvent(request, value.generationEventId ?? request.id);
 
-    const material = createMaterial({
-      projectId: request.projectId,
-      sessionId: undefined,
-      title: request.title,
+    const targetVersionId = request.documentTransform?.editTargetVersionId;
+    const target = targetVersionId === undefined ? undefined : versionRow(targetVersionId);
+    const versionInput = {
       content: value.content,
       inputs: request.inputVersionIds,
-      operation: 'generate',
+      operation: 'generate' as const,
       language: value.language,
       publish: false
-    });
+    };
+    const material =
+      target === undefined
+        ? createMaterial({ ...versionInput, projectId: request.projectId, title: request.title })
+        : {
+            id: target.material_id,
+            version: {
+              id: insertVersion(target.material_id, { ...versionInput, parents: [target.id] })
+            }
+          };
 
     db.orm
       .update(s.material_versions)
@@ -447,7 +456,7 @@ export function makeGeneration(resources: StoreResources) {
       .where(eq(s.material_versions.id, material.version.id))
       .run();
     setCitations({ id: material.version.id, citations: resolved });
-    publish(material.version.id);
+    if (target === undefined) publish(material.version.id);
     db.orm
       .update(s.material_generation_requests)
       .set({
@@ -459,7 +468,11 @@ export function makeGeneration(resources: StoreResources) {
       .where(eq(s.material_generation_requests.id, request.id))
       .run();
 
-    return { versionId: material.version.id, event, materialId: material.id };
+    return {
+      versionId: material.version.id,
+      event,
+      ...(target === undefined ? { materialId: material.id } : {})
+    };
   }
 
   function assertGenerationContent(
@@ -471,7 +484,12 @@ export function makeGeneration(resources: StoreResources) {
     if (value.content.kind !== request.kind)
       throw new StudyError('invalid_input', 'Generation kind mismatch');
 
-    assertFreshDerivativeIds(value.content);
+    const targetVersionId = request.documentTransform?.editTargetVersionId;
+    const target =
+      targetVersionId === undefined ? undefined : required(readVersion(targetVersionId));
+    const inheritedIds =
+      target?.kind === 'document' ? target.content.blocks.map((block) => block.id) : [];
+    assertFreshDerivativeIds(value.content, inheritedIds);
 
     if (request.kind !== 'document' && value.citations.length === 0)
       throw new StudyError('invalid_input', 'Generated content must cite captured evidence');
@@ -481,20 +499,22 @@ export function makeGeneration(resources: StoreResources) {
   }
 
   function assertFreshDerivativeIds(
-    content: typeof materialGenerationPublicationSchema.Type.content
+    content: typeof materialGenerationPublicationSchema.Type.content,
+    inheritedIds: readonly string[] = []
   ) {
+    const freshIds =
+      content.kind === 'document'
+        ? content.blocks
+            .filter((block) => !inheritedIds.includes(block.id))
+            .map((block) => block.id)
+        : [];
     if (
       content.kind === 'document' &&
-      content.blocks.length &&
+      freshIds.length &&
       db.orm
         .select({ id: s.blocks.id })
         .from(s.blocks)
-        .where(
-          inArray(
-            s.blocks.editing_id,
-            content.blocks.map((block) => block.id)
-          )
-        )
+        .where(inArray(s.blocks.editing_id, freshIds))
         .get()
     )
       throw new StudyError('invalid_input', 'Derivative block identities must be fresh');
@@ -590,15 +610,4 @@ export function makeGeneration(resources: StoreResources) {
     requestGenerationOnce,
     setGenerationScope
   };
-}
-
-/** Schema JSON values have stable object ordering; array order remains meaningful. */
-function canonicalJson(encoded: string): string {
-  return JSON.stringify(JSON.parse(encoded), (_, value: unknown) => {
-    if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
-
-    return Object.fromEntries(
-      Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
-    );
-  });
 }

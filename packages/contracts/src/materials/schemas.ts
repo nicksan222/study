@@ -42,9 +42,10 @@ export const materialGenerationKindSchema = Schema.Literals([
   'document'
 ]);
 
-/** Session transforms always create a derivative, never revise an input. */
+/** Session transforms create independent derivatives or retain explicit target proposals. */
 export const documentTransformSchema = Schema.Struct({
   contextRequestId: Schema.String.check(Schema.isMinLength(1)),
+  editTargetVersionId: Schema.optional(materialVersionIdSchema),
   operations: Schema.Array(
     Schema.Literals([
       'clarity',

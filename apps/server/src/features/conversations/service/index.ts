@@ -39,6 +39,7 @@ import type {
 } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type * as editing from '@study/contracts/materials/editing';
 import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
 import type { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
 import { mentionLabel, text } from '@study/localization';
@@ -46,6 +47,7 @@ import { Effect, Option, Schema } from 'effect';
 
 import {
   SessionContextStore,
+  SessionContextValidityStore,
   SessionSelectionStore,
   RetainedSessionContextStore,
   SessionContextIntentStore
@@ -83,6 +85,28 @@ export const Conversations = defineService(
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
+      applyDocumentProposal: (value: typeof editing.applyDocumentProposalSchema.Type) =>
+        transaction((tx) => {
+          const replay = Materials.findDocumentProposalReceipt(tx, value, 'apply');
+          if (Option.isSome(replay)) return replay.value;
+          const context = proposalContext(tx, value);
+          const relevantValid = tx
+            .store(SessionContextValidityStore)
+            .sessionContextValidity({ requestId: context.requestId });
+          return Materials.applyDocumentProposal(tx, value, relevantValid);
+        }),
+      keepDocumentProposal: (value: typeof editing.keepDocumentProposalSchema.Type) =>
+        transaction((tx) => {
+          const replay = Materials.findDocumentProposalReceipt(tx, value, 'keep');
+          if (Option.isSome(replay)) return replay.value;
+          proposalContext(tx, value);
+          return Materials.keepDocumentProposal(tx, value);
+        }),
+      compareDocumentProposal: (value: typeof editing.proposalKeySchema.Type) =>
+        transaction((tx) => {
+          proposalContext(tx, value);
+          return Materials.compareDocumentProposal(tx, value);
+        }),
       requestDocumentTransform: (value: typeof requestDocumentTransformInputSchema.Type) =>
         transaction((tx) =>
           Materials.requestDocumentTransform(
@@ -489,4 +513,17 @@ function pendingTransformContext(tx: Transaction, requestId: string) {
   return request.resultVersionId === null
     ? readCapturedContext(tx, request.documentTransform.contextRequestId)
     : undefined;
+}
+
+/** Retained proposals are actionable only while their exact session capture is available. */
+function proposalContext(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
+  const proposal = Materials.documentProposal(tx, value);
+  const request = Materials.readGeneration(tx, { requestId: value.requestId, verifyOnly: true });
+  if (!request.documentTransform || request.cancelled)
+    throw new StudyError('cancelled', 'Proposal generation is unavailable');
+  const context = readCapturedContext(tx, request.documentTransform.contextRequestId);
+  if (context.sessionId !== proposal.sessionId)
+    throw new StudyError('invalid_input', 'Proposal session mismatch');
+  Materials.assertDocumentContext(request, context);
+  return context;
 }

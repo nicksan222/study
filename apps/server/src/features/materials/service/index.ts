@@ -20,6 +20,7 @@ import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
+import type * as editing from '@study/contracts/materials/editing';
 import type * as input from '@study/contracts/materials/rpc';
 import type {
   MaterialVersionDetailDto,
@@ -49,6 +50,11 @@ import {
 } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
+import { DocumentEditingStore } from '../store/document-editing.ts';
+import {
+  DocumentProposalStore,
+  DocumentProposalReceiptStore
+} from '../store/document-proposals.ts';
 import {
   requestDocumentTransform,
   publishDocumentTransform,
@@ -82,6 +88,34 @@ function* makeMaterials() {
   };
 
   return {
+    createManualDocument: (value: typeof editing.createManualDocumentSchema.Type) =>
+      transaction((tx) => {
+        const result = tx.store(DocumentEditingStore).createManualDocument(value);
+        published(tx, result.version);
+        return result;
+      }),
+    saveDocument: (value: typeof editing.saveDocumentInputSchema.Type) =>
+      transaction((tx) => {
+        const result = tx.store(DocumentEditingStore).saveDocument(value);
+        if (result.outcome === 'saved' && !result.replayed)
+          published(
+            tx,
+            tx.store(MaterialVersionsStore).materialVersion({ id: result.submittedVersionId })
+          );
+        return result;
+      }),
+    undoDocument: (value: typeof editing.undoDocumentInputSchema.Type) =>
+      transaction((tx) => {
+        const result = tx.store(DocumentEditingStore).undoDocument(value);
+        if (result.outcome === 'saved' && !result.replayed)
+          published(
+            tx,
+            tx.store(MaterialVersionsStore).materialVersion({ id: result.submittedVersionId })
+          );
+        return result;
+      }),
+    compareDocument: (value: typeof editing.compareDocumentInputSchema.Type) =>
+      transaction((tx) => tx.store(DocumentEditingStore).documentComparison(value)),
     projectSource: (event: SourceIndexed) =>
       publicationTransaction((tx) => {
         const result = tx.store(MaterialsStore).projectSource(event);
@@ -399,7 +433,12 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
   retryDocumentTransform,
   assertDocumentContext,
   registerImportedSource,
-  assignImportedSourceProject
+  assignImportedSourceProject,
+  documentProposal,
+  applyDocumentProposal,
+  keepDocumentProposal,
+  compareDocumentProposal,
+  findDocumentProposalReceipt
 });
 
 /** Register acquisition in its caller's synchronous transaction, including the outbox event. */
@@ -444,4 +483,74 @@ function readGeneration(tx: Transaction, value: { requestId: string; verifyOnly?
   if (!value.verifyOnly && request.resultVersionId === null) assertGenerationActive(tx, request.id);
 
   return request;
+}
+
+/** Proposal participants run in Conversations' availability checked transaction. */
+function documentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
+  return tx.store(DocumentProposalStore).documentProposal(value);
+}
+function applyDocumentProposal(
+  tx: Transaction,
+  value: typeof editing.applyDocumentProposalSchema.Type,
+  relevantValid: boolean
+) {
+  const result = tx.store(DocumentProposalStore).applyDocumentProposal({ ...value, relevantValid });
+  emitProposalPublication(tx, result);
+  return result;
+}
+function keepDocumentProposal(
+  tx: Transaction,
+  value: typeof editing.keepDocumentProposalSchema.Type
+) {
+  const result = tx.store(DocumentProposalStore).keepDocumentProposal(value);
+  emitProposalPublication(tx, result);
+  return result;
+}
+function compareDocumentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
+  const proposal = documentProposal(tx, value);
+  const base = tx.store(MaterialVersionsStore).materialVersion({ id: proposal.baseVersionId });
+  const material = tx.store(MaterialsStore).material({ id: base.material_id });
+  return tx.store(DocumentEditingStore).documentComparison({
+    beforeVersionId: proposal.baseVersionId,
+    proposedVersionId: proposal.proposedVersionId,
+    currentVersionId: material.latestPublishedVersion!.id
+  });
+}
+function emitProposalPublication(
+  tx: Transaction,
+  result: typeof editing.documentProposalOutcomeSchema.Type
+) {
+  if (result.replayed || result.resultVersionId === null) return;
+  const version = tx.store(MaterialVersionsStore).materialVersion({ id: result.resultVersionId });
+  const eventId = randomUUID();
+  tx.emit({
+    type: 'MaterialPublished',
+    eventId,
+    causationId: null,
+    correlationId: eventId,
+    inputVersion: 1,
+    depth: 0,
+    materialId: version.material_id,
+    materialVersionId: version.id
+  });
+}
+
+/** Receipt replay performs no new publication and survives session disappearance. */
+function findDocumentProposalReceipt(
+  tx: Transaction,
+  value:
+    | typeof editing.applyDocumentProposalSchema.Type
+    | typeof editing.keepDocumentProposalSchema.Type,
+  operation: 'apply' | 'keep'
+) {
+  if (operation === 'apply') {
+    if (!('baseVersionId' in value))
+      throw new StudyError('invalid_input', 'Application requires exact captured identities');
+    return tx
+      .store(DocumentProposalReceiptStore)
+      .findDocumentProposalReceipt({ ...value, operation: 'apply' });
+  }
+  return tx
+    .store(DocumentProposalReceiptStore)
+    .findDocumentProposalReceipt({ ...value, operation: 'keep' });
 }

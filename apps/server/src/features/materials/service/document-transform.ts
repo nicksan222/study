@@ -26,6 +26,7 @@ import { MaterialGenerationStore, MaterialsStore } from '#server/features/materi
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
+import { DocumentProposalStore } from '../store/document-proposals.ts';
 import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 
 type Context = typeof runSelectionContextSchema.Type;
@@ -51,6 +52,15 @@ export function requestDocumentTransform(
   if (context.requestId !== value.contextRequestId)
     throw new StudyError('invalid_input', 'Captured context mismatch');
 
+  if (value.editTargetVersionId !== undefined) {
+    const target = context.inputs.find((item) => item.versionId === value.editTargetVersionId);
+    if (!target || target.scope.kind !== 'document')
+      throw new StudyError(
+        'invalid_input',
+        'Target proposals require an exact whole Document capture'
+      );
+    tx.store(DocumentProposalStore).assertEditableTarget({ versionId: value.editTargetVersionId });
+  }
   const requestId = `document/${context.requestId}`;
   const result = tx.store(MaterialGenerationStore).requestOnce({
     requestId,
@@ -59,7 +69,11 @@ export function requestDocumentTransform(
       title: value.title,
       instruction: context.instruction.trim() || undefined,
       inputVersionIds: context.inputs.map((item) => item.versionId),
-      documentTransform: { contextRequestId: context.requestId, operations: value.operations }
+      documentTransform: {
+        contextRequestId: context.requestId,
+        operations: value.operations,
+        editTargetVersionId: value.editTargetVersionId
+      }
     }
   });
 
@@ -96,10 +110,30 @@ function publishCapturedDocument(
     .materialGeneration({ requestId: value.requestId, verifyOnly: true });
 
   const captured = requirePendingDocumentContext(tx, request, context);
+  if (captured && request.documentTransform?.editTargetVersionId !== undefined) {
+    const targetId = request.documentTransform.editTargetVersionId;
+    if (
+      !captured.inputs.some((item) => item.versionId === targetId && item.scope.kind === 'document')
+    )
+      throw new StudyError(
+        'invalid_input',
+        'Proposal target is outside captured whole Document scope'
+      );
+    tx.store(DocumentProposalStore).assertEditableTarget({ versionId: targetId });
+  }
 
-  if (captured) validateDocumentTransform(captured, value);
+  if (captured)
+    validateDocumentTransform(captured, value, request.documentTransform?.editTargetVersionId);
 
   const result = tx.store(MaterialGenerationStore).publishGeneration(value);
+
+  if (context && request.documentTransform?.editTargetVersionId !== undefined)
+    tx.store(DocumentProposalStore).registerProposal({
+      requestId: request.id,
+      sessionId: context.sessionId,
+      baseVersionId: request.documentTransform.editTargetVersionId,
+      proposedVersionId: result.versionId
+    });
 
   if (context && result.materialId !== undefined)
     tx.store(MaterialsStore).attach({

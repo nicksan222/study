@@ -66,6 +66,26 @@ export function makeReads({ db: store }: StoreResources) {
     if (draft && row.status !== 'draft')
       throw new StudyError('invalid_input', 'Published versions are immutable');
 
+    if (
+      draft &&
+      store.orm
+        .select()
+        .from(s.document_proposals)
+        .where(eq(s.document_proposals.proposed_version_id, id))
+        .get()
+    )
+      throw new StudyError('invalid_input', 'Generated proposals are immutable');
+
+    if (
+      draft &&
+      store.orm
+        .select()
+        .from(s.document_edit_receipts)
+        .where(eq(s.document_edit_receipts.submitted_version_id, id))
+        .get()
+    )
+      throw new StudyError('invalid_input', 'Retained edit alternatives are immutable');
+
     if (draft) materialRow(row.material_id, true);
 
     return row;
