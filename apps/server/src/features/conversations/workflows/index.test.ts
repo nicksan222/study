@@ -17,9 +17,11 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 
+import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { Schema } from 'effect';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -433,7 +435,8 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       pageCount: null,
       refiners: [],
       waitingFor: [],
-      corrected: false
+      corrected: false,
+      omissions: []
     });
     const old = context.db.orm
       .insert(s.documents)
@@ -447,6 +450,11 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         document_id: old.id,
         ordinal: 0n,
         kind: 'paragraph',
+        editing_id: Schema.decodeUnknownSync(blockIdSchema)(crypto.randomUUID()),
+        content: JSON.stringify({
+          type: 'paragraph',
+          inlines: [{ type: 'text', text: 'alpha old evidence', marks: [] }]
+        }),
         text: 'alpha old evidence',
         anchor: JSON.stringify({ type: 'page', page: 1 })
       })
@@ -487,6 +495,11 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         document_id: replacement.id,
         ordinal: 0n,
         kind: 'paragraph',
+        editing_id: Schema.decodeUnknownSync(blockIdSchema)(crypto.randomUUID()),
+        content: JSON.stringify({
+          type: 'paragraph',
+          inlines: [{ type: 'text', text: 'alpha new evidence', marks: [] }]
+        }),
         text: 'alpha new evidence',
         anchor: JSON.stringify({ type: 'page', page: 2 })
       })

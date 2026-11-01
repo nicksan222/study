@@ -12,7 +12,7 @@ test('practice keeps bounded immutable slots and durable control epochs', () => 
       INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'document','Input',1,1);
       INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'document',1,1);
       INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,1,'{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
-      INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','Evidence','{"type":"page","page":1}');
+      INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','Evidence','{"type":"page","page":1}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','Evidence','marks',json_array()))));
       INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1);
       UPDATE material_versions SET status='published',published_at=2 WHERE id=1;
       INSERT INTO project_materials(project_id,material_id) SELECT 1,id FROM materials;

@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { ProjectId, SourceId } from '@study/contracts/ids';
+import { correctBlockText, plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer, Option } from 'effect';
@@ -170,9 +171,7 @@ test('publication requires a real active workflow grant', async () => {
   const { withPublicationGuard } = await import('#server/platform/workflows/publication');
   const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
   const document = {
-    blocks: [
-      { kind: 'paragraph' as const, text: 'hello', anchor: { type: 'page' as const, page: 1 } }
-    ],
+    blocks: [plainBlock('paragraph' as const, 'hello', { type: 'page' as const, page: 1 })],
     meta: {
       extractor: null,
       extractorVersion: 1,
@@ -181,7 +180,8 @@ test('publication requires a real active workflow grant', async () => {
       pageCount: null,
       refiners: [],
       waitingFor: [],
-      corrected: false
+      corrected: false,
+      omissions: []
     }
   };
 
@@ -373,8 +373,8 @@ test('replacement fences stale publication and search follows the current source
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const document = {
     blocks: [
-      { kind: 'paragraph' as const, text: '   ', anchor: { type: 'page' as const, page: 1 } },
-      { kind: 'paragraph' as const, text: 'firstword', anchor: { type: 'page' as const, page: 2 } }
+      plainBlock('paragraph' as const, '   ', { type: 'page' as const, page: 1 }),
+      plainBlock('paragraph' as const, 'firstword', { type: 'page' as const, page: 2 })
     ],
     meta: {
       extractor: null,
@@ -384,7 +384,8 @@ test('replacement fences stale publication and search follows the current source
       pageCount: null,
       refiners: [],
       waitingFor: [],
-      corrected: false
+      corrected: false,
+      omissions: []
     }
   };
   const search = (word: string, project: bigint) =>
@@ -448,11 +449,7 @@ test('replacement fences stale publication and search follows the current source
         const replacement = {
           ...document,
           blocks: [
-            {
-              kind: 'paragraph' as const,
-              text: 'secondword',
-              anchor: { type: 'page' as const, page: 3 }
-            }
+            plainBlock('paragraph' as const, 'secondword', { type: 'page' as const, page: 3 })
           ]
         };
 
@@ -517,13 +514,7 @@ test('deleting a pending source fences publication and removes indexed content',
   const { withPublicationGuard } = await import('#server/platform/workflows/publication');
   const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
   const document = {
-    blocks: [
-      {
-        kind: 'paragraph' as const,
-        text: 'fencedword',
-        anchor: { type: 'page' as const, page: 1 }
-      }
-    ],
+    blocks: [plainBlock('paragraph' as const, 'fencedword', { type: 'page' as const, page: 1 })],
     meta: {
       extractor: null,
       extractorVersion: 1,
@@ -532,7 +523,8 @@ test('deleting a pending source fences publication and removes indexed content',
       pageCount: null,
       refiners: [],
       waitingFor: [],
-      corrected: false
+      corrected: false,
+      omissions: []
     }
   };
 
@@ -722,9 +714,7 @@ test('correction compares the current document and fences previous requests', as
   const context = new ServerContext(location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const document = {
-    blocks: [
-      { kind: 'paragraph' as const, text: 'before', anchor: { type: 'page' as const, page: 1 } }
-    ],
+    blocks: [plainBlock('paragraph' as const, 'before', { type: 'page' as const, page: 1 })],
     meta: {
       extractor: null,
       extractorVersion: 1,
@@ -733,7 +723,8 @@ test('correction compares the current document and fences previous requests', as
       pageCount: null,
       refiners: [],
       waitingFor: [],
-      corrected: false
+      corrected: false,
+      omissions: []
     }
   };
 
@@ -811,7 +802,7 @@ test('correction compares the current document and fences previous requests', as
             id: source.id,
             expectedRevision: 2,
             requestId: replacement.requestId!,
-            document: { ...document, blocks: [{ ...document.blocks[0]!, text: 'new input' }] }
+            document: { ...document, blocks: [correctBlockText(document.blocks[0]!, 'new input')] }
           })
         ).pipe(Effect.provideService(Database, { store: context }));
         assert.equal(
@@ -845,13 +836,7 @@ test('assigning a ready unowned source emits an index event without reprocessing
         });
         const state = yield* sources.sourceProcessing(source.id);
         const document = {
-          blocks: [
-            {
-              kind: 'paragraph' as const,
-              text: 'hello',
-              anchor: { type: 'page' as const, page: 1 }
-            }
-          ],
+          blocks: [plainBlock('paragraph' as const, 'hello', { type: 'page' as const, page: 1 })],
           meta: {
             extractor: null,
             extractorVersion: 1,
@@ -860,7 +845,8 @@ test('assigning a ready unowned source emits an index event without reprocessing
             pageCount: null,
             refiners: [],
             waitingFor: [],
-            corrected: false
+            corrected: false,
+            omissions: []
           }
         };
         const published = yield* transaction((tx) =>
@@ -914,13 +900,7 @@ test('correction request rolls back when outbox insertion fails', async () => {
         });
         const state = yield* sources.sourceProcessing(source.id);
         const document = {
-          blocks: [
-            {
-              kind: 'paragraph' as const,
-              text: 'before',
-              anchor: { type: 'page' as const, page: 1 }
-            }
-          ],
+          blocks: [plainBlock('paragraph' as const, 'before', { type: 'page' as const, page: 1 })],
           meta: {
             extractor: null,
             extractorVersion: 1,
@@ -929,7 +909,8 @@ test('correction request rolls back when outbox insertion fails', async () => {
             pageCount: null,
             refiners: [],
             waitingFor: [],
-            corrected: false
+            corrected: false,
+            omissions: []
           }
         };
         const old = yield* transaction((tx) =>

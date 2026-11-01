@@ -14,6 +14,7 @@
 
 import type { visionTranscriptionOutputSchema } from '@study/contracts/ai/vision-transcription';
 import { StudyError } from '@study/contracts/errors';
+import { plainBlock } from '@study/contracts/sources/document';
 import type { Document } from '@study/contracts/sources/document';
 
 export function visionDocument(
@@ -25,10 +26,9 @@ export function visionDocument(
 
   return {
     blocks: pages.flatMap((page) =>
-      page.blocks.map((block) => ({
-        ...block,
-        anchor: { type: 'page' as const, page: page.page }
-      }))
+      page.blocks.map((block) =>
+        plainBlock(block.kind, block.text, { type: 'page', page: page.page })
+      )
     ),
     meta: {
       extractor: 'vision',
@@ -38,7 +38,8 @@ export function visionDocument(
       pageCount,
       refiners: [],
       waitingFor: [],
-      corrected: false
+      corrected: false,
+      omissions: ['provider_structure', 'layout', 'embedded_media']
     }
   };
 }

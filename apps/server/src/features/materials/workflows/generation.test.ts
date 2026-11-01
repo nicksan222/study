@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { projectIdSchema } from '@study/contracts/ids';
+import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -71,7 +72,7 @@ test('rejects mismatched generation event before reaching a provider', async () 
           title: 'doc',
           content: {
             kind: 'document',
-            blocks: [{ kind: 'paragraph', text: 'alpha', anchor: { type: 'page', page: 1 } }],
+            blocks: [plainBlock('paragraph', 'alpha', { type: 'authored' })],
             meta: {
               extractor: null,
               extractorVersion: 1,
@@ -80,7 +81,8 @@ test('rejects mismatched generation event before reaching a provider', async () 
               pageCount: null,
               refiners: [],
               waitingFor: [],
-              corrected: false
+              corrected: false,
+              omissions: []
             }
           }
         });

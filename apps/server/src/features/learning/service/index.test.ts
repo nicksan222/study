@@ -20,6 +20,7 @@ import { test } from 'node:test';
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { QuizAttemptId, QuizChoiceId } from '@study/contracts/ids';
+import { plainBlock } from '@study/contracts/sources/document';
 import { eq } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
@@ -509,7 +510,7 @@ test('practice starts idempotently with two captured pending slots', async () =>
           title: 'Document',
           content: {
             kind: 'document',
-            blocks: [{ kind: 'paragraph', text: 'Study', anchor: { type: 'page', page: 1 } }],
+            blocks: [plainBlock('paragraph', 'Study', { type: 'authored' })],
             meta: {
               extractor: null,
               extractorVersion: 1,
@@ -518,7 +519,8 @@ test('practice starts idempotently with two captured pending slots', async () =>
               pageCount: null,
               refiners: [],
               waitingFor: [],
-              corrected: false
+              corrected: false,
+              omissions: []
             }
           }
         });

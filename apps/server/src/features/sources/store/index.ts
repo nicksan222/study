@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import { documentIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts/ids';
 import type { SourceId, DocumentId } from '@study/contracts/ids';
+import { encodeBlockContent, decodeBlockContent } from '@study/contracts/sources/document';
 import {
   correctBlockInputSchema,
   setSourceProjectInputSchema,
@@ -141,6 +142,8 @@ function makeHelpers({ db }: StoreResources) {
   function readDocument(row: { id: DocumentId; meta: string }) {
     const blocks = db.orm
       .select({
+        id: tables.blocks.editing_id,
+        content: tables.blocks.content,
         kind: tables.blocks.kind,
         text: tables.blocks.text,
         anchor: tables.blocks.anchor
@@ -149,7 +152,11 @@ function makeHelpers({ db }: StoreResources) {
       .where(eq(tables.blocks.document_id, row.id))
       .orderBy(tables.blocks.ordinal)
       .all()
-      .map((block) => ({ ...block, anchor: JSON.parse(block.anchor) }));
+      .map((block) => ({
+        ...block,
+        content: decodeBlockContent(block.content),
+        anchor: JSON.parse(block.anchor)
+      }));
 
     return {
       id: row.id,
@@ -338,6 +345,15 @@ export const SourceStore = defineStore({
           input: sourceIdSchema,
           output: Schema.Boolean,
           run: (id) => {
+            if (
+              db.orm
+                .select()
+                .from(tables.document_assets)
+                .where(eq(tables.document_assets.source_id, id))
+                .get()
+            )
+              throw new StudyError('invalid_input', 'Document assets retain this source revision');
+
             for (const table of [
               tables.material_file_versions,
               tables.material_audio_versions,
@@ -470,6 +486,28 @@ export const SourceStore = defineStore({
                 'Source extraction contains no readable content'
               );
 
+            for (const block of doc.blocks) {
+              if (block.content.type !== 'image') continue;
+
+              const asset = db.orm
+                .select()
+                .from(tables.source_snapshots)
+                .where(
+                  and(
+                    eq(tables.source_snapshots.source_id, block.content.sourceId),
+                    eq(tables.source_snapshots.revision, BigInt(block.content.revision))
+                  )
+                )
+                .get();
+
+              if (
+                !asset ||
+                asset.kind !== 'image' ||
+                !asset.mime.toLowerCase().startsWith('image/')
+              )
+                throw new StudyError('invalid_input', 'Managed image revision is unavailable');
+            }
+
             const id = db.orm
               .insert(tables.documents)
               .values({
@@ -489,6 +527,8 @@ export const SourceStore = defineStore({
                   ordinal: BigInt(ordinal),
                   kind: block.kind,
                   text: block.text,
+                  editing_id: block.id,
+                  content: encodeBlockContent(block.content),
                   anchor: JSON.stringify(block.anchor)
                 })
                 .run()

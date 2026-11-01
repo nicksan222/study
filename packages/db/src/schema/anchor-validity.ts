@@ -5,6 +5,7 @@ import type { SQL, SQLWrapper } from 'drizzle-orm';
 export function validAnchor(a: SQLWrapper): SQL {
   return sql`CASE WHEN json_valid(${a}) THEN coalesce(
     json_type(${a}) = 'object' AND CASE json_extract(${a}, '$.type')
+    WHEN 'authored' THEN 1
     WHEN 'time' THEN json_type(${a}, '$.startMs') = 'integer' AND json_extract(${a}, '$.startMs') >= 0
       AND json_type(${a}, '$.endMs') = 'integer' AND json_extract(${a}, '$.endMs') >= json_extract(${a}, '$.startMs')
     WHEN 'page' THEN json_type(${a}, '$.page') = 'integer' AND json_extract(${a}, '$.page') >= 1

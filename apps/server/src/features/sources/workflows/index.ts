@@ -19,6 +19,7 @@ import {
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
 import { documentIdSchema } from '@study/contracts/ids';
+import { correctBlockText } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { detectedMime, sniff } from '@study/contracts/sources/sniff';
 import { Effect, Schema } from 'effect';
@@ -328,9 +329,19 @@ export const sourceCorrectionHandler = ({
 
         return {
           ...current.document,
-          meta: { ...current.document.meta, corrected: true },
+          meta: {
+            ...current.document.meta,
+            corrected: true,
+            omissions: [
+              ...new Set([
+                ...current.document.meta.omissions,
+                'formatting' as const,
+                'structure' as const
+              ])
+            ]
+          },
           blocks: current.document.blocks.map((item, ordinal) =>
-            ordinal === event.ordinal ? { ...item, text: event.after } : item
+            ordinal === event.ordinal ? correctBlockText(item, event.after) : item
           )
         };
       })

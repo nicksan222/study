@@ -16,6 +16,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Option } from 'effect';
@@ -38,9 +39,7 @@ const input = {
 };
 
 const document = {
-  blocks: [
-    { kind: 'paragraph' as const, text: 'hello', anchor: { type: 'page' as const, page: 1 } }
-  ],
+  blocks: [plainBlock('paragraph' as const, 'hello', { type: 'page' as const, page: 1 })],
   meta: {
     extractor: null,
     extractorVersion: 1,
@@ -49,7 +48,8 @@ const document = {
     pageCount: null,
     refiners: [],
     waitingFor: [],
-    corrected: false
+    corrected: false,
+    omissions: []
   }
 };
 

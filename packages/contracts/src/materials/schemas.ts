@@ -15,8 +15,6 @@ import { anchorSchema, documentSchema, sourceSchema } from '../sources/schemas.t
 
 export { materialIdSchema };
 
-const isNatural = (value: number) => Number.isInteger(value) && value >= 0;
-
 const nonemptySchema = Schema.Trim.check(Schema.isMinLength(1));
 
 export const materialKindSchema = Schema.Literals([
@@ -92,36 +90,8 @@ export const materialAnchorSchema = anchorSchema;
 export const materialDocumentSchema = documentSchema;
 
 const materialDocumentInputIsValid = (document: typeof materialDocumentSchema.Type) =>
-  document.blocks.length > 0 && document.blocks.every(({ anchor }) => validMaterialAnchor(anchor));
-
-function validMaterialAnchor(anchor: typeof materialAnchorSchema.Type) {
-  switch (anchor.type) {
-    case 'time':
-      return isNatural(anchor.startMs) && isNatural(anchor.endMs) && anchor.endMs >= anchor.startMs;
-    case 'page':
-      return Number.isInteger(anchor.page) && anchor.page >= 1;
-    case 'text':
-      return validTextAnchor(anchor);
-    case 'slide':
-    case 'paragraph':
-      return isNatural(anchor.index);
-    case 'url':
-      return validAnchorUrl(anchor.url);
-    default:
-      return true;
-  }
-}
-
-function validTextAnchor(anchor: Extract<typeof materialAnchorSchema.Type, { type: 'text' }>) {
-  return (
-    isNatural(anchor.lineStart) &&
-    isNatural(anchor.lineEnd) &&
-    isNatural(anchor.start) &&
-    isNatural(anchor.end) &&
-    anchor.lineEnd >= anchor.lineStart &&
-    anchor.end >= anchor.start
-  );
-}
+  Schema.is(documentSchema)(document) &&
+  document.blocks.every((block) => block.anchor.type === 'authored');
 
 const quizChoiceInputSchema = Schema.Struct({ text: nonemptySchema, isCorrect: Schema.Boolean });
 
@@ -587,13 +557,3 @@ export type MaterialSummaryDto = typeof materialSummarySchema.Type;
 export type MaterialDetailDto = typeof materialDetailSchema.Type;
 
 export type MaterialCitation = typeof materialCitationSchema.Type;
-
-function validAnchorUrl(url: string) {
-  try {
-    new URL(url);
-
-    return true;
-  } catch {
-    return false;
-  }
-}

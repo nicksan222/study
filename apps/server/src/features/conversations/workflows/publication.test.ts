@@ -16,6 +16,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { eq, sql } from '@study/db';
 import { blocks, documents, sessions, source_processing, sources } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -70,6 +71,11 @@ test('guarded publication validates captured citations and replays without write
           document_id: document.id,
           ordinal: 0n,
           kind: 'paragraph',
+          editing_id: Schema.decodeUnknownSync(blockIdSchema)(crypto.randomUUID()),
+          content: JSON.stringify({
+            type: 'paragraph',
+            inlines: [{ type: 'text', text: 'A quoted passage', marks: [] }]
+          }),
           text: 'A quoted passage',
           anchor: JSON.stringify({ type: 'page', page: 3 })
         })

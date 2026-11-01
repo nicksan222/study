@@ -18,6 +18,7 @@ import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { projectIdSchema, materialIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
+import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -36,7 +37,7 @@ import { Database } from '#server/platform/database/database';
 
 const content = {
   kind: 'document',
-  blocks: [{ kind: 'paragraph', text: 'Independent library', anchor: { type: 'page', page: 1 } }],
+  blocks: [plainBlock('paragraph', 'Independent library', { type: 'authored' })],
   meta: {
     extractor: null,
     extractorVersion: 1,
@@ -45,7 +46,8 @@ const content = {
     pageCount: null,
     refiners: [],
     waitingFor: [],
-    corrected: false
+    corrected: false,
+    omissions: []
   }
 } satisfies MaterialContentInput;
 

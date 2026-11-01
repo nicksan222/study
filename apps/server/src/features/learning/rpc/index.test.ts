@@ -18,6 +18,7 @@ import { test } from 'node:test';
 
 import type { QuizAttemptId } from '@study/contracts/ids';
 import { LearningRpc } from '@study/contracts/learning/rpc';
+import { plainBlock } from '@study/contracts/sources/document';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -89,7 +90,7 @@ test('native practice RPC starts, reads, and stops project practice', async () =
             title: 'Document',
             content: {
               kind: 'document',
-              blocks: [{ kind: 'paragraph', text: 'Source', anchor: { type: 'page', page: 1 } }],
+              blocks: [plainBlock('paragraph', 'Source', { type: 'authored' })],
               meta: {
                 extractor: null,
                 extractorVersion: 1,
@@ -98,7 +99,8 @@ test('native practice RPC starts, reads, and stops project practice', async () =
                 pageCount: null,
                 refiners: [],
                 waitingFor: [],
-                corrected: false
+                corrected: false,
+                omissions: []
               }
             }
           });

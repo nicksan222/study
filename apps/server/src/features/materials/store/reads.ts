@@ -26,6 +26,7 @@ import type {
   MaterialSummaryDto,
   MaterialVersionDetailDto
 } from '@study/contracts/materials/schemas';
+import { decodeBlockContent } from '@study/contracts/sources/document';
 import { eq, and, asc, desc, sql, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
@@ -385,7 +386,9 @@ export function makeReads({ db: store }: StoreResources) {
       .orderBy(asc(s.blocks.ordinal))
       .all()
       .map((b) => ({
+        id: b.editing_id,
         kind: b.kind,
+        content: decodeBlockContent(b.content),
         text: b.text,
         anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(b.anchor))
       }));

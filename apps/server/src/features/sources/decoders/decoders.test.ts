@@ -99,9 +99,7 @@ test('HTML extracts visible content and preserves URL fragments', async () => {
     }).blocks.map((block) => [block.kind, block.text]),
     [
       ['paragraph', 'Intro detail'],
-      ['list_item', 'Parent'],
-      ['list_item', 'Child'],
-      ['list_item', 'After']
+      ['list_item', 'Parent\nChild\nAfter']
     ]
   );
 
@@ -170,4 +168,127 @@ test('Office decoders preserve structures and reject malformed or oversized arch
   await assert.rejects(decodeOffice({ kind: 'document', bytes: bytes('bad') }), {
     kind: 'invalid_input'
   });
+});
+
+test('deterministic rich decoders retain nested lists, cell boundaries, language, links and supported marks', async () => {
+  const { decodeHtml } = await import('#server/features/sources/decoders/html');
+  const { canonicalText, documentSchema } = await import('@study/contracts/sources/schemas');
+  const { Schema } = await import('effect');
+  const html = decodeHtml({
+    bytes: bytes(
+      '<main><h3><strong>Title</strong></h3><ol start="3"><li>Parent<ul><li><em>Child</em></li></ul>After</li></ol><table><tr><th>A</th><td></td></tr></table><pre><code class="language-ts">let n = 1;</code></pre><p><a href="https://example.test/">Link</a></p><img src="external.png"></main>'
+    )
+  });
+
+  assert.equal(Schema.is(documentSchema)(html), true);
+  assert.deepEqual(
+    html.blocks.map((block) => block.text),
+    ['Title', 'Parent\nChild\nAfter', 'A | ', 'let n = 1;', 'Link']
+  );
+  assert.deepEqual(
+    html.blocks[1]!.content.type === 'list_item' &&
+      html.blocks[1]!.content.items.map((item) => [
+        item.depth,
+        item.ordered,
+        item.start,
+        item.continuation
+      ]),
+    [
+      [0, true, 3, false],
+      [1, false, 1, false],
+      [0, true, 3, true]
+    ]
+  );
+  assert.deepEqual(
+    html.blocks[2]!.content.type === 'table' &&
+      html.blocks[2]!.content.rows[0]!.cells.map((cell) => cell.header),
+    [true, false]
+  );
+  assert.equal(html.blocks[3]!.content.type === 'code' && html.blocks[3]!.content.language, 'ts');
+  assert.equal(
+    html.blocks[4]!.content.type === 'paragraph' && html.blocks[4]!.content.inlines[0]!.type,
+    'link'
+  );
+  assert.ok(html.meta.omissions.includes('embedded_media'));
+
+  for (const block of html.blocks) assert.equal(block.text, canonicalText(block.content));
+});
+
+test('Markdown retains nested lists, cell boundaries, code language and inline formatting', async () => {
+  const { canonicalText, documentSchema } = await import('@study/contracts/sources/schemas');
+  const { Schema } = await import('effect');
+  const markdown = decodeText({
+    kind: 'text',
+    mime: 'text/markdown',
+    bytes: bytes(
+      '# **Title**\n\n3. Parent\n   - *Child*\n\nA | B\n--- | ---\nOne | Two\n\n```ts\nlet n = 1;\n```\n'
+    )
+  });
+
+  assert.equal(Schema.is(documentSchema)(markdown), true);
+  assert.deepEqual(
+    markdown.blocks.map((block) => block.text),
+    ['Title', 'Parent\nChild', 'A | B\nOne | Two', 'let n = 1;']
+  );
+  assert.equal(
+    markdown.blocks[1]!.content.type === 'list_item' && markdown.blocks[1]!.content.items[1]!.depth,
+    1
+  );
+  assert.equal(
+    markdown.blocks[3]!.content.type === 'code' && markdown.blocks[3]!.content.language,
+    'ts'
+  );
+
+  for (const block of markdown.blocks) assert.equal(block.text, canonicalText(block.content));
+});
+
+test('Office retains extracted marks and cells and reports nested-table loss', async () => {
+  const { decodeOffice } = await import('#server/features/sources/decoders/office');
+  const word = await decodeOffice({
+    kind: 'document',
+    bytes: await readFile(new URL('./fixtures/sample.docx', import.meta.url))
+  });
+
+  assert.deepEqual(
+    word.blocks[0]!.content.type === 'heading' && word.blocks[0]!.content.inlines[0],
+    { type: 'text', text: 'Heading', marks: ['strong'] }
+  );
+  assert.deepEqual(
+    word.blocks[1]!.content.type === 'paragraph' && word.blocks[1]!.content.inlines[0],
+    { type: 'text', text: 'First paragraph', marks: ['emphasis'] }
+  );
+  const table = await decodeOffice({
+    kind: 'document',
+    bytes: await readFile(new URL('./fixtures/table.docx', import.meta.url))
+  });
+
+  assert.deepEqual(
+    table.blocks[1]!.content.type === 'table' &&
+      table.blocks[1]!.content.rows[0]!.cells.map(
+        (cell) => cell.paragraphs[0]![0]!.type === 'text' && cell.paragraphs[0]![0]!.text
+      ),
+    ['Left', 'Right']
+  );
+  const nested = await decodeOffice({
+    kind: 'document',
+    bytes: await readFile(new URL('./fixtures/nested-tables.docx', import.meta.url))
+  });
+
+  assert.ok(nested.meta.omissions.includes('nested_table'));
+});
+
+test('source anchor validation rejects nonfinite, fractional, reversed and nonpositive locations centrally', async () => {
+  const { anchorSchema } = await import('@study/contracts/sources/schemas');
+  const { Schema } = await import('effect');
+
+  for (const anchor of [
+    { type: 'page', page: 0 },
+    { type: 'page', page: Infinity },
+    { type: 'time', startMs: 1.5, endMs: 2 },
+    { type: 'time', startMs: 4, endMs: 3 },
+    { type: 'text', lineStart: 2, lineEnd: 1, start: 0, end: 1 },
+    { type: 'text', lineStart: 1, lineEnd: 2, start: 4, end: 2 },
+    { type: 'slide', index: NaN }
+  ])
+    assert.equal(Schema.is(anchorSchema)(anchor), false);
 });

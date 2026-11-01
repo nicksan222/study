@@ -237,14 +237,14 @@ test('document versions reuse anchored documents and freeze their underlying blo
   `);
   assert.throws(() => publish(db, 1n));
   db.exec(
-    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','Derivative','{"type":"paragraph","index":0}')`
+    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','Derivative','{"type":"paragraph","index":0}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','Derivative','marks',json_array()))))`
   );
   publish(db, 1n);
   assert.throws(() => db.exec("UPDATE blocks SET text='changed' WHERE document_id=1"));
   assert.throws(() => db.exec('DELETE FROM blocks WHERE document_id=1'));
   assert.throws(() =>
     db.exec(
-      "INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,1,'paragraph','more','{}')"
+      "INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,1,'paragraph','more','{}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','more','marks',json_array()))))"
     )
   );
   assert.throws(() => db.exec('UPDATE documents SET meta=\'{"changed":true}\' WHERE id=1'));
@@ -265,7 +265,7 @@ test('collection deletion preserves source bytes, snapshots, versions and sessio
   draft(db, 2n, 'document');
   db.exec(`
     INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,0,'{"extractor":null,"extractorVersion":0,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','body','{"type":"paragraph","index":0}');
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','body','{"type":"paragraph","index":0}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','body','marks',json_array()))));
     INSERT INTO material_document_versions(version_id,document_id) VALUES(2,1);
     INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
     INSERT INTO session_materials(session_id,material_id,position) VALUES(1,1,0),(1,2,1);
@@ -333,7 +333,7 @@ test('publication rejects malformed canonical document anchors and citations', (
   );
   db.exec('INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1)');
   db.exec(
-    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','body','null')`
+    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','body','null',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','body','marks',json_array()))))`
   );
   assert.throws(() => publish(db, 1n));
 });
@@ -361,7 +361,7 @@ test('removing a draft material payload preserves a source-owned extraction snap
     INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at)
       VALUES(1,1,'import','text','text/plain','notes',1,zeroblob(32),1);
     INSERT INTO documents(id,source_id,extractor_version,meta,created_at) VALUES(1,1,0,'{}',1);
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','body','{}');
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','body','{}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','body','marks',json_array()))));
   `);
   draft(db, 1n, 'document');
   db.exec('INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1)');

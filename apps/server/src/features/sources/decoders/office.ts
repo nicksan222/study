@@ -15,8 +15,10 @@
 import { posix } from 'node:path';
 
 import { StudyError } from '@study/contracts/errors';
-import type { Block } from '@study/contracts/sources/document';
+import { createBlock, plainBlock } from '@study/contracts/sources/document';
+import type { Anchor, Block } from '@study/contracts/sources/document';
 import type { Document } from '@study/contracts/sources/document';
+import type { Inline } from '@study/contracts/sources/schemas';
 import { load } from 'cheerio';
 import { XMLValidator } from 'fast-xml-parser';
 import { fromBufferPromise } from 'yauzl';
@@ -157,14 +159,6 @@ function readDocx(parts: Map<string, string>): Block[] {
 
   type Element = (typeof body)[number];
 
-  const push = (kind: Block['kind'], text: string) => {
-    if (text)
-      blocks.push({
-        kind,
-        text,
-        anchor: { type: 'paragraph', index: blocks.length + 1 }
-      });
-  };
   // Traverse wrappers such as content controls, stopping at each structural element
   // so a nested table is handled exactly once at its original position.
   const visitChildren = (parent: Element, tag: string, visit: (element: Element) => void): void => {
@@ -175,6 +169,38 @@ function readDocx(parts: Map<string, string>): Block[] {
         else if (child.tagName !== 'w:tbl') visitChildren(child, tag, visit);
       });
   };
+  const paragraphInlines = (paragraph: Element): Inline[] =>
+    $(paragraph)
+      .find('w\\:r')
+      .toArray()
+      .map((run) => {
+        const marks: Extract<Inline, { type: 'text' }>['marks'][number][] = [];
+
+        for (const [tag, mark] of [
+          ['b', 'strong'],
+          ['i', 'emphasis'],
+          ['strike', 'strike']
+        ] as const) {
+          const property = $(run).find(`w\\:${tag}`);
+
+          if (property.length && !['0', 'false'].includes(property.attr('w:val') ?? ''))
+            marks.push(mark);
+        }
+
+        const vertical = $(run).find('w\\:vertAlign').attr('w:val');
+
+        if (vertical === 'subscript' || vertical === 'superscript') marks.push(vertical);
+
+        return {
+          type: 'text',
+          text: $(run)
+            .find('w\\:t')
+            .map((_, text) => $(text).text())
+            .get()
+            .join(''),
+          marks
+        };
+      });
   const paragraphText = (paragraph: Element) =>
     $(paragraph)
       .find('w\\:t')
@@ -186,7 +212,8 @@ function readDocx(parts: Map<string, string>): Block[] {
     visitChildren(table, 'w:tr', (row) => {
       let cells: string[] = [];
       const flush = () => {
-        if (cells.some(Boolean)) push('table', cells.join(' | '));
+        if (cells.length)
+          blocks.push(tableRow(cells, { type: 'paragraph', index: blocks.length + 1 }));
 
         cells = [];
       };
@@ -194,7 +221,7 @@ function readDocx(parts: Map<string, string>): Block[] {
       visitChildren(row, 'w:tc', (cell) => {
         let text = '';
         const saveCell = () => {
-          if (text.trim()) cells.push(text.trim());
+          cells.push(text.trim());
 
           text = '';
         };
@@ -227,7 +254,18 @@ function readDocx(parts: Map<string, string>): Block[] {
         if (element.tagName === 'w:p') {
           const style = $(element).find('w\\:pStyle').attr('w:val') ?? '';
 
-          push(/^heading[1-9]?$/i.test(style) ? 'heading' : 'paragraph', paragraphText(element));
+          const inlines = paragraphInlines(element);
+          const heading = /^heading([1-9])?$/i.exec(style);
+
+          if (inlines.length)
+            blocks.push(
+              createBlock(
+                heading
+                  ? { type: 'heading', level: Math.min(6, Number(heading[1]) || 1), inlines }
+                  : { type: 'paragraph', inlines },
+                { type: 'paragraph', index: blocks.length + 1 }
+              )
+            );
         } else if (element.tagName === 'w:tbl') readTable(element);
         else walkBody(element);
       });
@@ -312,11 +350,7 @@ function readPptx(parts: Map<string, string>): {
             .get();
 
           if (cells.some(Boolean))
-            blocks.push({
-              kind: 'table',
-              text: cells.join(' | '),
-              anchor: { type: 'slide', index: index + 1 }
-            });
+            blocks.push(tableRow(cells, { type: 'slide', index: index + 1 }));
 
           return;
         }
@@ -334,11 +368,12 @@ function readPptx(parts: Map<string, string>): {
               .trim();
 
             if (text)
-              blocks.push({
-                kind: heading ? 'heading' : 'paragraph',
-                text,
-                anchor: { type: 'slide', index: index + 1 }
-              });
+              blocks.push(
+                plainBlock(heading ? 'heading' : 'paragraph', text, {
+                  type: 'slide',
+                  index: index + 1
+                })
+              );
           });
       });
     const relName = posix.join(posix.dirname(name), '_rels', posix.basename(name) + '.rels'),
@@ -377,11 +412,7 @@ function readPptx(parts: Map<string, string>): {
                 .trim();
 
               if (text)
-                blocks.push({
-                  kind: 'paragraph',
-                  text,
-                  anchor: { type: 'slide', index: index + 1 }
-                });
+                blocks.push(plainBlock('paragraph', text, { type: 'slide', index: index + 1 }));
             });
         });
       }
@@ -399,9 +430,39 @@ export async function decodeOffice(
 
   checkAbort(signal);
 
-  if (input.kind === 'document') return document(readDocx(parts), 'office');
+  if (input.kind === 'document') {
+    const result = document(readDocx(parts), 'office');
+
+    result.meta.omissions = ['formatting', 'embedded_media'];
+
+    if (parseXml(parts.get('word/document.xml')!).root().find('w\\:tbl w\\:tbl').length)
+      result.meta.omissions.push('nested_table');
+
+    return result;
+  }
 
   const result = readPptx(parts);
 
-  return document(result.blocks, 'office', result.pageCount);
+  const doc = document(result.blocks, 'office', result.pageCount);
+
+  doc.meta.omissions = ['formatting', 'embedded_media', 'layout'];
+
+  return doc;
+}
+
+function tableRow(cells: string[], anchor: Anchor): Block {
+  return createBlock(
+    {
+      type: 'table',
+      rows: [
+        {
+          cells: cells.map((text) => ({
+            header: false,
+            paragraphs: [[{ type: 'text', text, marks: [] }]]
+          }))
+        }
+      ]
+    },
+    anchor
+  );
 }

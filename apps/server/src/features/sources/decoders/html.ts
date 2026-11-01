@@ -12,8 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { Block } from '@study/contracts/sources/document';
-import type { Document } from '@study/contracts/sources/document';
+import { createBlock } from '@study/contracts/sources/document';
+import type { Block, Document } from '@study/contracts/sources/document';
+import type { Inline, BlockContent } from '@study/contracts/sources/schemas';
 import { loadBuffer } from 'cheerio';
 
 import { checkAbort, document } from './common.ts';
@@ -27,99 +28,211 @@ export function decodeHtml(
 
   $('script,style,noscript,nav,footer,header,aside').remove();
   const root = $('article,main').first().length ? $('article,main').first() : $('body');
+
+  type Node = ReturnType<typeof root.contents>[number];
+
   const blocks: Block[] = [];
-  const roots = root.contents().toArray();
-
-  type Node = (typeof roots)[number];
-
-  let pending = '',
-    kind: Block['kind'] = 'paragraph',
-    fragment: string | null = null;
-  const flush = () => {
-    const text = pending.replace(/\s+/g, ' ').trim();
-
-    if (text)
-      blocks.push({
-        kind,
-        text,
-        anchor: input.url
-          ? { type: 'url', url: input.url, fragment }
-          : { type: 'paragraph', index: blocks.length + 1 }
-      });
-
-    pending = '';
+  const omissions = new Set<Document['meta']['omissions'][number]>(['unsupported_markup']);
+  const marks: Record<string, Extract<Inline, { type: 'text' }>['marks'][number]> = {
+    b: 'strong',
+    strong: 'strong',
+    i: 'emphasis',
+    em: 'emphasis',
+    code: 'code',
+    s: 'strike',
+    del: 'strike',
+    sub: 'subscript',
+    sup: 'superscript'
   };
 
-  function appendTableRow(node: Node) {
-    flush();
-    const text = $(node)
-      .find('th,td')
-      .map((_, cell) => $(cell).text().replace(/\s+/g, ' ').trim())
-      .get()
-      .join(' | ');
+  function readLink(node: Node): Inline[] | null {
+    const href = $(node).attr('href');
 
-    if (text) {
-      pending = text;
-      kind = 'table';
-      fragment = $(node).attr('id') ?? $(node).closest('[id]').attr('id') ?? null;
-      flush();
+    try {
+      const url = new URL(href ?? '', input.url);
+
+      if (['https:', 'http:', 'mailto:'].includes(url.protocol))
+        return [{ type: 'link', href: url.href, text: $(node).text() }];
+    } catch {
+      omissions.add('unsupported_markup');
     }
+
+    return null;
   }
 
-  const walk = (node: Node): void => {
+  function inline(
+    nodes: Node[],
+    active: Extract<Inline, { type: 'text' }>['marks'] = []
+  ): Inline[] {
+    return nodes.flatMap((node): Inline[] => {
+      if (node.type === 'text')
+        return [{ type: 'text', text: node.data.replace(/\s+/g, ' '), marks: active }];
+
+      if (node.type !== 'tag') return [];
+
+      if (['ul', 'ol', 'table'].includes(node.tagName)) return [];
+
+      if (node.tagName === 'br') return [{ type: 'break' }];
+
+      if (node.tagName === 'img') {
+        omissions.add('embedded_media');
+
+        return [];
+      }
+
+      if (node.tagName === 'a') {
+        const link = readLink(node);
+
+        if (link) return link;
+      }
+
+      return inline(
+        $(node).contents().toArray(),
+        marks[node.tagName] ? [...active, marks[node.tagName]!] : active
+      );
+    });
+  }
+
+  function add(content: BlockContent, node: Node) {
+    const fragment = $(node).attr('id') ?? $(node).closest('[id]').attr('id') ?? null;
+
+    blocks.push(
+      createBlock(
+        content,
+        input.url
+          ? { type: 'url', url: input.url, fragment }
+          : { type: 'paragraph', index: blocks.length + 1 }
+      )
+    );
+  }
+
+  function list(node: Node) {
+    const items: Extract<BlockContent, { type: 'list_item' }>['items'][number][] = [];
+
+    function visit(parent: Node, depth: number) {
+      if (depth > 16) {
+        omissions.add('unsupported_markup');
+
+        return;
+      }
+
+      $(parent)
+        .children('li')
+        .each((index, item) => {
+          let pending: Node[] = [];
+          let continuation = false;
+          const save = () => {
+            if (pending.length)
+              items.push({
+                depth,
+                ordered: parent.type === 'tag' && parent.tagName === 'ol',
+                start: Math.max(1, Number($(parent).attr('start')) || 1) + index,
+                continuation,
+                inlines: inline(pending)
+              });
+
+            pending = [];
+          };
+
+          $(item)
+            .contents()
+            .toArray()
+            .forEach((child) => {
+              if (child.type === 'tag' && ['ul', 'ol'].includes(child.tagName)) {
+                save();
+                visit(child, depth + 1);
+                continuation = true;
+              } else pending.push(child);
+            });
+          save();
+        });
+    }
+
+    visit(node, 0);
+    add({ type: 'list_item', items }, node);
+  }
+
+  function structured(node: Node, name: string): boolean {
+    if (name === 'table') {
+      if ($(node).find('table').length) omissions.add('nested_table');
+
+      const rows = $(node)
+        .find('tr')
+        .toArray()
+        .filter((row) => $(row).closest('table')[0] === node)
+        .map((row) => ({
+          cells: $(row)
+            .children('th,td')
+            .toArray()
+            .map((cell) => ({
+              header: cell.tagName === 'th',
+              paragraphs: [inline($(cell).contents().toArray())]
+            }))
+        }));
+
+      add({ type: 'table', rows }, node);
+
+      return true;
+    }
+
+    if (name === 'pre') {
+      const language =
+        $(node)
+          .find('code')
+          .attr('class')
+          ?.match(/(?:^|\s)language-([\w+-]+)/)?.[1] ?? null;
+
+      add({ type: 'code', code: $(node).text(), language }, node);
+
+      return true;
+    }
+
+    if (/^h[1-6]$/.test(name)) {
+      add(
+        { type: 'heading', level: Number(name[1]), inlines: inline($(node).contents().toArray()) },
+        node
+      );
+
+      return true;
+    }
+
+    if (name === 'p' || (name === 'div' && !$(node).children('p,div,ul,ol,table,pre').length)) {
+      add({ type: 'paragraph', inlines: inline($(node).contents().toArray()) }, node);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  function walk(node: Node): void {
     if (node.type === 'text') {
-      pending += node.data;
+      if (node.data.trim()) add({ type: 'paragraph', inlines: inline([node]) }, node);
 
       return;
     }
 
     if (node.type !== 'tag') return;
 
-    const name = node.tagName.toLowerCase();
+    const name = node.tagName;
 
-    if (name === 'br') {
-      pending += ' ';
-
-      return;
-    }
-
-    if (name === 'tr') {
-      appendTableRow(node);
+    if (name === 'ul' || name === 'ol') {
+      list(node);
 
       return;
     }
 
-    const block = /^(h[1-6]|p|li|pre|div|section|article|main|ul|ol|table)$/.test(name);
-    const oldKind = kind,
-      oldFragment = fragment;
+    if (structured(node, name)) return;
 
-    if (block) {
-      flush();
-      kind = htmlBlockKind(name);
-      fragment = $(node).attr('id') ?? $(node).closest('[id]').attr('id') ?? null;
-    }
+    if (name === 'img') omissions.add('embedded_media');
 
     $(node).contents().toArray().forEach(walk);
+  }
 
-    if (block) {
-      flush();
-      kind = oldKind;
-      fragment = oldFragment;
-    }
-  };
+  root.contents().toArray().forEach(walk);
+  const result = document(blocks, 'web');
 
-  roots.forEach(walk);
-  flush();
+  result.meta.omissions = [...omissions];
 
-  return document(blocks, 'web');
-}
-
-function htmlBlockKind(name: string): Block['kind'] {
-  if (/^h[1-6]$/.test(name)) return 'heading';
-
-  if (name === 'li') return 'list_item';
-
-  if (name === 'pre') return 'code';
-
-  return 'paragraph';
+  return result;
 }

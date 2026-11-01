@@ -108,7 +108,7 @@ function synchronous(value: unknown): unknown {
 }
 
 function execute(definition: AnyDefinition, input: unknown) {
-  const decoded = Schema.decodeUnknownSync(definition.input)(input);
+  const decoded = decodeStoreInput(definition.input, input);
 
   return Schema.decodeUnknownSync(definition.output)(synchronous(definition.run(decoded as never)));
 }
@@ -201,7 +201,7 @@ export function defineStore<
 
   function runQuery(operation: QueryDefinition, input: unknown) {
     const role = operation.role;
-    const decoded = Schema.decodeUnknownSync(operation.input)(input);
+    const decoded = decodeStoreInput(operation.input, input);
 
     if (role === 'collection') assertCollectionLimit(decoded);
 
@@ -383,4 +383,15 @@ function assertCollectionResult(result: unknown, limit: number) {
     throw new TypeError('Collection queries must return an array or a page');
 
   if (items.length > limit) throw new TypeError('Collection result exceeds its requested limit');
+}
+
+function decodeStoreInput<S extends Decoder>(schema: S, input: unknown): S['Type'] {
+  try {
+    return Schema.decodeUnknownSync(schema)(input);
+  } catch (cause) {
+    if (Schema.isSchemaError(cause))
+      throw new StudyError('invalid_input', 'Invalid operation input', { cause });
+
+    throw cause;
+  }
 }

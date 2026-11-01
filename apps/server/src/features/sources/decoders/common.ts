@@ -47,7 +47,8 @@ export function document(
       pageCount,
       refiners: [],
       waitingFor: [],
-      corrected: false
+      corrected: false,
+      omissions: []
     }
   };
 }

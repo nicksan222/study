@@ -20,6 +20,7 @@ import { createServer } from 'node:http';
 import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
+import { plainBlock } from '@study/contracts/sources/document';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
@@ -187,9 +188,7 @@ for (const mode of [
               title: 'Evidence',
               content: {
                 kind: 'document',
-                blocks: [
-                  { kind: 'paragraph', text: 'alpha evidence', anchor: { type: 'page', page: 1 } }
-                ],
+                blocks: [plainBlock('paragraph', 'alpha evidence', { type: 'authored' })],
                 meta: {
                   extractor: null,
                   extractorVersion: 1,
@@ -198,7 +197,8 @@ for (const mode of [
                   pageCount: null,
                   refiners: [],
                   waitingFor: [],
-                  corrected: false
+                  corrected: false,
+                  omissions: []
                 }
               }
             });
