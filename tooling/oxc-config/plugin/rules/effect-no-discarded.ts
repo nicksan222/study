@@ -2,6 +2,7 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';
 import { pipeCall, enterNode, constantDeclarator } from '../lexical-bindings.ts';
+import { callbackTarget } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -30,6 +31,11 @@ export default defineRule({
       'scoped',
       'map',
       'flatMap',
+      'flatten',
+      'asVoid',
+      'andThen',
+      'callback',
+      'forkIn',
       'tap',
       'catch',
       'catchCause',
@@ -55,7 +61,8 @@ export default defineRule({
       if (['TSAsExpression', 'TSNonNullExpression', 'ChainExpression'].includes(node.type))
         return computation(node.expression, seen);
 
-      if (['Effect.void', 'Effect.never'].includes(bindings.resolve(node) ?? '')) return true;
+      if (['Effect.void', 'Effect.never', 'Effect.yieldNow'].includes(bindings.resolve(node) ?? ''))
+        return true;
 
       if (node.type === 'Identifier') {
         const def = bindings.definition(node);
@@ -73,11 +80,13 @@ export default defineRule({
 
       if (name?.startsWith('Effect.') && constructors.has(name.slice(7))) return true;
 
-      if (
-        node.callee.type === 'CallExpression' &&
-        bindings.resolve(node.callee.callee) === 'Effect.fn'
-      )
-        return true;
+      if (node.callee.type === 'CallExpression') {
+        const operator = bindings.resolve(node.callee.callee);
+
+        if (operator?.startsWith('Effect.') && constructors.has(operator.slice(7))) return true;
+
+        if (effectWrapper(node.callee)) return true;
+      }
 
       if (pipeCall(node))
         return (
@@ -91,22 +100,29 @@ export default defineRule({
       return effectFunction(node.callee);
     }
 
+    function effectWrapper(node: any): boolean {
+      if (
+        node?.type !== 'CallExpression' ||
+        node.arguments.length !== 1 ||
+        !callbackTarget(context, node.arguments[0])
+      )
+        return false;
+
+      const api = bindings.resolve(node.callee);
+
+      return (
+        ['Effect.fn', 'Effect.fnUntraced', 'Effect.fnUntracedEager'].includes(api ?? '') ||
+        (node.callee.type === 'CallExpression' &&
+          bindings.resolve(node.callee.callee) === 'Effect.fn')
+      );
+    }
+
     function effectFunction(callee: any): boolean {
-      if (callee.type === 'Identifier') {
-        const def = bindings.definition(callee);
+      if (callee.type !== 'Identifier') return false;
 
-        if (def?.type === 'VariableDeclarator' && def.init?.type === 'CallExpression') {
-          const wrapper = bindings.resolve(def.init.callee);
+      const def = bindings.definition(callee);
 
-          return (
-            wrapper === 'Effect.fn' ||
-            (def.init.callee.type === 'CallExpression' &&
-              bindings.resolve(def.init.callee.callee) === 'Effect.fn')
-          );
-        }
-      }
-
-      return false;
+      return constantDeclarator(def) && effectWrapper(def.init);
     }
 
     return {

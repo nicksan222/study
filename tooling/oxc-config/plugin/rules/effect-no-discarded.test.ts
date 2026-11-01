@@ -91,3 +91,44 @@ test('enforces the Effect contract in browser operations', () => {
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('consumes v4 constructors, scheduler values and untraced operations', () => {
+  const diagnostics = lintRule('effect-no-discarded', {
+    'src/bad.ts':
+      "import {Effect as E} from 'effect'; E.flatten(task); E.asVoid(task); E.andThen(task, next); E.callback(resume => resume(E.void)); E.forkIn(task, scope); E.yieldNow; const run = E.fnUntraced(function* () { return 1; }); run(); E.fnUntracedEager(function* () { return 1; })();",
+    'src/good.ts':
+      "import {Effect as E} from 'effect'; const task = E.flatten(other); const run = E.fnUntraced(function* () { yield* E.yieldNow; return yield* task; }); function f(E: any) { E.flatten(task); }"
+  });
+
+  assertDiagnostics(
+    'effect-no-discarded',
+    diagnostics,
+    Array.from({ length: 8 }, (): [string, string] => ['src/bad.ts', message])
+  );
+});
+
+test('recognizes applied data-last v4 computations', () => {
+  assertDiagnostics(
+    'effect-no-discarded',
+    lintRule('effect-no-discarded', {
+      'src/bad.ts':
+        "import {Effect as E} from 'effect'; E.forkIn(scope)(task); E.andThen(next)(task);",
+      'src/good.ts': "import {Effect as E} from 'effect'; const task = E.andThen(next)(previous);"
+    }),
+    [
+      ['src/bad.ts', message],
+      ['src/bad.ts', message]
+    ]
+  );
+});
+
+test('permits functions with terminal transformations that change the return type', () => {
+  assertDiagnostics(
+    'effect-no-discarded',
+    lintRule('effect-no-discarded', {
+      'src/runtime/main.ts':
+        "import {Effect as E} from 'effect'; const run = E.fnUntraced(function* () { return 7; }, E.runSync); run(); E.fnUntracedEager(function* () { return 8; }, E.runSync)(); const traced = E.fn('run')(function* () { return 9; }, E.runSync); traced();"
+    }),
+    []
+  );
+});
