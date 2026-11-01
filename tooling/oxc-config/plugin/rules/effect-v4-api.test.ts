@@ -94,3 +94,29 @@ test('reports destructuring assignments from tracked Effect namespaces', () => {
     ['src/assignment.ts', genericTag]
   ]);
 });
+
+test('rejects retired forking, nullable and scoped layer constructors', () => {
+  const diagnostics = lintRule('effect-v4-api', {
+    'src/old.ts':
+      "import { Effect, Option, Layer } from 'effect'; Effect.fork(work); Effect.forkDaemon(work); Option.fromNullable(value); Layer.scoped(Tag, acquire);",
+    'src/direct.ts':
+      "export { fromNullable } from 'effect/Option'; import * as Root from 'effect'; const { Layer: { scoped } } = Root;",
+    'src/valid.ts':
+      "import { Effect, Option, Layer } from 'effect'; Effect.forkChild(work); Effect.forkScoped(work); Option.fromNullishOr(value); Layer.effect(Tag, acquire); function f(Option: any) { return Option.fromNullable(value); }"
+  });
+
+  assertDiagnostics('effect-v4-api', diagnostics, [
+    ['src/old.ts', 'Effect.fork was removed in Effect v4; use Effect.forkChild.'],
+    [
+      'src/old.ts',
+      'Effect.forkDaemon was removed in Effect v4; use Effect.forkDetach only at the application root, otherwise Effect.forkScoped.'
+    ],
+    ['src/old.ts', 'Option.fromNullable was removed in Effect v4; use Option.fromNullishOr.'],
+    ['src/old.ts', 'Layer.scoped was removed in Effect v4; use Layer.effect, which owns scoping.'],
+    ['src/direct.ts', 'Option.fromNullable was removed in Effect v4; use Option.fromNullishOr.'],
+    [
+      'src/direct.ts',
+      'Layer.scoped was removed in Effect v4; use Layer.effect, which owns scoping.'
+    ]
+  ]);
+});

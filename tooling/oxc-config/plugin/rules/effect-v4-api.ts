@@ -7,8 +7,12 @@ const replacements: Record<string, Record<string, string>> = {
     catchAll: 'use Effect.catch',
     catchAllCause: 'use Effect.catchCause',
     catchAllDefect: 'use Effect.catchDefect',
-    catchSome: 'use Effect.catchFilter with a Filter'
+    catchSome: 'use Effect.catchFilter with a Filter',
+    fork: 'use Effect.forkChild',
+    forkDaemon: 'use Effect.forkDetach only at the application root, otherwise Effect.forkScoped'
   },
+  Option: { fromNullable: 'use Option.fromNullishOr' },
+  Layer: { scoped: 'use Layer.effect, which owns scoping' },
   Context: {
     Tag: 'use Context.Service',
     GenericTag: 'use Context.Service'
@@ -47,7 +51,7 @@ export default defineRule({
       if (node?.type === 'MemberExpression' && moduleFor(node.object) === 'root') {
         const name = propertyName(node.property, node.computed);
 
-        return name === 'Effect' || name === 'Context' ? name : null;
+        return name !== null && Object.hasOwn(replacements, name) ? name : null;
       }
 
       return null;
@@ -60,7 +64,7 @@ export default defineRule({
 
       if (!name) return;
 
-      if (module === 'root' && (name === 'Effect' || name === 'Context')) {
+      if (module === 'root' && name !== null && Object.hasOwn(replacements, name)) {
         if (property.value.type === 'ObjectPattern') reportPattern(property.value, name);
 
         return;
@@ -79,7 +83,7 @@ export default defineRule({
       const name = propertyName(specifier.imported, false);
 
       if (source === 'effect') {
-        if (name === 'Effect' || name === 'Context')
+        if (name !== null && Object.hasOwn(replacements, name))
           modules.set(specifier.local.name, { module: name, specifier });
 
         return;
@@ -94,7 +98,9 @@ export default defineRule({
       if (specifier.importKind === 'type') return;
 
       const submodule =
-        source === 'effect/Effect' ? 'Effect' : source === 'effect/Context' ? 'Context' : null;
+        source.startsWith('effect/') && Object.hasOwn(replacements, source.slice(7))
+          ? source.slice(7)
+          : null;
 
       if (specifier.type === 'ImportNamespaceSpecifier') {
         const module = source === 'effect' ? 'root' : submodule;
@@ -121,11 +127,10 @@ export default defineRule({
         if (!node.source || node.exportKind === 'type') return;
 
         const module =
-          node.source.value === 'effect/Effect'
-            ? 'Effect'
-            : node.source.value === 'effect/Context'
-              ? 'Context'
-              : null;
+          node.source.value.startsWith('effect/') &&
+          Object.hasOwn(replacements, node.source.value.slice(7))
+            ? node.source.value.slice(7)
+            : null;
 
         if (!module) return;
 
