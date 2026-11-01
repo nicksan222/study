@@ -1,4 +1,6 @@
 import type {
+  DocumentId,
+  MaterialVersionId,
   MessageId,
   PartId,
   RecordingId,
@@ -6,6 +8,7 @@ import type {
   SourceId,
   VersionId
 } from '@study/contracts/ids';
+import type { BlockId } from '@study/contracts/sources/document';
 import { sql } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -26,6 +29,8 @@ import {
   codes_title_source,
   codes_version_origin
 } from './codes.ts';
+import { documents } from './documents.ts';
+import { material_versions } from './material-versions.ts';
 import { sources } from './sources.ts';
 
 export const message_versions = sqliteTable(
@@ -92,6 +97,15 @@ export const citations = sqliteTable(
     source_id: integer()
       .$type<SourceId>()
       .references((): AnySQLiteColumn => sources.id, { onDelete: 'set null' }),
+    material_version_id: integer()
+      .$type<MaterialVersionId>()
+      .references((): AnySQLiteColumn => material_versions.id, { onDelete: 'set null' }),
+    document_id: integer()
+      .$type<DocumentId>()
+      .references((): AnySQLiteColumn => documents.id, { onDelete: 'set null' }),
+    block_id: text().$type<BlockId>(),
+    range_start: integer(),
+    range_end: integer(),
     source_name: text().notNull(),
     anchor: text().notNull(),
     quote: text().notNull()
@@ -214,6 +228,8 @@ export const sessions = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
     title: text().notNull(),
+    selection_revision: integer().$type<bigint>().notNull().default(0n),
+    selection: text().notNull().default('[]'),
     context_revision: integer().$type<bigint>().notNull().default(0n),
     title_source: text({ enum: codes_title_source.code.enumValues })
       .notNull()
@@ -259,3 +275,22 @@ function sessionReference() {
     .notNull()
     .references((): AnySQLiteColumn => sessions.id, { onDelete: 'cascade' });
 }
+
+/** Captured context has no execution state; replies use the same request identity. */
+export const session_run_contexts = sqliteTable(
+  'session_run_contexts',
+  {
+    request_id: text().primaryKey(),
+    session_id: integer()
+      .$type<SessionId>()
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    intent_key: text().notNull(),
+    intent: text().notNull(),
+    snapshot: text().notNull()
+  },
+  (t) => [
+    uniqueIndex('session_run_contexts_intent_unique').on(t.session_id, t.intent_key),
+    check('session_run_contexts_json', sql`json_valid(${t.snapshot}) AND json_valid(${t.intent})`)
+  ]
+);

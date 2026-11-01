@@ -383,9 +383,10 @@ test('reply request persists its context and rejects another pending request', a
         );
         yield* conversations.editMessage({ messageId: message.id, text: 'changed' });
         assert.equal(
-          (yield* Effect.flip(conversations.replySnapshot({ requestId: request.requestId }))).kind,
-          'invalid_input'
+          (yield* conversations.replySnapshot({ requestId: request.requestId })).messages[0]?.text,
+          'hello'
         );
+        yield* conversations.abandonReply(request);
         const replacement = yield* conversations.requestReply({ sessionId: session.id });
 
         assert.notEqual(replacement.requestId, request.requestId);
@@ -509,10 +510,9 @@ test('reply snapshots retain historical attachments after reopen and reprocessin
           messageId: saved.message.id,
           versionId: saved.message.activeVersionId!
         });
-        assert.equal(
-          (yield* Effect.flip(conversations.replySnapshot({ requestId: saved.request.requestId })))
-            .kind,
-          'invalid_input'
+        assert.deepEqual(
+          yield* conversations.replySnapshot({ requestId: saved.request.requestId }),
+          snapshot
         );
       }).pipe(Effect.provide(layer()))
     );

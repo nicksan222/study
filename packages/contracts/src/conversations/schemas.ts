@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import {
   documentIdSchema,
+  materialVersionIdSchema,
   messageIdSchema,
   partIdSchema,
   projectIdSchema,
@@ -10,12 +11,18 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
-import { anchorSchema } from '../sources/schemas.ts';
+import { anchorSchema, blockIdSchema } from '../sources/schemas.ts';
 import { sourceKindSchema } from '../sources/sniff.ts';
+import {
+  runSelectionContextSchema,
+  runPreferencesSchema,
+  conversationMessageSnapshotSchema,
+  messageRoleSchema
+} from './context.ts';
 
 export const titleSourceSchema = Schema.Literals(['generated', 'provisional', 'user']);
 
-export const messageRoleSchema = Schema.Literals(['assistant', 'user']);
+export { messageRoleSchema, conversationMessageSnapshotSchema };
 
 export const versionStatusSchema = Schema.Literals(['complete', 'pending', 'writing']);
 
@@ -42,6 +49,11 @@ export { anchorSchema };
 const citationSchema = Schema.Struct({
   marker: Schema.Number,
   sourceId: Schema.NullOr(sourceIdSchema),
+  materialVersionId: Schema.optional(Schema.NullOr(materialVersionIdSchema)),
+  documentId: Schema.optional(Schema.NullOr(documentIdSchema)),
+  blockId: Schema.optional(Schema.NullOr(blockIdSchema)),
+  rangeStart: Schema.optional(Schema.NullOr(Schema.Int)),
+  rangeEnd: Schema.optional(Schema.NullOr(Schema.Int)),
   sourceName: Schema.String,
   anchor: anchorSchema,
   quote: Schema.String
@@ -85,7 +97,10 @@ export type SessionDto = typeof sessionSchema.Type;
 
 export const replyRequestInputSchema = Schema.Struct({
   sessionId: sessionIdSchema,
-  threadRoot: Schema.optional(partIdSchema)
+  threadRoot: Schema.optional(partIdSchema),
+  intentKey: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 200))),
+  instruction: Schema.optional(Schema.String.check(Schema.isMaxLength(100000))),
+  preferences: Schema.optional(runPreferencesSchema)
 });
 
 export const reanswerInputSchema = Schema.Struct({ messageId: messageIdSchema });
@@ -111,13 +126,6 @@ export const replyRequestSchema = Schema.Struct({
 
 export const replySnapshotInputSchema = Schema.Struct({ requestId: Schema.String });
 
-export const conversationMessageSnapshotSchema = Schema.Struct({
-  messageId: messageIdSchema,
-  versionId: versionIdSchema,
-  role: messageRoleSchema,
-  text: Schema.String
-});
-
 export const pendingReplyAttachmentSchema = Schema.Struct({
   messageId: messageIdSchema,
   partId: partIdSchema,
@@ -131,6 +139,14 @@ export const pendingReplyAttachmentSchema = Schema.Struct({
 export const replySnapshotSchema = Schema.Struct({
   ...replyRequestSchema.fields,
   contextRevision: Schema.BigInt,
+  context: Schema.optional(runSelectionContextSchema),
+  historyBoundary: Schema.optional(
+    Schema.Struct({
+      includedMessages: Schema.Int,
+      excludedMessages: Schema.Int,
+      reason: Schema.Literal('conversation-boundary')
+    })
+  ),
   generation: Schema.optional(
     Schema.Struct({
       origin: Schema.Literals(['answer', 'improve', 'summarize', 'instruction']),
@@ -160,7 +176,8 @@ export const publishReplyInputSchema = Schema.Struct({
   citations: Schema.Array(
     Schema.Struct({
       marker: Schema.Number,
-      sourceId: sourceIdSchema,
+      sourceId: Schema.NullOr(sourceIdSchema),
+      materialVersionId: Schema.optional(materialVersionIdSchema),
       documentId: documentIdSchema,
       blockOrdinal: Schema.Number,
       quote: Schema.String

@@ -20,7 +20,8 @@ interface CapturedDocument<Reference> {
   key: string;
   reference: Reference;
   name: string;
-  blocks: readonly { readonly text: string }[];
+  quoteLimit?: number;
+  blocks: readonly { readonly text: string; readonly blockOrdinal?: number }[];
 }
 
 export function createEvidenceCatalog<Reference>(
@@ -46,7 +47,7 @@ export function createEvidenceCatalog<Reference>(
     for (const [blockOrdinal, block] of document.blocks.entries()) {
       if (remaining <= 0 || entries.length >= 200) break;
 
-      const quote = block.text.slice(0, Math.min(1000, remaining));
+      const quote = block.text.slice(0, Math.min(document.quoteLimit ?? 1000, remaining));
 
       if (!quote.trim()) continue;
 
@@ -54,7 +55,7 @@ export function createEvidenceCatalog<Reference>(
       entries.push({
         marker: entries.length + 1,
         reference: document.reference,
-        blockOrdinal,
+        blockOrdinal: block.blockOrdinal ?? blockOrdinal,
         name: document.name.slice(0, 200),
         quote
       });

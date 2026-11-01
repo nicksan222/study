@@ -593,6 +593,7 @@ export function makeReads({ db: store }: StoreResources) {
     materialRow,
     versionRow,
     versionDocumentId,
+    readCanonicalDocument,
     readVersion,
     readMaterial,
     readMaterialSummaries

@@ -22,7 +22,8 @@ const groups: Record<string, string[]> = {
     'message_parts',
     'citations',
     'conversation_recording_posts',
-    'conversation_reply_requests'
+    'conversation_reply_requests',
+    'session_run_contexts'
   ],
   recordings: ['recordings', 'recording_chunks', 'recording_posts'],
   materials: [

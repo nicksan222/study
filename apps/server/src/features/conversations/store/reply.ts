@@ -12,9 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { reanswerInputSchema } from '@study/contracts/conversations/schemas';
+import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import {
   anchorSchema,
+  reanswerInputSchema,
   publishReplyInputSchema,
   replyRequestInputSchema,
   replyRequestSchema,
@@ -42,7 +43,7 @@ import {
   workflowEvents,
   workflowReceipts
 } from '@study/db/schema';
-import { Schema } from 'effect';
+import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -61,7 +62,11 @@ const persistedCodec = Schema.fromJsonString(
   )
 );
 
-const requestInput = Schema.Struct({ ...replyRequestInputSchema.fields, requestId: Schema.String });
+const requestInput = Schema.Struct({
+  ...replyRequestInputSchema.fields,
+  requestId: Schema.String,
+  context: Schema.optional(runSelectionContextSchema)
+});
 
 function makeHelpers({ db, clock }: StoreResources) {
   const { insertSelectedVersion } = makePersistence({ db, clock });
@@ -94,7 +99,8 @@ function makeHelpers({ db, clock }: StoreResources) {
 
     if (threadRoot != null) assertThreadRoot(session.id, threadRoot);
 
-    const captured = captureConversation();
+    assertSnapshotTarget();
+    const captured = input.context ? [...input.context.messages] : captureConversation();
 
     function captureConversation() {
       let captured = conversationHistory(session.id, target?.messageId, threadRoot ?? undefined);
@@ -285,6 +291,14 @@ function makeHelpers({ db, clock }: StoreResources) {
       messageId: message.id,
       versionId: version.id,
       contextRevision: session.context_revision,
+      context: input.context,
+      historyBoundary: input.context
+        ? {
+            includedMessages: history.length,
+            excludedMessages: input.context.excludedMessages,
+            reason: 'conversation-boundary' as const
+          }
+        : undefined,
       generation: target ? { origin: target.origin, instruction: target.instruction } : undefined,
       messages: history,
       ...(pendingAttachments.length ? { pendingAttachments } : {})
@@ -362,7 +376,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     if (
       !session ||
       !matchesRequest(result, row) ||
-      session.context_revision !== result.contextRevision ||
+      (result.context === undefined && session.context_revision !== result.contextRevision) ||
       !replySelectionMatches(target, version, result)
     )
       throw new StudyError('invalid_input', 'reply request is stale');
@@ -459,18 +473,92 @@ function makeHelpers({ db, clock }: StoreResources) {
     } else db.orm.delete(messages).where(eq(messages.id, message.id)).run();
   }
 
-  return { snapshot, readReplySnapshot, discardPending, replyContext, attachmentDocument };
+  function prepareReply(input: typeof replyRequestInputSchema.Type) {
+    const pending = db.orm
+      .select({ message: messages, version: message_versions })
+      .from(messages)
+      .innerJoin(message_versions, eq(message_versions.message_id, messages.id))
+      .where(
+        and(eq(messages.session_id, input.sessionId), sql`${message_versions.status} != 'complete'`)
+      )
+      .limit(101)
+      .all();
+
+    if (pending.length > 100) throw new StudyError('invalid_input', 'too many pending versions');
+
+    let activeRequest = false;
+
+    for (const item of pending) {
+      const request = db.orm
+        .select()
+        .from(conversation_reply_requests)
+        .where(eq(conversation_reply_requests.version_id, item.version.id))
+        .get();
+
+      if (!request) {
+        activeRequest = true;
+        continue;
+      }
+
+      try {
+        readReplySnapshot({ requestId: request.request_id });
+        activeRequest = true;
+      } catch (error) {
+        if (!(error instanceof StudyError) || !['invalid_input', 'not_found'].includes(error.kind))
+          throw error;
+
+        discardPending(item.message, item.version);
+      }
+    }
+
+    if (activeRequest)
+      throw new StudyError('invalid_input', 'conversation already has a pending version');
+  }
+
+  return {
+    snapshot,
+    readReplySnapshot,
+    discardPending,
+    replyContext,
+    attachmentDocument,
+    prepareReply
+  };
 }
 
 export const ReplyStore = defineStore({
   name: 'study/ConversationReplyStore',
   entity: { singular: 'replySnapshot', plural: 'replySnapshots' },
   make: ({ db, clock }) => {
-    const { snapshot, readReplySnapshot, discardPending, replyContext, attachmentDocument } =
-      makeHelpers({ db, clock });
+    const {
+      snapshot,
+      readReplySnapshot,
+      discardPending,
+      replyContext,
+      attachmentDocument,
+      prepareReply
+    } = makeHelpers({ db, clock });
 
     return {
       queries: {
+        inspectSnapshot: storeQuery({
+          role: 'required',
+          input: replySnapshotInputSchema,
+          output: replySnapshotSchema,
+          run: ({ requestId }) => replyContext(requestId).result
+        }),
+        findRequest: storeQuery({
+          role: 'optional',
+          input: replySnapshotInputSchema,
+          output: Schema.Option(replyRequestSchema),
+          run: ({ requestId }) => {
+            const row = db.orm
+              .select()
+              .from(conversation_reply_requests)
+              .where(eq(conversation_reply_requests.request_id, requestId))
+              .get();
+            return row ? Option.some(Schema.decodeUnknownSync(codec)(row.snapshot)) : Option.none();
+          }
+        }),
         replySnapshot: storeQuery({
           role: 'required',
           input: replySnapshotInputSchema,
@@ -662,6 +750,39 @@ export const ReplyStore = defineStore({
             );
             const saved = Schema.decodeUnknownSync(persistedCodec)(row.snapshot);
             const validated = input.citations.map((citation) => {
+              if (citation.materialVersionId !== undefined) {
+                const selected = snapshot.context?.inputs.find(
+                  (item) =>
+                    item.versionId === citation.materialVersionId &&
+                    item.documentId === citation.documentId
+                );
+                const excerpt = selected?.excerpts.find(
+                  (item) =>
+                    item.blockOrdinal === citation.blockOrdinal &&
+                    item.text.includes(citation.quote)
+                );
+                const document = db.orm
+                  .select()
+                  .from(documents)
+                  .where(eq(documents.id, citation.documentId))
+                  .get();
+                if (citation.sourceId !== null || !selected || !excerpt || !document)
+                  return invalid();
+                return {
+                  version_id: row.version_id,
+                  marker: BigInt(citation.marker),
+                  source_id: null,
+                  material_version_id: selected.versionId,
+                  document_id: selected.documentId,
+                  block_id: excerpt.blockId,
+                  range_start: excerpt.start,
+                  range_end: excerpt.end,
+                  source_name: selected.name,
+                  anchor: JSON.stringify(excerpt.anchor),
+                  quote: citation.quote
+                };
+              }
+              if (citation.sourceId === null) return invalid();
               const attachment = snapshot.messages
                 .flatMap((message) => message.attachments)
                 .find(
@@ -709,6 +830,11 @@ export const ReplyStore = defineStore({
                 version_id: row.version_id,
                 marker: BigInt(citation.marker),
                 source_id: citation.sourceId,
+                material_version_id: null,
+                document_id: citation.documentId,
+                block_id: block.editing_id,
+                range_start: null,
+                range_end: null,
                 source_name: attachment.sourceName,
                 anchor: JSON.stringify(anchor),
                 quote: citation.quote
@@ -755,6 +881,11 @@ export const ReplyStore = defineStore({
                     item.marker !== wanted.marker ||
                     item.source_id !== wanted.source_id ||
                     item.source_name !== wanted.source_name ||
+                    item.material_version_id !== wanted.material_version_id ||
+                    item.document_id !== wanted.document_id ||
+                    item.block_id !== wanted.block_id ||
+                    item.range_start !== wanted.range_start ||
+                    item.range_end !== wanted.range_end ||
                     item.anchor !== wanted.anchor ||
                     item.quote !== wanted.quote
                   );
@@ -774,7 +905,8 @@ export const ReplyStore = defineStore({
             if (
               version!.status !== 'pending' ||
               target!.active_version_id !== row.version_id ||
-              session!.context_revision !== snapshot.contextRevision
+              (snapshot.context === undefined &&
+                session!.context_revision !== snapshot.contextRevision)
             )
               invalid();
 
@@ -807,11 +939,36 @@ export const ReplyStore = defineStore({
             return row.version_id;
           }
         }),
+        prepareReply: storeMutation({
+          input: replyRequestInputSchema,
+          output: Schema.Void,
+          run: prepareReply
+        }),
+        retireTargetPending: storeMutation({
+          input: reanswerInputSchema,
+          output: Schema.Void,
+          run: ({ messageId }) => {
+            const message = db.orm.select().from(messages).where(eq(messages.id, messageId)).get();
+            if (!message) throw new StudyError('not_found', 'message not found');
+            const pending = db.orm
+              .select()
+              .from(message_versions)
+              .where(
+                and(
+                  eq(message_versions.message_id, message.id),
+                  sql`${message_versions.status} != 'complete'`
+                )
+              )
+              .all();
+            for (const version of pending) discardPending(message, version);
+          }
+        }),
         requestTarget: storeMutation({
           input: Schema.Struct({
             ...rewriteMessageInputSchema.fields,
             origin: Schema.Literals(['answer', 'improve', 'summarize', 'instruction']),
-            requestId: Schema.String
+            requestId: Schema.String,
+            context: Schema.optional(runSelectionContextSchema)
           }),
           output: replyRequestSchema,
           run: (input) => {
@@ -842,7 +999,7 @@ export const ReplyStore = defineStore({
             for (const version of pending) discardPending(message, version);
 
             return snapshot(
-              { sessionId: message.session_id, requestId: input.requestId },
+              { sessionId: message.session_id, requestId: input.requestId, context: input.context },
               {
                 messageId: message.id,
                 origin: input.origin,
@@ -855,52 +1012,7 @@ export const ReplyStore = defineStore({
           input: requestInput,
           output: replyRequestSchema,
           run: (input) => {
-            const pending = db.orm
-              .select({ message: messages, version: message_versions })
-              .from(messages)
-              .innerJoin(message_versions, eq(message_versions.message_id, messages.id))
-              .where(
-                and(
-                  eq(messages.session_id, input.sessionId),
-                  sql`${message_versions.status} != 'complete'`
-                )
-              )
-              .limit(101)
-              .all();
-
-            if (pending.length > 100)
-              throw new StudyError('invalid_input', 'too many pending versions');
-
-            let activeRequest = false;
-
-            for (const item of pending) {
-              const request = db.orm
-                .select()
-                .from(conversation_reply_requests)
-                .where(eq(conversation_reply_requests.version_id, item.version.id))
-                .get();
-
-              if (!request) {
-                activeRequest = true;
-                continue;
-              }
-
-              try {
-                readReplySnapshot({ requestId: request.request_id });
-                activeRequest = true;
-              } catch (error) {
-                if (
-                  !(error instanceof StudyError) ||
-                  !['invalid_input', 'not_found'].includes(error.kind)
-                )
-                  throw error;
-
-                discardPending(item.message, item.version);
-              }
-            }
-
-            if (activeRequest)
-              throw new StudyError('invalid_input', 'conversation already has a pending version');
+            prepareReply(input);
 
             return snapshot(input);
           }

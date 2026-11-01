@@ -28,7 +28,7 @@ import {
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
 import { versionIdSchema } from '@study/contracts/ids';
-import type { DocumentId, SourceId } from '@study/contracts/ids';
+import type { DocumentId, SourceId, MaterialVersionId } from '@study/contracts/ids';
 import { Effect, Result, Schema } from 'effect';
 import { Activity, DurableDeferred } from 'effect/workflow';
 
@@ -98,9 +98,26 @@ export const conversationReplyHandler = ({
           yield* validateReplyEvent(snapshot, event);
 
           const catalog = createEvidenceCatalog<{
-            sourceId: SourceId;
+            sourceId: SourceId | null;
+            materialVersionId?: MaterialVersionId;
             documentId: DocumentId;
           }>([]);
+          if (snapshot.context) {
+            yield* conversations.sessionContext({ requestId: snapshot.requestId });
+            for (const input of snapshot.context.inputs)
+              for (const [index, excerpt] of input.excerpts.entries())
+                catalog.addDocument({
+                  key: `selection:${input.versionId}:${index}`,
+                  name: input.name,
+                  quoteLimit: 100000,
+                  reference: {
+                    sourceId: null,
+                    materialVersionId: input.versionId,
+                    documentId: input.documentId
+                  },
+                  blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
+                });
+          }
           const seen = new Set<string>();
 
           for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
@@ -138,10 +155,18 @@ export const conversationReplyHandler = ({
             maxRetries: 0,
             preflight: conversations
               .replySnapshot({ requestId: event.requestId })
-              .pipe(Effect.asVoid)
+              .pipe(
+                Effect.andThen(
+                  snapshot.context
+                    ? conversations.sessionContext({ requestId: event.requestId })
+                    : Effect.void
+                ),
+                Effect.asVoid
+              )
           };
           const agentServices = {
             ...agents,
+            language: snapshot.context?.preferences.language ?? agents.language,
             searchSources: (query: string) => Effect.sync(() => catalog.search(query))
           };
           const text = yield* (
@@ -149,10 +174,24 @@ export const conversationReplyHandler = ({
               ? generateAgent(
                   rewriteAgent,
                   {
-                    messages: snapshot.messages.map((message) => ({
-                      role: message.role,
-                      content: message.text
-                    })),
+                    messages: snapshot.messages
+                      .map((message) => ({
+                        role: message.role,
+                        content: message.text
+                      }))
+                      .concat(
+                        snapshot.context
+                          ? [
+                              {
+                                role: 'user' as const,
+                                content:
+                                  snapshot.context.instruction +
+                                  '\nPreferences: ' +
+                                  JSON.stringify(snapshot.context.preferences)
+                              }
+                            ]
+                          : []
+                      ),
                     origin: snapshot.generation.origin,
                     instruction: snapshot.generation.instruction
                   },
@@ -161,10 +200,24 @@ export const conversationReplyHandler = ({
               : generateAgent(
                   replyAgent,
                   {
-                    messages: snapshot.messages.map((message) => ({
-                      role: message.role,
-                      content: message.text
-                    }))
+                    messages: snapshot.messages
+                      .map((message) => ({
+                        role: message.role,
+                        content: message.text
+                      }))
+                      .concat(
+                        snapshot.context
+                          ? [
+                              {
+                                role: 'user' as const,
+                                content:
+                                  snapshot.context.instruction +
+                                  '\nPreferences: ' +
+                                  JSON.stringify(snapshot.context.preferences)
+                              }
+                            ]
+                          : []
+                      )
                   },
                   options
                 )

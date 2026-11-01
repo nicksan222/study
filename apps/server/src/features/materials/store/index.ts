@@ -12,7 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { errorKindSchema } from '@study/contracts/errors';
+import {
+  sessionSelectionTargetSchema,
+  resolvedSelectionSchema
+} from '@study/contracts/conversations/context';
+import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import { sourceIndexedSchema, materialGenerationRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
 import * as input from '@study/contracts/materials/rpc';
@@ -25,6 +29,7 @@ import {
   materialVersionDetailSchema,
   materialCitationSchema
 } from '@study/contracts/materials/schemas';
+import { validDocumentTextRange } from '@study/contracts/sources/document';
 import { sourceExportSchema } from '@study/contracts/sources/rpc';
 import { anchorSchema } from '@study/contracts/sources/schemas';
 import { and, asc, eq, gt } from '@study/db';
@@ -191,10 +196,86 @@ export const MaterialVersionsStore = defineStore({
   entity: { singular: 'materialVersion', plural: 'materialVersions' },
   make: (resources) => {
     const { getVersion } = makeGetVersionAction(resources);
+    const reads = makeReads(resources);
     const { listVersions } = makeListVersionsAction(resources);
 
     return {
       queries: {
+        resolveSelection: storeQuery({
+          role: 'required',
+          input: sessionSelectionTargetSchema,
+          output: resolvedSelectionSchema,
+          run: (target) => {
+            const version = reads.versionRow(target.versionId);
+            const documentId = reads.versionDocumentId(version.id);
+            if (version.status !== 'published' || documentId === null)
+              throw new StudyError('not_found', 'Selected material document is unavailable');
+            if (target.documentId !== undefined && documentId !== target.documentId)
+              throw new StudyError('invalid_input', 'Selected document does not match version');
+            const document = reads.readCanonicalDocument(documentId);
+            const material = reads.materialRow(version.material_id);
+            const scope = target.scope;
+            const spans =
+              scope.kind === 'ranges'
+                ? scope.ranges
+                : document.blocks.flatMap((block) =>
+                    (scope.kind === 'document' && block.text.length > 0) ||
+                    (scope.kind === 'blocks' && scope.blockIds.includes(block.id))
+                      ? [
+                          {
+                            versionId: version.id,
+                            documentId,
+                            blockId: block.id,
+                            start: 0,
+                            end: block.text.length
+                          }
+                        ]
+                      : []
+                  );
+            if (
+              scope.kind === 'blocks' &&
+              (new Set(scope.blockIds).size !== scope.blockIds.length ||
+                spans.length !== scope.blockIds.length)
+            )
+              throw new StudyError('invalid_input', 'Invalid selected blocks');
+            const seen = new Set<string>();
+            const excerpts = spans.map((range) => {
+              const key = `${range.blockId}:${range.start}:${range.end}`;
+              if (
+                !validDocumentTextRange(
+                  document,
+                  { versionId: target.versionId, documentId },
+                  range
+                ) ||
+                range.start === range.end ||
+                seen.has(key)
+              )
+                throw new StudyError('invalid_input', 'Invalid selected range');
+              seen.add(key);
+              const blockOrdinal = document.blocks.findIndex((block) => block.id === range.blockId);
+              const block = document.blocks[blockOrdinal]!;
+              return {
+                blockId: block.id,
+                blockOrdinal,
+                start: range.start,
+                end: range.end,
+                text: block.text.slice(range.start, range.end),
+                anchor: block.anchor,
+                content: scope.kind === 'ranges' ? undefined : block.content
+              };
+            });
+            if (!excerpts.length || !excerpts.some((item) => item.text.trim()))
+              throw new StudyError('invalid_input', 'Selected document has no text');
+            return {
+              ...target,
+              documentId,
+              materialId: material.id,
+              name: material.title,
+              document: scope.kind === 'document' ? document : undefined,
+              excerpts
+            };
+          }
+        }),
         materialVersion: storeQuery({
           role: 'required',
           input: input.materialVersionInputSchema,

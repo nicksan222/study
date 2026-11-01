@@ -113,6 +113,11 @@ function makeHelpers({ db, clock }: StoreResources) {
               .map((c) => ({
                 marker: Number(c.marker),
                 sourceId: c.source_id,
+                materialVersionId: c.material_version_id,
+                documentId: c.document_id,
+                blockId: c.block_id,
+                rangeStart: c.range_start,
+                rangeEnd: c.range_end,
                 sourceName: c.source_name,
                 anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(c.anchor)),
                 quote: c.quote
