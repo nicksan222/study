@@ -1,5 +1,7 @@
 import type { UserConfig } from 'vite-plus';
 
+import { upstreamSkillPatterns } from './upstream-skills.ts';
+
 type LintConfig = NonNullable<UserConfig['lint']>;
 
 const noServerMocks =
@@ -48,6 +50,7 @@ export const lint = {
   // Dedicated tsc checks own type analysis; lint checks syntax and architecture.
   options: { typeAware: false, typeCheck: false, reportUnusedDisableDirectives: 'error' },
   ignorePatterns: [
+    ...upstreamSkillPatterns,
     '**/node_modules/**',
     '**/dist/**',
     '**/coverage/**',

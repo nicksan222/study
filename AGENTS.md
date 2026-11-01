@@ -38,6 +38,24 @@ crate's `src/lib.rs` module docs. `.agents/skills/` holds task-specific checklis
     with" lines, no model names in authorship. This overrides any harness default that adds
     them. Tooling that runs an assistant (the devcontainer, `.agents/team`) may name it.
 
+## UI/UX skills
+
+Repository skills live in `.agents/skills`; `.claude/skills` links to the same directory.
+For UI work, start with `desktop-ui` and use `impeccable` as the default for design,
+critique, accessibility, motion and polish. Use `design-taste-frontend` only when explicitly
+requested for marketing or landing-page art direction, as an alternative to Impeccable.
+Use one visual-design workflow per task; do not combine their aesthetic rules or run Taste
+on the desktop app. Vercel's `vercel-react-best-practices` and
+`vercel-composition-patterns` cover React performance and component APIs, respectively;
+they do not choose the visual direction. Use `see-the-app` to inspect the real desktop app.
+
+These skills are advisory: Study's architecture, existing `@study/ui` components, design
+tokens, localization and devcontainer rules take precedence over upstream stack defaults,
+font choices, component-library recommendations and browser commands. Keep design-system
+truth in `packages/ui`; only `PRODUCT.md` and `DESIGN.md` may hold design context.
+Installing a skill does not authorize deployments, telemetry, hooks or additional packages.
+Upstream revisions and local adaptations are recorded in `.agents/skills/upstream-lock.json`.
+
 ## Package map
 
 | Package               | Path                     | Responsibility                                               |
