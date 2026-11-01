@@ -43,6 +43,22 @@ const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContex
 
 const intentCodec = Schema.fromJsonString(Schema.toCodecJson(captureSessionContextSchema));
 
+const sameIntent = Schema.toEquivalence(captureSessionContextSchema);
+
+function canonicalIntent(input: typeof captureSessionContextSchema.Type) {
+  return {
+    sessionId: input.sessionId,
+    threadRoot: input.threadRoot,
+    throughMessageId: input.throughMessageId,
+    intentKey: input.intentKey,
+    instruction: input.instruction,
+    preferences: {
+      language: input.preferences.language,
+      detail: input.preferences.detail
+    }
+  };
+}
+
 function makeContextReads({ db }: StoreResources) {
   function session(id: typeof sessionSelectionInputSchema.Type.sessionId) {
     const row = db.orm.select().from(sessions).where(eq(sessions.id, id)).get();
@@ -199,7 +215,12 @@ export const SessionContextIntentStore = defineStore({
 
             if (!row) return Option.none();
 
-            if (row.intent !== Schema.encodeSync(intentCodec)(input))
+            if (
+              !sameIntent(
+                canonicalIntent(Schema.decodeUnknownSync(intentCodec)(row.intent)),
+                canonicalIntent(input)
+              )
+            )
               throw new StudyError('invalid_input', 'Intent key already captures different work');
 
             return Option.some(decodeContext(row.snapshot));

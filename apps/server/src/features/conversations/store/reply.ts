@@ -533,6 +533,7 @@ function makeHelpers({ db, clock }: StoreResources) {
   return {
     snapshot,
     readReplySnapshot,
+    discardPending,
     retirePending,
     replyContext,
     attachmentDocument,
@@ -595,6 +596,7 @@ export const ReplyStore = defineStore({
     const {
       snapshot,
       readReplySnapshot,
+      discardPending,
       retirePending,
       replyContext,
       attachmentDocument,

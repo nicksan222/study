@@ -161,36 +161,39 @@ test('guarded publication validates captured citations and replays without write
                 assert.equal(context.db.orm.all(sql`SELECT * FROM citations`).length, 0);
               }
 
-              const staleSession = yield* conversations.createSession({
+              const historicSession = yield* conversations.createSession({
                 project: project.id,
-                title: 'Stale'
+                title: 'Historic'
               });
-              const staleQuestion = yield* conversations.postMessage({
-                sessionId: staleSession.id,
+              const historicQuestion = yield* conversations.postMessage({
+                sessionId: historicSession.id,
                 text: 'old'
               });
-              const stale = yield* conversations.requestReply({ sessionId: staleSession.id });
+              const historic = yield* conversations.requestReply({ sessionId: historicSession.id });
 
-              yield* conversations.editMessage({ messageId: staleQuestion.id, text: 'new' });
+              yield* conversations.editMessage({ messageId: historicQuestion.id, text: 'new' });
+              assert.equal(
+                (yield* conversations.replySnapshot({ requestId: historic.requestId })).messages[0]
+                  ?.text,
+                'old'
+              );
+              assert.equal(
+                yield* conversations.publishReply({
+                  requestId: historic.requestId,
+                  text: 'answer',
+                  citations: []
+                }),
+                historic.versionId
+              );
+              assert.equal(
+                (yield* conversations.message(historic.messageId)).versions[0]?.status,
+                'complete'
+              );
+              yield* conversations.deleteMessage(historic.messageId);
               assert.equal(
                 (yield* Effect.flip(
                   conversations.publishReply({
-                    requestId: stale.requestId,
-                    text: 'answer',
-                    citations: []
-                  })
-                )).kind,
-                'invalid_input'
-              );
-              assert.equal(
-                (yield* conversations.message(stale.messageId)).versions[0]?.status,
-                'pending'
-              );
-              yield* conversations.deleteMessage(stale.messageId);
-              assert.equal(
-                (yield* Effect.flip(
-                  conversations.publishReply({
-                    requestId: stale.requestId,
+                    requestId: historic.requestId,
                     text: 'answer',
                     citations: []
                   })
@@ -212,6 +215,15 @@ test('guarded publication validates captured citations and replays without write
                 {
                   marker: 1,
                   sourceId: source.id,
+                  materialVersionId: null,
+                  documentId: document.id,
+                  blockId: context.db.orm
+                    .select()
+                    .from(blocks)
+                    .where(eq(blocks.document_id, document.id))
+                    .get()!.editing_id,
+                  rangeStart: null,
+                  rangeEnd: null,
                   sourceName: 'captured.txt',
                   anchor: { type: 'page', page: 3 },
                   quote: 'quoted passage'

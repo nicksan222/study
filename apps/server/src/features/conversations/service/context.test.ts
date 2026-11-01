@@ -137,7 +137,7 @@ test('native selection guards exact historic ranges, captures once and survives 
             sessionId: first.id,
             intentKey: 'selection-only',
             instruction: 'Explain',
-            preferences: { detail: 'brief' as const }
+            preferences: { detail: 'brief' as const, language: 'english' as const }
           };
           const snapshot = yield* client('conversations.captureSessionContext', intent);
 
@@ -154,6 +154,17 @@ test('native selection guards exact historic ranges, captures once and survives 
             targets: []
           });
           assert.deepEqual(yield* client('conversations.captureSessionContext', intent), snapshot);
+          assert.deepEqual(
+            yield* client('conversations.captureSessionContext', {
+              preferences: { language: 'english', detail: 'brief' },
+              instruction: intent.instruction,
+              intentKey: intent.intentKey,
+              sessionId: intent.sessionId,
+              threadRoot: undefined,
+              throughMessageId: undefined
+            }),
+            snapshot
+          );
           assert.equal(
             (yield* Effect.flip(
               client('conversations.captureSessionContext', { ...intent, instruction: 'Changed' })
