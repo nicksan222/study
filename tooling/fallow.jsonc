@@ -1,5 +1,5 @@
 {
-  "$schema": "./node_modules/fallow/schema.json",
+  "$schema": "../node_modules/fallow/schema.json",
   "minimumVersion": "3.38.0",
   "workspaces": {
     "patterns": ["apps/landing"]

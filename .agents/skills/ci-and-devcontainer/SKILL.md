@@ -37,4 +37,4 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 - Preserve the mounted host Claude/Codex/GitHub credentials and Herdr setup. `.devcontainer/
   post-create.py` configures those logins at runtime; `.agents/team` remains one project-wide
   team. Claude skills link to `.agents/skills`; `CLAUDE.md` imports `AGENTS.md`.
-- Update CONTRIBUTING.md whenever build, run, check or release steps change.
+- Update .github/CONTRIBUTING.md whenever build, run, check or release steps change.

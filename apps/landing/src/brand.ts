@@ -1,16 +1,16 @@
 // The site's icons and link previews, drawn at build time from the same sources as the app:
-// the logo masters in assets/logo, the app's fonts in packages/ui, the hero's headline and a
+// the logo masters in packages/ui/assets/logo, the app's fonts in packages/ui, the hero's headline and a
 // capture of a session, so none of them is a file to keep up to date by hand.
 import satori from 'satori';
 import sharp from 'sharp';
 
-import full from '../../../assets/logo/study.svg?raw';
 import interRegular from '../../../packages/ui/assets/fonts/Inter-Regular.ttf?inline';
 import interSemiBold from '../../../packages/ui/assets/fonts/Inter-SemiBold.ttf?inline';
+import full from '../../../packages/ui/assets/logo/study.svg?raw';
 import { t } from './i18n/strings';
 import type { Lang } from './i18n/strings';
 
-export { default as small } from '../../../assets/logo/study-small.svg?raw';
+export { default as small } from '../../../packages/ui/assets/logo/study-small.svg?raw';
 
 /** A PNG for an endpoint to answer with. */
 const png = (bytes: Uint8Array) =>
