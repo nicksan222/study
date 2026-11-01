@@ -5,6 +5,8 @@ import { App, serve } from '@study/server/runtime';
 import { createServer } from 'vite-plus';
 import type { ViteDevServer } from 'vite-plus';
 
+import { studyRpcProxy } from './rpc-proxy.ts';
+
 const root = resolve(import.meta.dirname, '../..');
 
 const database = process.env.STUDY_DATABASE ?? resolve(root, 'target/web/study.sqlite');
@@ -37,7 +39,7 @@ try {
   await app.workers.start();
   web = await createServer({
     configFile: resolve(root, 'apps/web/vite.config.ts'),
-    server: { proxy: { '/trpc': { target: server.url } } }
+    server: { proxy: studyRpcProxy(server.url) }
   });
   await web.listen();
   web.printUrls();

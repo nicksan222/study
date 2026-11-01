@@ -44,6 +44,8 @@ function Dialog<Payload>(props: DialogPrimitive.Root.Props<Payload>) {
 
 const DialogPortal = DialogPrimitive.Portal;
 
+const DialogClose = DialogPrimitive.Close;
+
 function DialogBackdrop({
   className,
   variant = 'default',
@@ -77,6 +79,7 @@ function DialogViewport({ className, ...props }: DialogPrimitive.Viewport.Props)
 
 function DialogPopup({
   className,
+  viewportClassName,
   children,
   showCloseButton = true,
   closeLabel,
@@ -84,6 +87,7 @@ function DialogPopup({
   variant = 'default',
   ...props
 }: DialogPrimitive.Popup.Props & {
+  viewportClassName?: string;
   showCloseButton?: boolean;
   closeLabel: string;
   bottomStickOnMobile?: boolean;
@@ -97,7 +101,8 @@ function DialogPopup({
         className={cn(
           bottomStickOnMobile && 'max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12',
           variant === 'media' &&
-            'z-[60] grid-rows-1 place-items-center px-4 pb-6 pt-[calc(var(--native-titlebar-height,0px)+1.5rem)] [-webkit-app-region:no-drag]'
+            'z-[60] grid-rows-1 place-items-center px-4 pb-6 pt-[calc(var(--native-titlebar-height,0px)+1.5rem)] [-webkit-app-region:no-drag]',
+          viewportClassName
         )}
       >
         <DialogPrimitive.Popup
@@ -172,4 +177,4 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   );
 }
 
-export { Dialog, DialogPopup, DialogHeader, DialogFooter, DialogTitle };
+export { Dialog, DialogPopup, DialogHeader, DialogFooter, DialogTitle, DialogClose };

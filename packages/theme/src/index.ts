@@ -193,7 +193,13 @@ export function parseTheme(json: string): ThemeFile {
 }
 
 export function serializeTheme(theme: ThemeFile): string {
-  return JSON.stringify(parseTheme(JSON.stringify(theme)), null, 2);
+  const { version, id, name, colors, light, dark } = theme;
+
+  return JSON.stringify(
+    parseTheme(JSON.stringify({ version, id, name, colors, light, dark })),
+    null,
+    2
+  );
 }
 
 export const defaultThemeId = 't3-code';

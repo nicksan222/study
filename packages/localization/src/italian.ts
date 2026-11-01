@@ -1,6 +1,56 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  AiSettingsAccount: 'Account ChatGPT',
+  AiSettingsChatGpt: 'ChatGPT',
+  AiSettingsPlanDescription:
+    'Collega il tuo account ChatGPT per eseguire le attività IA con il tuo piano.',
+  AiSettingsConnected: 'Collegato',
+  AiSettingsSignIn: 'Accedi a ChatGPT',
+  AiSettingsSignOut: 'Esci',
+  AiSettingsOpenSignIn: 'Apri l’accesso a ChatGPT',
+  AiSettingsFinishSignIn: 'Ho completato l’accesso',
+  AiSettingsCancelSignIn: 'Annulla accesso',
+  AiSettingsSignInInstructions: 'Apri il link, completa l’accesso nel browser e conferma qui.',
+  AiSettingsWaiting: 'In attesa dell’accesso a ChatGPT. Puoi annullare e riprovare.',
+  AiSettingsFailed:
+    'Impossibile aggiornare le impostazioni IA. Riprova per verificare la connessione.',
+  AiSettingsModels: 'Modelli per attività',
+  AiSettingsDefaultModel: 'Usa predefinito',
+  AiSettingsTiny: 'Attività rapide',
+  AiSettingsTinyDescription: 'Predefinito: GPT-6 Luna.',
+  AiSettingsMedium: 'Attività quotidiane',
+  AiSettingsMediumDescription: 'Predefinito: GPT-6.1 Sol.',
+  AiSettingsSmart: 'Attività complesse',
+  AiSettingsSmartDescription: 'Predefinito: GPT-6 Astra.',
+  AiSettingsLuna: 'GPT-6 Luna',
+  AiSettingsSol: 'GPT-6.1 Sol',
+  AiSettingsAstra: 'GPT-6 Astra',
+  GeneralSettingsTitle: 'Generali',
+  GeneralSettingsLanguage: 'Lingua',
+  GeneralSettingsLanguageDescription:
+    'Scegli la lingua usata in tutta Study. La modifica si applica subito dopo il salvataggio.',
+  GeneralSettingsLocalPreferences: 'Queste preferenze vengono salvate su questo dispositivo.',
+  GeneralSettingsError:
+    'Impossibile caricare o salvare le preferenze. Riprova per ricaricare i valori salvati, poi ripeti la modifica.',
+  StudySettingsTitle: 'Ripasso delle flashcard',
+  StudySettingsNewCards: 'Nuove flashcard al giorno',
+  StudySettingsNewCardsDescription:
+    'Limita le nuove flashcard che inizi ogni giorno, in tutte le materie. I ripassi in scadenza restano disponibili. Imposta 0 per sospendere le nuove flashcard.',
+  StudySettingsNewCardsValidation: 'Inserisci un numero intero da 0 a 10.000.',
+  StudySettingsError:
+    'Impossibile caricare o salvare le preferenze di ripasso. Riprova per ricaricare i valori salvati, poi ripeti la modifica.',
+  PerformanceSettingsTitle: 'Richieste AI simultanee',
+  PerformanceSettingsParallel: 'Richieste AI in esecuzione',
+  PerformanceSettingsParallelDescription:
+    'Numero massimo di richieste AI eseguite contemporaneamente, comprese le risposte in streaming. Ridurre il limite lascia terminare le richieste attive; le nuove attendono un posto libero.',
+  PerformanceSettingsParallelValidation: 'Inserisci un numero intero da 1 a 8.',
+  PerformanceSettingsQueue: 'Richieste AI in attesa',
+  PerformanceSettingsQueueDescription:
+    'Numero massimo di richieste AI in attesa di un posto libero. Imposta 0 per rifiutare nuove richieste quando tutti i posti sono occupati. Le richieste oltre questo limite vengono rifiutate.',
+  PerformanceSettingsQueueValidation: 'Inserisci un numero intero da 0 a 64.',
+  PerformanceSettingsError:
+    'Impossibile caricare o salvare le preferenze delle prestazioni. Riprova per ricaricare i valori salvati, poi ripeti la modifica.',
   AppName: 'Study',
   CloseWindow: 'Chiudi finestra',
   Quit: 'Esci da Study',
@@ -30,6 +80,9 @@ export const italian = Object.freeze({
   Settings: 'Impostazioni',
   Help: 'Aiuto',
   OpenSubject: 'Apri materia',
+  SidebarPolishSubjects: 'Materie',
+  SidebarPolishExam: 'Esame {date}',
+  SidebarPolishUpdated: 'Aggiornato il {date}',
   FindSubject: 'Cerca una materia…',
   SearchThisSubject: 'Cerca in questa materia',
   SubjectWelcome: 'Torna a {subject}',
@@ -543,6 +596,39 @@ export const italian = Object.freeze({
   UpdateReady:
     'È disponibile una nuova versione. Salva il lavoro prima di installarla. Study si riavvierà; le attività in corso riprenderanno automaticamente.',
   UpdateBusy: 'Termina la registrazione e attendi il salvataggio prima di installare.',
+  SearchSettings: 'Cerca nelle impostazioni',
+  StudySettingsNavigation: 'Studio',
+  SettingsSearchMatches: 'Risultati nelle impostazioni',
+  InterfaceSettings: 'Interfaccia',
+  AppearanceContrast: 'Contrasto',
+  AppearanceContrastDescription: 'Regola il contrasto dei colori e dei bordi nell’interfaccia.',
+  GlassOpacity: 'Opacità delle superfici',
+  GlassOpacityDescription: 'Rendi menu e finestre di dialogo più trasparenti o più opachi.',
+  PanelAnimations: 'Animazioni dell’interfaccia',
+  PanelAnimationsDescription:
+    'Scegli la velocità di apertura e chiusura di finestre, menu e suggerimenti. Imposta 0 ms per disattivare le animazioni.',
+  InterfaceScaleDescription: 'Ingrandisci o riduci testo e controlli in tutta l’app.',
+  ResetSetting: 'Ripristina il valore predefinito',
+  ColorScheme: 'Schema colori',
+  SystemAppearance: 'Sistema',
+  Themes: 'Temi',
+  CreateTheme: 'Crea tema',
+  AddTheme: 'Aggiungi tema',
+  DuplicateTheme: 'Duplica tema',
+  ExportTheme: 'Esporta tema',
+  EditTheme: 'Modifica tema',
+  DeleteTheme: 'Elimina tema',
+  DeleteThemeHint:
+    'Vuoi rimuovere questo tema personalizzato? Se è selezionato, Study userà il tema predefinito.',
+  ThemeCopy: 'copia',
+  UntitledTheme: 'Tema senza titolo',
+  ChooseThemeFile: 'Scegli file JSON',
+  ThemeJson: 'JSON del tema',
+  ThemeJsonHint:
+    'Incolla un tema di Study o scegli un file JSON (fino a 64 KB). Usa version, id, name e le palette facoltative colors, light e dark.',
+  ThemeImportFailed:
+    'Impossibile salvare il tema. Controlla il JSON, i colori e che l’ID sia univoco, poi riprova.',
+  AppearanceFailed: 'Impossibile caricare o salvare l’aspetto. Riprova.',
   Appearance: 'Aspetto',
   AppearanceDescription: "Scegli l'aspetto di Study su questo dispositivo.",
   AppearanceMenuSubtitle: 'Temi chiaro e scuro',
@@ -734,5 +820,8 @@ export const italian = Object.freeze({
   UnitGigaflops: 'GFLOPS',
   UnitBandwidth: 'GB/s',
   PracticeQuestionTitle: 'Domanda di esercitazione',
-  SearchShortcut: 'Ctrl/⌘ K'
+  SearchShortcut: 'Ctrl/⌘ K',
+  SettingsGroupApplication: 'Applicazione',
+  SettingsGroupLearning: 'Studio',
+  SettingsGroupIntelligence: 'IA'
 } as const satisfies Record<keyof typeof english, string>);

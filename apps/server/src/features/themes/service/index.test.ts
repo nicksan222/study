@@ -49,6 +49,7 @@ test('themes catalog, mutations and selection preserve transactional rules', asy
         const page = yield* themes.themes({ limit: 1 });
 
         assert.equal(page.items[0]?.id, 'a');
+        assert.equal(page.items[0]?.builtin, false);
         assert.equal(page.next, 'a');
         assert.equal((yield* themes.themes({ limit: 1, before: 'a' })).next, null);
         assert.equal(JSON.parse(yield* themes.exportTheme({ id: 'a' })).colors.primary, 'red');
@@ -71,6 +72,7 @@ test('themes catalog, mutations and selection preserve transactional rules', asy
         yield* themes.deleteTheme({ id: 'a' });
         assert.equal(yield* themes.selectedTheme(), null);
         context.db.orm.run(sql`UPDATE themes SET builtin = 1 WHERE id = 'b'`);
+        assert.equal((yield* themes.themes({ limit: 100 })).items[0]?.builtin, true);
         assert.equal(
           (yield* Effect.flip(themes.saveTheme({ json: json('b') }))).kind,
           'invalid_input'

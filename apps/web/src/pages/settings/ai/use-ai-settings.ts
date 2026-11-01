@@ -1,0 +1,128 @@
+import type { ModelTier } from '@study/contracts/settings/schemas';
+import type { LlmModel, LlmSettings } from '@study/contracts/settings/types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+
+import {
+  aiSettingsQueryOptions,
+  startSignInOptions,
+  finishSignInOptions,
+  cancelSignInOptions,
+  signOutOptions,
+  saveModelsOptions,
+  disposeSignIn
+} from './ai.queries';
+import type { SignInAttempt } from './ai.queries';
+
+function requestState(results: readonly { isPending: boolean; isError: boolean }[]) {
+  return {
+    pending: results.some((result) => result.isPending),
+    error: results.some((result) => result.isError)
+  };
+}
+
+export function useAiSettings() {
+  const client = useQueryClient();
+  const query = useQuery(aiSettingsQueryOptions());
+  const [attempt, setAttempt] = useState<SignInAttempt>();
+  const owned = useRef<SignInAttempt | undefined>(undefined);
+  const mounted = useRef(true);
+  const finishing = useRef<AbortController | undefined>(undefined);
+  const refresh = () => client.invalidateQueries({ queryKey: aiSettingsQueryOptions().queryKey });
+  const start = useMutation({
+    ...startSignInOptions(),
+    onSuccess: (value) => {
+      if (!mounted.current) {
+        void disposeSignIn(value.attemptId).catch(() => {});
+
+        return;
+      }
+
+      owned.current = value;
+      setAttempt(value);
+    }
+  });
+  const finish = useMutation({
+    ...finishSignInOptions(),
+    onSuccess: () => {
+      owned.current = undefined;
+      setAttempt(undefined);
+
+      return refresh();
+    }
+  });
+  const cancel = useMutation({
+    ...cancelSignInOptions(),
+    onSuccess: () => {
+      finishing.current?.abort();
+      owned.current = undefined;
+      setAttempt(undefined);
+      finish.reset();
+      start.reset();
+
+      return refresh();
+    }
+  });
+  const signOut = useMutation({ ...signOutOptions(), onSuccess: refresh });
+  const save = useMutation({ ...saveModelsOptions(), onSuccess: refresh });
+
+  useEffect(() => {
+    mounted.current = true;
+
+    return () => {
+      mounted.current = false;
+      finishing.current?.abort();
+
+      if (owned.current) void disposeSignIn(owned.current.attemptId).catch(() => {});
+    };
+  }, []);
+
+  function setModel(tier: ModelTier, model: LlmModel | undefined) {
+    if (!query.data) return;
+
+    const settings: LlmSettings = {
+      ...query.data.settings,
+      [tier]: { provider: query.data.settings[tier].provider, model }
+    };
+
+    save.mutate(settings);
+  }
+
+  return {
+    data: query.data,
+    loading: query.isPending,
+    ...requestState([
+      { isPending: false, isError: query.isError },
+      start,
+      { isPending: finish.isPending, isError: finish.isError && !cancel.isPending },
+      cancel,
+      signOut,
+      save
+    ]),
+    finishing: finish.isPending,
+    cancelling: cancel.isPending,
+    attempt,
+    retry: () => {
+      start.reset();
+      finish.reset();
+      cancel.reset();
+      signOut.reset();
+      save.reset();
+      void query.refetch();
+    },
+    start: () => start.mutate(),
+    finish: () => {
+      if (!attempt) return;
+
+      finishing.current = new AbortController();
+      finish.mutate({ attemptId: attempt.attemptId, signal: finishing.current.signal });
+    },
+    cancel: () => {
+      if (attempt) cancel.mutate(attempt.attemptId);
+    },
+    signOut: () => signOut.mutate(),
+    setModel
+  };
+}
+
+export type AiSettingsModel = ReturnType<typeof useAiSettings>;

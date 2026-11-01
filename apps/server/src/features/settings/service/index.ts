@@ -16,17 +16,28 @@ import { StudyError } from '@study/contracts/errors';
 import type { JsonValue } from '@study/contracts/json';
 import {
   appSettingsSchema,
+  concurrencySettingsSchema,
+  appearancePreferencesSchema,
   llmSettingsSchema,
   materialSettingsSchema,
   reviewSettingsSchema
 } from '@study/contracts/settings/schemas';
 import type {
   AppSettings,
+  ConcurrencySettings,
+  AppearancePreferences,
   LlmSettings,
   MaterialSettings,
   ReviewSettings
 } from '@study/contracts/settings/types';
-import { Appearance, Language, LlmModel, LlmProvider } from '@study/contracts/settings/types';
+import {
+  Appearance,
+  Language,
+  LlmModel,
+  LlmProvider,
+  defaultConcurrencySettings,
+  defaultAppearancePreferences
+} from '@study/contracts/settings/types';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
@@ -37,7 +48,12 @@ type Preferences = Record<string, JsonValue>;
 
 const appSettings = (v: Preferences): AppSettings => ({
   language: v.language === Language.ITALIAN ? Language.ITALIAN : Language.ENGLISH,
-  appearance: v.appearance === Appearance.LIGHT ? Appearance.LIGHT : Appearance.DARK,
+  appearance:
+    v.appearance === Appearance.SYSTEM
+      ? Appearance.SYSTEM
+      : v.appearance === Appearance.LIGHT
+        ? Appearance.LIGHT
+        : Appearance.DARK,
   zoomPercent: typeof v.zoomPercent === 'number' ? v.zoomPercent : 100,
   onboarded: v.onboarded === true
 });
@@ -58,6 +74,42 @@ const make = Effect.gen(function* () {
   const store = yield* useStore(SettingsStore);
 
   return {
+    concurrencySettings: () =>
+      store.preference('concurrency').pipe(
+        Effect.map((v) => {
+          const resolved = { ...defaultConcurrencySettings, ...v };
+
+          return Schema.is(concurrencySettingsSchema)(resolved)
+            ? resolved
+            : defaultConcurrencySettings;
+        })
+      ),
+    saveConcurrencySettings: (input: ConcurrencySettings) =>
+      !Schema.is(concurrencySettingsSchema)(input)
+        ? Effect.fail(new StudyError('invalid_input', 'Invalid concurrency settings'))
+        : transaction((tx) => {
+            tx.store(SettingsStore).saveConcurrencySettings(input);
+
+            return {};
+          }),
+    appearancePreferences: () =>
+      store.preference('appearance').pipe(
+        Effect.map((v) => {
+          const resolved = { ...defaultAppearancePreferences, ...v };
+
+          return Schema.is(appearancePreferencesSchema)(resolved)
+            ? resolved
+            : defaultAppearancePreferences;
+        })
+      ),
+    saveAppearancePreferences: (input: AppearancePreferences) =>
+      !Schema.is(appearancePreferencesSchema)(input)
+        ? Effect.fail(new StudyError('invalid_input', 'Invalid appearance preferences'))
+        : transaction((tx) => {
+            tx.store(SettingsStore).saveAppearancePreferences(input);
+
+            return {};
+          }),
     appSettings: () => store.preference('app').pipe(Effect.map(appSettings)),
     llmSettings: () => store.preference('llm').pipe(Effect.map(llmSettings)),
     materialSettings: () =>

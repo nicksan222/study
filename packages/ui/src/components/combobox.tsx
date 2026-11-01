@@ -1,6 +1,6 @@
 import { Combobox as Primitive } from '@base-ui/react/combobox';
 import { cn } from '@study/ui/utils';
-import { Check } from 'lucide-react';
+import { Check, Search } from 'lucide-react';
 import type * as React from 'react';
 
 import { Input } from './input';
@@ -30,12 +30,12 @@ export function ComboboxPopup({
         side={side}
         sideOffset={sideOffset}
         align={align}
-        className="z-50 outline-none"
+        className="z-[130] select-none outline-none"
         data-slot="combobox-positioner"
       >
         <Primitive.Popup
           className={cn(
-            'rounded-lg border border-border bg-popover text-foreground shadow-lg',
+            'study-combobox-popup max-h-[min(var(--available-height),23rem)] min-w-(--anchor-width) flex-col',
             className
           )}
           data-slot="combobox-popup"
@@ -48,17 +48,33 @@ export function ComboboxPopup({
   );
 }
 
-export function ComboboxInput(
-  props: Primitive.Input.Props & { ref?: React.Ref<HTMLInputElement> }
-) {
-  return <Primitive.Input data-slot="combobox-input" render={<Input nativeInput />} {...props} />;
+function ComboboxInput({
+  unstyled = false,
+  ...props
+}: Primitive.Input.Props & { ref?: React.Ref<HTMLInputElement>; unstyled?: boolean }) {
+  return (
+    <Primitive.Input
+      data-slot="combobox-input"
+      render={<Input nativeInput unstyled={unstyled} />}
+      {...props}
+    />
+  );
+}
+
+export function ComboboxSearchInput(props: Primitive.Input.Props) {
+  return (
+    <div className="study-combobox-search">
+      <Search aria-hidden="true" />
+      <ComboboxInput {...props} unstyled />
+    </div>
+  );
 }
 
 export function ComboboxList({ className, ...props }: Primitive.List.Props) {
   return (
     <Primitive.List
       className={cn(
-        'max-h-[min(21rem,var(--available-height))] overflow-y-auto overscroll-contain outline-none',
+        'max-h-[min(21rem,var(--available-height))] overflow-y-auto overscroll-contain p-1 scroll-py-1 outline-none',
         className
       )}
       data-slot="combobox-list"
@@ -71,7 +87,7 @@ export function ComboboxItem({ className, children, ...props }: Primitive.Item.P
   return (
     <Primitive.Item
       className={cn(
-        'flex min-h-10 cursor-default items-center gap-2 rounded-md px-2 text-sm outline-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64',
+        "flex min-h-8 cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-base outline-none not-data-disabled:hover:bg-foreground/[0.09] data-selected:bg-foreground/[0.06] data-selected:text-foreground data-highlighted:bg-foreground/[0.09] data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className
       )}
       data-slot="combobox-item"
@@ -88,7 +104,7 @@ export function ComboboxItem({ className, children, ...props }: Primitive.Item.P
 export function ComboboxEmpty({ className, ...props }: Primitive.Empty.Props) {
   return (
     <Primitive.Empty
-      className={cn('p-2 text-center text-sm text-muted-foreground', className)}
+      className={cn('not-empty:p-2 text-center text-sm text-muted-foreground', className)}
       data-slot="combobox-empty"
       {...props}
     />

@@ -14,7 +14,7 @@
 
 import { StudyError } from '@study/contracts/errors';
 import { themePageInputSchema } from '@study/contracts/themes/rpc';
-import { themeFileSchema } from '@study/contracts/themes/schemas';
+import { themeFileSchema, themeCatalogEntrySchema } from '@study/contracts/themes/schemas';
 import { and, eq, gt, sql } from '@study/db';
 import { preferences, themes } from '@study/db/schema';
 import { Option, Schema } from 'effect';
@@ -57,7 +57,7 @@ export const ThemeStore = defineStore({
         themes: storeQuery({
           role: 'collection',
           input: themePageInputSchema,
-          output: Schema.Array(themeFileSchema),
+          output: Schema.Array(themeCatalogEntrySchema),
           run: ({ limit, before }) =>
             db.orm
               .select()
@@ -66,7 +66,7 @@ export const ThemeStore = defineStore({
               .orderBy(themes.id)
               .limit(limit)
               .all()
-              .map((row) => row.definition)
+              .map((row) => ({ ...row.definition, builtin: row.builtin }))
         })
       },
       mutations: {

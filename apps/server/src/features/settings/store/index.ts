@@ -14,6 +14,8 @@
 
 import {
   appSettingsSchema,
+  concurrencySettingsSchema,
+  appearancePreferencesSchema,
   llmSettingsSchema,
   materialSettingsSchema,
   reviewSettingsSchema
@@ -75,6 +77,16 @@ export const SettingsStore = defineStore({
         })
       },
       mutations: {
+        saveConcurrencySettings: storeMutation({
+          input: concurrencySettingsSchema,
+          output: Schema.Void,
+          run: (input) => replace('concurrency', { ...input })
+        }),
+        saveAppearancePreferences: storeMutation({
+          input: appearancePreferencesSchema,
+          output: Schema.Void,
+          run: (input) => replace('appearance', { ...input })
+        }),
         saveAppSettings: storeMutation({
           input: appSettingsSchema,
           output: Schema.Void,

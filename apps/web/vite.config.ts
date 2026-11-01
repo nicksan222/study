@@ -5,6 +5,8 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite-plus';
 
+import { studyRpcProxy } from '../../tooling/development/rpc-proxy.ts';
+
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   plugins: [
@@ -23,15 +25,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
-    proxy: {
-      '/trpc': {
-        target: process.env.STUDY_SERVER_URL ?? 'http://127.0.0.1:5201',
-        configure: (proxy) => {
-          // Browser requests enter through the same-origin Vite proxy.
-          proxy.on('proxyReq', (request) => request.removeHeader('origin'));
-        }
-      }
-    }
+    proxy: studyRpcProxy(process.env.STUDY_SERVER_URL ?? 'http://127.0.0.1:5201')
   },
   build: { outDir: 'dist', emptyOutDir: true },
   test: {

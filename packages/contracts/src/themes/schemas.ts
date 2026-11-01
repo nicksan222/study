@@ -12,3 +12,8 @@ export const themeFileSchema = Schema.Struct({
   light: Schema.optional(colorsSchema),
   dark: Schema.optional(colorsSchema)
 });
+
+export const themeCatalogEntrySchema = Schema.Struct({
+  ...themeFileSchema.fields,
+  builtin: Schema.Boolean
+});

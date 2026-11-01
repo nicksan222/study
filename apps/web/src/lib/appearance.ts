@@ -1,22 +1,80 @@
-import { Appearance } from '@study/contracts/settings/types';
-import { applyThemeToDocument, createThemeStore, defaultThemeId } from '@study/ui/theme';
+import { Appearance, defaultAppearancePreferences } from '@study/contracts/settings/types';
+import {
+  applyThemeToDocument,
+  createThemeStore,
+  defaultThemeId,
+  observeSystemAppearance
+} from '@study/ui/theme';
 
 import { loadAppearance } from './study-client/operations';
 
+let store = createThemeStore({ appearance: 'dark' });
+
+let revision = 0;
+
+let activeDocument: Document | undefined;
+
+const preferenceProperties = [
+  '--appearance-contrast-base',
+  '--appearance-contrast-boost',
+  '--appearance-contrast-border-boost',
+  '--glass-opacity',
+  '--ui-animation-duration',
+  'zoom'
+];
+
+export function applyAppearance({
+  settings,
+  selected,
+  themes,
+  preferences = defaultAppearancePreferences
+}: Awaited<ReturnType<typeof loadAppearance>>) {
+  revision++;
+  store.setTheme(themes.find((theme) => theme.id === (selected ?? defaultThemeId)) ?? {});
+  store.setAppearance(
+    settings.appearance === Appearance.SYSTEM
+      ? 'system'
+      : settings.appearance === Appearance.LIGHT
+        ? 'light'
+        : 'dark'
+  );
+  const element = activeDocument?.documentElement;
+
+  if (element) {
+    element.style.setProperty(
+      '--appearance-contrast-base',
+      `${Math.min(preferences.contrast, 100)}%`
+    );
+    element.style.setProperty(
+      '--appearance-contrast-boost',
+      `${Math.max(0, preferences.contrast - 100)}%`
+    );
+    element.style.setProperty(
+      '--appearance-contrast-border-boost',
+      `${Math.max(0, preferences.contrast - 100) / 2}%`
+    );
+    element.style.setProperty('--glass-opacity', `${preferences.glassOpacity}%`);
+    element.style.setProperty('--ui-animation-duration', `${preferences.animationDurationMs}ms`);
+    element.style.setProperty('zoom', `${settings.zoomPercent ?? 100}%`);
+  }
+}
+
 export function initializeAppearance(document: Document): () => void {
-  const store = createThemeStore({ appearance: 'dark' });
+  activeDocument = document;
+  const originalPreferences = new Map(
+    preferenceProperties.map((key) => [key, document.documentElement.style.getPropertyValue(key)])
+  );
+
+  store = createThemeStore({ appearance: 'dark' });
   const restore = applyThemeToDocument(store, document);
+  const media = document.defaultView?.matchMedia('(prefers-color-scheme: dark)');
+  const stopObserving = media ? observeSystemAppearance(store, media) : () => {};
   const controller = new AbortController();
+  const initialRevision = revision;
 
   void loadAppearance(controller.signal)
-    .then(({ settings, selected, themes }) => {
-      if (controller.signal.aborted) return;
-
-      const theme = themes.find((item) => item.id === (selected ?? defaultThemeId));
-
-      if (theme) store.setTheme(theme);
-
-      store.setAppearance(settings.appearance === Appearance.LIGHT ? 'light' : 'dark');
+    .then((data) => {
+      if (!controller.signal.aborted && initialRevision === revision) applyAppearance(data);
     })
     .catch(() => {
       // Startup keeps the default palette when saved appearance is unavailable.
@@ -24,6 +82,14 @@ export function initializeAppearance(document: Document): () => void {
 
   return () => {
     controller.abort();
+    stopObserving();
     restore();
+
+    for (const [key, value] of originalPreferences) {
+      if (value) document.documentElement.style.setProperty(key, value);
+      else document.documentElement.style.removeProperty(key);
+    }
+
+    if (activeDocument === document) activeDocument = undefined;
   };
 }

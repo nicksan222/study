@@ -11,6 +11,7 @@
     "./utils": "./src/utils.ts",
     "./dialog-styles": "./src/components/dialog-styles.ts",
     "./*": "./src/components/*.tsx",
+    "./download": "./src/download.ts",
     "./clock": "./src/clock.ts"
   },
   "dependencies": {

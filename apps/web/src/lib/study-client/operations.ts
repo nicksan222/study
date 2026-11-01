@@ -2,23 +2,15 @@ import type { SessionDto } from '@study/contracts/conversations/schemas';
 import type { ProjectId, SourceId, MaterialId } from '@study/contracts/ids';
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
 import type { Project } from '@study/contracts/projects/schemas';
+import type { AppSettings } from '@study/contracts/settings/types';
 import type { Source } from '@study/contracts/sources/schemas';
 import type { searchInputSchema } from '@study/contracts/system/rpc';
 import type { searchResultSchema } from '@study/contracts/system/schemas';
 import { Effect } from 'effect';
 
-import { runRequest } from '../effect/runtime';
-import { studyClient } from './client';
 import type { StudyClient } from './client';
-import { toStudyError } from './errors';
 import { collectPages } from './pagination';
-
-function request<A, E>(invoke: (client: StudyClient) => Effect.Effect<A, E>, signal?: AbortSignal) {
-  return runRequest(
-    Effect.scoped(Effect.flatMap(studyClient, invoke)).pipe(Effect.mapError(toStudyError)),
-    signal
-  );
-}
+import { request } from './request';
 
 export type Subjects = Project[];
 
@@ -92,15 +84,46 @@ export const loadAppearance = (signal?: AbortSignal) =>
   request(
     (client) =>
       Effect.gen(function* () {
-        const [settings, selected] = yield* Effect.all(
-          [client['settings.appSettings']({}), client['themes.selectedTheme']({})],
-          { concurrency: 2 }
+        const [settings, selected, preferences] = yield* Effect.all(
+          [
+            client['settings.appSettings']({}),
+            client['themes.selectedTheme']({}),
+            client['settings.appearancePreferences']({})
+          ],
+          { concurrency: 3 }
         );
         const themes = yield* collectPages((before: string | undefined) =>
           client['themes.themes']({ limit: 100, before })
         );
 
-        return { settings, selected, themes };
+        return { settings, selected, themes, preferences };
       }),
     signal
   );
+
+export const updateAppSettings = (
+  patch: Partial<Pick<AppSettings, 'appearance' | 'zoomPercent'>>
+) =>
+  request((client) =>
+    Effect.gen(function* () {
+      const settings = yield* client['settings.appSettings']({});
+
+      return yield* client['settings.saveAppSettings']({ ...settings, ...patch });
+    })
+  );
+
+export const selectTheme = (id: string) =>
+  request((client) => client['themes.selectTheme']({ id }));
+
+export const importTheme = (json: string) =>
+  request((client) => client['themes.importTheme']({ json }));
+
+export const saveTheme = (json: string) =>
+  request((client) => client['themes.saveTheme']({ json }));
+
+export const deleteTheme = (id: string) =>
+  request((client) => client['themes.deleteTheme']({ id }));
+
+export const saveAppearancePreferences = (
+  preferences: Parameters<StudyClient['settings.saveAppearancePreferences']>[0]
+) => request((client) => client['settings.saveAppearancePreferences'](preferences));

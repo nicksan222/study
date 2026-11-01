@@ -150,8 +150,8 @@ it('creates a subject from the toolbar and selects it', async () => {
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=3'));
 });
 
-it('searches globally on Settings while retaining the subject for navigation', async () => {
-  history.replaceState(null, '', '/settings?project=1');
+it('searches globally on Help while retaining the subject for navigation', async () => {
+  history.replaceState(null, '', '/help?project=1');
   const user = userEvent.setup();
 
   render(<App />);
@@ -225,7 +225,7 @@ it('requests session kinds from the server before limiting search hits', async (
   );
 });
 
-it('uses the sidebar body for pickable sessions and keeps section links in the footer', async () => {
+it('uses the body for sessions and a labeled navigation block above settings', async () => {
   const user = userEvent.setup();
 
   render(<App />);
@@ -237,9 +237,11 @@ it('uses the sidebar body for pickable sessions and keeps section links in the f
   expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
   const flashcards = screen.getByRole('link', { name: en.Practice });
 
-  expect(flashcards.closest('nav')).toHaveClass('study-sidebar-footer');
-  expect(screen.getByRole('link', { name: en.Settings }).parentElement).toHaveClass(
-    'study-sidebar-footer-trailing'
+  expect(flashcards.closest('nav')).toHaveClass('study-sidebar-navigation');
+  expect(flashcards).toHaveTextContent(en.Practice);
+  expect(screen.getByRole('button', { name: en.Settings })).toHaveTextContent(en.Settings);
+  expect(screen.getByRole('button', { name: en.Settings }).closest('nav')).toHaveClass(
+    'study-sidebar-footer'
   );
   await user.click(flashcards);
   await waitFor(() => expect(location.pathname + location.search).toBe('/practice?project=1'));
@@ -372,7 +374,7 @@ it.each([
   ['flashcards', 'Flashcards'],
   ['quiz', 'Practice']
 ])('opens a %s search result on its own page', async (materialKind, page) => {
-  history.replaceState(null, '', '/settings?project=1');
+  history.replaceState(null, '', '/help?project=1');
   api.search.mockResolvedValue({
     semantic: false,
     hits: [

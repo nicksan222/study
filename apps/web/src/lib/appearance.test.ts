@@ -10,6 +10,8 @@ vi.mock('./study-client/client', async () => {
   const call = (fn: typeof api.settings) => (input: unknown) => Effect.tryPromise(() => fn(input));
   const client = {
     'settings.appSettings': call(api.settings),
+    'settings.appearancePreferences': () =>
+      Effect.succeed({ contrast: 100, glassOpacity: 80, animationDurationMs: 150 }),
     'themes.selectedTheme': call(api.selected),
     'themes.themes': call(api.themes)
   };
@@ -44,4 +46,33 @@ it('keeps the default dark palette available when the server is unavailable', as
   restore = initializeAppearance(document);
   await Promise.resolve();
   expect(document.documentElement).toHaveClass('dark');
+});
+
+it('follows system appearance changes and removes the listener on disposal', async () => {
+  let change: ((event: { matches: boolean }) => void) | undefined;
+  const remove = vi.fn();
+
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    media: '(prefers-color-scheme: dark)',
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: () => true,
+    addEventListener: (_name: string, listener: unknown) => {
+      change = listener as typeof change;
+    },
+    removeEventListener: remove
+  });
+  api.settings.mockResolvedValue({ appearance: 3 });
+  api.selected.mockResolvedValue(null);
+  api.themes.mockResolvedValue({ items: [], next: null });
+  restore = initializeAppearance(document);
+  await waitFor(() => expect(document.documentElement).toHaveClass('dark'));
+  await waitFor(() => expect(change).toBeDefined());
+  change?.({ matches: false });
+  await waitFor(() => expect(document.documentElement).not.toHaveClass('dark'));
+  restore();
+  restore = undefined;
+  expect(remove).toHaveBeenCalledWith('change', expect.any(Function));
 });

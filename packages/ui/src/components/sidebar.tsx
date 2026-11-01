@@ -4,7 +4,7 @@ import {
   Combobox,
   ComboboxTrigger,
   ComboboxPopup,
-  ComboboxInput,
+  ComboboxSearchInput,
   ComboboxList,
   ComboboxItem,
   ComboboxEmpty
@@ -13,7 +13,7 @@ import { Input } from '@study/ui/input';
 import type { InputProps } from '@study/ui/input';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { cn } from '@study/ui/utils';
-import { PanelLeft, Search, X, ChevronsUpDown } from 'lucide-react';
+import { PanelLeft, Search, X, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
@@ -217,6 +217,33 @@ function Footer({
   );
 }
 
+function Navigation({ className, ...props }: ComponentProps<'nav'>) {
+  return <nav {...props} className={cn('study-sidebar-navigation', className)} />;
+}
+
+function NavigationItem({
+  label,
+  children,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'children'> & {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Button
+      {...props}
+      variant="ghost-muted"
+      layout="navigation"
+      aria-label={label}
+      title={label}
+      className={cn('study-sidebar-navigation-item', props.className)}
+    >
+      {children}
+      <span className="study-sidebar-navigation-label">{label}</span>
+    </Button>
+  );
+}
+
 function Items({ className, ...props }: ComponentProps<'nav'>) {
   return <nav {...props} className={cn('study-session-list', className)} />;
 }
@@ -231,6 +258,10 @@ function FormFields({ className, ...props }: ComponentProps<'div'>) {
 
 function SwitcherActions({ className, ...props }: ComponentProps<'div'>) {
   return <div {...props} className={cn('study-subject-actions', className)} />;
+}
+
+function PickerShortcuts({ className, ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={cn('study-sidebar-picker-shortcuts', className)} />;
 }
 
 function Main({ className, ...props }: ComponentProps<'main'>) {
@@ -302,15 +333,25 @@ function Utility({
   );
 }
 
+function Identity({ label }: { label: string }) {
+  return (
+    <span className="study-subject-mark" aria-hidden="true">
+      {label.slice(0, 1).toLocaleUpperCase()}
+    </span>
+  );
+}
+
 function Switcher({
   icon,
   label,
   trailing,
+  description,
   ...props
 }: Omit<ComponentProps<typeof Button>, 'children'> & {
   icon: ReactNode;
   label: ReactNode;
   trailing: ReactNode;
+  description?: ReactNode;
 }) {
   return (
     <Button
@@ -321,7 +362,10 @@ function Switcher({
       <span className="study-subject-mark" aria-hidden="true">
         {icon}
       </span>
-      <span className="study-subject-name">{label}</span>
+      <span className="study-subject-name">
+        <span className="study-subject-label">{label}</span>
+        {description && <span className="study-subject-description">{description}</span>}
+      </span>
       {trailing}
     </Button>
   );
@@ -383,26 +427,13 @@ function Item({
   });
 }
 
-function Picker<T>({
-  items,
-  value,
-  getLabel,
-  getValue,
-  onValueChange,
-  open,
-  onOpenChange,
-  collapsed,
-  label,
-  fallbackIcon,
-  searchLabel,
-  empty,
-  status,
-  children
-}: {
+type PickerProps<T> = {
   items: T[];
   value: T | null;
   getLabel: (item: T) => string;
   getValue: (item: T) => string;
+  getDescription?: (item: T) => string;
+  listLabel?: ReactNode;
   onValueChange: (item: T) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -413,9 +444,76 @@ function Picker<T>({
   empty?: ReactNode;
   status?: ReactNode;
   children?: ReactNode;
-}) {
-  const selectedLabel = value ? getLabel(value) : label;
+};
 
+function PickerSelection<T>({
+  value,
+  getLabel,
+  label,
+  fallbackIcon
+}: Pick<PickerProps<T>, 'value' | 'getLabel' | 'label' | 'fallbackIcon'>) {
+  const selectedLabel = value ? getLabel(value) : label;
+  const initial = selectedLabel.slice(0, 1).toLocaleUpperCase();
+
+  return (
+    <ComboboxTrigger
+      aria-label={selectedLabel}
+      title={selectedLabel}
+      render={
+        <Switcher
+          icon={value ? initial : (fallbackIcon ?? initial)}
+          label={selectedLabel}
+          trailing={<ChevronDown className="study-subject-chevron" aria-hidden="true" />}
+        />
+      }
+    />
+  );
+}
+
+function PickerOption<T>({
+  item,
+  label,
+  description
+}: {
+  item: T;
+  label: string;
+  description?: string;
+}) {
+  return (
+    <ComboboxItem value={item} aria-description={description} className="study-sidebar-picker-item">
+      <span className="study-sidebar-picker-option">
+        <Identity label={label} />
+        <span className="study-sidebar-picker-copy">
+          <span className="study-sidebar-picker-name">{label}</span>
+          {description && (
+            <span className="study-sidebar-picker-description" aria-hidden="true">
+              {description}
+            </span>
+          )}
+        </span>
+      </span>
+    </ComboboxItem>
+  );
+}
+
+function Picker<T>({
+  items,
+  value,
+  getLabel,
+  getValue,
+  getDescription,
+  listLabel,
+  onValueChange,
+  open,
+  onOpenChange,
+  collapsed,
+  label,
+  fallbackIcon,
+  searchLabel,
+  empty,
+  status,
+  children
+}: PickerProps<T>) {
   return (
     <Combobox
       items={items}
@@ -429,40 +527,34 @@ function Picker<T>({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <ComboboxTrigger
-        aria-label={selectedLabel}
-        render={
-          <Switcher
-            icon={
-              value
-                ? selectedLabel.slice(0, 1).toLocaleUpperCase()
-                : (fallbackIcon ?? selectedLabel.slice(0, 1).toLocaleUpperCase())
-            }
-            label={selectedLabel}
-            trailing={<ChevronsUpDown className="study-subject-chevron" aria-hidden="true" />}
-          />
-        }
+      <PickerSelection
+        value={value}
+        getLabel={getLabel}
+        label={label}
+        fallbackIcon={fallbackIcon}
       />
       <ComboboxPopup
         className="study-subject-menu"
         side={collapsed ? 'right' : 'bottom'}
         sideOffset={8}
       >
-        <div className="study-sidebar-picker-search">
-          <ComboboxInput aria-label={searchLabel} placeholder={searchLabel} />
-        </div>
+        <ComboboxSearchInput aria-label={searchLabel} placeholder={searchLabel} />
         {status}
+        {items.length > 0 && listLabel && (
+          <div className="study-sidebar-picker-heading">
+            <span>{listLabel}</span>
+            <span aria-hidden="true">{items.length}</span>
+          </div>
+        )}
         <ComboboxEmpty>{empty}</ComboboxEmpty>
         <ComboboxList className="study-sidebar-picker-list">
           {(item: T) => (
-            <ComboboxItem key={getValue(item)} value={item} className="study-sidebar-picker-item">
-              <span className="study-sidebar-picker-option">
-                <span className="study-subject-mark" aria-hidden="true">
-                  {getLabel(item).slice(0, 1).toLocaleUpperCase()}
-                </span>
-                <span>{getLabel(item)}</span>
-              </span>
-            </ComboboxItem>
+            <PickerOption
+              key={getValue(item)}
+              item={item}
+              label={getLabel(item)}
+              description={getDescription?.(item)}
+            />
           )}
         </ComboboxList>
         {children && <SwitcherActions>{children}</SwitcherActions>}
@@ -478,14 +570,18 @@ export const Sidebar = {
   Toolbar,
   Content,
   Footer,
+  Navigation,
+  NavigationItem,
   Items,
   Item,
   Message,
   Toggle,
   Utility,
   Switcher,
+  Identity,
   Picker,
   SwitcherActions,
+  PickerShortcuts,
   Search: SearchField,
   FormFields,
   Main,

@@ -16,6 +16,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type { ConcurrencySettings } from '@study/contracts/settings/types';
 import { Context, Effect, Layer, Option, Semaphore } from 'effect';
 
 import { observeActiveAi } from '#server/platform/observability/index';
@@ -24,12 +25,18 @@ export interface Admission {
   readonly run: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E | StudyError, R>;
 }
 
-export class AiAdmission extends Context.Service<AiAdmission, Admission>()('study/AiAdmission') {}
+interface ConfigurableAdmission extends Admission {
+  readonly configure: (settings: ConcurrencySettings) => Effect.Effect<void, StudyError>;
+}
+
+export class AiAdmission extends Context.Service<AiAdmission, ConfigurableAdmission>()(
+  'study/AiAdmission'
+) {}
 
 /** Construct once per application, and reuse across runtime and worker restarts. */
 export function makeAdmission(
   options: { concurrency?: number; maxWaiting?: number } = {}
-): Admission {
+): ConfigurableAdmission {
   const concurrency = options.concurrency ?? 2;
   const maxWaiting = options.maxWaiting ?? 16;
 
@@ -42,7 +49,35 @@ export function makeAdmission(
   const permits = Semaphore.makeUnsafe(concurrency);
   const capacity = Semaphore.makeUnsafe(concurrency + maxWaiting);
 
+  const configuration = Semaphore.makeUnsafe(1);
+  let currentConcurrency = concurrency;
+  let currentWaiting = maxWaiting;
+
   return {
+    configure: (settings) =>
+      configuration.withPermit(
+        Effect.gen(function* () {
+          const { maxConcurrentAi, maxQueuedAi } = settings;
+
+          if (
+            !Number.isInteger(maxConcurrentAi) ||
+            maxConcurrentAi < 1 ||
+            maxConcurrentAi > 8 ||
+            !Number.isInteger(maxQueuedAi) ||
+            maxQueuedAi < 0 ||
+            maxQueuedAi > 64
+          )
+            return yield* Effect.fail(new StudyError('invalid_input', 'Invalid AI capacity'));
+
+          if (maxConcurrentAi === currentConcurrency && maxQueuedAi === currentWaiting) return;
+
+          // Resize the existing owners so active requests and queued cancellation stay intact.
+          yield* capacity.resize(maxConcurrentAi + maxQueuedAi);
+          yield* permits.resize(maxConcurrentAi);
+          currentConcurrency = maxConcurrentAi;
+          currentWaiting = maxQueuedAi;
+        }).pipe(Effect.uninterruptible)
+      ),
     run: (effect) =>
       capacity
         .withPermitsIfAvailable(1)(permits.withPermit(observeActiveAi(effect)))
@@ -58,4 +93,14 @@ export function makeAdmission(
 }
 
 /** The layer captures an existing owner, not a new gate per layer build. */
-export const admissionLayer = (admission: Admission) => Layer.succeed(AiAdmission, admission);
+export const admissionLayer = (admission: ConfigurableAdmission) =>
+  Layer.succeed(AiAdmission, admission);
+
+/** Refresh persisted capacity before admission without replacing the shared gate. */
+export const withAdmissionSettings = (
+  admission: ConfigurableAdmission,
+  settings: Effect.Effect<ConcurrencySettings, StudyError>
+): Admission => ({
+  run: (effect) =>
+    settings.pipe(Effect.flatMap(admission.configure), Effect.andThen(admission.run(effect)))
+});

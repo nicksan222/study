@@ -18,7 +18,8 @@ export type Rating = (typeof Rating)[keyof typeof Rating];
 
 export const Appearance = {
   LIGHT: 1,
-  DARK: 2
+  DARK: 2,
+  SYSTEM: 3
 } as const;
 
 export type Appearance = (typeof Appearance)[keyof typeof Appearance];
@@ -39,6 +40,8 @@ export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
 
 import type {
   appSettingsSchema,
+  concurrencySettingsSchema,
+  appearancePreferencesSchema,
   tierSetupSchema,
   llmSettingsSchema,
   reviewSettingsSchema,
@@ -54,3 +57,18 @@ export type LlmSettings = typeof llmSettingsSchema.Type;
 export type ReviewSettings = typeof reviewSettingsSchema.Type;
 
 export type MaterialSettings = typeof materialSettingsSchema.Type;
+
+export type AppearancePreferences = typeof appearancePreferencesSchema.Type;
+
+export const defaultAppearancePreferences: AppearancePreferences = {
+  contrast: 100,
+  glassOpacity: 80,
+  animationDurationMs: 150
+};
+
+export type ConcurrencySettings = typeof concurrencySettingsSchema.Type;
+
+export const defaultConcurrencySettings: ConcurrencySettings = {
+  maxConcurrentAi: 2,
+  maxQueuedAi: 16
+};

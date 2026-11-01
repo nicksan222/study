@@ -41,7 +41,12 @@ import { Themes } from '#server/features/themes/index';
 import { ThemesRpcLive } from '#server/features/themes/rpc/index';
 import { Workflows } from '#server/features/workflows/index';
 import { WorkflowsRpcLive } from '#server/features/workflows/rpc/index';
-import { AiAdmission, admissionLayer, makeAdmission } from '#server/platform/ai/admission';
+import {
+  AiAdmission,
+  admissionLayer,
+  makeAdmission,
+  withAdmissionSettings
+} from '#server/platform/ai/admission';
 import { Agents } from '#server/platform/ai/agents';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
@@ -112,7 +117,7 @@ export function nativeLayers(
       const aiAdmission = yield* AiAdmission;
 
       return {
-        admission: aiAdmission,
+        admission: withAdmissionSettings(aiAdmission, settings.concurrencySettings()),
         language: settings.language(),
         model: (tier) =>
           settings

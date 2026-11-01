@@ -16,7 +16,7 @@ export function Shell() {
   return (
     <SidebarUI.Frame
       collapsed={collapsed}
-      defaultWidth={320}
+      defaultWidth={360}
       minWidth={256}
       minContentWidth={360}
       storageKey="study-sidebar-width"

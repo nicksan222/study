@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
-import { themeFileSchema } from './schemas.ts';
+import { themeFileSchema, themeCatalogEntrySchema } from './schemas.ts';
 
 const themeIdInputSchema = Schema.Struct({ id: Schema.String });
 
@@ -12,7 +12,7 @@ export const themePageInputSchema = Schema.Struct({
 });
 
 const themePageSchema = Schema.Struct({
-  items: Schema.Array(themeFileSchema),
+  items: Schema.Array(themeCatalogEntrySchema),
   next: Schema.NullOr(Schema.String)
 });
 

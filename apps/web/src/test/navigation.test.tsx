@@ -1,5 +1,5 @@
 import { catalogs } from '@study/localization';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
@@ -29,7 +29,6 @@ const pages = [
   'Diagrams',
   'Practice',
   'Pipelines',
-  'Settings',
   'Help'
 ] as const;
 
@@ -54,22 +53,30 @@ it.each(pages)('renders an empty %s page without calling the server', async (pag
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it('navigates between placeholders and restores browser history', async () => {
+it('opens settings over the current page and restores focus without changing the URL', async () => {
   const user = userEvent.setup();
 
-  history.replaceState(null, '', '/home');
+  history.replaceState(null, '', '/sessions?project=1&id=42');
   render(<App />);
-  await screen.findByRole('heading');
-  await user.click(screen.getByRole('link', { name: catalogs.english.Settings }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/settings'));
+  const trigger = await screen.findByRole('button', { name: catalogs.english.Settings });
+
+  await user.click(trigger);
   expect(
-    await screen.findByRole('heading', { name: catalogs.english.Settings })
+    await screen.findByRole('dialog', { name: catalogs.english.Settings })
   ).toBeInTheDocument();
-  act(() => history.back());
-  expect(await screen.findByRole('heading', { name: catalogs.english.Home })).toBeInTheDocument();
-  expect(screen.getByRole('main').textContent).toBe(
-    `${catalogs.english.AppName}/${catalogs.english.Home}`
-  );
+  expect(location.pathname + location.search).toBe('/sessions?project=1&id=42');
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await waitFor(() => expect(trigger).toHaveFocus());
+  expect(screen.getByRole('heading', { name: catalogs.english.Sessions })).toBeInTheDocument();
+});
+
+it('opens the appearance popup from its direct settings route', async () => {
+  history.replaceState(null, '', '/settings');
+  render(<App />);
+  expect(
+    await screen.findByRole('dialog', { name: catalogs.english.Settings })
+  ).toBeInTheDocument();
 });
 
 it('keeps Settings reachable while the sidebar is collapsed', async () => {
@@ -84,14 +91,12 @@ it('keeps Settings reachable while the sidebar is collapsed', async () => {
   await user.click(toggle);
   expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
-  await user.click(screen.getByRole('link', { name: catalogs.english.Settings }));
+  await user.click(screen.getByRole('button', { name: catalogs.english.Settings }));
   expect(
     await screen.findByRole('heading', { name: catalogs.english.Settings })
   ).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: catalogs.english.Settings })).toHaveAttribute(
-    'aria-current',
-    'page'
-  );
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
   await user.click(toggle);
   expect(toggle).toHaveAttribute('aria-expanded', 'true');

@@ -17,9 +17,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { StudyError } from '@study/contracts/errors';
+import type { ConcurrencySettings } from '@study/contracts/settings/types';
 import { Deferred, Effect, Fiber, Metric } from 'effect';
 
-import { makeAdmission } from '#server/platform/ai/admission';
+import { makeAdmission, withAdmissionSettings } from '#server/platform/ai/admission';
 
 test('limits active work, interrupts queued work without dispatch, and releases on failure', async () => {
   const snapshots = await Effect.runPromise(
@@ -170,6 +171,92 @@ test('closing a scope interrupts active and waiting fibers', async () => {
       yield* Deferred.await(stopped);
       assert.equal(dispatched, 1);
       yield* gate.run(Effect.void);
+    })
+  );
+});
+
+test('resizing starts queued work when raised and preserves active work when lowered', async () => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const gate = makeAdmission({ concurrency: 1, maxWaiting: 2 });
+      const releases = yield* Effect.all([
+        Deferred.make<void>(),
+        Deferred.make<void>(),
+        Deferred.make<void>()
+      ]);
+      const entered = yield* Effect.all([
+        Deferred.make<void>(),
+        Deferred.make<void>(),
+        Deferred.make<void>()
+      ]);
+      let dispatches = 0;
+      const work = (index: number) =>
+        gate.run(
+          Effect.gen(function* () {
+            dispatches++;
+            yield* Deferred.succeed(entered[index]!, undefined);
+            yield* Deferred.await(releases[index]!);
+          })
+        );
+      const first = yield* Effect.forkChild(work(0));
+
+      yield* Deferred.await(entered[0]!);
+      const second = yield* Effect.forkChild(work(1));
+
+      yield* Effect.yieldNow;
+      assert.equal(dispatches, 1);
+      yield* gate.configure({ maxConcurrentAi: 2, maxQueuedAi: 1 });
+      yield* Deferred.await(entered[1]!);
+      const third = yield* Effect.forkChild(work(2));
+
+      yield* Effect.yieldNow;
+      yield* gate.configure({ maxConcurrentAi: 1, maxQueuedAi: 0 });
+      assert.equal((yield* Effect.flip(gate.run(Effect.void))).kind, 'rate_limited');
+      yield* Deferred.succeed(releases[0]!, undefined);
+      yield* Fiber.join(first);
+      yield* Effect.yieldNow;
+      assert.equal(dispatches, 2);
+      yield* Deferred.succeed(releases[1]!, undefined);
+      yield* Fiber.join(second);
+      yield* Deferred.await(entered[2]!);
+      assert.equal(dispatches, 3);
+      yield* Deferred.succeed(releases[2]!, undefined);
+      yield* Fiber.join(third);
+      assert.equal(yield* gate.run(Effect.succeed('released')), 'released');
+    })
+  );
+});
+
+test('refreshes persisted limits before new work using the same admission owner', async () => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const owner = makeAdmission();
+      let settings: ConcurrencySettings = { maxConcurrentAi: 1, maxQueuedAi: 0 };
+      const gate = withAdmissionSettings(
+        owner,
+        Effect.sync(() => settings)
+      );
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const first = yield* Effect.forkChild(
+        gate.run(
+          Effect.gen(function* () {
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(release);
+          })
+        )
+      );
+
+      yield* Deferred.await(entered);
+      assert.equal((yield* Effect.flip(gate.run(Effect.void))).kind, 'rate_limited');
+      settings = { maxConcurrentAi: 2, maxQueuedAi: 0 };
+      assert.equal(yield* gate.run(Effect.succeed('new capacity')), 'new capacity');
+      assert.equal(
+        (yield* Effect.flip(owner.configure({ maxConcurrentAi: 0, maxQueuedAi: 0 }))).kind,
+        'invalid_input'
+      );
+      yield* Deferred.succeed(release, undefined);
+      yield* Fiber.join(first);
     })
   );
 });

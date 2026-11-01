@@ -5,6 +5,7 @@
 @import './components/list.css';
 @import './components/loading.css';
 @import './components/menu.css';
+@import './components/settings.css';
 @source "./";
 @source "../../../apps/web/src";
 
@@ -50,6 +51,10 @@
   --z-sheet: 46;
   --glass-blur: 12px;
   --glass-opacity: 80%;
+  --ui-animation-duration: 150ms;
+  --ui-control-border: color-mix(in srgb, var(--contrast-input) 45%, var(--background));
+  --ui-surface-border: color-mix(in srgb, var(--contrast-border) 60%, var(--background));
+  --ui-divider-border: color-mix(in srgb, var(--contrast-border) 45%, var(--background));
   --glass-saturation: 1.14;
   --desktop-window-right-resize-inset: 0px;
   --workspace-topbar-height: 52px;
@@ -724,4 +729,21 @@ code {
 html,
 body {
   height: 100%;
+}
+
+[data-slot='dialog-popup'],
+[data-slot='dialog-backdrop'],
+.study-menu-popup,
+.study-combobox-popup,
+[data-slot='tooltip-popup'] {
+  transition-duration: var(--ui-animation-duration);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='dialog-popup'],
+  [data-slot='dialog-backdrop'],
+  .study-menu-popup,
+  .study-combobox-popup,
+  [data-slot='tooltip-popup'] {
+    transition-duration: 0s;
+  }
 }

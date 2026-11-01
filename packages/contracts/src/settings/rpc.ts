@@ -4,6 +4,8 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { failureSchema } from '../errors.ts';
 import {
   appSettingsSchema,
+  concurrencySettingsSchema,
+  appearancePreferencesSchema,
   llmSettingsSchema,
   materialSettingsSchema,
   reviewSettingsSchema
@@ -12,6 +14,26 @@ import {
 const saved = Schema.Struct({});
 
 export const SettingsRpc = RpcGroup.make(
+  Rpc.make('concurrencySettings', {
+    payload: {},
+    success: concurrencySettingsSchema,
+    error: failureSchema
+  }),
+  Rpc.make('saveConcurrencySettings', {
+    payload: concurrencySettingsSchema,
+    success: saved,
+    error: failureSchema
+  }),
+  Rpc.make('appearancePreferences', {
+    payload: {},
+    success: appearancePreferencesSchema,
+    error: failureSchema
+  }),
+  Rpc.make('saveAppearancePreferences', {
+    payload: appearancePreferencesSchema,
+    success: saved,
+    error: failureSchema
+  }),
   Rpc.make('appSettings', { payload: {}, success: appSettingsSchema, error: failureSchema }),
   Rpc.make('llmSettings', { payload: {}, success: llmSettingsSchema, error: failureSchema }),
   Rpc.make('materialSettings', {

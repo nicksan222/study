@@ -59,6 +59,9 @@ test('settings defaults, updates, model selection and rollback use SQLite', asyn
         yield* settings.saveAppSettings(app);
         assert.deepEqual(yield* settings.appSettings(), app);
         assert.equal(yield* settings.language(), 'italian');
+        yield* settings.saveAppSettings({ ...app, appearance: Appearance.SYSTEM });
+        assert.equal((yield* settings.appSettings()).appearance, Appearance.SYSTEM);
+        yield* settings.saveAppSettings(app);
         const llm = {
           tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.GPT6_ASTRA },
           medium: { provider: LlmProvider.CHAT_GPT },
@@ -85,6 +88,99 @@ test('settings defaults, updates, model selection and rollback use SQLite', asyn
         );
         yield* Effect.flip(settings.saveAppSettings({ ...app, zoomPercent: 150 }));
         assert.deepEqual(yield* settings.appSettings(), app);
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('appearance controls persist bounded preferences independently of app settings', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Settings.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const settings = yield* Settings;
+
+        assert.deepEqual(yield* settings.appearancePreferences(), {
+          contrast: 100,
+          glassOpacity: 80,
+          animationDurationMs: 150
+        });
+        yield* settings.saveAppearancePreferences({
+          contrast: 115,
+          glassOpacity: 90,
+          animationDurationMs: 0
+        });
+        assert.deepEqual(yield* settings.appearancePreferences(), {
+          contrast: 115,
+          glassOpacity: 90,
+          animationDurationMs: 0
+        });
+        const invalid = yield* Effect.flip(
+          settings.saveAppearancePreferences({
+            contrast: 999,
+            glassOpacity: 90,
+            animationDurationMs: 0
+          })
+        );
+
+        assert.equal(invalid.kind, 'invalid_input');
+        assert.equal((yield* settings.appearancePreferences()).contrast, 115);
+        assert.equal((yield* settings.appSettings()).zoomPercent, 100);
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('concurrency settings persist and reject invalid limits without changing saved capacity', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Settings.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const settings = yield* Settings;
+
+        assert.deepEqual(yield* settings.concurrencySettings(), {
+          maxConcurrentAi: 2,
+          maxQueuedAi: 16
+        });
+        yield* settings.saveConcurrencySettings({ maxConcurrentAi: 8, maxQueuedAi: 0 });
+        assert.deepEqual(yield* settings.concurrencySettings(), {
+          maxConcurrentAi: 8,
+          maxQueuedAi: 0
+        });
+
+        for (const invalid of [
+          { maxConcurrentAi: 0, maxQueuedAi: 16 },
+          { maxConcurrentAi: 9, maxQueuedAi: 16 },
+          { maxConcurrentAi: 1.5, maxQueuedAi: 16 },
+          { maxConcurrentAi: 2, maxQueuedAi: -1 },
+          { maxConcurrentAi: 2, maxQueuedAi: 65 }
+        ])
+          assert.equal(
+            (yield* Effect.flip(settings.saveConcurrencySettings(invalid))).kind,
+            'invalid_input'
+          );
+
+        assert.deepEqual(yield* settings.concurrencySettings(), {
+          maxConcurrentAi: 8,
+          maxQueuedAi: 0
+        });
+        assert.equal((yield* settings.appSettings()).zoomPercent, 100);
       }).pipe(Effect.provide(layer))
     );
   } finally {

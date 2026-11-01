@@ -58,7 +58,7 @@ const buttonVariants = cva(
         'media-navigation':
           '[--control-icon-color:currentColor] absolute top-1/2 z-20 -translate-y-1/2 border-transparent text-media-foreground/90 [:hover,[data-pressed]]:bg-media-foreground/10 [:hover,[data-pressed]]:text-media-foreground focus-visible:ring-media-foreground focus-visible:ring-offset-transparent',
         outline:
-          '[--control-icon-color:var(--contrast-muted-foreground)] border-input bg-popover not-dark:bg-clip-padding text-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-media-overlay/4%)] dark:bg-input/32 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-media-foreground/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-media-foreground/6%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-accent/50 dark:[:hover,[data-pressed]]:bg-input/64',
+          '[--control-icon-color:var(--contrast-muted-foreground)] border-[var(--ui-control-border)] bg-popover not-dark:bg-clip-padding text-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-media-overlay/4%)] dark:bg-input/32 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-media-foreground/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-media-foreground/6%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-accent/50 dark:[:hover,[data-pressed]]:bg-input/64',
         overlay:
           'border-transparent bg-media-overlay/70 text-media-foreground/65 [:hover,[data-pressed]]:bg-media-overlay/90',
         secondary:
@@ -88,6 +88,8 @@ function Button({ className, variant, size, layout, render, ...props }: ButtonPr
   const defaultProps = {
     className: cn(buttonVariants({ className, size, variant, layout })),
     'data-slot': 'button',
+    'data-size': size ?? 'default',
+    'data-variant': variant ?? 'default',
     type: typeValue
   };
 

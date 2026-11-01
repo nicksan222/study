@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, it } from 'vite-plus/test';
+import { useState } from 'react';
+import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { Sidebar } from './sidebar';
 
@@ -113,4 +114,84 @@ it('places trailing footer actions in a dedicated slot and respects utility vari
   expect(screen.getByRole('button', { name: 'Sessions' }).parentElement).toHaveClass(
     'study-sidebar-footer'
   );
+});
+
+it('searches subject identities while preserving their metadata and current selection', async () => {
+  const user = userEvent.setup();
+  const subjects = [
+    { id: 'biology', name: 'Biology', description: 'Exam 12 Dec 2026' },
+    { id: 'history', name: 'History', description: 'Updated 1 Nov 2026' }
+  ];
+  const onValueChange = vi.fn();
+
+  render(
+    <Sidebar.Picker
+      items={subjects}
+      value={subjects[0]!}
+      getLabel={(item) => item.name}
+      getValue={(item) => item.id}
+      getDescription={(item) => item.description}
+      listLabel="Subjects"
+      onValueChange={onValueChange}
+      open
+      onOpenChange={() => {}}
+      collapsed={false}
+      label="Choose subject"
+      searchLabel="Find subject"
+      empty="No matches"
+    />
+  );
+  expect(screen.getByRole('option', { name: /Biology/ })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('option', { name: 'Biology' })).toHaveAccessibleDescription(
+    'Exam 12 Dec 2026'
+  );
+  expect(screen.getByText('Exam 12 Dec 2026')).toBeInTheDocument();
+  await user.type(screen.getByRole('combobox', { name: 'Find subject' }), 'History');
+  expect(screen.queryByRole('option', { name: /Biology/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('option', { name: /History/ }));
+  expect(onValueChange).toHaveBeenCalledWith(subjects[1]);
+});
+
+it('supports keyboard selection and returns focus when the subject picker closes', async () => {
+  const user = userEvent.setup();
+  const subjects = ['Biology', 'History'];
+  const selected = vi.fn();
+
+  function SubjectPicker() {
+    const [open, setOpen] = useState(false);
+    const [value, setValue] = useState('Biology');
+
+    return (
+      <Sidebar.Picker
+        items={subjects}
+        value={value}
+        getLabel={(item) => item}
+        getValue={(item) => item}
+        onValueChange={(item) => {
+          setValue(item);
+          selected(item);
+        }}
+        open={open}
+        onOpenChange={setOpen}
+        collapsed={false}
+        label="Choose subject"
+        searchLabel="Find subject"
+        empty="No matches"
+      />
+    );
+  }
+
+  render(<SubjectPicker />);
+  await user.click(screen.getByRole('combobox', { name: 'Biology' }));
+  const search = await screen.findByRole('combobox', { name: 'Find subject' });
+
+  await user.type(search, 'History');
+  await user.keyboard('{ArrowDown}{Enter}');
+  expect(selected).toHaveBeenCalledWith('History');
+  await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('combobox', { name: 'History' })).toHaveFocus());
+  await user.keyboard('{Enter}');
+  expect(await screen.findByRole('option', { name: 'Biology' })).toBeInTheDocument();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.getByRole('combobox', { name: 'History' })).toHaveFocus());
 });
