@@ -405,7 +405,8 @@ test('publication cannot replace a captured revision with another revision of th
 function proposalFixture(
   captureMutation?: { path: string; value: string },
   targetId: string | null = '1',
-  outputMaterialId: 1 | 3 = 1
+  outputMaterialId: 1 | 3 = 1,
+  outputRequestId: 'document/capture' | 'request' = 'document/capture'
 ) {
   const f = fixture();
 
@@ -451,7 +452,7 @@ function proposalFixture(
 
     f.db.orm
       .run(sql`INSERT INTO material_versions(id,material_id,kind,number,creator,operation,generation_request_id,created_at)
-      VALUES(4,${outputMaterialId},'document',3,'agent','generate','document/capture',1)`);
+      VALUES(4,${outputMaterialId},'document',3,'agent','generate',${outputRequestId},1)`);
 
     f.db.exec(`
       INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('document/capture',1,0);
@@ -498,11 +499,7 @@ const invalidDraftReceipts = [
   ['unretained output', '', false],
   ['wrong base revision', "INSERT INTO document_proposals VALUES('document/capture',1,3,4)", false],
   ['wrong session', "INSERT INTO document_proposals VALUES('document/capture',2,1,4)", false],
-  [
-    'wrong request',
-    "UPDATE material_versions SET generation_request_id='request' WHERE id=4",
-    true
-  ],
+  ['wrong request', '', true, 'request'],
   ['missing captured input', 'DELETE FROM material_version_inputs WHERE version_id=4', true],
   [
     'substituted input revision',
@@ -521,9 +518,10 @@ const invalidDraftReceipts = [
   ['wrong instruction', "UPDATE material_versions SET instruction='Different' WHERE id=4", true]
 ] as const;
 
-for (const [name, mutation, retain] of invalidDraftReceipts) {
+for (const [name, mutation, retain, outputRequestId] of invalidDraftReceipts) {
   test(`draft generation receipt rejects ${name}`, () => {
-    const { db, close } = proposalFixture();
+    // Bind at insertion: changing an existing request binding is independently forbidden.
+    const { db, close } = proposalFixture(undefined, '1', 1, outputRequestId);
 
     try {
       if (mutation) db.exec(mutation);
