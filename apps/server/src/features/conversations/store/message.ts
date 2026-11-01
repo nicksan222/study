@@ -111,6 +111,16 @@ function makeHelpers({ db, clock }: StoreResources) {
               .orderBy(asc(citations.marker))
               .all()
               .map((c) => ({
+                origin: 'agent' as const,
+                precision:
+                  c.material_version_id !== null &&
+                  c.document_id !== null &&
+                  c.block_id !== null &&
+                  c.range_start !== null &&
+                  c.range_end !== null
+                    ? ('exact' as const)
+                    : ('approximate' as const),
+                support: { state: 'unassessed' as const },
                 marker: Number(c.marker),
                 sourceId: c.source_id,
                 materialVersionId: c.material_version_id,

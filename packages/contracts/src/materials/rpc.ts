@@ -21,6 +21,7 @@ import {
   compareDocumentInputSchema,
   documentComparisonSchema
 } from './editing.ts';
+import * as evidence from './evidence.ts';
 import {
   documentTransformSchema,
   materialGenerationSnapshotSchema,
@@ -152,6 +153,61 @@ const retryGenerationSchema = Schema.Struct({
 });
 
 export const MaterialsRpc = RpcGroup.make(
+  Rpc.make('assessCitation', {
+    payload: evidence.assessCitationSchema,
+    success: evidence.citationSupportSchema,
+    error: failureSchema
+  }),
+  Rpc.make('citationSupport', {
+    payload: evidence.citationSupportInputSchema,
+    success: evidence.citationSupportSchema,
+    error: failureSchema
+  }),
+  Rpc.make('resolveEvidence', {
+    payload: evidence.evidenceReferenceSchema,
+    success: evidence.evidenceResolutionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('createAnnotation', {
+    payload: evidence.createAnnotationSchema,
+    success: evidence.annotationOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('annotation', {
+    payload: evidence.annotationKeySchema,
+    success: evidence.annotationSchema,
+    error: failureSchema
+  }),
+  Rpc.make('annotations', {
+    payload: evidence.annotationPageInputSchema,
+    success: evidence.annotationPageSchema,
+    error: failureSchema
+  }),
+  Rpc.make('annotationHistory', {
+    payload: evidence.annotationHistoryInputSchema,
+    success: evidence.annotationHistorySchema,
+    error: failureSchema
+  }),
+  Rpc.make('updateAnnotation', {
+    payload: evidence.updateAnnotationSchema,
+    success: evidence.annotationOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('reanchorAnnotation', {
+    payload: evidence.reanchorAnnotationSchema,
+    success: evidence.annotationOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('deleteAnnotation', {
+    payload: evidence.annotationMutationSchema,
+    success: evidence.annotationOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('dependencyStatus', {
+    payload: dependentsInputSchema,
+    success: evidence.dependencyPageSchema,
+    error: failureSchema
+  }),
   Rpc.make('createManualDocument', {
     payload: createManualDocumentSchema,
     success: materialDetailSchema,

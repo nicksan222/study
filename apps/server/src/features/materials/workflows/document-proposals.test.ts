@@ -133,6 +133,11 @@ function undoAppliedProposal(
       (yield* materials.citations({ id: proposalId, limit: 10 })).items
     );
 
+    const cited = (yield* materials.citations({ id: applied.id, limit: 10 })).items[0]!;
+
+    assert.equal(cited.support?.state, 'unassessed');
+    assert.equal(cited.evidence?.availability, 'available');
+
     assert.deepEqual(applied.parents, [setup.target.version.id]);
 
     const value = {
@@ -145,6 +150,21 @@ function undoAppliedProposal(
     const undo = yield* materials.undoDocument(value);
 
     assert.equal(undo.outcome, 'saved');
+
+    assert.equal(
+      (yield* materials.citationSupport({ versionId: undo.submittedVersionId, marker: 1n })).state,
+      'unassessed'
+    );
+    if (cited.target && cited.evidence?.availability === 'available') {
+      const historical = yield* materials.resolveEvidence({
+        kind: 'range',
+        target: { materialId: cited.evidence.materialId, range: cited.target }
+      });
+
+      assert.equal(historical.availability, 'available');
+      if (historical.availability === 'available')
+        assert.equal(historical.excerpt?.includes(cited.quote), true);
+    }
 
     assert.equal((yield* materials.undoDocument(value)).replayed, true);
   });
@@ -454,6 +474,14 @@ for (const scenario of [
           assert.ok(kept.resultVersionId);
 
           const independent = yield* materials.materialVersion({ id: kept.resultVersionId! });
+
+          const independentCitations = (yield* materials.citations({
+            id: independent.id,
+            limit: 10
+          })).items;
+
+          assert.equal(independentCitations[0]?.support?.state, 'unassessed');
+          assert.equal(independentCitations[0]?.evidence?.availability, 'available');
 
           assert.notEqual(independent.material_id, setup.target.id);
 

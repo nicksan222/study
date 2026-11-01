@@ -6,6 +6,7 @@ import {
   documentIdSchema,
   recordingIdSchema,
   materialIdSchema,
+  materialAnnotationIdSchema,
   materialVersionIdSchema,
   projectIdSchema,
   sourceIdSchema,
@@ -101,6 +102,16 @@ export const materialPublishedSchema = Schema.Struct({
   materialVersionId: materialVersionIdSchema
 });
 
+export const materialAnnotationChangedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('MaterialAnnotationChanged'),
+  annotationId: materialAnnotationIdSchema,
+  materialId: materialIdSchema,
+  revision: Schema.BigInt.check(
+    Schema.isBetweenBigInt({ minimum: 1n, maximum: 9223372036854775807n })
+  )
+});
+
 export const conversationGenerationRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('ConversationGenerationRequested'),
@@ -154,6 +165,7 @@ export const workflowEventSchema = Schema.Union([
   sourceProjectChangedSchema,
   sourceProcessingFailedSchema,
   materialPublishedSchema,
+  materialAnnotationChangedSchema,
   materialGenerationRequestedSchema,
   materialGenerationFailedSchema,
   conversationGenerationRequestedSchema,

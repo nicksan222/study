@@ -47,6 +47,9 @@ export const sessionSchema = Schema.Struct({
 export { anchorSchema };
 
 const citationSchema = Schema.Struct({
+  origin: Schema.optional(Schema.Literal('agent')),
+  precision: Schema.optional(Schema.Literals(['exact', 'approximate'])),
+  support: Schema.optional(Schema.Struct({ state: Schema.Literal('unassessed') })),
   marker: Schema.Number,
   sourceId: Schema.NullOr(sourceIdSchema),
   materialVersionId: Schema.optional(Schema.NullOr(materialVersionIdSchema)),

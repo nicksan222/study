@@ -301,6 +301,9 @@ test('native selection guards exact historic ranges, captures once and survives 
           assert.equal(answer.citations[0]!.materialVersionId, material.version.id);
           assert.equal(answer.citations[0]!.rangeStart, 10);
           assert.equal(answer.citations[0]!.rangeEnd, 18);
+          assert.equal(answer.citations[0]!.origin, 'agent');
+          assert.equal(answer.citations[0]!.precision, 'exact');
+          assert.deepEqual(answer.citations[0]!.support, { state: 'unassessed' });
           const edited = yield* client('conversations.editMessage', {
             messageId: request.messageId,
             text: 'Edited wording [2]'
@@ -308,6 +311,9 @@ test('native selection guards exact historic ranges, captures once and survives 
 
           assert.deepEqual(edited.citations, [{ ...answer.citations[1]!, marker: 1 }]);
           assert.equal(edited.versions.at(-1)?.text, 'Edited wording [1]');
+          assert.deepEqual(edited.citations[0]!.support, { state: 'unassessed' });
+          assert.equal(edited.citations[0]!.rangeStart, 10);
+          assert.equal(edited.citations[0]!.rangeEnd, 18);
           yield* client('conversations.setActiveVersion', {
             messageId: request.messageId,
             versionId: answer.activeVersionId!

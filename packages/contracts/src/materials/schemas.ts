@@ -18,6 +18,7 @@ import {
   documentTextRangeSchema,
   sourceSchema
 } from '../sources/schemas.ts';
+import { citationSupportSchema, evidenceResolutionSchema } from './evidence.ts';
 
 export { materialIdSchema };
 
@@ -574,6 +575,9 @@ export const materialDetailSchema = Schema.Struct({
 });
 
 export const materialCitationSchema = Schema.Struct({
+  precision: Schema.optional(Schema.Literals(['exact', 'approximate', 'unavailable'])),
+  support: Schema.optional(citationSupportSchema),
+  evidence: Schema.optional(evidenceResolutionSchema),
   marker: Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 4294967295n })),
   inputVersionId: materialVersionIdSchema,
   anchor: materialAnchorSchema,

@@ -50,6 +50,17 @@ test('native materials RPC names cover the complete public API', async () => {
   assert.deepEqual(
     [...MaterialsRpc.requests.keys()].sort(),
     [
+      'citationSupport',
+      'assessCitation',
+      'annotation',
+      'annotations',
+      'annotationHistory',
+      'resolveEvidence',
+      'dependencyStatus',
+      'createAnnotation',
+      'updateAnnotation',
+      'reanchorAnnotation',
+      'deleteAnnotation',
       'applyDocumentProposal',
       'compareDocument',
       'compareDocumentProposal',

@@ -63,3 +63,7 @@ export type QuizChoiceId = typeof quizChoiceIdSchema.Type;
 export const materialCardIdSchema = positiveId.pipe(Schema.brand('MaterialCardId'));
 
 export type MaterialCardId = typeof materialCardIdSchema.Type;
+
+export const materialAnnotationIdSchema = positiveId.pipe(Schema.brand('MaterialAnnotationId'));
+
+export type MaterialAnnotationId = typeof materialAnnotationIdSchema.Type;
