@@ -555,6 +555,14 @@ test(
             assert.equal(pending.cancelled, false);
             yield* engine.interruptUnsafe(materialGenerationWorkflow, 'publication-wins');
             yield* Fiber.await(fiber);
+            // Unsafe interruption can resume receipt replay before its terminal checkpoint.
+            yield* Deferred.succeed(finish, undefined);
+
+            while (
+              workflowStore(fixture.context).execution('publication-wins')?.status !== 'cancelled'
+            )
+              yield* Effect.sleep('10 millis');
+
             assert.equal(
               workflowStore(fixture.context).execution('publication-wins')?.status,
               'cancelled'
