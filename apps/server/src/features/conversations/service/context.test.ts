@@ -304,6 +304,23 @@ test('native selection guards exact historic ranges, captures once and survives 
           assert.equal(answer.citations[0]!.origin, 'agent');
           assert.equal(answer.citations[0]!.precision, 'exact');
           assert.deepEqual(answer.citations[0]!.support, { state: 'unassessed' });
+          const evidence = answer.citations[0]!.evidence;
+
+          assert.equal(evidence?.availability, 'available');
+          if (evidence?.availability === 'available') {
+            assert.equal(evidence.precision, 'exact');
+            assert.equal(evidence.excerpt, 'selected');
+            assert.equal(evidence.revision.inputVersionId, material.version.id);
+            assert.equal(evidence.revision.inputDocumentId, documentId);
+            assert.equal(evidence.revision.state, 'stale');
+            assert.notEqual(evidence.revision.currentVersionId, material.version.id);
+          }
+          const thread = yield* client('conversations.thread', { sessionId: first.id, limit: 20 });
+
+          assert.deepEqual(
+            thread.items.find((message) => message.id === answer.id)?.citations,
+            answer.citations
+          );
           const edited = yield* client('conversations.editMessage', {
             messageId: request.messageId,
             text: 'Edited wording [2]'

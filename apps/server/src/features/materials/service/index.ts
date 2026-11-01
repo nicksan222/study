@@ -485,6 +485,7 @@ function* makeMaterials() {
 }
 
 export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
+  resolveEvidence,
   resolveSessionSelection,
   readGeneration,
   requestDocumentTransform,
@@ -499,6 +500,11 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
   compareDocumentProposal,
   findDocumentProposalReceipt
 });
+
+/** Resolve retained evidence within the caller's consistent database snapshot. */
+function resolveEvidence(tx: Transaction, reference: typeof evidence.evidenceReferenceSchema.Type) {
+  return tx.store(EvidenceStore).evidence(reference);
+}
 
 /** Register acquisition in its caller's synchronous transaction, including the outbox event. */
 function registerImportedSource(tx: Transaction, sourceId: SourceId) {

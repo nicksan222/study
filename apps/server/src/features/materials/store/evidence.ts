@@ -83,7 +83,9 @@ export function makeEvidence(resources: StoreResources) {
         ? {
             sourceId: snapshot.source_id,
             inputRevision: Number(snapshot.revision),
-            currentRevision: processing ? Number(processing.revision) : null
+            currentRevision: processing ? Number(processing.revision) : null,
+            inputDocumentId: snapshot.document_id,
+            currentDocumentId: processing?.document_id ?? null
           }
         : null,
       state: missing ? 'unavailable' : changed ? 'stale' : 'current'

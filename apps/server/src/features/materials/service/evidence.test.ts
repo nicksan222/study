@@ -603,6 +603,49 @@ test('source correction and replacement preserve exact historic navigation and e
               }
             })
           );
+          const beforeProjection = yield* rpc('materials.resolveEvidence', {
+            kind: 'range',
+            target
+          });
+
+          assert.equal(beforeProjection.availability, 'available');
+          if (beforeProjection.availability === 'available') {
+            assert.equal(beforeProjection.excerpt, '😀');
+            assert.equal(beforeProjection.precision, 'exact');
+            assert.equal(beforeProjection.revision.state, 'stale');
+            assert.equal(
+              beforeProjection.revision.currentVersionId,
+              projected.extracted.version.id
+            );
+            assert.equal(beforeProjection.revision.currentDocumentId, first.documentId);
+            assert.deepEqual(beforeProjection.revision.source, {
+              sourceId: source.id,
+              inputRevision: 1,
+              currentRevision: 1,
+              inputDocumentId: first.documentId,
+              currentDocumentId: corrected.documentId
+            });
+          }
+          const pendingSupport = yield* rpc('materials.citationSupport', {
+            versionId: derived.version.id,
+            marker: 1n
+          });
+
+          assert.equal(pendingSupport.state, 'stale');
+          const pendingStatus = yield* rpc('materials.dependencyStatus', {
+            id: projected.extracted.version.id,
+            limit: 10
+          });
+          const pendingDependency = pendingStatus.items.find(
+            (item) => item.dependentVersionId === derived.version.id
+          );
+
+          assert.equal(pendingDependency?.inputVersionId, projected.extracted.version.id);
+          assert.equal(pendingDependency?.currentVersionId, projected.extracted.version.id);
+          assert.equal(pendingDependency?.currentDocumentId, first.documentId);
+          assert.equal(pendingDependency?.source?.inputDocumentId, first.documentId);
+          assert.equal(pendingDependency?.source?.currentDocumentId, corrected.documentId);
+          assert.equal(pendingDependency?.state, 'stale');
           const current = yield* project(corrected.documentId, 'corrected-evidence');
           const old = yield* rpc('materials.resolveEvidence', { kind: 'range', target });
 
@@ -615,6 +658,8 @@ test('source correction and replacement preserve exact historic navigation and e
             assert.equal(old.revision.state, 'stale');
             assert.equal(old.revision.currentVersionId, current.extracted.version.id);
             assert.equal(old.revision.currentDocumentId, corrected.documentId);
+            assert.equal(old.revision.source?.inputDocumentId, first.documentId);
+            assert.equal(old.revision.source?.currentDocumentId, corrected.documentId);
           }
           const invalidated = yield* rpc('materials.citationSupport', {
             versionId: derived.version.id,
@@ -667,7 +712,9 @@ test('source correction and replacement preserve exact historic navigation and e
           assert.deepEqual(replaced.revision.source, {
             sourceId: source.id,
             inputRevision: 1,
-            currentRevision: 2
+            currentRevision: 2,
+            inputDocumentId: first.documentId,
+            currentDocumentId: corrected.documentId
           });
           assert.deepEqual(
             (yield* rpc('materials.materialVersion', { id: derived.version.id })).inputs,

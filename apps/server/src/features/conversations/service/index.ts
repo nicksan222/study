@@ -73,13 +73,14 @@ import {
   publicationTransaction
 } from '#server/platform/definitions/define-store';
 
+import { resolveMessageCitations } from './citations.ts';
+
 export const Conversations = defineService(
   'study/Conversations',
   Effect.gen(function* () {
     const readReplyReadinessStore = yield* useStore(ReplyReadinessStore);
     const readReplyWakeStore = yield* useStore(ReplyWakeStore);
     const store = yield* useStore(SessionStore);
-    const messages = yield* useStore(MessageStore);
     const titles = yield* useStore(TitleStore);
     const selections = yield* useStore(SessionSelectionStore);
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
@@ -277,14 +278,16 @@ export const Conversations = defineService(
         transaction((tx) => requestTarget(tx, { ...input, origin: 'answer' })),
       rewriteMessage: (input: typeof rewriteMessageInputSchema.Type) =>
         transaction((tx) => requestTarget(tx, input)),
-      message: messages.message,
+      message: (id: MessageId) =>
+        transaction((tx) => resolveMessageCitations(tx, tx.store(MessageStore).message(id))),
       thread: (input: typeof threadInputSchema.Type) =>
-        Effect.gen(function* () {
-          const items = yield* messages.messages(input);
+        transaction((tx) => {
+          const messages = tx.store(MessageStore);
+          const items = messages.messages(input);
           const first = items[0];
           const more =
             first && items.length === input.limit
-              ? yield* messages.messages({
+              ? messages.messages({
                   sessionId: input.sessionId,
                   threadRoot: input.threadRoot,
                   limit: 1,
@@ -292,7 +295,10 @@ export const Conversations = defineService(
                 })
               : [];
 
-          return { items, next: more.length && first ? first.id : null };
+          return {
+            items: items.map((message) => resolveMessageCitations(tx, message)),
+            next: more.length && first ? first.id : null
+          };
         }),
       postRecordingMessage: (input: {
         requestId: string;
@@ -362,9 +368,11 @@ export const Conversations = defineService(
           return message;
         }),
       editMessage: (input: typeof editMessageInputSchema.Type) =>
-        transaction((tx) => tx.store(MessageStore).editMessage(input)),
+        transaction((tx) => resolveMessageCitations(tx, tx.store(MessageStore).editMessage(input))),
       setActiveVersion: (input: typeof setActiveVersionInputSchema.Type) =>
-        transaction((tx) => tx.store(MessageStore).setActiveVersion(input)),
+        transaction((tx) =>
+          resolveMessageCitations(tx, tx.store(MessageStore).setActiveVersion(input))
+        ),
       deleteMessage: (id: MessageId) =>
         transaction((tx) => tx.store(MessageStore).deleteMessage(id)),
       renameSession: (input: typeof renameSessionInputSchema.Type) =>

@@ -33,7 +33,10 @@ export const evidenceRevisionSchema = Schema.Struct({
     Schema.Struct({
       sourceId: sourceIdSchema,
       inputRevision: Schema.Int,
-      currentRevision: Schema.NullOr(Schema.Int)
+      currentRevision: Schema.NullOr(Schema.Int),
+      inputDocumentId: Schema.NullOr(documentTextRangeSchema.fields.documentId),
+      /** Last committed extraction; replacement may still be awaiting its next extraction. */
+      currentDocumentId: Schema.NullOr(documentTextRangeSchema.fields.documentId)
     })
   ),
   state: Schema.Literals(['current', 'stale', 'unavailable'])

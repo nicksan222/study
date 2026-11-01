@@ -11,6 +11,7 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
+import { evidenceResolutionSchema } from '../materials/evidence.ts';
 import { anchorSchema, blockIdSchema, documentTextRangeSchema } from '../sources/schemas.ts';
 import { sourceKindSchema } from '../sources/sniff.ts';
 import {
@@ -48,7 +49,20 @@ export { anchorSchema };
 
 const citationSchema = Schema.Struct({
   origin: Schema.optional(Schema.Literal('agent')),
-  precision: Schema.optional(Schema.Literals(['exact', 'approximate'])),
+  precision: Schema.optional(Schema.Literals(['exact', 'approximate', 'unavailable'])),
+  evidence: Schema.optional(
+    Schema.Union([
+      evidenceResolutionSchema,
+      Schema.Struct({
+        availability: Schema.Literal('unavailable'),
+        precision: Schema.Literal('approximate'),
+        reason: Schema.Literal('attachment_target_unresolved'),
+        sourceId: Schema.NullOr(sourceIdSchema),
+        anchor: anchorSchema,
+        quote: Schema.String
+      })
+    ])
+  ),
   support: Schema.optional(Schema.Struct({ state: Schema.Literal('unassessed') })),
   marker: Schema.Number,
   sourceId: Schema.NullOr(sourceIdSchema),
