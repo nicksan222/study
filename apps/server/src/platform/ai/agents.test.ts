@@ -658,3 +658,30 @@ test('cancelling before the first delta closes the request without retries', asy
     }
   );
 });
+
+test('decoder exceptions remain typed input failures before provider work', async () => {
+  const guarded = defineAgent({
+    ...definition,
+    input: Schema.Struct({ prompt: Schema.String }),
+    prompt: (input) => input.prompt
+  });
+  const input = {
+    get prompt(): string {
+      throw new Error('private decoder failure');
+    }
+  };
+  const failure = await Effect.runPromise(
+    Effect.flip(generateAgent(guarded, input)).pipe(
+      Effect.provide(
+        layer({
+          model: () => Effect.die(new Error('unexpected provider work')),
+          language: 'en',
+          searchSources: () => Effect.succeed([])
+        })
+      )
+    )
+  );
+
+  assert.equal(failure.kind, 'invalid_input');
+  assert.equal(failure.message, 'Invalid agent input');
+});
