@@ -31,3 +31,18 @@ test('keeps callback shadowing and return bindings distinct', () => {
     []
   );
 });
+
+test('uses asVoid for pure output discard without removing callback work', () => {
+  const discard = 'Use Effect.asVoid instead of a no-op output mapping.';
+
+  assertDiagnostics(
+    'effect-native-combinators',
+    lintRule('effect-native-combinators', {
+      'src/bad.ts':
+        "import {Effect as E} from 'effect'; E.map(task, () => undefined); E.map(() => {}); E.map(function(value) { return; }); E.as(undefined); E.as(task, undefined);",
+      'src/good.ts':
+        "import {Effect as E} from 'effect'; E.asVoid(task); E.map(value => { log(value); }); E.map(() => null); E.map(async () => undefined); E.map((value = work()) => undefined); E.map(({value}) => undefined); function f(undefined: number) { E.map(() => undefined); E.as(undefined); }"
+    }),
+    Array.from({ length: 5 }, (): [string, string] => ['src/bad.ts', discard])
+  );
+});
