@@ -174,26 +174,13 @@ export const conversationReplyHandler = ({
               ? generateAgent(
                   rewriteAgent,
                   {
-                    messages: snapshot.messages
-                      .map((message) => ({
-                        role: message.role,
-                        content: message.text
-                      }))
-                      .concat(
-                        snapshot.context
-                          ? [
-                              {
-                                role: 'user' as const,
-                                content:
-                                  snapshot.context.instruction +
-                                  '\nPreferences: ' +
-                                  JSON.stringify(snapshot.context.preferences)
-                              }
-                            ]
-                          : []
-                      ),
+                    messages: snapshot.messages.map((message) => ({
+                      role: message.role,
+                      content: message.text
+                    })),
                     origin: snapshot.generation.origin,
-                    instruction: snapshot.generation.instruction
+                    instruction: snapshot.generation.instruction,
+                    preferences: snapshot.context?.preferences
                   },
                   options
                 )

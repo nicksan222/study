@@ -319,7 +319,9 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     assert.equal(rewrite.messageId, current.messageId);
     assert.equal(rewritten.versions.at(-1)?.origin, 'instruction');
     assert.equal(rewritten.versions.at(-1)?.instruction, 'Use bullet points');
-    assert.match(bodies.at(-1)!, /Use bullet points/);
+    assert.match(bodies.at(-1)!, /Another answer/);
+    assert.equal(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
+    assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
     const userRewrite = await run(
       Effect.flatMap(Conversations, (c) =>
         c.rewriteMessage({ messageId: first.id, origin: 'summarize' })
@@ -333,6 +335,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
 
     output = 'Short question';
     await execute(userEvent, 'rewrite-user');
+    assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
     const userResult = await run(Effect.flatMap(Conversations, (c) => c.message(first.id)));
 
     assert.equal(userResult.versions.at(-1)?.origin, 'summarize');
@@ -574,6 +577,17 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         .find((c) => c.version_id === grounded.versionId)?.quote,
       'alpha old evidence'
     );
+    const attachmentAnswer = await run(
+      Effect.flatMap(Conversations, (c) => c.message(grounded.messageId))
+    );
+    const attachmentEdit = await run(
+      Effect.flatMap(Conversations, (c) =>
+        c.editMessage({ messageId: grounded.messageId, text: 'Edited attachment answer [1]' })
+      )
+    );
+
+    assert.equal(attachmentAnswer.citations[0]?.sourceId, source.id);
+    assert.deepEqual(attachmentEdit.citations, attachmentAnswer.citations);
     const selected = await run(
       Effect.gen(function* () {
         const materials = yield* Materials;

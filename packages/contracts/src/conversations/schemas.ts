@@ -114,7 +114,8 @@ export const rewriteMessageInputSchema = Schema.Struct({
 export const rewriteAgentInputSchema = Schema.Struct({
   messages: Schema.Array(Schema.Struct({ role: messageRoleSchema, content: Schema.String })),
   origin: Schema.Literals(['improve', 'summarize', 'instruction']),
-  instruction: Schema.NullOr(Schema.String)
+  instruction: Schema.NullOr(Schema.String),
+  preferences: Schema.optional(runPreferencesSchema)
 });
 
 export const replyRequestSchema = Schema.Struct({

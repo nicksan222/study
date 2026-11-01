@@ -295,6 +295,11 @@ export const MessageStore = defineStore({
                   version_id: version.id,
                   marker: BigInt(index + 1),
                   source_id: citation.sourceId,
+                  material_version_id: citation.materialVersionId,
+                  document_id: citation.documentId,
+                  block_id: citation.blockId,
+                  range_start: citation.rangeStart,
+                  range_end: citation.rangeEnd,
                   source_name: citation.sourceName,
                   anchor: JSON.stringify(citation.anchor),
                   quote: citation.quote
