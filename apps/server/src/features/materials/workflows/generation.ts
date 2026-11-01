@@ -354,7 +354,26 @@ function generateDocumentTransform(input: {
             blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
           });
 
+      const editTargetVersionId = request.documentTransform?.editTargetVersionId;
+      const editTarget = context.inputs.find((target) => target.versionId === editTargetVersionId);
+
+      if (
+        editTargetVersionId !== undefined &&
+        (!editTarget?.document || editTarget.scope.kind !== 'document')
+      )
+        return yield* Effect.fail(
+          new StudyError('invalid_input', 'Exact editable target is unavailable')
+        );
+
       const captured = {
+        editTarget: editTarget
+          ? {
+              materialId: editTarget.materialId,
+              versionId: editTarget.versionId,
+              documentId: editTarget.documentId,
+              document: editTarget.document
+            }
+          : undefined,
         title: request.title,
         operations: request.documentTransform?.operations,
         instruction: context.instruction,
@@ -363,6 +382,11 @@ function generateDocumentTransform(input: {
         messages: context.messages,
         excludedMessages: context.excludedMessages,
         inputs: context.inputs.map((target) => ({
+          role: editTarget
+            ? target.versionId === editTargetVersionId
+              ? 'editable_target'
+              : 'supporting_evidence'
+            : 'source',
           versionId: target.versionId,
           name: target.name,
           excerpts: target.excerpts
@@ -385,7 +409,7 @@ function generateDocumentTransform(input: {
 
       return yield* Effect.try({
         try: () => {
-          const content = canonicalDocumentTransformOutput(output);
+          const content = canonicalDocumentTransformOutput(output, editTarget?.document?.blocks);
           const citations = catalog
             .citations(
               [
@@ -406,7 +430,7 @@ function generateDocumentTransform(input: {
             citations
           };
 
-          validateDocumentTransform(context, publication);
+          validateDocumentTransform(context, publication, editTargetVersionId);
 
           return publication;
         },

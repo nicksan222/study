@@ -4,7 +4,7 @@
  * │ Documents.                                                                               │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Decodes canonical block content and assigns fresh authored block identities.           │
+ * │ - Preserves proven unchanged target blocks; assigns fresh IDs to new content.           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Native generation activities own execution; Materials validates and publishes canonical  │
@@ -15,15 +15,35 @@
 import type { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import { StudyError } from '@study/contracts/errors';
 import { createBlock } from '@study/contracts/sources/document';
+import type { Block } from '@study/contracts/sources/document';
 import { blockContentSchema } from '@study/contracts/sources/schemas';
 import { Schema } from 'effect';
 
+import { canonicalJson } from './edit-intent.ts';
+
 type Output = typeof documentTransformOutputSchema.Type;
 
-export function canonicalDocumentTransformOutput(output: Output) {
-  const blocks = output.blocks.map((content) =>
-    createBlock(Schema.decodeUnknownSync(Schema.toCodecJson(blockContentSchema))(content))
-  );
+export function canonicalDocumentTransformOutput(
+  output: Output,
+  targetBlocks: readonly Block[] = []
+) {
+  const unchanged = new Map<string, Block[]>();
+
+  for (const block of targetBlocks) {
+    const key = contentIdentity(block.content);
+    const candidates = unchanged.get(key) ?? [];
+
+    candidates.push(block);
+    unchanged.set(key, candidates);
+  }
+
+  const blocks = output.blocks.map((encoded) => {
+    const content = Schema.decodeUnknownSync(Schema.toCodecJson(blockContentSchema))(encoded);
+    // Consume each exact match once; duplicate content follows captured target order.
+    const original = unchanged.get(contentIdentity(content))?.shift();
+
+    return createBlock(content, { type: 'authored' }, original?.id);
+  });
   const report = {
     notes: output.notes.map(({ blockOrdinals, ...note }) => ({
       ...note,
@@ -55,4 +75,10 @@ export function canonicalDocumentTransformOutput(output: Output) {
     },
     report
   };
+}
+
+function contentIdentity(content: Block['content']) {
+  return canonicalJson(
+    JSON.stringify(Schema.encodeSync(Schema.toCodecJson(blockContentSchema))(content))
+  );
 }

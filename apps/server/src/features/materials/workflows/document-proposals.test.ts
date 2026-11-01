@@ -130,6 +130,20 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
 
       assert.equal(f.context.db.orm.select().from(s.materials).all().length, 3);
 
+      const targetPrompt = JSON.stringify(
+        {
+          materialId: setup.target.id,
+          versionId: setup.target.version.id,
+          documentId: setup.context.inputs[0]!.documentId,
+          document: setup.context.inputs[0]!.document
+        },
+        (_, value: unknown) => (typeof value === 'bigint' ? String(value) : value)
+      );
+
+      assert.ok(f.bodies[0]!.includes(JSON.stringify(targetPrompt).slice(1, -1)));
+      assert.ok(f.bodies[0]!.includes('editable_target'));
+      assert.ok(f.bodies[0]!.includes('supporting_evidence'));
+
       const outcomes = await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Materials;
@@ -141,6 +155,10 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
           assert.equal(proposal.status, 'draft');
 
           assert.equal(proposal.material_id, setup.target.id);
+
+          if (proposal.content.kind !== 'document') throw new Error('Missing proposal Document');
+
+          assert.equal(proposal.content.blocks[1]!.id, setup.imageBlock.id);
 
           assert.equal(
             (yield* materials.material({ id: setup.target.id })).latestPublishedVersion?.id,
@@ -219,6 +237,9 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
           assert.equal(compare.proposedVersionId, proposalId);
 
           assert.equal(compare.evidence, 'structural_only');
+          assert.ok(
+            !compare.proposedChanges.some((change) => change.blockId === setup.imageBlock.id)
+          );
 
           const kept = yield* chats.keepDocumentProposal({
             requestId: setup.request.id,
@@ -268,6 +289,12 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
           assert.equal(f.context.db.orm.select().from(s.materials).all().length, 4);
 
           if (result.resultVersionId !== null) {
+            const applied = yield* materials.materialVersion({ id: result.resultVersionId });
+
+            if (applied.content.kind !== 'document') throw new Error('Missing applied Document');
+
+            assert.equal(applied.content.blocks[1]!.id, setup.imageBlock.id);
+
             const undo = yield* materials.undoDocument({
               materialId: setup.target.id,
               expectedVersionId: result.resultVersionId,

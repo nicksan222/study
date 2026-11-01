@@ -113,3 +113,8 @@ BEGIN SELECT RAISE(ABORT, 'retained edit snapshots are immutable'); END;
 CREATE TRIGGER material_source_snapshots_retained_edit_delete BEFORE DELETE ON material_source_snapshots
 WHEN EXISTS(SELECT 1 FROM document_edit_receipts WHERE submitted_version_id=old.version_id) OR EXISTS(SELECT 1 FROM document_proposals WHERE proposed_version_id=old.version_id)
 BEGIN SELECT RAISE(ABORT, 'retained edit snapshots are immutable'); END;
+
+--> statement-breakpoint
+CREATE TRIGGER document_assets_retained_edit_delete BEFORE DELETE ON document_assets
+WHEN EXISTS(SELECT 1 FROM material_document_versions d WHERE d.document_id=old.document_id AND (EXISTS(SELECT 1 FROM document_edit_receipts WHERE submitted_version_id=d.version_id) OR EXISTS(SELECT 1 FROM document_proposals WHERE proposed_version_id=d.version_id)))
+BEGIN SELECT RAISE(ABORT, 'retained edit document assets are immutable'); END;
