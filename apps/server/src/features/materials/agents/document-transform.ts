@@ -19,7 +19,9 @@ import { sourcesTool } from '#server/features/materials/tools/sources';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const documentTransformOutputSchema = Schema.Struct({
-  blocks: Schema.Array(blockContentSchema).check(Schema.isBetweenLength(1, 200)),
+  blocks: Schema.Array(Schema.toEncoded(Schema.toCodecJson(blockContentSchema))).check(
+    Schema.isBetweenLength(1, 200)
+  ),
   notes: Schema.Array(
     Schema.Struct({
       kind: Schema.Literals([

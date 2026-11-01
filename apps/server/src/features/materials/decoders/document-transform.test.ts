@@ -23,6 +23,9 @@ import {
 import { createBlock } from '@study/contracts/sources/document';
 import { Schema } from 'effect';
 
+import { documentTransformOutputSchema } from '#server/features/materials/agents/document-transform';
+import { standardSchema } from '#server/platform/ai/schema';
+
 import { authorizedTransformAssets, validateDocumentTransform } from './document-transform.ts';
 
 const paragraph = (text: string) =>
@@ -80,7 +83,15 @@ function fixture() {
   const publication = Schema.decodeUnknownSync(materialGenerationPublicationSchema)({
     requestId: 'document/capture',
     content: { kind: 'document', blocks: [output], meta },
-    citations: [{ marker: 1n, inputVersionId: 1n, blockOrdinal: 0, quote: 'alpha' }],
+    citations: [
+      {
+        marker: 1n,
+        inputVersionId: 1n,
+        blockOrdinal: 0,
+        quote: 'alpha',
+        target: { versionId: 1n, documentId: 1n, blockId: image.id, start: 0, end: 11 }
+      }
+    ],
     report: {
       notes: [
         { kind: 'uncertainty', explanation: 'Not independently verified', blockIds: [output.id] }
@@ -234,5 +245,43 @@ test('collection generation still requires a project and Document generation req
       }
     }).projectId,
     undefined
+  );
+});
+
+test('provider JSON accepts authorized image identifiers without native bigint values', async () => {
+  const output = {
+    blocks: [{ type: 'image', sourceId: '1', revision: 1, alt: 'alpha image' }],
+    notes: [{ kind: 'limit', explanation: 'No external verification', blockOrdinals: [] }]
+  };
+  const result = await standardSchema(documentTransformOutputSchema)['~standard'].validate(
+    JSON.parse(JSON.stringify(output))
+  );
+  assert.equal(result.issues, undefined);
+});
+
+test('separator-only tables are not completed conversation-only Documents', () => {
+  const { context, publication } = fixture();
+  const table = createBlock({
+    type: 'table',
+    rows: [
+      {
+        cells: [
+          { header: false, paragraphs: [[]] },
+          { header: false, paragraphs: [[]] }
+        ]
+      }
+    ]
+  });
+  assert.ok(table.text.trim());
+  assert.throws(() =>
+    validateDocumentTransform(
+      { ...context, inputs: [] },
+      {
+        ...publication,
+        citations: [],
+        content: { kind: 'document', blocks: [table], meta },
+        report: { notes: [{ kind: 'limit', explanation: 'No evidence', blockIds: [] }] }
+      }
+    )
   );
 });

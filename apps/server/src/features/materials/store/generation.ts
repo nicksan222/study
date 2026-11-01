@@ -434,6 +434,7 @@ export function makeGeneration(resources: StoreResources) {
         marker: citation.marker,
         inputVersionId: citation.inputVersionId,
         anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(block.anchor)),
+        ...(citation.target === undefined ? {} : { target: citation.target }),
         quote: citation.quote
       };
     });

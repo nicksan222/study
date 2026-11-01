@@ -17,8 +17,11 @@ import type { setCitationsInputSchema } from '@study/contracts/materials/rpc';
 
 type Input = typeof setCitationsInputSchema.Type;
 
+import { validDocumentTextRange } from '@study/contracts/sources/document';
+import { documentTextRangeSchema } from '@study/contracts/sources/schemas';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import { makeReads } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
@@ -26,10 +29,12 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeCitations } from './citations.ts';
 
+const targetCodec = Schema.fromJsonString(Schema.toCodecJson(documentTextRangeSchema));
+
 export function makeSetCitationsAction(resources: StoreResources) {
   const { db: store } = resources;
   const { readCitations } = makeCitations(resources);
-  const { versionRow } = makeReads(resources);
+  const { versionRow, versionDocumentId, readCanonicalDocument } = makeReads(resources);
   const setCitations = (input: Input) =>
     materialIntegrity(() => {
       versionRow(input.id, true);
@@ -56,16 +61,38 @@ export function makeSetCitationsAction(resources: StoreResources) {
         .where(eq(s.material_version_citations.version_id, input.id))
         .run();
 
-      for (const citation of input.citations)
+      for (const citation of input.citations) {
+        if (citation.target) {
+          const documentId = versionDocumentId(citation.inputVersionId);
+          if (documentId === null)
+            throw new StudyError('invalid_input', 'Citation Document is unavailable');
+          const document = readCanonicalDocument(documentId);
+          const target = citation.target;
+          const block = document.blocks.find((item) => item.id === target.blockId);
+          if (
+            !validDocumentTextRange(
+              document,
+              { versionId: citation.inputVersionId, documentId },
+              target
+            ) ||
+            !block?.text.slice(target.start, target.end).includes(citation.quote)
+          )
+            throw new StudyError('invalid_input', 'Citation target does not match input evidence');
+        }
         db.insert(s.material_version_citations)
           .values({
             version_id: input.id,
             marker: citation.marker,
             input_version_id: citation.inputVersionId,
             anchor: JSON.stringify(citation.anchor),
+            target:
+              citation.target === undefined
+                ? null
+                : Schema.encodeSync(targetCodec)(citation.target),
             quote: citation.quote
           })
           .run();
+      }
 
       return readCitations(input.id);
     });

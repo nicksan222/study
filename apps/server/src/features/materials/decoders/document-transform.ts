@@ -14,6 +14,7 @@ import type { runSelectionContextSchema } from '@study/contracts/conversations/c
 import { StudyError } from '@study/contracts/errors';
 import type { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
 import { materialContentInputSchema } from '@study/contracts/materials/schemas';
+import { hasTextualContent } from '@study/contracts/sources/schemas';
 import type { documentSchema } from '@study/contracts/sources/schemas';
 import { Schema } from 'effect';
 
@@ -27,7 +28,7 @@ export function validateDocumentTransform(
   if (
     content.kind !== 'document' ||
     !content.blocks.length ||
-    !content.blocks.some((block) => block.text.trim())
+    !content.blocks.some((block) => hasTextualContent(block.content))
   )
     throw new StudyError('invalid_input', 'Generated Document is empty');
   if (
@@ -90,10 +91,18 @@ function validateCitationScope(
     throw new StudyError('invalid_input', 'Output cites unavailable evidence');
   for (const citation of publication.citations) {
     const target = context.inputs.find((input) => input.versionId === citation.inputVersionId);
+    const location = citation.target;
     if (
+      !location ||
+      location.versionId !== citation.inputVersionId ||
+      location.documentId !== target?.documentId ||
       !target?.excerpts.some(
         (excerpt) =>
-          excerpt.blockOrdinal === citation.blockOrdinal && excerpt.text.includes(citation.quote)
+          excerpt.blockOrdinal === citation.blockOrdinal &&
+          excerpt.blockId === location.blockId &&
+          excerpt.start === location.start &&
+          excerpt.end === location.end &&
+          excerpt.text.includes(citation.quote)
       )
     )
       throw new StudyError('invalid_input', 'Citation is outside captured passages');

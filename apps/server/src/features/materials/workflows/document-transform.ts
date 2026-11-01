@@ -16,7 +16,9 @@ import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import type { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
 import { createBlock } from '@study/contracts/sources/document';
-import { Effect } from 'effect';
+import { blockContentSchema } from '@study/contracts/sources/schemas';
+import type { documentTextRangeSchema } from '@study/contracts/sources/schemas';
+import { Effect, Schema } from 'effect';
 
 import { documentTransformAgent } from '#server/features/materials/agents/document-transform';
 import type { documentTransformOutputSchema } from '#server/features/materials/agents/document-transform';
@@ -40,18 +42,28 @@ export function generateDocumentTransform(input: {
   return Effect.gen(function* () {
     const agents = yield* Agents;
     const { context, request } = input;
-    const catalog = createEvidenceCatalog<{ inputVersionId: MaterialVersionId }>([]);
-    for (const target of context.inputs)
-      catalog.addDocument({
-        key: String(target.versionId),
-        name: target.name,
-        reference: { inputVersionId: target.versionId },
-        quoteLimit: 100000,
-        blocks: target.excerpts.map((excerpt) => ({
-          text: excerpt.text,
-          blockOrdinal: excerpt.blockOrdinal
-        }))
-      });
+    const catalog = createEvidenceCatalog<{
+      inputVersionId: MaterialVersionId;
+      target: typeof documentTextRangeSchema.Type;
+    }>([]);
+    for (const input of context.inputs)
+      for (const [index, excerpt] of input.excerpts.entries())
+        catalog.addDocument({
+          key: `${input.versionId}:${index}`,
+          name: input.name,
+          reference: {
+            inputVersionId: input.versionId,
+            target: {
+              versionId: input.versionId,
+              documentId: input.documentId,
+              blockId: excerpt.blockId,
+              start: excerpt.start,
+              end: excerpt.end
+            }
+          },
+          quoteLimit: 100000,
+          blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
+        });
     const captured = {
       title: request.title,
       operations: request.documentTransform?.operations,
@@ -114,7 +126,9 @@ export function generateDocumentTransform(input: {
 }
 
 function canonicalOutput(output: Output) {
-  const blocks = output.blocks.map((content) => createBlock(content));
+  const blocks = output.blocks.map((content) =>
+    createBlock(Schema.decodeUnknownSync(Schema.toCodecJson(blockContentSchema))(content))
+  );
   const report = {
     notes: output.notes.map(({ blockOrdinals, ...note }) => ({
       ...note,

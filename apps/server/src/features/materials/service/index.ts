@@ -112,12 +112,13 @@ function* makeMaterials() {
       transaction((tx) => {
         const request = tx.store(MaterialGenerationStore).materialGeneration(value);
         const cancelled =
-          request.cancelled ||
-          Workflows.correlatedExecutions(tx, request.id).some(
-            (run) =>
-              run.workflow === 'material-generation/v1' &&
-              (run.status === 'cancelled' || run.status === 'cancelling')
-          );
+          request.resultVersionId === null &&
+          (request.cancelled ||
+            Workflows.correlatedExecutions(tx, request.id).some(
+              (run) =>
+                run.workflow === 'material-generation/v1' &&
+                (run.status === 'cancelled' || run.status === 'cancelling')
+            ));
         if (!value.verifyOnly && request.resultVersionId === null) {
           assertGenerationActive(tx, request.id);
         }

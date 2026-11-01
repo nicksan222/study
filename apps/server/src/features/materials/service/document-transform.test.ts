@@ -67,7 +67,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
         const original = yield* materials.create({
           title: 'Original',
           projectId: collection.id,
-          content: { kind: 'document', blocks: [block], meta },
+          content: { kind: 'document', blocks: [block, paragraph('alpha selected')], meta },
           publish: true
         });
         const versionId = original.version.id;
@@ -168,7 +168,19 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
       requestId: request.id,
       content: { kind: 'document', blocks: [output], meta },
       citations: [
-        { marker: 1n, inputVersionId: setup.versionId, blockOrdinal: 0, quote: 'alpha selected' }
+        {
+          marker: 1n,
+          inputVersionId: setup.versionId,
+          blockOrdinal: 0,
+          quote: 'alpha selected',
+          target: {
+            versionId: setup.versionId,
+            documentId: setup.capture.inputs[0]!.documentId,
+            blockId: setup.block.id,
+            start: 15,
+            end: 29
+          }
+        }
       ],
       report: {
         notes: [
@@ -243,6 +255,31 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
           (yield* materials.materialVersion({ id: result.resultVersionId })).id,
           result.resultVersionId
         );
+        assert.deepEqual(
+          (yield* materials.citations({ id: result.resultVersionId, limit: 10 })).items[0]?.target,
+          publication.citations[0]!.target
+        );
+        for (const status of ['running', 'cancelled'] as const) {
+          context.db.orm
+            .insert(s.workflow_executions)
+            .values({
+              execution_id: `publication-won-${status}`,
+              workflow_tag: 'material-generation/v1',
+              version: 1,
+              payload: JSON.stringify({ event: { correlationId: request.id } }),
+              status,
+              result: status === 'running' ? JSON.stringify('__interrupt_safe__') : null,
+              created_at: 1n,
+              updated_at: 1n
+            })
+            .run();
+          const read = yield* materials.materialGeneration({
+            requestId: request.id,
+            verifyOnly: true
+          });
+          assert.equal(read.cancelled, false);
+          assert.equal(read.resultVersionId, result.resultVersionId);
+        }
         const cancelled = yield* materials.cancelMaterialGeneration({ requestId: request.id });
         assert.equal(cancelled.cancelled, false);
         assert.equal(cancelled.resultVersionId, result.resultVersionId);

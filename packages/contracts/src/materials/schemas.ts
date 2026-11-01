@@ -11,7 +11,13 @@ import {
   sessionIdSchema,
   sourceIdSchema
 } from '../ids.ts';
-import { anchorSchema, blockIdSchema, documentSchema, sourceSchema } from '../sources/schemas.ts';
+import {
+  anchorSchema,
+  blockIdSchema,
+  documentSchema,
+  documentTextRangeSchema,
+  sourceSchema
+} from '../sources/schemas.ts';
 
 export { materialIdSchema };
 
@@ -284,6 +290,7 @@ export const materialGenerationPublicationSchema = Schema.Struct({
         marker: Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 4294967295n })),
         inputVersionId: materialVersionIdSchema,
         blockOrdinal: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+        target: Schema.optional(documentTextRangeSchema),
         quote: Schema.String.check(Schema.isMinLength(1))
       })
     )
@@ -568,6 +575,7 @@ export const materialCitationSchema = Schema.Struct({
   marker: Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 4294967295n })),
   inputVersionId: materialVersionIdSchema,
   anchor: materialAnchorSchema,
+  target: Schema.optional(documentTextRangeSchema),
   quote: nonemptySchema
 });
 
