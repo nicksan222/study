@@ -68,3 +68,20 @@ test('enforces the Effect contract in browser operations', () => {
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('rejects inline scopes without a retained owner in both forkIn forms', () => {
+  const diagnostics = lintRule('effect-scoped-fibers', {
+    'src/bad.ts':
+      "import {Effect, Scope} from 'effect'; Effect.forkIn(work, Scope.makeUnsafe()); Effect.forkIn(Scope.makeUnsafe())(work);",
+    'src/aliases.ts':
+      "import {forkIn} from 'effect/Effect'; import {makeUnsafe as scope} from 'effect/Scope'; forkIn(work, scope());",
+    'src/good.ts':
+      "import {Effect, Scope} from 'effect'; const owned = Scope.makeUnsafe(); Effect.forkIn(work, owned); Effect.forkIn(owned)(work); Effect.forkScoped(work); function f(Scope: any) { Effect.forkIn(work, Scope.makeUnsafe()); }"
+  });
+
+  assertDiagnostics('effect-scoped-fibers', diagnostics, [
+    ['src/bad.ts', message],
+    ['src/bad.ts', message],
+    ['src/aliases.ts', message]
+  ]);
+});
