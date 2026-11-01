@@ -1,6 +1,6 @@
 import type { StudyError } from '@study/contracts/errors';
 import { dynamicTool } from 'ai';
-import { Cause, Effect, Exit } from 'effect';
+import { Effect } from 'effect';
 import type { Context, Tracer } from 'effect';
 
 import { standardSchema } from '#server/platform/ai/schema';
@@ -24,7 +24,7 @@ export function adaptTool(
           environment.searchSources(query, signal ?? options.abortSignal)
       };
 
-      return runCallback(
+      return Effect.runPromiseWith(context)(
         definition
           .execute(input, toolEnvironment)
           .pipe(
@@ -32,8 +32,7 @@ export function adaptTool(
             Effect.withParentSpan(span),
             Effect.withSpan('agent.tool')
           ),
-        context,
-        options.abortSignal
+        { signal: options.abortSignal }
       );
     }
   });
@@ -47,21 +46,8 @@ export function adaptRequestCheck(
   context: Context.Context<never>
 ) {
   return (signal: AbortSignal | undefined) =>
-    runCallback(
+    Effect.runPromiseWith(context)(
       check.pipe(Effect.annotateLogs(safeMetadata(annotations)), Effect.withParentSpan(span)),
-      context,
-      signal
+      { signal }
     );
-}
-
-async function runCallback<A>(
-  effect: Effect.Effect<A, StudyError>,
-  context: Context.Context<never>,
-  signal?: AbortSignal
-): Promise<A> {
-  const result = await Effect.runPromiseExitWith(context)(effect, { signal });
-
-  if (Exit.isFailure(result)) throw Cause.squash(result.cause);
-
-  return result.value;
 }
