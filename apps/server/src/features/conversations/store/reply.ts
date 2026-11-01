@@ -27,7 +27,7 @@ import { StudyError } from '@study/contracts/errors';
 import { conversationGenerationRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
 import { versionIdSchema } from '@study/contracts/ids';
-import { and, asc, desc, eq, sql } from '@study/db';
+import { isNull, and, asc, desc, eq, sql } from '@study/db';
 import {
   blocks,
   citations,
@@ -171,7 +171,7 @@ function makeHelpers({ db, clock }: StoreResources) {
 
       const source = db.orm.select().from(sources).where(eq(sources.id, part.source_id)).get();
 
-      if (!source || source.project_id !== session.project_id)
+      if (!source)
         throw new StudyError(
           'invalid_input',
           'attachment belongs to another project or is unavailable'
@@ -193,7 +193,7 @@ function makeHelpers({ db, clock }: StoreResources) {
           partId: part.id,
           sourceId: source.id,
           sourceName: part.source_name,
-          projectId: session.project_id,
+          projectId: source.project_id,
           inputRevision: processing.revision,
           requestId: processing.request_id
         });
@@ -207,7 +207,7 @@ function makeHelpers({ db, clock }: StoreResources) {
           sourceId: source.id,
           sourceName: part.source_name,
           documentId: document.id,
-          projectId: session.project_id
+          projectId: source.project_id
         }
       ];
     }
@@ -282,7 +282,6 @@ function makeHelpers({ db, clock }: StoreResources) {
     const result = {
       requestId: input.requestId,
       sessionId: session.id,
-      projectId: session.project_id,
       messageId: message.id,
       versionId: version.id,
       contextRevision: session.context_revision,
@@ -312,7 +311,14 @@ function makeHelpers({ db, clock }: StoreResources) {
     return db.orm
       .select()
       .from(sources)
-      .where(and(eq(sources.id, part.sourceId), eq(sources.project_id, part.projectId!)))
+      .where(
+        and(
+          eq(sources.id, part.sourceId),
+          part.projectId === null
+            ? isNull(sources.project_id)
+            : eq(sources.project_id, part.projectId)
+        )
+      )
       .get();
   }
 
@@ -356,7 +362,6 @@ function makeHelpers({ db, clock }: StoreResources) {
     if (
       !session ||
       !matchesRequest(result, row) ||
-      session.project_id !== result.projectId ||
       session.context_revision !== result.contextRevision ||
       !replySelectionMatches(target, version, result)
     )
@@ -645,7 +650,6 @@ export const ReplyStore = defineStore({
               if (
                 !session ||
                 !matchesRequest(snapshot, row) ||
-                session.project_id !== snapshot.projectId ||
                 target?.session_id !== session.id ||
                 version?.message_id !== target.id ||
                 !generationMatches(version, snapshot, target.role)
@@ -662,19 +666,12 @@ export const ReplyStore = defineStore({
                 .flatMap((message) => message.attachments)
                 .find(
                   (part) =>
-                    part.sourceId === citation.sourceId &&
-                    part.documentId === citation.documentId &&
-                    part.projectId === session!.project_id
+                    part.sourceId === citation.sourceId && part.documentId === citation.documentId
                 );
               const source = db.orm
                 .select()
                 .from(sources)
-                .where(
-                  and(
-                    eq(sources.id, citation.sourceId),
-                    eq(sources.project_id, session!.project_id)
-                  )
-                )
+                .where(and(eq(sources.id, citation.sourceId)))
                 .get();
               const document = db.orm
                 .select()
@@ -724,12 +721,7 @@ export const ReplyStore = defineStore({
                   !db.orm
                     .select()
                     .from(sources)
-                    .where(
-                      and(
-                        eq(sources.id, item.sourceId),
-                        eq(sources.project_id, session!.project_id)
-                      )
-                    )
+                    .where(and(eq(sources.id, item.sourceId)))
                     .get() ||
                   !db.orm
                     .select()

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { parseTheme, themeColorKeys } from '@study/theme';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { themes, preferences } from '../src/schema.ts';
 import { createTestDatabase } from '../src/testing.ts';
@@ -89,8 +90,11 @@ test('upgrading retires T3 Chat while preserving custom themes and their identit
         }
       })
       .run();
-    before.orm.run(
-      sql`DELETE FROM __drizzle_migrations WHERE id = (SELECT MAX(id) FROM __drizzle_migrations)`
+    before.exec(
+      readFileSync(
+        new URL('../drizzle/20261101115116_curated-theme-palettes/migration.sql', import.meta.url),
+        'utf8'
+      )
     );
   } finally {
     before.close();

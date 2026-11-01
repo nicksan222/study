@@ -93,8 +93,7 @@ const dueCardsPageSchema = Schema.Struct({
 
 export const attemptSummarySchema = Schema.Struct({
   attempt: quizAttemptRowSchema,
-  materialId: materialIdSchema,
-  projectId: projectIdSchema
+  materialId: materialIdSchema
 });
 
 const attemptsPageSchema = Schema.Struct({
@@ -117,7 +116,6 @@ export const gradingSnapshotSchema = Schema.Struct({
   questionId: quizQuestionIdSchema,
   versionId: materialVersionIdSchema,
   materialId: materialIdSchema,
-  projectId: projectIdSchema,
   prompt: Schema.String,
   referenceAnswer: Schema.String,
   learnerAnswer: Schema.String

@@ -20,8 +20,7 @@ export const recording_posts = sqliteTable(
       .references(() => sessions.id, { onDelete: 'cascade' }),
     project_id: integer()
       .$type<ProjectId>()
-      .notNull()
-      .references(() => projects.id, { onDelete: 'cascade' }),
+      .references(() => projects.id, { onDelete: 'set null' }),
     name: text().notNull(),
     wav: blob({ mode: 'buffer' }).notNull(),
     duration_ms: integer().$type<bigint>().notNull(),

@@ -117,10 +117,10 @@ test('search indexes only current published quiz material and prompts', async ()
       sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Science',1,1),(2,'Other',1,1)`
     );
     run(
-      sql`INSERT INTO materials(id,project_id,kind,title,created_at,updated_at) VALUES (1,1,'quiz','Café gravity',1,1)`
+      sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (1,'quiz','Café gravity',1,1)`
     );
     run(
-      sql`INSERT INTO material_versions(id,material_id,project_id,kind,number,status,created_at) VALUES (1,1,1,'quiz',1,'draft',1)`
+      sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (1,1,'quiz',1,'draft',1)`
     );
     run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (1)`);
     run(
@@ -157,7 +157,7 @@ test('search indexes only current published quiz material and prompts', async ()
     assert.equal((await find('cafe')).length, 0);
     assert.equal((await find('nebula')).length, 1);
     run(
-      sql`INSERT INTO material_versions(id,material_id,project_id,kind,number,status,created_at) VALUES (2,1,1,'quiz',2,'draft',4)`
+      sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (2,1,'quiz',2,'draft',4)`
     );
     run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (2)`);
     run(
@@ -174,7 +174,6 @@ test('search indexes only current published quiz material and prompts', async ()
     assert.equal(hits.length, 1);
     assert.deepEqual(hits[0]?.target, {
       type: 'question',
-      projectId: 1n,
       materialId: 1n,
       versionId: 2n,
       questionId: 2n
@@ -182,11 +181,11 @@ test('search indexes only current published quiz material and prompts', async ()
     assert.throws(() => run(sql`DELETE FROM materials WHERE id=1`));
     assert.equal((await find('quantum')).length, 1);
     run(sql`DELETE FROM projects WHERE id=1`);
-    assert.equal((await find('quantum')).length, 0);
+    assert.equal((await find('quantum')).length, 1);
     assert.equal(
       context.db.orm.all(sql`SELECT rowid FROM catalog_fts WHERE kind IN ('material','question')`)
         .length,
-      0
+      2
     );
   } finally {
     context.close();

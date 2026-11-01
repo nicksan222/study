@@ -19,3 +19,5 @@ export * from './schema/recording-posts.ts';
 export * from './schema/learning-practice.ts';
 
 export * from './schema/material-generation-scopes.ts';
+
+export * from './schema/project-memberships.ts';

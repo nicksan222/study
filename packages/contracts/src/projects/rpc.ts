@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
-import { projectIdSchema } from '../ids.ts';
+import { projectIdSchema, materialIdSchema, sessionIdSchema } from '../ids.ts';
 import { projectSchema } from './schemas.ts';
 
 export const projectPageInputSchema = Schema.Struct({
@@ -26,7 +26,36 @@ export const setExamInputSchema = Schema.Struct({
   examOn: Schema.NullOr(Schema.String)
 });
 
+export const projectMaterialInputSchema = Schema.Struct({
+  projectId: projectIdSchema,
+  materialId: materialIdSchema
+});
+export const projectSessionInputSchema = Schema.Struct({
+  projectId: projectIdSchema,
+  sessionId: sessionIdSchema
+});
+
 export const ProjectsRpc = RpcGroup.make(
+  Rpc.make('addMaterial', {
+    payload: projectMaterialInputSchema,
+    success: Schema.Void,
+    error: failureSchema
+  }),
+  Rpc.make('removeMaterial', {
+    payload: projectMaterialInputSchema,
+    success: Schema.Void,
+    error: failureSchema
+  }),
+  Rpc.make('addSession', {
+    payload: projectSessionInputSchema,
+    success: Schema.Void,
+    error: failureSchema
+  }),
+  Rpc.make('removeSession', {
+    payload: projectSessionInputSchema,
+    success: Schema.Void,
+    error: failureSchema
+  }),
   Rpc.make('project', {
     payload: projectIdInputSchema,
     success: projectSchema,

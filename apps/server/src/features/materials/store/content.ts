@@ -32,7 +32,7 @@ export function makeContent(resources: StoreResources) {
     version: typeof s.material_versions.$inferSelect,
     c: MaterialContentInput
   ) {
-    assertContentSource(version, c);
+    assertContentSource(c);
 
     switch (c.kind) {
       case 'diagram':
@@ -312,15 +312,9 @@ export function makeContent(resources: StoreResources) {
     return required(store.orm.select().from(s.sources).where(eq(s.sources.id, id)).get());
   }
 
-  function assertContentSource(
-    version: typeof s.material_versions.$inferSelect,
-    c: MaterialContentInput
-  ) {
+  function assertContentSource(c: MaterialContentInput) {
     if ('sourceId' in c) {
-      const source = contentSource(c.sourceId);
-
-      if (source.project_id !== version.project_id)
-        throw new StudyError('invalid_input', 'Source belongs to another project');
+      contentSource(c.sourceId);
     }
   }
 

@@ -12,17 +12,26 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema } from '@study/contracts/ids';
 import {
   createProjectInputSchema as createInput,
   projectIdInputSchema as deleteInput,
   renameProjectInputSchema as renameInput,
   setExamInputSchema as examInput,
-  projectPageInputSchema
+  projectPageInputSchema,
+  projectMaterialInputSchema,
+  projectSessionInputSchema
 } from '@study/contracts/projects/rpc';
 import { projectSchema } from '@study/contracts/projects/schemas';
-import { desc, eq, lt } from '@study/db';
-import { projects } from '@study/db/schema';
+import { and, desc, eq, lt } from '@study/db';
+import {
+  projects,
+  materials,
+  sessions,
+  project_materials,
+  project_sessions
+} from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -55,6 +64,51 @@ export const ProjectsStore = defineStore({
   make: ({ db, clock }) => {
     const { find } = makeHelpers({ db, clock });
 
+    const assertProject = (id: typeof projectIdSchema.Type) => {
+      if (!find(id)) throw new StudyError('not_found', 'Collection not found');
+    };
+    const materialMembership = (input: typeof projectMaterialInputSchema.Type, add: boolean) => {
+      assertProject(input.projectId);
+      if (!db.orm.select().from(materials).where(eq(materials.id, input.materialId)).get())
+        throw new StudyError('not_found', 'Material not found');
+      if (add)
+        db.orm
+          .insert(project_materials)
+          .values({ project_id: input.projectId, material_id: input.materialId })
+          .onConflictDoNothing()
+          .run();
+      else
+        db.orm
+          .delete(project_materials)
+          .where(
+            and(
+              eq(project_materials.project_id, input.projectId),
+              eq(project_materials.material_id, input.materialId)
+            )
+          )
+          .run();
+    };
+    const sessionMembership = (input: typeof projectSessionInputSchema.Type, add: boolean) => {
+      assertProject(input.projectId);
+      if (!db.orm.select().from(sessions).where(eq(sessions.id, input.sessionId)).get())
+        throw new StudyError('not_found', 'Session not found');
+      if (add)
+        db.orm
+          .insert(project_sessions)
+          .values({ project_id: input.projectId, session_id: input.sessionId })
+          .onConflictDoNothing()
+          .run();
+      else
+        db.orm
+          .delete(project_sessions)
+          .where(
+            and(
+              eq(project_sessions.project_id, input.projectId),
+              eq(project_sessions.session_id, input.sessionId)
+            )
+          )
+          .run();
+    };
     return {
       queries: {
         project: storeQuery({
@@ -85,6 +139,26 @@ export const ProjectsStore = defineStore({
         })
       },
       mutations: {
+        addMaterial: storeMutation({
+          input: projectMaterialInputSchema,
+          output: Schema.Void,
+          run: (input) => materialMembership(input, true)
+        }),
+        removeMaterial: storeMutation({
+          input: projectMaterialInputSchema,
+          output: Schema.Void,
+          run: (input) => materialMembership(input, false)
+        }),
+        addSession: storeMutation({
+          input: projectSessionInputSchema,
+          output: Schema.Void,
+          run: (input) => sessionMembership(input, true)
+        }),
+        removeSession: storeMutation({
+          input: projectSessionInputSchema,
+          output: Schema.Void,
+          run: (input) => sessionMembership(input, false)
+        }),
         createProject: storeMutation({
           input: createInput,
           output: projectSchema,

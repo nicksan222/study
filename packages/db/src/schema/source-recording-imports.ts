@@ -11,8 +11,7 @@ export const source_recording_imports = sqliteTable(
     request_id: text().primaryKey().notNull(),
     project_id: integer()
       .$type<ProjectId>()
-      .notNull()
-      .references(() => projects.id, { onDelete: 'cascade' }),
+      .references(() => projects.id, { onDelete: 'set null' }),
     session_id: integer().$type<SessionId>().notNull(),
     source_id: integer().$type<SourceId>().notNull(),
     input_hash: blob({ mode: 'buffer' }).notNull(),

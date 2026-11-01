@@ -194,7 +194,7 @@ test(
   }
 );
 
-test('HTTP message attachments retain source identity and reject another project', async () => {
+test('HTTP message attachments retain explicit source identity across collections', async () => {
   const f = await fixture();
 
   try {
@@ -226,22 +226,16 @@ test('HTTP message attachments retain source identity and reject another project
 
           assert.equal(message.parts[0]?.sourceId, source.id);
           assert.equal(message.parts[0]?.sourceName, 'notes.txt');
-          assert.equal(
-            failureKind(
-              yield* Effect.flip(
-                client['conversations.postMessage']({
-                  sessionId: session.id,
-                  text: '',
-                  sourceIds: [foreign.id]
-                })
-              )
-            ),
-            'invalid_input'
-          );
+          const shared = yield* client['conversations.postMessage']({
+            sessionId: session.id,
+            text: '',
+            sourceIds: [foreign.id]
+          });
+          assert.equal(shared.parts[0]?.sourceId, foreign.id);
           assert.equal(
             (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items
               .length,
-            1
+            2
           );
         })
       )

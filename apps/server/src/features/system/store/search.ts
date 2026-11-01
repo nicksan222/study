@@ -126,7 +126,7 @@ export function makeSearch({ db }: StoreResources) {
   ) {
     if (kinds.includes('message')) {
       const rows = db.orm.all(
-        sql`SELECT m.id,m.session_id,s.project_id,v.text,bm25(message_fts) AS rank FROM message_fts JOIN message_versions v ON v.id=message_fts.rowid JOIN messages m ON m.active_version_id=v.id JOIN sessions s ON s.id=m.session_id WHERE message_fts MATCH ${expression} AND (${project} IS NULL OR s.project_id=${project}) ORDER BY rank LIMIT ${limit}`
+        sql`SELECT m.id,m.session_id,NULL AS project_id,v.text,bm25(message_fts) AS rank FROM message_fts JOIN message_versions v ON v.id=message_fts.rowid JOIN messages m ON m.active_version_id=v.id JOIN sessions s ON s.id=m.session_id WHERE message_fts MATCH ${expression} AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=s.id AND ps.project_id=${project})) ORDER BY rank LIMIT ${limit}`
       );
 
       for (const r of rows)
@@ -158,7 +158,11 @@ export function makeSearch({ db }: StoreResources) {
         sql`SELECT kind,target_id,project_id,text,bm25(catalog_fts) AS rank FROM catalog_fts WHERE catalog_fts MATCH ${expression} AND kind IN (${sql.join(
           catalog.map((kind) => sql`${kind}`),
           sql`, `
-        )}) AND (${project} IS NULL OR CAST(project_id AS INTEGER)=${project}) ORDER BY rank LIMIT ${limit}`
+        )}) AND (${project} IS NULL OR
+ (kind='material' AND EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
+ (kind='question' AND EXISTS(SELECT 1 FROM project_materials pm JOIN material_versions v ON v.material_id=pm.material_id JOIN material_quiz_questions q ON q.version_id=v.id WHERE q.id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
+ (kind='session' AND EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=CAST(target_id AS INTEGER) AND ps.project_id=${project})) OR
+ (kind NOT IN ('material','question','session') AND CAST(project_id AS INTEGER)=${project})) ORDER BY rank LIMIT ${limit}`
       );
 
       for (const r of rows) {
@@ -196,7 +200,7 @@ export function makeSearch({ db }: StoreResources) {
 
         hits.push({
           target: catalogTarget(kind, row.id)!,
-          projectId: row.projectId,
+          projectId: project,
           text: row.text,
           rank: 0
         });
@@ -222,7 +226,7 @@ export function makeSearch({ db }: StoreResources) {
       kind === 'project'
         ? schema.projects.id
         : kind === 'session'
-          ? schema.sessions.project_id
+          ? schema.sessions.id
           : schema.sources.project_id;
     const pattern = `%${query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
 
@@ -230,7 +234,7 @@ export function makeSearch({ db }: StoreResources) {
       .select({ id: table.id, projectId: scope, text: label })
       .from(table)
       .where(
-        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${scope}=${project})`
+        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
       )
       .limit(limit)
       .all();

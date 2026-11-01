@@ -475,9 +475,9 @@ test('replacement fences stale publication and search follows the current source
         assert.equal(
           context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'secondword'`)
             .length,
-          0
+          1
         );
-        assert.equal((yield* Effect.flip(sources.sourceDocument(source.id))).kind, 'not_found');
+        assert.deepEqual((yield* sources.sourceDocument(source.id)).document, replacement);
         const unassigned = yield* sources.createSource({
           name: 'unassigned.txt',
           bytes: new Uint8Array([1]),
@@ -497,7 +497,7 @@ test('replacement fences stale publication and search follows the current source
         assert.equal(
           context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'firstword'`)
             .length,
-          1
+          2
         );
       }).pipe(Effect.provide(layer))
     );
@@ -669,8 +669,8 @@ test('published and archived source-backed materials prevent source deletion', a
         );
         assert.equal((yield* sources.source(source.id)).id, source.id);
         assert.equal(
-          (yield* Effect.flip(sources.setSourceProject({ id: source.id, projectId: null }))).kind,
-          'invalid_input'
+          (yield* sources.setSourceProject({ id: source.id, projectId: null })).projectId,
+          null
         );
       }).pipe(Effect.provide(layer))
     );
@@ -969,7 +969,7 @@ test('correction request rolls back when outbox insertion fails', async () => {
   }
 });
 
-test('project reassignment rejects an incompatible message attachment', async () => {
+test('project reassignment preserves an explicit message attachment', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
@@ -979,7 +979,7 @@ test('project reassignment rejects an incompatible message attachment', async ()
       sql`INSERT INTO projects (id, name, created_at, updated_at) VALUES (1, 'One', 1, 1), (2, 'Two', 1, 1)`
     );
     context.db.orm.run(
-      sql`INSERT INTO sessions (id, project_id, title, title_source, created_at, updated_at) VALUES (1, 1, 'Session', 'user', 1, 1)`
+      sql`INSERT INTO sessions (id,title,title_source,created_at,updated_at) VALUES (1, 'Session', 'user', 1, 1)`
     );
     context.db.orm.run(
       sql`INSERT INTO messages (id, session_id, role, created_at) VALUES (1, 1, 'user', 1)`
@@ -996,13 +996,8 @@ test('project reassignment rejects an incompatible message attachment', async ()
         context.db.orm.run(
           sql`INSERT INTO message_parts (message_id, ordinal, source_id, source_name, source_kind) VALUES (1, 0, ${source.id}, 'a.txt', 'text')`
         );
-        assert.equal(
-          (yield* Effect.flip(
-            sources.setSourceProject({ id: source.id, projectId: 2n as ProjectId })
-          )).kind,
-          'invalid_input'
-        );
-        assert.equal((yield* sources.source(source.id)).projectId, 1n);
+        yield* sources.setSourceProject({ id: source.id, projectId: 2n as ProjectId });
+        assert.equal((yield* sources.source(source.id)).projectId, 2n);
       }).pipe(Effect.provide(layer))
     );
   } finally {

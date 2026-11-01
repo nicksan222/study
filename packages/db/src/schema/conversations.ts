@@ -1,13 +1,12 @@
 import type {
   MessageId,
   PartId,
-  ProjectId,
   RecordingId,
   SessionId,
   SourceId,
   VersionId
 } from '@study/contracts/ids';
-import { sql, desc } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import {
   sqliteTable,
   integer,
@@ -27,7 +26,7 @@ import {
   codes_title_source,
   codes_version_origin
 } from './codes.ts';
-import { projects, sources } from './sources.ts';
+import { sources } from './sources.ts';
 
 export const message_versions = sqliteTable(
   'message_versions',
@@ -214,10 +213,6 @@ export const sessions = sqliteTable(
   'sessions',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
-    project_id: integer()
-      .$type<ProjectId>()
-      .notNull()
-      .references((): AnySQLiteColumn => projects.id, { onDelete: 'cascade' }),
     title: text().notNull(),
     context_revision: integer().$type<bigint>().notNull().default(0n),
     title_source: text({ enum: codes_title_source.code.enumValues })
@@ -228,11 +223,7 @@ export const sessions = sqliteTable(
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
-  (t) => [
-    index('sessions_project_idx').on(t.project_id, desc(t.updated_at)),
-    uniqueIndex('sessions_id_project_unique').on(t.id, t.project_id),
-    check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)
-  ]
+  (t) => [check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)]
 );
 
 export const conversation_reply_requests = sqliteTable(

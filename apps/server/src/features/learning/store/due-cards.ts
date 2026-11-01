@@ -12,8 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import type { dueCardsInputSchema } from '@study/contracts/learning/rpc';
-import { and, asc, eq, gt, isNull, lte, or, sql } from '@study/db';
+import { inArray, and, asc, eq, gt, isNull, lte, or, sql } from '@study/db';
 import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -27,6 +28,12 @@ type Input = typeof dueCardsInputSchema.Type & {
 export function makeDueCards(resources: StoreResources) {
   const { db, clock } = resources;
   const dueCards = (input: Input) => {
+    if (
+      input.projectId !== undefined &&
+      !db.orm.select().from(s.projects).where(eq(s.projects.id, input.projectId)).get()
+    )
+      throw new StudyError('not_found', 'Collection scope is unavailable');
+
     // Unscheduled cards use a stable zero due value for pagination.
     const due = sql<bigint>`coalesce(${s.material_card_schedules.due}, 0)`.mapWith(
       s.material_card_schedules.due
@@ -59,7 +66,13 @@ export function makeDueCards(resources: StoreResources) {
       )
       .where(
         and(
-          eq(s.material_versions.project_id, input.projectId),
+          inArray(
+            s.material_versions.material_id,
+            db.orm
+              .select({ id: s.project_materials.material_id })
+              .from(s.project_materials)
+              .where(eq(s.project_materials.project_id, input.projectId))
+          ),
           eq(s.material_versions.status, 'published'),
           isNull(s.materials.archived_at),
           sql`${s.material_versions.number} = (SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id = ${s.material_versions.material_id} AND latest.status = 'published')`,

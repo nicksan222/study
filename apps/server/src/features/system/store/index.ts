@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId, MaterialId, MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
 import { materialKindSchema } from '@study/contracts/materials/schemas';
 import { searchInputSchema } from '@study/contracts/system/rpc';
 import { searchHitSchema } from '@study/contracts/system/schemas';
@@ -76,7 +76,6 @@ export const SystemStore = defineStore({
               at: msg?.created_at ?? session.updated_at,
               target: {
                 type: 'session',
-                projectId: session.project_id,
                 sessionId: session.id
               }
             }
@@ -127,13 +126,12 @@ export const SystemStore = defineStore({
       target: Extract<SearchHit['target'], { type: 'material' | 'question' }>
     ): (typeof searchHitSchema.Type)[] {
       const rows = db.orm.all(
-        sql`SELECT m.id AS material_id,m.project_id,m.kind AS material_kind,m.title,m.updated_at,v.id AS version_id,q.id AS question_id FROM materials m JOIN material_versions v ON v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(h.number) FROM material_versions h WHERE h.material_id=m.id AND h.status='published') LEFT JOIN material_quiz_questions q ON q.version_id=v.id WHERE m.archived_at IS NULL AND ((${target.type}='material' AND m.id=${target.id}) OR (${target.type}='question' AND q.id=${target.id})) LIMIT 1`
+        sql`SELECT m.id AS material_id,m.kind AS material_kind,m.title,m.updated_at,v.id AS version_id,q.id AS question_id FROM materials m JOIN material_versions v ON v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(h.number) FROM material_versions h WHERE h.material_id=m.id AND h.status='published') LEFT JOIN material_quiz_questions q ON q.version_id=v.id WHERE m.archived_at IS NULL AND ((${target.type}='material' AND m.id=${target.id}) OR (${target.type}='question' AND q.id=${target.id})) LIMIT 1`
       );
       const row = rows[0];
 
       if (!row) return [];
 
-      const projectId = BigInt(row.project_id as number | bigint) as ProjectId;
       const materialId = BigInt(row.material_id as number | bigint) as MaterialId;
       const versionId = BigInt(row.version_id as number | bigint) as MaterialVersionId;
 
@@ -147,14 +145,12 @@ export const SystemStore = defineStore({
             target.type === 'material'
               ? {
                   type: 'material',
-                  projectId,
                   materialId,
                   versionId,
                   materialKind: Schema.decodeUnknownSync(materialKindSchema)(row.material_kind)
                 }
               : {
                   type: 'question',
-                  projectId,
                   materialId,
                   versionId,
                   questionId: target.id

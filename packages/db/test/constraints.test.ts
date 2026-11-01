@@ -26,8 +26,7 @@ function newDb(t: TestContext) {
 }
 
 function seed(db: NodeSQLiteDatabase) {
-  const project = db
-    .insert(schema.projects)
+  db.insert(schema.projects)
     .values({ name: 'P', created_at: 1n, updated_at: 1n })
     .returning()
     .get();
@@ -52,7 +51,6 @@ function seed(db: NodeSQLiteDatabase) {
   const session = db
     .insert(schema.sessions)
     .values({
-      project_id: project.id,
       title: 'S',
       title_source: 'user',
       created_at: 1n,

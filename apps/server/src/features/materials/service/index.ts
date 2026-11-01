@@ -64,7 +64,6 @@ function* makeMaterials() {
       correlationId: eventId,
       inputVersion: 1,
       depth: 0,
-      projectId: version.project_id,
       materialId: version.material_id,
       materialVersionId: version.id
     });
@@ -87,7 +86,6 @@ function* makeMaterials() {
               correlationId: event.correlationId,
               inputVersion: 1,
               depth: event.depth + 1,
-              projectId: event.projectId,
               materialId: material.id,
               materialVersionId: material.version.id
             });
@@ -114,7 +112,6 @@ function* makeMaterials() {
             correlationId: result.event.correlationId,
             inputVersion: 1,
             depth: result.event.depth + 1,
-            projectId: result.event.projectId,
             materialId: result.materialId,
             materialVersionId: result.versionId,
             generationRequestId: value.requestId

@@ -87,11 +87,7 @@ export function makeGradingSnapshot(resources: StoreResources) {
       )
       .innerJoin(
         s.materials,
-        and(
-          eq(s.materials.id, version.material_id),
-          eq(s.materials.project_id, version.project_id),
-          eq(s.materials.kind, version.kind)
-        )
+        and(eq(s.materials.id, version.material_id), eq(s.materials.kind, version.kind))
       )
       .where(
         and(
@@ -122,7 +118,6 @@ export function makeGradingSnapshot(resources: StoreResources) {
       questionId: row.question.id,
       versionId: version.id,
       materialId: version.material_id,
-      projectId: version.project_id,
       prompt: row.question.prompt,
       referenceAnswer: row.reference.reference_answer,
       learnerAnswer: row.response.answer

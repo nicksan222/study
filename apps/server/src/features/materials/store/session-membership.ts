@@ -27,9 +27,9 @@ export function makeSessionMembership(resources: StoreResources) {
   const { assertSession } = makeWrites(resources);
 
   function attachMaterial(sessionId: SessionId, materialId: MaterialId) {
-    const material = materialRow(materialId, true);
+    materialRow(materialId, true);
 
-    assertSession(sessionId, material.project_id);
+    assertSession(sessionId);
 
     if (
       store.orm
@@ -57,7 +57,6 @@ export function makeSessionMembership(resources: StoreResources) {
       .values({
         session_id: sessionId,
         material_id: materialId,
-        project_id: material.project_id,
         position: (last?.position ?? -1n) + 1n
       })
       .run();

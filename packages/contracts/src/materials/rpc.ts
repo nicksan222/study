@@ -53,7 +53,7 @@ export const publishVersionInputSchema = versionKey;
 export const materialsInputSchema = Schema.Struct({
   limit,
   cursor: Schema.optional(materialIdSchema),
-  projectId: projectIdSchema,
+  projectId: Schema.optional(projectIdSchema),
   sessionId: Schema.optional(sessionIdSchema),
   archived: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false)))
 });

@@ -97,7 +97,6 @@ export const materialPublishedSchema = Schema.Struct({
   ...envelope,
   generationRequestId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
   type: Schema.Literal('MaterialPublished'),
-  projectId: projectIdSchema,
   materialId: materialIdSchema,
   materialVersionId: materialVersionIdSchema
 });
@@ -143,7 +142,7 @@ export const recordingPostRequestedSchema = Schema.Struct({
   requestId: Schema.String.check(Schema.isMinLength(1)),
   recordingId: recordingIdSchema,
   sessionId: sessionIdSchema,
-  projectId: projectIdSchema
+  projectId: Schema.NullOr(projectIdSchema)
 });
 
 export const workflowEventSchema = Schema.Union([

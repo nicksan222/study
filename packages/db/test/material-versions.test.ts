@@ -20,18 +20,18 @@ function fixture(t: TestContext) {
   });
   db.exec(`
     INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Math',1,1),(2,'Other',1,1);
-    INSERT INTO sessions(id,project_id,title,title_source,created_at,updated_at)
-      VALUES(1,1,'Lecture','user',1,1),(2,2,'Other','user',1,1);
+    INSERT INTO sessions(id,title,title_source,created_at,updated_at)
+      VALUES(1,'Lecture','user',1,1),(2,'Other','user',1,1);
   `);
 
   return db;
 }
 
-function draft(db: Db, id: bigint, kind = 'diagram', material = id, project = 1n) {
-  db.orm.run(sql`INSERT INTO materials(id,project_id,kind,title,created_at,updated_at)
-    VALUES(${material},${project},${kind},'Material',1,1) ON CONFLICT(id) DO NOTHING`);
-  db.orm.run(sql`INSERT INTO material_versions(id,material_id,project_id,kind,number,created_at)
-    VALUES(${id},${material},${project},${kind},${id},1)`);
+function draft(db: Db, id: bigint, kind = 'diagram', material = id) {
+  db.orm.run(sql`INSERT INTO materials(id,kind,title,created_at,updated_at)
+    VALUES(${material},${kind},'Material',1,1) ON CONFLICT(id) DO NOTHING`);
+  db.orm.run(sql`INSERT INTO material_versions(id,material_id,kind,number,created_at)
+    VALUES(${id},${material},${kind},${id},1)`);
 }
 
 function diagram(db: Db, id: bigint) {
@@ -53,31 +53,23 @@ function publish(db: Db, id: bigint) {
   db.orm.run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=${id}`);
 }
 
-test('materials enforce kind, project membership and version ownership with direct SQL', (t) => {
+test('materials enforce kind and version identity while session selection crosses collections', (t) => {
   const db = fixture(t);
 
   diagram(db, 1n);
-  db.exec(
-    'INSERT INTO session_materials(session_id,material_id,project_id,position) VALUES(1,1,1,0)'
+  db.exec('INSERT INTO session_materials(session_id,material_id,position) VALUES(1,1,0)');
+  assert.throws(() =>
+    db.exec("INSERT INTO materials(kind,title,created_at,updated_at) VALUES('mystery','No',1,1)")
   );
+  db.exec('INSERT INTO session_materials(session_id,material_id,position) VALUES(2,1,0)');
   assert.throws(() =>
     db.exec(
-      "INSERT INTO materials(project_id,kind,title,created_at,updated_at) VALUES(1,'mystery','No',1,1)"
+      "INSERT INTO material_versions(material_id,kind,number,created_at) VALUES(1,'quiz',2,1)"
     )
   );
   assert.throws(() =>
     db.exec(
-      'INSERT INTO session_materials(session_id,material_id,project_id,position) VALUES(2,1,1,0)'
-    )
-  );
-  assert.throws(() =>
-    db.exec(
-      "INSERT INTO material_versions(material_id,project_id,kind,number,created_at) VALUES(1,1,'quiz',2,1)"
-    )
-  );
-  assert.throws(() =>
-    db.exec(
-      "INSERT INTO material_versions(material_id,project_id,kind,number,created_at) VALUES(1,2,'diagram',2,1)"
+      "INSERT INTO material_versions(material_id,kind,number,created_at) VALUES(999,'diagram',2,1)"
     )
   );
   assert.throws(() =>
@@ -109,19 +101,19 @@ test('publication rejects absent or incomplete payloads and freezes content and 
   );
   assert.throws(() =>
     db.exec(
-      "INSERT OR REPLACE INTO material_versions(id,material_id,project_id,kind,number,created_at) VALUES(1,1,1,'diagram',1,1)"
+      "INSERT OR REPLACE INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1)"
     )
   );
   assert.throws(() => db.exec("UPDATE materials SET kind='file' WHERE id=1"));
   assert.throws(() => db.exec('DELETE FROM material_versions WHERE id=1'));
   assert.throws(() =>
     db.exec(
-      "INSERT INTO material_versions(material_id,project_id,kind,number,status,created_at,published_at) VALUES(1,1,'diagram',2,'published',1,2)"
+      "INSERT INTO material_versions(material_id,kind,number,status,created_at,published_at) VALUES(1,'diagram',2,'published',1,2)"
     )
   );
 });
 
-test('multi-input provenance is same-project, published-only, append-only before publication and acyclic', (t) => {
+test('multi-input provenance crosses collections, stays published-only and is sealed at publication', (t) => {
   const db = fixture(t);
 
   diagram(db, 1n);
@@ -129,52 +121,36 @@ test('multi-input provenance is same-project, published-only, append-only before
   diagram(db, 2n);
   publish(db, 2n);
   diagram(db, 3n);
-  db.exec(
-    'INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(3,1,1),(3,2,1)'
+  db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(3,1),(3,2)');
+  assert.throws(() =>
+    db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(1,3)')
   );
   assert.throws(() =>
-    db.exec(
-      'INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(1,3,1)'
-    )
-  );
-  assert.throws(() =>
-    db.exec(
-      'INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(3,3,1)'
-    )
+    db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(3,3)')
   );
   diagram(db, 4n);
   assert.throws(() =>
-    db.exec(
-      'INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(3,4,1)'
-    )
+    db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(3,4)')
   );
-  draft(db, 5n, 'diagram', 5n, 2n);
+  draft(db, 5n, 'diagram', 5n);
   db.exec(
     "INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(5,'mermaid','graph TD; A-->B')"
   );
   publish(db, 5n);
-  assert.throws(() =>
-    db.exec(
-      'INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(3,5,1)'
-    )
-  );
+  db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(3,5)');
   publish(db, 3n);
   assert.equal(
     db.orm.get<{ n: bigint }>(
       sql`SELECT count(*) AS n FROM material_version_inputs WHERE version_id=3`
     )?.n,
-    2n
+    3n
   );
   assert.throws(() => db.exec('DELETE FROM material_version_inputs WHERE version_id=3'));
   assert.throws(() =>
     db.exec('UPDATE material_version_inputs SET version_id=4 WHERE version_id=3')
   );
   db.exec('DELETE FROM projects WHERE id=1');
-  assert.equal(
-    db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_versions WHERE project_id=1`)
-      ?.n,
-    0n
-  );
+  assert.equal(db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_versions`)?.n, 5n);
   assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
 });
 
@@ -233,10 +209,8 @@ test('file and media versions reuse source bytes and reject incomplete or mismat
     db.exec("INSERT OR REPLACE INTO source_blobs(source_id,bytes) VALUES(1,x'ff')")
   );
   draft(db, 2n, 'audio');
-  assert.throws(() =>
-    db.exec(
-      'INSERT INTO material_audio_versions(version_id,source_id,duration_ms,sample_rate,channels) VALUES(2,2,1000,48000,2)'
-    )
+  db.exec(
+    'INSERT INTO material_audio_versions(version_id,source_id,duration_ms,sample_rate,channels) VALUES(2,2,1000,48000,2)'
   );
   draft(db, 3n, 'audio');
   assert.throws(() =>
@@ -276,7 +250,7 @@ test('document versions reuse anchored documents and freeze their underlying blo
   assert.throws(() => db.exec('UPDATE documents SET meta=\'{"changed":true}\' WHERE id=1'));
 });
 
-test('project deletion purges owned files, snapshots and memberships without affecting other projects', (t) => {
+test('collection deletion preserves source bytes, snapshots, versions and session selections', (t) => {
   const db = fixture(t);
 
   db.exec(`
@@ -293,19 +267,19 @@ test('project deletion purges owned files, snapshots and memberships without aff
     INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,0,'{"extractor":null,"extractorVersion":0,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
     INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','body','{"type":"paragraph","index":0}');
     INSERT INTO material_document_versions(version_id,document_id) VALUES(2,1);
-    INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(2,1,1);
-    INSERT INTO session_materials(session_id,material_id,project_id,position) VALUES(1,1,1,0),(1,2,1,1);
+    INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
+    INSERT INTO session_materials(session_id,material_id,position) VALUES(1,1,0),(1,2,1);
   `);
   publish(db, 2n);
-  draft(db, 3n, 'diagram', 3n, 2n);
+  draft(db, 3n, 'diagram', 3n);
   db.exec(
     "INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(3,'mermaid','graph TD; A-->B')"
   );
   publish(db, 3n);
   db.exec('DELETE FROM projects WHERE id=1');
-  assert.equal(db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM sources`)?.n, 0n);
-  assert.equal(db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM documents`)?.n, 0n);
-  assert.equal(db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_versions`)?.n, 1n);
+  assert.equal(db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM sources`)?.n, 1n);
+  assert.equal(db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM documents`)?.n, 1n);
+  assert.equal(db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_versions`)?.n, 3n);
   assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
 });
 
@@ -331,7 +305,7 @@ test('correct quiz answers roundtrip through the ORM boolean codec', (t) => {
   );
 });
 
-test('draft payloads cannot pin sources from another project or move source ownership', (t) => {
+test('draft payloads can reference originals independently of collection organization', (t) => {
   const db = fixture(t);
 
   db.exec(`
@@ -341,18 +315,13 @@ test('draft payloads cannot pin sources from another project or move source owne
     INSERT INTO source_blobs(source_id,bytes) VALUES(1,x'61'),(2,x'61');
   `);
   draft(db, 1n, 'file');
-  assert.throws(() =>
-    db.exec('INSERT INTO material_file_versions(version_id,source_id) VALUES(1,2)')
-  );
-  db.exec('INSERT INTO material_file_versions(version_id,source_id) VALUES(1,1)');
-  assert.throws(() => db.exec('UPDATE sources SET project_id=2 WHERE id=1'));
+  db.exec('INSERT INTO material_file_versions(version_id,source_id) VALUES(1,2)');
+  db.exec('UPDATE sources SET project_id=2 WHERE id=1');
   draft(db, 2n, 'document');
   db.exec(
     `INSERT INTO documents(id,source_id,extractor_version,meta,created_at) VALUES(1,2,0,'{"extractor":null,"extractorVersion":0,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1)`
   );
-  assert.throws(() =>
-    db.exec('INSERT INTO material_document_versions(version_id,document_id) VALUES(2,1)')
-  );
+  db.exec('INSERT INTO material_document_versions(version_id,document_id) VALUES(2,1)');
 });
 
 test('publication rejects malformed canonical document anchors and citations', (t) => {
@@ -424,9 +393,7 @@ test('material citations enforce positive unsigned 32 bit markers', (t) => {
   diagram(db, 1n);
   publish(db, 1n);
   diagram(db, 2n);
-  db.exec(
-    'INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(2,1,1)'
-  );
+  db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1)');
   const insert = (marker: bigint) =>
     db.orm.run(
       sql`INSERT INTO material_version_citations(version_id,marker,input_version_id,anchor,quote) VALUES(2,${marker},1,'{"type":"page","page":1}','Quote')`

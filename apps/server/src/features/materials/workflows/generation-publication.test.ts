@@ -327,7 +327,7 @@ test('guarded generation publishes once and replays its receipt', async () => {
         assert.equal(events[0]!.depth, 1n);
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${project.id}`);
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${other.id}`);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
+        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 6);
         complete = true;
       }).pipe(Effect.provide(services))
     ).pipe(Effect.orDie)

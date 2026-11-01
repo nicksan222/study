@@ -29,8 +29,8 @@ export const versionOriginSchema = Schema.Literals([
 ]);
 
 export const sessionSchema = Schema.Struct({
+  projectIds: Schema.Array(projectIdSchema),
   id: sessionIdSchema,
-  projectId: projectIdSchema,
   title: Schema.String,
   titleSource: titleSourceSchema,
   createdAt: Schema.BigInt,
@@ -122,7 +122,7 @@ export const pendingReplyAttachmentSchema = Schema.Struct({
   messageId: messageIdSchema,
   partId: partIdSchema,
   sourceId: sourceIdSchema,
-  projectId: projectIdSchema,
+  projectId: Schema.NullOr(projectIdSchema),
   sourceName: Schema.String,
   inputRevision: Schema.BigInt,
   requestId: Schema.String
@@ -130,7 +130,6 @@ export const pendingReplyAttachmentSchema = Schema.Struct({
 
 export const replySnapshotSchema = Schema.Struct({
   ...replyRequestSchema.fields,
-  projectId: projectIdSchema,
   contextRevision: Schema.BigInt,
   generation: Schema.optional(
     Schema.Struct({
@@ -148,7 +147,7 @@ export const replySnapshotSchema = Schema.Struct({
           sourceId: sourceIdSchema,
           sourceName: Schema.String,
           documentId: documentIdSchema,
-          projectId: projectIdSchema
+          projectId: Schema.NullOr(projectIdSchema)
         })
       )
     })
@@ -172,7 +171,6 @@ export const publishReplyInputSchema = Schema.Struct({
 export const titleSnapshotSchema = Schema.Struct({
   requestId: Schema.String,
   sessionId: sessionIdSchema,
-  projectId: projectIdSchema,
   contextRevision: Schema.BigInt,
   titleSource: titleSourceSchema,
   title: Schema.String,

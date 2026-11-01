@@ -36,10 +36,10 @@ test('native System RPC returns published quiz search identities', async () => {
       sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Science',1,1),(2,'Other',1,1)`
     );
     db.run(
-      sql`INSERT INTO materials(id,project_id,kind,title,created_at,updated_at) VALUES (1,1,'quiz','Astronomy',1,1)`
+      sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (1,'quiz','Astronomy',1,1)`
     );
     db.run(
-      sql`INSERT INTO material_versions(id,material_id,project_id,kind,number,status,created_at) VALUES (1,1,1,'quiz',1,'draft',1)`
+      sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (1,1,'quiz',1,'draft',1)`
     );
     db.run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (1)`);
     db.run(
@@ -57,7 +57,6 @@ test('native System RPC returns published quiz search identities', async () => {
 
           assert.deepEqual(result.hits[0]?.target, {
             type: 'question',
-            projectId: 1n,
             materialId: 1n,
             versionId: 1n,
             questionId: 1n

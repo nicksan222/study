@@ -27,7 +27,7 @@ import {
 } from '@study/contracts/sources/rpc';
 import { documentSchema, sourceSchema } from '@study/contracts/sources/schemas';
 import { MAX_SOURCE_BYTES, sourceKindSchema } from '@study/contracts/sources/sniff';
-import { and, desc, eq, getTableColumns, lt } from '@study/db';
+import { isNull, and, desc, eq, getTableColumns, lt } from '@study/db';
 import * as tables from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -176,8 +176,7 @@ export const SourceStore = defineStore({
     function documentVersionReferences() {
       return db.orm
         .select({
-          id: tables.material_document_versions.version_id,
-          projectId: tables.material_versions.project_id
+          id: tables.material_document_versions.version_id
         })
         .from(tables.material_document_versions)
         .innerJoin(
@@ -408,47 +407,6 @@ export const SourceStore = defineStore({
                 .get()
             )
               throw new StudyError('not_found', 'project not found');
-
-            for (const table of [
-              tables.material_file_versions,
-              tables.material_audio_versions,
-              tables.material_video_versions,
-              tables.material_image_versions,
-              tables.material_link_versions
-            ]) {
-              const refs = db.orm
-                .select({ projectId: tables.material_versions.project_id })
-                .from(table)
-                .innerJoin(
-                  tables.material_versions,
-                  eq(tables.material_versions.id, table.version_id)
-                )
-                .where(eq(table.source_id, input.id))
-                .all();
-
-              if (refs.some((ref) => ref.projectId !== input.projectId))
-                throw new StudyError('invalid_input', 'material source ownership is immutable');
-            }
-
-            const refs = documentVersionReferences()
-              .where(eq(tables.documents.source_id, input.id))
-              .all();
-            const attachments = db.orm
-              .select({ projectId: tables.sessions.project_id })
-              .from(tables.message_parts)
-              .innerJoin(tables.messages, eq(tables.messages.id, tables.message_parts.message_id))
-              .innerJoin(tables.sessions, eq(tables.sessions.id, tables.messages.session_id))
-              .where(eq(tables.message_parts.source_id, input.id))
-              .all();
-
-            if (
-              refs.some((ref) => ref.projectId !== input.projectId) ||
-              attachments.some((ref) => ref.projectId !== input.projectId)
-            )
-              throw new StudyError(
-                'invalid_input',
-                'source ownership is incompatible with existing references'
-              );
 
             db.orm
               .update(tables.sources)
@@ -699,7 +657,7 @@ export const HistoricalDocumentStore = defineStore({
           input: Schema.Struct({
             id: documentIdSchema,
             sourceId: sourceIdSchema,
-            projectId: projectIdSchema
+            projectId: Schema.NullOr(projectIdSchema)
           }),
           output: Schema.Struct({ id: documentIdSchema, document: documentSchema }),
           run: (input) => {
@@ -711,7 +669,9 @@ export const HistoricalDocumentStore = defineStore({
                 and(
                   eq(tables.documents.id, input.id),
                   eq(tables.sources.id, input.sourceId),
-                  eq(tables.sources.project_id, input.projectId)
+                  input.projectId === null
+                    ? isNull(tables.sources.project_id)
+                    : eq(tables.sources.project_id, input.projectId)
                 )
               )
               .get();

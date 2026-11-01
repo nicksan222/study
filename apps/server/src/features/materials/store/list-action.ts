@@ -12,13 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
 import type { MaterialId } from '@study/contracts/ids';
 import type { materialsInputSchema } from '@study/contracts/materials/rpc';
 
 type Input = typeof materialsInputSchema.Type;
 
-import { and, asc, desc, eq, gt, isNotNull, isNull, lt } from '@study/db';
+import { and, asc, desc, eq, gt, isNotNull, isNull, lt, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 
 import { makeReads, required } from '#server/features/materials/store/reads';
@@ -28,25 +27,31 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 export function makeListAction(resources: StoreResources) {
   const { db: store } = resources;
   const { materialRow, readMaterialSummaries } = makeReads(resources);
-  const { assertProject, assertSession } = makeWrites(resources);
+  const { assertProject, assertSession, assertMembership } = makeWrites(resources);
   const list = (input: Input) => {
-    assertProject(input.projectId);
+    if (input.projectId !== undefined) assertProject(input.projectId);
     const filters = [
-      eq(s.materials.project_id, input.projectId),
+      input.projectId === undefined
+        ? undefined
+        : inArray(
+            s.materials.id,
+            store.orm
+              .select({ id: s.project_materials.material_id })
+              .from(s.project_materials)
+              .where(eq(s.project_materials.project_id, input.projectId))
+          ),
       input.archived ? isNotNull(s.materials.archived_at) : isNull(s.materials.archived_at)
     ];
 
     if (input.cursor !== undefined) {
-      const cursor = materialRow(input.cursor);
-
-      if (cursor.project_id !== input.projectId)
-        throw new StudyError('invalid_input', 'Invalid material cursor');
+      materialRow(input.cursor);
+      if (input.projectId !== undefined) assertMembership(input.projectId, input.cursor);
     }
 
     let ids: MaterialId[];
 
     if (input.sessionId !== undefined) {
-      assertSession(input.sessionId, input.projectId);
+      assertSession(input.sessionId);
       const cursor =
         input.cursor === undefined
           ? undefined

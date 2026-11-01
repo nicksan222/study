@@ -233,7 +233,13 @@ function makePractice(resources: StoreResources) {
         .where(
           and(
             eq(s.material_versions.id, id),
-            eq(s.material_versions.project_id, projectId),
+            inArray(
+              s.material_versions.material_id,
+              db.orm
+                .select({ id: s.project_materials.material_id })
+                .from(s.project_materials)
+                .where(eq(s.project_materials.project_id, projectId))
+            ),
             eq(s.material_versions.kind, 'document'),
             eq(s.material_versions.status, 'published')
           )
@@ -357,7 +363,13 @@ function makePractice(resources: StoreResources) {
       .where(
         and(
           eq(s.material_versions.id, versionId),
-          eq(s.material_versions.project_id, row.project_id),
+          inArray(
+            s.material_versions.material_id,
+            db.orm
+              .select({ id: s.project_materials.material_id })
+              .from(s.project_materials)
+              .where(eq(s.project_materials.project_id, row.project_id))
+          ),
           eq(s.material_versions.kind, 'quiz'),
           eq(s.material_versions.status, 'published'),
           eq(s.material_versions.generation_request_id, slotId)

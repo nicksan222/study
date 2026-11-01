@@ -49,7 +49,7 @@ beforeEach(() => {
     items: [
       {
         id: 42n,
-        projectId: 1n,
+        projectIds: [1n],
         title: 'Cell division',
         titleSource: 'user',
         createdAt: 0n,
@@ -57,7 +57,7 @@ beforeEach(() => {
       },
       {
         id: 43n,
-        projectId: 2n,
+        projectIds: [2n],
         title: 'Roman Republic',
         titleSource: 'user',
         createdAt: 0n,
@@ -87,7 +87,7 @@ it('searches within the selected subject and opens a result', async () => {
         kind: 'session',
         title: 'Cell division',
         at: 0n,
-        target: { type: 'session', projectId: 1n, sessionId: 9n }
+        target: { type: 'session', sessionId: 9n }
       }
     ]
   });
@@ -261,8 +261,8 @@ it('mixes sources and diagrams in Library while keeping Sessions separate', asyn
   });
   api.materials.mockResolvedValue({
     items: [
-      { id: 10n, title: 'Cell map', project_id: 1n, kind: 'diagram', updated_at: 0n },
-      { id: 20n, title: 'Cell cards', project_id: 1n, kind: 'flashcards', updated_at: 0n }
+      { id: 10n, title: 'Cell map', projectIds: [1n], kind: 'diagram', updated_at: 0n },
+      { id: 20n, title: 'Cell cards', projectIds: [1n], kind: 'flashcards', updated_at: 0n }
     ],
     nextCursor: null
   });
@@ -289,12 +289,14 @@ it('lists flashcards and quizzes together and follows material pagination', asyn
     Promise.resolve(
       cursor
         ? {
-            items: [{ id: 22n, title: 'Cell quiz', project_id: 1n, kind: 'quiz', updated_at: 0n }],
+            items: [
+              { id: 22n, title: 'Cell quiz', projectIds: [1n], kind: 'quiz', updated_at: 0n }
+            ],
             nextCursor: null
           }
         : {
             items: [
-              { id: 21n, title: 'Cell cards', project_id: 1n, kind: 'flashcards', updated_at: 0n }
+              { id: 21n, title: 'Cell cards', projectIds: [1n], kind: 'flashcards', updated_at: 0n }
             ],
             nextCursor: 21n
           }
@@ -333,7 +335,7 @@ it('loads later project and session pages', async () => {
             items: [
               {
                 id: 43n,
-                projectId: 1n,
+                projectIds: [1n],
                 title: 'Later session',
                 titleSource: 'user',
                 createdAt: 0n,
@@ -382,7 +384,7 @@ it.each([
         kind: 'material',
         title: 'Cell study',
         at: 0n,
-        target: { type: 'material', projectId: 1n, materialId: 8n, versionId: 9n, materialKind }
+        target: { type: 'material', materialId: 8n, versionId: 9n, materialKind }
       }
     ]
   });
@@ -393,7 +395,7 @@ it.each([
   await user.type(screen.getByRole('searchbox'), 'cell');
   await user.click(await screen.findByRole('link', { name: /Cell study/ }));
   await waitFor(() =>
-    expect(location.pathname + location.search).toBe(`/${page.toLowerCase()}?project=1&material=8`)
+    expect(location.pathname + location.search).toBe(`/${page.toLowerCase()}?material=8`)
   );
 });
 
@@ -483,7 +485,7 @@ it('reloads library data from the selected project search dependency', async () 
       items: [
         {
           id: projectId,
-          project_id: projectId,
+          projectIds: [projectId],
           kind: 'diagram',
           title: projectId === 1n ? 'Biology map' : 'History map',
           updated_at: 0n
@@ -520,7 +522,7 @@ it('refreshes an initial session request after a session is created', async () =
     items: [
       {
         id: 7n,
-        projectId: 1n,
+        projectIds: [1n],
         title: 'Created session',
         titleSource: 'user',
         createdAt: 0n,

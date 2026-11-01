@@ -9,7 +9,10 @@ export function resultLocation(hit: SearchResults['hits'][number], project?: Pro
     case 'session':
       return {
         to: '/sessions',
-        search: { project: String(hit.target.projectId), id: String(hit.target.sessionId) }
+        search: {
+          ...(project ? { project: String(project) } : {}),
+          id: String(hit.target.sessionId)
+        }
       } as const;
     case 'material':
       return {
@@ -21,12 +24,18 @@ export function resultLocation(hit: SearchResults['hits'][number], project?: Pro
               : hit.target.materialKind === 'quiz'
                 ? '/practice'
                 : '/media-list',
-        search: { project: String(hit.target.projectId), material: String(hit.target.materialId) }
+        search: {
+          ...(project ? { project: String(project) } : {}),
+          material: String(hit.target.materialId)
+        }
       } as const;
     case 'question':
       return {
         to: '/practice',
-        search: { project: String(hit.target.projectId), material: String(hit.target.materialId) }
+        search: {
+          ...(project ? { project: String(project) } : {}),
+          material: String(hit.target.materialId)
+        }
       } as const;
     case 'source':
       return {

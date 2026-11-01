@@ -10,8 +10,8 @@ export type ItemFilter = 'all' | 'session' | 'source' | 'diagram' | 'flashcards'
 
 export function libraryItems(
   section: 'library' | 'practice',
-  sources: Sources,
-  materials: Materials,
+  sources: readonly Sources[number][],
+  materials: readonly Materials[number][],
   project?: ProjectId
 ): LibraryItem[] {
   const items: LibraryItem[] = [
@@ -21,7 +21,7 @@ export function libraryItems(
     ...materials
       .filter(
         (material) =>
-          (!project || material.project_id === project) &&
+          (!project || material.projectIds.includes(project)) &&
           (section === 'library'
             ? material.kind === 'diagram'
             : material.kind === 'flashcards' || material.kind === 'quiz')

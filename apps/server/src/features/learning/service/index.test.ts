@@ -18,10 +18,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
+import { projectIdSchema } from '@study/contracts/ids';
 import type { QuizAttemptId, QuizChoiceId } from '@study/contracts/ids';
 import { eq } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { Effect, Layer, Option } from 'effect';
+import { Effect, Layer, Option, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
@@ -42,6 +43,15 @@ test('missing attempts are optional or typed failures', async () => {
 
         assert.ok(Option.isNone(yield* learning.findAttempt(id)));
         assert.equal((yield* Effect.flip(learning.attempt(id))).kind, 'not_found');
+        const projectId = Schema.decodeUnknownSync(projectIdSchema)(999n);
+        assert.equal(
+          (yield* Effect.flip(learning.dueCards({ projectId, limit: 10 }))).kind,
+          'not_found'
+        );
+        assert.equal(
+          (yield* Effect.flip(learning.attempts({ projectId, limit: 10 }))).kind,
+          'not_found'
+        );
       }).pipe(
         Effect.provide(
           Learning.layer
@@ -74,14 +84,16 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
       .get()!;
     const material = db
       .insert(s.materials)
-      .values({ project_id: project.id, kind: 'quiz', title: 'Q', created_at: 1n, updated_at: 1n })
+      .values({ kind: 'quiz', title: 'Q', created_at: 1n, updated_at: 1n })
       .returning()
       .get()!;
+    db.insert(s.project_materials)
+      .values({ project_id: project.id, material_id: material.id })
+      .run();
     const version = db
       .insert(s.material_versions)
       .values({
         material_id: material.id,
-        project_id: project.id,
         kind: 'quiz',
         number: 1n,
         created_at: 1n
@@ -141,15 +153,13 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
       .set({ status: 'published', published_at: 1n })
       .where(eq(s.material_versions.id, version.id))
       .run();
-    const otherProject = db
-      .insert(s.projects)
+    db.insert(s.projects)
       .values({ name: 'Other', created_at: 1n, updated_at: 1n })
       .returning()
       .get();
     const otherMaterial = db
       .insert(s.materials)
       .values({
-        project_id: otherProject.id,
         kind: 'quiz',
         title: 'Other',
         created_at: 1n,
@@ -161,7 +171,6 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
       .insert(s.material_versions)
       .values({
         material_id: otherMaterial.id,
-        project_id: otherProject.id,
         kind: 'quiz',
         number: 1n,
         created_at: 1n
@@ -193,7 +202,6 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
       .insert(s.material_versions)
       .values({
         material_id: material.id,
-        project_id: project.id,
         kind: 'quiz',
         number: 2n,
         created_at: 1n
@@ -289,7 +297,7 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
         assert.equal(snapshot.referenceAnswer, 'Reference');
         assert.equal(snapshot.learnerAnswer, 'answer');
         assert.equal(snapshot.versionId, version.id);
-        assert.equal(snapshot.projectId, project.id);
+
         assert.equal(
           (yield* Effect.flip(learning.gradingSnapshot({ ...event, eventId: 'forged' }))).kind,
           'invalid_input'
@@ -387,7 +395,6 @@ test('daily allowance limits new cards and review schedules persist', async () =
     const material = db
       .insert(s.materials)
       .values({
-        project_id: project.id,
         kind: 'flashcards',
         title: 'Deck',
         created_at: 1n,
@@ -395,11 +402,13 @@ test('daily allowance limits new cards and review schedules persist', async () =
       })
       .returning()
       .get()!;
+    db.insert(s.project_materials)
+      .values({ project_id: project.id, material_id: material.id })
+      .run();
     const version = db
       .insert(s.material_versions)
       .values({
         material_id: material.id,
-        project_id: project.id,
         kind: 'flashcards',
         number: 1n,
         created_at: 1n

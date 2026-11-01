@@ -9,12 +9,13 @@ test('practice keeps bounded immutable slots and durable control epochs', () => 
 
   try {
     db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1);
-      INSERT INTO materials(id,project_id,kind,title,created_at,updated_at) VALUES(1,1,'document','Input',1,1);
-      INSERT INTO material_versions(id,material_id,project_id,kind,number,created_at) VALUES(1,1,1,'document',1,1);
+      INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'document','Input',1,1);
+      INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'document',1,1);
       INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,1,'{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
       INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','Evidence','{"type":"page","page":1}');
       INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1);
       UPDATE material_versions SET status='published',published_at=2 WHERE id=1;
+      INSERT INTO project_materials(project_id,material_id) SELECT 1,id FROM materials;
       INSERT INTO learning_practice_controls(project_id,epoch,enabled) VALUES(1,'epoch',1);
       INSERT INTO learning_practice_slots(id,project_id,epoch,ordinal,kind,status,input_version_ids)
       VALUES('slot-0',1,'epoch',0,'choice','pending','["1"]'),('slot-1',1,'epoch',1,'choice','pending','["1"]');`);

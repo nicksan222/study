@@ -86,7 +86,6 @@ function makeHelpers({ db, clock }: StoreResources) {
     if (
       !session ||
       !matchesTitleRequest() ||
-      session.project_id !== event.projectId ||
       session.context_revision !== event.contextRevision ||
       session.title_source === 'user'
     )
@@ -156,7 +155,6 @@ export const TitleStore = defineStore({
 
             return {
               ...input,
-              projectId: session.project_id,
               contextRevision: session.context_revision,
               titleSource: session.title_source,
               title: session.title,

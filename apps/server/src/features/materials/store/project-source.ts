@@ -82,7 +82,6 @@ export function makeProjectSource(resources: StoreResources) {
             eq(table.source_id, event.sourceId),
             eq(s.material_source_snapshots.revision, BigInt(event.inputVersion)),
             eq(s.material_versions.operation, 'original'),
-            eq(s.material_versions.project_id, event.projectId),
             isNull(s.materials.archived_at),
             eq(s.material_versions.status, 'published')
           )
@@ -165,7 +164,6 @@ export function makeProjectSource(resources: StoreResources) {
       .where(
         and(
           eq(s.material_version_inputs.input_version_id, originalId),
-          eq(s.material_versions.project_id, event.projectId),
           isNull(s.materials.archived_at),
           eq(s.material_document_versions.document_id, event.documentId),
           eq(s.material_versions.operation, operation),

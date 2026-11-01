@@ -12,8 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import type { attemptsInputSchema } from '@study/contracts/learning/rpc';
-import { and, desc, eq, lt } from '@study/db';
+import { inArray, and, desc, eq, lt } from '@study/db';
 import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -24,11 +25,16 @@ type Input = typeof attemptsInputSchema.Type;
 export function makeListAttempts(resources: StoreResources) {
   const { db } = resources;
   const listAttempts = (input: Input) => {
+    if (
+      input.projectId !== undefined &&
+      !db.orm.select().from(s.projects).where(eq(s.projects.id, input.projectId)).get()
+    )
+      throw new StudyError('not_found', 'Collection scope is unavailable');
+
     const rows = db.orm
       .select({
         attempt: s.material_quiz_attempts,
-        materialId: s.material_versions.material_id,
-        projectId: s.material_versions.project_id
+        materialId: s.material_versions.material_id
       })
       .from(s.material_quiz_attempts)
       .innerJoin(
@@ -37,7 +43,15 @@ export function makeListAttempts(resources: StoreResources) {
       )
       .where(
         and(
-          input.projectId ? eq(s.material_versions.project_id, input.projectId) : undefined,
+          input.projectId
+            ? inArray(
+                s.material_versions.material_id,
+                db.orm
+                  .select({ id: s.project_materials.material_id })
+                  .from(s.project_materials)
+                  .where(eq(s.project_materials.project_id, input.projectId))
+              )
+            : undefined,
           input.materialId ? eq(s.material_versions.material_id, input.materialId) : undefined,
           input.cursor ? lt(s.material_quiz_attempts.id, input.cursor) : undefined
         )

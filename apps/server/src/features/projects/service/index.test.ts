@@ -101,7 +101,7 @@ test('large project IDs survive reads and deletion cascades, while constraints r
         yield* Effect.flip(projects.renameProject({ id, name: 'New' }));
         assert.equal((yield* projects.project(id)).name, 'Large');
         assert.equal(yield* projects.deleteProject({ id }), true);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM sources`).length, 0);
+        assert.equal(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
       }).pipe(Effect.provide(layer))
     );
     assert.throws(() =>
