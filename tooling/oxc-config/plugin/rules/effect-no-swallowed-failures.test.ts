@@ -66,3 +66,19 @@ test('enforces the Effect contract in browser operations', () => {
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('checks extracted recovery handlers without following mutable or shadowed functions', () => {
+  assertDiagnostics(
+    'effect-no-swallowed-failures',
+    lintRule('effect-no-swallowed-failures', {
+      'src/bad.ts':
+        "import {Effect as E} from 'effect'; const ignore = () => E.void; const alias = ignore; E.catch(alias); function fallback() { return E.succeed(null); } E.catchCause(task, fallback);",
+      'src/good.ts':
+        "import {Effect as E} from 'effect'; const propagate = error => E.fail(error); E.catch(propagate); let mutable = () => E.void; E.catch(mutable); const ignore = () => E.void; function f(ignore: any) { E.catch(ignore); } function same(same: any) { E.catch(same); }"
+    }),
+    [
+      ['src/bad.ts', message],
+      ['src/bad.ts', message]
+    ]
+  );
+});

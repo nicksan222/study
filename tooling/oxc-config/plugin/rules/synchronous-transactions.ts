@@ -232,11 +232,13 @@ export function callbackTarget(context: any, node: any, seen = new Set<any>()): 
 
   if (node.type !== 'Identifier') return;
 
-  const definition = binding(context, node)?.defs[0]?.node;
+  const definition = binding(context, node)?.defs[0];
 
-  if (definition?.type === 'FunctionDeclaration') return definition;
+  if (definition?.type === 'FunctionName' && definition.node.type === 'FunctionDeclaration')
+    return definition.node;
 
-  if (constantDeclarator(definition)) return callbackTarget(context, definition.init, seen);
+  if (constantDeclarator(definition?.node))
+    return callbackTarget(context, definition.node.init, seen);
 }
 
 export function transactionCallbacks(context: any, program: any): Set<any> {

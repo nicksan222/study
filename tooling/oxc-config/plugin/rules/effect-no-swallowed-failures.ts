@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';
+import { callbackTarget } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -24,9 +25,10 @@ export default defineRule({
       return node.type === 'CallExpression' && bindings.resolve(node.callee) === 'Effect.succeed';
     }
 
-    function silent(callback: any): boolean {
-      if (!callback || !['ArrowFunctionExpression', 'FunctionExpression'].includes(callback.type))
-        return false;
+    function silent(value: any): boolean {
+      const callback = callbackTarget(context, value);
+
+      if (!callback) return false;
 
       if (callback.body.type !== 'BlockStatement') return fallback(callback.body);
 
