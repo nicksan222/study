@@ -3,6 +3,7 @@ import { defineRule } from 'vite-plus/lint/plugins';
 import { effectBindings, propertyName } from '../effect-bindings.ts';
 import { enterNode, constantDeclarator, globalMember, binding } from '../lexical-bindings.ts';
 import { businessFile, property, walk } from './effect-lifecycle-syntax.ts';
+import { callbackTarget } from './synchronous-transactions.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -11,6 +12,7 @@ export default defineRule({
 
     const bindings = effectBindings(context);
     const fetchImports = new Set<any>();
+    const bridges = new Map<any, { api: string; signal: any }>();
 
     function nativeFetch(node: any, seen = new Set<any>()): boolean {
       if (!enterNode(node, seen)) return false;
@@ -26,6 +28,13 @@ export default defineRule({
       }
 
       return globalMember(context, node, ['globalThis'], ['fetch']);
+    }
+
+    function owner(node: any): any {
+      for (let parent = node.parent; parent; parent = parent.parent)
+        if (bridges.has(parent)) return parent;
+
+      return null;
     }
 
     return {
@@ -46,28 +55,40 @@ export default defineRule({
         }
       },
       CallExpression(node) {
-        if (bindings.resolve(node.callee) !== 'Effect.tryPromise') return;
+        const api = bindings.resolve(node.callee);
+
+        if (api !== 'Effect.tryPromise' && api !== 'Effect.callback') return;
 
         const options = node.arguments[0];
-        const callback = property(options, 'try') ?? options;
+        const callback = callbackTarget(
+          context,
+          api === 'Effect.tryPromise' ? (property(options, 'try') ?? options) : options
+        );
 
-        if (callback?.type !== 'ArrowFunctionExpression' && callback?.type !== 'FunctionExpression')
-          return;
+        if (!callback) return;
 
-        const signal = callback.params[0];
-        const signalVariable = binding(context, signal);
+        const signal = callback.params[api === 'Effect.callback' ? 1 : 0];
 
-        walk(callback.body, (child) => {
-          if (child.type !== 'CallExpression' || !nativeFetch(child.callee)) return;
+        bridges.set(callback, { api, signal: binding(context, signal) });
+      },
+      'Program:exit'() {
+        for (const [callback, bridge] of bridges)
+          walk(callback.body, (child) => {
+            if (
+              child.type !== 'CallExpression' ||
+              !nativeFetch(child.callee) ||
+              owner(child) !== callback
+            )
+              return;
 
-          const supplied = property(child.arguments[1], 'signal');
+            const supplied = property(child.arguments[1], 'signal');
 
-          if (!signalVariable || binding(context, supplied) !== signalVariable)
-            context.report({
-              node: child,
-              message: 'Pass the Effect.tryPromise cancellation signal to fetch.'
-            });
-        });
+            if (!bridge.signal || binding(context, supplied) !== bridge.signal)
+              context.report({
+                node: child,
+                message: `Pass the ${bridge.api} cancellation signal to fetch.`
+              });
+          });
       }
     };
   }
