@@ -1,59 +1,16 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 
-import { root } from '../test/utils.ts';
+import { lintRulePaths } from '../test/utils.ts';
 
 function lint(files: Record<string, string>) {
-  const dir = mkdtempSync(join(tmpdir(), 'factory-rule-'));
+  const sources = Object.fromEntries(
+    Object.entries(files).map(([path, source]) => [`apps/server/src/features/${path}`, source])
+  );
 
-  try {
-    symlinkSync(join(root, 'node_modules'), join(dir, 'node_modules'), 'dir');
-    writeFileSync(
-      join(dir, 'plugin.mjs'),
-      `import { definePlugin } from 'vite-plus/lint/plugins';\nimport rules from ${JSON.stringify(join(root, 'tooling/oxc-config/plugin/factory-rules.ts'))};\nexport default definePlugin({ meta: { name: 'study' }, rules });`
-    );
-    writeFileSync(
-      join(dir, 'config.json'),
-      JSON.stringify({
-        jsPlugins: [{ name: 'study', specifier: join(dir, 'plugin.mjs') }],
-        categories: { correctness: 'off' },
-        rules: { 'study/module-factories': 'error' }
-      })
-    );
-
-    for (const [path, source] of Object.entries(files)) {
-      const file = join(dir, 'apps/server/src/features', path);
-
-      mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, source);
-    }
-
-    const result = spawnSync(
-      join(root, 'node_modules/.bin/oxlint'),
-      [
-        '--config',
-        join(dir, 'config.json'),
-        '--no-ignore',
-        '--format',
-        'json',
-        join(dir, 'apps/server')
-      ],
-      { encoding: 'utf8', cwd: root }
-    );
-
-    assert.ifError(result.error);
-    assert.ok(result.status === 0 || result.status === 1, result.stderr);
-
-    return (JSON.parse(result.stdout) as { diagnostics: { filename: string }[] }).diagnostics
-      .map((d) => d.filename.split('/features/')[1])
-      .sort();
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  return lintRulePaths('module-factories', sources).map((path) =>
+    path.slice('apps/server/src/features/'.length)
+  );
 }
 
 test('only canonical factory results and their service layers are public', () => {
