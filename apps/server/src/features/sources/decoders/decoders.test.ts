@@ -292,3 +292,58 @@ test('source anchor validation rejects nonfinite, fractional, reversed and nonpo
   ])
     assert.equal(Schema.is(anchorSchema)(anchor), false);
 });
+
+test('HTML preserves empty list ancestors without inventing continuations', async () => {
+  const { decodeHtml } = await import('#server/features/sources/decoders/html');
+  const { documentSchema } = await import('@study/contracts/sources/schemas');
+  const { Schema } = await import('effect');
+  for (const [source, depths, continuations] of [
+    ['<ul><li><ul><li>Child</li></ul></li></ul>', [0, 1], [false, false]],
+    [
+      '<ul><li><ul><li><ol><li>Child</li></ol></li></ul></li></ul>',
+      [0, 1, 2],
+      [false, false, false]
+    ],
+    [
+      '<ul><li><ul><li>Child</li></ul>After<ul><li>Second</li></ul></li></ul>',
+      [0, 1, 0, 1],
+      [false, false, true, false]
+    ]
+  ] as const) {
+    const result = decodeHtml({ bytes: bytes('<main>' + source + '</main>') });
+    assert.equal(Schema.is(documentSchema)(result), true);
+    const content = result.blocks[0]!.content;
+    assert.equal(content.type, 'list_item');
+    assert.deepEqual(
+      content.items.map((item) => item.depth),
+      depths
+    );
+    assert.deepEqual(
+      content.items.map((item) => item.continuation),
+      continuations
+    );
+    assert.equal(content.items[0]!.inlines.length, 0);
+  }
+});
+
+test('HTML table cells retain paragraphs, empty paragraphs and surrounding inline text', async () => {
+  const { decodeHtml } = await import('#server/features/sources/decoders/html');
+  const { canonicalText, documentSchema } = await import('@study/contracts/sources/schemas');
+  const { Schema } = await import('effect');
+  const result = decodeHtml({
+    bytes: bytes(
+      '<main><table><tr><td>Before<p><strong>First</strong></p><p></p><div><p>Second</p></div>After</td><td></td></tr></table></main>'
+    )
+  });
+  assert.equal(Schema.is(documentSchema)(result), true);
+  const content = result.blocks[0]!.content;
+  assert.equal(content.type, 'table');
+  const cell = content.rows[0]!.cells[0]!;
+  assert.deepEqual(
+    cell.paragraphs.map((inlines) => canonicalText({ type: 'paragraph', inlines })),
+    ['Before', 'First', '', 'Second', 'After']
+  );
+  assert.deepEqual(cell.paragraphs[1], [{ type: 'text', text: 'First', marks: ['strong'] }]);
+  assert.deepEqual(content.rows[0]!.cells[1]!.paragraphs, [[]]);
+  assert.equal(result.blocks[0]!.text, 'Before\nFirst\n\nSecond\nAfter | ');
+});

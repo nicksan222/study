@@ -121,8 +121,9 @@ export function decodeHtml(
         .each((index, item) => {
           let pending: Node[] = [];
           let continuation = false;
+          let emitted = false;
           const save = () => {
-            if (pending.length)
+            if (!emitted || pending.length) {
               items.push({
                 depth,
                 ordered: parent.type === 'tag' && parent.tagName === 'ol',
@@ -130,6 +131,8 @@ export function decodeHtml(
                 continuation,
                 inlines: inline(pending)
               });
+              emitted = true;
+            }
 
             pending = [];
           };
@@ -152,6 +155,31 @@ export function decodeHtml(
     add({ type: 'list_item', items }, node);
   }
 
+  function cellParagraphs(nodes: Node[]): Inline[][] {
+    const paragraphs: Inline[][] = [];
+    let pending: Node[] = [];
+    const save = () => {
+      if (pending.some((node) => node.type !== 'text' || node.data.trim().length > 0))
+        paragraphs.push(inline(pending));
+
+      pending = [];
+    };
+
+    for (const node of nodes) {
+      if (
+        node.type === 'tag' &&
+        ['p', 'div', 'blockquote', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(node.tagName)
+      ) {
+        save();
+        paragraphs.push(...cellParagraphs($(node).contents().toArray()));
+      } else pending.push(node);
+    }
+
+    save();
+
+    return paragraphs.length ? paragraphs : [[]];
+  }
+
   function structured(node: Node, name: string): boolean {
     if (name === 'table') {
       if ($(node).find('table').length) omissions.add('nested_table');
@@ -166,7 +194,7 @@ export function decodeHtml(
             .toArray()
             .map((cell) => ({
               header: cell.tagName === 'th',
-              paragraphs: [inline($(cell).contents().toArray())]
+              paragraphs: cellParagraphs($(cell).contents().toArray())
             }))
         }));
 

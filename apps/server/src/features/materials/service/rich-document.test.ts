@@ -170,25 +170,77 @@ test('rich Documents round-trip native RPC and reopen with exact identities, ass
             )).kind,
             'invalid_input'
           );
-          const emptyContent = { ...content, blocks: [createBlock({ type: 'table', rows: [] })] };
-          const empty = yield* client('materials.create', {
-            title: 'Empty structure',
-            projectId: setup.collection.id,
-            content: emptyContent
-          });
+          for (const rows of [
+            [],
+            [
+              {
+                cells: [
+                  { header: false, paragraphs: [[]] },
+                  { header: false, paragraphs: [[]] }
+                ]
+              }
+            ],
+            [
+              {
+                cells: [
+                  { header: false, paragraphs: [text('  ')] },
+                  { header: false, paragraphs: [text('\n')] }
+                ]
+              }
+            ]
+          ]) {
+            const emptyContent = { ...content, blocks: [createBlock({ type: 'table', rows })] };
+            const empty = yield* client('materials.create', {
+              title: 'Empty structure',
+              projectId: setup.collection.id,
+              content: emptyContent
+            });
 
-          assert.deepEqual(empty.version.content, emptyContent);
-          assert.equal(
-            (yield* Effect.flip(
-              client('materials.requestMaterialGeneration', {
-                projectId: setup.collection.id,
-                title: 'No fabricated text',
-                kind: 'diagram',
-                inputVersionIds: [empty.version.id]
-              })
-            )).kind,
-            'invalid_input'
-          );
+            assert.deepEqual(empty.version.content, emptyContent);
+            assert.equal(
+              (yield* Effect.flip(
+                client('materials.requestMaterialGeneration', {
+                  projectId: setup.collection.id,
+                  title: 'No fabricated text',
+                  kind: 'diagram',
+                  inputVersionIds: [empty.version.id]
+                })
+              )).kind,
+              'invalid_input'
+            );
+          }
+          const table = yield* client('materials.create', {
+            title: 'Real table evidence',
+            projectId: setup.collection.id,
+            content: {
+              ...content,
+              blocks: [
+                createBlock({
+                  type: 'table',
+                  rows: [
+                    {
+                      cells: [
+                        { header: false, paragraphs: [text(' | ')] },
+                        { header: false, paragraphs: [[]] }
+                      ]
+                    }
+                  ]
+                })
+              ]
+            }
+          });
+          const request = yield* client('materials.requestMaterialGeneration', {
+            projectId: setup.collection.id,
+            title: 'Actual cell text',
+            kind: 'diagram',
+            inputVersionIds: [table.version.id]
+          });
+          yield* Effect.flatMap(Materials, (materials) =>
+            materials.retryMaterialGenerationOnce({
+              requestId: request.id,
+              retryId: 'real-cell-retry'
+            })
+          ).pipe(Effect.provide(services()));
           yield* chats('conversations.deleteSession', { id: session.id });
 
           return { material, copy, revised };

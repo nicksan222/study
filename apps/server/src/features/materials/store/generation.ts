@@ -22,6 +22,8 @@ import {
   materialGenerationPayloadSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
+import { decodeBlockContent } from '@study/contracts/sources/document';
+import { hasTextualContent } from '@study/contracts/sources/schemas';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
@@ -184,12 +186,12 @@ export function makeGeneration(resources: StoreResources) {
 
   function assertTextEvidence(documentId: NonNullable<ReturnType<typeof versionDocumentId>>) {
     const blocks = db.orm
-      .select({ text: s.blocks.text })
+      .select({ content: s.blocks.content })
       .from(s.blocks)
       .where(eq(s.blocks.document_id, documentId))
       .all();
 
-    if (!blocks.some((block) => block.text.trim().length > 0))
+    if (!blocks.some((block) => hasTextualContent(decodeBlockContent(block.content))))
       throw new StudyError('invalid_input', 'Generation requires captured textual evidence');
   }
 

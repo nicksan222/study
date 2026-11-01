@@ -184,6 +184,18 @@ export function canonicalText(content: BlockContent): string {
   }
 }
 
+/** Generated table separators are structure, not captured textual evidence. */
+export function hasTextualContent(content: BlockContent): boolean {
+  if (content.type === 'table')
+    return content.rows.some((row) =>
+      row.cells.some((cell) =>
+        cell.paragraphs.some((paragraph) => inlineText(paragraph).trim().length > 0)
+      )
+    );
+
+  return canonicalText(content).trim().length > 0;
+}
+
 const blockSchema = Schema.Struct({
   id: blockIdSchema,
   kind: Schema.Literals(blockKinds),
