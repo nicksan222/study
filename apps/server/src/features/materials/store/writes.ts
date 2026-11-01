@@ -47,6 +47,7 @@ export function makeWrites(resources: StoreResources) {
 
   function assertMembership(projectId: ProjectId, materialId: MaterialId) {
     assertProject(projectId);
+
     if (
       !store.orm
         .select()

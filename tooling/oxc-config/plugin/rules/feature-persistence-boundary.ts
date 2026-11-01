@@ -5,6 +5,8 @@ import { production } from './synchronous-transactions.ts';
 
 const groups: Record<string, string[]> = {
   projects: ['projects'],
+  'projects,materials': ['project_materials'],
+  'projects,conversations': ['project_sessions'],
   sources: [
     'sources',
     'source_blobs',

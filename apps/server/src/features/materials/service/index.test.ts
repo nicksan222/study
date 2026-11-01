@@ -159,6 +159,7 @@ test('materials versions, links, citations and session membership preserve SQLit
           content,
           inputs: [foreign.version.id]
         });
+
         assert.deepEqual(shared.inputs, [foreign.version.id]);
         const session = context.db.orm
           .insert(sessions)

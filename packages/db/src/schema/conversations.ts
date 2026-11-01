@@ -223,7 +223,7 @@ export const sessions = sqliteTable(
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
-  (t) => [check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)]
+  () => [check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)]
 );
 
 export const conversation_reply_requests = sqliteTable(

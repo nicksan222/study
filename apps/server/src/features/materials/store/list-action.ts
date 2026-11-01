@@ -28,9 +28,10 @@ export function makeListAction(resources: StoreResources) {
   const { db: store } = resources;
   const { materialRow, readMaterialSummaries } = makeReads(resources);
   const { assertProject, assertSession, assertMembership } = makeWrites(resources);
-  const list = (input: Input) => {
+  const filtersFor = (input: Input) => {
     if (input.projectId !== undefined) assertProject(input.projectId);
-    const filters = [
+
+    return [
       input.projectId === undefined
         ? undefined
         : inArray(
@@ -42,9 +43,13 @@ export function makeListAction(resources: StoreResources) {
           ),
       input.archived ? isNotNull(s.materials.archived_at) : isNull(s.materials.archived_at)
     ];
+  };
+  const list = (input: Input) => {
+    const filters = filtersFor(input);
 
     if (input.cursor !== undefined) {
       materialRow(input.cursor);
+
       if (input.projectId !== undefined) assertMembership(input.projectId, input.cursor);
     }
 

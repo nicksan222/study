@@ -142,6 +142,7 @@ test('grading checkpoints provider output and fences stale and manual submission
       .values({ kind: 'quiz', title: 'Q', created_at: 1n, updated_at: 1n })
       .returning()
       .get();
+
     db.insert(s.project_materials)
       .values({ project_id: project.id, material_id: material.id })
       .run();

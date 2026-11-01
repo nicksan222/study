@@ -30,6 +30,7 @@ export const projectMaterialInputSchema = Schema.Struct({
   projectId: projectIdSchema,
   materialId: materialIdSchema
 });
+
 export const projectSessionInputSchema = Schema.Struct({
   projectId: projectIdSchema,
   sessionId: sessionIdSchema

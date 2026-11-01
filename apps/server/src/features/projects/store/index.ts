@@ -69,8 +69,10 @@ export const ProjectsStore = defineStore({
     };
     const materialMembership = (input: typeof projectMaterialInputSchema.Type, add: boolean) => {
       assertProject(input.projectId);
+
       if (!db.orm.select().from(materials).where(eq(materials.id, input.materialId)).get())
         throw new StudyError('not_found', 'Material not found');
+
       if (add)
         db.orm
           .insert(project_materials)
@@ -90,8 +92,10 @@ export const ProjectsStore = defineStore({
     };
     const sessionMembership = (input: typeof projectSessionInputSchema.Type, add: boolean) => {
       assertProject(input.projectId);
+
       if (!db.orm.select().from(sessions).where(eq(sessions.id, input.sessionId)).get())
         throw new StudyError('not_found', 'Session not found');
+
       if (add)
         db.orm
           .insert(project_sessions)
@@ -109,6 +113,7 @@ export const ProjectsStore = defineStore({
           )
           .run();
     };
+
     return {
       queries: {
         project: storeQuery({

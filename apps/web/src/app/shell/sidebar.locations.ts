@@ -3,6 +3,8 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { SearchResults } from '../../lib/study-client/operations';
 
 export function resultLocation(hit: SearchResults['hits'][number], project?: ProjectId) {
+  const projectSearch = project ? { project: String(project) } : {};
+
   switch (hit.target.type) {
     case 'project':
       return { to: '/home', search: { project: String(hit.target.id) } } as const;
@@ -10,7 +12,7 @@ export function resultLocation(hit: SearchResults['hits'][number], project?: Pro
       return {
         to: '/sessions',
         search: {
-          ...(project ? { project: String(project) } : {}),
+          ...projectSearch,
           id: String(hit.target.sessionId)
         }
       } as const;
@@ -25,7 +27,7 @@ export function resultLocation(hit: SearchResults['hits'][number], project?: Pro
                 ? '/practice'
                 : '/media-list',
         search: {
-          ...(project ? { project: String(project) } : {}),
+          ...projectSearch,
           material: String(hit.target.materialId)
         }
       } as const;
@@ -33,7 +35,7 @@ export function resultLocation(hit: SearchResults['hits'][number], project?: Pro
       return {
         to: '/practice',
         search: {
-          ...(project ? { project: String(project) } : {}),
+          ...projectSearch,
           material: String(hit.target.materialId)
         }
       } as const;
@@ -42,7 +44,7 @@ export function resultLocation(hit: SearchResults['hits'][number], project?: Pro
         to: '/media-list',
         search: {
           id: String(hit.target.sourceId),
-          ...(project ? { project: String(project) } : {})
+          ...projectSearch
         }
       } as const;
   }

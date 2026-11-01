@@ -155,6 +155,7 @@ export function makeProjectSource(resources: StoreResources) {
     }
 
     const originalVersion = required(readVersion(originalId));
+
     includeInProject(originalVersion.material_id, event.projectId);
     const original = {
       ...required(readMaterial(originalVersion.material_id)),
@@ -189,6 +190,7 @@ export function makeProjectSource(resources: StoreResources) {
 
     if (existing) {
       const version = required(readVersion(existing.id));
+
       includeInProject(version.material_id, event.projectId);
 
       extracted = { ...required(readMaterial(version.material_id)), version };

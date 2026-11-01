@@ -63,12 +63,7 @@ export function LibraryListView({
         const { Icon, labelKey } = libraryItemPresentation(kind);
         const label = t(labelKey);
         const title = item.type === 'source' ? item.value.name : item.value.title;
-        const projectId =
-          item.type === 'source'
-            ? item.value.projectId
-            : item.value.projectIds.length === 1
-              ? item.value.projectIds[0]
-              : undefined;
+        const projectId = itemProjectId(item);
         const updated = item.type === 'source' ? item.value.createdAt : item.value.updated_at;
         const owner = subjects.find((subject) => subject.id === projectId);
         const active =
@@ -121,4 +116,10 @@ function libraryItemPresentation(kind: string) {
     default:
       return { Icon: GraduationCap, labelKey: 'SidebarQuiz' as const };
   }
+}
+
+function itemProjectId(item: LibraryItem) {
+  if (item.type === 'source') return item.value.projectId;
+
+  return item.value.projectIds.length === 1 ? item.value.projectIds[0] : undefined;
 }

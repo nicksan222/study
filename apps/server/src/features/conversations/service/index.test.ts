@@ -182,6 +182,7 @@ test('explicit attachment snapshots share sources across collections and survive
           text: 'x',
           sourceIds: [foreign.id]
         });
+
         assert.equal(shared.parts[0]?.sourceId, foreign.id);
         assert.equal(
           (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.length,

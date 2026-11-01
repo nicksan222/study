@@ -269,6 +269,7 @@ test('source ingestion projects published materials and replay survives reopen',
     const reassignedEvent = await Effect.runPromise(
       Effect.gen(function* () {
         const sources = yield* Sources;
+
         yield* sources.setSourceProject({ id: event.sourceId, projectId: fixture.otherId });
         const row = context.db.orm
           .select()
@@ -276,13 +277,17 @@ test('source ingestion projects published materials and replay survives reopen',
           .all()
           .filter((entry) => entry.type === 'SourceIndexed')
           .at(-1);
+
         assert.ok(row);
         const indexed = decodeEvent(row.payload);
+
         assert.equal(indexed.type, 'SourceIndexed');
+
         return indexed;
       }).pipe(Effect.provide(services()))
     );
     const reassigned = await project('reassigned', reassignedEvent);
+
     assert.equal(reassigned.original.id, afterArchive.original.id);
     assert.equal(reassigned.extracted.id, afterArchive.extracted.id);
     assert.equal(reassigned.original.version.id, afterArchive.original.version.id);
@@ -298,6 +303,7 @@ test('source ingestion projects published materials and replay survives reopen',
           archived: false,
           limit: 10
         });
+
         assert.deepEqual(
           new Set(listed.items.map((item) => item.id)),
           new Set([reassigned.original.id, reassigned.extracted.id])
@@ -308,6 +314,7 @@ test('source ingestion projects published materials and replay survives reopen',
           title: 'Destination',
           inputVersionIds: [reassigned.extracted.version.id]
         });
+
         for (const material of [reassigned.original, reassigned.extracted])
           yield* projects.removeMaterial({ projectId: fixture.otherId, materialId: material.id });
       }).pipe(Effect.provide(services()))
@@ -323,6 +330,7 @@ test('source ingestion projects published materials and replay survives reopen',
           archived: false,
           limit: 10
         });
+
         assert.equal(
           listed.items.length,
           0,

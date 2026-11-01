@@ -43,6 +43,7 @@ it('filters by section and project and orders mixed items newest first', () => {
         created_at: 1n,
         published_at: 1n
       };
+
       return {
         ...material,
         created_at: 1n,

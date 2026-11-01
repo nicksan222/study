@@ -252,6 +252,7 @@ test('closed scopes fence direct publication of a valid generated draft', () => 
 
 test('generation publication rejects a captured input removed from its collection', () => {
   const { db, close } = fixture();
+
   try {
     db.exec(
       "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_materials WHERE material_id=1;"
@@ -266,6 +267,7 @@ test('generation publication rejects a captured input removed from its collectio
 
 test('the first generation receipt rejects an input removed after output publication', () => {
   const { db, close } = fixture();
+
   try {
     db.exec(
       "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_materials WHERE material_id=1;"
@@ -284,6 +286,7 @@ test('the first generation receipt rejects an input removed after output publica
 
 test('a committed generation receipt remains stable after its input leaves the collection', () => {
   const { db, close } = fixture();
+
   try {
     db.exec(
       "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
@@ -304,6 +307,83 @@ test('a committed generation receipt remains stable after its input leaves the c
           "' WHERE id='request'"
       )
     );
+  } finally {
+    close();
+  }
+});
+
+for (const stage of ['publication', 'receipt']) {
+  test(`every captured input needs membership at first ${stage}, even when shared elsewhere`, () => {
+    const { db, close } = fixture();
+
+    try {
+      db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(2,'Elsewhere',1,1);
+        INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(3,'document','Second input',1,1);
+        INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(4,3,'document',1,1);
+        INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM documents WHERE id=1;
+        INSERT INTO blocks(document_id,ordinal,kind,text,anchor) SELECT 3,ordinal,kind,text,anchor FROM blocks WHERE document_id=1;
+        INSERT INTO material_document_versions(version_id,document_id) VALUES(4,3);
+        UPDATE material_versions SET status='published',published_at=2 WHERE id=4;
+        INSERT INTO project_materials(project_id,material_id) VALUES(1,3),(2,3);
+        INSERT INTO material_generation_requests(id,project_id,payload,created_at)
+          VALUES('multiple',1,'{"title":"Requested","kind":"diagram","inputVersionIds":["1","4"]}',1);
+        INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('multiple',1,0),('multiple',4,1);
+        INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1),(2,4);
+        UPDATE material_versions SET generation_request_id='multiple' WHERE id=2;`);
+
+      if (stage === 'receipt')
+        db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
+
+      db.exec('DELETE FROM project_materials WHERE project_id=1 AND material_id=3');
+      const write =
+        stage === 'publication'
+          ? "UPDATE material_versions SET status='published',published_at=2 WHERE id=2"
+          : `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='multiple'`;
+
+      assert.throws(
+        () => db.exec(write),
+        (error: unknown) => error instanceof Error && 'errcode' in error && error.errcode === 1811
+      );
+      assert.equal(
+        db.orm.get("SELECT result_version_id FROM material_generation_requests WHERE id='multiple'")
+          ?.result_version_id,
+        null
+      );
+      assert.equal(
+        db.orm.get('SELECT status FROM material_versions WHERE id=2')?.status,
+        stage === 'publication' ? 'draft' : 'published'
+      );
+      db.exec('INSERT INTO project_materials(project_id,material_id) VALUES(1,3)');
+      assert.doesNotThrow(() => db.exec(write));
+      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+    } finally {
+      close();
+    }
+  });
+}
+
+test('publication cannot replace a captured revision with another revision of the same member', () => {
+  const { db, close } = fixture();
+
+  try {
+    db.exec("UPDATE material_versions SET generation_request_id='request' WHERE id=2");
+    const publish = () =>
+      db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
+
+    assert.throws(publish);
+    db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,3)');
+    assert.throws(publish);
+    db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1)');
+    assert.throws(publish);
+    db.exec('DELETE FROM material_version_inputs WHERE version_id=2 AND input_version_id=3');
+    assert.doesNotThrow(publish);
+    assert.deepEqual(
+      db.orm
+        .all('SELECT input_version_id FROM material_version_inputs WHERE version_id=2')
+        .map((row) => row.input_version_id),
+      [1n]
+    );
+    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
   } finally {
     close();
   }

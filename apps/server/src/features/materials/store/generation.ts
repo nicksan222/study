@@ -94,6 +94,7 @@ export function makeGeneration(resources: StoreResources) {
     for (const id of request.inputVersionIds) {
       const version = versionRow(id);
       const material = materialRow(version.material_id);
+
       assertMembership(request.projectId, material.id);
 
       if (
@@ -201,6 +202,7 @@ export function makeGeneration(resources: StoreResources) {
     for (const [index, id] of request.inputVersionIds.entries()) {
       const version = versionRow(id);
       const material = materialRow(version.material_id, true);
+
       assertMembership(request.projectId, material.id);
       const document = db.orm
         .select()
@@ -474,6 +476,7 @@ export function makeGeneration(resources: StoreResources) {
     projectId: Scope['projectId'];
   }) {
     assertProject(request.projectId);
+
     if (request.scopeId === undefined) return;
 
     const scope = db.orm

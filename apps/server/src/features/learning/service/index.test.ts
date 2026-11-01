@@ -44,6 +44,7 @@ test('missing attempts are optional or typed failures', async () => {
         assert.ok(Option.isNone(yield* learning.findAttempt(id)));
         assert.equal((yield* Effect.flip(learning.attempt(id))).kind, 'not_found');
         const projectId = Schema.decodeUnknownSync(projectIdSchema)(999n);
+
         assert.equal(
           (yield* Effect.flip(learning.dueCards({ projectId, limit: 10 }))).kind,
           'not_found'
@@ -87,6 +88,7 @@ test('quiz submissions preserve snapshots, validate ownership and emit a durable
       .values({ kind: 'quiz', title: 'Q', created_at: 1n, updated_at: 1n })
       .returning()
       .get()!;
+
     db.insert(s.project_materials)
       .values({ project_id: project.id, material_id: material.id })
       .run();
@@ -402,6 +404,7 @@ test('daily allowance limits new cards and review schedules persist', async () =
       })
       .returning()
       .get()!;
+
     db.insert(s.project_materials)
       .values({ project_id: project.id, material_id: material.id })
       .run();

@@ -53,6 +53,7 @@ export const SessionStore = defineStore({
           .all()
           .map((link) => link.project_id)
       );
+
     return {
       queries: {
         session: storeQuery({
@@ -119,6 +120,7 @@ export const SessionStore = defineStore({
               !db.orm.select().from(projects).where(eq(projects.id, input.project)).get()
             )
               throw new StudyError('not_found', 'Collection not found');
+
             const created = db.orm
               .insert(sessions)
               .values({
@@ -129,11 +131,13 @@ export const SessionStore = defineStore({
               })
               .returning()
               .get();
+
             if (input.project !== undefined)
               db.orm
                 .insert(project_sessions)
                 .values({ project_id: input.project, session_id: created.id })
                 .run();
+
             return present(created);
           }
         }),

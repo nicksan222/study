@@ -231,6 +231,7 @@ test('HTTP message attachments retain explicit source identity across collection
             text: '',
             sourceIds: [foreign.id]
           });
+
           assert.equal(shared.parts[0]?.sourceId, foreign.id);
           assert.equal(
             (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items

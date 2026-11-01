@@ -59,3 +59,25 @@ test('table ownership applies to contextual native factory receivers', () => {
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('collection membership writes stay with organization and the identity-creating feature', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/projects/store.ts': `import { project_materials as materials, project_sessions as sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(materials); db.delete(sessions);`,
+    'src/features/materials/store.ts': `import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(s.project_materials); db.insert(s.project_sessions);`,
+    'src/features/conversations/store.ts': `import { project_sessions, project_materials as links } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(project_sessions); db.delete(links);`,
+    'src/features/sources/store.ts': `import * as schema from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; const ns = schema; const { project_materials: links } = ns; const alias = (links as any)!; db.insert(alias); db.update(ns['project_sessions']);`,
+    'src/features/learning/store.ts': `import { project_materials, project_sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.delete(project_materials); db.delete(project_sessions);`
+  });
+
+  assert.deepEqual(
+    diagnostics.map(({ message }) => message).sort(),
+    [
+      'Feature materials may not write project_sessions.',
+      'Feature conversations may not write project_materials.',
+      'Feature sources may not write project_materials.',
+      'Feature sources may not write project_sessions.',
+      'Feature learning may not write project_materials.',
+      'Feature learning may not write project_sessions.'
+    ].sort()
+  );
+});
