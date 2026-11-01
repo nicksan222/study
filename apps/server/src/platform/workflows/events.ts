@@ -7,15 +7,16 @@ import type { ServerContext } from '#server/platform/database/context';
 
 const eventCodec = Schema.fromJsonString(Schema.toCodecJson(workflowEventSchema));
 
-export const encodeEvent = (event: WorkflowEvent): string => Schema.encodeSync(eventCodec)(event);
+export const encodeEvent: (event: WorkflowEvent) => string = Schema.encodeSync(eventCodec);
 
-export const decodeEvent = (payload: string): WorkflowEvent =>
-  Schema.decodeUnknownSync(eventCodec)(payload);
+export const decodeEvent: (payload: string) => WorkflowEvent = Schema.decodeUnknownSync(eventCodec);
+
+const validateEvent = Schema.decodeUnknownSync(workflowEventSchema);
 
 /** The outbox and the state that caused the event share the active transaction. */
 export function emitEvent(context: ServerContext, event: WorkflowEvent, createdAt: number): void {
   context.assertTransactionActive();
-  const validated = Schema.decodeUnknownSync(workflowEventSchema)(event);
+  const validated = validateEvent(event);
 
   context.db.orm
     .insert(workflowEvents)
