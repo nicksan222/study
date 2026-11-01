@@ -28,8 +28,9 @@ export default defineRule({
           const name = bindings.resolve(call.callee);
 
           if (
-            name === 'Effect.gen' ||
-            name === 'Effect.fn' ||
+            ['Effect.gen', 'Effect.fn', 'Effect.fnUntraced', 'Effect.fnUntracedEager'].includes(
+              name ?? ''
+            ) ||
             (call.callee.type === 'CallExpression' &&
               bindings.resolve(call.callee.callee) === 'Effect.fn')
           )
