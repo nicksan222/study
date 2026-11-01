@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Maps typed learning RPC requests to the learning service and exposes its browser-  │
+ * │ safe operations.                                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Delegates typed requests to the service and leaves learning rules in that layer.       │
+ * │ - Preserves the public contract while delegating domain behavior to the service.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ RPC schemas come from @study/contracts; domain decisions and persistence remain owned by │
+ * │ the learning service.                                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { LearningRpc } from '@study/contracts/learning/rpc';
 import { Effect } from 'effect';
 

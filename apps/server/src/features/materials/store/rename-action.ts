@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Updates a material title through its typed store mutation.                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Writes material names within the owning project scope.                                 │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { renameInputSchema } from '@study/contracts/materials/rpc';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';

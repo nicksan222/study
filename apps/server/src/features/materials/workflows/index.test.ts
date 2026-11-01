@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises source ingestion projection into published materials and confirms        │
+ * │ workflow replay survives database reopen.                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Combines source ingestion and material projection workflows over persistent test       │
+ * │   state.                                                                                 │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

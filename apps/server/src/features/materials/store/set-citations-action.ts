@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Replaces the citation links associated with a material version.                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Replaces citation rows atomically for the selected version.                            │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { setCitationsInputSchema } from '@study/contracts/materials/rpc';
 

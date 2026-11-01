@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the agent that generates flashcards from selected source evidence.         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Returns structured card content with evidence markers for publication validation.      │
+ * │ - Supplies localized instructions and structured input and output schemas.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The shared agent platform owns model execution; this definition provides task schemas,   │
+ * │ prompts, and feature tools.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { materialFlashcardsContentInputSchema } from '@study/contracts/materials/schemas';
 

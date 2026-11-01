@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the shared AI admission service and bounded concurrency gate. The owner    │
+ * │ limits active and waiting work while releasing permits across failure, cancellation, and │
+ * │ stream completion.                                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports Admission, AiAdmission, makeAdmission, admissionLayer. makeAdmission applies a │
+ * │   hard concurrency limit and a separate bounded waiting capacity; callers reuse the      │
+ * │   Admission owner across runtime scopes.                                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ nativeLayers creates one Admission for the App; admissionLayer exposes that same owner   │
+ * │ to service and worker layers.                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { Context, Effect, Layer, Option, Semaphore } from 'effect';
 

@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Extracts readable article or body content from HTML into canonical document blocks │
+ * │ while excluding page chrome.                                                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Source decoders convert bounded input bytes into canonical document data.              │
+ * │ - Validates format input and constructs decoded content.                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Does not choose ingestion policy or persist source state.                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { Block } from '@study/contracts/sources/document';
 import type { Document } from '@study/contracts/sources/document';
 import { loadBuffer } from 'cheerio';

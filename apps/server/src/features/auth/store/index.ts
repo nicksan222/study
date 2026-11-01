@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists the private ChatGPT account and credential-generation fence in            │
+ * │ preferences.                                                                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Updates the credential generation whenever saved account credentials change.           │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the auth service applies policy and composes    │
+ * │ these private operations.                                                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import { sql } from '@study/db';

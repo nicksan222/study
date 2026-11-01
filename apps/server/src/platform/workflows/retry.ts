@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Wraps native activities with retry policy based on typed failure kinds. Transient  │
+ * │ failures use durable delayed retries, while configuration failures register persisted    │
+ * │ waits until settings change.                                                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports retryDisposition, retryResumableActivity. Transient failures use durable       │
+ * │   delayed retries, while configuration failures register persisted waits until settings  │
+ * │   change.                                                                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Wraps native Activity execution using StudyError kinds and durable clocks/deferreds;     │
+ * │ workflow ownership protects wait registration.                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { failureSchema, isRetryable, needsSetup, StudyError } from '@study/contracts/errors';
 import type { Failure } from '@study/contracts/errors';
 import { workflow_configuration_waits } from '@study/db/schema';

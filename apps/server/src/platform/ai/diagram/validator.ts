@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates constrained Mermaid flowcharts in a short-lived worker thread. The       │
+ * │ Effect wrapper bounds execution time and ensures worker termination on completion or     │
+ * │ interruption.                                                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports diagramFeedback. It rejects unsupported directives before starting a Worker,   │
+ * │   applies a ten-second timeout, and terminates the worker in the Effect scope finalizer. │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The diagram feature calls diagramFeedback with generated Mermaid source; this module     │
+ * │ delegates parsing to diagram/worker.ts.                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { Worker } from 'node:worker_threads';
 
 import { StudyError } from '@study/contracts/errors';

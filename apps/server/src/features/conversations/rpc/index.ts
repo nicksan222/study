@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Maps typed conversation RPC requests to their corresponding conversation service   │
+ * │ operations.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Delegates request handling to the conversation service without owning domain rules.    │
+ * │ - Preserves the public contract while delegating domain behavior to the service.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ RPC schemas come from @study/contracts; domain decisions and persistence remain owned by │
+ * │ the conversations service.                                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { Effect } from 'effect';
 

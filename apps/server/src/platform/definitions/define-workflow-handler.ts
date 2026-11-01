@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Combines a versioned native workflow with its execution implementation and event   │
+ * │ subscriptions. The type boundary ensures subscribed events can populate the workflow     │
+ * │ payload.                                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports defineWorkflowHandler. The type boundary ensures subscribed events can         │
+ * │   populate the workflow payload.                                                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature modules use this typed declaration helper; it checks contracts but leaves domain │
+ * │ data and business policy in the feature.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { WorkflowEvent } from '@study/contracts/events';
 import type { Effect, Schema } from 'effect';
 import type * as Workflow from 'effect/workflow/Workflow';

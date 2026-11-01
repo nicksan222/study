@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises loopback OAuth sign-in with PKCE, callback validation, expiry, disposal, │
+ * │ and localized failure pages. Local fetch peers make token and identity handling          │
+ * │ deterministic.                                                                           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: PKCE sign-in verifies identity and returns the issued account; abandoned      │
+ * │   sign-in expires and closes its listener.                                               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts #server/platform/ai/providers/chatgpt/signin against a local HTTP peer; the test  │
+ * │ owns and closes that peer.                                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Starts the private server process from STUDY_DATABASE, serves RPC, and starts      │
+ * │ workflow workers. It reports the loopback URL and closes server and application          │
+ * │ resources on stdin EOF or termination signals.                                           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Opens App, serves RPC, starts workers, emits the endpoint JSON line, and closes        │
+ * │   resources on stdin EOF or termination signals.                                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Reads STUDY_DATABASE and owns process startup and shutdown; App owns service resources   │
+ * │ and serve owns the HTTP listener.                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { App, serve } from './index.ts';
 
 const path = process.env.STUDY_DATABASE;

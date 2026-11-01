@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates event-trigger subscription graphs and dispatches pending workflow events │
+ * │ transactionally. Each dispatch creates a deterministic execution and receipt so          │
+ * │ committed events are retried safely.                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports EventType, Trigger, validateTriggerGraph, dispatchPending. Each dispatch       │
+ * │   creates a deterministic execution and receipt so committed events are retried safely.  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature registrations and canonical WorkflowEvent schemas define dispatch inputs;        │
+ * │ workers consume rows only after transaction commit.                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import { workflowEventSchema } from '@study/contracts/events';

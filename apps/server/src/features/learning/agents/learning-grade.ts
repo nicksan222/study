@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the grading agent that evaluates a learner’s response against the supplied │
+ * │ question and answer context.                                                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Accepts grading context and returns structured evaluations through the shared agent    │
+ * │   API.                                                                                   │
+ * │ - Supplies localized instructions and structured input and output schemas.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The shared agent platform owns model execution; this definition provides task schemas,   │
+ * │ prompts, and feature tools.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { gradeInputSchema, gradeOutputSchema } from '@study/contracts/ai/grade';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';

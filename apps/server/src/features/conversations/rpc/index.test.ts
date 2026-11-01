@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises session and message RPC missing-value behavior, versioned message        │
+ * │ persistence, and isolation of attachment-thread messages.                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses the native RPC test client with a real service and isolated database fixtures.    │
+ * │ - Checks the contract through typed RPC calls and controlled feature layers.             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses the typed RPC test client and controlled feature layers; production       │
+ * │ handlers retain ownership of request behavior.                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists recording chunks and posting state in SQLite, and builds recording views  │
+ * │ and WAV exports from stored PCM.                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature stores own SQLite access and map rows to typed contracts.                      │
+ * │ - Queries or mutates feature-owned database records.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Keeps SQL and schema mapping behind typed store operations.                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { recordingIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import {

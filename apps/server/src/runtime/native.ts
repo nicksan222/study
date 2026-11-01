@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Composes feature services, RPC handlers, AI capabilities, and durable workflow     │
+ * │ layers for one application. This runtime wiring injects shared SQLite and authentication │
+ * │ owners while feature behavior remains in feature services.                               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports nativeLayers. This runtime wiring injects shared SQLite and authentication     │
+ * │   owners while feature behavior remains in feature services.                             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Receives feature-owned layers, ServerContext, AuthManager, and lifecycle controls; this  │
+ * │ composition supplies dependencies without moving feature policy.                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';

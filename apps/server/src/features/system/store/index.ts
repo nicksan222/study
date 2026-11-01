@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Projects internal search matches into typed public hits by resolving current       │
+ * │ project, source, conversation, and study-material records.                               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature stores own SQLite access and map rows to typed contracts.                      │
+ * │ - Queries or mutates feature-owned database records.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Keeps SQL and schema mapping behind typed store operations.                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { ProjectId, MaterialId, MaterialVersionId } from '@study/contracts/ids';
 import { materialKindSchema } from '@study/contracts/materials/schemas';
 import { searchInputSchema } from '@study/contracts/system/rpc';

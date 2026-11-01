@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Records a review outcome for a card derived from study material.                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Records review scheduling for cards linked to published material versions.             │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { MaterialVersionId, MaterialCardId } from '@study/contracts/ids';
 import type { reviewCardInputSchema } from '@study/contracts/learning/rpc';
 import * as s from '@study/db/schema';

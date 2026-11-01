@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Implements Effect-facing agent generation and streaming over AI SDK models. It     │
+ * │ validates inputs and outputs, adapts tools and request checks, applies admission limits, │
+ * │ and records retry behavior.                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports AgentsConfig, Agents, layer, AgentOptions, AgentProgress, generateAgent,       │
+ * │   streamAgent. Generation decodes input and output schemas; streaming emits text deltas  │
+ * │   and a validated completion event.                                                      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature agents supply AgentDefinition values; the Agents layer injects model selection,  │
+ * │ language, source search, and admission dependencies.                                     │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { StudyError, isRetryable } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';

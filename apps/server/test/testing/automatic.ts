@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Owns per-test SQLite fixtures and LIFO cleanup resources for server tests. It      │
+ * │ makes deliberate early closes safe and aggregates cleanup failures before removing       │
+ * │ fixture files.                                                                           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - registerTest creates a database per TestContext; manageResource makes early close      │
+ * │   idempotent and cleanupTestFile aggregates cleanup errors.                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Imported by preload.ts and server-test.ts; wraps @study/db/testing databases and Node    │
+ * │ TestContext cleanup hooks.                                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { TestContext } from 'node:test';
 
 import { createTestDatabase } from '@study/db/testing';

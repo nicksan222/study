@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Maps typed material RPC requests to the materials service.                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Delegates public material operations while keeping domain validation in the service.   │
+ * │ - Preserves the public contract while delegating domain behavior to the service.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ RPC schemas come from @study/contracts; domain decisions and persistence remain owned by │
+ * │ the materials service.                                                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { Effect } from 'effect';
 

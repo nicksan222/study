@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Provides shared transaction and persistence helpers for conversation records.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Centralizes transaction-backed writes for conversation persistence helpers.            │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the conversations service applies policy and    │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { SessionId } from '@study/contracts/ids';
 import { eq } from '@study/db';

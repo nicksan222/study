@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks native Effect structured generation with a grounded source tool against a   │
+ * │ local Responses API peer. The test bridge covers the initial tool-call exchange without  │
+ * │ representing production traffic.                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: native structured generation stops after a grounded tool call.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts #server/features/materials/agents/flashcards, #server/platform/ai/evidence,       │
+ * │ #server/platform/ai/providers/chatgpt/model against a local HTTP peer; the test owns and │
+ * │ closes that peer.                                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks that citations resolve only searched excerpts, evidence is bounded and      │
+ * │ deduplicated, opaque material references survive catalog sharing, and ranking handles    │
+ * │ case-insensitive matches, ties, and empty queries.                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Builds evidence catalogs directly to check citation grounding and stable ranking.      │
+ * │ - Covers malformed and boundary values without invoking provider behavior.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite exercises the shared evidence catalog directly, without database fixtures or   │
+ * │ provider requests.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

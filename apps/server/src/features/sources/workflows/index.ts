@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Runs durable source ingestion and correction activities, selecting decoders from   │
+ * │ canonical sniff results and publishing typed outcomes.                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature workflows own durable execution and scoped activity behavior.                  │
+ * │ - Coordinates workflow activities and publication outcomes.                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses feature services for state changes and platform workflow primitives for execution.  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { Failure } from '@study/contracts/errors';
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import {

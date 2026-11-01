@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Stores scoped application preferences in SQLite and exposes schema-checked         │
+ * │ settings queries and replacement mutations.                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature stores own SQLite access and map rows to typed contracts.                      │
+ * │ - Queries or mutates feature-owned database records.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Keeps SQL and schema mapping behind typed store operations.                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   appSettingsSchema,
   llmSettingsSchema,

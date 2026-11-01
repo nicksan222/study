@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Registers durable conversation workflows and handlers for processing conversation  │
+ * │ events.                                                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Connects conversation events to durable handlers and publication activities.           │
+ * │ - Uses checkpoints and publication guards around durable state changes.                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Effect Workflow owns durable execution; the conversations service owns domain writes     │
+ * │ performed by guarded activities.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   publishReplyInputSchema,
   replySnapshotSchema

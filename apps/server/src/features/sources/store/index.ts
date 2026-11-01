@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists source metadata, document revisions, processing snapshots, and anchored   │
+ * │ block corrections in SQLite.                                                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Feature stores own SQLite access and map rows to typed contracts.                      │
+ * │ - Queries or mutates feature-owned database records.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Keeps SQL and schema mapping behind typed store operations.                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';

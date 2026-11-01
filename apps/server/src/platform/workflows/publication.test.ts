@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies publication requires an activity ownership capability and that its lease  │
+ * │ is checked within the transaction. Tests also cover database identity fencing and        │
+ * │ rejection metrics.                                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: missing activity ownership is rejected; publication is fenced within the      │
+ * │   transaction by the captured activity lease.                                            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/database/database,              │
+ * │ #server/platform/definitions/define-store with real SQLite and application resources;    │
+ * │ fixture cleanup closes owned resources.                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

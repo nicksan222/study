@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Binds the public project RPC group to the project service without adding domain    │
+ * │ behavior.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - RPC handlers adapt declared schemas to the owning feature service; transport wiring    │
+ * │   stays here.                                                                            │
+ * │ - Maps declared operations to the feature service.                                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Leaves input validation and domain behavior to contracts and service.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { ProjectsRpc } from '@study/contracts/projects/rpc';
 import { Effect } from 'effect';
 

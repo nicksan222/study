@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists grading results for a learner response.                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists typed grading outcomes associated with the owning quiz attempt.               │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { gradeResponseInputSchema } from '@study/contracts/learning/rpc';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';

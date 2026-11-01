@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the conversational reply agent, including source search and numbered       │
+ * │ citation guidance.                                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Shapes model input from message history and exposes the evidence search tool.          │
+ * │ - Supplies localized instructions and structured input and output schemas.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The shared agent platform owns model execution; this definition provides task schemas,   │
+ * │ prompts, and feature tools.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { replyInputSchema, replyOutputSchema } from '@study/contracts/ai/reply';
 
 import { sourcesTool } from '#server/features/conversations/tools/sources';

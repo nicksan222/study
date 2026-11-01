@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Creates, reads, updates, and removes conversation threads.                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Scopes thread reads and writes to their owning conversation and attachments.           │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the conversations service applies policy and    │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { PartId, SessionId } from '@study/contracts/ids';
 import { eq } from '@study/db';

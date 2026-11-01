@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Provides shared input-size, cancellation, and anchored-document helpers used by    │
+ * │ source decoders.                                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Source decoders convert bounded input bytes into canonical document data.              │
+ * │ - Validates format input and constructs decoded content.                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Does not choose ingestion policy or persist source state.                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { Block, Document } from '@study/contracts/sources/document';
 

@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates PDF readability and page count before source processing delegates page   │
+ * │ transcription.                                                                           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Source decoders convert bounded input bytes into canonical document data.              │
+ * │ - Validates format input and constructs decoded content.                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Does not choose ingestion policy or persist source state.                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { PDFDocument } from 'pdf-lib';
 

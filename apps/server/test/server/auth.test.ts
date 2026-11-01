@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises ChatGPT authentication over real server RPC, including loopback PKCE     │
+ * │ callbacks, cancellation, and persistence across application reopen. It also covers       │
+ * │ request serialization and durable credential rotation.                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: ChatGPT sign-in opens a real loopback callback with PKCE and can be           │
+ * │   cancelled; duplicate finish rejects while the admitted sign-in still awaits its        │
+ * │   callback.                                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index, #server/runtime/index with real SQLite and application        │
+ * │ resources; fixture cleanup closes owned resources.                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createConnection } from 'node:net';

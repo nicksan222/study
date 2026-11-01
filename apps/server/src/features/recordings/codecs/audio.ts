@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Encodes validated little-endian PCM chunks into the application’s mono 16 kHz,     │
+ * │ 16-bit WAV format with size limits.                                                      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Recording codecs convert audio representations under bounded format rules.             │
+ * │ - Encodes and validates recording audio bytes.                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Keeps binary format handling separate from recording persistence.                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 
 export const MAX_RECORDING_SAMPLES = 16000 * 60 * 60;

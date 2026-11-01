@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates conversation operations across persistence, evidence lookup, and       │
+ * │ durable workflow requests.                                                               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Owns session, message, reply, title, and recording behavior across domain services.    │
+ * │ - Coordinates typed failures and persistence effects for feature callers.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ This is the conversations feature boundary for RPC and workflow callers; store           │
+ * │ implementations stay private to the service.                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import type {

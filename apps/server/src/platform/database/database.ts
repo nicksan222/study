@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the Effect Database capability around the server-owned SQLite context. Its │
+ * │ observer API exposes commit hints while leaving SQLite as the source of truth.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports Database, databaseChanges. Its observer API exposes commit hints while leaving │
+ * │   SQLite as the source of truth.                                                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature stores receive this capability through Effect; ServerContext owns SQLite and     │
+ * │ observers must reread persisted rows.                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { Context, Effect } from 'effect';
 
 import type { ServerContext } from './context.ts';

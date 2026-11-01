@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads and checks membership links between study sessions and materials.            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Maintains links between sessions and materials within project ownership.               │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { MaterialId, SessionId } from '@study/contracts/ids';
 import { and, desc, eq } from '@study/db';
 import * as s from '@study/db/schema';

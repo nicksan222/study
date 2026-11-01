@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies shared token refresh, durable refresh-token rotation, and invalidation    │
+ * │ behavior in AuthManager. Tests also cover stale credentials and safe failures.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: refresh is shared and persists the rotation before exposing access; failed    │
+ * │   persistence must be retried before any access or another refresh.                      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Starts #server/platform/ai/providers/chatgpt/session against a local HTTP peer; the test │
+ * │ owns and closes that peer.                                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

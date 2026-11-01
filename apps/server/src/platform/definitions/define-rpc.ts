@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Builds scoped native Effect RPC handlers from typed domain operations. It maps     │
+ * │ StudyError values into the public failure schema and adapts streams and queues at the    │
+ * │ RPC boundary.                                                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports defineRpc. It maps StudyError values into the public failure schema and adapts │
+ * │   streams and queues at the RPC boundary.                                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature modules use this typed declaration helper; it checks contracts but leaves domain │
+ * │ data and business policy in the feature.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { Failure } from '@study/contracts/errors';
 import { Effect, Stream, Queue } from 'effect';

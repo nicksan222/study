@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises typed missing-attempt failures and the practice RPC lifecycle for        │
+ * │ starting, reading, and stopping project practice.                                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Runs RPC requests with real learning services and controlled database fixtures.        │
+ * │ - Checks the contract through typed RPC calls and controlled feature layers.             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses the typed RPC test client and controlled feature layers; production       │
+ * │ handlers retain ownership of request behavior.                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

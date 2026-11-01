@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks application close is idempotent and orders worker stop/start with shutdown. │
+ * │ Resource and SQLite ownership remain valid through lifecycle transitions.                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: application close is safe to call repeatedly; worker stop and start are       │
+ * │   ordered, and application close rejects new starts.                                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/database, #server/platform/definitions/define-store,      │
+ * │ #server/runtime/service with real SQLite and application resources; fixture cleanup      │
+ * │ closes owned resources.                                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Implements synchronous SQLite persistence for workflow executions, activity        │
+ * │ checkpoints, deferreds, and clocks. Lease tokens fence stale fibers, and bounded queries │
+ * │ support durable recovery.                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports workflowStore. Lease tokens fence stale fibers, and bounded queries support    │
+ * │   durable recovery.                                                                      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses Drizzle workflow tables through ServerContext; SQLite owns durable checkpoints      │
+ * │ while fibers hold temporary leases.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { and, eq, getTableColumns, gt, inArray, isNull, lte, or, sql } from '@study/db';
 import {
   workflow_activities,

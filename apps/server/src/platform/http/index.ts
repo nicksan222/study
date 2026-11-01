@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Provides scoped HTTP fetching helpers for server integrations. It validates URLs   │
+ * │ and redirects, bounds response size and time, supports streaming bytes, and maps         │
+ * │ transport failures to StudyError.                                                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports FetchOptions, validateLink, fetchPage, requestBytes, runHttpPromise, and       │
+ * │   related typed APIs. It validates URLs and redirects, bounds response size and time,    │
+ * │   supports streaming bytes, and maps transport failures to StudyError.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ AI provider and source ingestion callers use this transport; request scope handles       │
+ * │ cancellation and errors are returned as StudyError.                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { Clock, Effect, Stream } from 'effect';
 import type { HttpClientResponse } from 'effect/http';

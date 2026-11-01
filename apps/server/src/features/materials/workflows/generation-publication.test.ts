@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies guarded material generation publishes once, replays its receipt without   │
+ * │ duplicate writes, and retains that receipt across database reopen and a new execution.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Reopens SQLite and retries executions to assert publication receipts remain durable.   │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

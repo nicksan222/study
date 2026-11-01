@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks recovery selects bounded eligible executions and due clocks without         │
+ * │ starvation. It also verifies subsequent batches progress while earlier work remains      │
+ * │ leased.                                                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: recovery scans bound eligible known executions and due clocks without         │
+ * │   starvation; native recovery advances to the next batch while earlier runs remain       │
+ * │   leased.                                                                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/platform/database/context, #server/platform/workflows/store with real       │
+ * │ SQLite and application resources; fixture cleanup closes owned resources.                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

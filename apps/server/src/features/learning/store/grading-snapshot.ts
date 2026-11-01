@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Loads the immutable question and answer context used to grade a response.          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Loads grading inputs from captured attempt data rather than mutable source content.    │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';

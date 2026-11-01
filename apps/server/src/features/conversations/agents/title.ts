@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the lightweight agent that proposes a short title for a study session.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Constrains title generation to short localized session names.                          │
+ * │ - Supplies localized instructions and structured input and output schemas.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The shared agent platform owns model execution; this definition provides task schemas,   │
+ * │ prompts, and feature tools.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { titleInputSchema, titleOutputSchema } from '@study/contracts/ai/title';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';

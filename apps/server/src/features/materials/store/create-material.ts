@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Inserts the material record and its initial version into the database.             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Inserts the base material row before associated version records are written.           │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { DocumentId } from '@study/contracts/ids';
 import type { MaterialDetailDto } from '@study/contracts/materials/schemas';

@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks workflow failures map to configuration waits, delayed retries, or terminal  │
+ * │ failure by their typed StudyError kind.                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: classifies workflow failures without retrying terminal errors.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/workflows/retry directly with node:test; no application or      │
+ * │ database fixture is involved.                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

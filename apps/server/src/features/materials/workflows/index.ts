@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Projects indexed source events into material records through a guarded durable     │
+ * │ workflow.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Consumes source-index events and publishes material projection through guarded         │
+ * │   activities.                                                                            │
+ * │ - Uses checkpoints and publication guards around durable state changes.                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Effect Workflow owns durable execution; the materials service owns domain writes         │
+ * │ performed by guarded activities.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { failureSchema } from '@study/contracts/errors';
 import { sourceIndexedSchema } from '@study/contracts/events';
 import { materialDetailSchema } from '@study/contracts/materials/schemas';

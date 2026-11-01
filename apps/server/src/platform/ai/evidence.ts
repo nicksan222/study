@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Builds a bounded evidence catalog from captured document blocks for agent search   │
+ * │ and citation validation. Search exposes numbered snippets, and citations are limited to  │
+ * │ snippets actually returned.                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports createEvidenceCatalog. It deduplicates document keys, caps indexed quote count │
+ * │   and size, ranks terms, and only resolves citations for returned markers.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Agent callers provide document references and blocks; the catalog bounds exposed text    │
+ * │ and does not load or persist source documents.                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 
 interface CapturedDocument<Reference> {

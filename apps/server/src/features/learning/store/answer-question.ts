@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Records a learner’s answer to an active question.                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Validates active attempt ownership before recording the learner response.              │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';

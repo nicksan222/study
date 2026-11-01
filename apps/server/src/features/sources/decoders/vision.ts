@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Converts ordered vision transcription pages and blocks into the canonical anchored │
+ * │ document representation.                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Source decoders convert bounded input bytes into canonical document data.              │
+ * │ - Validates format input and constructs decoded content.                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Does not choose ingestion policy or persist source state.                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { visionTranscriptionOutputSchema } from '@study/contracts/ai/vision-transcription';
 import { StudyError } from '@study/contracts/errors';
 import type { Document } from '@study/contracts/sources/document';

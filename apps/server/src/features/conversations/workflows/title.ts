@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Runs title generation as a resumable workflow and records its result through the   │
+ * │ conversation service.                                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Runs title requests through durable activities before publishing a session update.     │
+ * │ - Uses checkpoints and publication guards around durable state changes.                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Effect Workflow owns durable execution; the conversations service owns domain writes     │
+ * │ performed by guarded activities.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   publishTitleInputSchema,
   titleRequestSchema

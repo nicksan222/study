@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Projects an indexed source into linked material records and extracted content.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Creates or updates source-derived materials from indexed source data.                  │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';

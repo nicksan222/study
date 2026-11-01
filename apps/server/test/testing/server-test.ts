@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Builds reusable server test resources over the per-test database fixture. It       │
+ * │ lazily opens one application per test and registers application, database, and custom    │
+ * │ resources for cleanup.                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - createServerTest lazily opens one App per TestState and exposes managed database,      │
+ * │   application, wake, and disposal helpers.                                               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Consumes automatic.ts TestState and runtime App; Node TestContext hooks own cleanup of   │
+ * │ registered resources.                                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { TestContext } from 'node:test';
 
 import { Db } from '@study/db';

@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Binds the source RPC contract to source service operations and export queries.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - RPC handlers adapt declared schemas to the owning feature service; transport wiring    │
+ * │   stays here.                                                                            │
+ * │ - Maps declared operations to the feature service.                                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Leaves input validation and domain behavior to contracts and service.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { Effect } from 'effect';
 

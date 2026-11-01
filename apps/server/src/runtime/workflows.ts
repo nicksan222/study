@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Collects feature-owned versioned workflow registrations into the application       │
+ * │ layer, trigger list, and definition list. Runtime dispatch and recovery consume these    │
+ * │ shared registration collections.                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports workflowHandlers, workflowTriggers, workflowDefinitions. Runtime dispatch and  │
+ * │   recovery consume these shared registration collections.                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Imports feature registrations; Workers consumes their layers, event subscriptions, and   │
+ * │ workflow definitions for dispatch and recovery.                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { Layer } from 'effect';
 
 import {

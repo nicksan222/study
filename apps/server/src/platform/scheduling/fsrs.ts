@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Maps Study learning ratings and durable memory values to and from the ts-fsrs      │
+ * │ scheduler. Dates are represented as Unix seconds and invalid times or ratings become     │
+ * │ typed input errors.                                                                      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports Rating, Memory, newMemory, reviewMemory. Dates are represented as Unix seconds │
+ * │   and invalid times or ratings become typed input errors.                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Learning stores persist these memory values; this adapter maps canonical ratings to ts-  │
+ * │ fsrs without owning review records.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { learningRatingSchema } from '@study/contracts/learning/schemas';
 import { createEmptyCard, fsrs, Rating as FsrsRating } from 'ts-fsrs';

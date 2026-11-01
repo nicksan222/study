@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises worker start and stop ordering, rejection of starts during close, and    │
+ * │ concurrent lifecycle calls. Repeated stops are safe and concurrent starts share one      │
+ * │ consumer.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: a start queued behind stop restarts the worker; close rejects a queued start  │
+ * │   and leaves the worker stopped.                                                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses the server test fixture with real SQLite and application resources; fixture cleanup │
+ * │ closes owned resources.                                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

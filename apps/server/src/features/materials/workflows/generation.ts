@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Runs durable material generation: gathers cited evidence, invokes the matching     │
+ * │ agent, validates output, and publishes the resulting version.                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Owns durable orchestration and delegates domain writes to Materials service            │
+ * │   activities.                                                                            │
+ * │ - Uses checkpoints and publication guards around durable state changes.                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Effect Workflow owns durable execution; the materials service owns domain writes         │
+ * │ performed by guarded activities.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import type { Failure } from '@study/contracts/errors';
 import { materialGenerationRequestedSchema } from '@study/contracts/events';

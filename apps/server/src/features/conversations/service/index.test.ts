@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Covers session and message pagination, immutable versions, attachment ownership    │
+ * │ and snapshots, reply and title context limits, outbox rollback, thread isolation,        │
+ * │ validation, and explicit or mention-triggered replies.                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises pagination, ownership fences, captured context, and atomic outbox behavior.  │
+ * │ - Uses database fixtures to verify service-visible invariants and failures.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses real SQLite fixtures and service dependencies; domain state remains owned │
+ * │ by the feature implementation.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

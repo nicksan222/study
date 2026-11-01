@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Implements single-use loopback OAuth authorization with PKCE for the ChatGPT       │
+ * │ account flow. It validates callback state and identity claims, exchanges the code, and   │
+ * │ returns the account plus seeded access token.                                            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports SignInOptions, SignInResult, SignIn, acquireSignIn. It validates callback      │
+ * │   state and identity claims, exchanges the code, and returns the account plus seeded     │
+ * │   access token.                                                                          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ ChatGptSession and model construction consume this provider API; OAuth transport uses    │
+ * │ platform/http and persisted credentials remain in Auth-owned storage.                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';

@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks grading checkpoints provider output and rejects stale or manual             │
+ * │ submissions; practice slots reuse their generation request and ignore manual             │
+ * │ publication.                                                                             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses provider stubs and persisted workflow state to check grading fences and replay.   │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';

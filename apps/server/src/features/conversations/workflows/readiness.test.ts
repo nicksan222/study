@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Covers reply wake-up from indexed-source receipts and confirms pending replies     │
+ * │ survive database reopen and are invalidated when their context is deleted.               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Reopens the database to verify persisted readiness receipts wake pending replies.      │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';

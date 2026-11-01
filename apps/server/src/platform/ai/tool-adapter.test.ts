@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies provider preflight callbacks retain the originating Effect logger and     │
+ * │ propagate typed failures. This protects context across the callback bridge into the      │
+ * │ model request.                                                                           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: provider preflights inherit the scoped logger and preserve typed failures.    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes ./tool-adapter.ts directly with node:test; no application or database fixture is │
+ * │ involved.                                                                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

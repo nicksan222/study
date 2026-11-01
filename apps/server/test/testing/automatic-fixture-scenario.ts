@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines child-process scenarios used to exercise automatic test fixture setup,     │
+ * │ database isolation, cleanup, retries, and cleanup failures. Scenario selection is        │
+ * │ controlled by STUDY_TEST_SCENARIO.                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Branches on STUDY_TEST_SCENARIO to exercise fixture setup failures, isolated           │
+ * │   databases, cleanup retries, and concurrent test contexts.                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Launched by automatic-fixture.test.ts with STUDY_TEST_SCENARIO; it logs fixture paths so │
+ * │ the parent test can verify cleanup.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { beforeEach, test } from 'node:test';

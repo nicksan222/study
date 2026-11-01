@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks durable configuration fingerprints change when same-account credentials are │
+ * │ replaced without exposing secrets, survive application reopen, and follow current        │
+ * │ language settings per operation.                                                         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: same-account credential replacement changes the durable nonsecret             │
+ * │   fingerprint; shared agent instructions resolve the current application language per    │
+ * │   operation.                                                                             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/features/auth/index, #server/features/auth/store/index,                     │
+ * │ #server/features/settings/index with real SQLite and application resources; fixture      │
+ * │ cleanup closes owned resources.                                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

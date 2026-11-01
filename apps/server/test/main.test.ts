@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Starts the real server entrypoint as a child process and verifies native RPC       │
+ * │ writes durable project data. Both stdin EOF and SIGTERM must shut the process down       │
+ * │ cleanly.                                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: server entry serves native RPC and shuts down on <shutdown>.                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses #server/client/index with real SQLite and application resources; fixture cleanup    │
+ * │ closes owned resources.                                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';

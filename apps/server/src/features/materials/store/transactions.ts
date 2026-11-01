@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Provides transaction helpers for composing atomic material store operations.       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Keeps related material mutations atomic through shared database transactions.          │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { DrizzleQueryError } from '@study/db';
 import { Schema } from 'effect';

@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines typed learning stores for quizzes, attempts, cards, and review history.    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Provides typed persistence capabilities to the learning service implementation.        │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the learning service applies policy and         │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { quizAnswerSubmittedSchema } from '@study/contracts/events';
 import { quizAttemptIdSchema } from '@study/contracts/ids';

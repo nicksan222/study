@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates durable workflow waits for required configuration. It exposes the      │
+ * │ runtime revision capability and completes or cleans up deferred waits when a new         │
+ * │ revision is observed.                                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports WorkflowConfiguration, notifyConfigurationChanged. It exposes the runtime      │
+ * │   revision capability and completes or cleans up deferred waits when a new revision is   │
+ * │   observed.                                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Runtime supplies the configuration revision; this module completes persisted waits and   │
+ * │ removes wait rows after notification.                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { and, eq, sql } from '@study/db';
 import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';

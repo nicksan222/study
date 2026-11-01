@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines the agent that rewrites a conversation’s final message using the requested │
+ * │ instruction and available sources.                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Adds the rewrite instruction while preserving conversation history and source lookup.  │
+ * │ - Supplies localized instructions and structured input and output schemas.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The shared agent platform owns model execution; this definition provides task schemas,   │
+ * │ prompts, and feature tools.                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { replyOutputSchema } from '@study/contracts/ai/reply';
 import { rewriteAgentInputSchema } from '@study/contracts/conversations/schemas';
 

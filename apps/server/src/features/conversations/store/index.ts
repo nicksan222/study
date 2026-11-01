@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines conversation persistence stores and their typed queries and mutations.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports typed store definitions consumed by the conversation service.                  │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the conversations service applies policy and    │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   createSessionInputSchema,
   renameSessionInputSchema,

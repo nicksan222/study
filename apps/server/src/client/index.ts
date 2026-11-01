@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Creates an Effect RPC client over the browser-safe HTTP transport. It resolves the │
+ * │ host URL lazily and reuses the resolved endpoint for subsequent requests.                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports StudyClientOptions, makeStudyClient, workflowSnapshots. It resolves the host   │
+ * │   URL lazily and reuses the resolved endpoint for subsequent requests.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Consumes Study RPC contracts and Effect RPC APIs; caller scopes own network requests,    │
+ * │ subscriptions, and cancellation.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcClient, RpcSerialization } from 'effect/rpc';

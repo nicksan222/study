@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Bridges feature-owned Effect agent tools and request checks into AI SDK callbacks. │
+ * │ It carries scoped logging, tracing, cancellation, and the agent environment across that  │
+ * │ boundary.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exports adaptTool and adaptRequestCheck. Tool execution restores the captured Effect   │
+ * │   context and parent span, while the request check forwards cancellation to its signal.  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ agents.ts creates these provider callbacks from feature-owned tools and scoped Effects;  │
+ * │ this module does not define tool policy.                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { StudyError } from '@study/contracts/errors';
 import { dynamicTool } from 'ai';
 import { Effect } from 'effect';

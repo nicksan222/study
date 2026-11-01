@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies ID-based pagination performs lookahead only for full pages and returns no │
+ * │ cursor at the end. It also checks that a failure in the lookahead query is preserved.    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: ID pages only probe full pages and never expose a cursor for the final page;  │
+ * │   ID pages preserve lookahead failures.                                                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/definitions/page-by-id directly with node:test; no application  │
+ * │ or database fixture is involved.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

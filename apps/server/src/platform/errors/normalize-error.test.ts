@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks domain error identity and retry metadata survive normalization, while       │
+ * │ unknown causes receive safe public messages and retain their private cause.              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Asserts: normalization preserves domain failure identity and retry metadata;           │
+ * │   normalization classifies unknown causes without exposing their messages.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Invokes #server/platform/errors/classify-error directly with node:test; no application   │
+ * │ or database fixture is involved.                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

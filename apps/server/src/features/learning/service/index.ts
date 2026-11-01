@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates quiz, practice, grading, and spaced-review operations through learning │
+ * │ stores and agents.                                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Owns quiz attempts, practice sessions, response grading, and card scheduling.          │
+ * │ - Coordinates typed failures and persistence effects for feature callers.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ This is the learning feature boundary for RPC and workflow callers; store                │
+ * │ implementations stay private to the service.                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash, randomUUID } from 'node:crypto';
 
 import type { ErrorKind } from '@study/contracts/errors';

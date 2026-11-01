@@ -1,3 +1,18 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies the auth RPC exposes only safe account fields and the six supported sign- │
+ * │ in, status, and sign-out operations.                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses an RPC test client and SQLite state to inspect the exposed contract.              │
+ * │ - Checks the contract through typed RPC calls and controlled feature layers.             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses the typed RPC test client and controlled feature layers; production       │
+ * │ handlers retain ownership of request behavior.                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
