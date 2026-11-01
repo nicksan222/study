@@ -1,5 +1,6 @@
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { StudyError, isRetryable } from '@study/contracts/errors';
+import type { ModelTier } from '@study/contracts/settings/schemas';
 import { streamText, Output, stepCountIs } from 'ai';
 import type { Cause } from 'effect';
 import { Context, Effect, Layer, Option, Queue, References, Schema, Stream } from 'effect';
@@ -9,11 +10,7 @@ import type { Admission } from '#server/platform/ai/admission';
 import { ChatGptRequestError, withRequestCheck } from '#server/platform/ai/providers/chatgpt/model';
 import { standardSchema } from '#server/platform/ai/schema';
 import { adaptTool, adaptRequestCheck } from '#server/platform/ai/tool-adapter';
-import type {
-  AgentDefinition,
-  AgentEnvironment,
-  ModelTier
-} from '#server/platform/definitions/define-agent';
+import type { AgentDefinition, AgentEnvironment } from '#server/platform/definitions/define-agent';
 import { recordAiRetry } from '#server/platform/observability/index';
 
 export interface AgentsConfig extends AgentEnvironment {
