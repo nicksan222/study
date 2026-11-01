@@ -22,11 +22,11 @@ import type {
 } from '@study/contracts/materials/schemas';
 
 import { validateDocumentTransform } from '#server/features/materials/decoders/document-transform';
+import { DocumentProposalStore } from '#server/features/materials/store/document-proposals';
 import { MaterialGenerationStore, MaterialsStore } from '#server/features/materials/store/index';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
-import { DocumentProposalStore } from '../store/document-proposals.ts';
 import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 
 type Context = typeof runSelectionContextSchema.Type;
@@ -65,6 +65,7 @@ export function requestDocumentTransform(
   }
 
   const requestId = `document/${context.requestId}`;
+
   const result = tx.store(MaterialGenerationStore).requestOnce({
     requestId,
     request: {
@@ -114,6 +115,32 @@ function publishCapturedDocument(
 
   const captured = requirePendingDocumentContext(tx, request, context);
 
+  assertCapturedTarget(tx, request, captured);
+
+  if (captured)
+    validateDocumentTransform(captured, value, request.documentTransform?.editTargetVersionId);
+
+  const result = tx.store(MaterialGenerationStore).publishGeneration({
+    ...value,
+    proposalSessionId: captured?.sessionId
+  });
+
+  if (context && result.materialId !== undefined)
+    tx.store(MaterialsStore).attach({
+      sessionId: context.sessionId,
+      materialId: result.materialId
+    });
+
+  emitGenerationPublication(tx, value.requestId, result);
+
+  return result.versionId;
+}
+
+function assertCapturedTarget(
+  tx: Transaction,
+  request: typeof materialGenerationSnapshotSchema.Type,
+  captured: Context | undefined
+) {
   if (captured && request.documentTransform?.editTargetVersionId !== undefined) {
     const targetId = request.documentTransform.editTargetVersionId;
 
@@ -127,29 +154,6 @@ function publishCapturedDocument(
 
     tx.store(DocumentProposalStore).assertEditableTarget({ versionId: targetId });
   }
-
-  if (captured)
-    validateDocumentTransform(captured, value, request.documentTransform?.editTargetVersionId);
-
-  const result = tx.store(MaterialGenerationStore).publishGeneration(value);
-
-  if (context && request.documentTransform?.editTargetVersionId !== undefined)
-    tx.store(DocumentProposalStore).registerProposal({
-      requestId: request.id,
-      sessionId: context.sessionId,
-      baseVersionId: request.documentTransform.editTargetVersionId,
-      proposedVersionId: result.versionId
-    });
-
-  if (context && result.materialId !== undefined)
-    tx.store(MaterialsStore).attach({
-      sessionId: context.sessionId,
-      materialId: result.materialId
-    });
-
-  emitGenerationPublication(tx, value.requestId, result);
-
-  return result.versionId;
 }
 
 export function retryDocumentTransform(

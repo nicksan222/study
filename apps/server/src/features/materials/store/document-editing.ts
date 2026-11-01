@@ -11,37 +11,48 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialVersionId } from '@study/contracts/ids';
 import * as contract from '@study/contracts/materials/editing';
 import {
   materialContentInputSchema,
   materialDetailSchema
 } from '@study/contracts/materials/schemas';
 import type { materialDocumentSchema } from '@study/contracts/materials/schemas';
-import { and, eq, desc, inArray } from '@study/db';
+import { and, eq, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
+import { canonicalJson } from '#server/features/materials/decoders/edit-intent';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-import { canonicalJson } from '../decoders/edit-intent.ts';
-import { makeCitations } from './citations.ts';
-import { makeCreateMaterial } from './create-material.ts';
-import { makeReads, required } from './reads.ts';
-import { makeSetCitationsAction } from './set-citations-action.ts';
+import { makeDocumentRevisions } from './document-revisions.ts';
+import { required } from './reads.ts';
 import { materialIntegrity } from './transactions.ts';
-import { makeWrites } from './writes.ts';
 
 type Document = typeof materialDocumentSchema.Type;
 
+type PositionedBlock = { block: Document['blocks'][number]; ordinal: number };
+
+function differenceKind(a: PositionedBlock | undefined, b: PositionedBlock | undefined) {
+  if (!a) return 'inserted' as const;
+
+  if (!b) return 'removed' as const;
+
+  const equal = Schema.toEquivalence(contract.documentBlockDifferenceSchema.fields.before);
+
+  if (!equal(a.block, b.block)) return 'changed' as const;
+
+  if (a.ordinal !== b.ordinal) return 'moved' as const;
+
+  return null;
+}
+
 /** Structural comparison only: position and exact canonical rich block value, never factual support. */
-export function documentDifferences(
+function documentDifferences(
   before: Document,
   after: Document
 ): (typeof contract.documentBlockDifferenceSchema.Type)[] {
-  const equal = Schema.toEquivalence(contract.documentBlockDifferenceSchema.fields.before);
-
   const left = new Map(before.blocks.map((block, ordinal) => [block.id, { block, ordinal }]));
 
   const right = new Map(after.blocks.map((block, ordinal) => [block.id, { block, ordinal }]));
@@ -50,15 +61,11 @@ export function documentDifferences(
     const a = left.get(id),
       b = right.get(id);
 
-    const kind: (typeof contract.documentBlockDifferenceSchema.Type)['kind'] | null = !a
-      ? 'inserted'
-      : !b
-        ? 'removed'
-        : !equal(a.block, b.block)
-          ? 'changed'
-          : a.ordinal !== b.ordinal
-            ? 'moved'
-            : null;
+    const kind = differenceKind(a, b);
+
+    const previous = a ?? { block: null, ordinal: null };
+
+    const next = b ?? { block: null, ordinal: null };
 
     return kind === null
       ? []
@@ -66,53 +73,28 @@ export function documentDifferences(
           {
             kind,
             blockId: id,
-            beforeOrdinal: a?.ordinal ?? null,
-            afterOrdinal: b?.ordinal ?? null,
-            before: a?.block ?? null,
-            after: b?.block ?? null
+            beforeOrdinal: previous.ordinal,
+            afterOrdinal: next.ordinal,
+            before: previous.block,
+            after: next.block
           }
         ];
   });
 }
 
-export function makeDocumentEditing(resources: StoreResources) {
+function makeDocumentEditing(resources: StoreResources) {
   const { db } = resources;
 
-  const reads = makeReads(resources);
-
-  const { insertVersion, publish } = makeWrites(resources);
-
-  const { createMaterial } = makeCreateMaterial(resources);
-
-  const { readCitations } = makeCitations(resources);
-
-  const { setCitations } = makeSetCitationsAction(resources);
-
-  function documentVersion(id: MaterialVersionId) {
-    const version = required(reads.readVersion(id));
-
-    if (version.kind !== 'document') throw new StudyError('invalid_input', 'Document required');
-
-    return version;
-  }
-
-  function head(materialId: MaterialId) {
-    reads.materialRow(materialId, true);
-
-    return required(
-      db.orm
-        .select()
-        .from(s.material_versions)
-        .where(
-          and(
-            eq(s.material_versions.material_id, materialId),
-            eq(s.material_versions.status, 'published')
-          )
-        )
-        .orderBy(desc(s.material_versions.number))
-        .get()
-    );
-  }
+  const {
+    reads,
+    insertVersion,
+    publish,
+    createMaterial,
+    readCitations,
+    setCitations,
+    documentVersion,
+    head
+  } = makeDocumentRevisions(resources);
 
   function editIntent(
     value: typeof contract.saveDocumentInputSchema.Type,
@@ -232,6 +214,7 @@ export function makeDocumentEditing(resources: StoreResources) {
   ) {
     return materialIntegrity(() => {
       const intent = editIntent(value, operation, restoreVersionId);
+
       const previous = findEditReceipt(value, operation, intent);
 
       if (previous) return previous;
@@ -241,6 +224,7 @@ export function makeDocumentEditing(resources: StoreResources) {
       if (operation === 'save') assertEditingOwnership(value);
 
       const current = head(value.materialId);
+
       const source = restorationSource(base, restoreVersionId);
 
       const inputs = source.inputs;
@@ -293,8 +277,6 @@ export function makeDocumentEditing(resources: StoreResources) {
   }
 
   return {
-    documentVersion,
-    head,
     create: (value: typeof contract.createManualDocumentSchema.Type) =>
       materialIntegrity(() => {
         const ids = value.document.blocks.map((block) => block.id);

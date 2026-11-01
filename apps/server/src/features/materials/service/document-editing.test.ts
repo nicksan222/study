@@ -53,8 +53,9 @@ test('native saves race on one expected revision, retain both rich alternatives 
 
   const handlers = () => MaterialsRpcLive.pipe(Layer.provide(services()));
 
-  const call = <A, E>(action: Effect.Effect<A, E, Context.Service.Identifier<typeof Materials>>) =>
-    Effect.runPromise(action.pipe(Effect.provide(services())));
+  const call = <A, E>(
+    action: Effect.Effect<A, E, Database | Context.Service.Identifier<typeof Materials>>
+  ) => Effect.runPromise(action.pipe(Effect.provide(services())));
 
   try {
     const stable = createBlock({ type: 'math', expression: 'x² + y²' });

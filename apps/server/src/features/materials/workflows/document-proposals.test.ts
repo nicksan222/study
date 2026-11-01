@@ -13,6 +13,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import type {
+  MaterialId,
+  MaterialVersionId,
+  SessionId,
+  MessageId,
+  SourceId
+} from '@study/contracts/ids';
+import type { materialVersionDetailSchema } from '@study/contracts/materials/schemas';
+import type { Block } from '@study/contracts/sources/document';
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -39,6 +48,108 @@ const meta = {
   omissions: []
 };
 
+type Scenario =
+  | 'apply'
+  | 'target_changed'
+  | 'input_changed'
+  | 'selection_changed'
+  | 'message_changed';
+
+type ProposalSetup = {
+  target: { id: MaterialId; version: { id: MaterialVersionId } };
+  input: { id: MaterialId; version: { id: MaterialVersionId } };
+  session: { id: SessionId };
+  context: { selectionRevision: bigint };
+  message: { id: MessageId };
+};
+
+function changeRelevantContext(scenario: Scenario, setup: ProposalSetup) {
+  return Effect.gen(function* () {
+    const materials = yield* Materials;
+
+    const chats = yield* Conversations;
+
+    if (scenario === 'target_changed' || scenario === 'input_changed') {
+      const target = scenario === 'target_changed' ? setup.target : setup.input;
+
+      yield* materials.saveDocument({
+        materialId: target.id,
+        expectedVersionId: target.version.id,
+        saveKey: scenario,
+        document: { blocks: [paragraph('Concurrent content')], meta }
+      });
+    }
+
+    if (scenario === 'selection_changed')
+      yield* chats.updateSessionSelection({
+        sessionId: setup.session.id,
+        expectedRevision: setup.context.selectionRevision,
+        targets: []
+      });
+
+    if (scenario === 'message_changed')
+      yield* chats.editMessage({ messageId: setup.message.id, text: 'Concurrent qualification' });
+  });
+}
+
+function assertIndependentImage(
+  independent: typeof materialVersionDetailSchema.Type,
+  proposal: typeof materialVersionDetailSchema.Type,
+  imageId: SourceId
+) {
+  assert.equal(independent.kind, 'document');
+
+  if (independent.kind !== 'document' || proposal.kind !== 'document')
+    throw new Error('Missing rich Document');
+
+  assert.deepEqual(independent.content.blocks[1]!.content, {
+    type: 'image',
+    sourceId: imageId,
+    revision: 1,
+    alt: ''
+  });
+
+  assert.notEqual(independent.content.blocks[1]!.id, proposal.content.blocks[1]!.id);
+}
+
+function undoAppliedProposal(
+  setup: ProposalSetup & { imageBlock: { id: Block['id'] } },
+  proposalId: MaterialVersionId,
+  resultVersionId: MaterialVersionId | null
+) {
+  return Effect.gen(function* () {
+    if (resultVersionId === null) return;
+
+    const materials = yield* Materials;
+
+    const applied = yield* materials.materialVersion({ id: resultVersionId });
+
+    if (applied.content.kind !== 'document') throw new Error('Missing applied Document');
+
+    assert.equal(applied.content.blocks[1]!.id, setup.imageBlock.id);
+
+    assert.deepEqual(
+      (yield* materials.citations({ id: applied.id, limit: 10 })).items,
+      (yield* materials.citations({ id: proposalId, limit: 10 })).items
+    );
+
+    assert.deepEqual(applied.parents, [setup.target.version.id]);
+
+    const value = {
+      materialId: setup.target.id,
+      expectedVersionId: resultVersionId,
+      restoreVersionId: setup.target.version.id,
+      undoKey: 'undo'
+    };
+
+    const undo = yield* materials.undoDocument(value);
+
+    assert.equal(undo.outcome, 'saved');
+
+    assert.equal((yield* materials.undoDocument(value)).replayed, true);
+  });
+}
+
 for (const scenario of [
   'apply',
   'target_changed',
@@ -57,6 +168,7 @@ for (const scenario of [
           const chats = yield* Conversations;
 
           const session = yield* chats.createSession({ title: 'Editing' });
+
           const message = yield* chats.postMessage({
             sessionId: session.id,
             text: 'Preserve this qualification',
@@ -140,6 +252,31 @@ for (const scenario of [
 
       const proposalId = await f.execute(event, `proposal-${scenario}`);
 
+      const receipt = f.context.db.orm
+        .select()
+        .from(s.material_generation_requests)
+        .where(eq(s.material_generation_requests.id, setup.request.id))
+        .get()!;
+
+      const retainedProposal = f.context.db.orm
+        .select()
+        .from(s.document_proposals)
+        .where(eq(s.document_proposals.request_id, setup.request.id))
+        .get()!;
+
+      assert.equal(receipt.result_version_id, proposalId);
+
+      assert.match(receipt.result_hash!, /^[0-9a-f]{64}$/);
+
+      assert.ok(receipt.result_metadata);
+
+      assert.deepEqual(retainedProposal, {
+        request_id: setup.request.id,
+        session_id: setup.session.id,
+        base_version_id: setup.target.version.id,
+        proposed_version_id: proposalId
+      });
+
       assert.equal(f.context.db.orm.select().from(s.materials).all().length, 3);
 
       const targetPrompt = JSON.stringify(
@@ -153,7 +290,9 @@ for (const scenario of [
       );
 
       assert.ok(f.bodies[0]!.includes(JSON.stringify(targetPrompt).slice(1, -1)));
+
       assert.ok(f.bodies[0]!.includes('editable_target'));
+
       assert.ok(f.bodies[0]!.includes('supporting_evidence'));
 
       const outcomes = await Effect.runPromise(
@@ -182,11 +321,13 @@ for (const scenario of [
               .all().length,
             0
           );
+
           assert.throws(() =>
             f.context.db.orm.run(
               sql`DELETE FROM document_assets WHERE document_id=${proposalDocument.document_id}`
             )
           );
+
           assert.throws(() =>
             f.context.db.orm.run(
               sql`DELETE FROM material_version_citations WHERE version_id=${proposalId}`
@@ -207,29 +348,7 @@ for (const scenario of [
             setup.target.version.id
           );
 
-          if (scenario === 'target_changed' || scenario === 'input_changed') {
-            const target = scenario === 'target_changed' ? setup.target : setup.input;
-
-            yield* materials.saveDocument({
-              materialId: target.id,
-              expectedVersionId: target.version.id,
-              saveKey: scenario,
-              document: { blocks: [paragraph('Concurrent content')], meta }
-            });
-          }
-
-          if (scenario === 'selection_changed')
-            yield* chats.updateSessionSelection({
-              sessionId: setup.session.id,
-              expectedRevision: setup.context.selectionRevision,
-              targets: []
-            });
-
-          if (scenario === 'message_changed')
-            yield* chats.editMessage({
-              messageId: setup.message.id,
-              text: 'Concurrent qualification'
-            });
+          yield* changeRelevantContext(scenario, setup);
 
           const value = {
             requestId: setup.request.id,
@@ -239,6 +358,7 @@ for (const scenario of [
           };
 
           const output = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
+
           const beforeApplication = output();
 
           for (const invalid of [
@@ -249,6 +369,7 @@ for (const scenario of [
               (yield* Effect.flip(chats.applyDocumentProposal(invalid))).kind,
               'invalid_input'
             );
+
             assert.deepEqual(output(), beforeApplication);
           }
 
@@ -258,7 +379,9 @@ for (const scenario of [
             );
 
             yield* Effect.flip(chats.applyDocumentProposal(value));
+
             assert.deepEqual(output(), beforeApplication);
+
             f.context.db.orm.run(sql`DROP TRIGGER reject_proposal_event`);
           }
 
@@ -276,7 +399,9 @@ for (const scenario of [
             );
 
           assert.equal((yield* chats.applyDocumentProposal(value)).replayed, true);
+
           assert.deepEqual(output(), afterApplication);
+
           assert.equal(
             (yield* Effect.flip(
               chats.keepDocumentProposal({ requestId: value.requestId, key: value.key })
@@ -298,6 +423,7 @@ for (const scenario of [
           assert.equal(compare.proposedVersionId, proposalId);
 
           assert.equal(compare.evidence, 'structural_only');
+
           assert.ok(
             !compare.proposedChanges.some((change) => change.blockId === setup.imageBlock.id)
           );
@@ -308,10 +434,13 @@ for (const scenario of [
             f.context.db.orm.run(
               sql`CREATE TRIGGER reject_keep_event BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialPublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
             );
+
             yield* Effect.flip(
               chats.keepDocumentProposal({ requestId: setup.request.id, key: 'keep' })
             );
+
             assert.deepEqual(output(), beforeKeep);
+
             f.context.db.orm.run(sql`DROP TRIGGER reject_keep_event`);
           }
 
@@ -328,19 +457,7 @@ for (const scenario of [
 
           assert.notEqual(independent.material_id, setup.target.id);
 
-          assert.equal(independent.kind, 'document');
-
-          if (independent.kind !== 'document' || proposal.kind !== 'document')
-            throw new Error('Missing rich Document');
-
-          assert.deepEqual(independent.content.blocks[1]!.content, {
-            type: 'image',
-            sourceId: setup.image.id,
-            revision: 1,
-            alt: ''
-          });
-
-          assert.notEqual(independent.content.blocks[1]!.id, proposal.content.blocks[1]!.id);
+          assertIndependentImage(independent, proposal, setup.image.id);
 
           assert.deepEqual(
             (yield* materials.citations({ id: independent.id, limit: 10 })).items,
@@ -362,37 +479,7 @@ for (const scenario of [
 
           assert.equal(f.context.db.orm.select().from(s.materials).all().length, 4);
 
-          if (result.resultVersionId !== null) {
-            const applied = yield* materials.materialVersion({ id: result.resultVersionId });
-
-            if (applied.content.kind !== 'document') throw new Error('Missing applied Document');
-
-            assert.equal(applied.content.blocks[1]!.id, setup.imageBlock.id);
-            assert.deepEqual(
-              (yield* materials.citations({ id: applied.id, limit: 10 })).items,
-              (yield* materials.citations({ id: proposalId, limit: 10 })).items
-            );
-            assert.deepEqual(applied.parents, [setup.target.version.id]);
-
-            const undo = yield* materials.undoDocument({
-              materialId: setup.target.id,
-              expectedVersionId: result.resultVersionId,
-              restoreVersionId: setup.target.version.id,
-              undoKey: 'undo'
-            });
-
-            assert.equal(undo.outcome, 'saved');
-
-            assert.equal(
-              (yield* materials.undoDocument({
-                materialId: setup.target.id,
-                expectedVersionId: result.resultVersionId,
-                restoreVersionId: setup.target.version.id,
-                undoKey: 'undo'
-              })).replayed,
-              true
-            );
-          }
+          yield* undoAppliedProposal(setup, proposalId, result.resultVersionId);
 
           return {
             independentId: independent.id,
@@ -403,6 +490,7 @@ for (const scenario of [
       );
 
       f.reopen();
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Conversations,
@@ -412,25 +500,31 @@ for (const scenario of [
             (yield* chats.applyDocumentProposal(outcomes.applyValue)).resultVersionId,
             outcomes.resultVersionId
           );
+
           assert.equal(
             (yield* chats.keepDocumentProposal({ requestId: setup.request.id, key: 'keep' }))
               .resultVersionId,
             outcomes.independentId
           );
+
           yield* chats.deleteSession(setup.session.id);
+
           assert.equal(
             (yield* chats.keepDocumentProposal({ requestId: setup.request.id, key: 'keep' }))
               .resultVersionId,
             outcomes.independentId
           );
+
           assert.equal(
             (yield* chats.applyDocumentProposal(outcomes.applyValue)).resultVersionId,
             outcomes.resultVersionId
           );
+
           assert.equal(
             (yield* materials.materialVersion({ id: outcomes.independentId })).status,
             'published'
           );
+
           assert.equal(
             (yield* Effect.flip(
               chats.keepDocumentProposal({ requestId: setup.request.id, key: 'after-delete' })
@@ -564,12 +658,14 @@ test('a captured passage cannot silently broaden into a whole-Document target ed
             expectedRevision: BigInt(index + 1),
             targets: [{ versionId: target.version.id, documentId, scope }]
           });
+
           const passage = yield* chats.captureSessionContext({
             sessionId: session.id,
             intentKey: scope.kind,
             instruction: 'Clarify',
             preferences: {}
           });
+
           const error = yield* Effect.flip(
             chats.requestDocumentTransform({
               title: 'Unsafe broadening',

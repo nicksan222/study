@@ -20,17 +20,13 @@ import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema, Option } from 'effect';
 
+import { canonicalJson } from '#server/features/materials/decoders/edit-intent';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-import { canonicalJson } from '../decoders/edit-intent.ts';
-import { makeCitations } from './citations.ts';
-import { makeCreateMaterial } from './create-material.ts';
-import { makeDocumentEditing } from './document-editing.ts';
-import { makeReads, required } from './reads.ts';
-import { makeSetCitationsAction } from './set-citations-action.ts';
+import { makeDocumentRevisions } from './document-revisions.ts';
+import { required } from './reads.ts';
 import { materialIntegrity } from './transactions.ts';
-import { makeWrites } from './writes.ts';
 
 const proposalSchema = Schema.Struct({
   requestId: Schema.String,
@@ -39,20 +35,64 @@ const proposalSchema = Schema.Struct({
   proposedVersionId: materialVersionIdSchema
 });
 
+export function makeProposalRegistration(resources: StoreResources) {
+  const { db } = resources;
+
+  const editing = makeDocumentRevisions(resources);
+
+  return (value: typeof proposalSchema.Type) => {
+    const previous = db.orm
+      .select()
+      .from(s.document_proposals)
+      .where(eq(s.document_proposals.request_id, value.requestId))
+      .get();
+
+    if (previous) {
+      if (
+        !Schema.toEquivalence(proposalSchema)(
+          {
+            requestId: previous.request_id,
+            sessionId: previous.session_id,
+            baseVersionId: previous.base_version_id,
+            proposedVersionId: previous.proposed_version_id
+          },
+          value
+        )
+      )
+        throw new StudyError('invalid_input', 'Proposal receipt has different captured identities');
+
+      return;
+    }
+
+    const base = editing.documentVersion(value.baseVersionId);
+
+    const proposed = editing.documentVersion(value.proposedVersionId);
+
+    if (
+      base.material_id !== proposed.material_id ||
+      base.status !== 'published' ||
+      proposed.status !== 'draft'
+    )
+      throw new StudyError('invalid_input', 'Proposal revisions do not match the captured target');
+
+    db.orm
+      .insert(s.document_proposals)
+      .values({
+        request_id: value.requestId,
+        session_id: value.sessionId,
+        base_version_id: value.baseVersionId,
+        proposed_version_id: value.proposedVersionId
+      })
+      .run();
+  };
+}
+
 function makeDocumentProposals(resources: StoreResources) {
   const { db } = resources;
 
-  const editing = makeDocumentEditing(resources);
+  const editing = makeDocumentRevisions(resources);
 
-  const reads = makeReads(resources);
-
-  const { insertVersion, publish } = makeWrites(resources);
-
-  const { createMaterial } = makeCreateMaterial(resources);
-
-  const { readCitations } = makeCitations(resources);
-
-  const { setCitations } = makeSetCitationsAction(resources);
+  const { reads, insertVersion, publish, createMaterial, readCitations, setCitations } = editing;
 
   function proposal(value: typeof contract.proposalKeySchema.Type) {
     const row = required(
@@ -185,9 +225,11 @@ function makeDocumentProposals(resources: StoreResources) {
         .where(eq(s.material_generation_requests.id, value.requestId))
         .get()
     );
+
     const payload = Schema.decodeUnknownSync(
       Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
     )(request.payload);
+
     const material = createMaterial({
       title: payload.title,
       sessionId: captured.sessionId,
@@ -227,6 +269,7 @@ function makeDocumentProposals(resources: StoreResources) {
         : keepIndependent(value, captured, proposed);
 
     setCitations({ id: resultVersionId, citations: readCitations(proposed.id) });
+
     publish(resultVersionId);
 
     return resultVersionId;
@@ -245,9 +288,13 @@ function makeDocumentProposals(resources: StoreResources) {
       if (replay) return replay;
 
       const captured = proposal(value);
+
       const proposed = editing.documentVersion(captured.proposedVersionId);
+
       const base = editing.documentVersion(captured.baseVersionId);
+
       const current = editing.head(base.material_id);
+
       const intent = proposalIntent(value, operation);
 
       assertNotCompleted(value.requestId, operation);
@@ -255,11 +302,14 @@ function makeDocumentProposals(resources: StoreResources) {
       if (operation === 'apply') assertApplicationBase(value, base.id);
 
       const relevantUnchanged = relevantInputsUnchanged(proposed);
+
       const conflict =
         operation === 'apply' && (current.id !== base.id || !relevantUnchanged || !relevantValid);
+
       const resultVersionId = conflict
         ? null
         : publishResult(value, operation, captured, proposed, base);
+
       const receipt = db.orm
         .insert(s.document_proposal_receipts)
         .values({
@@ -279,29 +329,8 @@ function makeDocumentProposals(resources: StoreResources) {
   }
 
   return {
-    queries: {
-      findDocumentProposalReceipt: storeQuery({
-        role: 'optional',
-        input: Schema.Union([
-          Schema.Struct({
-            operation: Schema.Literal('apply'),
-            ...contract.applyDocumentProposalSchema.fields
-          }),
-          Schema.Struct({
-            operation: Schema.Literal('keep'),
-            ...contract.keepDocumentProposalSchema.fields
-          })
-        ]),
-        output: Schema.Option(contract.documentProposalOutcomeSchema),
-        run: (value) => Option.fromNullishOr(findReceipt(value, value.operation))
-      }),
-      documentProposal: storeQuery({
-        role: 'required',
-        input: contract.proposalKeySchema,
-        output: proposalSchema,
-        run: proposal
-      })
-    },
+    proposal,
+    findReceipt,
     mutations: {
       assertEditableTarget: storeMutation({
         input: Schema.Struct({ versionId: materialVersionIdSchema }),
@@ -313,50 +342,6 @@ function makeDocumentProposals(resources: StoreResources) {
             throw new StudyError('invalid_input', 'Target must be an authored published Document');
 
           editing.head(version.material_id);
-        }
-      }),
-      registerProposal: storeMutation({
-        input: proposalSchema,
-        output: Schema.Void,
-        run: (value) => {
-          const previous = db.orm
-            .select()
-            .from(s.document_proposals)
-            .where(eq(s.document_proposals.request_id, value.requestId))
-            .get();
-
-          if (previous) {
-            if (!Schema.toEquivalence(proposalSchema)(proposal(value), value))
-              throw new StudyError(
-                'invalid_input',
-                'Proposal receipt has different captured identities'
-              );
-
-            return;
-          }
-
-          const base = editing.documentVersion(value.baseVersionId);
-          const proposed = editing.documentVersion(value.proposedVersionId);
-
-          if (
-            base.material_id !== proposed.material_id ||
-            base.status !== 'published' ||
-            proposed.status !== 'draft'
-          )
-            throw new StudyError(
-              'invalid_input',
-              'Proposal revisions do not match the captured target'
-            );
-
-          db.orm
-            .insert(s.document_proposals)
-            .values({
-              request_id: value.requestId,
-              session_id: value.sessionId,
-              base_version_id: value.baseVersionId,
-              proposed_version_id: value.proposedVersionId
-            })
-            .run();
         }
       }),
       applyDocumentProposal: storeMutation({
@@ -383,7 +368,14 @@ export const DocumentProposalStore = defineStore({
     const definitions = makeDocumentProposals(resources);
 
     return {
-      queries: { documentProposal: definitions.queries.documentProposal },
+      queries: {
+        documentProposal: storeQuery({
+          role: 'required',
+          input: contract.proposalKeySchema,
+          output: proposalSchema,
+          run: definitions.proposal
+        })
+      },
       mutations: definitions.mutations
     };
   }
@@ -396,7 +388,23 @@ export const DocumentProposalReceiptStore = defineStore({
     const definitions = makeDocumentProposals(resources);
 
     return {
-      queries: { findDocumentProposalReceipt: definitions.queries.findDocumentProposalReceipt },
+      queries: {
+        findDocumentProposalReceipt: storeQuery({
+          role: 'optional',
+          input: Schema.Union([
+            Schema.Struct({
+              operation: Schema.Literal('apply'),
+              ...contract.applyDocumentProposalSchema.fields
+            }),
+            Schema.Struct({
+              operation: Schema.Literal('keep'),
+              ...contract.keepDocumentProposalSchema.fields
+            })
+          ]),
+          output: Schema.Option(contract.documentProposalOutcomeSchema),
+          run: (value) => Option.fromNullishOr(definitions.findReceipt(value, value.operation))
+        })
+      },
       mutations: {}
     };
   }

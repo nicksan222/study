@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
+import type { SessionId } from '@study/contracts/ids';
 import {
   documentTransformReportSchema,
   materialGenerationInputSchema,
@@ -29,12 +30,13 @@ import { and, asc, eq, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
+import { canonicalJson } from '#server/features/materials/decoders/edit-intent';
 import { assertQuestionSpec } from '#server/features/materials/decoders/question-spec';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { decodeEvent } from '#server/platform/workflows/events';
 
-import { canonicalJson } from '../decoders/edit-intent.ts';
 import { makeCreateMaterial } from './create-material.ts';
+import { makeProposalRegistration } from './document-proposals.ts';
 import { makeReads, required } from './reads.ts';
 import { anchorSchema } from './schemas.ts';
 import { makeSetCitationsAction } from './set-citations-action.ts';
@@ -46,9 +48,15 @@ const codec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayload
 
 export function makeGeneration(resources: StoreResources) {
   const { db, clock } = resources;
+
   const { createMaterial } = makeCreateMaterial(resources);
+
+  const registerProposal = makeProposalRegistration(resources);
+
   const { materialRow, versionRow, versionDocumentId, readVersion } = makeReads(resources);
+
   const { setCitations } = makeSetCitationsAction(resources);
+
   const { publish, insertVersion, assertProject, assertMembership } = makeWrites(resources);
 
   function requestGenerationOnce(value: {
@@ -56,10 +64,12 @@ export function makeGeneration(resources: StoreResources) {
     request: typeof materialGenerationInputSchema.Type;
   }) {
     const request = Schema.decodeUnknownSync(materialGenerationInputSchema)(value.request);
+
     const existing = readGeneration(value.requestId);
 
     if (existing) {
       const same = Schema.toEquivalence(materialGenerationInputSchema);
+
       const canonical = (input: typeof request) => ({
         projectId: input.projectId,
         title: input.title,
@@ -140,6 +150,7 @@ export function makeGeneration(resources: StoreResources) {
   function assertRequestedInputVersions(request: typeof materialGenerationInputSchema.Type) {
     for (const id of request.inputVersionIds) {
       const version = versionRow(id);
+
       const material = materialRow(version.material_id);
 
       if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
@@ -223,6 +234,7 @@ export function makeGeneration(resources: StoreResources) {
 
     for (const [index, id] of request.inputVersionIds.entries()) {
       const version = versionRow(id);
+
       const material = materialRow(version.material_id, true);
 
       if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
@@ -250,7 +262,9 @@ export function makeGeneration(resources: StoreResources) {
 
     if (request && request.resultVersionId === null && !verifyOnly) {
       assertNotCancelled(request);
+
       assertActiveScope(request);
+
       validateInputs(request);
     }
 
@@ -316,7 +330,9 @@ export function makeGeneration(resources: StoreResources) {
     if (request.resultVersionId !== null) return { request, created: false };
 
     assertNotCancelled(request);
+
     assertActiveScope(request);
+
     validateInputs(request);
 
     return { request, created: true };
@@ -328,8 +344,11 @@ export function makeGeneration(resources: StoreResources) {
     errorKind: ErrorKind;
   }) {
     const request = required(readGeneration(value.requestId));
+
     const event = assertGenerationEvent(request, value.generationEventId);
+
     const failureId = `material-generation-failed/${createHash('sha256').update(value.generationEventId).digest('hex')}`;
+
     const row = db.orm
       .select()
       .from(s.workflowEvents)
@@ -357,11 +376,15 @@ export function makeGeneration(resources: StoreResources) {
     Schema.toCodecJson(materialGenerationPublicationSchema)
   );
 
-  function publishGeneration(input: typeof materialGenerationPublicationSchema.Type) {
+  function publishGeneration(
+    input: typeof materialGenerationPublicationSchema.Type & { proposalSessionId?: SessionId }
+  ) {
     const value = Schema.decodeUnknownSync(materialGenerationPublicationSchema)(input);
+
     const citations = [...value.citations].sort((a, b) =>
       a.marker < b.marker ? -1 : a.marker > b.marker ? 1 : 0
     );
+
     const hash = createHash('sha256')
       .update(
         canonicalJson(
@@ -375,6 +398,7 @@ export function makeGeneration(resources: StoreResources) {
         )
       )
       .digest('hex');
+
     const row = required(
       db.orm
         .select()
@@ -393,42 +417,46 @@ export function makeGeneration(resources: StoreResources) {
     const request = required(readGeneration(value.requestId));
 
     assertNotCancelled(request);
+
     assertActiveScope(request);
+
     validateInputs(request);
+
     assertGenerationContent(request, value);
 
-    const resolved = citations.map((citation) => {
-      const index = request.inputVersionIds.indexOf(citation.inputVersionId);
+    const resolved = citations.map((citation) => resolveGenerationCitation(request, citation));
 
-      if (index < 0 || !citation.quote.trim())
-        throw new StudyError('invalid_input', 'Invalid citation');
-
-      const block = db.orm
-        .select()
-        .from(s.blocks)
-        .where(
-          and(
-            eq(s.blocks.document_id, request.documentIds[index]!),
-            eq(s.blocks.ordinal, BigInt(citation.blockOrdinal))
-          )
-        )
-        .get();
-
-      if (!block || !block.text.includes(citation.quote))
-        throw new StudyError('invalid_input', 'Citation does not match its source block');
-
-      return {
-        marker: citation.marker,
-        inputVersionId: citation.inputVersionId,
-        anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(block.anchor)),
-        ...(citation.target === undefined ? {} : { target: citation.target }),
-        quote: citation.quote
-      };
-    });
     const event = assertGenerationEvent(request, value.generationEventId ?? request.id);
 
+    const result = createGenerationOutput(request, value, input.proposalSessionId, resolved);
+
+    db.orm
+      .update(s.material_generation_requests)
+      .set({
+        result_version_id: result.versionId,
+        result_hash: hash,
+        result_metadata:
+          value.report === undefined ? null : Schema.encodeSync(reportCodec)(value.report)
+      })
+      .where(eq(s.material_generation_requests.id, request.id))
+      .run();
+
+    return {
+      ...result,
+      event
+    };
+  }
+
+  function createGenerationOutput(
+    request: NonNullable<ReturnType<typeof readGeneration>>,
+    value: typeof materialGenerationPublicationSchema.Type,
+    proposalSessionId: SessionId | undefined,
+    resolved: ReturnType<typeof resolveGenerationCitation>[]
+  ) {
     const targetVersionId = request.documentTransform?.editTargetVersionId;
+
     const target = targetVersionId === undefined ? undefined : versionRow(targetVersionId);
+
     const versionInput = {
       content: value.content,
       inputs: request.inputVersionIds,
@@ -436,6 +464,7 @@ export function makeGeneration(resources: StoreResources) {
       language: value.language,
       publish: false
     };
+
     const material =
       target === undefined
         ? createMaterial({ ...versionInput, projectId: request.projectId, title: request.title })
@@ -455,25 +484,53 @@ export function makeGeneration(resources: StoreResources) {
       })
       .where(eq(s.material_versions.id, material.version.id))
       .run();
+
     setCitations({ id: material.version.id, citations: resolved });
 
     if (target === undefined) publish(material.version.id);
-
-    db.orm
-      .update(s.material_generation_requests)
-      .set({
-        result_version_id: material.version.id,
-        result_hash: hash,
-        result_metadata:
-          value.report === undefined ? null : Schema.encodeSync(reportCodec)(value.report)
-      })
-      .where(eq(s.material_generation_requests.id, request.id))
-      .run();
+    else
+      registerProposal({
+        requestId: request.id,
+        sessionId: required(proposalSessionId),
+        baseVersionId: target.id,
+        proposedVersionId: material.version.id
+      });
 
     return {
       versionId: material.version.id,
-      event,
       ...(target === undefined ? { materialId: material.id } : {})
+    };
+  }
+
+  function resolveGenerationCitation(
+    request: NonNullable<ReturnType<typeof readGeneration>>,
+    citation: (typeof materialGenerationPublicationSchema.Type)['citations'][number]
+  ) {
+    const index = request.inputVersionIds.indexOf(citation.inputVersionId);
+
+    if (index < 0 || !citation.quote.trim())
+      throw new StudyError('invalid_input', 'Invalid citation');
+
+    const block = db.orm
+      .select()
+      .from(s.blocks)
+      .where(
+        and(
+          eq(s.blocks.document_id, request.documentIds[index]!),
+          eq(s.blocks.ordinal, BigInt(citation.blockOrdinal))
+        )
+      )
+      .get();
+
+    if (!block || !block.text.includes(citation.quote))
+      throw new StudyError('invalid_input', 'Citation does not match its source block');
+
+    return {
+      marker: citation.marker,
+      inputVersionId: citation.inputVersionId,
+      anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(block.anchor)),
+      ...(citation.target === undefined ? {} : { target: citation.target }),
+      quote: citation.quote
     };
   }
 
@@ -487,8 +544,10 @@ export function makeGeneration(resources: StoreResources) {
       throw new StudyError('invalid_input', 'Generation kind mismatch');
 
     const targetVersionId = request.documentTransform?.editTargetVersionId;
+
     const target =
       targetVersionId === undefined ? undefined : required(readVersion(targetVersionId));
+
     const inheritedIds =
       target?.kind === 'document' ? target.content.blocks.map((block) => block.id) : [];
 
@@ -531,6 +590,7 @@ export function makeGeneration(resources: StoreResources) {
 
   function setGenerationScope(value: Scope, enabled: boolean) {
     assertProject(value.projectId);
+
     const existing = db.orm
       .select()
       .from(s.material_generation_scopes)

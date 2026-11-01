@@ -15,6 +15,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
+import type { MaterialVersionId } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import type { Block } from '@study/contracts/sources/document';
 import { blockContentSchema } from '@study/contracts/sources/schemas';
@@ -53,6 +55,7 @@ const json = (value: unknown) =>
 
 function providerPrompt(body: string) {
   const request = JSON.parse(body);
+
   const user = request.input.find((item: { role?: string }) => item.role === 'user');
 
   assert.ok(user, 'Provider request must contain the captured user prompt');
@@ -100,6 +103,116 @@ function richBlocks(label: string) {
   ];
 }
 
+type CapturedContext = typeof runSelectionContextSchema.Type;
+
+function capturedBlockIds(capture: CapturedContext, selectedId: Block['id']) {
+  return capture.inputs.flatMap(
+    (input) => input.document?.blocks.map((block) => block.id) ?? [selectedId]
+  );
+}
+
+function assertProviderCapture(
+  { captured, instructions }: ReturnType<typeof providerPrompt>,
+  capture: CapturedContext,
+  input: CapturedContext['inputs'][number] | undefined
+) {
+  assert.match(instructions, /propose a revision of that exact target Document only/);
+
+  assert.equal(captured.instruction, 'Clarify');
+
+  const expectedRoles = capture.inputs.map((entry) =>
+    input === undefined
+      ? 'source'
+      : entry.versionId === input.versionId
+        ? 'editable_target'
+        : 'supporting_evidence'
+  );
+
+  assert.deepEqual(
+    captured.inputs.map((entry: { role: string }) => entry.role),
+    expectedRoles
+  );
+
+  assert.deepEqual(
+    captured.inputs[2].excerpts.map((excerpt: { text: string; start: number; end: number }) => [
+      excerpt.text,
+      excerpt.start,
+      excerpt.end
+    ]),
+    [['alpha evidence', 14, 28]]
+  );
+
+  assert.equal(captured.editTarget === undefined, input === undefined);
+
+  if (input)
+    assert.deepEqual(
+      captured.editTarget,
+      JSON.parse(
+        json({
+          materialId: input.materialId,
+          versionId: input.versionId,
+          documentId: input.documentId,
+          document: input.document
+        })
+      )
+    );
+}
+
+function assertGeneratedIdentity(value: {
+  versionId: MaterialVersionId;
+  requestId: string;
+  capture: CapturedContext;
+  input: CapturedContext['inputs'][number] | undefined;
+  retained: readonly Block[];
+  selectedId: Block['id'];
+  codeId: Block['id'];
+  remintCode: boolean;
+}) {
+  return Effect.gen(function* () {
+    const materials = yield* Materials;
+
+    const version = yield* materials.materialVersion({ id: value.versionId });
+
+    if (version.content.kind !== 'document') throw new Error('Missing rich Document');
+
+    const ids = version.content.blocks.map((block) => block.id);
+
+    const allInputIds = capturedBlockIds(value.capture, value.selectedId);
+
+    assert.equal(version.status, value.input ? 'draft' : 'published');
+
+    assert.equal(new Set(ids).size, ids.length);
+
+    if (value.input?.document) {
+      assert.equal(version.material_id, value.input.materialId);
+
+      assert.deepEqual(
+        ids.slice(1, value.retained.length),
+        value.retained.slice(1).map((block) => block.id)
+      );
+
+      assert.ok(!ids.includes(value.retained[0]!.id));
+
+      if (value.remintCode) assert.notEqual(ids.at(-1), value.codeId);
+
+      const comparison = yield* (yield* Conversations).compareDocumentProposal({
+        requestId: value.requestId
+      });
+
+      const retainedIds = new Set(value.retained.slice(1).map((block) => block.id));
+
+      assert.ok(comparison.proposedChanges.every((change) => !retainedIds.has(change.blockId)));
+    } else assert.ok(ids.every((id) => !allInputIds.includes(id)));
+
+    const generation = yield* materials.materialGeneration({
+      requestId: value.requestId,
+      verifyOnly: true
+    });
+
+    assert.deepEqual(generation.report?.notes[0]!.blockIds, ids);
+  });
+}
+
 test(
   'A-target, B-target and no-target requests discriminate exact rich captures and preserve only target IDs',
   { timeout: 20000 },
@@ -110,18 +223,25 @@ test(
       const setup = await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Materials;
+
           const chats = yield* Conversations;
+
           const session = yield* chats.createSession({ title: 'Discrimination' });
+
           const a = yield* materials.createManualDocument({
             title: 'A',
             document: document(richBlocks('A'))
           });
+
           const code = createBlock({ type: 'code', code: 'support_only()', language: 'ts' });
+
           const b = yield* materials.createManualDocument({
             title: 'B',
             document: document([...richBlocks('B'), code])
           });
+
           const selected = paragraph('HIDDEN BEFORE alpha evidence HIDDEN AFTER');
+
           const support = yield* materials.createManualDocument({
             title: 'Range',
             document: document([selected])
@@ -138,12 +258,14 @@ test(
               { versionId: support.version.id, scope: { kind: 'blocks', blockIds: [selected.id] } }
             ]
           });
+
           const whole = yield* chats.captureSessionContext({
             sessionId: session.id,
             intentKey: 'locate-range',
             instruction: 'Clarify',
             preferences: {}
           });
+
           const supportDocumentId = whole.inputs[2]!.documentId;
 
           yield* chats.updateSessionSelection({
@@ -171,6 +293,7 @@ test(
               }
             ]
           });
+
           const requests = [];
 
           for (const [intentKey, target] of [
@@ -184,15 +307,18 @@ test(
               instruction: 'Clarify',
               preferences: {}
             });
+
             const value = {
               title: 'Proposal',
               contextRequestId: capture.requestId,
               operations: ['clarity'] as const,
               editTargetVersionId: target?.version.id
             };
+
             const request = yield* chats.requestDocumentTransform(value);
 
             assert.equal((yield* chats.requestDocumentTransform(value)).id, request.id);
+
             assert.equal(
               (yield* Effect.flip(
                 chats.requestDocumentTransform({
@@ -202,6 +328,7 @@ test(
               )).kind,
               'invalid_input'
             );
+
             requests.push({ capture, request, target });
           }
 
@@ -212,6 +339,7 @@ test(
             saveKey: 'live-edit',
             document: document([paragraph('LATEST PRIVATE TARGET')])
           });
+
           yield* chats.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 2n,
@@ -223,6 +351,7 @@ test(
       );
 
       assert.notEqual(setup.requests[0]!.capture.requestId, setup.requests[1]!.capture.requestId);
+
       assert.deepEqual(setup.requests[0]!.capture.inputs, setup.requests[1]!.capture.inputs);
 
       const prompts = [];
@@ -231,13 +360,16 @@ test(
         const input = item.capture.inputs.find(
           (input) => input.versionId === item.target?.version.id
         );
+
         const retained =
           input?.document?.blocks ?? setup.requests[0]!.capture.inputs[0]!.document!.blocks;
+
         const outputBlocks = [
           paragraph('alpha revision [1]'),
           ...retained.slice(1),
           ...(item.target === setup.b ? [] : [setup.code])
         ];
+
         const bodyIndex = f.bodies.length;
 
         f.replies.push(
@@ -258,101 +390,41 @@ test(
             }
           }
         );
+
         const result = await f.execute(f.event(item.request.id), `discrimination-${index}`);
+
         const { captured, instructions } = providerPrompt(f.bodies[bodyIndex]!);
 
         prompts.push(captured);
-        assert.match(instructions, /propose a revision of that exact target Document only/);
-        assert.equal(captured.instruction, 'Clarify');
-        assert.deepEqual(
-          captured.inputs.map((entry: { role: string }) => entry.role),
-          item.target
-            ? [
-                item.target === setup.a ? 'editable_target' : 'supporting_evidence',
-                item.target === setup.b ? 'editable_target' : 'supporting_evidence',
-                'supporting_evidence'
-              ]
-            : ['source', 'source', 'source']
-        );
-        assert.deepEqual(
-          captured.inputs[2].excerpts.map(
-            (excerpt: { text: string; start: number; end: number }) => [
-              excerpt.text,
-              excerpt.start,
-              excerpt.end
-            ]
-          ),
-          [['alpha evidence', 14, 28]]
-        );
-        assert.equal(captured.editTarget === undefined, item.target === undefined);
 
-        if (input)
-          assert.deepEqual(
-            captured.editTarget,
-            JSON.parse(
-              json({
-                materialId: input.materialId,
-                versionId: input.versionId,
-                documentId: input.documentId,
-                document: input.document
-              })
-            )
-          );
+        assertProviderCapture({ captured, instructions }, item.capture, input);
 
         for (const body of f.bodies.slice(bodyIndex)) {
           assert.ok(!body.includes('HIDDEN BEFORE'));
+
           assert.ok(!body.includes('HIDDEN AFTER'));
+
           assert.ok(!body.includes('LATEST PRIVATE TARGET'));
         }
 
         await Effect.runPromise(
-          Effect.gen(function* () {
-            const materials = yield* Materials;
-            const version = yield* materials.materialVersion({ id: result });
-
-            if (version.content.kind !== 'document') throw new Error('Missing rich Document');
-
-            const ids = version.content.blocks.map((block) => block.id);
-            const allInputIds = item.capture.inputs.flatMap(
-              (input) => input.document?.blocks.map((block) => block.id) ?? [setup.selected.id]
-            );
-
-            assert.equal(version.status, item.target ? 'draft' : 'published');
-            assert.equal(new Set(ids).size, ids.length);
-
-            if (input?.document) {
-              assert.equal(version.material_id, input.materialId);
-              assert.deepEqual(
-                ids.slice(1, retained.length),
-                retained.slice(1).map((block) => block.id)
-              );
-              assert.ok(!ids.includes(retained[0]!.id));
-
-              if (item.target === setup.a) assert.notEqual(ids.at(-1), setup.code.id);
-
-              const comparison = yield* (yield* Conversations).compareDocumentProposal({
-                requestId: item.request.id
-              });
-
-              assert.ok(
-                comparison.proposedChanges.every(
-                  (change) => !retained.slice(1).some((block) => block.id === change.blockId)
-                )
-              );
-            } else assert.ok(ids.every((id) => !allInputIds.includes(id)));
-
-            const generation = yield* materials.materialGeneration({
-              requestId: item.request.id,
-              verifyOnly: true
-            });
-
-            assert.deepEqual(generation.report?.notes[0]!.blockIds, ids);
+          assertGeneratedIdentity({
+            versionId: result,
+            requestId: item.request.id,
+            capture: item.capture,
+            input,
+            retained,
+            selectedId: setup.selected.id,
+            codeId: setup.code.id,
+            remintCode: item.target === setup.a
           }).pipe(Effect.provide(f.domain()))
         );
       }
 
       assert.notDeepEqual(prompts[0].editTarget, prompts[1].editTarget);
+
       assert.equal(f.context.db.orm.select().from(s.document_proposals).all().length, 2);
+
       assert.equal(f.bodies.length, 6);
     } finally {
       await f.close();
@@ -371,10 +443,12 @@ for (const barrier of ['cancel', 'delete'] as const) {
         const setup = await Effect.runPromise(
           Effect.gen(function* () {
             const chats = yield* Conversations;
+
             const target = yield* (yield* Materials).createManualDocument({
               title: 'Target',
               document: document([paragraph('alpha target')])
             });
+
             const session = yield* chats.createSession({ title: 'In flight' });
 
             yield* chats.updateSessionSelection({
@@ -382,12 +456,14 @@ for (const barrier of ['cancel', 'delete'] as const) {
               expectedRevision: 0n,
               targets: [{ versionId: target.version.id, scope: { kind: 'document' } }]
             });
+
             const capture = yield* chats.captureSessionContext({
               sessionId: session.id,
               intentKey: barrier,
               instruction: 'Clarify',
               preferences: {}
             });
+
             const request = yield* chats.requestDocumentTransform({
               title: 'Proposal',
               contextRequestId: capture.requestId,
@@ -398,7 +474,9 @@ for (const barrier of ['cancel', 'delete'] as const) {
             return { session, target, request };
           }).pipe(Effect.provide(f.domain()))
         );
+
         const output = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
+
         const before = output();
 
         f.replies.push(
@@ -415,14 +493,18 @@ for (const barrier of ['cancel', 'delete'] as const) {
             }
           }
         );
+
         await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
               const engine = yield* WorkflowEngine.WorkflowEngine;
+
               const received = yield* Deferred.make<void>();
+
               const release = yield* Deferred.make<void>();
 
               yield* Effect.addFinalizer(() => Deferred.succeed(release, undefined));
+
               f.beforeOutput(() =>
                 Effect.runPromise(
                   Deferred.succeed(received, undefined).pipe(
@@ -430,7 +512,9 @@ for (const barrier of ['cancel', 'delete'] as const) {
                   )
                 )
               );
+
               yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
+
               const fiber = yield* Effect.forkChild(
                 engine.execute(materialGenerationWorkflow, {
                   executionId: `target-in-flight-${barrier}`,
@@ -446,23 +530,34 @@ for (const barrier of ['cancel', 'delete'] as const) {
                 yield* (yield* Materials).cancelMaterialGeneration({ requestId: setup.request.id });
 
               yield* Deferred.succeed(release, undefined);
+
               assert.ok(Exit.isFailure(yield* Fiber.await(fiber)));
             })
           ).pipe(Effect.provide(f.services()), Effect.timeout('10 seconds'))
         );
+
         const after = output();
 
         assert.deepEqual(after.versions, before.versions);
+
         assert.deepEqual(after.blocks, before.blocks);
+
         assert.deepEqual(after.proposals, []);
+
         assert.deepEqual(after.proposalReceipts, []);
+
         assert.deepEqual(after.published, before.published);
+
         assert.equal(f.bodies.length, 2);
+
         f.reopen();
+
         await assert.rejects(
           f.execute(f.event(setup.request.id), `target-fence-reopen-${barrier}`)
         );
+
         assert.equal(f.bodies.length, 2);
+
         await Effect.runPromise(
           Effect.gen(function* () {
             const chats = yield* Conversations;
@@ -475,15 +570,18 @@ for (const barrier of ['cancel', 'delete'] as const) {
                 expectedVersionId: setup.target.version.id
               })
             );
+
             yield* Effect.flip(
               chats.keepDocumentProposal({ requestId: setup.request.id, key: 'late-keep' })
             );
+
             assert.equal(
               (yield* (yield* Materials).material({ id: setup.target.id })).version.id,
               setup.target.version.id
             );
           }).pipe(Effect.provide(f.domain()))
         );
+
         assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
       } finally {
         await f.close();

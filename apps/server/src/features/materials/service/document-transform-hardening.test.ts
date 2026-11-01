@@ -47,7 +47,9 @@ const meta = {
 
 function fixture() {
   const location = createTestDatabase();
+
   let context = new ServerContext(location.open());
+
   let output = makeMaterialOutput({ db: context.db, clock: context.clock });
 
   return {
@@ -61,11 +63,14 @@ function fixture() {
       ),
     reopen() {
       context.close();
+
       context = new ServerContext(location.open());
+
       output = makeMaterialOutput({ db: context.db, clock: context.clock });
     },
     close() {
       context.close();
+
       location.cleanup();
     }
   };
@@ -78,10 +83,15 @@ test('only the selected duplicate range can publish; target identity is hashed, 
     const setup = await Effect.runPromise(
       Effect.gen(function* () {
         const materials = yield* Materials;
+
         const chats = yield* Conversations;
+
         const session = yield* chats.createSession({ title: 'Ranges' });
+
         const block = paragraph('😀 echo :: echo');
+
         const unselected = paragraph('echo');
+
         const original = yield* materials.create({
           title: 'Repeated phrases',
           content: { kind: 'document', blocks: [block, unselected], meta },
@@ -93,12 +103,14 @@ test('only the selected duplicate range can publish; target identity is hashed, 
           expectedRevision: 0n,
           targets: [{ versionId: original.version.id, scope: { kind: 'document' } }]
         });
+
         const whole = yield* chats.captureSessionContext({
           sessionId: session.id,
           intentKey: 'whole',
           instruction: '',
           preferences: {}
         });
+
         const target = {
           versionId: original.version.id,
           documentId: whole.inputs[0]!.documentId,
@@ -117,18 +129,22 @@ test('only the selected duplicate range can publish; target identity is hashed, 
             }
           ]
         });
+
         const snapshot = yield* chats.captureSessionContext({
           sessionId: session.id,
           intentKey: 'second-echo',
           instruction: '',
           preferences: {}
         });
+
         const request = yield* chats.requestDocumentTransform({
           contextRequestId: snapshot.requestId,
           title: 'Only selected',
           operations: ['clarity']
         });
+
         const output = paragraph('echo [1] [2]');
+
         const publication: typeof materialGenerationPublicationSchema.Type = {
           requestId: request.id,
           language: 'english',
@@ -157,6 +173,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
         return { original, session, request, target, publication, unselected };
       }).pipe(Effect.provide(f.services()))
     );
+
     const publish = (publication: typeof materialGenerationPublicationSchema.Type) =>
       Effect.runPromise(
         Effect.gen(function* () {
@@ -166,7 +183,9 @@ test('only the selected duplicate range can publish; target identity is hashed, 
           );
         }).pipe(Effect.provide(f.services()))
       );
+
     const citation = setup.publication.citations[0]!;
+
     const invalid = [
       { ...citation, target: undefined },
       { ...citation, target: { ...setup.target, start: 3, end: 7 } },
@@ -188,6 +207,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
       { ...citation, blockOrdinal: 1 },
       { ...citation, quote: '😀' }
     ];
+
     const before = f.output();
 
     for (const forged of invalid) {
@@ -197,10 +217,12 @@ test('only the selected duplicate range can publish; target identity is hashed, 
           citations: [forged]
         })
       );
+
       assert.deepEqual(f.output(), before);
     }
 
     await publish(setup.publication);
+
     const after = f.output();
 
     await publish({
@@ -216,6 +238,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
         }
       }))
     });
+
     assert.deepEqual(f.output(), after);
 
     for (const changed of [
@@ -233,6 +256,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
       }
     ]) {
       await assert.rejects(publish(changed));
+
       assert.deepEqual(f.output(), after);
     }
 
@@ -249,6 +273,7 @@ test('only the selected duplicate range can publish; target identity is hashed, 
       sql`UPDATE material_generation_requests SET result_metadata=NULL WHERE id=${setup.request.id}`
     ]) {
       assert.throws(() => f.context.db.orm.run(mutation));
+
       assert.deepEqual(f.output(), after);
     }
 
@@ -257,17 +282,25 @@ test('only the selected duplicate range can publish; target identity is hashed, 
         yield* (yield* Conversations).deleteSession(setup.session.id);
       }).pipe(Effect.provide(f.services()))
     );
+
     f.reopen();
+
     await publish(setup.publication);
+
     await Effect.runPromise(
       Effect.gen(function* () {
         const materials = yield* Materials;
+
         const saved = (yield* materials.citations({ id: versionId, limit: 10 })).items;
+
         const page = yield* materials.citations({ id: versionId, limit: 1, cursor: 1n });
 
         assert.deepEqual(saved[0]!.target, setup.target);
+
         assert.deepEqual(page.items[0]!.target, setup.target);
+
         assert.deepEqual(saved[0]!.anchor, { type: 'authored' });
+
         assert.deepEqual(
           (yield* materials.materialVersion({ id: setup.original.version.id })).content,
           setup.original.version.content
@@ -286,13 +319,17 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
     await Effect.runPromise(
       Effect.gen(function* () {
         const materials = yield* Materials;
+
         const chats = yield* Conversations;
+
         const block = paragraph('😀 echo');
+
         const source = yield* materials.create({
           title: 'Evidence',
           content: { kind: 'document', blocks: [block], meta },
           publish: true
         });
+
         const session = yield* chats.createSession({ title: 'Read' });
 
         yield* chats.updateSessionSelection({
@@ -300,18 +337,21 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
           expectedRevision: 0n,
           targets: [{ versionId: source.version.id, scope: { kind: 'document' } }]
         });
+
         const capture = yield* chats.captureSessionContext({
           sessionId: session.id,
           intentKey: 'canonical-target',
           instruction: '',
           preferences: {}
         });
+
         const draft = yield* materials.create({
           title: 'Draft',
           content: { kind: 'document', blocks: [paragraph('echo')], meta },
           inputs: [source.version.id],
           publish: false
         });
+
         const legacy = {
           marker: 1n,
           inputVersionId: source.version.id,
@@ -320,10 +360,12 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
         };
 
         yield* materials.setCitations({ id: draft.version.id, citations: [legacy] });
+
         assert.equal(
           (yield* materials.citations({ id: draft.version.id, limit: 1 })).items[0]!.target,
           undefined
         );
+
         const target = {
           versionId: source.version.id,
           documentId: capture.inputs[0]!.documentId,
@@ -331,11 +373,13 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
           start: 3,
           end: 7
         };
+
         const valid = { ...legacy, target };
 
         const full = yield* materials.setCitations({ id: draft.version.id, citations: [valid] });
 
         assert.deepEqual(full, [valid]);
+
         assert.deepEqual(
           (yield* materials.citations({ id: draft.version.id, limit: 1 })).items,
           full
@@ -369,13 +413,16 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
           );
 
           assert.equal(error.kind, 'invalid_input');
+
           assert.deepEqual((yield* materials.citations({ id: draft.version.id, limit: 1 })).items, [
             valid
           ]);
         }
 
         yield* materials.publishVersion({ id: draft.version.id });
+
         yield* chats.deleteSession(session.id);
+
         assert.deepEqual((yield* materials.citations({ id: draft.version.id, limit: 10 })).items, [
           valid
         ]);
@@ -393,6 +440,7 @@ test('guarded conversation-only publication rejects separator tables without res
     await Effect.runPromise(
       Effect.gen(function* () {
         const chats = yield* Conversations;
+
         const session = yield* chats.createSession({ title: 'Conversation' });
 
         yield* chats.postMessage({
@@ -400,18 +448,22 @@ test('guarded conversation-only publication rejects separator tables without res
           text: 'Explain this',
           requestReply: false
         });
+
         const snapshot = yield* chats.captureSessionContext({
           sessionId: session.id,
           intentKey: 'conversation-only',
           instruction: 'Explain',
           preferences: {}
         });
+
         const request = yield* chats.requestDocumentTransform({
           contextRequestId: snapshot.requestId,
           title: 'Empty table',
           operations: ['explain']
         });
+
         const before = f.output();
+
         const table = createBlock({
           type: 'table',
           rows: [
@@ -423,6 +475,7 @@ test('guarded conversation-only publication rejects separator tables without res
             }
           ]
         });
+
         const error = yield* Effect.flip(
           withTestPublication(
             f.context,
@@ -442,7 +495,9 @@ test('guarded conversation-only publication rejects separator tables without res
         );
 
         assert.equal(error.kind, 'invalid_input');
+
         assert.deepEqual(f.output(), before);
+
         assert.equal(
           f.context.db.orm
             .select()
@@ -457,3 +512,143 @@ test('guarded conversation-only publication rejects separator tables without res
     f.close();
   }
 });
+
+for (const failure of [
+  sql`CREATE TRIGGER reject_proposal_retention BEFORE INSERT ON document_proposals BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`,
+  sql`CREATE TRIGGER reject_proposal_receipt AFTER UPDATE OF result_version_id ON material_generation_requests WHEN NEW.result_version_id IS NOT NULL BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
+]) {
+  test('proposal retention and generation receipt roll back together before same-key retry', async () => {
+    const f = fixture();
+
+    try {
+      const setup = await Effect.runPromise(
+        Effect.gen(function* () {
+          const materials = yield* Materials;
+
+          const chats = yield* Conversations;
+
+          const session = yield* chats.createSession({ title: 'Atomic proposal' });
+
+          const block = paragraph('alpha target');
+
+          const target = yield* materials.createManualDocument({
+            title: 'Target',
+            document: { blocks: [block], meta }
+          });
+
+          yield* chats.updateSessionSelection({
+            sessionId: session.id,
+            expectedRevision: 0n,
+            targets: [{ versionId: target.version.id, scope: { kind: 'document' } }]
+          });
+
+          const capture = yield* chats.captureSessionContext({
+            sessionId: session.id,
+            intentKey: 'atomic',
+            instruction: 'Clarify',
+            preferences: {}
+          });
+
+          const request = yield* chats.requestDocumentTransform({
+            contextRequestId: capture.requestId,
+            title: 'Proposal',
+            operations: ['clarity'],
+            editTargetVersionId: target.version.id
+          });
+
+          const output = paragraph('Clear alpha [1]');
+
+          const publication: typeof materialGenerationPublicationSchema.Type = {
+            requestId: request.id,
+            content: { kind: 'document', blocks: [output], meta },
+            citations: [
+              {
+                marker: 1n,
+                inputVersionId: target.version.id,
+                blockOrdinal: 0,
+                quote: 'alpha',
+                target: {
+                  versionId: target.version.id,
+                  documentId: capture.inputs[0]!.documentId,
+                  blockId: block.id,
+                  start: 0,
+                  end: block.text.length
+                }
+              }
+            ],
+            report: {
+              notes: [{ kind: 'limit', explanation: 'Structural only', blockIds: [output.id] }]
+            }
+          };
+
+          return { target, session, request, publication };
+        }).pipe(Effect.provide(f.services()))
+      );
+
+      const publication = () =>
+        Effect.gen(function* () {
+          return yield* withTestPublication(
+            f.context,
+            (yield* Conversations).publishDocumentTransform(setup.publication).pipe(Effect.asVoid)
+          );
+        });
+
+      const publish = () => Effect.runPromise(publication().pipe(Effect.provide(f.services())));
+
+      const before = f.output();
+
+      f.context.db.orm.run(failure);
+
+      const error = await Effect.runPromise(
+        Effect.flip(publication()).pipe(Effect.provide(f.services()))
+      );
+
+      assert.equal(error.kind, 'invalid_input');
+
+      assert.deepEqual(f.output(), before);
+
+      f.context.db.orm.run(sql`DROP TRIGGER IF EXISTS reject_proposal_retention`);
+
+      f.context.db.orm.run(sql`DROP TRIGGER IF EXISTS reject_proposal_receipt`);
+
+      await publish();
+
+      const after = f.output();
+
+      const receipt = after.requests.find((row) => row.id === setup.request.id)!;
+
+      assert.ok(receipt.result_version_id);
+
+      assert.equal(after.proposals.length, 1);
+
+      assert.equal(after.proposals[0]!.proposed_version_id, receipt.result_version_id);
+
+      assert.equal(after.proposals[0]!.base_version_id, setup.target.version.id);
+
+      assert.equal(after.proposals[0]!.session_id, setup.session.id);
+
+      assert.equal(
+        after.versions.find((row) => row.id === receipt.result_version_id)!.status,
+        'draft'
+      );
+
+      assert.equal(after.materials.length, before.materials.length);
+
+      assert.deepEqual(after.published, before.published);
+
+      await publish();
+
+      assert.deepEqual(f.output(), after);
+
+      f.reopen();
+
+      await publish();
+
+      assert.deepEqual(f.output(), after);
+
+      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    } finally {
+      f.close();
+    }
+  });
+}

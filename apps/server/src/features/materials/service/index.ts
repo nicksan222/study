@@ -29,6 +29,11 @@ import type {
 } from '@study/contracts/materials/schemas';
 import { Effect, Option } from 'effect';
 
+import { DocumentEditingStore } from '#server/features/materials/store/document-editing';
+import {
+  DocumentProposalStore,
+  DocumentProposalReceiptStore
+} from '#server/features/materials/store/document-proposals';
 import {
   MaterialSelectionStore,
   MaterialGenerationStore,
@@ -50,11 +55,6 @@ import {
 } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
-import { DocumentEditingStore } from '../store/document-editing.ts';
-import {
-  DocumentProposalStore,
-  DocumentProposalReceiptStore
-} from '../store/document-proposals.ts';
 import {
   requestDocumentTransform,
   publishDocumentTransform,
@@ -87,6 +87,7 @@ function* makeMaterials() {
     inputs = yield* useStore(MaterialInputsStore),
     dependents = yield* useStore(MaterialDependentsStore),
     citations = yield* useStore(MaterialCitationsStore);
+
   const editDocument = (
     mutate: (tx: Transaction) => typeof editing.documentEditOutcomeSchema.Type
   ) =>
@@ -147,6 +148,7 @@ function* makeMaterials() {
     materialGeneration: (value: { requestId: string; eventId?: string; verifyOnly?: boolean }) =>
       transaction((tx) => {
         const request = tx.store(MaterialGenerationStore).materialGeneration(value);
+
         const cancelled =
           request.resultVersionId === null &&
           (request.cancelled ||
@@ -268,6 +270,7 @@ function* makeMaterials() {
     requestMaterialGeneration: (value: typeof input.requestMaterialGenerationInputSchema.Type) =>
       transaction((tx) => {
         const requestId = randomUUID();
+
         const result = tx.store(MaterialGenerationStore).request({ requestId, request: value });
 
         tx.emit({
@@ -291,6 +294,7 @@ function* makeMaterials() {
     }) =>
       transaction((tx) => {
         const initial = tx.store(MaterialGenerationStore).requestOnce(value);
+
         const prepared =
           initial.created || value.generationEventId === value.requestId
             ? { request: initial.request, created: initial.created }
@@ -503,7 +507,9 @@ function keepDocumentProposal(
 
 function compareDocumentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
   const proposal = documentProposal(tx, value);
+
   const base = tx.store(MaterialVersionsStore).materialVersion({ id: proposal.baseVersionId });
+
   const material = tx.store(MaterialsStore).material({ id: base.material_id });
 
   return tx.store(DocumentEditingStore).documentComparison({
