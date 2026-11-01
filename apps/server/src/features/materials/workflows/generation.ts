@@ -9,8 +9,8 @@
  * │ - Uses checkpoints and publication guards around durable state changes.                  │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Effect Workflow owns durable execution; the materials service owns domain writes         │
- * │ performed by guarded activities.                                                         │
+ * │ Effect Workflow owns durable execution; the materials service owns domain                │
+ * │ writes performed by guarded activities.                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -32,11 +32,9 @@ import { diagramAgent } from '#server/features/materials/agents/diagram';
 import { documentTransformAgent } from '#server/features/materials/agents/document-transform';
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { quizAgent } from '#server/features/materials/agents/quiz';
-import {
-  validateDocumentTransform,
-  authorizedTransformAssets
-} from '#server/features/materials/decoders/document-transform';
+import { validateDocumentTransform } from '#server/features/materials/decoders/document-transform';
 import { canonicalDocumentTransformOutput } from '#server/features/materials/decoders/document-transform-output';
+import { documentTransformPrompt } from '#server/features/materials/decoders/document-transform-prompt';
 import { assertQuestionSpec } from '#server/features/materials/decoders/question-spec';
 import { Materials } from '#server/features/materials/service/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
@@ -355,50 +353,16 @@ function generateDocumentTransform(input: {
           });
 
       const editTargetVersionId = request.documentTransform?.editTargetVersionId;
-      const editTarget = context.inputs.find((target) => target.versionId === editTargetVersionId);
-
-      if (
-        editTargetVersionId !== undefined &&
-        (!editTarget?.document || editTarget.scope.kind !== 'document')
-      )
-        return yield* Effect.fail(
-          new StudyError('invalid_input', 'Exact editable target is unavailable')
-        );
-
-      const captured = {
-        editTarget: editTarget
-          ? {
-              materialId: editTarget.materialId,
-              versionId: editTarget.versionId,
-              documentId: editTarget.documentId,
-              document: editTarget.document
-            }
-          : undefined,
-        title: request.title,
-        operations: request.documentTransform?.operations,
-        instruction: context.instruction,
-        preferences: context.preferences,
-        assets: authorizedTransformAssets(context),
-        messages: context.messages,
-        excludedMessages: context.excludedMessages,
-        inputs: context.inputs.map((target) => ({
-          role: editTarget
-            ? target.versionId === editTargetVersionId
-              ? 'editable_target'
-              : 'supporting_evidence'
-            : 'source',
-          versionId: target.versionId,
-          name: target.name,
-          excerpts: target.excerpts
-        }))
-      };
+      const { editTarget, prompt } = yield* Effect.try({
+        try: () => documentTransformPrompt(request, context),
+        catch: (cause) =>
+          cause instanceof StudyError
+            ? cause
+            : new StudyError('invalid_input', 'Invalid captured Document prompt', { cause })
+      });
       const output = yield* generateAgent(
         documentTransformAgent,
-        {
-          prompt: JSON.stringify(captured, (_, value: unknown) =>
-            typeof value === 'bigint' ? String(value) : value
-          )
-        },
+        { prompt },
         { maxRetries: 0, preflight: input.preflight }
       ).pipe(
         Effect.provideService(Agents, {

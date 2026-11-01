@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exercises session proposals through the controlled native generation path.       │
- * │                                                                                        │
- * │ Responsibilities:                                                                      │
- * │ - Covers application, keep, undo, changed inputs and publication fences.               │
- * │                                                                                        │
- * │ Boundaries:                                                                            │
- * │ Execution status: UNRUN pending CI; uses the shared provider fixture.                  │
+ * │ @file Exercises session proposals through the controlled native generation path.         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Covers application, keep, undo, changed inputs and publication fences.                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Execution status: UNRUN pending CI; uses the shared provider fixture.                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -22,6 +22,7 @@ import { Conversations } from '#server/features/conversations/index';
 import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
 import { documentTransformFixture } from '#testing/document-transform';
+import { makeMaterialOutput } from '#testing/material-output';
 
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
@@ -38,7 +39,13 @@ const meta = {
   omissions: []
 };
 
-for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_changed'] as const) {
+for (const scenario of [
+  'apply',
+  'target_changed',
+  'input_changed',
+  'selection_changed',
+  'message_changed'
+] as const) {
   test(`native proposal ${scenario}: exact receipt, comparison, keep and guarded undo`, async () => {
     const f = await documentTransformFixture();
 
@@ -50,6 +57,11 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
           const chats = yield* Conversations;
 
           const session = yield* chats.createSession({ title: 'Editing' });
+          const message = yield* chats.postMessage({
+            sessionId: session.id,
+            text: 'Preserve this qualification',
+            requestReply: false
+          });
 
           const image = yield* (yield* Sources).createSource({
             projectId: null,
@@ -97,7 +109,7 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
             editTargetVersionId: target.version.id
           });
 
-          return { session, target, input, context, request, image, imageBlock };
+          return { session, message, target, input, context, request, image, imageBlock };
         }).pipe(Effect.provide(f.domain()))
       );
 
@@ -156,6 +168,31 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
 
           assert.equal(proposal.material_id, setup.target.id);
 
+          const proposalDocument = f.context.db.orm
+            .select()
+            .from(s.material_document_versions)
+            .where(eq(s.material_document_versions.version_id, proposalId))
+            .get()!;
+
+          assert.equal(
+            f.context.db.orm
+              .select()
+              .from(s.document_edit_receipts)
+              .where(eq(s.document_edit_receipts.submitted_version_id, proposalId))
+              .all().length,
+            0
+          );
+          assert.throws(() =>
+            f.context.db.orm.run(
+              sql`DELETE FROM document_assets WHERE document_id=${proposalDocument.document_id}`
+            )
+          );
+          assert.throws(() =>
+            f.context.db.orm.run(
+              sql`DELETE FROM material_version_citations WHERE version_id=${proposalId}`
+            )
+          );
+
           if (proposal.content.kind !== 'document') throw new Error('Missing proposal Document');
 
           assert.equal(proposal.content.blocks[1]!.id, setup.imageBlock.id);
@@ -188,6 +225,12 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
               targets: []
             });
 
+          if (scenario === 'message_changed')
+            yield* chats.editMessage({
+              messageId: setup.message.id,
+              text: 'Concurrent qualification'
+            });
+
           const value = {
             requestId: setup.request.id,
             key: 'apply',
@@ -195,25 +238,27 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
             baseVersionId: setup.target.version.id
           };
 
-          if (scenario === 'apply') {
-            const versionsBefore = f.context.db.orm.select().from(s.material_versions).all().length;
+          const output = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
+          const beforeApplication = output();
 
+          for (const invalid of [
+            { ...value, key: 'wrong-base', baseVersionId: setup.input.version.id },
+            { ...value, key: 'wrong-expected', expectedVersionId: setup.input.version.id }
+          ]) {
+            assert.equal(
+              (yield* Effect.flip(chats.applyDocumentProposal(invalid))).kind,
+              'invalid_input'
+            );
+            assert.deepEqual(output(), beforeApplication);
+          }
+
+          if (scenario === 'apply') {
             f.context.db.orm.run(
               sql`CREATE TRIGGER reject_proposal_event BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialPublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
             );
 
             yield* Effect.flip(chats.applyDocumentProposal(value));
-
-            assert.equal(
-              f.context.db.orm.select().from(s.material_versions).all().length,
-              versionsBefore
-            );
-
-            assert.equal(
-              f.context.db.orm.select().from(s.document_proposal_receipts).all().length,
-              0
-            );
-
+            assert.deepEqual(output(), beforeApplication);
             f.context.db.orm.run(sql`DROP TRIGGER reject_proposal_event`);
           }
 
@@ -221,7 +266,23 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
 
           assert.equal(result.outcome, scenario === 'apply' ? 'applied' : 'conflict');
 
+          const afterApplication = output();
+
+          if (result.outcome === 'applied')
+            assert.equal(
+              (yield* Effect.flip(chats.applyDocumentProposal({ ...value, key: 'second-apply' })))
+                .kind,
+              'invalid_input'
+            );
+
           assert.equal((yield* chats.applyDocumentProposal(value)).replayed, true);
+          assert.deepEqual(output(), afterApplication);
+          assert.equal(
+            (yield* Effect.flip(
+              chats.keepDocumentProposal({ requestId: value.requestId, key: value.key })
+            )).kind,
+            'invalid_input'
+          );
 
           assert.equal(
             (yield* Effect.flip(
@@ -240,6 +301,19 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
           assert.ok(
             !compare.proposedChanges.some((change) => change.blockId === setup.imageBlock.id)
           );
+
+          if (scenario === 'apply') {
+            const beforeKeep = output();
+
+            f.context.db.orm.run(
+              sql`CREATE TRIGGER reject_keep_event BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialPublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
+            );
+            yield* Effect.flip(
+              chats.keepDocumentProposal({ requestId: setup.request.id, key: 'keep' })
+            );
+            assert.deepEqual(output(), beforeKeep);
+            f.context.db.orm.run(sql`DROP TRIGGER reject_keep_event`);
+          }
 
           const kept = yield* chats.keepDocumentProposal({
             requestId: setup.request.id,
@@ -294,6 +368,11 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
             if (applied.content.kind !== 'document') throw new Error('Missing applied Document');
 
             assert.equal(applied.content.blocks[1]!.id, setup.imageBlock.id);
+            assert.deepEqual(
+              (yield* materials.citations({ id: applied.id, limit: 10 })).items,
+              (yield* materials.citations({ id: proposalId, limit: 10 })).items
+            );
+            assert.deepEqual(applied.parents, [setup.target.version.id]);
 
             const undo = yield* materials.undoDocument({
               materialId: setup.target.id,
@@ -314,6 +393,7 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
               true
             );
           }
+
           return {
             independentId: independent.id,
             applyValue: value,
@@ -327,6 +407,7 @@ for (const scenario of ['apply', 'target_changed', 'input_changed', 'selection_c
         Effect.gen(function* () {
           const chats = yield* Conversations,
             materials = yield* Materials;
+
           assert.equal(
             (yield* chats.applyDocumentProposal(outcomes.applyValue)).resultVersionId,
             outcomes.resultVersionId
@@ -467,40 +548,39 @@ test('a captured passage cannot silently broaden into a whole-Document target ed
 
         const documentId = whole.inputs[0]!.documentId;
 
-        yield* chats.updateSessionSelection({
-          sessionId: session.id,
-          expectedRevision: 1n,
-          targets: [
-            {
-              versionId: target.version.id,
-              documentId,
-              scope: {
-                kind: 'ranges',
-                ranges: [
-                  { versionId: target.version.id, documentId, blockId: block.id, start: 6, end: 14 }
-                ]
-              }
-            }
-          ]
-        });
+        const scopes = [
+          {
+            kind: 'ranges',
+            ranges: [
+              { versionId: target.version.id, documentId, blockId: block.id, start: 6, end: 14 }
+            ]
+          },
+          { kind: 'blocks', blockIds: [block.id] }
+        ] as const;
 
-        const passage = yield* chats.captureSessionContext({
-          sessionId: session.id,
-          intentKey: 'passage',
-          instruction: 'Clarify',
-          preferences: {}
-        });
+        for (const [index, scope] of scopes.entries()) {
+          yield* chats.updateSessionSelection({
+            sessionId: session.id,
+            expectedRevision: BigInt(index + 1),
+            targets: [{ versionId: target.version.id, documentId, scope }]
+          });
+          const passage = yield* chats.captureSessionContext({
+            sessionId: session.id,
+            intentKey: scope.kind,
+            instruction: 'Clarify',
+            preferences: {}
+          });
+          const error = yield* Effect.flip(
+            chats.requestDocumentTransform({
+              title: 'Unsafe broadening',
+              contextRequestId: passage.requestId,
+              operations: ['clarity'],
+              editTargetVersionId: target.version.id
+            })
+          );
 
-        const error = yield* Effect.flip(
-          chats.requestDocumentTransform({
-            title: 'Unsafe broadening',
-            contextRequestId: passage.requestId,
-            operations: ['clarity'],
-            editTargetVersionId: target.version.id
-          })
-        );
-
-        assert.equal(error.kind, 'invalid_input');
+          assert.equal(error.kind, 'invalid_input');
+        }
 
         assert.equal(
           f.context.db.orm.select().from(s.material_generation_requests).all().length,

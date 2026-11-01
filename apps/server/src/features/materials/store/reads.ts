@@ -7,8 +7,8 @@
  * │ - Keeps persistence inputs and results typed for service-layer composition.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Typed store helpers own database access; the materials service applies policy and        │
- * │ composes these private operations.                                                       │
+ * │ Typed store helpers own database access; the materials service applies                   │
+ * │ policy and composes these private operations.                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

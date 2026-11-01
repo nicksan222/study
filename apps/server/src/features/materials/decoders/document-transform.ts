@@ -6,7 +6,8 @@
  * │ - Rejects fabricated provenance, unauthorized assets and citations.                      │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ This feature validator reads typed captures without accessing persistence or providers.  │
+ * │ This feature validator reads typed captures without accessing persistence or             │
+ * │ providers.                                                                               │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

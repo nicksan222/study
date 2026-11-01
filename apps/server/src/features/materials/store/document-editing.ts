@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Retains guarded canonical Document edits and structural comparisons.             │
- * │                                                                                        │
- * │ Responsibilities:                                                                      │
- * │ - Publishes revisions or retains conflicting rich alternatives atomically.             │
- * │                                                                                        │
- * │ Boundaries:                                                                            │
- * │ Materials owns persistence; callers compose synchronous transactions.                  │
+ * │ @file Retains guarded canonical Document edits and structural comparisons.               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Publishes revisions or retains conflicting rich alternatives atomically.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Materials owns persistence; callers compose synchronous transactions.                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -114,93 +114,134 @@ export function makeDocumentEditing(resources: StoreResources) {
     );
   }
 
+  function editIntent(
+    value: typeof contract.saveDocumentInputSchema.Type,
+    operation: 'save' | 'undo',
+    restoreVersionId: MaterialVersionId | undefined
+  ) {
+    // Schema codecs retain bigint identity; canonical ordering ignores object property order.
+    const encoded =
+      operation === 'save'
+        ? Schema.encodeSync(
+            Schema.fromJsonString(Schema.toCodecJson(contract.saveDocumentInputSchema))
+          )(value)
+        : Schema.encodeSync(
+            Schema.fromJsonString(Schema.toCodecJson(contract.undoDocumentInputSchema))
+          )({
+            materialId: value.materialId,
+            expectedVersionId: value.expectedVersionId,
+            undoKey: value.saveKey,
+            restoreVersionId: required(restoreVersionId)
+          });
+
+    return canonicalJson(encoded);
+  }
+
+  function findEditReceipt(
+    value: typeof contract.saveDocumentInputSchema.Type,
+    operation: 'save' | 'undo',
+    intent: string
+  ) {
+    const previous = db.orm
+      .select()
+      .from(s.document_edit_receipts)
+      .where(
+        and(
+          eq(s.document_edit_receipts.material_id, value.materialId),
+          eq(s.document_edit_receipts.key, value.saveKey)
+        )
+      )
+      .get();
+
+    if (previous) {
+      if (previous.operation !== operation || previous.intent !== intent)
+        throw new StudyError('invalid_input', 'Edit key already has a different intent');
+
+      return {
+        replayed: true,
+        outcome: previous.outcome,
+        expectedVersionId: previous.expected_version_id,
+        currentVersionId: previous.current_version_id,
+        submittedVersionId: previous.submitted_version_id
+      };
+    }
+  }
+
+  function editableBase(value: typeof contract.saveDocumentInputSchema.Type) {
+    const base = documentVersion(value.expectedVersionId);
+
+    if (base.material_id !== value.materialId || base.status !== 'published')
+      throw new StudyError(
+        'invalid_input',
+        'Expected published Document does not belong to target'
+      );
+
+    if (base.creator === 'import')
+      throw new StudyError('invalid_input', 'Imported Documents require an authored derivative');
+
+    return base;
+  }
+
+  function assertEditingOwnership(value: typeof contract.saveDocumentInputSchema.Type) {
+    const submittedIds = value.document.blocks.map((block) => block.id);
+
+    const existingOwners = submittedIds.length
+      ? db.orm
+          .select({ materialId: s.material_versions.material_id })
+          .from(s.blocks)
+          .innerJoin(
+            s.material_document_versions,
+            eq(s.blocks.document_id, s.material_document_versions.document_id)
+          )
+          .innerJoin(
+            s.material_versions,
+            eq(s.material_document_versions.version_id, s.material_versions.id)
+          )
+          .where(inArray(s.blocks.editing_id, submittedIds))
+          .all()
+      : [];
+
+    if (existingOwners.some((owner) => owner.materialId !== value.materialId))
+      throw new StudyError('invalid_input', 'Editing identities belong to another Document');
+  }
+
+  function restorationSource(
+    base: ReturnType<typeof documentVersion>,
+    restoreVersionId: MaterialVersionId | undefined
+  ) {
+    const source = restoreVersionId === undefined ? base : documentVersion(restoreVersionId);
+
+    if (source.material_id !== base.material_id || source.status !== 'published')
+      throw new StudyError('invalid_input', 'Restoration must use published target history');
+
+    return source;
+  }
+
+  function relevantInputsUnchanged(base: ReturnType<typeof documentVersion>) {
+    return base.inputs.every((id) => {
+      const input = required(reads.readVersion(id));
+
+      return input.material_id === base.material_id || head(input.material_id).id === id;
+    });
+  }
+
   function save(
     value: typeof contract.saveDocumentInputSchema.Type,
     operation: 'save' | 'undo' = 'save',
     restoreVersionId?: MaterialVersionId
   ) {
     return materialIntegrity(() => {
-      // The schema-specific codec preserves bigint identity and ignores object property ordering.
+      const intent = editIntent(value, operation, restoreVersionId);
+      const previous = findEditReceipt(value, operation, intent);
 
-      const encoded =
-        operation === 'save'
-          ? Schema.encodeSync(
-              Schema.fromJsonString(Schema.toCodecJson(contract.saveDocumentInputSchema))
-            )(value)
-          : Schema.encodeSync(
-              Schema.fromJsonString(Schema.toCodecJson(contract.undoDocumentInputSchema))
-            )({
-              materialId: value.materialId,
-              expectedVersionId: value.expectedVersionId,
-              undoKey: value.saveKey,
-              restoreVersionId: required(restoreVersionId)
-            });
+      if (previous) return previous;
 
-      const previous = db.orm
-        .select()
-        .from(s.document_edit_receipts)
-        .where(
-          and(
-            eq(s.document_edit_receipts.material_id, value.materialId),
-            eq(s.document_edit_receipts.key, value.saveKey)
-          )
-        )
-        .get();
+      const base = editableBase(value);
 
-      if (previous) {
-        if (previous.operation !== operation || previous.intent !== canonicalJson(encoded))
-          throw new StudyError('invalid_input', 'Edit key already has a different intent');
-
-        return {
-          replayed: true,
-          outcome: previous.outcome,
-          expectedVersionId: previous.expected_version_id,
-          currentVersionId: previous.current_version_id,
-          submittedVersionId: previous.submitted_version_id
-        };
-      }
-
-      const base = documentVersion(value.expectedVersionId);
-
-      if (base.material_id !== value.materialId || base.status !== 'published')
-        throw new StudyError(
-          'invalid_input',
-          'Expected published Document does not belong to target'
-        );
-
-      if (base.creator === 'import')
-        throw new StudyError('invalid_input', 'Imported Documents require an authored derivative');
-
-      const submittedIds = value.document.blocks.map((block) => block.id);
-
-      const existingOwners = submittedIds.length
-        ? db.orm
-            .select({ materialId: s.material_versions.material_id })
-            .from(s.blocks)
-            .innerJoin(
-              s.material_document_versions,
-              eq(s.blocks.document_id, s.material_document_versions.document_id)
-            )
-            .innerJoin(
-              s.material_versions,
-              eq(s.material_document_versions.version_id, s.material_versions.id)
-            )
-            .where(inArray(s.blocks.editing_id, submittedIds))
-            .all()
-        : [];
-
-      if (
-        operation === 'save' &&
-        existingOwners.some((owner) => owner.materialId !== value.materialId)
-      )
-        throw new StudyError('invalid_input', 'Editing identities belong to another Document');
+      if (operation === 'save') assertEditingOwnership(value);
 
       const current = head(value.materialId);
-
-      const source = restoreVersionId === undefined ? base : documentVersion(restoreVersionId);
-
-      if (source.material_id !== value.materialId || source.status !== 'published')
-        throw new StudyError('invalid_input', 'Restoration must use published target history');
+      const source = restorationSource(base, restoreVersionId);
 
       const inputs = source.inputs;
 
@@ -220,13 +261,7 @@ export function makeDocumentEditing(resources: StoreResources) {
 
       setCitations({ id: submittedVersionId, citations: readCitations(source.id) });
 
-      const relevantUnchanged =
-        operation !== 'undo' ||
-        base.inputs.every((id) => {
-          const input = required(reads.readVersion(id));
-
-          return input.material_id === value.materialId || head(input.material_id).id === id;
-        });
+      const relevantUnchanged = operation !== 'undo' || relevantInputsUnchanged(base);
 
       const outcome =
         current.id === base.id && relevantUnchanged ? ('saved' as const) : ('conflict' as const);
@@ -239,7 +274,7 @@ export function makeDocumentEditing(resources: StoreResources) {
           material_id: value.materialId,
           key: value.saveKey,
           operation,
-          intent: canonicalJson(encoded),
+          intent,
           expected_version_id: base.id,
           current_version_id: current.id,
           submitted_version_id: submittedVersionId,

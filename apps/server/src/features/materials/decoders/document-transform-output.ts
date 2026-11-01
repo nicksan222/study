@@ -4,11 +4,11 @@
  * │ Documents.                                                                               │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Preserves proven unchanged target blocks; assigns fresh IDs to new content.           │
+ * │ - Preserves proven unchanged target blocks; assigns fresh IDs to new content.            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Native generation activities own execution; Materials validates and publishes canonical  │
- * │ results.                                                                                 │
+ * │ Native generation activities own execution; Materials validates and                      │
+ * │ publishes canonical results.                                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

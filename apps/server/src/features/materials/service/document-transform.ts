@@ -7,8 +7,8 @@
  * │ - Keeps derivative identity, receipts and membership publication atomic.                 │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Conversations supplies availability checked captures; Materials retains all deliverable  │
- * │ persistence.                                                                             │
+ * │ Conversations supplies availability checked captures; Materials retains all              │
+ * │ deliverable persistence.                                                                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -54,13 +54,16 @@ export function requestDocumentTransform(
 
   if (value.editTargetVersionId !== undefined) {
     const target = context.inputs.find((item) => item.versionId === value.editTargetVersionId);
+
     if (!target || target.scope.kind !== 'document')
       throw new StudyError(
         'invalid_input',
         'Target proposals require an exact whole Document capture'
       );
+
     tx.store(DocumentProposalStore).assertEditableTarget({ versionId: value.editTargetVersionId });
   }
+
   const requestId = `document/${context.requestId}`;
   const result = tx.store(MaterialGenerationStore).requestOnce({
     requestId,
@@ -110,8 +113,10 @@ function publishCapturedDocument(
     .materialGeneration({ requestId: value.requestId, verifyOnly: true });
 
   const captured = requirePendingDocumentContext(tx, request, context);
+
   if (captured && request.documentTransform?.editTargetVersionId !== undefined) {
     const targetId = request.documentTransform.editTargetVersionId;
+
     if (
       !captured.inputs.some((item) => item.versionId === targetId && item.scope.kind === 'document')
     )
@@ -119,6 +124,7 @@ function publishCapturedDocument(
         'invalid_input',
         'Proposal target is outside captured whole Document scope'
       );
+
     tx.store(DocumentProposalStore).assertEditableTarget({ versionId: targetId });
   }
 

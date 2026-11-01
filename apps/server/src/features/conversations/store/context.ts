@@ -7,7 +7,8 @@
  * │ - Reads retained captures separately from availability-checked resume inputs.            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Conversations owns these private records; Materials resolves canonical selected content. │
+ * │ Conversations owns these private records; Materials resolves canonical                   │
+ * │ selected content.                                                                        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -361,6 +362,7 @@ export const SessionContextValidityStore = defineStore({
   make: (resources) => {
     const { db } = resources;
     const { requiredContext, session } = makeContextReads(resources);
+
     return {
       queries: {
         sessionContextValidity: storeQuery({
@@ -370,6 +372,7 @@ export const SessionContextValidityStore = defineStore({
           run: ({ requestId }) => {
             const captured = requiredContext(requestId, true);
             const owner = session(captured.sessionId);
+
             return (
               owner.selection_revision === captured.selectionRevision &&
               captured.messages.every(

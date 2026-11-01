@@ -218,3 +218,23 @@ test('session transform coordinators use public participants and cannot import a
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/bypass.ts')));
 });
+
+test('proposal coordinators compose public Materials participants instead of reaching into private stores', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/features/conversations/service/proposals.ts': `
+      import { Materials } from '#server/features/materials/index';
+      import { transaction } from '#server/platform/definitions/define-store';
+      export const apply = value => transaction(tx => Materials.applyDocumentProposal(tx, value, true));
+      export const keep = value => transaction(tx => Materials.keepDocumentProposal(tx, value));
+    `,
+    'src/features/conversations/service/private.ts': `
+      import { DocumentProposalStore } from '#server/features/materials/store/document-proposals';
+    `,
+    'src/features/materials/service/private.ts': `
+      import { SessionContextValidityStore } from '#server/features/conversations/store/context';
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
+});

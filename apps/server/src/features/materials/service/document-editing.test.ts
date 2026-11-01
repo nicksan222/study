@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exercises guarded Document editing through native RPC and SQLite.                │
- * │                                                                                        │
- * │ Responsibilities:                                                                      │
- * │ - Covers racing saves, retained conflicts, reopen and guarded restoration.             │
- * │                                                                                        │
- * │ Boundaries:                                                                            │
- * │ Execution status: UNRUN pending CI; no remote provider is contacted.                   │
+ * │ @file Exercises guarded Document editing through native RPC and SQLite.                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Covers racing saves, retained conflicts, reopen and guarded restoration.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Execution status: UNRUN pending CI; no remote provider is contacted.                     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -26,6 +26,7 @@ import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { makeMaterialOutput } from '#testing/material-output';
 
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
@@ -145,10 +146,9 @@ test('native saves race on one expected revision, retain both rich alternatives 
 
     assert.throws(() => context.db.orm.delete(s.document_edit_receipts).run());
 
-    const beforeFailure = {
-      versions: context.db.orm.select().from(s.material_versions).all().length,
-      receipts: context.db.orm.select().from(s.document_edit_receipts).all().length
-    };
+    const output = makeMaterialOutput({ db: context.db, clock: context.clock });
+
+    const beforeFailure = output();
 
     const retryable = {
       ...a,
@@ -163,17 +163,15 @@ test('native saves race on one expected revision, retain both rich alternatives 
 
     await assert.rejects(save(retryable));
 
-    assert.equal(
-      context.db.orm.select().from(s.material_versions).all().length,
-      beforeFailure.versions
-    );
-
-    assert.equal(
-      context.db.orm.select().from(s.document_edit_receipts).all().length,
-      beforeFailure.receipts
-    );
+    assert.deepEqual(output(), beforeFailure);
 
     context.db.orm.run(sql`DROP TRIGGER reject_edit_event`);
+
+    const retried = await save(retryable);
+
+    assert.equal(retried.outcome, 'saved');
+
+    assert.equal((await save(retryable)).submittedVersionId, retried.submittedVersionId);
 
     const mutationError = await call(
       Effect.gen(function* () {
@@ -210,7 +208,7 @@ test('native saves race on one expected revision, retain both rich alternatives 
       Effect.gen(function* () {
         return yield* (yield* Materials).undoDocument({
           materialId: original.id,
-          expectedVersionId: winner.submittedVersionId,
+          expectedVersionId: retried.submittedVersionId,
           restoreVersionId: original.version.id,
           undoKey: 'undo'
         });
@@ -219,11 +217,18 @@ test('native saves race on one expected revision, retain both rich alternatives 
 
     assert.equal(undo.outcome, 'saved');
 
+    const concurrent = await save({
+      ...a,
+      expectedVersionId: undo.submittedVersionId,
+      saveKey: 'after-undo',
+      document: { blocks: [stable, paragraph('Later manual edit')], meta }
+    });
+
     const staleUndo = await call(
       Effect.gen(function* () {
         return yield* (yield* Materials).undoDocument({
           materialId: original.id,
-          expectedVersionId: winner.submittedVersionId,
+          expectedVersionId: undo.submittedVersionId,
           restoreVersionId: original.version.id,
           undoKey: 'stale-undo'
         });
@@ -232,7 +237,18 @@ test('native saves race on one expected revision, retain both rich alternatives 
 
     assert.equal(staleUndo.outcome, 'conflict');
 
-    assert.equal(staleUndo.currentVersionId, undo.submittedVersionId);
+    assert.equal(staleUndo.currentVersionId, concurrent.submittedVersionId);
+
+    assert.equal(
+      (
+        await call(
+          Effect.gen(function* () {
+            return yield* (yield* Materials).material({ id: original.id });
+          })
+        )
+      ).version.id,
+      concurrent.submittedVersionId
+    );
 
     assert.equal(context.db.orm.select().from(s.materials).all().length, 1);
   } finally {

@@ -194,3 +194,33 @@ test('transform receipts and citations remain material-owned while coordinators 
     'Feature conversations may not write material_version_citations.'
   ]);
 });
+
+test('edit and proposal receipts stay Material-owned and asset roots stay trigger-derived', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/materials/store/editing.ts': `
+      import * as s from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.document_edit_receipts);
+      db.insert(s.document_proposals);
+      db.insert(s.document_proposal_receipts);
+      db.delete(s.document_assets);
+    `,
+    'src/features/conversations/store/proposals.ts': `
+      import * as schema from '@study/db/schema';
+      import { sql } from '@study/db';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.select().from(schema.document_proposals);
+      const { document_proposals: proposals } = schema;
+      db.insert(proposals);
+      db.update(schema.document_edit_receipts);
+      sql\`DELETE FROM document_proposal_receipts WHERE key=\${key}\`;
+    `
+  });
+
+  assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    'Feature conversations may not write document_edit_receipts.',
+    'Feature conversations may not write document_proposal_receipts.',
+    'Feature conversations may not write document_proposals.',
+    'Feature materials may not write document_assets.'
+  ]);
+});

@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Canonicalizes schema-encoded idempotency intents.                                │
- * │                                                                                        │
- * │ Responsibilities:                                                                      │
- * │ - Preserves meaningful array order and bigint codec values.                            │
- * │                                                                                        │
- * │ Boundaries:                                                                            │
- * │ Pure ordering policy; feature stores retain typed intent codecs.                       │
+ * │ @file Canonicalizes schema-encoded idempotency intents for durable replay.               │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Preserves meaningful array order and bigint codec values.                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Pure ordering policy; feature stores retain typed intent codecs.                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

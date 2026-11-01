@@ -8,8 +8,8 @@
  * │ - Keeps persistence inputs and results typed for service-layer composition.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Typed store helpers own database access; the materials service applies policy and        │
- * │ composes these private operations.                                                       │
+ * │ Typed store helpers own database access; the materials service applies                   │
+ * │ policy and composes these private operations.                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -456,7 +456,9 @@ export function makeGeneration(resources: StoreResources) {
       .where(eq(s.material_versions.id, material.version.id))
       .run();
     setCitations({ id: material.version.id, citations: resolved });
+
     if (target === undefined) publish(material.version.id);
+
     db.orm
       .update(s.material_generation_requests)
       .set({
@@ -489,6 +491,7 @@ export function makeGeneration(resources: StoreResources) {
       targetVersionId === undefined ? undefined : required(readVersion(targetVersionId));
     const inheritedIds =
       target?.kind === 'document' ? target.content.blocks.map((block) => block.id) : [];
+
     assertFreshDerivativeIds(value.content, inheritedIds);
 
     if (request.kind !== 'document' && value.citations.length === 0)
@@ -508,6 +511,7 @@ export function makeGeneration(resources: StoreResources) {
             .filter((block) => !inheritedIds.includes(block.id))
             .map((block) => block.id)
         : [];
+
     if (
       content.kind === 'document' &&
       freshIds.length &&

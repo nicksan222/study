@@ -63,6 +63,23 @@ import {
 } from './document-transform.ts';
 import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 
+function published(tx: Transaction, version: MaterialVersionDetailDto) {
+  if (version.status !== 'published') return;
+
+  const eventId = randomUUID();
+
+  tx.emit({
+    type: 'MaterialPublished',
+    eventId,
+    causationId: null,
+    correlationId: eventId,
+    inputVersion: 1,
+    depth: 0,
+    materialId: version.material_id,
+    materialVersionId: version.id
+  });
+}
+
 function* makeMaterials() {
   const materials = yield* useStore(MaterialsStore),
     versions = yield* useStore(MaterialVersionsStore),
@@ -70,50 +87,34 @@ function* makeMaterials() {
     inputs = yield* useStore(MaterialInputsStore),
     dependents = yield* useStore(MaterialDependentsStore),
     citations = yield* useStore(MaterialCitationsStore);
-  const published = (tx: Transaction, version: MaterialVersionDetailDto) => {
-    if (version.status !== 'published') return;
+  const editDocument = (
+    mutate: (tx: Transaction) => typeof editing.documentEditOutcomeSchema.Type
+  ) =>
+    transaction((tx) => {
+      const result = mutate(tx);
 
-    const eventId = randomUUID();
+      if (result.outcome === 'saved' && !result.replayed)
+        published(
+          tx,
+          tx.store(MaterialVersionsStore).materialVersion({ id: result.submittedVersionId })
+        );
 
-    tx.emit({
-      type: 'MaterialPublished',
-      eventId,
-      causationId: null,
-      correlationId: eventId,
-      inputVersion: 1,
-      depth: 0,
-      materialId: version.material_id,
-      materialVersionId: version.id
+      return result;
     });
-  };
 
   return {
     createManualDocument: (value: typeof editing.createManualDocumentSchema.Type) =>
       transaction((tx) => {
         const result = tx.store(DocumentEditingStore).createManualDocument(value);
+
         published(tx, result.version);
+
         return result;
       }),
     saveDocument: (value: typeof editing.saveDocumentInputSchema.Type) =>
-      transaction((tx) => {
-        const result = tx.store(DocumentEditingStore).saveDocument(value);
-        if (result.outcome === 'saved' && !result.replayed)
-          published(
-            tx,
-            tx.store(MaterialVersionsStore).materialVersion({ id: result.submittedVersionId })
-          );
-        return result;
-      }),
+      editDocument((tx) => tx.store(DocumentEditingStore).saveDocument(value)),
     undoDocument: (value: typeof editing.undoDocumentInputSchema.Type) =>
-      transaction((tx) => {
-        const result = tx.store(DocumentEditingStore).undoDocument(value);
-        if (result.outcome === 'saved' && !result.replayed)
-          published(
-            tx,
-            tx.store(MaterialVersionsStore).materialVersion({ id: result.submittedVersionId })
-          );
-        return result;
-      }),
+      editDocument((tx) => tx.store(DocumentEditingStore).undoDocument(value)),
     compareDocument: (value: typeof editing.compareDocumentInputSchema.Type) =>
       transaction((tx) => tx.store(DocumentEditingStore).documentComparison(value)),
     projectSource: (event: SourceIndexed) =>
@@ -445,20 +446,7 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
 function registerImportedSource(tx: Transaction, sourceId: SourceId) {
   const result = tx.store(MaterialsStore).registerSource(sourceId);
 
-  if (result.originalCreated) {
-    const eventId = randomUUID();
-
-    tx.emit({
-      type: 'MaterialPublished',
-      eventId,
-      causationId: null,
-      correlationId: eventId,
-      inputVersion: 1,
-      depth: 0,
-      materialId: result.original.id,
-      materialVersionId: result.original.version.id
-    });
-  }
+  if (result.originalCreated) published(tx, result.original.version);
 
   return result.original;
 }
@@ -489,50 +477,49 @@ function readGeneration(tx: Transaction, value: { requestId: string; verifyOnly?
 function documentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
   return tx.store(DocumentProposalStore).documentProposal(value);
 }
+
 function applyDocumentProposal(
   tx: Transaction,
   value: typeof editing.applyDocumentProposalSchema.Type,
   relevantValid: boolean
 ) {
   const result = tx.store(DocumentProposalStore).applyDocumentProposal({ ...value, relevantValid });
+
   emitProposalPublication(tx, result);
+
   return result;
 }
+
 function keepDocumentProposal(
   tx: Transaction,
   value: typeof editing.keepDocumentProposalSchema.Type
 ) {
   const result = tx.store(DocumentProposalStore).keepDocumentProposal(value);
+
   emitProposalPublication(tx, result);
+
   return result;
 }
+
 function compareDocumentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
   const proposal = documentProposal(tx, value);
   const base = tx.store(MaterialVersionsStore).materialVersion({ id: proposal.baseVersionId });
   const material = tx.store(MaterialsStore).material({ id: base.material_id });
+
   return tx.store(DocumentEditingStore).documentComparison({
     beforeVersionId: proposal.baseVersionId,
     proposedVersionId: proposal.proposedVersionId,
     currentVersionId: material.latestPublishedVersion!.id
   });
 }
+
 function emitProposalPublication(
   tx: Transaction,
   result: typeof editing.documentProposalOutcomeSchema.Type
 ) {
   if (result.replayed || result.resultVersionId === null) return;
-  const version = tx.store(MaterialVersionsStore).materialVersion({ id: result.resultVersionId });
-  const eventId = randomUUID();
-  tx.emit({
-    type: 'MaterialPublished',
-    eventId,
-    causationId: null,
-    correlationId: eventId,
-    inputVersion: 1,
-    depth: 0,
-    materialId: version.material_id,
-    materialVersionId: version.id
-  });
+
+  published(tx, tx.store(MaterialVersionsStore).materialVersion({ id: result.resultVersionId }));
 }
 
 /** Receipt replay performs no new publication and survives session disappearance. */
@@ -546,10 +533,12 @@ function findDocumentProposalReceipt(
   if (operation === 'apply') {
     if (!('baseVersionId' in value))
       throw new StudyError('invalid_input', 'Application requires exact captured identities');
+
     return tx
       .store(DocumentProposalReceiptStore)
       .findDocumentProposalReceipt({ ...value, operation: 'apply' });
   }
+
   return tx
     .store(DocumentProposalReceiptStore)
     .findDocumentProposalReceipt({ ...value, operation: 'keep' });

@@ -7,8 +7,8 @@
  * │ - Preserves the public contract while delegating domain behavior to the service.         │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ RPC schemas come from @study/contracts; domain decisions and persistence remain owned by │
- * │ the materials service.                                                                   │
+ * │ RPC schemas come from @study/contracts; domain decisions and persistence                 │
+ * │ remain owned by the materials service.                                                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

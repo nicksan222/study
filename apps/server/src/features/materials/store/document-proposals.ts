@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Stores session proposal identities and atomic application receipts.              │
- * │                                                                                        │
- * │ Responsibilities:                                                                      │
- * │ - Publishes guarded revisions or independent Materials with exact citations.           │
- * │                                                                                        │
- * │ Boundaries:                                                                            │
- * │ Conversations checks capture availability before invoking participants.                │
+ * │ @file Stores session proposal identities and atomic application receipts.                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Publishes guarded revisions or independent Materials with exact citations.             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Conversations checks capture availability before invoking participants.                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -85,8 +85,10 @@ function makeDocumentProposals(resources: StoreResources) {
         : Schema.encodeSync(
             Schema.fromJsonString(Schema.toCodecJson(contract.keepDocumentProposalSchema))
           )(value);
+
     return canonicalJson(intent);
   }
+
   function findReceipt(
     value:
       | typeof contract.keepDocumentProposalSchema.Type
@@ -98,25 +100,138 @@ function makeDocumentProposals(resources: StoreResources) {
       .from(s.document_proposal_receipts)
       .where(eq(s.document_proposal_receipts.key, value.key))
       .get();
+
     if (!previous) return undefined;
+
     const intent = proposalIntent(value, operation);
+
     if (
       previous.request_id !== value.requestId ||
       previous.operation !== operation ||
       previous.intent !== intent
     )
       throw new StudyError('invalid_input', 'Application key already has a different intent');
-    const captured = proposal(value);
+
+    return outcome(proposal(value), previous, true);
+  }
+
+  function outcome(
+    captured: ReturnType<typeof proposal>,
+    receipt: typeof s.document_proposal_receipts.$inferSelect,
+    replayed: boolean
+  ) {
     return {
-      requestId: value.requestId,
-      outcome: previous.outcome,
+      requestId: captured.requestId,
+      outcome: receipt.outcome,
       baseVersionId: captured.baseVersionId,
       proposedVersionId: captured.proposedVersionId,
-      currentVersionId: previous.current_version_id,
-      resultVersionId: previous.result_version_id,
-      replayed: true
+      currentVersionId: receipt.current_version_id,
+      resultVersionId: receipt.result_version_id,
+      replayed
     };
   }
+
+  function assertNotCompleted(requestId: string, operation: 'apply' | 'keep') {
+    const completed = db.orm
+      .select()
+      .from(s.document_proposal_receipts)
+      .where(
+        and(
+          eq(s.document_proposal_receipts.request_id, requestId),
+          eq(s.document_proposal_receipts.operation, operation)
+        )
+      )
+      .all()
+      .some((row) => row.result_version_id !== null);
+
+    if (completed)
+      throw new StudyError(
+        'invalid_input',
+        'Proposal operation already completed with another key'
+      );
+  }
+
+  function assertApplicationBase(
+    value:
+      | typeof contract.keepDocumentProposalSchema.Type
+      | typeof contract.applyDocumentProposalSchema.Type,
+    baseVersionId: MaterialVersionId
+  ) {
+    if (
+      !('baseVersionId' in value) ||
+      value.baseVersionId !== baseVersionId ||
+      value.expectedVersionId !== baseVersionId
+    )
+      throw new StudyError('invalid_input', 'Application must declare the exact captured base');
+  }
+
+  function relevantInputsUnchanged(proposed: ReturnType<typeof editing.documentVersion>) {
+    return proposed.inputs.every((id) => {
+      const input = required(reads.readVersion(id));
+
+      return editing.head(input.material_id).id === id;
+    });
+  }
+
+  function keepIndependent(
+    value: typeof contract.keepDocumentProposalSchema.Type,
+    captured: ReturnType<typeof proposal>,
+    proposed: ReturnType<typeof editing.documentVersion>
+  ) {
+    const request = required(
+      db.orm
+        .select()
+        .from(s.material_generation_requests)
+        .where(eq(s.material_generation_requests.id, value.requestId))
+        .get()
+    );
+    const payload = Schema.decodeUnknownSync(
+      Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
+    )(request.payload);
+    const material = createMaterial({
+      title: payload.title,
+      sessionId: captured.sessionId,
+      projectId: value.projectId,
+      content: {
+        ...proposed.content,
+        blocks: proposed.content.blocks.map((block) => createBlock(block.content))
+      },
+      inputs: proposed.inputs,
+      operation: 'generate',
+      language: proposed.language,
+      publish: false
+    });
+
+    return material.version.id;
+  }
+
+  function publishResult(
+    value:
+      | typeof contract.keepDocumentProposalSchema.Type
+      | typeof contract.applyDocumentProposalSchema.Type,
+    operation: 'apply' | 'keep',
+    captured: ReturnType<typeof proposal>,
+    proposed: ReturnType<typeof editing.documentVersion>,
+    base: ReturnType<typeof editing.documentVersion>
+  ) {
+    const resultVersionId =
+      operation === 'apply'
+        ? insertVersion(base.material_id, {
+            content: proposed.content,
+            inputs: proposed.inputs,
+            parents: [base.id],
+            operation: 'edit',
+            language: proposed.language,
+            publish: false
+          })
+        : keepIndependent(value, captured, proposed);
+
+    setCitations({ id: resultVersionId, citations: readCitations(proposed.id) });
+    publish(resultVersionId);
+
+    return resultVersionId;
+  }
+
   function operate(
     value:
       | typeof contract.keepDocumentProposalSchema.Type
@@ -126,111 +241,25 @@ function makeDocumentProposals(resources: StoreResources) {
   ) {
     return materialIntegrity(() => {
       const replay = findReceipt(value, operation);
+
       if (replay) return replay;
+
       const captured = proposal(value);
-
       const proposed = editing.documentVersion(captured.proposedVersionId);
-
       const base = editing.documentVersion(captured.baseVersionId);
-
       const current = editing.head(base.material_id);
-
       const intent = proposalIntent(value, operation);
 
-      const outcome = (
-        receipt: typeof s.document_proposal_receipts.$inferSelect,
-        replayed: boolean
-      ) => ({
-        requestId: captured.requestId,
-        outcome: receipt.outcome,
-        baseVersionId: captured.baseVersionId,
-        proposedVersionId: captured.proposedVersionId,
-        currentVersionId: receipt.current_version_id,
-        resultVersionId: receipt.result_version_id,
-        replayed
-      });
+      assertNotCompleted(value.requestId, operation);
 
-      const completed = db.orm
-        .select()
-        .from(s.document_proposal_receipts)
-        .where(
-          and(
-            eq(s.document_proposal_receipts.request_id, value.requestId),
-            eq(s.document_proposal_receipts.operation, operation)
-          )
-        )
-        .all()
-        .find((row) => row.result_version_id !== null);
+      if (operation === 'apply') assertApplicationBase(value, base.id);
 
-      if (completed)
-        throw new StudyError(
-          'invalid_input',
-          'Proposal operation already completed with another key'
-        );
-
-      if (
-        operation === 'apply' &&
-        (!('baseVersionId' in value) ||
-          value.baseVersionId !== base.id ||
-          value.expectedVersionId !== base.id)
-      )
-        throw new StudyError('invalid_input', 'Application must declare the exact captured base');
-
-      const relevantUnchanged = proposed.inputs.every((id) => {
-        const input = required(reads.readVersion(id));
-
-        return editing.head(input.material_id).id === id;
-      });
-
+      const relevantUnchanged = relevantInputsUnchanged(proposed);
       const conflict =
         operation === 'apply' && (current.id !== base.id || !relevantUnchanged || !relevantValid);
-
-      let resultVersionId: MaterialVersionId | null = null;
-
-      if (!conflict) {
-        const content = proposed.content;
-
-        if (operation === 'apply')
-          resultVersionId = insertVersion(base.material_id, {
-            content,
-            inputs: proposed.inputs,
-            parents: [base.id],
-            operation: 'edit',
-            language: proposed.language,
-            publish: false
-          });
-        else {
-          const material = createMaterial({
-            title: Schema.decodeUnknownSync(
-              Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
-            )(
-              required(
-                db.orm
-                  .select()
-                  .from(s.material_generation_requests)
-                  .where(eq(s.material_generation_requests.id, value.requestId))
-                  .get()
-              ).payload
-            ).title,
-            sessionId: captured.sessionId,
-            projectId: 'projectId' in value ? value.projectId : undefined,
-            content: {
-              ...content,
-              blocks: content.blocks.map((block) => createBlock(block.content))
-            },
-            inputs: proposed.inputs,
-            operation: 'generate',
-            language: proposed.language,
-            publish: false
-          });
-
-          resultVersionId = material.version.id;
-        }
-        setCitations({ id: resultVersionId, citations: readCitations(proposed.id) });
-
-        publish(resultVersionId);
-      }
-
+      const resultVersionId = conflict
+        ? null
+        : publishResult(value, operation, captured, proposed, base);
       const receipt = db.orm
         .insert(s.document_proposal_receipts)
         .values({
@@ -245,7 +274,7 @@ function makeDocumentProposals(resources: StoreResources) {
         .returning()
         .get();
 
-      return outcome(receipt, false);
+      return outcome(captured, receipt, false);
     });
   }
 
@@ -295,16 +324,20 @@ function makeDocumentProposals(resources: StoreResources) {
             .from(s.document_proposals)
             .where(eq(s.document_proposals.request_id, value.requestId))
             .get();
+
           if (previous) {
             if (!Schema.toEquivalence(proposalSchema)(proposal(value), value))
               throw new StudyError(
                 'invalid_input',
                 'Proposal receipt has different captured identities'
               );
+
             return;
           }
+
           const base = editing.documentVersion(value.baseVersionId);
           const proposed = editing.documentVersion(value.proposedVersionId);
+
           if (
             base.material_id !== proposed.material_id ||
             base.status !== 'published' ||
@@ -314,6 +347,7 @@ function makeDocumentProposals(resources: StoreResources) {
               'invalid_input',
               'Proposal revisions do not match the captured target'
             );
+
           db.orm
             .insert(s.document_proposals)
             .values({
@@ -347,17 +381,20 @@ export const DocumentProposalStore = defineStore({
   entity: { singular: 'documentProposal', plural: 'documentProposals' },
   make: (resources) => {
     const definitions = makeDocumentProposals(resources);
+
     return {
       queries: { documentProposal: definitions.queries.documentProposal },
       mutations: definitions.mutations
     };
   }
 });
+
 export const DocumentProposalReceiptStore = defineStore({
   name: 'study/DocumentProposalReceiptStore',
   entity: { singular: 'documentProposalReceipt', plural: 'documentProposalReceipts' },
   make: (resources) => {
     const definitions = makeDocumentProposals(resources);
+
     return {
       queries: { findDocumentProposalReceipt: definitions.queries.findDocumentProposalReceipt },
       mutations: {}

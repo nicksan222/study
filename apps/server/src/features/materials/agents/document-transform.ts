@@ -6,8 +6,8 @@
  * │ - Declares composable transformation policy and structured provider output.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ The provider platform executes requests; Materials validates and persists canonical      │
- * │ Documents.                                                                               │
+ * │ The provider platform executes requests; Materials validates and persists                │
+ * │ canonical Documents.                                                                     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

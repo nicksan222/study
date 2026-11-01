@@ -33,3 +33,23 @@ test('no-lossy-ids covers direct unsafe forms', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
+
+test('editing tokens and captured target identities stay lossless across native prompt and replay boundaries', () => {
+  const diagnostics = lintRule('no-lossy-ids', {
+    'src/features/materials/store/unsafe.ts': `
+      Number(value.expectedVersionId);
+      Number(value.baseVersionId);
+      parseInt(target.documentId, 10);
+    `,
+    'src/features/materials/decoders/safe.ts': `
+      String(value.expectedVersionId);
+      String(value.baseVersionId);
+      String(target.documentId);
+      Number(excerpt.start);
+      Number(excerpt.end);
+    `
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
+});

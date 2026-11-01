@@ -8,8 +8,8 @@
  * │ - Coordinates typed failures and persistence effects for feature callers.                │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ This is the conversations feature boundary for RPC and workflow callers; store           │
- * │ implementations stay private to the service.                                             │
+ * │ This is the conversations feature boundary for RPC and workflow callers;                 │
+ * │ store implementations stay private to the service.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -88,23 +88,30 @@ export const Conversations = defineService(
       applyDocumentProposal: (value: typeof editing.applyDocumentProposalSchema.Type) =>
         transaction((tx) => {
           const replay = Materials.findDocumentProposalReceipt(tx, value, 'apply');
+
           if (Option.isSome(replay)) return replay.value;
+
           const context = proposalContext(tx, value);
           const relevantValid = tx
             .store(SessionContextValidityStore)
             .sessionContextValidity({ requestId: context.requestId });
+
           return Materials.applyDocumentProposal(tx, value, relevantValid);
         }),
       keepDocumentProposal: (value: typeof editing.keepDocumentProposalSchema.Type) =>
         transaction((tx) => {
           const replay = Materials.findDocumentProposalReceipt(tx, value, 'keep');
+
           if (Option.isSome(replay)) return replay.value;
+
           proposalContext(tx, value);
+
           return Materials.keepDocumentProposal(tx, value);
         }),
       compareDocumentProposal: (value: typeof editing.proposalKeySchema.Type) =>
         transaction((tx) => {
           proposalContext(tx, value);
+
           return Materials.compareDocumentProposal(tx, value);
         }),
       requestDocumentTransform: (value: typeof requestDocumentTransformInputSchema.Type) =>
@@ -519,11 +526,16 @@ function pendingTransformContext(tx: Transaction, requestId: string) {
 function proposalContext(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
   const proposal = Materials.documentProposal(tx, value);
   const request = Materials.readGeneration(tx, { requestId: value.requestId, verifyOnly: true });
+
   if (!request.documentTransform || request.cancelled)
     throw new StudyError('cancelled', 'Proposal generation is unavailable');
+
   const context = readCapturedContext(tx, request.documentTransform.contextRequestId);
+
   if (context.sessionId !== proposal.sessionId)
     throw new StudyError('invalid_input', 'Proposal session mismatch');
+
   Materials.assertDocumentContext(request, context);
+
   return context;
 }
