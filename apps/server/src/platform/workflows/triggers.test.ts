@@ -255,3 +255,13 @@ test('disabled subscriptions leave events unscheduled', () => {
     location.cleanup();
   }
 });
+
+test('trigger graph fanout counts every subscription with the same source event', () => {
+  const edges = Array.from({ length: 17 }, () => ({
+    event: 'SourceIndexed' as const,
+    emits: ['MaterialPublished' as const]
+  }));
+
+  assert.throws(() => validateTriggerGraph(edges), /fanout/);
+  assert.doesNotThrow(() => validateTriggerGraph(edges.slice(0, 16)));
+});
