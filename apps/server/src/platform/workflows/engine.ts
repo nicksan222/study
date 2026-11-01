@@ -19,17 +19,24 @@ import type { ServerContext } from '#server/platform/database/context';
 import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { workflowStore } from '#server/platform/workflows/store';
 
+// Checkpoints are synchronous SQLite values; the native engine erases schema services.
+type StoredWorkflow = Workflow.AnyWithProps & {
+  readonly payloadSchema: Workflow.AnyStructSchema & Schema.Codec<object, unknown>;
+  readonly successSchema: Schema.Codec<unknown, unknown>;
+  readonly errorSchema: Schema.Codec<unknown, unknown>;
+};
+
 const resultCodec = Schema.toCodecJson(
   Workflow.Result({ success: Schema.Unknown, error: Schema.Unknown })
 );
 
 const exitCodec = Schema.toCodecJson(Schema.Exit(Schema.Unknown, Schema.Unknown, Schema.Defect()));
 
-const encode = (schema: any, value: unknown) => Schema.encodeSync(schema)(value);
+const encode = <S extends Schema.ConstraintEncoder<unknown>>(schema: S, value: S['Type']) =>
+  Schema.encodeSync(schema)(value);
 
-const decode = (schema: any, value: unknown) => Schema.decodeUnknownSync(schema)(value);
-
-const stringify = (value: unknown) => JSON.stringify(value);
+const decode = <S extends Schema.ConstraintDecoder<unknown>>(schema: S, value: unknown) =>
+  Schema.decodeUnknownSync(schema)(value);
 
 // The native engine protocol has no expected error channel for invalid checkpoints.
 function checkpoint<A>(read: () => A): Effect.Effect<A> {
@@ -48,7 +55,7 @@ export function workflowEngineLayer(context: ServerContext) {
     const registrations = new Map<
       string,
       {
-        workflow: Workflow.AnyWithProps;
+        workflow: StoredWorkflow;
         execute: (
           payload: object,
           id: string
@@ -85,12 +92,12 @@ export function workflowEngineLayer(context: ServerContext) {
         lifetimes.clear();
       })
     );
-    const codec = (workflow: Workflow.AnyWithProps) =>
+    const codec = (workflow: StoredWorkflow) =>
       Schema.toCodecJson(
         Workflow.Result({ success: workflow.successSchema, error: workflow.errorSchema })
       );
     const start = Effect.fnUntraced(function* (
-      workflow: Workflow.AnyWithProps,
+      workflow: StoredWorkflow,
       id: string,
       payload: object
     ) {
@@ -152,7 +159,7 @@ export function workflowEngineLayer(context: ServerContext) {
             store.checkpoint(
               id,
               owner,
-              stringify(encode(codec(workflow), result)),
+              JSON.stringify(encode(codec(workflow), result)),
               result._tag === 'Complete'
                 ? instance.interrupted
                   ? 'cancelled'
@@ -214,9 +221,9 @@ export function workflowEngineLayer(context: ServerContext) {
 
       if (!row || row.status === 'completed' || row.status === 'cancelled') return;
 
-      const w = workflow as Workflow.AnyWithProps;
-      const payload = yield* checkpoint(
-        () => decode(Schema.toCodecJson(w.payloadSchema), JSON.parse(row.payload)) as object
+      const w = workflow as StoredWorkflow;
+      const payload = yield* checkpoint(() =>
+        decode(Schema.toCodecJson(w.payloadSchema), JSON.parse(row.payload))
       );
 
       yield* start(w, id, payload);
@@ -224,15 +231,15 @@ export function workflowEngineLayer(context: ServerContext) {
     const engine = WorkflowEngine.makeUnsafe({
       register: Effect.fnUntraced(function* (workflow, execute) {
         registrations.set(workflow._tag, {
-          workflow: workflow as Workflow.AnyWithProps,
+          workflow: workflow as StoredWorkflow,
           execute,
           scope: yield* Effect.scope
         });
       }),
       execute: Effect.fnUntraced(function* (workflow, options) {
-        const w = workflow as Workflow.AnyWithProps;
+        const w = workflow as StoredWorkflow;
         const payload = yield* Effect.sync(() =>
-          stringify(encode(Schema.toCodecJson(w.payloadSchema), options.payload))
+          JSON.stringify(encode(Schema.toCodecJson(w.payloadSchema), options.payload))
         );
         const row = yield* Effect.sync(() =>
           store.start(
@@ -259,12 +266,7 @@ export function workflowEngineLayer(context: ServerContext) {
           const row = store.execution(id);
 
           return row?.result && !store.interruptMode(id)
-            ? Option.some(
-                decode(
-                  codec(workflow as Workflow.AnyWithProps),
-                  JSON.parse(row.result)
-                ) as Workflow.Result<unknown, unknown>
-              )
+            ? Option.some(decode(codec(workflow as StoredWorkflow), JSON.parse(row.result)))
             : Option.none();
         }),
       resume,
@@ -294,8 +296,7 @@ export function workflowEngineLayer(context: ServerContext) {
           store.activity(instance.executionId, activity.name, attempt)
         );
 
-        if (saved)
-          return decode(resultCodec, JSON.parse(saved)) as Workflow.Result<unknown, unknown>;
+        if (saved) return decode(resultCodec, JSON.parse(saved));
 
         if (
           (interrupted.has(instance.executionId) || store.interruptMode(instance.executionId)) &&
@@ -337,7 +338,7 @@ export function workflowEngineLayer(context: ServerContext) {
               owners.get(instance) ?? '',
               activity.name,
               attempt,
-              stringify(encode(resultCodec, result))
+              JSON.stringify(encode(resultCodec, result))
             )
           );
 
@@ -347,9 +348,7 @@ export function workflowEngineLayer(context: ServerContext) {
         const instance = yield* WorkflowEngine.WorkflowInstance;
         const saved = yield* Effect.sync(() => store.deferred(instance.executionId, deferred.name));
 
-        return saved
-          ? Option.some(decode(exitCodec, JSON.parse(saved)) as Exit.Exit<unknown, unknown>)
-          : Option.none();
+        return saved ? Option.some(decode(exitCodec, JSON.parse(saved))) : Option.none();
       }),
       deferredDone: (options) =>
         Effect.gen(function* () {
@@ -359,7 +358,7 @@ export function workflowEngineLayer(context: ServerContext) {
             store.saveDeferred(
               options.executionId,
               options.deferredName,
-              stringify(encode(exitCodec, options.exit)),
+              JSON.stringify(encode(exitCodec, options.exit)),
               Option.isSome(caller)
                 ? { id: caller.value.executionId, owner: owners.get(caller.value) ?? '' }
                 : undefined
