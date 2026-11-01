@@ -33,6 +33,8 @@ const tokensSchema = Schema.Struct({
   expires_in: Schema.optional(Schema.Number)
 });
 
+const decodeRefreshTokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokensSchema));
+
 interface Access {
   value: string;
   renewAt: number;
@@ -285,9 +287,7 @@ function readRefreshTokens(bytes: Uint8Array) {
   let tokens: typeof tokensSchema.Type;
 
   try {
-    tokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokensSchema))(
-      new TextDecoder().decode(bytes)
-    );
+    tokens = decodeRefreshTokens(new TextDecoder().decode(bytes));
   } catch {
     throw new Error('Invalid ChatGPT token response');
   }
