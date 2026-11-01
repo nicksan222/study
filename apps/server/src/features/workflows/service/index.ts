@@ -13,6 +13,7 @@
  */
 
 import type {
+  executionSchema,
   cancelExecutionInputSchema,
   executionsInputSchema
 } from '@study/contracts/workflows/schemas';
@@ -22,6 +23,7 @@ import { Effect, Queue, Stream } from 'effect';
 import { ExecutionStore } from '#server/features/workflows/store/index';
 import { databaseChanges } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
+import type { Transaction } from '#server/platform/definitions/define-store';
 import { useStore } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
@@ -75,4 +77,19 @@ function* makeWorkflows() {
   };
 }
 
-export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflows));
+export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflows), {
+  correlatedExecutions
+});
+
+/** Inspect native runs in a caller transaction without transferring execution ownership. */
+function correlatedExecutions(tx: Transaction, correlationId: string) {
+  const rows: (typeof executionSchema.Type)[] = [];
+  let before: typeof executionsInputSchema.Type.before;
+  for (;;) {
+    const page = tx.store(ExecutionStore).executions({ correlationId, limit: 100, before });
+    rows.push(...page);
+    const last = page.at(-1);
+    if (page.length < 100 || !last) return rows;
+    before = { id: last.id, createdAtMs: last.createdAtMs };
+  }
+}

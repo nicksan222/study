@@ -188,7 +188,7 @@ export const practiceFailureHandler = ({
   event
 }: typeof practiceFailureWorkflow.payloadSchema.Type) =>
   Effect.gen(function* () {
-    if (event.kind !== 'quiz') return false;
+    if (event.kind !== 'quiz' || event.projectId === undefined) return false;
 
     const learning = yield* Learning;
     const { store } = yield* Database;

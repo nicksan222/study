@@ -10,6 +10,8 @@ import {
 } from '../ids.ts';
 import { sourceExportSchema } from '../sources/rpc.ts';
 import {
+  documentTransformSchema,
+  materialGenerationSnapshotSchema,
   materialGenerationInputSchema,
   materialGenerationSchema,
   createMaterialInputSchema,
@@ -123,7 +125,39 @@ const linked = attachInputSchema;
 
 export const requestMaterialGenerationInputSchema = materialGenerationInputSchema;
 
+export const requestDocumentTransformInputSchema = Schema.Struct({
+  title: materialGenerationInputSchema.fields.title,
+  ...documentTransformSchema.fields
+});
+export const generationKeySchema = Schema.Struct({
+  requestId: Schema.String.check(Schema.isMinLength(1))
+});
+export const retryGenerationSchema = Schema.Struct({
+  ...generationKeySchema.fields,
+  retryId: Schema.String.check(Schema.isMinLength(1))
+});
+
 export const MaterialsRpc = RpcGroup.make(
+  Rpc.make('requestDocumentTransform', {
+    payload: requestDocumentTransformInputSchema,
+    success: materialGenerationSchema,
+    error: failureSchema
+  }),
+  Rpc.make('materialGeneration', {
+    payload: generationKeySchema,
+    success: materialGenerationSnapshotSchema,
+    error: failureSchema
+  }),
+  Rpc.make('cancelMaterialGeneration', {
+    payload: generationKeySchema,
+    success: materialGenerationSnapshotSchema,
+    error: failureSchema
+  }),
+  Rpc.make('retryMaterialGeneration', {
+    payload: retryGenerationSchema,
+    success: materialGenerationSnapshotSchema,
+    error: failureSchema
+  }),
   Rpc.make('requestMaterialGeneration', {
     payload: requestMaterialGenerationInputSchema,
     success: materialGenerationSchema,

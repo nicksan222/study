@@ -39,6 +39,8 @@ import type {
 } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
+import type { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
@@ -81,6 +83,51 @@ export const Conversations = defineService(
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
+      requestDocumentTransform: (value: typeof requestDocumentTransformInputSchema.Type) =>
+        transaction((tx) =>
+          Materials.requestDocumentTransform(
+            tx,
+            readCapturedContext(tx, value.contextRequestId),
+            value
+          )
+        ),
+      documentTransformContext: (value: { requestId: string }) =>
+        transaction((tx) => {
+          const request = Materials.readGeneration(tx, value);
+          if (!request.documentTransform)
+            throw new StudyError('invalid_input', 'Not a session transform');
+          const context = readCapturedContext(tx, request.documentTransform.contextRequestId);
+          Materials.assertDocumentContext(request, context);
+          return context;
+        }),
+      publishDocumentTransform: (value: typeof materialGenerationPublicationSchema.Type) =>
+        publicationTransaction((tx) => {
+          const request = Materials.readGeneration(tx, {
+            requestId: value.requestId,
+            verifyOnly: true
+          });
+          if (!request.documentTransform)
+            throw new StudyError('invalid_input', 'Not a session transform');
+          const context =
+            request.resultVersionId === null
+              ? readCapturedContext(tx, request.documentTransform.contextRequestId)
+              : undefined;
+          return Materials.publishDocumentTransform(tx, context, value);
+        }),
+      retryDocumentTransform: (value: { requestId: string; retryId: string }) =>
+        transaction((tx) => {
+          const request = Materials.readGeneration(tx, {
+            requestId: value.requestId,
+            verifyOnly: true
+          });
+          if (!request.documentTransform)
+            throw new StudyError('invalid_input', 'Not a session transform');
+          const context =
+            request.resultVersionId === null
+              ? readCapturedContext(tx, request.documentTransform.contextRequestId)
+              : undefined;
+          return Materials.retryDocumentTransform(tx, context, value);
+        }),
       sessionSelection: selections.sessionSelection,
       updateSessionSelection: (input: typeof updateSessionSelectionSchema.Type) =>
         transaction((tx) => {
@@ -432,4 +479,12 @@ function assertCapturedTarget(tx: Transaction, target: typeof resolvedSelectionS
     Schema.encodeSync(resolvedCodec)(target)
   )
     throw new StudyError('not_found', 'Captured material content is unavailable');
+}
+
+/** Availability checked immutable context, composed inside another feature transaction. */
+function readCapturedContext(tx: Transaction, requestId: string) {
+  const snapshot = tx.store(SessionContextStore).sessionContext({ requestId });
+  tx.store(SessionStore).session(snapshot.sessionId);
+  for (const target of snapshot.inputs) assertCapturedTarget(tx, target);
+  return snapshot;
 }

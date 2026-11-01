@@ -79,7 +79,7 @@ export const materialGenerationRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('MaterialGenerationRequested'),
   requestId: Schema.String.check(Schema.isMinLength(1)),
-  projectId: projectIdSchema,
+  projectId: Schema.optional(projectIdSchema),
   kind: materialGenerationKindSchema
 });
 
@@ -87,7 +87,7 @@ export const materialGenerationFailedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('MaterialGenerationFailed'),
   requestId: Schema.String.check(Schema.isMinLength(1)),
-  projectId: projectIdSchema,
+  projectId: Schema.optional(projectIdSchema),
   kind: materialGenerationKindSchema,
   generationEventId: Schema.String.check(Schema.isMinLength(1)),
   errorKind: errorKindSchema

@@ -18,7 +18,7 @@ import {
 } from '@study/contracts/conversations/context';
 import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import { sourceIndexedSchema, materialGenerationRequestedSchema } from '@study/contracts/events';
-import { sourceIdSchema } from '@study/contracts/ids';
+import { sourceIdSchema, projectIdSchema } from '@study/contracts/ids';
 import * as input from '@study/contracts/materials/rpc';
 import {
   materialGenerationSchema,
@@ -458,6 +458,7 @@ export const MaterialGenerationStore = defineStore({
   entity: { singular: 'materialGeneration', plural: 'materialGenerations' },
   make: (resources) => {
     const {
+      cancelGeneration,
       generationContext,
       prepareGenerationRetry,
       prepareGenerationFailure,
@@ -481,6 +482,11 @@ export const MaterialGenerationStore = defineStore({
         })
       },
       mutations: {
+        cancelGeneration: storeMutation({
+          input: Schema.Struct({ requestId: Schema.String }),
+          output: materialGenerationSnapshotSchema,
+          run: cancelGeneration
+        }),
         prepareRetry: storeMutation({
           input: Schema.Struct({
             requestId: Schema.String.check(Schema.isMinLength(1)),
@@ -509,7 +515,7 @@ export const MaterialGenerationStore = defineStore({
         openScope: storeMutation({
           input: Schema.Struct({
             scopeId: Schema.String.check(Schema.isMinLength(1)),
-            projectId: materialGenerationInputSchema.fields.projectId
+            projectId: projectIdSchema
           }),
           output: Schema.Void,
           run: (value) => setGenerationScope(value, true)
@@ -517,7 +523,7 @@ export const MaterialGenerationStore = defineStore({
         closeScope: storeMutation({
           input: Schema.Struct({
             scopeId: Schema.String.check(Schema.isMinLength(1)),
-            projectId: materialGenerationInputSchema.fields.projectId
+            projectId: projectIdSchema
           }),
           output: Schema.Void,
           run: (value) => setGenerationScope(value, false)

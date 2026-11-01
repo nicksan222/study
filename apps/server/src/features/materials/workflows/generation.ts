@@ -21,9 +21,10 @@ import { materialVersionIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
-import { Effect, Schema } from 'effect';
+import { Effect, Schema, Option } from 'effect';
 import { Activity } from 'effect/workflow';
 
+import { Conversations } from '#server/features/conversations/index';
 import { diagramAgent } from '#server/features/materials/agents/diagram';
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { quizAgent } from '#server/features/materials/agents/quiz';
@@ -38,6 +39,8 @@ import { defineWorkflowHandler } from '#server/platform/definitions/define-workf
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
+import { generateDocumentTransform } from './document-transform.ts';
+
 export const materialGenerationWorkflow = defineWorkflow({
   name: 'material-generation',
   version: 1,
@@ -49,8 +52,10 @@ export const materialGenerationWorkflow = defineWorkflow({
 
 function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSchema.Type)['event']) {
   const materials = yield* Materials;
+  const sessions = Option.getOrUndefined(yield* Effect.serviceOption(Conversations));
   const agents = yield* Agents;
-  const { store } = yield* Database;
+  const database = yield* Database;
+  const { store } = database;
   const snapshot = materials
     .materialGeneration({ requestId: event.requestId, eventId: event.eventId, verifyOnly: true })
     .pipe(
@@ -97,6 +102,16 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
             ? Effect.void
             : Effect.fail(new StudyError('invalid_input', 'Generation already completed'))
         )
+      )
+      .pipe(
+        Effect.andThen(
+          initial.documentTransform
+            ? sessions
+              ? sessions.documentTransformContext({ requestId: initial.id }).pipe(Effect.asVoid)
+              : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'))
+            : Effect.void
+        ),
+        Effect.provideService(Database, database)
       );
     let previous = '';
     let issue = '';
@@ -110,6 +125,19 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
           error: failureSchema,
           execute: Effect.gen(function* () {
             yield* preflight;
+            if (initial.documentTransform) {
+              if (!sessions)
+                return yield* Effect.fail(
+                  new StudyError('unsupported', 'Session service is unavailable')
+                );
+              const context = yield* sessions.documentTransformContext({ requestId: initial.id });
+              return yield* generateDocumentTransform({
+                context,
+                request: initial,
+                eventId: event.eventId,
+                preflight
+              });
+            }
             const catalog = createEvidenceCatalog<{ inputVersionId: MaterialVersionId }>([]);
 
             for (const [index, id] of initial.inputVersionIds.entries()) {
@@ -222,7 +250,14 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
         name: 'publish-material',
         success: materialVersionIdSchema,
         error: failureSchema,
-        execute: withPublicationGuard(store, materials.publishMaterialGeneration(publication))
+        execute: withPublicationGuard(
+          store,
+          publication.content.kind === 'document'
+            ? sessions
+              ? sessions.publishDocumentTransform(publication)
+              : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'))
+            : materials.publishMaterialGeneration(publication)
+        )
       });
     }
 
