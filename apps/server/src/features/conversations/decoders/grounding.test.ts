@@ -60,3 +60,24 @@ test('shared catalog preserves opaque material references', async () => {
     { marker: 1, reference: { inputVersionId: 9n }, blockOrdinal: 0, quote: 'captured evidence' }
   ]);
 });
+
+test('evidence ranking preserves case-insensitive scores, marker ties and empty queries', () => {
+  const catalog = createEvidenceCatalog([
+    {
+      key: 'ranking',
+      reference: 'version',
+      name: 'Notes',
+      blocks: [{ text: 'ALPHA' }, { text: 'beta alpha' }, { text: 'Alpha beta' }]
+    }
+  ]);
+
+  assert.deepEqual(catalog.search('  '), []);
+  assert.throws(() => catalog.citations('[2]'));
+  assert.deepEqual(
+    catalog.search(' alpha BETA ').map((hit) => hit.id),
+    ['2', '3', '1']
+  );
+  assert.deepEqual(catalog.citations('[2]'), [
+    { marker: 2, reference: 'version', blockOrdinal: 1, quote: 'beta alpha' }
+  ]);
+});

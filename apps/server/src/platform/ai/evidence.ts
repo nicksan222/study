@@ -53,10 +53,14 @@ export function createEvidenceCatalog<Reference>(
     addDocument,
     search(query: string) {
       const terms = query.slice(0, 1000).toLowerCase().split(/\s+/).filter(Boolean).slice(0, 32);
-      const ranked = entries.map((entry) => ({
-        entry,
-        score: terms.filter((term) => entry.quote.toLowerCase().includes(term)).length
-      }));
+
+      if (!terms.length) return [];
+
+      const ranked = entries.map((entry) => {
+        const quote = entry.quote.toLowerCase();
+
+        return { entry, score: terms.filter((term) => quote.includes(term)).length };
+      });
 
       ranked.sort((a, b) => b.score - a.score || a.entry.marker - b.entry.marker);
 
