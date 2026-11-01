@@ -29,6 +29,7 @@ import {
   useStore,
   publicationTransaction
 } from '#server/platform/definitions/define-store';
+import { pageById } from '#server/platform/definitions/page-by-id';
 import { validateLink } from '#server/platform/http/index';
 
 type SourcePageInput = typeof sourcePageInputSchema.Type;
@@ -65,17 +66,7 @@ export const Sources = defineService(
       source: sources.source,
       sourceExport: exports.sourceExport,
       findSource: sources.findSource,
-      sources: (input: SourcePageInput) =>
-        Effect.gen(function* () {
-          const items = yield* sources.sources(input);
-          const last = items.at(-1);
-          const more =
-            last && items.length === input.limit
-              ? yield* sources.sources({ limit: 1, before: last.id })
-              : [];
-
-          return { items, next: more.length && last ? last.id : null };
-        }),
+      sources: (input: SourcePageInput) => pageById(sources.sources, input),
       sourceProcessing: processing.sourceProcessing,
       sourceSnapshot: snapshots.sourceSnapshot,
       sourceDocument: documents.sourceDocument,

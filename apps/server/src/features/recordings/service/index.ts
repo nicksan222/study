@@ -20,6 +20,7 @@ import {
   useStore,
   publicationTransaction
 } from '#server/platform/definitions/define-store';
+import { pageById } from '#server/platform/definitions/page-by-id';
 
 export const Recordings = defineService(
   'study/Recordings',
@@ -34,16 +35,7 @@ export const Recordings = defineService(
       recordingPost: posts.recordingPost,
       recordingPostSnapshot: snapshots.recordingPostSnapshot,
       recordings: (input: typeof recordingPageInputSchema.Type) =>
-        Effect.gen(function* () {
-          const items = yield* recordings.recordings(input);
-          const last = items.at(-1);
-          const more =
-            last && items.length === input.limit
-              ? yield* recordings.recordings({ limit: 1, before: last.id })
-              : [];
-
-          return { items, next: more.length && last ? last.id : null };
-        }),
+        pageById(recordings.recordings, input),
       createRecording: (id: SessionId) =>
         transaction((tx) => tx.store(RecordingStore).createRecording(id)),
       appendRecording: (input: typeof appendRecordingInputSchema.Type) =>

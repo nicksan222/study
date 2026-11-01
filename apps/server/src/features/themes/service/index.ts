@@ -6,6 +6,7 @@ import { Effect } from 'effect';
 import { ThemeSelectionStore, ThemeStore } from '#server/features/themes/store/index';
 import { defineService } from '#server/platform/definitions/define-service';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
+import { pageById } from '#server/platform/definitions/page-by-id';
 
 export const Themes = defineService(
   'study/Themes',
@@ -25,17 +26,7 @@ export const Themes = defineService(
     return {
       theme: themes.theme,
       findTheme: themes.findTheme,
-      themes: (input: typeof themePageInputSchema.Type) =>
-        Effect.gen(function* () {
-          const items = yield* themes.themes(input);
-          const last = items.at(-1);
-          const more =
-            last && items.length === input.limit
-              ? yield* themes.themes({ limit: 1, before: last.id })
-              : [];
-
-          return { items, next: more.length && last ? last.id : null };
-        }),
+      themes: (input: typeof themePageInputSchema.Type) => pageById(themes.themes, input),
       selectedTheme: () =>
         selection.selection(undefined).pipe(Effect.map((value) => value.selected)),
       exportTheme: ({ id }: { id: string }) => themes.theme(id).pipe(Effect.map(serializeTheme)),
