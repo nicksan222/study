@@ -69,6 +69,7 @@ test('vision transcription preserves page anchors and rejects incomplete or reor
     ]
   );
   assert.equal(document.meta.pageCount, 2);
+  assert.deepEqual(document.meta.omissions, ['provider_structure', 'layout', 'embedded_media']);
   assert.throws(() => visionDocument(pages.slice(0, 1), 2), { kind: 'invalid_input' });
   assert.throws(() => visionDocument([...pages].reverse(), 2), { kind: 'invalid_input' });
 });
@@ -239,6 +240,8 @@ test('Markdown retains nested lists, cell boundaries, code language and inline f
     'ts'
   );
 
+  assert.ok(markdown.meta.omissions.includes('unsupported_markup'));
+
   for (const block of markdown.blocks) assert.equal(block.text, canonicalText(block.content));
 });
 
@@ -297,6 +300,7 @@ test('HTML preserves empty list ancestors without inventing continuations', asyn
   const { decodeHtml } = await import('#server/features/sources/decoders/html');
   const { documentSchema } = await import('@study/contracts/sources/schemas');
   const { Schema } = await import('effect');
+
   for (const [source, depths, continuations] of [
     ['<ul><li><ul><li>Child</li></ul></li></ul>', [0, 1], [false, false]],
     [
@@ -311,8 +315,10 @@ test('HTML preserves empty list ancestors without inventing continuations', asyn
     ]
   ] as const) {
     const result = decodeHtml({ bytes: bytes('<main>' + source + '</main>') });
+
     assert.equal(Schema.is(documentSchema)(result), true);
     const content = result.blocks[0]!.content;
+
     assert.equal(content.type, 'list_item');
     assert.deepEqual(
       content.items.map((item) => item.depth),
@@ -335,10 +341,13 @@ test('HTML table cells retain paragraphs, empty paragraphs and surrounding inlin
       '<main><table><tr><td>Before<p><strong>First</strong></p><p></p><div><p>Second</p></div>After</td><td></td></tr></table></main>'
     )
   });
+
   assert.equal(Schema.is(documentSchema)(result), true);
   const content = result.blocks[0]!.content;
+
   assert.equal(content.type, 'table');
   const cell = content.rows[0]!.cells[0]!;
+
   assert.deepEqual(
     cell.paragraphs.map((inlines) => canonicalText({ type: 'paragraph', inlines })),
     ['Before', 'First', '', 'Second', 'After']

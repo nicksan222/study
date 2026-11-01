@@ -170,6 +170,7 @@ test('rich Documents round-trip native RPC and reopen with exact identities, ass
             )).kind,
             'invalid_input'
           );
+
           for (const rows of [
             [],
             [
@@ -209,6 +210,7 @@ test('rich Documents round-trip native RPC and reopen with exact identities, ass
               'invalid_input'
             );
           }
+
           const table = yield* client('materials.create', {
             title: 'Real table evidence',
             projectId: setup.collection.id,
@@ -235,6 +237,7 @@ test('rich Documents round-trip native RPC and reopen with exact identities, ass
             kind: 'diagram',
             inputVersionIds: [table.version.id]
           });
+
           yield* Effect.flatMap(Materials, (materials) =>
             materials.retryMaterialGenerationOnce({
               requestId: request.id,

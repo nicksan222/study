@@ -108,3 +108,32 @@ test('import identity and representation pins remain material-owned across acqui
     'Feature sources may not write material_source_snapshots.'
   ]);
 });
+
+test('canonical asset roots are derived from blocks and cannot be written by features', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/materials/store.ts': `
+      import * as schema from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      const { document_assets: roots } = schema;
+      db.select().from(roots); db.insert(roots); db.delete(roots);
+    `,
+    'src/features/sources/store.ts': `
+      import { sql } from '@study/db';
+      import type { Db } from '@study/db'; declare const db: Db;
+      sql\`UPDATE document_assets SET revision=2\`;
+    `,
+    'src/features/learning/store.ts': `
+      import { blocks, document_assets } from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.update(blocks); db.insert(document_assets);
+    `
+  });
+
+  assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    'Feature learning may not write blocks.',
+    'Feature learning may not write document_assets.',
+    'Feature materials may not write document_assets.',
+    'Feature materials may not write document_assets.',
+    'Feature sources may not write document_assets.'
+  ]);
+});

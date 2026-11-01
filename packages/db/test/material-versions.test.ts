@@ -409,3 +409,31 @@ test('material citations enforce positive unsigned 32 bit markers', (t) => {
   );
   assert.throws(() => insert(1n));
 });
+
+test('fresh canonical migrations preserve all published citation mutation guards', (t) => {
+  const db = fixture(t);
+
+  diagram(db, 1n);
+  publish(db, 1n);
+  diagram(db, 2n);
+  db.exec(`
+    INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
+    INSERT INTO material_version_citations(version_id,marker,input_version_id,anchor,quote)
+      VALUES(2,1,1,'{"type":"authored"}','Original quote');
+  `);
+  publish(db, 2n);
+
+  for (const statement of [
+    sql`INSERT INTO material_version_citations(version_id,marker,input_version_id,anchor,quote)
+      VALUES(2,2,1,'{"type":"authored"}','Added quote')`,
+    sql`UPDATE material_version_citations SET quote='Changed quote' WHERE version_id=2`,
+    sql`DELETE FROM material_version_citations WHERE version_id=2`
+  ])
+    assert.throws(() => db.orm.run(statement));
+
+  assert.deepEqual(
+    db.orm.all(sql`SELECT marker,anchor,quote FROM material_version_citations WHERE version_id=2`),
+    [{ marker: 1n, anchor: '{"type":"authored"}', quote: 'Original quote' }]
+  );
+  assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+});

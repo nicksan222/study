@@ -376,24 +376,31 @@ export function makeReads({ db: store }: StoreResources) {
   }
 
   function readCanonicalDocument(documentId: DocumentId) {
-    const doc = required(
-      store.orm.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
-    );
-    const blocks = store.orm
-      .select()
-      .from(s.blocks)
-      .where(eq(s.blocks.document_id, doc.id))
-      .orderBy(asc(s.blocks.ordinal))
-      .all()
-      .map((b) => ({
-        id: b.editing_id,
-        kind: b.kind,
-        content: decodeBlockContent(b.content),
-        text: b.text,
-        anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(b.anchor))
-      }));
+    try {
+      const doc = required(
+        store.orm.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
+      );
+      const blocks = store.orm
+        .select()
+        .from(s.blocks)
+        .where(eq(s.blocks.document_id, doc.id))
+        .orderBy(asc(s.blocks.ordinal))
+        .all()
+        .map((b) => ({
+          id: b.editing_id,
+          kind: b.kind,
+          content: decodeBlockContent(b.content),
+          text: b.text,
+          anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(b.anchor))
+        }));
 
-    return Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(doc.meta) });
+      return Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(doc.meta) });
+    } catch (cause) {
+      if (Schema.isSchemaError(cause))
+        throw new StudyError('internal', 'Invalid persisted document', { cause });
+
+      throw cause;
+    }
   }
 
   function readQuiz(
