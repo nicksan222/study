@@ -8,7 +8,7 @@ import { Effect, Option, Schema } from 'effect';
 
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
-import { classifyError } from '#server/platform/errors/classify-error';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { observeOperation, observeSyncOperation } from '#server/platform/observability/index';
 import { emitEvent } from '#server/platform/workflows/events';
 import { PublicationGuard } from '#server/platform/workflows/publication';
@@ -73,17 +73,6 @@ export function storeQuery<I extends Decoder, O extends Decoder>(
 
 export function storeMutation<I extends Decoder, O extends Decoder>(definition: Definition<I, O>) {
   return { ...definition, [mutationBrand]: true as const };
-}
-
-function failure(error: unknown): StudyError {
-  if (error instanceof StudyError) return error;
-
-  const result = classifyError(error);
-
-  return new StudyError(result.kind, result.message, {
-    cause: error,
-    retryAfterMs: result.retryAfterMs
-  });
 }
 
 function synchronous(value: unknown): unknown {
@@ -216,7 +205,7 @@ export function defineStore<
         (input: unknown) =>
           observeOperation(
             `${definition.name}.${name}`,
-            Effect.try({ try: () => runQuery(operation, input), catch: failure })
+            Effect.try({ try: () => runQuery(operation, input), catch: normalizeError })
           )
       ])
     ) as EffectMethods<Q>;
@@ -269,7 +258,7 @@ export function useStore<S extends { [readStore]: (context: ServerContext) => ob
   return Effect.flatMap(Database, ({ store: context }) =>
     Effect.try({
       try: () => store[readStore](context) as ReturnType<S[typeof readStore]>,
-      catch: failure
+      catch: normalizeError
     })
   );
 }
@@ -325,7 +314,7 @@ function transactionEffect<T>(
       Effect.withFiber((fiber) =>
         Effect.try({
           try: () => runTransaction<T>(context, fiber.context, work, guard),
-          catch: failure
+          catch: normalizeError
         })
       )
     )

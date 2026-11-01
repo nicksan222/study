@@ -1,19 +1,8 @@
-import { StudyError } from '@study/contracts/errors';
+import type { StudyError } from '@study/contracts/errors';
 import { Context, Effect, Layer } from 'effect';
 
-import { classifyError } from '#server/platform/errors/classify-error';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { observeOperation } from '#server/platform/observability/index';
-
-function failure(error: unknown): StudyError {
-  if (error instanceof StudyError) return error;
-
-  const classified = classifyError(error);
-
-  return new StudyError(classified.kind, classified.message, {
-    cause: error,
-    retryAfterMs: classified.retryAfterMs
-  });
-}
 
 type Operation = (...args: never[]) => Effect.Effect<unknown, unknown, unknown>;
 
@@ -39,7 +28,7 @@ export function defineService<const Name extends string, T extends Record<string
             (...args: never[]) =>
               observeOperation(
                 `${name}.${operation}`,
-                Effect.try({ try: () => handler(...args), catch: failure }).pipe(
+                Effect.try({ try: () => handler(...args), catch: normalizeError }).pipe(
                   Effect.flatMap((effect) => effect)
                 )
               )
