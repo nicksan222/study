@@ -16,19 +16,22 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import type { ProjectId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
+import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';
 
+import { Conversations } from '#server/features/conversations/index';
+import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Materials } from '#server/features/materials/index';
 import {
   sourceIndexedHandler,
   sourceIndexedWorkflow
 } from '#server/features/materials/workflows/index';
-import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/service/index';
 import {
   sourceIngestionWorkflow,
@@ -43,94 +46,158 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 
-test('native ingestion publishes an anchored text document through Sources', async () => {
+test('native ingestion and projection let quick sessions capture a historic imported extraction', async () => {
   const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  let context = new ServerContext(location.open());
   const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
-  const services = Layer.mergeAll(
-    Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-    Layer.succeed(Database, { store: context }),
-    Layer.mergeAll(Sources.layer, Materials.layer, Projects.layer).pipe(
+  const domain = () =>
+    Layer.mergeAll(Sources.layer, Materials.layer, Conversations.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    ),
-    agentsLayer({
-      model: () => Effect.succeed(model),
-      language: 'en',
-      searchSources: () => Effect.succeed([])
-    }),
-    workflowEngineLayer(context)
-  );
+    );
+  const services = () =>
+    Layer.mergeAll(
+      ConversationsRpcLive.pipe(Layer.provideMerge(domain())),
+      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+      agentsLayer({
+        model: () => Effect.succeed(model),
+        language: 'en',
+        searchSources: () => Effect.succeed([])
+      }),
+      workflowEngineLayer(context)
+    );
 
   try {
-    await Effect.runPromise(
+    const captured = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const sources = yield* Sources;
-          const projects = yield* Projects;
           const materials = yield* Materials;
-          const collection = yield* projects.createProject({ name: 'Temporary organization' });
+          const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
           const source = yield* sources.createSource({
             name: 'test.txt',
-            bytes: new TextEncoder().encode('Hello'),
-            projectId: collection.id
+            bytes: new TextEncoder().encode('Hello historic extraction'),
+            projectId: null
           });
-          const state = yield* sources.sourceProcessing(source.id);
-
-          assert.ok(state.requestId);
-          const event = {
-            type: 'SourceProcessingRequested' as const,
-            sourceId: source.id,
-            requestId: state.requestId,
-            inputVersion: 1,
-            eventId: 'event-1',
-            causationId: null,
-            correlationId: state.requestId,
-            depth: 0
-          };
+          const original = (yield* materials.materials({ archived: false, limit: 10 })).items[0]!;
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
           yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-          const id = yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'text',
-            payload: { event }
-          });
-
-          const indexed = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .map((row) => decodeEvent(row.payload))
-            .find((item) => item.type === 'SourceIndexed' && item.documentId === id);
-
-          assert.ok(indexed?.type === 'SourceIndexed');
-          yield* projects.deleteProject({ id: collection.id });
           yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
-          const projected = yield* engine.execute(sourceIndexedWorkflow, {
-            executionId: 'projection',
-            payload: { event: indexed }
-          });
-          const replayed = yield* engine.execute(sourceIndexedWorkflow, {
-            executionId: 'projection-replay',
-            payload: { event: indexed }
+
+          function* ingest(revision: number) {
+            const state = yield* sources.sourceProcessing(source.id);
+
+            assert.ok(state.requestId);
+            const event = {
+              type: 'SourceProcessingRequested' as const,
+              sourceId: source.id,
+              requestId: state.requestId,
+              inputVersion: revision,
+              eventId: 'ingest-' + revision,
+              causationId: null,
+              correlationId: state.requestId,
+              depth: 0
+            };
+            const documentId = yield* engine.execute(sourceIngestionWorkflow, {
+              executionId: 'text-' + revision,
+              payload: { event }
+            });
+            const indexed = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .all()
+              .map((row) => decodeEvent(row.payload))
+              .find((item) => item.type === 'SourceIndexed' && item.documentId === documentId);
+
+            assert.ok(indexed?.type === 'SourceIndexed');
+            const projected = yield* engine.execute(sourceIndexedWorkflow, {
+              executionId: 'projection-' + revision,
+              payload: { event: indexed }
+            });
+
+            return { documentId, projected };
+          }
+
+          const first = yield* ingest(1);
+
+          assert.equal(first.projected.extracted.id, original.id);
+          assert.equal((yield* sources.sourceProcessing(source.id)).documentId, first.documentId);
+          const session = yield* client('conversations.createSession', {
+            title: 'Historic import'
           });
 
-          assert.equal(projected.extracted.version.id, replayed.extracted.version.id);
+          // Original bytes are not authority for a future extraction.
           assert.equal(
-            (yield* materials.material({ id: projected.extracted.id })).importProcessing?.status,
-            'ready'
+            (yield* Effect.flip(
+              client('conversations.updateSessionSelection', {
+                sessionId: session.id,
+                expectedRevision: 0n,
+                targets: [{ versionId: original.version.id, scope: { kind: 'document' } }]
+              })
+            )).kind,
+            'not_found'
           );
-          assert.equal(context.db.orm.select().from(tables.project_materials).all().length, 0);
-          assert.equal((yield* sources.sourceProcessing(source.id)).documentId, id);
-          const rows = context.db.orm.all<{ text: string }>('SELECT text FROM blocks');
+          yield* sources.replaceSource({
+            id: source.id,
+            expectedRevision: 1,
+            name: 'test.txt',
+            bytes: new TextEncoder().encode('Replacement must stay outside historic context')
+          });
+          const latest = yield* ingest(2);
 
-          assert.deepEqual(
-            rows.map((row) => row.text),
-            ['Hello']
+          assert.notEqual(latest.documentId, first.documentId);
+          assert.equal(latest.projected.extracted.id, original.id);
+          assert.notEqual(
+            latest.projected.extracted.version.id,
+            first.projected.extracted.version.id
           );
-        }).pipe(Effect.provide(services))
+
+          // Select after replacement: resolution must follow the version pin, never processing head.
+          yield* client('conversations.updateSessionSelection', {
+            sessionId: session.id,
+            expectedRevision: 0n,
+            targets: [
+              {
+                versionId: first.projected.extracted.version.id,
+                documentId: first.documentId,
+                scope: { kind: 'document' }
+              }
+            ]
+          });
+          const snapshot = yield* client('conversations.captureSessionContext', {
+            sessionId: session.id,
+            intentKey: 'historic-import',
+            instruction: 'Explain',
+            preferences: {}
+          });
+
+          assert.deepEqual(snapshot.messages, []);
+          assert.equal(snapshot.inputs[0]!.documentId, first.documentId);
+          assert.equal(snapshot.inputs[0]!.excerpts[0]!.text, 'Hello historic extraction');
+          assert.deepEqual(
+            snapshot.inputs[0]!.document,
+            (yield* sources.document({
+              id: first.documentId,
+              sourceId: source.id,
+              projectId: null
+            })).document
+          );
+
+          return snapshot;
+        }).pipe(Effect.provide(services()))
       )
     );
+
+    context.close();
+    context = new ServerContext(location.open());
+    const reopened = await Effect.runPromise(
+      Effect.flatMap(Conversations, (conversations) =>
+        conversations.sessionContext({ requestId: captured.requestId })
+      ).pipe(Effect.provide(domain()))
+    );
+
+    assert.deepEqual(reopened, captured);
   } finally {
     await auth.dispose();
     context.close();

@@ -177,3 +177,24 @@ test('runtime assembles feature workflows only through the dispatch and recovery
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('cross-feature capture uses public synchronous participants without exposing private selection stores', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/features/conversations/service/capture.ts': `
+      import { Materials } from '#server/features/materials/index';
+      import { transaction } from '#server/platform/definitions/define-store';
+      export const capture = (target) =>
+        transaction((tx) => Materials.resolveSessionSelection(tx, target));
+    `,
+    'src/features/conversations/service/bypass.ts': `
+      import { MaterialVersionsStore } from '#server/features/materials/store/index';
+    `,
+    'src/features/materials/index.ts': `
+      export { Materials } from './service/index';
+      export { MaterialVersionsStore } from './store/index';
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/capture.ts')));
+});

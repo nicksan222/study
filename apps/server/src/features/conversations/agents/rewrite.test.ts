@@ -1,7 +1,17 @@
 /**
- * Verifies rewrite prompts distinguish captured conversation targets from task metadata.
- * Calls the production agent prompt without a provider or execution substitute.
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies rewrite prompts distinguish conversation targets from captured task       │
+ * │ metadata.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Keeps requested targets immediately before the rewrite task directive.                 │
+ * │ - Checks instruction and preference composition through production prompt definitions.   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Calls the production agent prompt without a provider or an execution substitute.         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

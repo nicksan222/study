@@ -100,3 +100,22 @@ test('rich content remains schema-derived rather than a parallel public editor p
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('run metadata derives from schemas instead of unchecked preference or parallel context objects', () => {
+  const diagnostics = lintRule(
+    'contract-schema',
+    {
+      'packages/contracts/src/conversations/capture.ts': `
+      import { Schema } from 'effect';
+      import { runPreferencesSchema, runSelectionContextSchema } from './context';
+      export type Context = typeof runSelectionContextSchema.Type;
+      export const input = Schema.Struct({ preferences: runPreferencesSchema });
+      export interface ParallelContext { requestId: string; preferences: Record<string, string> }
+      export const unchecked = Schema.Struct({ preferences: Schema.Unknown });
+    `
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

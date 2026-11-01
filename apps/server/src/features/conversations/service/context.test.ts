@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises exact session context capture through native RPC and migrated SQLite.    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks immutable historical inputs, bounded history and intent replay fences.          │
+ * │ - Verifies selected image revisions and session-owned capture cleanup.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses public feature services and real persistence without replacing workflow ownership.  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
@@ -13,6 +26,7 @@ import { RpcTest } from 'effect/rpc';
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Materials } from '#server/features/materials/index';
+import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
@@ -40,6 +54,7 @@ test('native selection guards exact historic ranges, captures once and survives 
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const handlers = () => ConversationsRpcLive.pipe(Layer.provideMerge(services()));
+
   try {
     const captured = await Effect.runPromise(
       Effect.scoped(
@@ -71,6 +86,7 @@ test('native selection guards exact historic ranges, captures once and survives 
             documentId,
             scope: { kind: 'ranges' as const, ranges: [range] }
           };
+
           yield* client('conversations.updateSessionSelection', {
             sessionId: first.id,
             expectedRevision: 0n,
@@ -94,6 +110,7 @@ test('native selection guards exact historic ranges, captures once and survives 
             ...target,
             scope: { kind: 'ranges' as const, ranges: [{ ...range, start: 8 }] }
           };
+
           assert.equal(
             (yield* Effect.flip(
               client('conversations.updateSessionSelection', {
@@ -121,6 +138,7 @@ test('native selection guards exact historic ranges, captures once and survives 
             preferences: { detail: 'brief' as const }
           };
           const snapshot = yield* client('conversations.captureSessionContext', intent);
+
           assert.equal(snapshot.inputs[0]!.excerpts[0]!.text, 'selected');
           assert.deepEqual(snapshot.messages, []);
           yield* materials.createVersion({
@@ -137,6 +155,15 @@ test('native selection guards exact historic ranges, captures once and survives 
           assert.equal(
             (yield* Effect.flip(
               client('conversations.captureSessionContext', { ...intent, instruction: 'Changed' })
+            )).kind,
+            'invalid_input'
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              client('conversations.captureSessionContext', {
+                ...intent,
+                preferences: { detail: 'detailed' }
+              })
             )).kind,
             'invalid_input'
           );
@@ -157,6 +184,7 @@ test('native selection guards exact historic ranges, captures once and survives 
           const before = yield* client('conversations.replySnapshot', {
             requestId: request.requestId
           });
+
           yield* client('conversations.editMessage', {
             messageId: message.id,
             text: 'Changed later'
@@ -179,6 +207,7 @@ test('native selection guards exact historic ranges, captures once and survives 
             request
           );
           const conversations = yield* Conversations;
+
           assert.equal(
             (yield* Effect.flip(
               conversations.publishReply({
@@ -221,6 +250,7 @@ test('native selection guards exact historic ranges, captures once and survives 
             ]
           });
           const answer = yield* client('conversations.message', { id: request.messageId });
+
           assert.equal(answer.citations[0]!.materialVersionId, material.version.id);
           assert.equal(answer.citations[0]!.rangeStart, 10);
           const edited = yield* client('conversations.editMessage', {
@@ -238,10 +268,35 @@ test('native selection guards exact historic ranges, captures once and survives 
             (yield* client('conversations.message', { id: request.messageId })).citations,
             answer.citations
           );
+          yield* client('conversations.deleteMessage', { id: request.messageId });
+          assert.equal(
+            (yield* Effect.flip(
+              client('conversations.requestReply', {
+                sessionId: first.id,
+                intentKey: 'reply',
+                instruction: 'Use selected passage'
+              })
+            )).kind,
+            'not_found'
+          );
+          const regenerated = yield* client('conversations.requestReply', {
+            sessionId: first.id,
+            intentKey: 'regenerated'
+          });
+
+          assert.notEqual(regenerated.requestId, request.requestId);
+          const regeneratedSnapshot = yield* client('conversations.replySnapshot', {
+            requestId: regenerated.requestId
+          });
+
+          assert.equal(regeneratedSnapshot.messages[0]!.text, 'Changed later');
+          assert.deepEqual(regeneratedSnapshot.context!.inputs, []);
+
           return snapshot;
         }).pipe(Effect.provide(handlers()))
       )
     );
+
     context.close();
     context = new ServerContext(location.open());
     const reopened = await Effect.runPromise(
@@ -249,6 +304,7 @@ test('native selection guards exact historic ranges, captures once and survives 
         c.sessionContext({ requestId: captured.requestId })
       ).pipe(Effect.provide(services()))
     );
+
     assert.deepEqual(reopened, captured);
   } finally {
     context.close();
@@ -262,11 +318,13 @@ test('reply outbox rejection rolls back the logical context and retry uses origi
   const layer = Conversations.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         const conversations = yield* Conversations;
         const session = yield* conversations.createSession({ title: 'Rollback' });
+
         yield* conversations.postMessage({ sessionId: session.id, text: 'Original' });
         context.db.orm.run(
           sql`CREATE TRIGGER reject_context_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'rejected'); END`
@@ -281,6 +339,7 @@ test('reply outbox rejection rolls back the logical context and retry uses origi
           sessionId: session.id,
           intentKey: 'retry'
         });
+
         assert.equal((yield* conversations.sessionContext(request)).messages[0]!.text, 'Original');
       }).pipe(Effect.provide(layer))
     );
@@ -296,6 +355,7 @@ test('selection order is independent of membership and bounded history reports o
   const layer = Layer.merge(Conversations.layer, Materials.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -303,6 +363,7 @@ test('selection order is independent of membership and bounded history reports o
         const materials = yield* Materials;
         const first = yield* conversations.createSession({ title: 'One' });
         const second = yield* conversations.createSession({ title: 'Two' });
+
         assert.equal(
           (yield* Effect.flip(
             conversations.captureSessionContext({
@@ -321,6 +382,7 @@ test('selection order is independent of membership and bounded history reports o
           publish: true
         });
         const b = yield* materials.create({ title: 'B', content: content('Beta'), publish: true });
+
         assert.deepEqual(
           (yield* conversations.sessionSelection({ sessionId: first.id })).targets,
           []
@@ -330,6 +392,7 @@ test('selection order is independent of membership and bounded history reports o
           versionId: item.version.id,
           scope: { kind: 'document' as const }
         }));
+
         yield* conversations.updateSessionSelection({
           sessionId: first.id,
           expectedRevision: 0n,
@@ -351,6 +414,7 @@ test('selection order is independent of membership and bounded history reports o
           instruction: '',
           preferences: {}
         });
+
         assert.deepEqual(
           ordered.inputs.map((item) => item.versionId),
           [b.version.id, a.version.id]
@@ -364,6 +428,7 @@ test('selection order is independent of membership and bounded history reports o
           content: content('Unpublished'),
           publish: false
         });
+
         assert.equal(
           (yield* Effect.flip(
             conversations.updateSessionSelection({
@@ -384,14 +449,17 @@ test('selection order is independent of membership and bounded history reports o
           )).kind,
           'invalid_input'
         );
+
         for (let i = 0; i < 55; i++)
           yield* conversations.postMessage({ sessionId: first.id, text: 'Message ' + i });
+
         const history = yield* conversations.captureSessionContext({
           sessionId: first.id,
           intentKey: 'bounded',
           instruction: '',
           preferences: {}
         });
+
         assert.throws(() =>
           context.db.orm
             .update(s.session_run_contexts)
@@ -428,6 +496,161 @@ test('selection order is independent of membership and bounded history reports o
           'Beta'
         );
       }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('selected image blocks retain exact asset revisions while ranges expose only selected alt text', async () => {
+  const location = createTestDatabase();
+  let context = new ServerContext(location.open());
+  const services = () =>
+    Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+  const handlers = () => ConversationsRpcLive.pipe(Layer.provideMerge(services()));
+  const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+
+  try {
+    const saved = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+          const materials = yield* Materials;
+          const sources = yield* Sources;
+          const session = yield* client('conversations.createSession', { title: 'Selected image' });
+          const image = yield* sources.createSource({ projectId: null, name: 'figure.png', bytes });
+          const block = createBlock({
+            type: 'image',
+            sourceId: image.id,
+            revision: 1,
+            alt: 'Selected figure caption'
+          });
+          const material = yield* materials.create({
+            title: 'Illustrated document',
+            publish: true,
+            content: {
+              ...content('Hidden surrounding text'),
+              blocks: [content('Hidden surrounding text').blocks[0]!, block]
+            }
+          });
+
+          yield* client('conversations.updateSessionSelection', {
+            sessionId: session.id,
+            expectedRevision: 0n,
+            targets: [
+              { versionId: material.version.id, scope: { kind: 'blocks', blockIds: [block.id] } }
+            ]
+          });
+          const intent = {
+            sessionId: session.id,
+            intentKey: 'image',
+            instruction: 'Explain this figure',
+            preferences: {}
+          };
+          const snapshot = yield* client('conversations.captureSessionContext', intent);
+          const input = snapshot.inputs[0]!;
+
+          assert.equal(input.document, undefined);
+          assert.equal(input.excerpts.length, 1);
+          assert.equal(input.excerpts[0]!.blockOrdinal, 1);
+          assert.deepEqual(input.excerpts[0]!.content, block.content);
+          assert.equal(input.excerpts[0]!.text, 'Selected figure caption');
+          yield* client('conversations.updateSessionSelection', {
+            sessionId: session.id,
+            expectedRevision: 1n,
+            targets: [
+              {
+                versionId: material.version.id,
+                documentId: input.documentId,
+                scope: {
+                  kind: 'ranges',
+                  ranges: [
+                    {
+                      versionId: material.version.id,
+                      documentId: input.documentId,
+                      blockId: block.id,
+                      start: 0,
+                      end: 8
+                    }
+                  ]
+                }
+              }
+            ]
+          });
+          const range = yield* client('conversations.captureSessionContext', {
+            ...intent,
+            intentKey: 'alt-text-only'
+          });
+
+          assert.equal(range.inputs[0]!.document, undefined);
+          assert.equal(range.inputs[0]!.excerpts[0]!.text, 'Selected');
+          assert.equal(range.inputs[0]!.excerpts[0]!.content, undefined);
+          yield* sources.replaceSource({
+            id: image.id,
+            expectedRevision: 1,
+            name: 'figure.png',
+            bytes: new Uint8Array([...bytes, 0])
+          });
+          yield* materials.createVersion({
+            materialId: material.id,
+            publish: true,
+            content: {
+              ...content('New surrounding text'),
+              blocks: [
+                createBlock(
+                  { type: 'image', sourceId: image.id, revision: 2, alt: 'Replacement caption' },
+                  block.anchor,
+                  block.id
+                )
+              ]
+            }
+          });
+
+          assert.deepEqual(yield* client('conversations.captureSessionContext', intent), snapshot);
+          assert.deepEqual(
+            (yield* sources.sourceSnapshot({ id: image.id, revision: 1 })).bytes,
+            bytes
+          );
+
+          return { snapshot, range, material, session, image };
+        }).pipe(Effect.provide(handlers()))
+      )
+    );
+
+    context.close();
+    context = new ServerContext(location.open());
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const conversations = yield* Conversations;
+        const materials = yield* Materials;
+        const sources = yield* Sources;
+
+        assert.deepEqual(
+          yield* conversations.sessionContext({ requestId: saved.snapshot.requestId }),
+          saved.snapshot
+        );
+        assert.deepEqual(
+          yield* conversations.sessionContext({ requestId: saved.range.requestId }),
+          saved.range
+        );
+        yield* conversations.deleteSession(saved.session.id);
+        assert.equal(
+          (yield* Effect.flip(
+            conversations.inspectSessionContext({
+              requestId: saved.snapshot.requestId
+            })
+          )).kind,
+          'not_found'
+        );
+        assert.equal((yield* materials.material({ id: saved.material.id })).id, saved.material.id);
+        assert.deepEqual(
+          (yield* sources.sourceSnapshot({ id: saved.image.id, revision: 1 })).bytes,
+          bytes
+        );
+      }).pipe(Effect.provide(services()))
     );
   } finally {
     context.close();

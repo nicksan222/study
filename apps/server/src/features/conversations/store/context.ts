@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists guarded session selections and immutable logical conversation captures.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Stores exact bounded message versions and typed captured intent.                       │
+ * │ - Reads retained captures separately from availability-checked resume inputs.            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Conversations owns these private records; Materials resolves canonical selected content. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   captureSessionContextSchema,
   runSelectionContextSchema,
@@ -24,7 +37,9 @@ import { defineStore, storeQuery, storeMutation } from '#server/platform/definit
 import { makeHistory } from './history.ts';
 
 const targetsCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
+
 const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
+
 const intentCodec = Schema.fromJsonString(Schema.toCodecJson(captureSessionContextSchema));
 
 export const SessionContextStore = defineStore({
@@ -32,20 +47,27 @@ export const SessionContextStore = defineStore({
   entity: { singular: 'sessionContext', plural: 'sessionContexts' },
   make: ({ db, clock }) => {
     const { conversationHistory, conversationRoot } = makeHistory({ db, clock });
+
     function session(id: typeof sessionSelectionInputSchema.Type.sessionId) {
       const row = db.orm.select().from(sessions).where(eq(sessions.id, id)).get();
+
       if (!row) throw new StudyError('not_found', 'Session is unavailable');
+
       return row;
     }
+
     function selection(input: typeof sessionSelectionInputSchema.Type) {
       const row = session(input.sessionId);
+
       return {
         revision: row.selection_revision,
         targets: Schema.decodeUnknownSync(targetsCodec)(row.selection)
       };
     }
+
     function decodeContext(value: string) {
       const snapshot = Schema.decodeUnknownSync(contextCodec)(value);
+
       for (const item of snapshot.messages) {
         const version = db.orm
           .select()
@@ -57,11 +79,14 @@ export const SessionContextStore = defineStore({
             )
           )
           .get();
+
         if (!version || version.text !== item.text || version.status !== 'complete')
           throw new StudyError('not_found', 'Captured conversation version is unavailable');
       }
+
       return snapshot;
     }
+
     return {
       queries: {
         selection: storeQuery({
@@ -80,7 +105,9 @@ export const SessionContextStore = defineStore({
               .from(session_run_contexts)
               .where(eq(session_run_contexts.request_id, requestId))
               .get();
+
             if (!row) throw new StudyError('not_found', 'Captured context is unavailable');
+
             return Schema.decodeUnknownSync(contextCodec)(row.snapshot);
           }
         }),
@@ -94,6 +121,7 @@ export const SessionContextStore = defineStore({
               .from(session_run_contexts)
               .where(eq(session_run_contexts.request_id, requestId))
               .get();
+
             return row ? Option.some(decodeContext(row.snapshot)) : Option.none();
           }
         }),
@@ -107,7 +135,9 @@ export const SessionContextStore = defineStore({
               .from(session_run_contexts)
               .where(eq(session_run_contexts.request_id, requestId))
               .get();
+
             if (!row) throw new StudyError('not_found', 'Captured context is unavailable');
+
             return decodeContext(row.snapshot);
           }
         }),
@@ -126,9 +156,12 @@ export const SessionContextStore = defineStore({
                 )
               )
               .get();
+
             if (!row) return Option.none();
+
             if (row.intent !== Schema.encodeSync(intentCodec)(input))
               throw new StudyError('invalid_input', 'Intent key already captures different work');
+
             return Option.some(decodeContext(row.snapshot));
           }
         })
@@ -139,8 +172,10 @@ export const SessionContextStore = defineStore({
           output: sessionSelectionSchema,
           run: (input) => {
             const row = session(input.sessionId);
+
             if (row.selection_revision !== input.expectedRevision)
               throw new StudyError('invalid_input', 'Session selection changed');
+
             db.orm
               .update(sessions)
               .set({
@@ -154,6 +189,7 @@ export const SessionContextStore = defineStore({
                 )
               )
               .run();
+
             return selection(input);
           }
         }),
@@ -172,20 +208,27 @@ export const SessionContextStore = defineStore({
               input.threadRoot,
               true
             );
+
             if (input.threadRoot !== undefined) {
               const part = db.orm
                 .select()
                 .from(message_parts)
                 .where(eq(message_parts.id, input.threadRoot))
                 .get();
+
               if (!part) throw new StudyError('not_found', 'Thread root is unavailable');
+
               const root = conversationRoot(row.id, part.message_id);
               let size = root.text.length + history.reduce((n, item) => n + item.text.length, 0);
+
               while (size > 200000 && history.length > 1) size -= history.shift()!.text.length;
+
               if (size > 200000)
                 throw new StudyError('invalid_input', 'Thread context exceeds limit');
+
               history = [root, ...history];
             }
+
             const total = db.orm
               .select()
               .from(messages)
@@ -207,11 +250,13 @@ export const SessionContextStore = defineStore({
               messages: history,
               excludedMessages: total - history.length
             };
+
             if (!history.length && !input.inputs.length)
               throw new StudyError(
                 'invalid_input',
                 'Context has no selected input or conversation'
               );
+
             db.orm
               .insert(session_run_contexts)
               .values({
@@ -222,6 +267,7 @@ export const SessionContextStore = defineStore({
                 snapshot: Schema.encodeSync(contextCodec)(snapshot)
               })
               .run();
+
             return snapshot;
           }
         })

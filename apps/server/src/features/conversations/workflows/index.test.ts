@@ -623,6 +623,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
           .from(s.material_document_versions)
           .all()
           .find((row) => row.version_id === material.version.id)!.document_id;
+
         yield* conversations.updateSessionSelection({
           sessionId: session.id,
           expectedRevision: 0n,
@@ -653,18 +654,21 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
           sessionId: session.id,
           intentKey: 'exact-workflow'
         });
+
         yield* conversations.updateSessionSelection({
           sessionId: session.id,
           expectedRevision: 1n,
           targets: []
         });
         yield* conversations.editMessage({ messageId: message.id, text: 'New unrelated message' });
+
         return request;
       })
     );
     const selectedEvent = decodeEvent(
       context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
     );
+
     assertEventType(selectedEvent, 'ConversationGenerationRequested', 'wrong selected event');
     toolCall = true;
     output = 'Exact answer [1]';
@@ -674,6 +678,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     const selectedAnswer = await run(
       Effect.flatMap(Conversations, (c) => c.message(selected.messageId))
     );
+
     assert.equal(selectedAnswer.citations[0]?.quote, 'alpha selected passage');
     assert.equal(selectedAnswer.citations[0]?.rangeStart, 14);
     await assertLongHistoryPreservesEarlyMessages();

@@ -208,10 +208,13 @@ export const MaterialVersionsStore = defineStore({
           run: (target) => {
             const version = reads.versionRow(target.versionId);
             const documentId = reads.versionDocumentId(version.id);
+
             if (version.status !== 'published' || documentId === null)
               throw new StudyError('not_found', 'Selected material document is unavailable');
+
             if (target.documentId !== undefined && documentId !== target.documentId)
               throw new StudyError('invalid_input', 'Selected document does not match version');
+
             const document = reads.readCanonicalDocument(documentId);
             const material = reads.materialRow(version.material_id);
             const scope = target.scope;
@@ -232,15 +235,18 @@ export const MaterialVersionsStore = defineStore({
                         ]
                       : []
                   );
+
             if (
               scope.kind === 'blocks' &&
               (new Set(scope.blockIds).size !== scope.blockIds.length ||
                 spans.length !== scope.blockIds.length)
             )
               throw new StudyError('invalid_input', 'Invalid selected blocks');
+
             const seen = new Set<string>();
             const excerpts = spans.map((range) => {
               const key = `${range.blockId}:${range.start}:${range.end}`;
+
               if (
                 !validDocumentTextRange(
                   document,
@@ -251,9 +257,11 @@ export const MaterialVersionsStore = defineStore({
                 seen.has(key)
               )
                 throw new StudyError('invalid_input', 'Invalid selected range');
+
               seen.add(key);
               const blockOrdinal = document.blocks.findIndex((block) => block.id === range.blockId);
               const block = document.blocks[blockOrdinal]!;
+
               return {
                 blockId: block.id,
                 blockOrdinal,
@@ -264,8 +272,10 @@ export const MaterialVersionsStore = defineStore({
                 content: scope.kind === 'ranges' ? undefined : block.content
               };
             });
+
             if (!excerpts.length || !excerpts.some((item) => item.text.trim()))
               throw new StudyError('invalid_input', 'Selected document has no text');
+
             return {
               ...target,
               documentId,

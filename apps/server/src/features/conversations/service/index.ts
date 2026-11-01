@@ -77,6 +77,7 @@ export const Conversations = defineService(
       updateSessionSelection: (input: typeof updateSessionSelectionSchema.Type) =>
         transaction((tx) => {
           resolveTargets(tx, input.targets);
+
           return tx.store(SessionContextStore).updateSelection(input);
         }),
       captureSessionContext: (input: typeof captureSessionContextSchema.Type) =>
@@ -85,7 +86,9 @@ export const Conversations = defineService(
       sessionContext: (input: { requestId: string }) =>
         transaction((tx) => {
           const snapshot = tx.store(SessionContextStore).context(input);
+
           for (const target of snapshot.inputs) assertCapturedTarget(tx, target);
+
           return snapshot;
         }),
       titleSnapshot: titles.titleSnapshot,
@@ -126,10 +129,13 @@ export const Conversations = defineService(
       replySnapshot: (input: { requestId: string }) =>
         transaction((tx) => {
           const snapshot = tx.store(ReplyStore).replySnapshot(input);
+
           if (snapshot.context) {
             tx.store(SessionContextStore).context(input);
+
             for (const target of snapshot.context.inputs) assertCapturedTarget(tx, target);
           }
+
           return snapshot;
         }),
       inspectReplySnapshot: (input: { requestId: string }) =>
@@ -147,8 +153,10 @@ export const Conversations = defineService(
       publishReply: (input: typeof publishReplyInputSchema.Type) =>
         publicationTransaction((tx) => {
           const context = tx.store(SessionContextStore).findContext({ requestId: input.requestId });
+
           if (Option.isSome(context))
             for (const target of context.value.inputs) assertCapturedTarget(tx, target);
+
           return tx.store(ReplyStore).publishReply(input);
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
@@ -161,21 +169,28 @@ export const Conversations = defineService(
             preferences: input.preferences ?? {}
           };
           const existing = tx.store(SessionContextStore).existing(intent);
+
           if (Option.isSome(existing)) {
             const previous = tx
               .store(ReplyStore)
               .findRequest({ requestId: existing.value.requestId });
+
             if (Option.isSome(previous)) {
               for (const target of existing.value.inputs) assertCapturedTarget(tx, target);
+
               return previous.value;
             }
+
             throw new StudyError('not_found', 'Captured reply request is unavailable');
           }
+
           tx.store(ReplyStore).prepareReply(input);
           const context = captureContext(tx, intent, randomUUID());
           const requestId = context.requestId;
           const previous = tx.store(ReplyStore).findRequest({ requestId });
+
           if (Option.isSome(previous)) return previous.value;
+
           const result = tx.store(ReplyStore).requestReply({ ...input, requestId, context });
 
           tx.emit({
@@ -194,6 +209,7 @@ export const Conversations = defineService(
       reanswer: (input: typeof reanswerInputSchema.Type) =>
         transaction((tx) => {
           const requestId = randomUUID();
+
           tx.store(ReplyStore).retireTargetPending(input);
           const message = tx.store(MessageStore).message(input.messageId);
           const context = captureContext(
@@ -228,6 +244,7 @@ export const Conversations = defineService(
       rewriteMessage: (input: typeof rewriteMessageInputSchema.Type) =>
         transaction((tx) => {
           const requestId = randomUUID();
+
           tx.store(ReplyStore).retireTargetPending(input);
           const message = tx.store(MessageStore).message(input.messageId);
           const context = captureContext(
@@ -304,6 +321,7 @@ export const Conversations = defineService(
 
           if (input.requestReply ?? mentioned) {
             const requestId = randomUUID();
+
             tx.store(ReplyStore).prepareReply({
               sessionId: input.sessionId,
               threadRoot: input.threadRoot
@@ -383,9 +401,12 @@ function resolveTargets(
 ) {
   if (new Set(targets.map((target) => target.versionId)).size !== targets.length)
     throw new StudyError('invalid_input', 'Duplicate selected version');
+
   const resolved = targets.map((target) => Materials.resolveSessionSelection(tx, target));
+
   if (resolved.reduce((sum, item) => sum + item.excerpts.length, 0) > 200)
     throw new StudyError('invalid_input', 'Selected context has too many passages');
+
   if (
     resolved.reduce(
       (sum, item) => sum + item.excerpts.reduce((n, excerpt) => n + excerpt.text.length, 0),
@@ -393,6 +414,7 @@ function resolveTargets(
     ) > 100000
   )
     throw new StudyError('invalid_input', 'Selected context exceeds limit');
+
   return resolved;
 }
 
@@ -403,11 +425,15 @@ function captureContext(
 ) {
   const store = tx.store(SessionContextStore);
   const existing = store.existing(input);
+
   if (Option.isSome(existing)) {
     for (const target of existing.value.inputs) assertCapturedTarget(tx, target);
+
     return existing.value;
   }
+
   const selection = store.selection({ sessionId: input.sessionId });
+
   return store.capture({ ...input, requestId, inputs: resolveTargets(tx, selection.targets) });
 }
 
@@ -415,6 +441,7 @@ const resolvedCodec = Schema.fromJsonString(Schema.toCodecJson(resolvedSelection
 
 function assertCapturedTarget(tx: Transaction, target: typeof resolvedSelectionSchema.Type) {
   const resolved = Materials.resolveSessionSelection(tx, target);
+
   if (
     Schema.encodeSync(resolvedCodec)({ ...resolved, name: target.name }) !==
     Schema.encodeSync(resolvedCodec)(target)
