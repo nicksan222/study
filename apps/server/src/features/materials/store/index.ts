@@ -14,6 +14,7 @@
 
 import { errorKindSchema } from '@study/contracts/errors';
 import { sourceIndexedSchema, materialGenerationRequestedSchema } from '@study/contracts/events';
+import { sourceIdSchema } from '@study/contracts/ids';
 import * as input from '@study/contracts/materials/rpc';
 import {
   materialGenerationSchema,
@@ -73,7 +74,7 @@ export const MaterialsStore = defineStore({
     const { replaceDraft } = makeReplaceDraftAction(resources);
     const { setCitations } = makeSetCitationsAction(resources);
     const { unarchive } = makeUnarchiveAction(resources);
-    const { projectSource } = makeProjectSource(resources);
+    const { projectSource, registerSource, assignSourceProject } = makeProjectSource(resources);
 
     return {
       queries: {
@@ -97,6 +98,19 @@ export const MaterialsStore = defineStore({
         })
       },
       mutations: {
+        assignSourceProject: storeMutation({
+          input: sourceIdSchema,
+          output: Schema.Void,
+          run: assignSourceProject
+        }),
+        registerSource: storeMutation({
+          input: sourceIdSchema,
+          output: Schema.Struct({
+            original: materialDetailSchema,
+            originalCreated: Schema.Boolean
+          }),
+          run: registerSource
+        }),
         projectSource: storeMutation({
           input: sourceIndexedSchema,
           output: Schema.Struct({

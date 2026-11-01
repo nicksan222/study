@@ -36,10 +36,11 @@ test('source-backed material content uses the canonical public source shape', ()
   const detail = Schema.decodeUnknownSync(materialContentDetailSchema)({
     kind: 'file',
     sourceId: 1n,
-    source
+    source,
+    extracted: null
   });
 
-  assert.deepEqual(detail, { kind: 'file', sourceId: 1n, source });
+  assert.deepEqual(detail, { kind: 'file', sourceId: 1n, source, extracted: null });
 });
 
 test('native materials RPC names cover the complete public API', async () => {

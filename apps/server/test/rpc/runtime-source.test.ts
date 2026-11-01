@@ -158,7 +158,7 @@ test('running worker processes a source created through HTTP', { timeout: 10000 
 });
 
 test(
-  'HTTP source ingestion durably projects the original and extracted Materials',
+  'HTTP import retains one Material with exact original and extracted revisions',
   { timeout: 15000 },
   async () => {
     const location = createTestDatabase();
@@ -179,94 +179,68 @@ test(
               projectId: project.id
             });
 
-            for (let attempt = 0; attempt < 100; attempt++) {
-              const page = yield* client['materials.materials']({
-                projectId: project.id,
-                archived: false,
-                limit: 10
-              });
-
-              if (page.items.length !== 2) {
-                yield* Effect.sleep('50 millis');
-                continue;
-              }
-
-              const details = yield* Effect.forEach(page.items, (item) =>
-                client['materials.material']({ id: item.id })
-              );
-              const original = details.find((item) => item.version.content.kind === 'file');
-              const extracted = details.find((item) => item.version.content.kind === 'document');
-
-              assert.ok(original);
-              assert.ok(extracted);
-
-              if (original.version.content.kind === 'file')
-                assert.equal(original.version.content.source.id, source.id);
-
-              const inputs = yield* client['materials.inputs']({
-                id: extracted.version.id,
-                limit: 10
-              });
-
-              assert.equal(inputs.items[0]?.id, original.version.id);
-              assert.equal(extracted.version.operation, 'extract');
-              const replaced = yield* client['sources.replaceSource']({
-                id: source.id,
-                expectedRevision: 1,
-                name: 'updated.txt',
-                bytes: new TextEncoder().encode('Chloroplasts capture sunlight')
-              });
-
-              assert.equal(replaced.revision, 2);
-              const originalAfterReplacement = yield* client['materials.material']({
-                id: original.id
-              });
-
-              assert.deepEqual(originalAfterReplacement.version.content, original.version.content);
-
-              for (let nextAttempt = 0; nextAttempt < 100; nextAttempt++) {
-                const nextPage = yield* client['materials.materials']({
+            function* waitForExtraction(text: string) {
+              for (let attempt = 0; attempt < 100; attempt++) {
+                const page = yield* client['materials.materials']({
                   projectId: project.id,
                   archived: false,
                   limit: 10
                 });
 
-                if (nextPage.items.length !== 4) {
-                  yield* Effect.sleep('50 millis');
-                  continue;
-                }
+                assert.equal(page.items.length, 1);
+                const material = yield* client['materials.material']({ id: page.items[0]!.id });
 
-                const nextDetails = yield* Effect.forEach(nextPage.items, (item) =>
-                  client['materials.material']({ id: item.id })
-                );
-                const nextOriginal = nextDetails.find(
-                  (item) => item.id !== original.id && item.version.content.kind === 'file'
-                );
-                const nextExtracted = nextDetails.find(
-                  (item) => item.id !== extracted.id && item.version.content.kind === 'document'
-                );
+                if (
+                  material.version.content.kind === 'file' &&
+                  material.importProcessing?.status === 'ready' &&
+                  material.version.content.extracted?.document.blocks[0]?.text === text
+                )
+                  return material;
 
-                assert.ok(nextOriginal);
-                assert.ok(nextExtracted);
-                assert.equal(nextOriginal.version.content.kind, 'file');
-
-                if (nextOriginal.version.content.kind === 'file')
-                  assert.equal(nextOriginal.version.content.source.name, 'updated.txt');
-
-                const nextInputs = yield* client['materials.inputs']({
-                  id: nextExtracted.version.id,
-                  limit: 10
-                });
-
-                assert.equal(nextInputs.items[0]?.id, nextOriginal.version.id);
-
-                return;
+                yield* Effect.sleep('50 millis');
               }
 
-              assert.fail('replacement was not projected into Materials');
+              throw new Error('import extraction was not projected');
             }
 
-            assert.fail('source was not projected into Materials');
+            const extracted = yield* waitForExtraction('Mitochondria generate ATP');
+            const inputs = yield* client['materials.inputs']({
+              id: extracted.version.id,
+              limit: 10
+            });
+
+            assert.equal(inputs.items.length, 1);
+            const original = yield* client['materials.materialVersion']({
+              id: inputs.items[0]!.id
+            });
+
+            assert.equal(original.material_id, extracted.id);
+            assert.equal(original.operation, 'original');
+            const replaced = yield* client['sources.replaceSource']({
+              id: source.id,
+              expectedRevision: 1,
+              name: 'updated.txt',
+              bytes: new TextEncoder().encode('Chloroplasts capture sunlight')
+            });
+
+            assert.equal(replaced.revision, 2);
+            const next = yield* waitForExtraction('Chloroplasts capture sunlight');
+
+            assert.equal(next.id, extracted.id);
+            assert.notEqual(next.version.id, extracted.version.id);
+            const old = yield* client['materials.materialVersion']({ id: extracted.version.id });
+
+            assert.deepEqual(old.content, extracted.version.content);
+            const oldBytes = yield* client['materials.materialVersionExport']({ id: old.id });
+            const nextBytes = yield* client['materials.materialVersionExport']({
+              id: next.version.id
+            });
+
+            assert.deepEqual(oldBytes.bytes, new TextEncoder().encode('Mitochondria generate ATP'));
+            assert.deepEqual(
+              nextBytes.bytes,
+              new TextEncoder().encode('Chloroplasts capture sunlight')
+            );
           })
         )
       );

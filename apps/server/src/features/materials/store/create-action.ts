@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import type { createInputSchema } from '@study/contracts/materials/rpc';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -22,7 +23,15 @@ import { makeCreateMaterial } from '#server/features/materials/store/create-mate
 
 export function makeCreateAction(resources: StoreResources) {
   const { createMaterial } = makeCreateMaterial(resources);
-  const create = (input: Input) => createMaterial(input);
+  const create = (input: Input) => {
+    if ('sourceId' in input.content)
+      throw new StudyError(
+        'invalid_input',
+        'Source acquisition already registers its library material'
+      );
+
+    return createMaterial(input);
+  };
 
   return {
     create

@@ -29,10 +29,13 @@ type Wrapped<T> = {
 };
 
 /** Construct a native Effect service from its dependencies and instrument its operations. */
-export function defineService<const Name extends string, T extends Record<string, Operation>, E, R>(
-  name: Name,
-  make: Effect.Effect<T, E, R>
-) {
+export function defineService<
+  const Name extends string,
+  T extends Record<string, Operation>,
+  E,
+  R,
+  P extends Record<string, (...args: never[]) => unknown> = Record<never, never>
+>(name: Name, make: Effect.Effect<T, E, R>, transactionParticipants?: P) {
   const key = Context.Service<Wrapped<T>>(name);
   const layer = Layer.effect(
     key,
@@ -56,5 +59,7 @@ export function defineService<const Name extends string, T extends Record<string
     )
   );
 
-  return Object.assign(key, { layer });
+  // Public synchronous participants let feature services share a caller-owned transaction.
+  // They use that transaction's typed stores and must never hold it across an await.
+  return Object.assign(key, { layer }, transactionParticipants);
 }

@@ -41,7 +41,7 @@ const codec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayload
 export function makeGeneration(resources: StoreResources) {
   const { db, clock } = resources;
   const { createMaterial } = makeCreateMaterial(resources);
-  const { materialRow, versionRow } = makeReads(resources);
+  const { materialRow, versionRow, versionDocumentId } = makeReads(resources);
   const { setCitations } = makeSetCitationsAction(resources);
   const { publish, assertProject, assertMembership } = makeWrites(resources);
 
@@ -97,23 +97,14 @@ export function makeGeneration(resources: StoreResources) {
 
       assertMembership(request.projectId, material.id);
 
-      if (
-        version.status !== 'published' ||
-        version.kind !== 'document' ||
-        material.archived_at !== null
-      )
+      if (version.status !== 'published' || material.archived_at !== null)
         throw new StudyError(
           'invalid_input',
           'Generation requires active published documents in the project'
         );
 
-      required(
-        db.orm
-          .select()
-          .from(s.material_document_versions)
-          .where(eq(s.material_document_versions.version_id, id))
-          .get()
-      );
+      if (versionDocumentId(id) === null)
+        throw new StudyError('invalid_input', 'Generation requires an extracted document revision');
     }
 
     const { title, kind, instruction, scopeId, questionSpec } = request;
@@ -160,16 +151,13 @@ export function makeGeneration(resources: StoreResources) {
     const inputs = db.orm
       .select({
         versionId: s.material_generation_inputs.version_id,
-        documentId: s.material_document_versions.document_id
+        documentId: s.material_generation_inputs.version_id
       })
       .from(s.material_generation_inputs)
-      .leftJoin(
-        s.material_document_versions,
-        eq(s.material_generation_inputs.version_id, s.material_document_versions.version_id)
-      )
       .where(eq(s.material_generation_inputs.request_id, requestId))
       .orderBy(asc(s.material_generation_inputs.position))
-      .all();
+      .all()
+      .map((input) => ({ ...input, documentId: versionDocumentId(input.versionId) }));
 
     if (inputs.some((input) => input.documentId === null))
       throw new StudyError('invalid_input', 'Generation inputs are incomplete');
@@ -204,17 +192,12 @@ export function makeGeneration(resources: StoreResources) {
       const material = materialRow(version.material_id, true);
 
       assertMembership(request.projectId, material.id);
-      const document = db.orm
-        .select()
-        .from(s.material_document_versions)
-        .where(eq(s.material_document_versions.version_id, id))
-        .get();
+      const documentId = versionDocumentId(id);
 
       if (
-        version.kind !== 'document' ||
         version.status !== 'published' ||
-        !document ||
-        document.document_id !== request.documentIds[index]
+        documentId === null ||
+        documentId !== request.documentIds[index]
       )
         throw new StudyError(
           'invalid_input',

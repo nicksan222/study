@@ -144,9 +144,9 @@ test('flat collections organize shared materials and sessions without owning sou
           projectId: a.id,
           bytes: new TextEncoder().encode('Original bytes')
         });
-        const original = yield* materials.create({
-          title: 'Original',
-          content: { kind: 'file', sourceId: source.id }
+        const original = yield* materials.material({
+          id: (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 }))
+            .items[0]!.id
         });
         const material = yield* materials.create({
           title: 'Shared',

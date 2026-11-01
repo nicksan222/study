@@ -38,6 +38,7 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { dispatchPending } from '#server/platform/workflows/triggers';
+import { createUnregisteredSource } from '#testing/source';
 
 import {
   conversationReplyHandler,
@@ -124,7 +125,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             project: project.id,
             title: 'Chat'
           });
-          const source = yield* sources.createSource({
+          const source = yield* createUnregisteredSource({
             projectId: project.id,
             name: 'note.txt',
             bytes: new TextEncoder().encode('Hello')
@@ -232,7 +233,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             project: project.id,
             title: 'Early'
           });
-          const earlySource = yield* sources.createSource({
+          const earlySource = yield* createUnregisteredSource({
             projectId: project.id,
             name: 'early.txt',
             bytes: new TextEncoder().encode('Early')
@@ -314,7 +315,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
             project: project.id,
             title: 'Early failure'
           });
-          const failedSource = yield* sources.createSource({
+          const failedSource = yield* createUnregisteredSource({
             projectId: project.id,
             name: 'bad.bin',
             bytes: new Uint8Array([0, 1, 2])
@@ -402,7 +403,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
               project: project.id,
               title: mode
             });
-            const nextSource = yield* sources.createSource({
+            const nextSource = yield* createUnregisteredSource({
               projectId: project.id,
               name: mode === 'unsupported' ? 'unknown.bin' : 'next.txt',
               bytes: new Uint8Array([0, 1, 2, 3])
@@ -410,7 +411,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
 
             const blocker =
               mode === 'later-pending' || mode === 'ready-reference'
-                ? yield* sources.createSource({
+                ? yield* createUnregisteredSource({
                     projectId: project.id,
                     name: 'blocker.txt',
                     bytes: new TextEncoder().encode('blocked')
@@ -617,7 +618,6 @@ test('a pending reply survives reopening and wakes on deletion', async () => {
       Effect.scoped(
         Effect.gen(function* () {
           const conversations = yield* Conversations;
-          const sources = yield* Sources;
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
           yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
@@ -630,7 +630,7 @@ test('a pending reply survives reopening and wakes on deletion', async () => {
             project: project.id,
             title: 'Chat'
           });
-          const source = yield* sources.createSource({
+          const source = yield* createUnregisteredSource({
             projectId: project.id,
             name: 'pending.txt',
             bytes: new TextEncoder().encode('pending')

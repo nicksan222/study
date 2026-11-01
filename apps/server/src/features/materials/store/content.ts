@@ -14,7 +14,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type { MaterialVersionId } from '@study/contracts/ids';
+import type { DocumentId, MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
@@ -30,9 +30,10 @@ export function makeContent(resources: StoreResources) {
 
   function insertContent(
     version: typeof s.material_versions.$inferSelect,
-    c: MaterialContentInput
+    c: MaterialContentInput,
+    importedDocumentId: DocumentId | null = null
   ) {
-    assertContentSource(c);
+    assertContentSource(version, c);
 
     switch (c.kind) {
       case 'diagram':
@@ -64,7 +65,7 @@ export function makeContent(resources: StoreResources) {
         break;
     }
 
-    snapshotSource(version, c);
+    snapshotSource(version, c, importedDocumentId);
   }
 
   function insertDiagram(
@@ -312,15 +313,27 @@ export function makeContent(resources: StoreResources) {
     return required(store.orm.select().from(s.sources).where(eq(s.sources.id, id)).get());
   }
 
-  function assertContentSource(c: MaterialContentInput) {
+  function assertContentSource(
+    version: typeof s.material_versions.$inferSelect,
+    c: MaterialContentInput
+  ) {
     if ('sourceId' in c) {
       contentSource(c.sourceId);
+      const binding = db.orm
+        .select()
+        .from(s.material_imports)
+        .where(eq(s.material_imports.material_id, version.material_id))
+        .get();
+
+      if (binding && binding.source_id !== c.sourceId)
+        throw new StudyError('invalid_input', 'Imported material identity is bound to its source');
     }
   }
 
   function snapshotSource(
     version: typeof s.material_versions.$inferSelect,
-    c: MaterialContentInput
+    c: MaterialContentInput,
+    importedDocumentId: DocumentId | null
   ) {
     const db = store.orm,
       id = version.id;
@@ -350,6 +363,7 @@ export function makeContent(resources: StoreResources) {
           version_id: id,
           source_id: source.id,
           revision: state.revision,
+          document_id: importedDocumentId,
           metadata: encodeSourceSnapshot({
             id: source.id,
             name: source.name,

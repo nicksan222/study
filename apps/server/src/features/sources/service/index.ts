@@ -26,6 +26,7 @@ import type {
 import { sniff } from '@study/contracts/sources/sniff';
 import { Effect, Option } from 'effect';
 
+import { Materials } from '#server/features/materials/index';
 import {
   SourceStore,
   SourceExportStore,
@@ -93,6 +94,7 @@ export const Sources = defineService(
             .store(SourceStore)
             .createSource({ ...input, ...detected, origin: 'attachment', uri: null, requestId });
 
+          Materials.registerImportedSource(tx, source.id);
           requested(tx, source.id, 1, requestId);
 
           return source;
@@ -112,6 +114,7 @@ export const Sources = defineService(
             requestId
           });
 
+          Materials.registerImportedSource(tx, source.id);
           requested(tx, source.id, 1, requestId);
 
           return source;
@@ -149,6 +152,7 @@ export const Sources = defineService(
             uri: null
           });
 
+          Materials.registerImportedSource(tx, source.id);
           imports.saveRecordingImport({ ...input, sourceId: source.id, hash });
           requested(tx, source.id, 1, input.requestId, input.requestId);
 
@@ -167,6 +171,7 @@ export const Sources = defineService(
             .store(SourceStore)
             .replaceSourceInput({ ...input, ...detected, requestId });
 
+          Materials.registerImportedSource(tx, input.id);
           requested(tx, input.id, result.revision, requestId);
 
           return result;
@@ -208,6 +213,8 @@ export const Sources = defineService(
           const state = tx.store(SourceProcessingStore).sourceProcessing(input.id);
 
           if (before.projectId !== input.projectId) {
+            Materials.assignImportedSourceProject(tx, input.id);
+
             const eventId = randomUUID();
 
             tx.emit({
@@ -221,11 +228,7 @@ export const Sources = defineService(
             });
           }
 
-          if (
-            before.projectId !== input.projectId &&
-            input.projectId !== null &&
-            state.documentId !== null
-          ) {
+          if (before.projectId !== input.projectId && state.documentId !== null) {
             const eventId = randomUUID();
 
             tx.emit({
@@ -296,7 +299,7 @@ export const Sources = defineService(
             document: input.document
           });
 
-          if (source.projectId !== null && published)
+          if (published)
             tx.emit({
               type: 'SourceIndexed',
               eventId: randomUUID(),

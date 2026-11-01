@@ -94,8 +94,11 @@ test('RPC handlers use the source service and return canonical failures', async 
 
           assert.equal(replaced.revision, 2);
           assert.equal((yield* client('sources.source', { id: created.id })).mime, 'image/png');
-          assert.equal(yield* client('sources.deleteSource', { id: created.id }), true);
-          assert.equal(yield* client('sources.deleteSource', { id: created.id }), false);
+          assert.equal(
+            (yield* Effect.flip(client('sources.deleteSource', { id: created.id }))).kind,
+            'invalid_input'
+          );
+          assert.equal(yield* client('sources.deleteSource', { id }), false);
         }).pipe(Effect.provide(handlers))
       )
     );

@@ -32,6 +32,7 @@ const groups: Record<string, string[]> = {
     'material_version_parents',
     'material_version_inputs',
     'material_source_snapshots',
+    'material_imports',
     'material_generation_requests',
     'material_generation_inputs',
     'material_generation_scopes',

@@ -15,6 +15,7 @@
 import { StudyError } from '@study/contracts/errors';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import type {
+  DocumentId,
   MaterialId,
   MaterialVersionId,
   QuizChoiceId,
@@ -79,6 +80,71 @@ export function makeReads({ db: store }: StoreResources) {
     );
 
     return decodeSourceSnapshot(row.metadata);
+  }
+
+  function versionDocumentId(id: MaterialVersionId): DocumentId | null {
+    return (
+      store.orm
+        .select()
+        .from(s.material_document_versions)
+        .where(eq(s.material_document_versions.version_id, id))
+        .get()?.document_id ??
+      store.orm
+        .select()
+        .from(s.material_source_snapshots)
+        .where(eq(s.material_source_snapshots.version_id, id))
+        .get()?.document_id ??
+      null
+    );
+  }
+
+  function extracted(id: MaterialVersionId) {
+    const documentId = versionDocumentId(id);
+
+    if (documentId === null) return null;
+
+    return { id: documentId, document: readCanonicalDocument(documentId) };
+  }
+
+  function importProcessing(materialId: MaterialId) {
+    const row = store.orm
+      .select({ state: s.source_processing })
+      .from(s.material_imports)
+      .innerJoin(
+        s.source_processing,
+        eq(s.source_processing.source_id, s.material_imports.source_id)
+      )
+      .where(eq(s.material_imports.material_id, materialId))
+      .get();
+
+    if (!row) return undefined;
+
+    const state = row.state;
+    const ready =
+      state.published_request_id === state.request_id &&
+      state.document_id !== null &&
+      store.orm
+        .select()
+        .from(s.material_source_snapshots)
+        .where(eq(s.material_source_snapshots.document_id, state.document_id))
+        .get() !== undefined;
+    const failed = store.orm
+      .select()
+      .from(s.workflowEvents)
+      .where(
+        and(
+          eq(s.workflowEvents.type, 'SourceProcessingFailed'),
+          sql`json_extract(${s.workflowEvents.payload}, '$.requestId') = ${state.request_id}`
+        )
+      )
+      .get();
+
+    return {
+      sourceId: state.source_id,
+      revision: Number(state.revision),
+      requestId: state.request_id,
+      status: ready ? ('ready' as const) : failed ? ('failed' as const) : ('pending' as const)
+    };
   }
 
   function readVersion(id: MaterialVersionId): MaterialVersionDetailDto | null {
@@ -176,7 +242,12 @@ export function makeReads({ db: store }: StoreResources) {
     return {
       ...base,
       kind: 'file',
-      content: { kind: c.kind, sourceId: c.source_id, source: readSource(id) }
+      content: {
+        kind: c.kind,
+        sourceId: c.source_id,
+        source: readSource(id),
+        extracted: extracted(id)
+      }
     };
   }
 
@@ -195,7 +266,12 @@ export function makeReads({ db: store }: StoreResources) {
     return {
       ...base,
       kind: 'link',
-      content: { kind: c.kind, sourceId: c.source_id, source: readSource(id) }
+      content: {
+        kind: c.kind,
+        sourceId: c.source_id,
+        source: readSource(id),
+        extracted: extracted(id)
+      }
     };
   }
 
@@ -218,6 +294,7 @@ export function makeReads({ db: store }: StoreResources) {
         kind: c.kind,
         sourceId: c.source_id,
         source: readSource(id),
+        extracted: extracted(id),
         durationMs: c.duration_ms,
         sampleRate: c.sample_rate,
         channels: c.channels
@@ -244,6 +321,7 @@ export function makeReads({ db: store }: StoreResources) {
         kind: c.kind,
         sourceId: c.source_id,
         source: readSource(id),
+        extracted: extracted(id),
         durationMs: c.duration_ms,
         width: c.width,
         height: c.height
@@ -270,6 +348,7 @@ export function makeReads({ db: store }: StoreResources) {
         kind: c.kind,
         sourceId: c.source_id,
         source: readSource(id),
+        extracted: extracted(id),
         width: c.width,
         height: c.height
       }
@@ -287,8 +366,17 @@ export function makeReads({ db: store }: StoreResources) {
         .where(eq(s.material_document_versions.version_id, id))
         .get()
     );
+
+    return {
+      ...base,
+      kind: 'document',
+      content: { kind: 'document', ...readCanonicalDocument(c.document_id) }
+    };
+  }
+
+  function readCanonicalDocument(documentId: DocumentId) {
     const doc = required(
-      store.orm.select().from(s.documents).where(eq(s.documents.id, c.document_id)).get()
+      store.orm.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
     );
     const blocks = store.orm
       .select()
@@ -302,14 +390,7 @@ export function makeReads({ db: store }: StoreResources) {
         anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(b.anchor))
       }));
 
-    return {
-      ...base,
-      kind: 'document',
-      content: {
-        kind: 'document',
-        ...Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(doc.meta) })
-      }
-    };
+    return Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(doc.meta) });
   }
 
   function readQuiz(
@@ -413,6 +494,7 @@ export function makeReads({ db: store }: StoreResources) {
 
     return {
       ...row,
+      importProcessing: importProcessing(row.id),
       projectIds: store.orm
         .select()
         .from(s.project_materials)
@@ -479,6 +561,7 @@ export function makeReads({ db: store }: StoreResources) {
           r.material.id,
           {
             ...r.material,
+            importProcessing: importProcessing(r.material.id),
             projectIds: store.orm
               .select()
               .from(s.project_materials)
@@ -496,5 +579,12 @@ export function makeReads({ db: store }: StoreResources) {
     return ids.map((id) => required(byMaterial.get(id)));
   }
 
-  return { materialRow, versionRow, readVersion, readMaterial, readMaterialSummaries };
+  return {
+    materialRow,
+    versionRow,
+    versionDocumentId,
+    readVersion,
+    readMaterial,
+    readMaterialSummaries
+  };
 }

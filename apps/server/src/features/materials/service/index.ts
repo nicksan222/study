@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId, SourceId } from '@study/contracts/ids';
 import type * as input from '@study/contracts/materials/rpc';
 import type {
   MaterialVersionDetailDto,
@@ -324,4 +324,34 @@ function* makeMaterials() {
   };
 }
 
-export const Materials = defineService('study/Materials', Effect.gen(makeMaterials));
+export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
+  registerImportedSource,
+  assignImportedSourceProject
+});
+
+/** Register acquisition in its caller's synchronous transaction, including the outbox event. */
+function registerImportedSource(tx: Transaction, sourceId: SourceId) {
+  const result = tx.store(MaterialsStore).registerSource(sourceId);
+
+  if (result.originalCreated) {
+    const eventId = randomUUID();
+
+    tx.emit({
+      type: 'MaterialPublished',
+      eventId,
+      causationId: null,
+      correlationId: eventId,
+      inputVersion: 1,
+      depth: 0,
+      materialId: result.original.id,
+      materialVersionId: result.original.version.id
+    });
+  }
+
+  return result.original;
+}
+
+/** Apply an explicit organization instruction immediately, including pending imports. */
+function assignImportedSourceProject(tx: Transaction, sourceId: SourceId) {
+  tx.store(MaterialsStore).assignSourceProject(sourceId);
+}

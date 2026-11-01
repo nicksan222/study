@@ -19,6 +19,7 @@ import type { Failure } from '@study/contracts/errors';
 import { materialGenerationRequestedSchema } from '@study/contracts/events';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
@@ -114,7 +115,9 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
             for (const [index, id] of initial.inputVersionIds.entries()) {
               const version = yield* materials.materialVersion({ id });
 
-              if (version.content.kind !== 'document')
+              const document = evidenceDocument(version.content);
+
+              if (!document)
                 return yield* Effect.fail(
                   new StudyError('invalid_input', 'Captured document is unavailable')
                 );
@@ -123,7 +126,7 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
                 key: String(id),
                 name: `Document ${index + 1}`,
                 reference: { inputVersionId: id },
-                blocks: version.content.blocks
+                blocks: document.blocks
               });
             }
 
@@ -254,4 +257,10 @@ function checkGeneratedLimits(
     return Effect.fail(new StudyError('invalid_input', 'Generated content exceeds limits'));
 
   return Effect.void;
+}
+
+function evidenceDocument(content: MaterialVersionDetailDto['content']) {
+  if (content.kind === 'document') return content;
+
+  return 'extracted' in content ? content.extracted?.document : undefined;
 }

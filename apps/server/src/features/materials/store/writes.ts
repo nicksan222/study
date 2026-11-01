@@ -66,11 +66,12 @@ export function makeWrites(resources: StoreResources) {
   function assertLinkTarget(
     version: typeof s.material_versions.$inferSelect,
     id: MaterialVersionId,
-    parent: boolean
+    parent: boolean,
+    imported = false
   ) {
     const target = versionRow(id);
 
-    materialRow(target.material_id, true);
+    materialRow(target.material_id, !imported);
 
     if (
       id === version.id ||
@@ -82,7 +83,8 @@ export function makeWrites(resources: StoreResources) {
 
   function insertLinks(
     version: typeof s.material_versions.$inferSelect,
-    links: { inputs?: readonly MaterialVersionId[]; parents?: readonly MaterialVersionId[] }
+    links: { inputs?: readonly MaterialVersionId[]; parents?: readonly MaterialVersionId[] },
+    imported = false
   ) {
     for (const [ids, parent] of [
       [links.inputs ?? [], false],
@@ -92,7 +94,7 @@ export function makeWrites(resources: StoreResources) {
         throw new StudyError('invalid_input', 'Duplicate version links');
 
       for (const id of ids) {
-        assertLinkTarget(version, id, parent);
+        assertLinkTarget(version, id, parent, imported);
 
         if (parent)
           store.orm
@@ -118,9 +120,9 @@ export function makeWrites(resources: StoreResources) {
   function insertVersion(
     materialId: MaterialId,
     input: typeof createMaterialVersionInputSchema.Type,
-    documentId?: DocumentId
+    imported?: { documentId: DocumentId | null }
   ) {
-    const material = materialRow(materialId, true);
+    const material = materialRow(materialId, imported === undefined);
 
     if (material.kind !== input.content.kind)
       throw new StudyError('invalid_input', 'Version kind must match material');
@@ -138,6 +140,7 @@ export function makeWrites(resources: StoreResources) {
         kind: material.kind,
         number: (last?.number ?? 0n) + 1n,
         status: 'draft',
+        creator: imported === undefined ? 'user' : 'import',
         operation: input.operation ?? 'original',
         language: input.language ?? null,
         created_at: now(clock)
@@ -145,16 +148,11 @@ export function makeWrites(resources: StoreResources) {
       .returning()
       .get();
 
-    if (documentId !== undefined)
-      store.orm
-        .insert(s.material_document_versions)
-        .values({ version_id: version.id, document_id: documentId })
-        .run();
-    else insertContent(version, input.content);
+    insertContent(version, input.content, imported?.documentId);
 
-    insertLinks(version, input);
+    insertLinks(version, input, imported !== undefined);
 
-    if (input.publish !== false) publish(version.id);
+    if (input.publish !== false) publish(version.id, imported !== undefined);
 
     store.orm
       .update(s.materials)
@@ -165,8 +163,12 @@ export function makeWrites(resources: StoreResources) {
     return version.id;
   }
 
-  function publish(id: MaterialVersionId) {
-    const version = versionRow(id, true);
+  function publish(id: MaterialVersionId, imported = false) {
+    const version = versionRow(id, !imported);
+
+    if (version.status !== 'draft')
+      throw new StudyError('invalid_input', 'Published versions are immutable');
+
     // Recheck ownership and archive state at publication even for an older draft.
     const inputs = store.orm
       .select()
@@ -185,7 +187,7 @@ export function makeWrites(resources: StoreResources) {
     ]) {
       const target = versionRow(targetId);
 
-      materialRow(target.material_id, true);
+      materialRow(target.material_id, !imported);
     }
 
     store.orm

@@ -28,7 +28,7 @@ const envelope = {
 export const sourceIndexedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('SourceIndexed'),
-  projectId: projectIdSchema,
+  projectId: Schema.NullOr(projectIdSchema),
   sourceId: sourceIdSchema,
   documentId: documentIdSchema
 });

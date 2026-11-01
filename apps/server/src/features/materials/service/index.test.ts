@@ -72,12 +72,18 @@ test('materials versions, links, citations and session membership preserve SQLit
           name: 'notes.txt',
           bytes: new TextEncoder().encode('Canonical source')
         });
-        const file = yield* materials.create({
-          projectId: project.id,
-          title: 'Source attachment',
-          content: { kind: 'file', sourceId: source.id },
-          publish: false
+        const imported = yield* materials.material({
+          id: (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
+            .items[0]!.id
         });
+        const file = {
+          ...imported,
+          version: yield* materials.createVersion({
+            materialId: imported.id,
+            content: { kind: 'file', sourceId: source.id },
+            publish: false
+          })
+        };
 
         assert.equal(file.version.content.kind, 'file');
 
@@ -207,7 +213,7 @@ test('materials versions, links, citations and session membership preserve SQLit
             .from(workflowEvents)
             .all()
             .filter((e) => e.type === 'MaterialPublished').length,
-          4
+          5
         );
       }).pipe(Effect.provide(services))
     );
@@ -279,10 +285,9 @@ test('published image retains its source revision through replacement and draft 
           name: 'image.png',
           bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0])
         });
-        const image = yield* materials.create({
-          projectId: project.id,
-          title: 'Image',
-          content: { kind: 'image', sourceId: source.id, width: null, height: null }
+        const image = yield* materials.material({
+          id: (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
+            .items[0]!.id
         });
         const draft = yield* materials.createVersion({
           materialId: image.id,
@@ -319,7 +324,7 @@ test('published image retains its source revision through replacement and draft 
         assert.deepEqual(exported.source, source);
         assert.deepEqual(exported.bytes, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]));
         assert.deepEqual(
-          (yield* materials.material({ id: image.id })).version.content,
+          (yield* materials.materialVersion({ id: image.version.id })).content,
           image.version.content
         );
         assert.throws(() =>

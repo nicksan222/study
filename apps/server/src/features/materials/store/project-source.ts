@@ -14,94 +14,121 @@
 
 import { StudyError } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
-import type { MaterialContentInput } from '@study/contracts/materials/schemas';
-import { and, eq, isNull } from '@study/db';
+import type { SourceId } from '@study/contracts/ids';
+import type { MaterialContentInput, MaterialKind } from '@study/contracts/materials/schemas';
+import { and, eq, asc } from '@study/db';
 import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeCreateMaterial } from './create-material.ts';
 import { makeReads, required } from './reads.ts';
+import { makeWrites } from './writes.ts';
 
 export function makeProjectSource(resources: StoreResources) {
   const { db } = resources;
-  const { createMaterial, createMaterialFromDocument } = makeCreateMaterial(resources);
+  const { createMaterial } = makeCreateMaterial(resources);
   const { readMaterial, readVersion } = makeReads(resources);
+  const { insertVersion } = makeWrites(resources);
 
-  function originalContent(source: typeof s.sources.$inferSelect): MaterialContentInput {
+  function originalContent(
+    source: typeof s.sources.$inferSelect,
+    kind: MaterialKind | typeof source.kind = source.kind
+  ): MaterialContentInput {
     const common = { sourceId: source.id };
-    let content: MaterialContentInput;
 
-    switch (source.kind) {
+    switch (kind) {
       case 'image':
-        content = { kind: 'image', ...common, width: null, height: null };
-        break;
+        return { kind: 'image', ...common, width: null, height: null };
       case 'audio':
-        content = {
-          kind: 'audio',
-          ...common,
-          durationMs: null,
-          sampleRate: null,
-          channels: null
-        };
-        break;
+        return { kind: 'audio', ...common, durationMs: null, sampleRate: null, channels: null };
       case 'video':
-        content = { kind: 'video', ...common, durationMs: null, width: null, height: null };
-        break;
+        return { kind: 'video', ...common, durationMs: null, width: null, height: null };
       case 'link':
-        content = { kind: 'link', ...common };
-        break;
+        return { kind: 'link', ...common };
       default:
-        content = { kind: 'file', ...common };
+        return { kind: 'file', ...common };
     }
-
-    return content;
   }
 
-  function findOriginal(event: SourceIndexed) {
-    let originalId: typeof s.material_versions.$inferSelect.id | undefined;
+  function sourceState(sourceId: SourceId) {
+    const source = required(
+      db.orm.select().from(s.sources).where(eq(s.sources.id, sourceId)).get()
+    );
+    const state = required(
+      db.orm
+        .select()
+        .from(s.source_processing)
+        .where(eq(s.source_processing.source_id, sourceId))
+        .get()
+    );
 
-    for (const table of [
-      s.material_file_versions,
-      s.material_image_versions,
-      s.material_audio_versions,
-      s.material_video_versions,
-      s.material_link_versions
-    ]) {
-      const row = db.orm
-        .select({ id: s.material_versions.id })
-        .from(table)
-        .innerJoin(s.material_versions, eq(s.material_versions.id, table.version_id))
-        .innerJoin(s.materials, eq(s.materials.id, s.material_versions.material_id))
-        .innerJoin(
-          s.material_source_snapshots,
-          eq(s.material_source_snapshots.version_id, s.material_versions.id)
-        )
-        .where(
-          and(
-            eq(table.source_id, event.sourceId),
-            eq(s.material_source_snapshots.revision, BigInt(event.inputVersion)),
-            eq(s.material_versions.operation, 'original'),
-            isNull(s.materials.archived_at),
-            eq(s.material_versions.status, 'published')
-          )
-        )
-        .orderBy(s.material_versions.id)
-        .get();
+    return { source, state };
+  }
 
-      if (row && (originalId === undefined || row.id < originalId)) originalId = row.id;
+  function registerSource(sourceId: SourceId) {
+    const { source, state } = sourceState(sourceId);
+    const binding = db.orm
+      .select()
+      .from(s.material_imports)
+      .where(eq(s.material_imports.source_id, sourceId))
+      .get();
+
+    if (!binding) {
+      const original = createMaterial(
+        {
+          ...(source.project_id === null ? {} : { projectId: source.project_id }),
+          title: source.name.trim().slice(0, 200),
+          content: originalContent(source),
+          operation: 'original'
+        },
+        'import'
+      );
+
+      db.orm
+        .insert(s.material_imports)
+        .values({ source_id: sourceId, material_id: original.id })
+        .run();
+
+      return { original, originalCreated: true };
     }
 
-    return originalId;
+    const material = required(readMaterial(binding.material_id));
+    const existing = db.orm
+      .select({ id: s.material_versions.id })
+      .from(s.material_versions)
+      .innerJoin(
+        s.material_source_snapshots,
+        eq(s.material_source_snapshots.version_id, s.material_versions.id)
+      )
+      .where(
+        and(
+          eq(s.material_versions.material_id, binding.material_id),
+          eq(s.material_versions.operation, 'original'),
+          eq(s.material_source_snapshots.revision, state.revision)
+        )
+      )
+      .orderBy(asc(s.material_versions.number))
+      .get();
+    const id =
+      existing?.id ??
+      insertVersion(
+        material.id,
+        {
+          content: originalContent(source, material.kind),
+          operation: 'original'
+        },
+        { documentId: null }
+      );
+
+    return {
+      original: { ...material, version: required(readVersion(id)) },
+      originalCreated: !existing
+    };
   }
 
   function projectionSource(event: SourceIndexed) {
-    const source = db.orm.select().from(s.sources).where(eq(s.sources.id, event.sourceId)).get();
-    const state = db.orm
-      .select()
-      .from(s.source_processing)
-      .where(eq(s.source_processing.source_id, event.sourceId))
-      .get();
+    const { source, state } = sourceState(event.sourceId);
     const document = db.orm
       .select()
       .from(s.documents)
@@ -109,104 +136,73 @@ export function makeProjectSource(resources: StoreResources) {
       .get();
 
     if (
-      !source ||
       source.project_id !== event.projectId ||
       !document ||
-      document.source_id !== event.sourceId ||
-      !state ||
+      document.source_id !== source.id ||
       state.document_id !== event.documentId ||
       state.revision !== BigInt(event.inputVersion) ||
       state.published_request_id !== state.request_id
     )
-      throw new StudyError(
-        'invalid_input',
-        'Source projection is stale or belongs to another project'
-      );
+      throw new StudyError('invalid_input', 'Source projection is stale');
 
     return source;
   }
 
-  function includeInProject(
-    materialId: typeof s.materials.$inferSelect.id,
-    projectId: SourceIndexed['projectId']
-  ) {
-    db.orm
-      .insert(s.project_materials)
-      .values({ material_id: materialId, project_id: projectId })
-      .onConflictDoNothing()
-      .run();
-  }
-
   function projectSource(event: SourceIndexed) {
     const source = projectionSource(event);
+    const { original, originalCreated } = registerSource(source.id);
 
-    let originalId = findOriginal(event);
+    if (event.projectId !== null)
+      db.orm
+        .insert(s.project_materials)
+        .values({ material_id: original.id, project_id: event.projectId })
+        .onConflictDoNothing()
+        .run();
 
-    let originalCreated = false;
-
-    if (originalId === undefined) {
-      originalId = createMaterial({
-        projectId: event.projectId,
-        title: source.name.trim().slice(0, 200),
-        content: originalContent(source),
-        operation: 'original'
-      }).version.id;
-      originalCreated = true;
-    }
-
-    const originalVersion = required(readVersion(originalId));
-
-    includeInProject(originalVersion.material_id, event.projectId);
-    const original = {
-      ...required(readMaterial(originalVersion.material_id)),
-      version: originalVersion
-    };
-    const operation = source.kind === 'audio' || source.kind === 'video' ? 'transcribe' : 'extract';
     const existing = db.orm
-      .select({ id: s.material_versions.id })
-      .from(s.material_document_versions)
-      .innerJoin(
-        s.material_versions,
-        eq(s.material_versions.id, s.material_document_versions.version_id)
-      )
-      .innerJoin(s.materials, eq(s.materials.id, s.material_versions.material_id))
-      .innerJoin(
-        s.material_version_inputs,
-        eq(s.material_version_inputs.version_id, s.material_versions.id)
-      )
-      .where(
-        and(
-          eq(s.material_version_inputs.input_version_id, originalId),
-          isNull(s.materials.archived_at),
-          eq(s.material_document_versions.document_id, event.documentId),
-          eq(s.material_versions.operation, operation),
-          eq(s.material_versions.status, 'published')
-        )
-      )
-      .orderBy(s.material_versions.id)
+      .select({ id: s.material_source_snapshots.version_id })
+      .from(s.material_source_snapshots)
+      .where(eq(s.material_source_snapshots.document_id, event.documentId))
       .get();
-    let extractedCreated = false;
-    let extracted;
+    const id =
+      existing?.id ??
+      insertVersion(
+        original.id,
+        {
+          content: originalContent(source, original.kind),
+          operation: source.kind === 'audio' || source.kind === 'video' ? 'transcribe' : 'extract',
+          inputs: [original.version.id]
+        },
+        { documentId: event.documentId }
+      );
+    const extracted = {
+      ...required(readMaterial(original.id)),
+      version: required(readVersion(id))
+    };
 
-    if (existing) {
-      const version = required(readVersion(existing.id));
-
-      includeInProject(version.material_id, event.projectId);
-
-      extracted = { ...required(readMaterial(version.material_id)), version };
-    } else {
-      extracted = createMaterialFromDocument({
-        projectId: event.projectId,
-        title: source.name.trim().slice(0, 200),
-        documentId: event.documentId,
-        operation,
-        inputs: [originalId]
-      });
-      extractedCreated = true;
-    }
-
-    return { original, extracted, originalCreated, extractedCreated };
+    return {
+      original: { ...extracted, version: original.version },
+      extracted,
+      originalCreated,
+      extractedCreated: !existing
+    };
   }
 
-  return { projectSource };
+  function assignSourceProject(sourceId: SourceId) {
+    const { source } = sourceState(sourceId);
+    const binding = db.orm
+      .select()
+      .from(s.material_imports)
+      .where(eq(s.material_imports.source_id, sourceId))
+      .get();
+
+    if (binding && source.project_id !== null)
+      db.orm
+        .insert(s.project_materials)
+        .values({ material_id: binding.material_id, project_id: source.project_id })
+        .onConflictDoNothing()
+        .run();
+  }
+
+  return { registerSource, projectSource, assignSourceProject };
 }
