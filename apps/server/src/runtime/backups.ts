@@ -23,16 +23,21 @@ import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
 import { System } from '#server/features/system/index';
+import { Themes } from '#server/features/themes/index';
 import { Workflows } from '#server/features/workflows/index';
 import type { SnapshotPolicy } from '#server/platform/database/backups';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 
+import { runNative } from './layers.ts';
+
 function participate<A>(db: Db, operation: Effect.Effect<A, StudyError, Database>) {
   const context = new ServerContext(db);
-  return Effect.runSync(operation.pipe(Effect.provideService(Database, { store: context })));
+
+  return runNative(operation.pipe(Effect.provideService(Database, { store: context })));
 }
+
 export const backupPolicy: SnapshotPolicy = {
   prepare: (db) =>
     participate(
@@ -43,7 +48,13 @@ export const backupPolicy: SnapshotPolicy = {
         Materials.validateBackup(tx);
         Sources.validateBackup(tx);
         Conversations.validateBackup(tx);
-        Conversations.prepareBackup(tx);
+        Themes.validateBackup(tx);
+
+        const captures = Conversations.prepareBackup(tx);
+
+        // Captures share reply request identities, even before a reply event exists.
+        // Retain inspection while fencing every imported capture from actionable reuse.
+        Workflows.retireCorrelations(tx, captures, ['ConversationGenerationRequested']);
         Auth.sanitizeBackup(tx);
         Workflows.prepareBackup(tx);
       })
@@ -54,7 +65,9 @@ export const backupPolicy: SnapshotPolicy = {
       transaction((tx) => {
         Materials.validateBackup(tx);
         Sources.validateBackup(tx);
-        Conversations.validateBackup(tx);
+        Conversations.validateBackup(tx, true);
+        Themes.validateBackup(tx);
+
         if (
           !Auth.validateBackup(tx) ||
           !Workflows.validateBackup(tx) ||
@@ -64,9 +77,9 @@ export const backupPolicy: SnapshotPolicy = {
       })
     ),
   blocksRestore: System.backupRestoreBlocked,
-  scope: (db) =>
+  inspect: (db) =>
     participate(
       db,
-      transaction((tx) => System.backupScope(tx))
+      transaction((tx) => ({ scope: System.backupScope(tx), identity: db.contentIdentity() }))
     )
 };

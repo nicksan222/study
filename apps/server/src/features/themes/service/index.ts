@@ -17,8 +17,13 @@ import type { themePageInputSchema } from '@study/contracts/themes/rpc';
 import { parseTheme, serializeTheme } from '@study/theme';
 import { Effect } from 'effect';
 
-import { ThemeSelectionStore, ThemeStore } from '#server/features/themes/store/index';
+import {
+  ThemeBackupStore,
+  ThemeSelectionStore,
+  ThemeStore
+} from '#server/features/themes/store/index';
 import { defineService } from '#server/platform/definitions/define-service';
+import type { Transaction } from '#server/platform/definitions/define-store';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { pageById } from '#server/platform/definitions/page-by-id';
 
@@ -26,7 +31,9 @@ export const Themes = defineService(
   'study/Themes',
   Effect.gen(function* () {
     const themes = yield* useStore(ThemeStore);
+
     const selection = yield* useStore(ThemeSelectionStore);
+
     const save = (json: string, replace: boolean) =>
       Effect.try({
         try: () => parseTheme(json),
@@ -49,6 +56,7 @@ export const Themes = defineService(
       deleteTheme: ({ id }: { id: string }) =>
         transaction((tx) => {
           tx.store(ThemeStore).deleteTheme(id);
+
           const selected = tx.store(ThemeSelectionStore);
 
           if (selected.selection(undefined).selected === id) selected.setSelection(null);
@@ -60,5 +68,6 @@ export const Themes = defineService(
           tx.store(ThemeSelectionStore).setSelection(id);
         })
     };
-  })
+  }),
+  { validateBackup: (tx: Transaction) => tx.store(ThemeBackupStore).backupTheme(undefined) }
 );

@@ -32,6 +32,7 @@ export const BackupScopeStore = defineStore({
         run: () => {
           const count = (query: string) =>
             Number(requireRow(db.orm.get<{ n: bigint }>(sql.raw(query))).n);
+
           return {
             materials: count('SELECT count(*) n FROM materials'),
             versions: count('SELECT count(*) n FROM material_versions'),

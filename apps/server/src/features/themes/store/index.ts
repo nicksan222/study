@@ -75,6 +75,7 @@ export const ThemeStore = defineStore({
           output: themeFileSchema,
           run: ({ theme, replace }) => {
             const insert = db.orm.insert(themes).values({ id: theme.id, definition: theme });
+
             const row = replace
               ? insert
                   .onConflictDoUpdate({
@@ -149,5 +150,30 @@ export const ThemeSelectionStore = defineStore({
         }
       })
     }
+  })
+});
+
+export const ThemeBackupStore = defineStore({
+  name: 'study/ThemeBackupStore',
+  entity: { singular: 'backupTheme', plural: 'backupThemes' },
+  make: ({ db }) => ({
+    queries: {
+      backupTheme: storeQuery({
+        role: 'required',
+        input: Schema.Void,
+        output: Schema.Boolean,
+        run: () => {
+          for (const row of db.orm.select().from(themes).all()) {
+            const theme = Schema.decodeUnknownSync(themeFileSchema)(row.definition);
+
+            if (theme.id !== row.id)
+              throw new StudyError('invalid_input', 'Backup theme identity is invalid');
+          }
+
+          return true;
+        }
+      })
+    },
+    mutations: {}
   })
 });

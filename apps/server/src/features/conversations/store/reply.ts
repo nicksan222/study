@@ -72,9 +72,13 @@ const requestInput = Schema.Struct({
 
 function makeHelpers({ db, clock }: StoreResources) {
   const discardPending = makeDiscardPending({ db, clock });
+
   const assertContextAvailable = makeAssertContextAvailable({ db, clock });
+
   const { insertSelectedVersion } = makePersistence({ db, clock });
+
   const { conversationHistory, conversationRoot } = makeHistory({ db, clock });
+
   const { assertThreadRoot } = makeThread({ db, clock });
 
   function snapshot(
@@ -96,6 +100,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     const session = foundSession;
 
     let totalAttachments = 0;
+
     const existing =
       target && db.orm.select().from(messages).where(eq(messages.id, target.messageId)).get();
 
@@ -104,6 +109,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     if (threadRoot != null) assertThreadRoot(session.id, threadRoot);
 
     assertSnapshotTarget();
+
     const captured = input.context ? [...input.context.messages] : captureConversation();
 
     function captureConversation() {
@@ -157,6 +163,7 @@ function makeHelpers({ db, clock }: StoreResources) {
         if (!rootPart) throw new StudyError('invalid_input', 'invalid thread root');
 
         const root = conversationRoot(session.id, rootPart.message_id);
+
         let total = root.text.length + captured.reduce((sum, item) => sum + item.text.length, 0);
 
         while (total > 200_000 && captured.length > 1) total -= captured.shift()!.text.length;
@@ -192,6 +199,7 @@ function makeHelpers({ db, clock }: StoreResources) {
         .from(source_processing)
         .where(eq(source_processing.source_id, source.id))
         .get();
+
       const document = attachmentDocument(processing, source.id);
 
       if (!document || processing?.published_request_id !== processing?.request_id) {
@@ -240,12 +248,14 @@ function makeHelpers({ db, clock }: StoreResources) {
         threadRoot != null && message === captured[0]
           ? parts.filter((part) => part.id === threadRoot)
           : parts;
+
       const attachments = selectedParts.flatMap((part) => {
         return resolveAttachment(part, message.messageId);
       });
 
       return { ...message, attachments };
     });
+
     const { now, message, version } = createPendingReply();
 
     function generationFields() {
@@ -258,6 +268,7 @@ function makeHelpers({ db, clock }: StoreResources) {
 
     function createPendingReply() {
       const now = unixSeconds(clock);
+
       const message =
         existing ??
         db.orm
@@ -271,12 +282,14 @@ function makeHelpers({ db, clock }: StoreResources) {
           })
           .returning()
           .get();
+
       const previous = db.orm
         .select()
         .from(message_versions)
         .where(eq(message_versions.message_id, message.id))
         .orderBy(desc(message_versions.number))
         .get();
+
       const version = insertSelectedVersion({
         message_id: message.id,
         number: (previous?.number ?? 0n) + 1n,
@@ -317,6 +330,7 @@ function makeHelpers({ db, clock }: StoreResources) {
         snapshot: Schema.encodeSync(codec)(result)
       })
       .run();
+
     db.orm.update(sessions).set({ updated_at: now }).where(eq(sessions.id, session.id)).run();
 
     return result;
@@ -365,8 +379,11 @@ function makeHelpers({ db, clock }: StoreResources) {
     if (!row) throw new StudyError('not_found', 'reply request not found');
 
     const result = Schema.decodeUnknownSync(codec)(row.snapshot);
+
     const session = db.orm.select().from(sessions).where(eq(sessions.id, row.session_id)).get();
+
     const target = db.orm.select().from(messages).where(eq(messages.id, result.messageId)).get();
+
     const version = db.orm
       .select()
       .from(message_versions)
@@ -400,6 +417,7 @@ function makeHelpers({ db, clock }: StoreResources) {
           .from(documents)
           .where(and(eq(documents.id, part.documentId), eq(documents.source_id, part.sourceId)))
           .get();
+
         const source = attachmentSource(part);
 
         if (!document || !source)
@@ -412,11 +430,13 @@ function makeHelpers({ db, clock }: StoreResources) {
   function assertPendingAttachments(parts: readonly (typeof pendingReplyAttachmentSchema.Type)[]) {
     for (const part of parts) {
       const source = attachmentSource(part);
+
       const processing = db.orm
         .select()
         .from(source_processing)
         .where(eq(source_processing.source_id, part.sourceId))
         .get();
+
       const failed = db.orm
         .select()
         .from(workflowEvents)
@@ -599,7 +619,9 @@ export const ReplyStore = defineStore({
                 .from(source_processing)
                 .where(eq(source_processing.source_id, part.sourceId))
                 .get();
+
               const document = attachmentDocument(state, part.sourceId);
+
               const message = messages.find((item) => item.messageId === part.messageId);
 
               if (!state || state.published_request_id !== part.requestId || !document || !message)
@@ -630,6 +652,7 @@ export const ReplyStore = defineStore({
             }
 
             const { pendingAttachments: _pending, ...rest } = snapshot;
+
             const sealed = { ...rest, messages };
 
             db.orm
@@ -761,6 +784,7 @@ export const ReplyStore = defineStore({
             const payload = JSON.stringify(input, (_key, value) =>
               typeof value === 'bigint' ? value.toString() : value
             );
+
             const saved = Schema.decodeUnknownSync(persistedCodec)(row.snapshot);
 
             function selectedCitation(
@@ -790,6 +814,7 @@ export const ReplyStore = defineStore({
                   item.end === range.end &&
                   item.text.includes(citation.quote)
               );
+
               const document = db.orm
                 .select()
                 .from(documents)
@@ -826,11 +851,13 @@ export const ReplyStore = defineStore({
                   (part) =>
                     part.sourceId === citation.sourceId && part.documentId === citation.documentId
                 );
+
               const source = db.orm
                 .select()
                 .from(sources)
                 .where(and(eq(sources.id, citation.sourceId)))
                 .get();
+
               const document = db.orm
                 .select()
                 .from(documents)
@@ -841,6 +868,7 @@ export const ReplyStore = defineStore({
                   )
                 )
                 .get();
+
               const block = db.orm
                 .select()
                 .from(blocks)
@@ -911,6 +939,7 @@ export const ReplyStore = defineStore({
                 .where(eq(citations.version_id, row.version_id))
                 .orderBy(asc(citations.marker))
                 .all();
+
               const expected = [...validated].sort((a, b) => Number(a.marker - b.marker));
 
               if (

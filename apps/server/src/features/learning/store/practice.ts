@@ -62,8 +62,11 @@ const resultCodec = Schema.toCodecJson(
 
 function makePractice(resources: StoreResources) {
   const { db } = resources;
+
   const { answerQuestion } = makeAnswerQuestion(resources);
+
   const { attemptView } = makeQuiz(resources);
+
   const { startQuiz } = makeStartQuiz(resources);
 
   function receiptExecutions() {
@@ -92,6 +95,7 @@ function makePractice(resources: StoreResources) {
 
     if (!execution) {
       // A committed child event is still durable work even before dispatcher delivery.
+
       const queued = db.orm
         .select({ id: s.workflowEvents.eventId })
         .from(s.workflowEvents)
@@ -162,6 +166,7 @@ function makePractice(resources: StoreResources) {
 
   function practice(projectId: ProjectId) {
     const current = control(projectId);
+
     const rows = current
       ? db.orm
           .select()
@@ -244,8 +249,10 @@ function makePractice(resources: StoreResources) {
           )
         )
         .get();
+
       const material =
         row && db.orm.select().from(s.materials).where(eq(s.materials.id, row.material_id)).get();
+
       const document = db.orm
         .select()
         .from(s.material_document_versions)
@@ -297,6 +304,7 @@ function makePractice(resources: StoreResources) {
       .set({ enabled: false })
       .where(and(eq(controls.project_id, projectId), eq(controls.epoch, epoch)))
       .run();
+
     db.orm
       .update(slots)
       .set({ status: 'cancelled' })
@@ -323,6 +331,7 @@ function makePractice(resources: StoreResources) {
     const intent = Schema.decodeUnknownSync(
       Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
     )(request.payload);
+
     const captured = view(row).inputVersionIds;
 
     if (
@@ -427,6 +436,7 @@ function makePractice(resources: StoreResources) {
 
   function refill(row: Slot) {
     db.orm.update(slots).set({ status: 'answered' }).where(eq(slots.id, row.id)).run();
+
     const last = requireRow(
       db.orm
         .select()
@@ -470,6 +480,7 @@ export const PracticeStore = defineStore({
   entity: { singular: 'practice', plural: 'practices' },
   make: (resources) => {
     const { db } = resources;
+
     const {
       practice,
       start,
@@ -533,6 +544,7 @@ export const PracticeStore = defineStore({
           }),
           run: (input) => {
             const row = answerSlot(input.slotId);
+
             const attempt = attemptView(row.attempt_id!);
 
             if (!attempt.questions[0]) invalid('invalid practice attempt');
@@ -721,7 +733,9 @@ export const PracticeBackupStore = defineStore({
           const ids = Schema.decodeUnknownSync(
             Schema.fromJsonString(Schema.toCodecJson(Schema.Array(materialVersionIdSchema)))
           );
+
           for (const row of db.orm.select().from(slots).all()) ids(row.input_version_ids);
+
           return !db.orm.get(
             sql`SELECT 1 FROM learning_practice_controls WHERE enabled=1 UNION ALL SELECT 1 FROM learning_practice_slots WHERE status='pending' LIMIT 1`
           );

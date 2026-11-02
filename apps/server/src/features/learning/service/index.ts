@@ -69,11 +69,17 @@ export const Learning = defineService(
   'study/Learning',
   Effect.gen(function* () {
     const readPracticeStore = yield* useStore(PracticeStore);
+
     const readPracticeSlotStore = yield* useStore(PracticeSlotStore);
+
     const readPracticeControlStore = yield* useStore(PracticeControlStore);
+
     const readGradingSnapshotStore = yield* useStore(GradingSnapshotStore);
+
     const settings = yield* Settings;
+
     const materials = yield* Materials;
+
     const attempts = yield* useStore(AttemptStore),
       cards = yield* useStore(CardStore),
       reviews = yield* useStore(ReviewStore);
@@ -106,6 +112,7 @@ export const Learning = defineService(
       startPractice: (input: typeof startPracticeInputSchema.Type) =>
         transaction((tx) => {
           const ids = tx.store(PracticeStore).start(input);
+
           const result = tx.store(PracticeStore).practice({ projectId: input.projectId });
 
           for (const id of ids) requestSlot(tx, id, input.projectId, result.epoch!);
@@ -226,9 +233,13 @@ export const Learning = defineService(
       dueCards: (input: typeof dueCardsInputSchema.Type) =>
         Effect.gen(function* () {
           const policy = yield* settings.reviewSettings();
+
           const items = yield* cards.cards({ ...input, ...policy });
+
           const last = items.at(-1);
+
           const cursor = last ? { due: last.due, cardId: last.snapshot.card_id } : undefined;
+
           const more =
             cursor && items.length === input.limit
               ? yield* cards.cards({ ...input, ...policy, cursor, limit: 1 })
@@ -239,7 +250,9 @@ export const Learning = defineService(
       attempts: (input: typeof attemptsInputSchema.Type) =>
         Effect.gen(function* () {
           const items = yield* attempts.attempts(input);
+
           const last = items.at(-1);
+
           const more =
             last && items.length === input.limit
               ? yield* attempts.attempts({ ...input, cursor: last.attempt.id, limit: 1 })
@@ -250,7 +263,9 @@ export const Learning = defineService(
       reviewHistory: (input: typeof reviewHistoryInputSchema.Type) =>
         Effect.gen(function* () {
           const items = yield* reviews.reviews(input);
+
           const last = items.at(-1);
+
           const more =
             last && items.length === input.limit
               ? yield* reviews.reviews({ ...input, cursor: last.review.id, limit: 1 })

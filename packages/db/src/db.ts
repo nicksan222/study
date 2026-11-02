@@ -10,6 +10,7 @@ import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
 /** Owns a SQLite connection and synchronous, nested Drizzle transactions. */
+
 export class Db {
   readonly path: string;
   private readonly sqlite: DatabaseSync;
@@ -66,12 +67,16 @@ export class Db {
   /** SQLite's online backup includes committed WAL pages in one consistent snapshot. */
   snapshot(path: string, maximumBytes?: number): Promise<number> {
     this.assertActive();
+
     const pageSize = Number(this.sqlite.prepare('PRAGMA page_size').get()!.page_size);
+
     const checkSize = (pages: number) => {
       if (maximumBytes !== undefined && pages * pageSize > maximumBytes)
         throw new RangeError('Snapshot exceeds size bound');
     };
+
     checkSize(Number(this.sqlite.prepare('PRAGMA page_count').get()!.page_count));
+
     return backup(this.sqlite, path, { progress: ({ totalPages }) => checkSize(totalPages) });
   }
 
@@ -79,15 +84,19 @@ export class Db {
   contentIdentity(): string {
     return this.transaction(() => {
       const hash = createHash('sha256').update(this.schemaIdentity());
+
       const tables = this.sqlite
         .prepare(
           "SELECT name FROM sqlite_schema WHERE type='table' AND (name NOT LIKE 'sqlite_%' OR name='sqlite_sequence') ORDER BY name"
         )
         .all();
+
       for (const table of tables) {
         const name = String(table.name);
+
         hash.update(name);
         // Identifiers originate in the already-supported schema, never an operation input.
+
         for (const row of this.sqlite
           .prepare('SELECT * FROM "' + name.replaceAll('"', '""') + '"')
           .iterate())
@@ -101,6 +110,7 @@ export class Db {
             )
           );
       }
+
       return hash.digest('hex');
     });
   }
@@ -108,9 +118,11 @@ export class Db {
   /** Exact migrator-owned schema identity, including migration receipts and trigger SQL. */
   schemaIdentity(): string {
     const schema = this.schemaSqlIdentity();
+
     const migrations = this.sqlite
       .prepare('SELECT hash,created_at FROM __drizzle_migrations ORDER BY id')
       .all();
+
     return createHash('sha256')
       .update(
         JSON.stringify({ schema, migrations }, (_, value) =>
@@ -131,23 +143,33 @@ export class Db {
   /** Validate untrusted schema before running integrity checks or opening it for writes. */
   static validateSnapshot(path: string): string {
     const sqlite = new DatabaseSync(path, { readOnly: true, readBigInts: true });
+
     const candidate = new Db(sqlite, path);
+
     const reference = Db.open(':memory:');
+
     try {
       sqlite.exec('PRAGMA trusted_schema = OFF;');
+
       if (candidate.schemaSqlIdentity() !== reference.schemaSqlIdentity())
         throw new TypeError('Unsupported snapshot schema');
+
       const expected = reference.schemaIdentity();
+
       if (candidate.schemaIdentity() !== expected)
         throw new TypeError('Unsupported snapshot schema');
+
       sqlite.exec('PRAGMA trusted_schema = ON; PRAGMA foreign_keys = ON;');
+
       const integrity = sqlite.prepare('PRAGMA integrity_check').all();
+
       if (
         integrity.length !== 1 ||
         integrity[0]?.integrity_check !== 'ok' ||
         sqlite.prepare('PRAGMA foreign_key_check').all().length
       )
         throw new TypeError('Invalid snapshot integrity');
+
       return expected;
     } finally {
       reference.close();
@@ -158,8 +180,11 @@ export class Db {
   /** Open only after a caller has compared the untrusted file's schema to the supported schema. */
   static openSnapshot(path: string): Db {
     Db.validateSnapshot(path);
+
     const sqlite = new DatabaseSync(path, { readBigInts: true });
+
     sqlite.exec('PRAGMA foreign_keys = ON; PRAGMA recursive_triggers = ON;');
+
     return new Db(sqlite, path);
   }
 
@@ -176,7 +201,9 @@ export class Db {
       throw new TypeError('transaction callback must be synchronous');
 
     const previous = this.activeTransaction;
+
     const context = { active: true };
+
     let result!: T;
 
     this.orm.transaction(

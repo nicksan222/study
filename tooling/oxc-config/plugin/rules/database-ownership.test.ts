@@ -115,3 +115,13 @@ test('owner reexports cannot evade ownership by preceding imports', () => {
     ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
   );
 });
+
+test('snapshot machinery uses Db primitives without acquiring a second raw driver in runtime or storage', () => {
+  const diagnostics = lintRule('database-ownership', {
+    'src/platform/database/backups.ts': "import { backup as snapshot } from 'node:sqlite';",
+    'src/runtime/backups.ts': "import * as driver from 'node:sqlite';",
+    'src/runtime/composition.ts': "import { Db } from '@study/db'; Db.openSnapshot(path);"
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

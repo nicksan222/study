@@ -335,3 +335,17 @@ test('history pruning composes public participants without exposing private owne
 
   assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/history.ts')));
 });
+
+test('backup participants are injected by runtime and feature coordinators cannot acquire runtime or foreign stores', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/runtime/backups.ts':
+      "import { Materials } from '#server/features/materials/index'; import { Conversations } from '#server/features/conversations/index';",
+    'src/features/system/service/backup.ts':
+      "import { backupPolicy } from '#server/runtime/backups'; import { SourceBackupStore } from '#server/features/sources/store/backup';",
+    'src/features/materials/service/backup.ts':
+      "import { Sources } from '#server/features/sources/index'; import { transaction } from '#server/platform/definitions/define-store'; transaction(tx => Sources.validateBackup(tx));"
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/service/backup.ts')));
+});

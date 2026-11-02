@@ -48,9 +48,11 @@ export const WorkflowRetirementStore = defineStore({
           output: Schema.Void,
           run: () => {
             // Snapshot-only retirement. Preserve receipts and consumed identities; never replay imports.
+
             for (const event of db.orm.select().from(s.workflowEvents).all()) {
               if (event.payload !== '{}') {
                 const decoded = decodeEvent(event.payload);
+
                 if (
                   decoded.eventId !== event.eventId ||
                   decoded.type !== event.type ||
@@ -76,40 +78,50 @@ export const WorkflowRetirementStore = defineStore({
                 .onConflictDoNothing()
                 .run();
             }
+
             const payload = Schema.decodeUnknownSync(
               Schema.fromJsonString(
                 Schema.toCodecJson(Schema.Struct({ event: workflowEventSchema }))
               )
             );
+
             for (const run of db.orm.select().from(s.workflow_executions).all()) {
               const event = run.payload === '{}' ? undefined : payload(run.payload).event;
+
               const retired = db.orm
                 .select()
                 .from(s.workflow_retired_executions)
                 .where(eq(s.workflow_retired_executions.execution_id, run.execution_id))
                 .get();
+
               if (!event && !retired)
                 throw new StudyError('invalid_input', 'Unfenced empty execution payload');
+
               const correlation = event?.correlationId ?? retired!.correlation_id;
+
               if (event)
                 db.orm
                   .insert(s.workflow_retired_correlations)
                   .values({ correlation_id: correlation, event_type: event.type })
                   .onConflictDoNothing()
                   .run();
+
               db.orm
                 .insert(s.workflow_retired_executions)
                 .values({ execution_id: run.execution_id, correlation_id: correlation })
                 .onConflictDoNothing()
                 .run();
               scrubRetiredConfiguration(db, run.execution_id);
+
               scrubRetiredExecution(db, run.execution_id);
             }
+
             const ids = db.orm
               .select()
               .from(s.workflow_retired_correlations)
               .all()
               .map((row) => row.correlation_id);
+
             for (const id of ids) scrubRetiredEvents(db, [id]);
           }
         }),

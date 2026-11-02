@@ -65,3 +65,15 @@ test('nested entry modules cannot avoid canonical construction', () => {
     ['sources/nested/service.ts', 'sources/nested/store.ts']
   );
 });
+
+test('snapshot participants stay attached to the canonical service rather than detached public helpers', () => {
+  assert.deepEqual(
+    lint({
+      'auth/service/index.ts':
+        "import { defineService } from '#server/platform/definitions/define-service'; export const Auth = defineService('study/Auth', make, {sanitizeBackup: tx => tx.store(Store).sanitize(undefined)});",
+      'sources/service/index.ts':
+        "import { defineService } from '#server/platform/definitions/define-service'; export const Sources = defineService('study/Sources', make); export const validateBackup = tx => tx.store(Store).validate(undefined);"
+    }),
+    ['sources/service/index.ts']
+  );
+});

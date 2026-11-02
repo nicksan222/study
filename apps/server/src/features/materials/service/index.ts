@@ -103,9 +103,13 @@ function* makeMaterials() {
     citations = yield* useStore(MaterialCitationsStore);
 
   const support = yield* useStore(CitationSupportStore);
+
   const annotations = yield* useStore(AnnotationsStore);
+
   const annotationHistory = yield* useStore(AnnotationHistoryStore);
+
   const evidenceReader = yield* useStore(EvidenceStore);
+
   const dependencyStatus = yield* useStore(DependencyStatusStore);
 
   const changeAnnotation = (
@@ -523,11 +527,13 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
 });
 
 /** Resolve retained evidence within the caller's consistent database snapshot. */
+
 function resolveEvidence(tx: Transaction, reference: typeof evidence.evidenceReferenceSchema.Type) {
   return tx.store(EvidenceStore).evidence(reference);
 }
 
 /** Register acquisition in its caller's synchronous transaction, including the outbox event. */
+
 function registerImportedSource(tx: Transaction, sourceId: SourceId) {
   const result = tx.store(MaterialsStore).registerSource(sourceId);
 
@@ -537,11 +543,13 @@ function registerImportedSource(tx: Transaction, sourceId: SourceId) {
 }
 
 /** Apply an explicit organization instruction immediately, including pending imports. */
+
 function assignImportedSourceProject(tx: Transaction, sourceId: SourceId) {
   tx.store(MaterialsStore).assignSourceProject(sourceId);
 }
 
 /** Resolve exact published content inside the caller's synchronous capture transaction. */
+
 function resolveSessionSelection(
   tx: Transaction,
   target: typeof sessionSelectionTargetSchema.Type
@@ -550,6 +558,7 @@ function resolveSessionSelection(
 }
 
 /** Read the owned generation request within a cross-feature transaction. */
+
 function readGeneration(tx: Transaction, value: { requestId: string; verifyOnly?: boolean }) {
   const request = tx.store(MaterialGenerationStore).materialGeneration(value);
 
@@ -559,6 +568,7 @@ function readGeneration(tx: Transaction, value: { requestId: string; verifyOnly?
 }
 
 /** Proposal participants run in Conversations' availability checked transaction. */
+
 function documentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
   return tx.store(DocumentProposalStore).documentProposal(value);
 }
@@ -610,6 +620,7 @@ function emitProposalPublication(
 }
 
 /** Receipt replay performs no new publication and survives session disappearance. */
+
 function findDocumentProposalReceipt(
   tx: Transaction,
   value:

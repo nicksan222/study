@@ -35,10 +35,14 @@ export const System = defineService(
   'study/System',
   Effect.gen(function* () {
     const workers = yield* WorkerLifecycle;
+
     const { owner: backups } = yield* BackupStorage;
+
     const backupOperation = <A>(tryOperation: () => Promise<A>) =>
       Effect.tryPromise({ try: tryOperation, catch: normalizeError });
+
     const store = yield* useStore(SystemStore);
+
     const health = yield* useStore(HealthStore);
 
     return {

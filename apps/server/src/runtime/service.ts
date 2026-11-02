@@ -28,6 +28,7 @@ import { nativeLayers } from './native.ts';
 import { Workers } from './workers.ts';
 
 /** Owns the database, native services, and workflow consumer for one application. */
+
 export class App {
   readonly shutdown = new AbortController();
   private closing?: Promise<void>;
@@ -62,6 +63,7 @@ export class App {
     fetch?: typeof fetch;
   }): Promise<App> {
     const ownership = await acquireDatabaseOwnership(options.path);
+
     options = { ...options, path: ownership.path };
 
     const issuer = options.issuer ?? 'https://auth.openai.com';
@@ -78,7 +80,9 @@ export class App {
 
       function* acquireApplication() {
         let runtime: ReturnType<typeof createNativeRuntime> | undefined;
+
         const clock = yield* Clock.Clock;
+
         const auth = yield* Effect.acquireRelease(
           Effect.try({
             try: () =>
@@ -104,6 +108,7 @@ export class App {
               catch: (error) => error
             }).pipe(Effect.orDie)
         );
+
         const store = yield* Effect.acquireRelease(
           Effect.try({
             try: () => ServerContext.open(options.path, clock),
@@ -111,8 +116,11 @@ export class App {
           }),
           (context) => Effect.sync(() => context.close())
         );
+
         const queue = yield* Queue.sliding<void>(1);
+
         let workers: Workers;
+
         const native = nativeLayers(
           store,
           auth,
@@ -217,6 +225,7 @@ export class App {
     if (this.closing) return this.closing;
 
     const stopped = this.workers.close();
+
     const closing = Promise.resolve().then(() => this.release(stopped));
 
     this.closing = closing;
@@ -230,6 +239,7 @@ export class App {
 
   private async release(stopped: Promise<void>) {
     const errors: unknown[] = [];
+
     await this.native.backups.close();
 
     try {
@@ -245,6 +255,7 @@ export class App {
     }
 
     // Refresh persistence calls the Auth service, so its runtime and SQLite must remain alive.
+
     try {
       await this.auth.dispose();
     } catch (error) {

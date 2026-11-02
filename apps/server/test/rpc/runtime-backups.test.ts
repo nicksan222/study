@@ -12,136 +12,40 @@
  */
 
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { createBlock } from '@study/contracts/sources/document';
-import {
-  backupManifestSchema,
-  backupIdSchema,
-  restoreTokenSchema
-} from '@study/contracts/system/backups';
-import type { BackupManifest, RestorePreview } from '@study/contracts/system/backups';
+import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
 import { Db, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { createTestDatabase } from '@study/db/testing';
 import { Effect, Schema } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { Auth } from '#server/features/auth/index';
+import { Conversations } from '#server/features/conversations/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
+import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { System } from '#server/features/system/index';
-import { App, serve } from '#server/runtime/index';
-
-const meta = {
-  extractor: null,
-  extractorVersion: 1,
-  provider: null,
-  durationMs: null,
-  pageCount: null,
-  refiners: [],
-  waitingFor: [],
-  corrected: false,
-  omissions: []
-};
-const document = (text: string) => ({
+import { workflowStore } from '#server/platform/workflows/store';
+import { serve } from '#server/runtime/index';
+import {
+  acceptance,
+  backupFixture,
+  changedArtifact,
+  createDocument,
   meta,
-  blocks: [createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] })]
-});
-const acceptance = (preview: RestorePreview) => ({
-  token: preview.token,
-  backupId: preview.backup.id,
-  sha256: preview.backup.sha256,
-  target: preview.target,
-  acknowledgeReplacement: true as const
-});
-
-async function fixture() {
-  const location = createTestDatabase();
-  let app = await App.open({
-    path: location.path,
-    fetch: async () => {
-      throw new Error('Backup must not make a network request');
-    }
-  });
-  return {
-    location,
-    get app() {
-      return app;
-    },
-    api: () => app.nativeRuntime.runPromise(System),
-    async reopen() {
-      await app.close();
-      app = await App.open({
-        path: location.path,
-        fetch: async () => {
-          throw new Error('Restore must not make a network request');
-        }
-      });
-    },
-    async close() {
-      await app.close();
-      location.cleanup();
-    }
-  };
-}
-async function createDocument(app: App, text = 'Retained rich content') {
-  return app.nativeRuntime.runPromise(
-    Effect.flatMap(Materials, (m) =>
-      m.createManualDocument({ title: text, document: document(text) })
-    )
-  );
-}
-function packet(bytes: Buffer) {
-  const length = bytes.readUInt32BE(9);
-  return {
-    manifest: Schema.decodeUnknownSync(backupManifestSchema)(
-      JSON.parse(bytes.subarray(13, 13 + length).toString())
-    ),
-    sqlite: bytes.subarray(13 + length)
-  };
-}
-function repack(manifest: BackupManifest, sqlite: Buffer): string {
-  const json = Buffer.from(
-    JSON.stringify({
-      ...manifest,
-      bytes: sqlite.length,
-      sha256: createHash('sha256').update(sqlite).digest('hex')
-    })
-  );
-  const size = Buffer.alloc(4);
-  size.writeUInt32BE(json.length);
-  return Buffer.concat([Buffer.from('STUDYBK1\n'), size, json, sqlite]).toString('base64');
-}
-function changedArtifact(
-  dir: string,
-  bytes: string,
-  edit: (db: DatabaseSync, manifest: BackupManifest) => void
-) {
-  const parsed = packet(Buffer.from(bytes, 'base64'));
-  const path = join(dir, randomUUID() + '.sqlite');
-  writeFileSync(path, parsed.sqlite);
-  const db = new DatabaseSync(path);
-  try {
-    edit(db, parsed.manifest);
-  } finally {
-    db.close();
-  }
-  try {
-    return repack(parsed.manifest, readFileSync(path));
-  } finally {
-    rmSync(path);
-  }
-}
+  packet,
+  repack
+} from '#testing/managed-backups';
 
 test('System native API inventory includes the managed backup lifecycle', async () => {
   const { SystemRpc } = await import('@study/contracts/system/rpc');
+
   assert.deepEqual(
     [...SystemRpc.requests.keys()].sort(),
     [
@@ -163,21 +67,31 @@ test('System native API inventory includes the managed backup lifecycle', async 
 });
 
 test('native RPC creates, inspects and exports a backup without changing live content', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   const server = await serve(f.app);
+
   try {
     await createDocument(f.app);
+
     const before = f.app.store.db.contentIdentity();
+
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+
           const backup = yield* client['system.createBackup']({});
+
           assert.equal(backup.scope.materials, 1);
           assert.equal(backup.credentials, 'excluded');
+
           const list = yield* client['system.listBackups']({});
+
           assert.equal(list[0]?.id, backup.id);
+
           const bytes = yield* client['system.readBackup']({ id: backup.id });
+
           assert.equal(packet(Buffer.from(bytes, 'base64')).manifest.sha256, backup.sha256);
         })
       )
@@ -190,9 +104,22 @@ test('native RPC creates, inspects and exports a backup without changing live co
 });
 
 test('backup compaction removes private auth markers from all exported bytes; restore requires fresh sign-in', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     const marker = 'PRIVATE_AUTH_BACKUP_MARKER_' + randomUUID();
+
+    const previousMarker = 'PRIVATE_PREVIOUS_AUTH_' + randomUUID();
+
+    f.app.store.db.orm
+      .insert(s.preferences)
+      .values({
+        scope: 'private.chatgpt',
+        key: 'historical',
+        value: JSON.stringify(previousMarker.repeat(256))
+      })
+      .run();
+    f.app.store.db.orm.delete(s.preferences).where(eq(s.preferences.key, 'historical')).run();
     // Set private persisted data only after Auth initialized; this is an isolated fixture.
     f.app.store.db.orm
       .insert(s.preferences)
@@ -202,10 +129,15 @@ test('backup compaction removes private auth markers from all exported bytes; re
         value: JSON.stringify({ refreshToken: marker })
       })
       .run();
+
     const api = await f.api();
+
     const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     const bytes = await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id }));
+
     assert.equal(Buffer.from(bytes, 'base64').includes(Buffer.from(marker)), false);
+    assert.equal(Buffer.from(bytes, 'base64').includes(Buffer.from(previousMarker)), false);
     assert.equal(
       f.app.store.db.orm
         .select()
@@ -214,15 +146,19 @@ test('backup compaction removes private auth markers from all exported bytes; re
         .some((row) => row.value.includes(marker)),
       true
     );
+
     const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+
     assert.equal(
       (await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))).state,
       'restart-required'
     );
     await f.reopen();
+
     const status = await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Auth, (auth) => auth.status())
     );
+
     assert.equal(status.signedIn, false);
     assert.equal(
       (await f.app.nativeRuntime.runPromise((await f.api()).acceptRestore(acceptance(preview))))
@@ -233,15 +169,21 @@ test('backup compaction removes private auth markers from all exported bytes; re
       (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
       'applied'
     );
+    assert.equal(
+      readFileSync(f.location.path + '.backups/previous.sqlite').includes(Buffer.from(marker)),
+      true
+    );
   } finally {
     await f.close();
   }
 });
 
 test('Materials, Documents, managed BLOBs, collections, sessions and annotations roundtrip on startup', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     const saved = await createDocument(f.app);
+
     const source = await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Sources, (sources) =>
         sources.createSource({
@@ -251,6 +193,7 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
         })
       )
     );
+
     const image = await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Sources, (sources) =>
         sources.createSource({
@@ -260,6 +203,7 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
         })
       )
     );
+
     await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Materials, (materials) =>
         materials.createManualDocument({
@@ -278,6 +222,7 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
         })
       )
     );
+
     const quiz = await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Materials, (materials) =>
         materials.create({
@@ -297,27 +242,36 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
         })
       )
     );
+
     await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Learning, (learning) => learning.startQuiz({ versionId: quiz.version.id }))
     );
+
     const db = f.app.store.db.orm;
-    db.run(sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Collection',1,1)`);
-    db.run(
-      sql`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1)`
+
+    await f.app.nativeRuntime.runPromise(
+      Effect.gen(function* () {
+        const projects = yield* Projects;
+
+        const project = yield* projects.createProject({ name: 'Collection' });
+
+        yield* projects.addMaterial({ projectId: project.id, materialId: saved.id });
+        yield* (yield* Conversations).createSession({ title: 'Session' });
+        yield* (yield* Learning).startPractice({
+          projectId: project.id,
+          inputVersionIds: [saved.version.id]
+        });
+      })
     );
-    db.run(sql`INSERT INTO project_materials(project_id,material_id) VALUES(1,${saved.id})`);
-    db.run(
-      sql`INSERT INTO learning_practice_controls(project_id,epoch,enabled) VALUES(1,'captured-epoch',1)`
-    );
-    db.run(
-      sql`INSERT INTO learning_practice_slots(id,project_id,epoch,ordinal,kind,status,input_version_ids) VALUES('pending-slot',1,'captured-epoch',0,'choice','pending',${JSON.stringify([String(saved.version.id)])})`
-    );
+
     const documentId = db
       .select()
       .from(s.material_document_versions)
       .where(eq(s.material_document_versions.version_id, saved.version.id))
       .get()!.document_id;
+
     const block = db.select().from(s.blocks).where(eq(s.blocks.document_id, documentId)).get()!;
+
     await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Materials, (materials) =>
         materials.createAnnotation({
@@ -336,6 +290,7 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
         })
       )
     );
+
     const expected = {
       questions: db.select().from(s.material_quiz_questions).all(),
       attempts: db.select().from(s.material_quiz_attempts).all(),
@@ -346,14 +301,21 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
       originals: db.select().from(s.source_blobs).all(),
       annotations: db.select().from(s.material_annotation_revisions).all()
     };
+
     const api = await f.api();
+
     const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     db.run(sql`UPDATE projects SET name='Replaced content' WHERE id=1`);
+
     const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+
     await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
     assert.equal(db.select().from(s.projects).get()!.name, 'Replaced content');
     await f.reopen();
+
     const restored = f.app.store.db.orm;
+
     assert.equal(restored.select().from(s.projects).get()!.name, 'Collection');
     assert.equal(restored.select().from(s.sessions).get()!.title, 'Session');
     assert.deepEqual(restored.select().from(s.material_quiz_questions).all(), expected.questions);
@@ -373,7 +335,9 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
       restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name,
       'notes.txt'
     );
+
     const status = await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus());
+
     assert.equal(status.recoveryCopy, true);
     await f.app.nativeRuntime.runPromise((await f.api()).discardRestoreRecovery());
     assert.equal(existsSync(f.location.path + '.backups/previous.sqlite'), false);
@@ -384,17 +348,27 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
 });
 
 test('corrupt checksum, unsupported schema, missing original BLOB and malformed canonical Document never touch live data', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     await createDocument(f.app);
+
     const api = await f.api();
+
     const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     const bytes = await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id }));
+
     const target = f.app.store.db.contentIdentity();
+
     const corrupt = Buffer.from(bytes, 'base64');
+
     corrupt[corrupt.length - 20] = corrupt[corrupt.length - 20]! ^ 1;
+
     const future = packet(Buffer.from(bytes, 'base64'));
+
     Object.assign(future.manifest, { version: 2 });
+
     const variants = [
       repack(future.manifest, future.sqlite),
       corrupt.toString('base64'),
@@ -403,9 +377,9 @@ test('corrupt checksum, unsupported schema, missing original BLOB and malformed 
         db.exec('CREATE TRIGGER untrusted AFTER INSERT ON projects BEGIN DELETE FROM projects; END')
       ),
       changedArtifact(f.location.dir, bytes, (db, manifest) => {
-        db.prepare(
-          "INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(999,'import','text','text/plain','Missing original',1,?,1)"
-        ).run(Buffer.alloc(32));
+        db.orm.run(
+          sql`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(999,'import','text','text/plain','Missing original',1,${Buffer.alloc(32)},1)`
+        );
         Object.assign(manifest, {
           scope: { ...manifest.scope, sources: manifest.scope.sources + 1 }
         });
@@ -417,10 +391,12 @@ test('corrupt checksum, unsupported schema, missing original BLOB and malformed 
         });
       })
     ];
+
     for (const bytes of variants) {
       await assert.rejects(f.app.nativeRuntime.runPromise(api.importBackup({ bytes })));
       assert.equal(f.app.store.db.contentIdentity(), target);
     }
+
     assert.equal((await f.app.nativeRuntime.runPromise(api.listBackups())).length, 1);
   } finally {
     await f.close();
@@ -428,13 +404,19 @@ test('corrupt checksum, unsupported schema, missing original BLOB and malformed 
 });
 
 test('acceptance is exact and idempotent; stale target/token and overlapping backup work are rejected', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     const api = await f.api();
+
     const creating = f.app.nativeRuntime.runPromise(api.createBackup());
+
     await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
+
     const backup = await creating;
+
     const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+
     await assert.rejects(
       f.app.nativeRuntime.runPromise(
         api.acceptRestore({
@@ -445,8 +427,11 @@ test('acceptance is exact and idempotent; stale target/token and overlapping bac
     );
     await createDocument(f.app, 'Changed target');
     await assert.rejects(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))));
+
     const fresh = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+
     const accepted = await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh)));
+
     assert.deepEqual(
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh))),
       accepted
@@ -454,7 +439,9 @@ test('acceptance is exact and idempotent; stale target/token and overlapping bac
     await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
     await assert.rejects(f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id })));
     await createDocument(f.app, 'Changed after acceptance');
+
     const before = f.app.store.db.contentIdentity();
+
     await f.reopen();
     assert.equal(f.app.store.db.contentIdentity(), before);
     assert.equal(
@@ -467,24 +454,39 @@ test('acceptance is exact and idempotent; stale target/token and overlapping bac
 });
 
 test('later deletion barriers block old backup acceptance; fresh-machine import retains existing tombstones', async () => {
-  const f = await fixture();
-  const fresh = await fixture();
+  const f = await backupFixture();
+
+  let fresh: Awaited<ReturnType<typeof backupFixture>> | undefined;
+
   try {
     const api = await f.api();
+
     const old = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     f.app.store.db.orm.run(
       sql`INSERT INTO session_deletions(session_id,operation_id,status,created_at,completed_at) VALUES(99,'del-session','completed',1,2)`
     );
+
     const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: old.id }));
+
     assert.equal(preview.blockedByCurrentBarriers, true);
     await assert.rejects(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))));
+
     const retained = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     const bytes = await f.app.nativeRuntime.runPromise(api.readBackup({ id: retained.id }));
+
+    await f.suspend();
+    fresh = await backupFixture();
+
     const freshApi = await fresh.api();
+
     const imported = await fresh.app.nativeRuntime.runPromise(freshApi.importBackup({ bytes }));
+
     const newPreview = await fresh.app.nativeRuntime.runPromise(
       freshApi.previewRestore({ id: imported.id })
     );
+
     assert.equal(newPreview.blockedByCurrentBarriers, false);
     await fresh.app.nativeRuntime.runPromise(freshApi.acceptRestore(acceptance(newPreview)));
     await fresh.reopen();
@@ -494,18 +496,22 @@ test('later deletion barriers block old backup acceptance; fresh-machine import 
     );
   } finally {
     await f.close();
-    await fresh.close();
+    await fresh?.close();
   }
 });
 
 test('unfinished cleanup rejects backup creation and is preserved for its owning retry', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     f.app.store.db.orm.run(
       sql`INSERT INTO session_deletions(session_id,operation_id,status,error_kind,created_at) VALUES(99,'failed-cleanup','failed','internal',1)`
     );
+
     const before = f.app.store.db.contentIdentity();
+
     const api = await f.api();
+
     await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
     assert.equal(f.app.store.db.contentIdentity(), before);
     assert.equal(existsSync(f.location.path + '.backups/scratch.sqlite'), false);
@@ -516,26 +522,36 @@ test('unfinished cleanup rejects backup creation and is preserved for its owning
 });
 
 test('staged corruption reports activation failure, preserves old target and permits an explicit retry', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     const api = await f.api();
+
     const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     await createDocument(f.app, 'Current target');
+
     const before = f.app.store.db.contentIdentity();
+
     const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+
     await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
     writeFileSync(f.location.path + '.backups/restore.sqlite', Buffer.from('interrupted staging'));
     await f.reopen();
     assert.equal(f.app.store.db.contentIdentity(), before);
+
     const reopenedApi = await f.api();
+
     assert.equal(
       (await f.app.nativeRuntime.runPromise(reopenedApi.restoreStatus())).state,
       'activation-failed'
     );
     await f.app.nativeRuntime.runPromise(reopenedApi.discardRestoreRecovery());
+
     const retry = await f.app.nativeRuntime.runPromise(
       reopenedApi.previewRestore({ id: backup.id })
     );
+
     await f.app.nativeRuntime.runPromise(reopenedApi.acceptRestore(acceptance(retry)));
     await f.reopen();
     assert.equal(f.app.store.db.orm.select().from(s.materials).all().length, 0);
@@ -545,7 +561,8 @@ test('staged corruption reports activation failure, preserves old target and per
 });
 
 test('crash after replacement reconciles to new state before workers start; captured native work never resumes', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     const source = await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Sources, (sources) =>
@@ -556,8 +573,11 @@ test('crash after replacement reconciles to new state before workers start; capt
         })
       )
     );
+
     const db = f.app.store.db.orm;
+
     const event = db.select().from(s.workflowEvents).get()!;
+
     db.run(
       sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,owner_token,created_at,updated_at) VALUES('captured','study/test',1,${JSON.stringify({ event: JSON.parse(event.payload) })},'suspended','old-owner',1,1)`
     );
@@ -567,21 +587,30 @@ test('crash after replacement reconciles to new state before workers start; capt
     db.run(
       sql`INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('captured','checkpoint',0,'{}')`
     );
+
     const api = await f.api();
+
     const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     // Live captured work remains owned and unchanged by backup preparation.
     assert.equal(db.select().from(s.workflow_executions).get()!.status, 'suspended');
+
     const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+
     await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
     await f.app.close();
     // Simulate process loss after atomic rename, before journal settlement.
+
     const old = Db.openSnapshot(f.location.path);
+
     await old.snapshot(f.location.path + '.backups/previous.sqlite');
     old.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;');
     old.close();
     renameSync(f.location.path + '.backups/restore.sqlite', f.location.path);
     await f.reopen();
+
     const restored = f.app.store.db.orm;
+
     assert.equal(restored.select().from(s.workflow_executions).get()!.status, 'cancelled');
     assert.equal(restored.select().from(s.workflow_executions).get()!.owner_token, null);
     assert.equal(restored.select().from(s.workflow_activities).all().length, 0);
@@ -590,8 +619,20 @@ test('crash after replacement reconciles to new state before workers start; capt
       restored.select().from(s.workflow_retired_executions).get()!.execution_id,
       'captured'
     );
+
+    const nativeStore = workflowStore(f.app.store);
+
+    const terminal = nativeStore.execution('captured');
+
+    nativeStore.checkpoint('captured', 'old-owner', 'late result', 'completed');
+    assert.throws(() =>
+      nativeStore.saveActivity('captured', 'old-owner', 'late', 0, 'private checkpoint')
+    );
+    assert.equal(nativeStore.saveDeferred('captured', 'late', 'private completion'), false);
+    assert.deepEqual(nativeStore.execution('captured'), terminal);
     await f.app.workers.start();
     await f.app.workers.stop();
+    assert.deepEqual(f.requests, []);
     assert.equal(restored.select().from(s.workflow_executions).all().length, 1);
     assert.equal(
       restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name,
@@ -607,14 +648,20 @@ test('crash after replacement reconciles to new state before workers start; capt
 });
 
 test('artifact deletion is bounded to an opaque managed identity and never removes live or external files', async () => {
-  const f = await fixture();
+  const f = await backupFixture();
+
   try {
     const api = await f.api();
+
     const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+
     const external = join(f.location.dir, 'user-saved.studybackup');
+
     writeFileSync(external, 'External copy');
     assert.throws(() => Schema.decodeUnknownSync(backupIdSchema)('../user-saved'));
+
     const before = f.app.store.db.contentIdentity();
+
     await f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }));
     assert.equal(readFileSync(external, 'utf8'), 'External copy');
     assert.equal(f.app.store.db.contentIdentity(), before);

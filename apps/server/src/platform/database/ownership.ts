@@ -19,8 +19,10 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { StudyError } from '@study/contracts/errors';
 
 /** Path identity must survive replacing the database inode during restore. */
+
 function databasePath(path: string) {
   const absolute = resolve(path);
+
   const canonical = existsSync(absolute)
     ? realpathSync(absolute)
     : join(realpathSync(dirname(absolute)), basename(absolute));
@@ -34,12 +36,16 @@ function databasePath(path: string) {
 /** Kernel-held loopback binding gives all supported launchers a crash-released lease.
  * Hash collisions or occupied ports fail closed; never try an alternate endpoint.
  */
+
 export async function acquireDatabaseOwnership(path: string) {
   if (path === ':memory:') return { path, release: async () => {} };
 
   const canonical = databasePath(path);
+
   const identity = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
+
   const port = 1024 + (createHash('sha256').update(identity).digest().readUInt32BE(0) % 64512);
+
   const server = createServer((socket) => socket.destroy());
 
   server.unref();

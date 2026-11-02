@@ -105,3 +105,14 @@ test('history candidates and exact attachment roots remain lossless across previ
 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
+
+test('backup inventories keep exact content identities while bounded scope counts remain numeric', () => {
+  const diagnostics = lintRule('no-lossy-ids', {
+    'src/features/system/store/backup.ts':
+      'Number(row.material_id); parseInt(row.version_id, 10); Number(row.n); Number(scope.tombstones); String(row.document_id);',
+    'src/features/conversations/store/backup.ts':
+      'Number(row.session_id); String(row.request_id); Number(row.revision);'
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});

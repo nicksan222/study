@@ -150,3 +150,14 @@ test('only the browser runtime adapter may execute browser operations', () => {
 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
+
+test('backup policy composition reuses the managed runtime instead of adding a synchronous runner', () => {
+  const diagnostics = lintRule('effect-runtime-boundary', {
+    'src/runtime/backups.ts':
+      "import { Effect as E } from 'effect'; const run = E.runSync; run(prepare);",
+    'src/runtime/composition.ts':
+      "import { runNative } from '#server/runtime/layers'; runNative(prepare);"
+  });
+
+  assertDiagnostics('effect-runtime-boundary', diagnostics, [['src/runtime/backups.ts', message]]);
+});
