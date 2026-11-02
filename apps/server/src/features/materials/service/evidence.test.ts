@@ -907,6 +907,13 @@ test('source correction and replacement preserve exact historic navigation and e
                     materialVersionId: projected.extracted.version.id,
                     documentId: first.documentId,
                     blockOrdinal: 0,
+                    selectedRange: {
+                      versionId: projected.extracted.version.id,
+                      documentId: first.documentId,
+                      blockId: block.id,
+                      start: 1,
+                      end: 3
+                    },
                     quote: '😀'
                   }
                 ]
