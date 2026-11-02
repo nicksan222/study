@@ -40,12 +40,15 @@ function makeDeletion({ db, clock }: StoreResources) {
       .from(s.material_deletion_members)
       .where(eq(s.material_deletion_members.material_id, id))
       .get();
+
     const row = db.orm
       .select()
       .from(s.material_deletions)
       .where(eq(s.material_deletions.material_id, member?.deletion_id ?? id))
       .get();
+
     if (!row) throw new StudyError('not_found', 'Material deletion is unavailable');
+
     return {
       materialId: row.material_id,
       operationId: row.operation_id,
@@ -60,9 +63,11 @@ function makeDeletion({ db, clock }: StoreResources) {
       completedAt: row.completed_at
     };
   }
+
   function preview(id: MaterialId) {
     if (!db.orm.select().from(s.materials).where(eq(s.materials.id, id)).get())
       throw new StudyError('not_found', 'Material is unavailable');
+
     if (
       db.orm
         .select()
@@ -71,41 +76,57 @@ function makeDeletion({ db, clock }: StoreResources) {
         .get()
     )
       throw new StudyError('invalid_input', 'Material deletion already accepted');
+
     const versions = db.orm.select().from(s.material_versions).all();
+
     const edges = db.orm.select().from(s.material_version_inputs).all();
+
     const byId = new Map(versions.map((v) => [v.id, v.material_id]));
+
     const found = new Set<MaterialId>([id]);
+
     for (;;) {
       const size = found.size;
+
       for (const e of edges)
         if (found.has(byId.get(e.input_version_id)!)) found.add(byId.get(e.version_id)!);
+
       if (size === found.size) break;
     }
+
     const descendants = [...found].filter((x) => x !== id).sort((a, b) => (a < b ? -1 : 1));
+
     const selectedVersions = versions.filter((v) => found.has(v.material_id));
+
     const versionIds = selectedVersions.map((v) => v.id);
+
     const references = edges
       .filter((e) => found.has(byId.get(e.input_version_id)!))
       .map((e) => ({
         dependentMaterialId: byId.get(e.version_id)!,
         inputVersionId: e.input_version_id
       }));
+
     const imports = db.orm
       .select()
       .from(s.material_imports)
       .where(inArray(s.material_imports.material_id, [...found]))
       .all();
+
     const assets = db.orm.select().from(s.document_assets).all();
+
     const generation = db.orm
       .select()
       .from(s.material_generation_inputs)
       .where(inArray(s.material_generation_inputs.version_id, versionIds))
       .all();
+
     const memberships = db.orm
       .select()
       .from(s.session_materials)
       .where(inArray(s.session_materials.material_id, [...found]))
       .all();
+
     const value = {
       materialId: id,
       descendants,
@@ -142,6 +163,7 @@ function makeDeletion({ db, clock }: StoreResources) {
       ],
       retainedCopies: 'unselected_materials_and_published_messages_including_recordings' as const
     };
+
     const token = createHash('sha256')
       .update(
         JSON.stringify({ value, selectedVersions, edges, assets }, (_, v) =>
@@ -149,16 +171,21 @@ function makeDeletion({ db, clock }: StoreResources) {
         )
       )
       .digest('hex');
+
     return { ...value, token };
   }
+
   return { status, preview, db, clock };
 }
+
 export const MaterialDeletionStore = defineStore({
   name: 'study/MaterialDeletionStore',
   entity: { singular: 'materialDeletion', plural: 'materialDeletions' },
   make: (resources) => {
     const { status, preview, db, clock } = makeDeletion(resources);
+
     const { removeContent } = makeContent(resources);
+
     return {
       queries: {
         findMaterialDeletion: storeQuery({
@@ -171,6 +198,7 @@ export const MaterialDeletionStore = defineStore({
               .from(s.material_deletion_members)
               .where(eq(s.material_deletion_members.material_id, id))
               .get();
+
             return member ? Option.some(status(id)) : Option.none();
           }
         }),
@@ -194,31 +222,41 @@ export const MaterialDeletionStore = defineStore({
               input.descendantIds.length + 1
             )
               throw new StudyError('invalid_input', 'Deletion scope contains duplicates');
+
             const existing = db.orm
               .select()
               .from(s.material_deletion_members)
               .where(eq(s.material_deletion_members.material_id, input.materialId))
               .get();
+
             if (existing) {
               const previous = status(input.materialId);
+
               const requested = [input.materialId, ...input.descendantIds];
+
               if (
                 previous.materialId !== input.materialId ||
                 requested.length !== previous.materialIds.length ||
                 requested.some((id) => !previous.materialIds.includes(id))
               )
                 throw new StudyError('invalid_input', 'Overlapping deletion has a different scope');
+
               return previous;
             }
+
             const current = preview(input.materialId);
+
             if (current.token !== input.token)
               throw new StudyError('invalid_input', 'Deletion preview changed');
+
             const ids = [input.materialId, ...input.descendantIds];
+
             if (
               new Set(ids).size !== ids.length ||
               input.descendantIds.some((id) => !current.descendants.includes(id))
             )
               throw new StudyError('invalid_input', 'Deletion requires distinct known descendants');
+
             if (
               db.orm
                 .select()
@@ -227,6 +265,7 @@ export const MaterialDeletionStore = defineStore({
                 .get()
             )
               throw new StudyError('invalid_input', 'Deletion overlaps accepted scope');
+
             db.orm
               .insert(s.material_deletions)
               .values({
@@ -237,11 +276,13 @@ export const MaterialDeletionStore = defineStore({
                 created_at: unixSeconds(clock)
               })
               .run();
+
             for (const id of ids)
               db.orm
                 .insert(s.material_deletion_members)
                 .values({ material_id: id, deletion_id: input.materialId })
                 .run();
+
             return status(input.materialId);
           }
         }),
@@ -250,6 +291,7 @@ export const MaterialDeletionStore = defineStore({
           output: materialDeletionSchema,
           run: (input) => {
             const previous = status(input.materialId);
+
             if (
               previous.status === 'failed' ||
               (previous.status === 'pending' && input.pendingTerminal)
@@ -259,6 +301,7 @@ export const MaterialDeletionStore = defineStore({
                 .set({ status: 'pending', error_kind: null, attempt: previous.attempt + 1 })
                 .where(eq(s.material_deletions.material_id, previous.materialId))
                 .run();
+
             return status(input.materialId);
           }
         }),
@@ -271,8 +314,10 @@ export const MaterialDeletionStore = defineStore({
           output: materialDeletionSchema,
           run: (input) => {
             const previous = status(input.materialId);
+
             if (previous.status === 'completed' || previous.attempt !== input.attempt)
               return previous;
+
             db.orm
               .update(s.material_deletions)
               .set({
@@ -283,6 +328,7 @@ export const MaterialDeletionStore = defineStore({
               })
               .where(eq(s.material_deletions.material_id, previous.materialId))
               .run();
+
             return status(input.materialId);
           }
         }),
@@ -291,12 +337,15 @@ export const MaterialDeletionStore = defineStore({
           output: Schema.Void,
           run: (id) => {
             const deletion = status(id);
+
             const versions = db.orm
               .select()
               .from(s.material_versions)
               .where(inArray(s.material_versions.material_id, [...deletion.materialIds]))
               .all();
+
             const versionIds = versions.map((v) => v.id);
+
             db.orm
               .delete(s.material_citation_assessments)
               .where(
@@ -309,50 +358,61 @@ export const MaterialDeletionStore = defineStore({
                 )})`
               )
               .run();
+
             const annotations = db.orm
               .select()
               .from(s.material_annotations)
               .where(inArray(s.material_annotations.material_id, [...deletion.materialIds]))
               .all();
+
             for (const a of annotations)
               db.orm
                 .delete(s.material_annotation_revisions)
                 .where(eq(s.material_annotation_revisions.annotation_id, a.id))
                 .run();
+
             db.orm
               .delete(s.material_annotations)
               .where(inArray(s.material_annotations.material_id, [...deletion.materialIds]))
               .run();
+
             db.orm
               .delete(s.document_edit_receipts)
               .where(inArray(s.document_edit_receipts.material_id, [...deletion.materialIds]))
               .run();
+
             for (const v of versions) {
               // Incoming edges/citations belong to retained copies and preserve the exact missing identity.
+
               db.orm
                 .delete(s.material_version_citations)
                 .where(eq(s.material_version_citations.version_id, v.id))
                 .run();
               removeContent(v.id);
+
               db.orm
                 .update(s.material_versions)
                 .set({ instruction: null, language: null })
                 .where(eq(s.material_versions.id, v.id))
                 .run();
             }
+
             db.orm
               .delete(s.project_materials)
               .where(inArray(s.project_materials.material_id, [...deletion.materialIds]))
               .run();
+
             db.orm
               .delete(s.session_materials)
               .where(inArray(s.session_materials.material_id, [...deletion.materialIds]))
               .run();
+
             db.orm
               .update(s.materials)
               .set({ title: '-', archived_at: unixSeconds(clock) })
               .where(inArray(s.materials.id, [...deletion.materialIds]))
               .run();
+
             db.orm
               .update(s.material_deletions)
               .set({ phase: 'retired' })
@@ -364,6 +424,7 @@ export const MaterialDeletionStore = defineStore({
     };
   }
 });
+
 export const MaterialDeletionPreviewStore = defineStore({
   name: 'study/MaterialDeletionPreviewStore',
   entity: { singular: 'materialDeletionPreview', plural: 'materialDeletionPreviews' },

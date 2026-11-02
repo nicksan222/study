@@ -15,17 +15,20 @@ import { createServer } from 'node:http';
 
 import type { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import type { materialGenerationRequestedSchema } from '@study/contracts/events';
+import type { materialFlashcardsContentInputSchema } from '@study/contracts/materials/schemas';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/index';
+import { conversationReplyWorkflow } from '#server/features/conversations/workflows/index';
 import { Materials } from '#server/features/materials/index';
 import {
   materialGenerationWorkflow,
   materialGenerationHandler
 } from '#server/features/materials/workflows/generation';
+import { Projects } from '#server/features/projects/index';
 import { Recordings } from '#server/features/recordings/index';
 import { recordingPostWorkflow } from '#server/features/recordings/workflows/index';
 import { Settings } from '#server/features/settings/index';
@@ -42,7 +45,12 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 type Reply =
   | { kind: 'sources'; query: string }
-  | { kind: 'output'; output: typeof documentTransformOutputSchema.Type }
+  | {
+      kind: 'output';
+      output:
+        | typeof documentTransformOutputSchema.Type
+        | typeof materialFlashcardsContentInputSchema.Type;
+    }
   | { kind: 'transient' };
 
 function responseEvents(reply: Exclude<Reply, { kind: 'transient' }>, ordinal: number) {
@@ -171,6 +179,7 @@ export async function documentTransformFixture() {
     const domain = () =>
       Layer.mergeAll(
         Materials.layer,
+        Projects.layer,
         Conversations.layer,
         Settings.layer,
         Sources.layer,
@@ -185,7 +194,7 @@ export async function documentTransformFixture() {
           cancel: (input: Parameters<typeof cancelExecution>[2]) =>
             cancelExecution(
               context,
-              [materialGenerationWorkflow, recordingPostWorkflow],
+              [materialGenerationWorkflow, recordingPostWorkflow, conversationReplyWorkflow],
               input
             ).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine))
         }))

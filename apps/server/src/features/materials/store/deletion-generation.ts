@@ -23,23 +23,28 @@ import { Schema } from 'effect';
 import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
 
 import { makeProposalRetirement } from './session-retirement.ts';
+
 export const MaterialDeletionGenerationStore = defineStore({
   name: 'study/MaterialDeletionGenerationStore',
   entity: { singular: 'materialDeletionGeneration', plural: 'materialDeletionGenerations' },
   make: (resources) => {
     const { db } = resources;
+
     const retireProposal = makeProposalRetirement(resources);
+
     function alreadyScrubbed(requestId: string, ownerId: typeof materialIdSchema.Type) {
       const owner = db.orm
         .select()
         .from(s.material_deletions)
         .where(eq(s.material_deletions.material_id, ownerId))
         .get();
+
       const request = db.orm
         .select()
         .from(s.material_generation_requests)
         .where(eq(s.material_generation_requests.id, requestId))
         .get();
+
       const input = db.orm
         .select()
         .from(s.material_generation_inputs)
@@ -74,11 +79,13 @@ export const MaterialDeletionGenerationStore = defineStore({
               .where(eq(s.material_deletion_members.deletion_id, deletionId))
               .all()
               .map((x) => x.material_id);
+
             const versions = db.orm
               .select()
               .from(s.material_versions)
               .where(inArray(s.material_versions.material_id, members))
               .all();
+
             const inputs = db.orm
               .select()
               .from(s.material_generation_inputs)
@@ -89,7 +96,9 @@ export const MaterialDeletionGenerationStore = defineStore({
                 )
               )
               .all();
+
             const requests = db.orm.select().from(s.material_generation_requests).all();
+
             const ids = requests
               .filter(
                 (r) =>
@@ -103,25 +112,32 @@ export const MaterialDeletionGenerationStore = defineStore({
                     ))
               )
               .map((r) => r.id);
+
             const ownedIds: string[] = [];
+
             for (const id of ids) {
               const owner = db.orm
                 .select()
                 .from(s.material_deletion_requests)
                 .where(eq(s.material_deletion_requests.request_id, id))
                 .get();
+
               if (owner?.kind === 'generation' && alreadyScrubbed(id, owner.deletion_id)) continue;
+
               if (owner)
                 throw new StudyError(
                   'invalid_input',
                   'Deletion overlaps generation cleanup ownership'
                 );
+
               db.orm
                 .insert(s.material_deletion_requests)
                 .values({ request_id: id, deletion_id: deletionId, kind: 'generation' })
                 .run();
+
               ownedIds.push(id);
             }
+
             return ownedIds;
           }
         }),
@@ -135,8 +151,10 @@ export const MaterialDeletionGenerationStore = defineStore({
               .where(eq(s.material_deletion_requests.deletion_id, id))
               .all()
               .filter((x) => x.kind === 'generation');
+
             for (const r of requests) {
               retireProposal(r.request_id);
+
               db.orm
                 .update(s.material_versions)
                 .set({ instruction: null })
@@ -147,6 +165,7 @@ export const MaterialDeletionGenerationStore = defineStore({
                   )
                 )
                 .run();
+
               db.orm
                 .update(s.material_generation_requests)
                 .set({
@@ -158,6 +177,7 @@ export const MaterialDeletionGenerationStore = defineStore({
                 })
                 .where(eq(s.material_generation_requests.id, r.request_id))
                 .run();
+
               db.orm
                 .delete(s.material_generation_inputs)
                 .where(eq(s.material_generation_inputs.request_id, r.request_id))

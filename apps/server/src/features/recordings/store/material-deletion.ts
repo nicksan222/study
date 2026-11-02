@@ -20,6 +20,7 @@ import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
+
 export const RecordingMaterialImpactStore = defineStore({
   name: 'study/RecordingMaterialImpactStore',
   entity: { singular: 'recordingMaterialImpact', plural: 'recordingMaterialImpacts' },
@@ -46,6 +47,7 @@ export const RecordingMaterialImpactStore = defineStore({
               )
             )
             .all();
+
           return {
             requestIds: rows.map((r) => r.request_id),
             token: createHash('sha256')
@@ -58,6 +60,7 @@ export const RecordingMaterialImpactStore = defineStore({
     mutations: {}
   })
 });
+
 export const RecordingMaterialDeletionStore = defineStore({
   name: 'study/RecordingMaterialDeletionStore',
   entity: { singular: 'recordingMaterialDeletion', plural: 'recordingMaterialDeletions' },
@@ -75,17 +78,20 @@ export const RecordingMaterialDeletionStore = defineStore({
             .all()
             .filter((r) => r.kind === 'recording')
             .map((r) => r.request_id);
+
           for (const requestId of ids) {
             const post = db.orm
               .select()
               .from(s.recording_posts)
               .where(eq(s.recording_posts.request_id, requestId))
               .get();
+
             if (post?.message_id === null)
               db.orm
                 .delete(s.recording_chunks)
                 .where(eq(s.recording_chunks.recording_id, post.recording_id))
                 .run();
+
             db.orm
               .update(s.recording_posts)
               .set({ name: '-', wav: Buffer.alloc(46), duration_ms: 0n })

@@ -30,14 +30,19 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 import { makeDiscardPending } from './pending.ts';
 
 const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
+
 const replyCodec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
+
 const selectionCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
+
 export const ConversationMaterialDeletionStore = defineStore({
   name: 'study/ConversationMaterialDeletionStore',
   entity: { singular: 'conversationMaterialDeletion', plural: 'conversationMaterialDeletions' },
   make: (resources) => {
     const { db } = resources;
+
     const discardPending = makeDiscardPending(resources);
+
     return {
       queries: {},
       mutations: {
@@ -55,22 +60,29 @@ export const ConversationMaterialDeletionStore = defineStore({
               .all()
               .filter((v) => materialIds.includes(v.material_id))
               .map((v) => String(v.id));
+
             const matches = (snapshot: unknown) =>
               captured(snapshot, materialIds.map(String), sourceIds.map(String));
+
             const contexts = db.orm
               .select()
               .from(s.session_run_contexts)
               .all()
               .filter((r) => matches(Schema.decodeUnknownSync(contextCodec)(r.snapshot)));
+
             const replies = db.orm
               .select()
               .from(s.conversation_reply_requests)
               .all()
               .filter((r) => matches(Schema.decodeUnknownSync(replyCodec)(r.snapshot)));
+
             const ids = [...new Set([...contexts, ...replies].map((r) => r.request_id))];
+
             for (const session of db.orm.select().from(s.sessions).all()) {
               const previous = Schema.decodeUnknownSync(selectionCodec)(session.selection);
+
               const selected = previous.filter((t) => !versionIds.includes(String(t.versionId)));
+
               if (selected.length !== previous.length)
                 db.orm
                   .update(s.sessions)
@@ -81,6 +93,7 @@ export const ConversationMaterialDeletionStore = defineStore({
                   .where(eq(s.sessions.id, session.id))
                   .run();
             }
+
             return ids;
           }
         }),
@@ -94,6 +107,7 @@ export const ConversationMaterialDeletionStore = defineStore({
               .where(eq(s.material_deletion_requests.deletion_id, id))
               .all()
               .filter((r) => r.kind === 'context');
+
             for (const r of requests) {
               const reply = db.orm
                 .select({ message: s.messages, version: s.message_versions })
@@ -113,6 +127,7 @@ export const ConversationMaterialDeletionStore = defineStore({
                 .delete(s.conversation_reply_requests)
                 .where(eq(s.conversation_reply_requests.request_id, r.request_id))
                 .run();
+
               db.orm
                 .delete(s.session_run_contexts)
                 .where(eq(s.session_run_contexts.request_id, r.request_id))
@@ -131,7 +146,9 @@ function captured(
   sources: readonly string[]
 ): boolean {
   if (Array.isArray(value)) return value.some((v) => captured(v, materials, sources));
+
   if (value === null || typeof value !== 'object') return false;
+
   return Object.entries(value).some(
     ([k, v]) =>
       (k === 'materialId' && materials.includes(String(v))) ||
@@ -139,6 +156,7 @@ function captured(
       captured(v, materials, sources)
   );
 }
+
 export const ConversationMaterialImpactStore = defineStore({
   name: 'study/ConversationMaterialImpactStore',
   entity: { singular: 'conversationMaterialImpact', plural: 'conversationMaterialImpacts' },
@@ -163,18 +181,22 @@ export const ConversationMaterialImpactStore = defineStore({
             .all()
             .filter((v) => materialIds.includes(v.material_id))
             .map((v) => String(v.id));
+
           const matches = (snapshot: unknown) =>
             captured(snapshot, materialIds.map(String), sourceIds.map(String));
+
           const contexts = db.orm
             .select()
             .from(s.session_run_contexts)
             .all()
             .filter((r) => matches(Schema.decodeUnknownSync(contextCodec)(r.snapshot)));
+
           const replies = db.orm
             .select()
             .from(s.conversation_reply_requests)
             .all()
             .filter((r) => matches(Schema.decodeUnknownSync(replyCodec)(r.snapshot)));
+
           const citations = db.orm
             .select()
             .from(s.citations)
@@ -190,6 +212,7 @@ export const ConversationMaterialImpactStore = defineStore({
                     .all()
                     .some((v) => materialIds.includes(v.material_id)))
             );
+
           const sessions = db.orm
             .select()
             .from(s.sessions)
@@ -199,6 +222,7 @@ export const ConversationMaterialImpactStore = defineStore({
                 versionIds.includes(String(t.versionId))
               )
             );
+
           return {
             token: createHash('sha256')
               .update(

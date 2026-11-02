@@ -20,9 +20,11 @@ import {
   RecordingMaterialImpactStore,
   RecordingMaterialDeletionStore
 } from './store/material-deletion.ts';
+
 export function inspectMaterialDeletion(tx: Transaction, ids: readonly SourceId[]) {
   return tx.store(RecordingMaterialImpactStore).recordingMaterialImpact(ids);
 }
+
 export function scrubMaterialDeletion(tx: Transaction, id: MaterialId) {
   tx.store(RecordingMaterialDeletionStore).scrub(id);
 }

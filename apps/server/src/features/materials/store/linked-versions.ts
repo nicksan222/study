@@ -16,11 +16,10 @@ import type { inputsInputSchema } from '@study/contracts/materials/rpc';
 import { and, asc, eq, gt } from '@study/db';
 import * as s from '@study/db/schema';
 
+import { makeReads } from '#server/features/materials/store/reads';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Input = typeof inputsInputSchema.Type;
-
-import { makeReads } from '#server/features/materials/store/reads';
 
 export function makeLinkedVersions(resources: StoreResources) {
   const { db: store } = resources;

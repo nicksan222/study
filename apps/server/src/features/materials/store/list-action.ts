@@ -14,15 +14,14 @@
 
 import type { MaterialId } from '@study/contracts/ids';
 import type { materialsInputSchema } from '@study/contracts/materials/rpc';
-
-type Input = typeof materialsInputSchema.Type;
-
 import { and, asc, desc, eq, gt, isNotNull, isNull, lt, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
 
 import { makeReads, required } from '#server/features/materials/store/reads';
 import { makeWrites } from '#server/features/materials/store/writes';
 import type { StoreResources } from '#server/platform/definitions/define-store';
+
+type Input = typeof materialsInputSchema.Type;
 
 export function makeListAction(resources: StoreResources) {
   const { db: store } = resources;

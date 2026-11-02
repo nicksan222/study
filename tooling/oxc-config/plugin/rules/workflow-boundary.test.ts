@@ -104,3 +104,23 @@ test('session cleanup cannot forge publication or Activity ownership while invok
     Array(2).fill('apps/server/src/features/conversations/service/deletion.ts')
   );
 });
+
+test('Material cleanup uses native Activities and cannot forge publication or execution ownership', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/workflows/deletion.ts': `
+      import { Activity } from 'effect/workflow';
+      import { withPublicationGuard } from '#server/platform/workflows/publication';
+      export const cleanup = () => Activity.make({execute:withPublicationGuard(context,finishMaterialDeletion(input))});
+    `,
+      'apps/server/src/features/materials/service/deletion.ts': `
+      import { Effect, Layer } from 'effect';
+      import { PublicationGuard } from '#server/platform/workflows/publication';
+      import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
+      Effect.provideService(finishMaterialDeletion(input), PublicationGuard, forged);
+      Layer.succeed(WorkflowActivityOwner, forged);
+    `
+    }),
+    Array(2).fill('apps/server/src/features/materials/service/deletion.ts')
+  );
+});

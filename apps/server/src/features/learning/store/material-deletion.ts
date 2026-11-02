@@ -18,6 +18,7 @@ import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
+
 const inputIdsCodec = Schema.fromJsonString(
   Schema.toCodecJson(Schema.Array(materialVersionIdSchema))
 );
@@ -38,11 +39,13 @@ export const LearningMaterialDeletionStore = defineStore({
             .where(inArray(s.material_versions.material_id, [...ids]))
             .all()
             .map((v) => v.id);
+
           const attempts = db.orm
             .select()
             .from(s.material_quiz_attempts)
             .where(inArray(s.material_quiz_attempts.version_id, versions))
             .all();
+
           const slots = db.orm
             .select()
             .from(s.learning_practice_slots)
@@ -55,8 +58,10 @@ export const LearningMaterialDeletionStore = defineStore({
                     versions.some((id) => id === v)
                   ))
             );
+
           for (const p of slots) {
             const ownsOutput = p.version_id !== null && versions.includes(p.version_id);
+
             db.orm
               .update(s.learning_practice_slots)
               .set({
@@ -66,6 +71,7 @@ export const LearningMaterialDeletionStore = defineStore({
               .where(eq(s.learning_practice_slots.id, p.id))
               .run();
           }
+
           const events = db.orm
             .select()
             .from(s.workflowEvents)
@@ -76,6 +82,7 @@ export const LearningMaterialDeletionStore = defineStore({
               )
             )
             .all();
+
           return [...new Set([...slots.map((p) => p.id), ...events.map((e) => e.correlationId)])];
         }
       }),
@@ -89,19 +96,23 @@ export const LearningMaterialDeletionStore = defineStore({
             .where(inArray(s.material_versions.material_id, [...ids]))
             .all()
             .map((v) => v.id);
+
           db.orm
             .delete(s.material_quiz_attempts)
             .where(inArray(s.material_quiz_attempts.version_id, versions))
             .run();
+
           db.orm
             .delete(s.material_card_reviews)
             .where(inArray(s.material_card_reviews.version_id, versions))
             .run();
+
           const cards = db.orm
             .select()
             .from(s.material_card_identities)
             .where(inArray(s.material_card_identities.material_id, [...ids]))
             .all();
+
           db.orm
             .delete(s.material_card_schedules)
             .where(

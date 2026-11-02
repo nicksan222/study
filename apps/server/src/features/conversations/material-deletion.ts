@@ -20,6 +20,7 @@ import {
   ConversationMaterialDeletionStore,
   ConversationMaterialImpactStore
 } from './store/material-deletion.ts';
+
 export function prepareMaterialDeletion(
   tx: Transaction,
   input: {
@@ -30,6 +31,7 @@ export function prepareMaterialDeletion(
 ) {
   return tx.store(ConversationMaterialDeletionStore).prepare(input);
 }
+
 export function scrubMaterialDeletion(tx: Transaction, id: MaterialId) {
   tx.store(ConversationMaterialDeletionStore).scrub(id);
 }

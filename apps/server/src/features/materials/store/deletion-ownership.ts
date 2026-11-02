@@ -20,6 +20,7 @@ import { Schema } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
 import { decodeEvent } from '#server/platform/workflows/events';
+
 export const MaterialDeletionOwnershipStore = defineStore({
   name: 'study/MaterialDeletionOwnershipStore',
   entity: { singular: 'materialDeletionOwnership', plural: 'materialDeletionOwnerships' },
@@ -43,9 +44,12 @@ export const MaterialDeletionOwnershipStore = defineStore({
             .all()
             .filter((e) => {
               if (e.payload === '{}') return false;
+
               const p = decodeEvent(e.payload);
+
               if (p.type !== 'MaterialPublished' && p.type !== 'MaterialAnnotationChanged')
                 return false;
+
               return db.orm
                 .select()
                 .from(s.material_deletion_members)
@@ -92,9 +96,12 @@ export const MaterialDeletionOwnershipStore = defineStore({
               .from(s.material_deletion_requests)
               .where(eq(s.material_deletion_requests.request_id, requestId))
               .get();
+
             if (previous && previous.deletion_id !== deletionId)
               throw new StudyError('invalid_input', 'Deletion overlaps private cleanup ownership');
+
             if (previous) continue;
+
             db.orm
               .insert(s.material_deletion_requests)
               .values({ request_id: requestId, deletion_id: deletionId, kind })

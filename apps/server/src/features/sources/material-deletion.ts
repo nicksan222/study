@@ -20,9 +20,11 @@ import {
   SourceMaterialDeletionStore,
   SourceMaterialImpactStore
 } from './store/material-deletion.ts';
+
 export function prepareMaterialDeletion(tx: Transaction, id: MaterialId) {
   return tx.store(SourceMaterialDeletionStore).prepare(id);
 }
+
 export function scrubMaterialDeletion(tx: Transaction, id: MaterialId) {
   tx.store(SourceMaterialDeletionStore).scrub(id);
 }
