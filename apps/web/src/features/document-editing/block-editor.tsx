@@ -1,110 +1,77 @@
-import { createBlock } from "@study/contracts/sources/document";
-import type { BlockContent, Inline, documentSchema } from "@study/contracts/sources/schemas";
-import { canonicalText } from "@study/contracts/sources/schemas";
-import { Button } from "@study/ui/button";
-import { Textarea } from "@study/ui/textarea";
+import { createBlock } from '@study/contracts/sources/document';
+import type { BlockContent, Inline, documentSchema } from '@study/contracts/sources/schemas';
+import { canonicalText } from '@study/contracts/sources/schemas';
+import { Button } from '@study/ui/button';
+import { DocumentEditing } from '@study/ui/document-editing';
+import { Textarea } from '@study/ui/textarea';
 
-import { useI18n } from "../../lib/i18n";
+import { useI18n } from '../../lib/i18n';
 
 type Document = typeof documentSchema.Type;
+
 function InlineFields({
   items,
-  change,
+  change
 }: {
   items: readonly Inline[];
   change: (items: Inline[]) => void;
 }) {
   const { t } = useI18n();
-  return items.map((item, index) =>
-    item.type === "break" ? (
-      <br key={index} />
+
+  return positions(items).map(({ value: item, position: index, key }) =>
+    item.type === 'break' ? (
+      <br key={key} />
     ) : (
-      <label key={index}>
-        {t("DocumentText")} {index + 1}
+      <label key={key}>
+        {t('DocumentText')} {index + 1}
         <Textarea
           value={item.text}
           onChange={(event) =>
             change(
-              items.map((value, i) =>
-                i === index ? { ...item, text: event.target.value } : value,
-              ),
+              items.map((value, i) => (i === index ? { ...item, text: event.target.value } : value))
             )
           }
         />
       </label>
-    ),
+    )
   );
 }
+
 function ContentFields({
   content,
-  change,
+  change
 }: {
   content: BlockContent;
   change: (content: BlockContent) => void;
 }) {
   const { t } = useI18n();
-  if ("inlines" in content)
+
+  if ('inlines' in content)
     return (
       <InlineFields items={content.inlines} change={(inlines) => change({ ...content, inlines })} />
     );
-  if (content.type === "list_item")
-    return content.items.map((item, index) => (
-      <div key={index}>
+
+  if (content.type === 'list_item')
+    return positions(content.items).map(({ value: item, position: index, key }) => (
+      <div key={key}>
         <InlineFields
           items={item.inlines}
           change={(inlines) =>
             change({
               ...content,
-              items: content.items.map((value, i) => (i === index ? { ...value, inlines } : value)),
+              items: content.items.map((value, i) => (i === index ? { ...value, inlines } : value))
             })
           }
         />
       </div>
     ));
-  if (content.type === "table")
-    return content.rows.map((row, r) => (
-      <div key={r}>
-        {row.cells.map((cell, c) => (
-          <fieldset key={c}>
-            <legend>
-              {t("DocumentCell")} {r + 1} · {c + 1}
-            </legend>
-            {cell.paragraphs.map((paragraph, p) => (
-              <InlineFields
-                key={p}
-                items={paragraph}
-                change={(inlines) =>
-                  change({
-                    ...content,
-                    rows: content.rows.map((value, i) =>
-                      i === r
-                        ? {
-                            ...value,
-                            cells: value.cells.map((value, j) =>
-                              j === c
-                                ? {
-                                    ...value,
-                                    paragraphs: value.paragraphs.map((value, k) =>
-                                      k === p ? inlines : value,
-                                    ),
-                                  }
-                                : value,
-                            ),
-                          }
-                        : value,
-                    ),
-                  })
-                }
-              />
-            ))}
-          </fieldset>
-        ))}
-      </div>
-    ));
-  if (content.type === "code")
+
+  if (content.type === 'table') return <TableFields content={content} change={change} />;
+
+  if (content.type === 'code')
     return (
       <label>
-        {t("DocumentCode")}
+        {t('DocumentCode')}
         <Textarea
           font="mono"
           value={content.code}
@@ -112,10 +79,11 @@ function ContentFields({
         />
       </label>
     );
-  if (content.type === "math")
+
+  if (content.type === 'math')
     return (
       <label>
-        {t("DocumentMath")}
+        {t('DocumentMath')}
         <Textarea
           font="mono"
           value={content.expression}
@@ -123,9 +91,10 @@ function ContentFields({
         />
       </label>
     );
+
   return (
     <label>
-      {t("DocumentImageAlt")}
+      {t('DocumentImageAlt')}
       <Textarea
         value={content.alt}
         onChange={(event) => change({ ...content, alt: event.target.value })}
@@ -133,23 +102,25 @@ function ContentFields({
     </label>
   );
 }
+
 export function BlockEditor({
   document,
   change,
-  disabled,
+  disabled
 }: {
   document: Document;
   change: (document: Document) => void;
   disabled?: boolean;
 }) {
   const { t } = useI18n();
+
   return (
-    <fieldset className="document-editor" disabled={disabled}>
-      <p>{t("DocumentStructurePreserved")}</p>
+    <DocumentEditing.Blocks disabled={disabled}>
+      <p>{t('DocumentStructurePreserved')}</p>
       {document.blocks.map((block, index) => (
         <fieldset key={block.id}>
           <legend>
-            {t("DocumentBlock")} {index + 1}
+            {t('DocumentBlock')} {index + 1}
           </legend>
           <ContentFields
             content={block.content}
@@ -159,35 +130,36 @@ export function BlockEditor({
                 blocks: document.blocks.map((value) =>
                   value.id === block.id
                     ? { ...value, content, text: canonicalText(content) }
-                    : value,
-                ),
+                    : value
+                )
               })
             }
           />
-          <div className="document-block-actions">
+          <DocumentEditing.BlockActions>
             <Button
               variant="ghost"
               disabled={index === 0}
               onClick={() => {
                 const blocks = [...document.blocks];
+
                 [blocks[index - 1], blocks[index]] = [blocks[index]!, blocks[index - 1]!];
                 change({ ...document, blocks });
               }}
             >
-              {t("DocumentMoveUp")}
+              {t('DocumentMoveUp')}
             </Button>
             <Button
               variant="ghost"
               onClick={() =>
                 change({
                   ...document,
-                  blocks: document.blocks.filter((value) => value.id !== block.id),
+                  blocks: document.blocks.filter((value) => value.id !== block.id)
                 })
               }
             >
-              {t("DocumentRemoveBlock")}
+              {t('DocumentRemoveBlock')}
             </Button>
-          </div>
+          </DocumentEditing.BlockActions>
         </fieldset>
       ))}
       <Button
@@ -197,16 +169,17 @@ export function BlockEditor({
             ...document,
             blocks: [
               ...document.blocks,
-              createBlock({ type: "paragraph", inlines: [{ type: "text", text: "", marks: [] }] }),
-            ],
+              createBlock({ type: 'paragraph', inlines: [{ type: 'text', text: '', marks: [] }] })
+            ]
           })
         }
       >
-        {t("DocumentAddParagraph")}
+        {t('DocumentAddParagraph')}
       </Button>
-    </fieldset>
+    </DocumentEditing.Blocks>
   );
 }
+
 export const blankDocument = (): Document => ({
   blocks: [],
   meta: {
@@ -218,14 +191,96 @@ export const blankDocument = (): Document => ({
     refiners: [],
     waitingFor: [],
     corrected: false,
-    omissions: [],
-  },
+    omissions: []
+  }
 });
 
 /** An independent material owns fresh authored blocks; editing an existing one retains IDs. */
 export function authoredCopy(document: Document): Document {
   return {
     ...structuredClone(document),
-    blocks: document.blocks.map((block) => createBlock(block.content)),
+    blocks: document.blocks.map((block) => createBlock(block.content))
   };
+}
+
+type TableContent = Extract<BlockContent, { type: 'table' }>;
+
+type Cell = TableContent['rows'][number]['cells'][number];
+
+// Inline segments and table coordinates have no insert/reorder controls; their positions remain stable while editing.
+function positions<T>(values: readonly T[]) {
+  return values.map((value, position) => ({ value, position, key: String(position) }));
+}
+
+function replaceAt<T>(values: readonly T[], position: number, replacement: T) {
+  return values.map((value, index) => (index === position ? replacement : value));
+}
+
+function tableParagraph(
+  content: TableContent,
+  row: number,
+  column: number,
+  paragraph: number,
+  inlines: Inline[]
+): TableContent {
+  const originalRow = content.rows[row]!;
+  const originalCell = originalRow.cells[column]!;
+
+  return {
+    ...content,
+    rows: replaceAt(content.rows, row, {
+      ...originalRow,
+      cells: replaceAt(originalRow.cells, column, {
+        ...originalCell,
+        paragraphs: replaceAt(originalCell.paragraphs, paragraph, inlines)
+      })
+    })
+  };
+}
+
+function TableFields({
+  content,
+  change
+}: {
+  content: TableContent;
+  change: (content: BlockContent) => void;
+}) {
+  return positions(content.rows).map(({ value: row, position: r, key }) => (
+    <div key={key}>
+      {positions(row.cells).map(({ value: cell, position: c, key: cellKey }) => (
+        <TableCell
+          key={cellKey}
+          cell={cell}
+          row={r}
+          column={c}
+          change={(p, inlines) => change(tableParagraph(content, r, c, p, inlines))}
+        />
+      ))}
+    </div>
+  ));
+}
+
+function TableCell({
+  cell,
+  row,
+  column,
+  change
+}: {
+  cell: Cell;
+  row: number;
+  column: number;
+  change: (paragraph: number, inlines: Inline[]) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <fieldset>
+      <legend>
+        {t('DocumentCell')} {row + 1} · {column + 1}
+      </legend>
+      {positions(cell.paragraphs).map(({ value: paragraph, position, key }) => (
+        <InlineFields key={key} items={paragraph} change={(inlines) => change(position, inlines)} />
+      ))}
+    </fieldset>
+  );
 }

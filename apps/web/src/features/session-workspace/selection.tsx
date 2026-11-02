@@ -1,12 +1,13 @@
 import type { sessionSelectionTargetSchema } from '@study/contracts/conversations/context';
-import type { SessionId } from '@study/contracts/ids';
+import type { SessionId, MaterialVersionId } from '@study/contracts/ids';
 import type {
   MaterialSummaryDto,
   MaterialVersionDetailDto
 } from '@study/contracts/materials/schemas';
 import { Button } from '@study/ui/button';
 import { Input } from '@study/ui/input';
-import { Textarea } from '@study/ui/textarea';
+import { Loading } from '@study/ui/loading';
+import { Notebook } from '@study/ui/session-workspace';
 import {
   useInfiniteQuery,
   useIsMutating,
@@ -17,35 +18,26 @@ import {
 import { useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
+import { materialOptions, materialsOptions, versionOptions } from '../material-library';
+import { selectionDraftOptions, saveSelectionOptions } from './selection.queries';
 import {
-  materialOptions,
-  materialsOptions,
-  versionOptions
-} from '../material-library/material-library.queries';
-import {
-  exactDocumentOptions,
-  materialSearchOptions,
-  selectionOptions,
-  updateSelection
+  sessionDocumentOptions,
+  sessionMaterialSearchOptions,
+  selectionOptions
 } from './session-workspace.queries';
 import type { Selection } from './session-workspace.queries';
 import { SessionError, SessionReadError } from './status';
 
 type Target = typeof sessionSelectionTargetSchema.Type;
-export function SelectionPanel({ id }: { id: SessionId }) {
+
+function useSelection(id: SessionId) {
   const { t } = useI18n();
   const cache = useQueryClient();
   const selected = useQuery(selectionOptions(id));
   const key = ['session-drafts', String(id), 'selection'];
-  const draft = useQuery({
-    queryKey: key,
-    queryFn: () => null as Selection | null,
-    initialData: null,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
+  const draft = useQuery(selectionDraftOptions(id));
   const [search, setSearch] = useState('');
-  const results = useQuery(materialSearchOptions(search.trim()));
+  const results = useQuery(sessionMaterialSearchOptions(search.trim()));
   const materials = useInfiniteQuery(materialsOptions());
   const current = draft.data ?? selected.data;
   const mutationKey = ['session-selection-save', String(id)];
@@ -53,71 +45,87 @@ export function SelectionPanel({ id }: { id: SessionId }) {
   const save = useMutation({
     mutationKey,
     retry: false,
-    mutationFn: (value: Selection) =>
-      updateSelection({ sessionId: id, expectedRevision: value.revision, targets: value.targets }),
+    ...saveSelectionOptions(id),
     onSuccess: (value, submitted) => {
       cache.setQueryData<Selection>(selectionOptions(id).queryKey, (previous) =>
         !previous || previous.revision <= value.revision ? value : previous
       );
       cache.setQueryData<Selection | null>(key, (previous) => {
         if (previous === submitted) return null;
+
         if (previous && previous.revision === submitted.revision)
           return { ...previous, revision: value.revision };
+
         return previous;
       });
     }
   });
+
   function change(target: Target, remove = false) {
     if (!current || saving) return;
+
     const rest = current.targets.filter((item) => item.versionId !== target.versionId);
+
     cache.setQueryData(key, {
       revision: current.revision,
       targets: remove ? rest : [...rest, target]
     });
     save.reset();
   }
+
+  return {
+    t,
+    selected,
+    draft,
+    search,
+    setSearch,
+    results,
+    materials,
+    current,
+    saving,
+    save,
+    cache,
+    key,
+    change
+  };
+}
+
+export function SelectionPanel({ id }: { id: SessionId }) {
+  const {
+    t,
+    selected,
+    draft,
+    search,
+    setSearch,
+    results,
+    materials,
+    current,
+    saving,
+    save,
+    cache,
+    key,
+    change
+  } = useSelection(id);
+
   return (
-    <details className="session-section">
+    <Notebook.Section>
       <summary>{t('SessionSelection')}</summary>
-      <p className="session-muted">{t('SessionSelectionHelp')}</p>
-      {selected.isPending && <p role="status">{t('LoadingStudy')}</p>}
+      <Notebook.Muted>{t('SessionSelectionHelp')}</Notebook.Muted>
+      {selected.isPending && <Loading label={t('LoadingStudy')} />}
       {selected.error && (
         <SessionReadError error={selected.error} retry={() => void selected.refetch()} />
       )}
-      <ul className="session-selected">
-        {current?.targets.map((target) => (
-          <li key={String(target.versionId)}>
-            <SelectedTarget target={target} />
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={saving}
-              onClick={() => change(target, true)}
-            >
-              {t('SessionRemove')}
-            </Button>
-          </li>
-        ))}
-      </ul>
-      {current?.targets.length === 0 && <p className="session-muted">{t('SessionNoSelection')}</p>}
-      <div className="session-actions">
-        <Button disabled={!draft.data || saving} onClick={() => current && save.mutate(current)}>
-          {t('SessionSaveSelection')}
-        </Button>
-        {draft.data && (
-          <Button
-            variant="ghost"
-            disabled={saving}
-            onClick={() => {
-              cache.setQueryData(key, null);
-              save.reset();
-              void selected.refetch();
-            }}
-          >
-            {t('SessionReloadSelection')}
-          </Button>
-        )}
-      </div>
+      <SelectedTargets current={current} saving={saving} change={change} />
+      <SelectionSave
+        dirty={!!draft.data}
+        saving={saving}
+        onSave={() => current && save.mutate(current)}
+        onReload={() => {
+          cache.setQueryData(key, null);
+          save.reset();
+          void selected.refetch();
+        }}
+      />
       {save.error && <SessionError error={save.error} />}
       {draft.data && <p role="status">{t('SessionSelectionUnsaved')}</p>}
       <Input
@@ -143,25 +151,19 @@ export function SelectionPanel({ id }: { id: SessionId }) {
       {materials.error && (
         <SessionReadError error={materials.error} retry={() => void materials.refetch()} />
       )}
-      <ul className="session-materials">
+      <Notebook.Materials>
         {materials.data?.pages
           .flatMap((page) => page.items)
           .map((material) => (
-            <li key={String(material.id)}>
-              <MaterialChoice
-                material={material}
-                selected={current?.targets.find((item) => item.versionId === material.version.id)}
-                disabled={
-                  !current ||
-                  saving ||
-                  (!current.targets.some((item) => item.versionId === material.version.id) &&
-                    current.targets.length >= 20)
-                }
-                change={change}
-              />
-            </li>
+            <SelectionMaterial
+              key={String(material.id)}
+              material={material}
+              current={current}
+              saving={saving}
+              change={change}
+            />
           ))}
-      </ul>
+      </Notebook.Materials>
       {materials.hasNextPage && (
         <Button
           variant="ghost"
@@ -171,9 +173,10 @@ export function SelectionPanel({ id }: { id: SessionId }) {
           {t('LibraryMore')}
         </Button>
       )}
-    </details>
+    </Notebook.Section>
   );
 }
+
 function MaterialChoice({
   material,
   selected,
@@ -188,12 +191,13 @@ function MaterialChoice({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const version = useQuery({ ...versionOptions(material.version.id), enabled: open });
+
   return (
     <details onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary>
         {material.title} · {t('ReaderVersion')} {String(material.version.number)}
       </summary>
-      {open && version.isPending && <p role="status">{t('LoadingStudy')}</p>}
+      {open && version.isPending && <Loading label={t('LoadingStudy')} />}
       {version.error && (
         <SessionReadError error={version.error} retry={() => void version.refetch()} />
       )}
@@ -208,6 +212,7 @@ function MaterialChoice({
     </details>
   );
 }
+
 function ExactDocument({
   version,
   selected,
@@ -220,13 +225,17 @@ function ExactDocument({
   change: (target: Target) => void;
 }) {
   const { t } = useI18n();
-  const exact = useQuery(exactDocumentOptions(version.id));
-  if (exact.isPending) return <p role="status">{t('LoadingStudy')}</p>;
+  const exact = useQuery(sessionDocumentOptions(version.id));
+
+  if (exact.isPending) return <Loading label={t('LoadingStudy')} />;
+
   if (exact.isError || !exact.data)
     return <SessionReadError error={exact.error} retry={() => void exact.refetch()} />;
+
   const { document, id: documentId } = exact.data;
+
   return (
-    <div className="session-exact-document">
+    <Notebook.ExactDocument>
       <Button
         size="sm"
         variant="outline"
@@ -235,9 +244,9 @@ function ExactDocument({
       >
         {t('SessionUseWhole')}
       </Button>
-      {!documentId && <p className="session-muted">{t('SessionRangeUnavailable')}</p>}
+      {!documentId && <Notebook.Muted>{t('SessionRangeUnavailable')}</Notebook.Muted>}
       {document.blocks.map((block) => (
-        <div key={block.id} className="session-block">
+        <Notebook.Block key={block.id}>
           <Button
             size="sm"
             aria-pressed={
@@ -254,6 +263,7 @@ function ExactDocument({
               const blockIds = previous.includes(block.id)
                 ? previous.filter((id) => id !== block.id)
                 : [...previous, block.id];
+
               if (blockIds.length > 0 && blockIds.length <= 200)
                 change({ versionId: version.id, documentId, scope: { kind: 'blocks', blockIds } });
             }}
@@ -263,7 +273,7 @@ function ExactDocument({
           <BlockRange
             text={block.text}
             disabled={disabled || !documentId}
-            useRange={(start, end) => {
+            onUseRange={(start, end) => {
               if (documentId)
                 change({
                   versionId: version.id,
@@ -275,29 +285,30 @@ function ExactDocument({
                 });
             }}
           />
-        </div>
+        </Notebook.Block>
       ))}
-    </div>
+    </Notebook.ExactDocument>
   );
 }
+
 function BlockRange({
   text,
   disabled,
-  useRange
+  onUseRange
 }: {
   text: string;
   disabled: boolean;
-  useRange: (start: number, end: number) => void;
+  onUseRange: (start: number, end: number) => void;
 }) {
   const { t } = useI18n();
   const [range, setRange] = useState({ start: 0, end: 0 });
+
   return (
     <>
-      <Textarea
+      <Notebook.BlockText
         aria-label={t('SessionPassage')}
         readOnly
         value={text}
-        className="session-block-text"
         onSelect={(event) =>
           setRange({
             start: event.currentTarget.selectionStart,
@@ -309,7 +320,7 @@ function BlockRange({
         size="sm"
         variant="ghost"
         disabled={disabled || range.end <= range.start}
-        onClick={() => useRange(range.start, range.end)}
+        onClick={() => onUseRange(range.start, range.end)}
       >
         {t('SessionUseRange')}
       </Button>
@@ -323,14 +334,16 @@ function SearchDocument({
   disabled,
   change
 }: {
-  id: import('@study/contracts/ids').MaterialVersionId;
+  id: MaterialVersionId;
   selected?: Target;
   disabled: boolean;
   change: (target: Target) => void;
 }) {
   const state = useQuery(versionOptions(id));
+
   if (state.isError)
     return <SessionReadError error={state.error} retry={() => void state.refetch()} />;
+
   return state.data ? (
     <ExactDocument version={state.data} selected={selected} disabled={disabled} change={change} />
   ) : null;
@@ -339,8 +352,9 @@ function SearchDocument({
 export function SelectedTarget({ target }: { target: Target }) {
   const { t } = useI18n();
   const version = useQuery(versionOptions(target.versionId));
+
   return (
-    <div className="session-selected-target">
+    <Notebook.SelectedTarget>
       {version.data && !version.isError ? (
         <SelectedVersion target={target} version={version.data} />
       ) : (
@@ -352,9 +366,10 @@ export function SelectedTarget({ target }: { target: Target }) {
       {version.error && (
         <SessionReadError error={version.error} retry={() => void version.refetch()} />
       )}
-    </div>
+    </Notebook.SelectedTarget>
   );
 }
+
 function SelectedVersion({
   target,
   version
@@ -364,57 +379,212 @@ function SelectedVersion({
 }) {
   const { t } = useI18n();
   const material = useQuery(materialOptions(version.material_id));
-  const exact = useQuery(exactDocumentOptions(target.versionId));
-  const scope = target.scope;
+  const exact = useQuery(sessionDocumentOptions(target.versionId));
   const document =
-    !exact.isError && exact.data && (!target.documentId || target.documentId === exact.data.id)
+    !exact.isError && exact.data && matchesDocument(target, exact.data.id)
       ? exact.data.document
       : undefined;
-  const excerpts = document
-    ? scope.kind === 'blocks'
-      ? scope.blockIds.map((id) => document.blocks.find((block) => block.id === id)?.text)
-      : scope.kind === 'ranges'
-        ? scope.ranges.map((range) =>
-            range.versionId === target.versionId && range.documentId === exact.data?.id
-              ? document.blocks
-                  .find((block) => block.id === range.blockId)
-                  ?.text.slice(range.start, range.end)
-              : undefined
-          )
-        : []
-    : [];
+  const excerpts = selectionExcerpts(target, document, exact.data?.id);
+
   return (
     <>
       <strong>
         {material.data?.title ?? t(material.isPending ? 'LoadingStudy' : 'SessionReadUnavailable')}
       </strong>
-      <span className="session-muted">
-        {t('ReaderVersion')} {String(version.number)} ·{' '}
-        {t(
-          scope.kind === 'document'
-            ? 'SessionWhole'
-            : scope.kind === 'blocks'
-              ? 'SessionBlocks'
-              : 'SessionRanges'
-        )}
-        {scope.kind !== 'document' &&
-          ` · ${scope.kind === 'blocks' ? scope.blockIds.length : scope.ranges.length}`}
-      </span>
-      {scope.kind !== 'document' && (
-        <div className="session-selection-excerpts">
-          {document ? (
-            excerpts.map((text, index) => (
-              <blockquote key={index}>{text ?? t('SessionReadUnavailable')}</blockquote>
-            ))
-          ) : (
-            <p>{t(exact.isPending ? 'LoadingStudy' : 'SessionReadUnavailable')}</p>
-          )}
-        </div>
-      )}
+      <SelectedScope target={target} version={version} />
+      <SelectedExcerpts
+        target={target}
+        document={document}
+        excerpts={excerpts}
+        pending={exact.isPending}
+      />
       {material.error && (
         <SessionReadError error={material.error} retry={() => void material.refetch()} />
       )}
       {exact.error && <SessionReadError error={exact.error} retry={() => void exact.refetch()} />}
     </>
+  );
+}
+
+function selectionExcerpts(
+  target: Target,
+  document:
+    | Awaited<
+        ReturnType<
+          Exclude<ReturnType<typeof sessionDocumentOptions>['queryFn'], undefined | symbol>
+        >
+      >['document']
+    | undefined,
+  documentId: Target['documentId']
+) {
+  const scope = target.scope;
+
+  return document
+    ? scope.kind === 'blocks'
+      ? scope.blockIds.map((id) => ({
+          key: id,
+          text: document.blocks.find((block) => block.id === id)?.text
+        }))
+      : scope.kind === 'ranges'
+        ? scope.ranges.map((range) => ({
+            key: `${range.versionId}:${range.documentId}:${range.blockId}:${range.start}:${range.end}`,
+            text:
+              range.versionId === target.versionId && range.documentId === documentId
+                ? document.blocks
+                    .find((block) => block.id === range.blockId)
+                    ?.text.slice(range.start, range.end)
+                : undefined
+          }))
+        : []
+    : [];
+}
+
+function SelectedScope({ target, version }: { target: Target; version: MaterialVersionDetailDto }) {
+  const { t } = useI18n();
+  const scope = target.scope;
+
+  return (
+    <Notebook.MutedLabel>
+      {t('ReaderVersion')} {String(version.number)} ·{' '}
+      {t(
+        scope.kind === 'document'
+          ? 'SessionWhole'
+          : scope.kind === 'blocks'
+            ? 'SessionBlocks'
+            : 'SessionRanges'
+      )}
+      {scope.kind !== 'document' &&
+        ` · ${scope.kind === 'blocks' ? scope.blockIds.length : scope.ranges.length}`}
+    </Notebook.MutedLabel>
+  );
+}
+
+function materialChoiceDisabled(
+  current: Selection | null | undefined,
+  saving: boolean,
+  versionId: Target['versionId']
+) {
+  if (!current || saving) return true;
+
+  return (
+    !current.targets.some((item) => item.versionId === versionId) && current.targets.length >= 20
+  );
+}
+
+function matchesDocument(target: Target, documentId: Target['documentId']) {
+  return !target.documentId || target.documentId === documentId;
+}
+
+function SelectedExcerpts({
+  target,
+  document,
+  excerpts,
+  pending
+}: {
+  target: Target;
+  document: unknown;
+  excerpts: { key: string; text: string | undefined }[];
+  pending: boolean;
+}) {
+  const { t } = useI18n();
+  const scope = target.scope;
+
+  return (
+    <>
+      {scope.kind !== 'document' && (
+        <Notebook.SelectionExcerpts>
+          {document ? (
+            excerpts.map(({ key, text }) => (
+              <blockquote key={key}>{text ?? t('SessionReadUnavailable')}</blockquote>
+            ))
+          ) : (
+            <p>{t(pending ? 'LoadingStudy' : 'SessionReadUnavailable')}</p>
+          )}
+        </Notebook.SelectionExcerpts>
+      )}
+    </>
+  );
+}
+
+function SelectionMaterial({
+  material,
+  current,
+  saving,
+  change
+}: {
+  material: MaterialSummaryDto;
+  current: Selection | null | undefined;
+  saving: boolean;
+  change: (target: Target, remove?: boolean) => void;
+}) {
+  return (
+    <li key={String(material.id)}>
+      <MaterialChoice
+        material={material}
+        selected={current?.targets.find((item) => item.versionId === material.version.id)}
+        disabled={materialChoiceDisabled(current, saving, material.version.id)}
+        change={change}
+      />
+    </li>
+  );
+}
+
+function SelectedTargets({
+  current,
+  saving,
+  change
+}: {
+  current: Selection | null | undefined;
+  saving: boolean;
+  change: (target: Target, remove?: boolean) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      <Notebook.Selected>
+        {current?.targets.map((target) => (
+          <li key={String(target.versionId)}>
+            <SelectedTarget target={target} />
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={saving}
+              onClick={() => change(target, true)}
+            >
+              {t('SessionRemove')}
+            </Button>
+          </li>
+        ))}
+      </Notebook.Selected>
+      {current?.targets.length === 0 && <Notebook.Muted>{t('SessionNoSelection')}</Notebook.Muted>}
+    </>
+  );
+}
+
+function SelectionSave({
+  dirty,
+  saving,
+  onSave,
+  onReload
+}: {
+  dirty: boolean;
+  saving: boolean;
+  onSave: () => void;
+  onReload: () => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Notebook.Actions>
+      <Button disabled={!dirty || saving} onClick={onSave}>
+        {t('SessionSaveSelection')}
+      </Button>
+      {dirty && (
+        <Button variant="ghost" disabled={saving} onClick={onReload}>
+          {t('SessionReloadSelection')}
+        </Button>
+      )}
+    </Notebook.Actions>
   );
 }

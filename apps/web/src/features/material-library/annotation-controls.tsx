@@ -1,156 +1,39 @@
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Textarea } from '@study/ui/textarea';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
-import { request } from '../../lib/study-client/request';
-import { savedDraft, retainAnnotations } from './annotation-state';
+import { useAnnotationControls } from './annotation-controls.queries';
 import type { Annotation, AnnotationDraft } from './annotation-state';
 import { EvidenceTarget, TargetPicker } from './annotation-target';
 
+type AnnotationView = ReturnType<typeof useAnnotationControls>;
+
 export function AnnotationControls({ annotation }: { annotation: Annotation }) {
-  const { t } = useI18n();
-  const client = useQueryClient();
-  const key = String(annotation.id);
-  const draftKey = ['annotationDraft', key];
-  const state = useQuery<AnnotationDraft>({
-    queryKey: draftKey,
-    queryFn: () => ({
-      note: annotation.note,
-      kind: annotation.kind,
-      current: annotation,
-      generation: 0,
-      pending: false,
-      uncertain: false
-    }),
-    initialData: {
-      note: annotation.note,
-      kind: annotation.kind,
-      current: annotation,
-      generation: 0,
-      pending: false,
-      uncertain: false
-    },
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const draft = state.data;
-  const { result, error } = draft;
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [reanchor, setReanchor] = useState(false);
-  const latest = useQuery({
-    queryKey: ['materials', 'annotation', key],
-    queryFn: () => request((rpc) => rpc['materials.annotation']({ id: annotation.id }))
-  });
-  useEffect(() => {
-    const stored = latest.data;
-    if (!stored) return;
-    client.setQueryData<readonly Annotation[]>(
-      ['annotationRetained', String(annotation.target.materialId)],
-      (old) => retainAnnotations(old ?? [], [stored])
-    );
-    client.setQueryData<AnnotationDraft>(draftKey, (old) =>
-      old &&
-      !old.pending &&
-      stored.revision > old.current.revision &&
-      (!old.review || stored.revision > old.review.revision)
-        ? { ...old, review: stored }
-        : old
-    );
-  }, [latest.data, client, key, annotation.target.materialId]);
-  const history = useInfiniteQuery({
-    queryKey: ['materials', 'annotationHistory', key],
-    enabled: historyOpen,
-    initialPageParam: undefined as bigint | undefined,
-    queryFn: ({ pageParam }) =>
-      request((rpc) =>
-        rpc['materials.annotationHistory']({ id: annotation.id, limit: 30, cursor: pageParam })
-      ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined
-  });
-  function edit(next: Partial<AnnotationDraft>) {
-    client.setQueryData<AnnotationDraft>(
-      draftKey,
-      (old) => old && { ...old, ...next, generation: old.generation + 1 }
-    );
-  }
-  async function mutate(operation: 'update' | 'reanchor' | 'delete') {
-    const submitted = client.getQueryData<AnnotationDraft>(draftKey);
-    if (
-      !submitted ||
-      submitted.pending ||
-      submitted.uncertain ||
-      submitted.current.deleted ||
-      submitted.review ||
-      submitted.result?.outcome === 'conflict' ||
-      submitted.result?.outcome === 'unavailable'
-    )
-      return;
-    if (operation === 'reanchor' && !submitted.target) return;
-    client.setQueryData(draftKey, { ...submitted, pending: true, error: undefined });
-    try {
-      const input = { id: annotation.id, expectedRevision: submitted.current.revision };
-      const outcome = await request((rpc) =>
-        operation === 'delete'
-          ? rpc['materials.deleteAnnotation'](input)
-          : operation === 'reanchor' && submitted.target
-            ? rpc['materials.reanchorAnnotation']({ ...input, target: submitted.target })
-            : rpc['materials.updateAnnotation']({
-                ...input,
-                note: submitted.note,
-                kind: submitted.kind
-              })
-      );
-      if (outcome.outcome === 'saved')
-        client.setQueryData<readonly Annotation[]>(
-          ['annotationRetained', String(annotation.target.materialId)],
-          (old) => retainAnnotations(old ?? [], [outcome.annotation])
-        );
-      client.setQueryData<AnnotationDraft>(
-        draftKey,
-        (old) =>
-          old &&
-          (outcome.outcome === 'saved'
-            ? {
-                ...savedDraft(
-                  old,
-                  operation === 'update' ? submitted.generation : -1,
-                  outcome.annotation
-                ),
-                result: outcome
-              }
-            : {
-                ...old,
-                pending: false,
-                result: outcome,
-                review: outcome.outcome === 'conflict' ? outcome.current : undefined
-              })
-      );
-      await Promise.allSettled([
-        client.invalidateQueries({ queryKey: ['materials', 'annotations'] }),
-        client.invalidateQueries({ queryKey: ['materials', 'annotationHistory', key] }),
-        latest.refetch()
-      ]);
-    } catch (cause) {
-      client.setQueryData<AnnotationDraft>(
-        draftKey,
-        (old) => old && { ...old, pending: false, uncertain: true, error: toStudyError(cause).kind }
-      );
-    }
-  }
-  const blocked =
-    draft.pending ||
-    draft.uncertain ||
-    Boolean(draft.review) ||
-    draft.current.deleted ||
-    result?.outcome === 'conflict' ||
-    result?.outcome === 'unavailable';
+  const view = useAnnotationControls({ annotation });
+
   return (
     <div>
+      <AnnotationForm view={view} />
+      <AnnotationReceipt view={view} />
+      <AnnotationReconciliation view={view} />
+      <AnnotationHistory view={view} />
+    </div>
+  );
+}
+
+function targetKey(target: NonNullable<AnnotationDraft['target']>) {
+  const r = target.range;
+
+  return [target.materialId, r.versionId, r.documentId, r.blockId, r.start, r.end].join(':');
+}
+
+function AnnotationForm({ view }: { view: AnnotationView }) {
+  const { t, annotation, draft, reanchor, setReanchor, edit, mutate, blocked } = view;
+
+  return (
+    <>
       {draft.current.deleted || draft.review?.deleted ? (
         <p role="status">{t('AnnotationDeleted')}</p>
       ) : null}
@@ -205,7 +88,16 @@ export function AnnotationControls({ annotation }: { annotation: Annotation }) {
           {t('AnnotationDelete')}
         </Button>
       </details>
-      {draft.pending && <p role="status">{t('LoadingStudy')}</p>}
+    </>
+  );
+}
+
+function AnnotationReceipt({ view }: { view: AnnotationView }) {
+  const { t, client, draftKey, draft, result } = view;
+
+  return (
+    <>
+      {draft.pending && <Loading label={t('LoadingStudy')} />}
       {result && (
         <p role="status">
           {t(
@@ -250,6 +142,15 @@ export function AnnotationControls({ annotation }: { annotation: Annotation }) {
           </Button>
         </section>
       )}
+    </>
+  );
+}
+
+function AnnotationReconciliation({ view }: { view: AnnotationView }) {
+  const { t, client, draftKey, draft, result, error, latest } = view;
+
+  return (
+    <>
       {(error !== undefined ||
         latest.isError ||
         draft.uncertain ||
@@ -271,8 +172,10 @@ export function AnnotationControls({ annotation }: { annotation: Annotation }) {
                 disabled={latest.isFetching || draft.pending}
                 onClick={async () => {
                   const refreshed = await latest.refetch();
+
                   if (refreshed.data && !refreshed.isError) {
                     const stored = refreshed.data;
+
                     client.setQueryData<AnnotationDraft>(draftKey, (old) =>
                       old &&
                       !old.pending &&
@@ -291,9 +194,18 @@ export function AnnotationControls({ annotation }: { annotation: Annotation }) {
           }
         />
       )}
+    </>
+  );
+}
+
+function AnnotationHistory({ view }: { view: AnnotationView }) {
+  const { t, historyOpen, setHistoryOpen, history } = view;
+
+  return (
+    <>
       <details open={historyOpen} onToggle={(e) => setHistoryOpen(e.currentTarget.open)}>
         <summary>{t('AnnotationHistory')}</summary>
-        {history.isPending && <p role="status">{t('LoadingStudy')}</p>}
+        {history.isPending && <Loading label={t('LoadingStudy')} />}
         {history.isError && (
           <ErrorState
             title={t('ErrorStateTitle')}
@@ -339,10 +251,6 @@ export function AnnotationControls({ annotation }: { annotation: Annotation }) {
           </Button>
         )}
       </details>
-    </div>
+    </>
   );
-}
-function targetKey(target: NonNullable<AnnotationDraft['target']>) {
-  const r = target.range;
-  return [target.materialId, r.versionId, r.documentId, r.blockId, r.start, r.end].join(':');
 }

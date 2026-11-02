@@ -9,12 +9,14 @@ export async function downloadOriginal(id: MaterialVersionId) {
   const url = URL.createObjectURL(
     new Blob([new Uint8Array(result.bytes)], { type: result.source.mime })
   );
+
   await runRequest(
     Effect.acquireUseRelease(
       Effect.succeed(url),
       (href) =>
         Effect.sync(() => {
           const anchor = document.createElement('a');
+
           anchor.href = href;
           anchor.download = result.source.name;
           anchor.click();

@@ -16,13 +16,49 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('../../lib/study-client/client', async () => {
-  const { Effect } = await import('effect');
+  const { Effect, Schema } = await import('effect');
+  const { materialSummarySchema } = await import('@study/contracts/materials/schemas');
+  const summary = (item: {
+    id: bigint;
+    kind: string;
+    title: string;
+    projectIds: bigint[];
+    updated_at: bigint;
+  }) => {
+    const version = {
+      id: item.id + 1000n,
+      material_id: item.id,
+      kind: item.kind,
+      number: 1n,
+      status: 'published',
+      operation: 'original',
+      creator: 'user',
+      instruction: null,
+      language: null,
+      created_at: 0n,
+      published_at: 0n
+    };
+
+    return Schema.decodeUnknownSync(materialSummarySchema)({
+      ...item,
+      created_at: 0n,
+      archived_at: null,
+      version,
+      latestPublishedVersion: version,
+      latestDraftVersion: null
+    });
+  };
   const call = (fn: typeof api.projects) => (input: unknown) => Effect.tryPromise(() => fn(input));
   const client = {
     'projects.projects': call(api.projects),
     'projects.createProject': call(api.createProject),
     'sources.sources': call(api.sources),
-    'materials.materials': call(api.materials),
+    'materials.materials': (input: unknown) =>
+      Effect.tryPromise(async () => {
+        const page = await api.materials(input);
+
+        return { ...page, items: page.items.map(summary) };
+      }),
     'system.search': call(api.search),
     'conversations.sessions': call(api.sessions),
     'conversations.createUntitledSession': call(api.createSession)
@@ -111,7 +147,9 @@ it('creates a real session in the selected subject', async () => {
 
   render(<App />);
   await screen.findByLabelText('Biology');
-  await user.click(screen.getByRole('button', { name: en.NewSession }));
+  await user.click(
+    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
+  );
   expect(api.createSession).toHaveBeenCalledWith({ project: 1n });
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=1&id=7'));
 });
@@ -124,7 +162,11 @@ it('does not search another subject when the URL subject is missing', async () =
   await screen.findByText(en.SubjectNotFound);
   await user.type(screen.getByRole('searchbox'), 'cell');
   expect(api.search).not.toHaveBeenCalled();
-  expect(screen.getByRole('button', { name: en.NewSession })).toBeDisabled();
+  await user.click(
+    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
+  );
+  expect(api.createSession).toHaveBeenCalledWith({});
+  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?id=7'));
 });
 
 it('opens search from the collapsed rail with the keyboard shortcut', async () => {
@@ -206,7 +248,9 @@ it('ignores a subject list fetched before a new subject was created', async () =
   });
   expect(screen.getByLabelText('Physics')).toBeInTheDocument();
   expect(screen.queryByText(en.SubjectNotFound)).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: en.NewSession })).toBeEnabled();
+  expect(
+    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
+  ).toBeEnabled();
 });
 
 it('requests session kinds from the server before limiting search hits', async () => {
@@ -460,25 +504,24 @@ it('reuses library data when navigating between material pages', async () => {
   await user.click(screen.getByRole('link', { name: en.Practice }));
   await waitFor(() => expect(location.pathname + location.search).toBe('/practice?project=1'));
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/media-list?project=1'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/library?project=1'));
   expect(api.sources).toHaveBeenCalledOnce();
 });
 
 it('retries route loading after a library request fails', async () => {
-  api.sources.mockRejectedValue(new Error('offline'));
+  api.materials.mockRejectedValue(new Error('offline'));
   const user = userEvent.setup();
 
   render(<App />);
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   const main = screen.getByRole('main');
-  const retry = await within(main).findByRole('button', { name: en.StudyLoadError });
+  const alert = await within(main).findByRole('alert');
+  const retry = within(alert).getByRole('button', { name: en.LibraryRefresh });
 
-  api.sources.mockResolvedValue({ items: [], next: null });
+  api.materials.mockResolvedValue({ items: [], nextCursor: null });
   await user.click(retry);
-  await waitFor(() =>
-    expect(within(main).queryByRole('button', { name: en.StudyLoadError })).not.toBeInTheDocument()
-  );
+  await waitFor(() => expect(within(main).queryByRole('alert')).not.toBeInTheDocument());
 });
 
 it('reloads library data from the selected project search dependency', async () => {
@@ -532,7 +575,9 @@ it('refreshes an initial session request after a session is created', async () =
       }
     ]
   });
-  await user.click(screen.getByRole('button', { name: en.NewSession }));
+  await user.click(
+    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
+  );
   await act(async () => {
     finish({ items: [] });
   });

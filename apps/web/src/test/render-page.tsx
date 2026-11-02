@@ -12,23 +12,24 @@ vi.mock('../lib/study-client/client', async () => {
   const page = () => Effect.succeed({ items: [], next: null, nextCursor: null });
 
   const workflows = {
-    'workflows.executions': () => Effect.succeed({ items: [], next: null }),
-    'workflows.execution': () =>
-      Effect.fail({
-        kind: 'not_found' as const,
-        message: 'No execution selected',
-        retryAfterMs: null
-      }),
-    'workflows.cancelExecution': () =>
+    'workflows.executions': vi
+      .fn<StudyClient['workflows.executions']>()
+      .mockReturnValue(Effect.succeed({ items: [], next: null })),
+    'workflows.execution': vi.fn<StudyClient['workflows.execution']>().mockReturnValue(
       Effect.fail({
         kind: 'not_found' as const,
         message: 'No execution selected',
         retryAfterMs: null
       })
-  } satisfies Pick<
-    StudyClient,
-    'workflows.executions' | 'workflows.execution' | 'workflows.cancelExecution'
-  >;
+    ),
+    'workflows.cancelExecution': vi.fn<StudyClient['workflows.cancelExecution']>().mockReturnValue(
+      Effect.fail({
+        kind: 'not_found' as const,
+        message: 'No execution selected',
+        retryAfterMs: null
+      })
+    )
+  };
 
   return {
     studyClient: Effect.succeed({

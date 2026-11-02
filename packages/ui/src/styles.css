@@ -1,3 +1,6 @@
+@import './components/activity.css';
+@import './components/material-library.css';
+@import './session-workspace.css';
 @import 'tailwindcss';
 @import './theme.css';
 @import './components/shell.css';

@@ -5,7 +5,9 @@ import type {
 } from '@study/contracts/materials/evidence';
 
 import type { Target } from './annotation-target';
+
 export type Annotation = typeof annotationSchema.Type;
+
 export type AnnotationDraft = {
   note: string;
   kind: Annotation['kind'];
@@ -18,6 +20,7 @@ export type AnnotationDraft = {
   review?: Annotation;
   error?: ErrorKind;
 };
+
 export function savedDraft(
   draft: AnnotationDraft,
   submitted: number,
@@ -40,9 +43,12 @@ export function retainAnnotations(
   incoming: readonly Annotation[]
 ) {
   const known = new Map(previous.map((item) => [item.id, item]));
+
   for (const item of incoming) {
     const existing = known.get(item.id);
+
     if (!existing || item.revision >= existing.revision) known.set(item.id, item);
   }
+
   return [...known.values()];
 }

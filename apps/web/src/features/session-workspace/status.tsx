@@ -1,6 +1,7 @@
 import { StudyError } from '@study/contracts/errors';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { Notebook } from '@study/ui/session-workspace';
 import { useQuery } from '@tanstack/react-query';
 
 import { useI18n } from '../../lib/i18n';
@@ -9,6 +10,7 @@ import { executionOptions } from './session-workspace.queries';
 
 export function SessionError({ error, retry }: { error: unknown; retry?: () => void }) {
   const { t } = useI18n();
+
   return (
     <ErrorState
       title={t('SessionActionErrorTitle')}
@@ -29,6 +31,7 @@ export function SessionError({ error, retry }: { error: unknown; retry?: () => v
     />
   );
 }
+
 export function SessionReadError({
   error,
   retry,
@@ -39,6 +42,7 @@ export function SessionReadError({
   layout?: 'page' | 'inline';
 }) {
   const { t } = useI18n();
+
   return (
     <ErrorState
       layout={layout}
@@ -61,27 +65,31 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
   const { t } = useI18n();
   const state = useQuery(executionOptions(requestId));
   const latest = state.data?.items[0];
+
   return (
-    <div className="session-muted" role="status">
+    <Notebook.Status role="status">
       {state.error ? (
         <SessionReadError error={state.error} retry={() => void state.refetch()} />
       ) : latest?.outcome === 'failure' ? (
         <SessionError error={new StudyError(latest.failureKind ?? 'internal', '')} />
       ) : (
-        <p>
-          {t(
-            latest?.status === 'completed'
-              ? 'SessionCompleted'
-              : latest?.status === 'cancelled'
-                ? 'SessionCancelled'
-                : latest?.status === 'cancelling'
-                  ? 'SessionCancelling'
-                  : latest?.status === 'suspended'
-                    ? 'SessionWaiting'
-                    : 'SessionPending'
-          )}
-        </p>
+        <p>{t(executionLabel(latest?.status))}</p>
       )}
-    </div>
+    </Notebook.Status>
   );
+}
+
+function executionLabel(status: string | undefined) {
+  switch (status) {
+    case 'completed':
+      return 'SessionCompleted';
+    case 'cancelled':
+      return 'SessionCancelled';
+    case 'cancelling':
+      return 'SessionCancelling';
+    case 'suspended':
+      return 'SessionWaiting';
+    default:
+      return 'SessionPending';
+  }
 }

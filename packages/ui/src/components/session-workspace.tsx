@@ -1,0 +1,57 @@
+import type { ComponentPropsWithRef } from 'react';
+
+import { semanticPart as part } from './semantic-part';
+import { Textarea } from './textarea';
+
+function BlockText(props: Omit<ComponentPropsWithRef<typeof Textarea>, 'className'>) {
+  return <Textarea {...props} className="session-block-text" />;
+}
+
+export const Notebook = {
+  Attachments: part('div', 'session-attachments'),
+  FileButton: part('label', 'session-file-button'),
+  AttemptRecovery: part('section', 'session-attempt-recovery'),
+  Workspace: part('section', 'session-workspace'),
+  Canvas: part('div', 'session-canvas'),
+  Toolbar: part('div', 'session-toolbar'),
+  Start: part('section', 'session-start'),
+  StartContent: part('div', 'session-start-content'),
+  StartHeading: part('header', 'session-start-heading'),
+  StartKind: part('span', 'session-start-kind'),
+  StartRecovery: part('div', 'session-start-recovery'),
+  List: part('ul', 'session-list'),
+  Actions: part('div', 'session-actions'),
+  Muted: part('p', 'session-muted'),
+  MutedLabel: part('span', 'session-muted'),
+  Status: part('div', 'session-muted'),
+  RowTools: part('div', 'session-row-tools'),
+  ActionLabel: part('span', 'session-action-label'),
+  ItemEditor: part('section', 'session-item-editor'),
+  TargetPreview: part('blockquote', 'session-target-preview'),
+  ActionRecovery: part('div', 'session-action-recovery'),
+  Preferences: part('details', 'session-preferences'),
+  ComposerFooter: part('div', 'session-composer-footer'),
+  Composer: part('div', 'session-composer'),
+  Section: part('details', 'session-section'),
+  TransformResult: part('div', 'session-transform-result'),
+  Runs: part('section', 'session-runs'),
+  TransformRun: part('section', 'session-transform-run'),
+  RunHeading: part('header', 'session-run-heading'),
+  History: part('section', 'session-history'),
+  EmptyCanvas: part('div', 'session-empty-canvas'),
+  Entry: part('article', 'session-entry'),
+  Prose: part('div', 'session-prose'),
+  Instruction: part('p', 'session-prose'),
+  Captured: part('div', 'session-captured'),
+  Selected: part('ul', 'session-selected'),
+  Materials: part('ul', 'session-materials'),
+  ExactDocument: part('div', 'session-exact-document'),
+  Block: part('div', 'session-block'),
+  SelectedTarget: part('div', 'session-selected-target'),
+  SelectionExcerpts: part('div', 'session-selection-excerpts'),
+  CanvasToolbar: part('div', 'session-toolbar session-canvas-toolbar'),
+  Delete: part('details', 'session-delete'),
+  Label: part('label', 'sr-only'),
+  AccessibleText: part('span', 'sr-only'),
+  BlockText
+};

@@ -10,6 +10,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
 import { attachmentKey } from './attachments';
 import { Composer } from './composer';
 import { MessageActions } from './message-actions';
+import type * as SessionQueries from './session-workspace.queries';
 import {
   activateVersion,
   ask,
@@ -22,6 +23,7 @@ import {
 import { SessionRuns } from './transformation';
 
 const rpc = vi.hoisted(() => ({ message: vi.fn(), pages: vi.fn() }));
+
 vi.mock('../../lib/i18n', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));
@@ -35,7 +37,8 @@ vi.mock('../document-editing/proposal-review', () => ({
   )
 }));
 vi.mock('./session-workspace.queries', async (load) => {
-  const actual = await load<typeof import('./session-workspace.queries')>();
+  const actual = await load<typeof SessionQueries>();
+
   return {
     ...actual,
     uploadSource: vi.fn(),
@@ -70,7 +73,9 @@ vi.mock('./session-workspace.queries', async (load) => {
     })
   };
 });
+
 const id = Schema.decodeUnknownSync(sessionIdSchema)(501n);
+
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 71n,
   sessionId: id,
@@ -107,7 +112,9 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   parts: [],
   citations: []
 });
+
 const clients: QueryClient[] = [];
+
 function mount(
   node: ReactNode,
   client = new QueryClient({
@@ -115,11 +122,14 @@ function mount(
   })
 ) {
   if (!clients.includes(client)) clients.push(client);
+
   return { client, ...render(<QueryClientProvider client={client}>{node}</QueryClientProvider>) };
 }
+
 const actions = (versionId = message.activeVersionId!, value = message) => (
   <MessageActions message={value} versionId={versionId} onActive={() => {}} />
 );
+
 beforeEach(() => {
   vi.resetAllMocks();
   rpc.message.mockResolvedValue(message);
@@ -127,14 +137,19 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+
   for (const client of clients.splice(0)) client.clear();
 });
 
 it('keeps an uncertain upload across remount and never automatically creates it twice', async () => {
   vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
   const first = mount(<Composer id={id} />);
-  fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-    target: { files: [new File(['notes'], 'notes.txt')] }
+
+  await act(async () => {
+    fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+      target: { files: [new File(['notes'], 'notes.txt')] }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await screen.findByText('SessionUploadUncertain');
   expect(uploadSource).toHaveBeenCalledTimes(1);
@@ -145,24 +160,33 @@ it('keeps an uncertain upload across remount and never automatically creates it 
   expect(uploadSource).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
 });
+
 it('sends attachment-only notes with accepted source IDs and does not upload again on send', async () => {
   vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
     ReturnType<typeof uploadSource>
   >);
   vi.mocked(saveNote).mockResolvedValue(message);
   mount(<Composer id={id} />);
-  fireEvent.drop(screen.getByRole('region', { name: 'SessionCompose' }), {
-    dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
+  await act(async () => {
+    fireEvent.drop(screen.getByRole('region', { name: 'SessionCompose' }), {
+      dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await screen.findByText('SessionFileAccepted');
-  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, '', [44n]));
   await waitFor(() => expect(screen.queryByText('notes.txt')).not.toBeInTheDocument());
   expect(uploadSource).toHaveBeenCalledTimes(1);
   expect(ask).not.toHaveBeenCalled();
 });
+
 it('keeps upload ownership while a receipt arrives after unmount', async () => {
   let accept!: (value: Awaited<ReturnType<typeof uploadSource>>) => void;
+
   vi.mocked(uploadSource).mockImplementation(
     () =>
       new Promise((resolve) => {
@@ -170,8 +194,12 @@ it('keeps upload ownership while a receipt arrives after unmount', async () => {
       })
   );
   const first = mount(<Composer id={id} />);
-  fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-    target: { files: [new File(['n'], 'n.txt')] }
+
+  await act(async () => {
+    fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+      target: { files: [new File(['n'], 'n.txt')] }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
   first.unmount();
   mount(<Composer id={id} />, first.client);
@@ -183,19 +211,27 @@ it('keeps upload ownership while a receipt arrives after unmount', async () => {
   ]);
   expect(uploadSource).toHaveBeenCalledTimes(1);
 });
+
 it('retains a definite rejection and only retries after a deliberate click', async () => {
   vi.mocked(uploadSource)
     .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported'))
     .mockResolvedValueOnce({ id: 46n } as Awaited<ReturnType<typeof uploadSource>>);
   mount(<Composer id={id} />);
-  fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-    target: { files: [new File(['n'], 'n.txt')] }
+  await act(async () => {
+    fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+      target: { files: [new File(['n'], 'n.txt')] }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await screen.findByText('SessionFileRejected');
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await screen.findByText('SessionFileAccepted');
   expect(uploadSource).toHaveBeenCalledTimes(2);
 });
+
 it.each([
   ['SessionImprove', 'improve'],
   ['SessionSummarize', 'summarize']
@@ -209,9 +245,15 @@ it.each([
       versionId: message.activeVersionId!
     });
     mount(actions());
-    fireEvent.click(screen.getByRole('button', { name: label }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: label }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(screen.getByText(/^SessionItemTransformScope/)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     await waitFor(() =>
       expect(rewriteNote).toHaveBeenCalledWith({
         messageId: message.id,
@@ -221,8 +263,10 @@ it.each([
     );
   }
 );
+
 it('keeps the edit payload and write fence across remounts until the original receipt', async () => {
   let accept!: (value: typeof message) => void;
+
   vi.mocked(editNote).mockImplementation(
     () =>
       new Promise((resolve) => {
@@ -230,9 +274,19 @@ it('keeps the edit payload and write fence across remounts until the original re
       })
   );
   const first = mount(actions());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Edited note' } });
-  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Edited note' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await waitFor(() =>
     expect(editNote).toHaveBeenCalledWith({ messageId: message.id, text: 'Edited note' })
   );
@@ -243,20 +297,34 @@ it('keeps the edit payload and write fence across remounts until the original re
   await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
   expect(editNote).toHaveBeenCalledTimes(1);
 });
+
 it('does not rewrite a changed active version or silently use a historical version', async () => {
   rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
   mount(actions());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await screen.findByRole('alert');
   expect(rewriteNote).not.toHaveBeenCalled();
 });
+
 it('offers explicit historical activation and sends setActiveVersion with its exact identity', async () => {
   vi.mocked(activateVersion).mockResolvedValue(message);
   mount(actions(message.versions[0]!.id));
   expect(screen.queryByRole('button', { name: 'SessionImprove' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'SessionUseVersion' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionUseVersion' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await waitFor(() =>
     expect(activateVersion).toHaveBeenCalledWith({
       messageId: message.id,
@@ -264,11 +332,19 @@ it('offers explicit historical activation and sends setActiveVersion with its ex
     })
   );
 });
+
 it('never replays a rewrite after uncertain acceptance and remount', async () => {
   vi.mocked(rewriteNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
   const first = mount(actions());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await screen.findByText('SessionItemActionUncertain');
   first.unmount();
   mount(actions(), first.client);
@@ -276,6 +352,7 @@ it('never replays a rewrite after uncertain acceptance and remount', async () =>
   expect(rewriteNote).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
 });
+
 it('sends custom instructions only to the chosen message', async () => {
   vi.mocked(rewriteNote).mockResolvedValue({
     requestId: 'custom',
@@ -284,9 +361,18 @@ it('sends custom instructions only to the chosen message', async () => {
     versionId: message.activeVersionId!
   });
   mount(actions());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionCustomTransform' }));
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Use shorter sentences' } });
-  fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCustomTransform' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Use shorter sentences' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await waitFor(() =>
     expect(rewriteNote).toHaveBeenCalledWith({
       messageId: message.id,
@@ -295,8 +381,10 @@ it('sends custom instructions only to the chosen message', async () => {
     })
   );
 });
+
 it('reanswers only an assistant reply with a retained replyTo target', async () => {
   const assistant = { ...message, role: 'assistant' as const, replyTo: message.id };
+
   vi.mocked(reanswerNote).mockResolvedValue({
     requestId: 'reanswer',
     sessionId: id,
@@ -305,25 +393,44 @@ it('reanswers only an assistant reply with a retained replyTo target', async () 
   });
   rpc.message.mockResolvedValue(assistant);
   mount(actions(message.activeVersionId!, assistant));
-  fireEvent.click(screen.getByRole('button', { name: 'SessionReanswer' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionReanswer' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await waitFor(() => expect(reanswerNote).toHaveBeenCalledWith(message.id));
   expect(rewriteNote).not.toHaveBeenCalled();
 });
+
 it('uses atomic Ask with an explicit quoted target and retries its original identity', async () => {
   vi.mocked(ask)
     .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
     .mockResolvedValueOnce({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
   const first = mount(actions());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Why is this true?' } });
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Why is this true?' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   const editor = screen.getByRole('region', { name: 'SessionItemActions' });
+
   await waitFor(() =>
     expect(within(editor).getByRole('button', { name: 'SessionAsk' })).toBeEnabled()
   );
-  fireEvent.click(within(editor).getByRole('button', { name: 'SessionAsk' }));
+  await act(async () => {
+    fireEvent.click(within(editor).getByRole('button', { name: 'SessionAsk' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await screen.findByRole('alert');
   const input = vi.mocked(ask).mock.calls[0]![0];
+
   expect(input).toMatchObject({
     sessionId: id,
     expectedSelectionRevision: 8n,
@@ -336,11 +443,15 @@ it('uses atomic Ask with an explicit quoted target and retries its original iden
   });
   first.unmount();
   mount(actions(), first.client);
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
   expect(vi.mocked(ask).mock.calls[1]![0]).toEqual(input);
   expect(saveNote).not.toHaveBeenCalled();
 });
+
 it('discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals', async () => {
   const run = {
     requestId: 'request-z',
@@ -351,6 +462,7 @@ it('discovers canonical runs on a cold mount, paginates exact cursors, and mount
     proposedVersionId: 90n,
     baseVersionId: 89n
   };
+
   rpc.pages.mockImplementation((before) =>
     Promise.resolve(
       before
@@ -378,7 +490,10 @@ it('discovers canonical runs on a cold mount, paginates exact cursors, and mount
   mount(<SessionRuns id={id} />);
   expect(await screen.findByTestId('proposal')).toHaveTextContent('request-z');
   expect(screen.getAllByText('SessionContextUnavailable')[0]).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await screen.findAllByText('SessionRunRetired');
   expect(rpc.pages).toHaveBeenCalledWith('request-z');
   expect(screen.getAllByTestId('proposal')).toHaveLength(1);
@@ -392,12 +507,21 @@ it('includes accepted files in one atomic Ask and never posts a separate note', 
     ReturnType<typeof ask>
   >);
   mount(<Composer id={id} />);
-  fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-    target: { files: [new File(['n'], 'n.txt')] }
+  await act(async () => {
+    fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+      target: { files: [new File(['n'], 'n.txt')] }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await screen.findByText('SessionFileAccepted');
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Explain this attachment' } });
-  fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
+  await act(async () => {
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Explain this attachment' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await waitFor(() =>
     expect(ask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -411,17 +535,25 @@ it('includes accepted files in one atomic Ask and never posts a separate note', 
   expect(saveNote).not.toHaveBeenCalled();
   expect(uploadSource).toHaveBeenCalledTimes(1);
 });
+
 it('keeps the original note and source payload after an uncertain post without replay', async () => {
   vi.mocked(uploadSource).mockResolvedValue({ id: 48n } as Awaited<
     ReturnType<typeof uploadSource>
   >);
   vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
   const first = mount(<Composer id={id} />);
-  fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-    target: { files: [new File(['n'], 'n.txt')] }
+
+  await act(async () => {
+    fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+      target: { files: [new File(['n'], 'n.txt')] }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await screen.findByText('SessionFileAccepted');
-  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await screen.findByText('SessionNoteUncertain');
   first.unmount();
   mount(<Composer id={id} />, first.client);
@@ -437,13 +569,21 @@ it('keeps the original note and source payload after an uncertain post without r
 it('hands focus to the item editor and restores the invoking action on cancel', async () => {
   mount(actions());
   const trigger = screen.getByRole('button', { name: 'SessionEditNote' });
+
   trigger.focus();
-  fireEvent.click(trigger);
+  await act(async () => {
+    fireEvent.click(trigger);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   expect(await screen.findByRole('textbox', { name: 'SessionEditNote' })).toHaveFocus();
-  fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   expect(trigger).toHaveFocus();
   expect(screen.queryByRole('button', { name: 'SessionVersions' })).toBeNull();
 });
+
 it('does not expose editing actions on an historical version', () => {
   mount(actions(message.versions[0]!.id));
   expect(screen.queryByRole('button', { name: 'SessionEditNote' })).toBeNull();
@@ -468,6 +608,7 @@ it('puts the saved task title above technical run details without inventing a da
   mount(<SessionRuns id={id} />);
   expect(await screen.findByText('Retained generation title')).toBeVisible();
   const identity = screen.getByText('technical-request-identity');
+
   expect(identity.closest('details')).not.toHaveAttribute('open');
   expect(identity.closest('section')?.querySelector('time')).toBeNull();
 });

@@ -24,13 +24,16 @@ export function useImportOperation() {
   const rejected = state?.status === 'error' && state.error?.kind === 'invalid_input';
   const busy = state?.status === 'pending';
   const ambiguous = state?.status === 'error' && !rejected;
+
   function acknowledge() {
     for (const entry of client.getMutationCache().findAll({ mutationKey, exact: true })) {
       if (entry.state.status !== 'pending') client.getMutationCache().remove(entry);
     }
   }
+
   function start(input: ImportInput) {
     const existing = client.getMutationCache().findAll({ mutationKey, exact: true }).at(-1);
+
     if (
       existing &&
       (existing.state.status === 'pending' ||
@@ -39,9 +42,11 @@ export function useImportOperation() {
           toStudyError(existing.state.error).kind !== 'invalid_input'))
     )
       return;
+
     acknowledge();
     mutation.mutate(input);
   }
+
   return {
     busy,
     ambiguous,

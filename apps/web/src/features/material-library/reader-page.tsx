@@ -3,13 +3,13 @@ import type { MaterialVersionDetailDto } from '@study/contracts/materials/schema
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
+import { MaterialLibrary } from '@study/ui/material-library';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
-import { DocumentActions } from '../document-editing/document-actions';
+import { DocumentActions } from '../document-editing';
 import { libraryReturn } from './browse-state';
 import { ExactDocument } from './exact-document';
 import { belongsToMaterial, materialId, versionId } from './identity';
@@ -21,8 +21,7 @@ import {
 } from './material-library.queries';
 import { MaterialLifecycle, DeletionRecovery } from './material-lifecycle';
 import { EvidenceDetails } from './reader-evidence';
-
-import './material-library.css';
+import { retrySourceProcessing } from './reader-page.queries';
 
 export function ReaderPage() {
   const params = useParams({ from: '/materials/$materialId' });
@@ -30,15 +29,19 @@ export function ReaderPage() {
   const id = materialId(params.materialId);
   const state = useQuery(materialOptions(id));
   const { t } = useI18n();
+
   useEffect(() => {
     libraryReturn.fromReader = true;
     const main = document.querySelector<HTMLElement>('[data-library-scroll], main.study-content');
+
     if (main) main.scrollTop = 0;
+
     document.getElementById('reader-heading')?.focus({ preventScroll: true });
   }, [id, state.data?.id]);
+
   return (
-    <div className="material-reader">
-      <header className="reader-toolbar">
+    <MaterialLibrary.Reader>
+      <MaterialLibrary.ReaderToolbar>
         <Button
           variant="ghost"
           render={
@@ -53,11 +56,12 @@ export function ReaderPage() {
         >
           {t('ReaderBack')}
         </Button>
-      </header>
+      </MaterialLibrary.ReaderToolbar>
       {state.isPending && <Loading label={t('LoadingStudy')} />}
       {state.isError && (
         <ErrorState
           title={t('ErrorStateTitle')}
+          action={<DeletionRecovery key={String(id)} id={id} />}
           description={
             <>
               <p>{t('ReaderUnavailable')}</p>
@@ -66,7 +70,7 @@ export function ReaderPage() {
           }
         />
       )}
-      {state.isError && <DeletionRecovery key={String(id)} id={id} />}
+
       {state.data && !state.isError && (
         <>
           <h1 id="reader-heading" tabIndex={-1}>
@@ -80,13 +84,13 @@ export function ReaderPage() {
             processing={state.data.importProcessing}
           />
           <History id={id} current={state.data.version.id} />
-          <details className="reader-history reader-lifecycle">
+          <MaterialLibrary.Lifecycle>
             <summary>{t('ReaderActions')}</summary>
             <MaterialLifecycle id={id} />
-          </details>
+          </MaterialLibrary.Lifecycle>
         </>
       )}
-    </div>
+    </MaterialLibrary.Reader>
   );
 }
 
@@ -109,10 +113,10 @@ function SelectedVersion({
   const search = useSearch({ from: '__root__' });
   const [selected] = useState(requested);
   const state = useQuery(versionOptions(selected));
-  const queryClient = useQueryClient();
   const [download, setDownload] = useState<'idle' | 'busy' | 'failed'>('idle');
-  const [retry, setRetry] = useState<'idle' | 'busy' | 'failed'>('idle');
+
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
+
   if (!state.data || !belongsToMaterial(state.data, id))
     return (
       <ErrorState
@@ -125,15 +129,17 @@ function SelectedVersion({
         }
       />
     );
+
   const version = state.data;
   const imported = 'sourceId' in version.content;
+
   return (
     <>
-      <div className="reader-version-toolbar">
-        <p className="material-row-meta">
+      <MaterialLibrary.VersionToolbar>
+        <MaterialLibrary.VersionMeta>
           {t('ReaderVersion')} {String(version.number)} ·{' '}
           {t(selected === current ? 'ReaderCurrent' : 'ReaderHistorical')}
-        </p>
+        </MaterialLibrary.VersionMeta>
         {selected !== current && (
           <Button
             variant="ghost"
@@ -153,6 +159,7 @@ function SelectedVersion({
             disabled={download === 'busy'}
             onClick={async () => {
               setDownload('busy');
+
               try {
                 await downloadOriginal(selected);
                 setDownload('idle');
@@ -164,7 +171,7 @@ function SelectedVersion({
             {t('ReaderOriginal')}
           </Button>
         )}
-      </div>
+      </MaterialLibrary.VersionToolbar>
       {download === 'busy' && <Loading label={t('ReaderDownloading')} />}
       {download === 'failed' && (
         <ErrorState
@@ -172,56 +179,15 @@ function SelectedVersion({
           description={<> {t('ReaderOriginalUnavailable')} </>}
         />
       )}
-      {selected === current && processing && processing.status !== 'ready' && (
-        <aside className="reader-notice">
-          <p role="status">
-            {t(processing.status === 'failed' ? 'LibraryProcessingFailed' : 'LibraryPending')}
-          </p>
-          <Button
-            onClick={() => {
-              void state.refetch();
-              void queryClient.invalidateQueries({
-                queryKey: ['materials', 'detail', String(id)]
-              });
-            }}
-          >
-            {t('LibraryRefresh')}
-          </Button>
-          {processing.status === 'failed' && (
-            <Button
-              disabled={retry === 'busy'}
-              onClick={async () => {
-                setRetry('busy');
-                try {
-                  await request((client) =>
-                    client['sources.requestSourceProcessing']({
-                      id: processing.sourceId,
-                      expectedRevision: processing.revision
-                    })
-                  );
-                  await queryClient.invalidateQueries({
-                    queryKey: ['materials']
-                  });
-                  setRetry('idle');
-                } catch {
-                  setRetry('failed');
-                }
-              }}
-            >
-              {t('ReaderRetryProcessing')}
-            </Button>
-          )}
-          {retry === 'failed' && (
-            <ErrorState
-              title={t('ErrorStateTitle')}
-              description={<> {t('ReaderRetryFailed')} </>}
-            />
-          )}
-        </aside>
-      )}
-      <article className="reader-document">
+      <ProcessingNotice
+        active={selected === current}
+        processing={processing}
+        id={id}
+        refresh={() => state.refetch()}
+      />
+      <MaterialLibrary.Document>
         <VersionContent version={version} />
-      </article>
+      </MaterialLibrary.Document>
       <DocumentActions key={String(version.id)} version={version} current={current} />
       <EvidenceDetails version={version} />
     </>
@@ -231,35 +197,40 @@ function SelectedVersion({
 function VersionContent({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
   const content = version.content;
+
   if (content.kind === 'document') return <ExactDocument id={version.id} />;
+
   if ('extracted' in content)
     return content.extracted ? (
       <ExactDocument id={version.id} />
     ) : (
-      <p className="reader-notice">{t('ReaderNoExtraction')}</p>
+      <MaterialLibrary.NoticeText>{t('ReaderNoExtraction')}</MaterialLibrary.NoticeText>
     );
+
   if (content.kind === 'diagram')
     return (
-      <div className="material-prose">
+      <MaterialLibrary.ProseContent>
         <p>{t('ReaderDiagramSource')}</p>
         <pre>
           <code>{content.payload}</code>
         </pre>
-      </div>
+      </MaterialLibrary.ProseContent>
     );
+
   if (content.kind === 'flashcards')
     return (
-      <dl className="material-prose">
+      <MaterialLibrary.ProseDetails>
         {content.cards.map((card) => (
           <div key={String(card.cardId)}>
             <dt>{card.front}</dt>
             <dd>{card.back}</dd>
           </div>
         ))}
-      </dl>
+      </MaterialLibrary.ProseDetails>
     );
+
   return (
-    <ol className="material-prose">
+    <MaterialLibrary.ProseList>
       {content.questions.map((question) => (
         <li key={String(question.id)}>
           <p>{question.prompt}</p>
@@ -278,7 +249,7 @@ function VersionContent({ version }: { version: MaterialVersionDetailDto }) {
           <p>{question.explanation}</p>
         </li>
       ))}
-    </ol>
+    </MaterialLibrary.ProseList>
   );
 }
 
@@ -293,15 +264,18 @@ function History({
   const [open, setOpen] = useState(false);
   const state = useInfiniteQuery({ ...historyOptions(id), enabled: open });
   const search = useSearch({ from: '__root__' });
+  const loading = state.isPending && open;
+
   return (
-    <details
-      className="reader-history"
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
+    <MaterialLibrary.History open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary>{t('ReaderHistory')}</summary>
-      {state.isPending && open && <Loading label={t('LoadingStudy')} />}
-      {state.isError && <Button onClick={() => void state.refetch()}>{t('LibraryRefresh')}</Button>}
+      {loading && <Loading label={t('LoadingStudy')} />}
+      {state.isError && (
+        <ErrorState
+          title={t('ReaderUnavailable')}
+          action={<Button onClick={() => void state.refetch()}>{t('LibraryRefresh')}</Button>}
+        />
+      )}
       <ul>
         {state.data?.pages
           .flatMap((page) => page.items)
@@ -329,6 +303,66 @@ function History({
           {t('LibraryMore')}
         </Button>
       )}
-    </details>
+    </MaterialLibrary.History>
+  );
+}
+
+function ProcessingNotice({
+  active,
+  processing,
+  id,
+  refresh
+}: {
+  active: boolean;
+  processing: Parameters<typeof SelectedVersion>[0]['processing'];
+  id: ReturnType<typeof materialId>;
+  refresh: () => Promise<unknown>;
+}) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [retry, setRetry] = useState<'idle' | 'busy' | 'failed'>('idle');
+
+  if (!active || !processing) return null;
+
+  function refreshVersion() {
+    void refresh();
+    void queryClient.invalidateQueries({ queryKey: ['materials', 'detail', String(id)] });
+  }
+
+  async function retryProcessing() {
+    setRetry('busy');
+
+    try {
+      await retrySourceProcessing(processing!);
+      await queryClient.invalidateQueries({ queryKey: ['materials'] });
+      setRetry('idle');
+    } catch {
+      setRetry('failed');
+    }
+  }
+
+  if (processing.status === 'ready') return null;
+
+  if (processing.status === 'failed')
+    return (
+      <ErrorState
+        title={t('LibraryProcessingFailed')}
+        description={retry === 'failed' ? t('ReaderRetryFailed') : undefined}
+        action={
+          <>
+            <Button onClick={refreshVersion}>{t('LibraryRefresh')}</Button>
+            <Button disabled={retry === 'busy'} onClick={() => void retryProcessing()}>
+              {t('ReaderRetryProcessing')}
+            </Button>
+          </>
+        }
+      />
+    );
+
+  return (
+    <MaterialLibrary.NoticeAside>
+      <Loading label={t('LibraryPending')} />
+      <Button onClick={refreshVersion}>{t('LibraryRefresh')}</Button>
+    </MaterialLibrary.NoticeAside>
   );
 }

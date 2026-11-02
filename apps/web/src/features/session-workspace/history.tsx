@@ -1,13 +1,15 @@
 import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
-import type { SessionId, VersionId } from '@study/contracts/ids';
+import type { SessionId, VersionId, MaterialVersionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
+import { Loading } from '@study/ui/loading';
+import { Notebook } from '@study/ui/session-workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { NotebookPen } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { versionOptions } from '../material-library/material-library.queries';
+import { versionOptions } from '../material-library';
 import { MessageActions } from './message-actions';
 import {
   citationsOptions,
@@ -18,6 +20,7 @@ import {
 import { ExecutionStatus, SessionReadError } from './status';
 
 type Message = typeof chatMessageSchema.Type;
+
 export function History({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const state = useInfiniteQuery(threadOptions(id));
@@ -28,9 +31,10 @@ export function History({ id }: { id: SessionId }) {
   ].toSorted((a, b) =>
     a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1
   );
+
   return (
-    <section aria-label={t('SessionNotebook')} className="session-history">
-      {state.isPending && <p role="status">{t('LoadingStudy')}</p>}
+    <Notebook.History aria-label={t('SessionNotebook')}>
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
       {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
       {state.hasNextPage && (
         <Button
@@ -42,18 +46,19 @@ export function History({ id }: { id: SessionId }) {
         </Button>
       )}
       {state.isSuccess && messages.length === 0 && (
-        <div className="session-empty-canvas">
+        <Notebook.EmptyCanvas>
           <NotebookPen size={26} strokeWidth={1.5} aria-hidden="true" />
           <h3>{t('SessionCanvasStart')}</h3>
           <p>{t('SessionCanvasStartHelp')}</p>
-        </div>
+        </Notebook.EmptyCanvas>
       )}
       {messages.map((message) => (
         <MessageEntry key={String(message.id)} message={message} />
       ))}
-    </section>
+    </Notebook.History>
   );
 }
+
 function MessageEntry({ message }: { message: Message }) {
   const { t, date } = useI18n();
   const [selected, setSelected] = useState<VersionId>();
@@ -65,8 +70,9 @@ function MessageEntry({ message }: { message: Message }) {
     ...citationsOptions(message.sessionId, message.id, version?.id),
     enabled: !!version
   });
+
   return (
-    <article className="session-entry" data-role={message.role}>
+    <Notebook.Entry data-role={message.role}>
       <header>
         <strong>{t(message.role === 'user' ? 'SessionNote' : 'SessionReply')}</strong>
         <time>{date(message.createdAt)}</time>
@@ -74,40 +80,21 @@ function MessageEntry({ message }: { message: Message }) {
       {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
       {version && (
         <>
-          <div className="session-prose">{version.text}</div>
+          <Notebook.Prose>{version.text}</Notebook.Prose>
           <MessageActions
             message={message}
             versionId={version.id}
             onActive={() => setSelected(undefined)}
           />
-          {version.status !== 'complete' && <p role="status">{t('SessionPending')}</p>}
-          {message.versions.length > 1 && (
-            <details
-              open={historyOpen}
-              onToggle={(event) => setHistoryOpen(event.currentTarget.open)}
-            >
-              <summary>{t('SessionVersions')}</summary>
-              <div
-                className="session-actions"
-                role="group"
-                aria-label={`${t(message.role === 'user' ? 'SessionNote' : 'SessionReply')} · ${date(message.createdAt)} · ${String(message.id)}`}
-              >
-                {message.versions.map((item) => (
-                  <Button
-                    key={String(item.id)}
-                    size="sm"
-                    aria-pressed={item.id === version.id}
-                    variant={item.id === version.id ? 'secondary' : 'ghost'}
-                    onClick={() => setSelected(item.id)}
-                  >
-                    {t('ReaderVersion')} {String(item.number)}
-                  </Button>
-                ))}
-              </div>
-            </details>
-          )}
-          {(message.role === 'assistant' ||
-            (version.origin !== 'typed' && version.origin !== 'edited')) && (
+          {version.status !== 'complete' && <Loading label={t('SessionPending')} />}
+          <MessageVersions
+            message={message}
+            versionId={version.id}
+            open={historyOpen}
+            setOpen={setHistoryOpen}
+            select={setSelected}
+          />
+          {hasReplyContext(message, version.origin) && (
             <ReplyContext
               sessionId={message.sessionId}
               message={message}
@@ -131,8 +118,8 @@ function MessageEntry({ message }: { message: Message }) {
         <details>
           <summary>{t('SessionCitations')}</summary>
           <ol>
-            {citations.data.citations.map((citation, index) => (
-              <li key={`${citation.marker}-${index}`}>
+            {citations.data.citations.map((citation) => (
+              <li key={`${citation.marker}:${citation.materialVersionId}:${citation.quote}`}>
                 <p>
                   {citation.materialVersionId ? (
                     <CitationLink
@@ -145,7 +132,7 @@ function MessageEntry({ message }: { message: Message }) {
                   · {citation.marker}
                 </p>
                 <blockquote>{citation.quote}</blockquote>
-                <p className="session-muted">
+                <Notebook.Muted>
                   {t(
                     citation.precision === 'exact'
                       ? 'SessionExactEvidence'
@@ -153,23 +140,19 @@ function MessageEntry({ message }: { message: Message }) {
                         ? 'SessionApproximateEvidence'
                         : 'SessionEvidenceUnavailable'
                   )}
-                </p>
+                </Notebook.Muted>
               </li>
             ))}
           </ol>
         </details>
       )}
-    </article>
+    </Notebook.Entry>
   );
 }
-function CitationLink({
-  versionId,
-  name
-}: {
-  versionId: import('@study/contracts/ids').MaterialVersionId;
-  name: string;
-}) {
+
+function CitationLink({ versionId, name }: { versionId: MaterialVersionId; name: string }) {
   const state = useQuery(versionOptions(versionId));
+
   return state.data ? (
     <Link
       to="/materials/$materialId"
@@ -182,6 +165,7 @@ function CitationLink({
     <span>{name}</span>
   );
 }
+
 function ReplyContext({
   sessionId,
   message,
@@ -199,48 +183,53 @@ function ReplyContext({
     ...provenanceOptions(sessionId, message.id, versionId),
     enabled: open || pending
   });
-  const available =
-    !provenance.isError && provenance.data?.state === 'available'
-      ? provenance.data.requestId
-      : undefined;
+  const receipt = provenance.isError ? undefined : provenance.data;
+  const available = receipt?.state === 'available' ? receipt.requestId : undefined;
+
   return (
     <>
-      {pending && available && <ExecutionStatus requestId={available} />}
+      {available ? (
+        pending ? (
+          <>
+            <Loading label={t('SessionPending')} />
+            <ExecutionStatus requestId={available} />
+          </>
+        ) : null
+      ) : null}
       <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
         <summary>{t('SessionContextUsed')}</summary>
-        {provenance.isPending && open && <p role="status">{t('LoadingStudy')}</p>}
-        {provenance.error && (
-          <SessionReadError error={provenance.error} retry={() => void provenance.refetch()} />
-        )}
-        {!provenance.isError && provenance.data?.state === 'manual' && (
-          <p>{t('SessionManualVersion')}</p>
-        )}
-        {!provenance.isError &&
-          (provenance.data?.state === 'retired' || provenance.data?.state === 'unavailable') && (
-            <p>{t('SessionContextUnavailable')}</p>
-          )}
+        <ProvenanceFeedback provenance={provenance} open={open} />
         {open && available && <CapturedContext requestId={available} />}
       </details>
     </>
   );
 }
+
 export function CapturedContext({ requestId }: { requestId: string }) {
   const { t } = useI18n();
   const state = useQuery(contextOptions(requestId));
+
   return (
-    <div className="session-captured">
-      {state.isPending && <p role="status">{t('LoadingStudy')}</p>}
+    <Notebook.Captured>
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
       {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
       {state.data && !state.isError && (
         <>
-          <p className="session-muted">
+          <Notebook.Muted>
             {t('SessionCapturedHelp')} · {t('SessionRevision')}{' '}
             {String(state.data.selectionRevision)}
-          </p>
-          {state.data.instruction && <p className="session-prose">{state.data.instruction}</p>}
+          </Notebook.Muted>
+          {state.data.instruction && (
+            <Notebook.Instruction>{state.data.instruction}</Notebook.Instruction>
+          )}
           <ul>
-            {state.data.inputs.map((input, index) => (
-              <li key={`${input.versionId}-${index}`}>
+            {state.data.inputs.map((input) => (
+              <li
+                key={JSON.stringify(
+                  { versionId: String(input.versionId), scope: input.scope },
+                  (_, value: unknown) => (typeof value === 'bigint' ? String(value) : value)
+                )}
+              >
                 <Link
                   to="/materials/$materialId"
                   params={{ materialId: String(input.materialId) }}
@@ -256,8 +245,8 @@ export function CapturedContext({ requestId }: { requestId: string }) {
                       ? 'SessionBlocks'
                       : 'SessionRanges'
                 )}
-                {input.excerpts.map((excerpt, ordinal) => (
-                  <blockquote key={`${excerpt.blockId}-${ordinal}`}>
+                {input.excerpts.map((excerpt) => (
+                  <blockquote key={`${excerpt.blockId}-${excerpt.start}-${excerpt.end}`}>
                     <p>{excerpt.text}</p>
                     <small>
                       {excerpt.blockId} · {excerpt.start}–{excerpt.end}
@@ -272,9 +261,9 @@ export function CapturedContext({ requestId }: { requestId: string }) {
               {t('SessionCapturedNotes')} · {state.data.messages.length}
             </summary>
             {state.data.messages.map((message) => (
-              <div key={`${message.messageId}-${message.versionId}`} className="session-prose">
+              <Notebook.Prose key={`${message.messageId}-${message.versionId}`}>
                 {message.text}
-              </div>
+              </Notebook.Prose>
             ))}
           </details>
           {state.data.excludedMessages > 0 && (
@@ -284,6 +273,90 @@ export function CapturedContext({ requestId }: { requestId: string }) {
           )}
         </>
       )}
-    </div>
+    </Notebook.Captured>
+  );
+}
+
+function MessageVersions({
+  message,
+  versionId,
+  open,
+  setOpen,
+  select
+}: {
+  message: Message;
+  versionId: VersionId;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  select: (id: VersionId) => void;
+}) {
+  const { t, date } = useI18n();
+
+  return (
+    <>
+      {message.versions.length > 1 && (
+        <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+          <summary>{t('SessionVersions')}</summary>
+          <Notebook.Actions
+            role="group"
+            aria-label={`${t(message.role === 'user' ? 'SessionNote' : 'SessionReply')} · ${date(message.createdAt)} · ${String(message.id)}`}
+          >
+            {message.versions.map((item) => (
+              <Button
+                key={String(item.id)}
+                size="sm"
+                aria-pressed={item.id === versionId}
+                variant={item.id === versionId ? 'secondary' : 'ghost'}
+                onClick={() => select(item.id)}
+              >
+                {t('ReaderVersion')} {String(item.number)}
+              </Button>
+            ))}
+          </Notebook.Actions>
+        </details>
+      )}
+    </>
+  );
+}
+
+function ProvenanceNotice({ state }: { state: string | undefined }) {
+  const { t } = useI18n();
+
+  if (state === 'manual') return <p>{t('SessionManualVersion')}</p>;
+
+  if (state === 'retired' || state === 'unavailable')
+    return <p>{t('SessionContextUnavailable')}</p>;
+
+  return null;
+}
+
+function hasReplyContext(message: Message, origin: string) {
+  return message.role === 'assistant' || (origin !== 'typed' && origin !== 'edited');
+}
+
+function ProvenanceFeedback({
+  provenance,
+  open
+}: {
+  provenance: ReturnType<
+    typeof useQuery<
+      Awaited<
+        ReturnType<Exclude<ReturnType<typeof provenanceOptions>['queryFn'], undefined | symbol>>
+      >
+    >
+  >;
+  open: boolean;
+}) {
+  const { t } = useI18n();
+  const receipt = provenance.isError ? undefined : provenance.data;
+
+  return (
+    <>
+      {open ? provenance.isPending ? <Loading label={t('LoadingStudy')} /> : null : null}
+      {provenance.error && (
+        <SessionReadError error={provenance.error} retry={() => void provenance.refetch()} />
+      )}
+      <ProvenanceNotice state={receipt?.state} />
+    </>
   );
 }

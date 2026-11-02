@@ -1,35 +1,31 @@
 import type {
-  createManualDocumentSchema,
   documentComparisonSchema,
-  documentEditOutcomeSchema,
-  saveDocumentInputSchema,
   undoDocumentInputSchema
 } from '@study/contracts/materials/editing';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
-import { plainBlock } from '@study/contracts/sources/document';
-import type { documentSchema } from '@study/contracts/sources/schemas';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
+import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
 import { Textarea } from '@study/ui/textarea';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
 import { request } from '../../lib/study-client/request';
-import { DocumentReader } from '../material-library/document-reader';
-import { BlockEditor, blankDocument, authoredCopy } from './block-editor';
+import { DocumentReader } from '../document-presentation';
+import { BlockEditor, authoredCopy } from './block-editor';
 import { CreationLibraryReview } from './creation-library-review';
+import { useDocumentCreation, useDocumentEditor } from './document-editing.queries';
 
 type Comparison = typeof documentComparisonSchema.Type;
-type Outcome = typeof documentEditOutcomeSchema.Type;
+
+type Creation = ReturnType<typeof useDocumentCreation>['initial'];
+
 export function ComparisonView({ value }: { value: Comparison }) {
   const { t } = useI18n();
+
   return (
-    <div className="document-comparison">
+    <DocumentEditing.Comparison>
       <p>{t('DocumentStructuralOnly')}</p>
       {(['before', 'proposed', 'current'] as const).map((kind) => (
         <details key={kind}>
@@ -47,40 +43,14 @@ export function ComparisonView({ value }: { value: Comparison }) {
           )}
         </details>
       ))}
-    </div>
+    </DocumentEditing.Comparison>
   );
 }
+
 export function NewDocument() {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const client = useQueryClient();
-  type Creation = {
-    title: string;
-    text: string;
-    busy: boolean;
-    error?: 'rejected' | 'uncertain';
-    createdId?: string;
-    submitted?: typeof createManualDocumentSchema.Type;
-  };
-  const creationKey = ['document-creation'];
-  const initial: Creation = { title: '', text: '', busy: false };
-  const creation = useQuery<Creation>({
-    queryKey: creationKey,
-    initialData: initial,
-    queryFn: () => initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const { title, text, busy, error, createdId, submitted } = creation.data;
-  function change(next: Partial<Creation>) {
-    client.setQueryData<Creation>(creationKey, (old) => ({ ...old!, ...next }));
-  }
-  const setTitle = (title: string) => change({ title });
-  const setText = (text: string) => change({ text });
-  const setBusy = (busy: boolean) => change({ busy });
-  const setError = (error: Creation['error']) => change({ error });
-  const setCreatedId = (createdId: string) => change({ createdId });
+  const view = useDocumentCreation();
+  const { t, open, setOpen, title, text, busy, error, createdId, setTitle, setText, submit } = view;
+
   return (
     <>
       <Button variant="ghost" onClick={() => setOpen((value) => busy || !value)}>
@@ -96,47 +66,7 @@ export function NewDocument() {
           <DialogHeader>
             <DialogTitle>{t('DocumentNew')}</DialogTitle>
           </DialogHeader>
-          <form
-            className="library-import"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const latest = client.getQueryData<Creation>(creationKey);
-              if (
-                latest?.busy ||
-                latest?.createdId ||
-                latest?.error === 'uncertain' ||
-                error === 'uncertain' ||
-                createdId ||
-                !title.trim() ||
-                !text.trim()
-              )
-                return;
-              const input: typeof createManualDocumentSchema.Type = {
-                title,
-                document: {
-                  ...blankDocument(),
-                  blocks: [plainBlock('paragraph', text, { type: 'authored' })]
-                }
-              };
-              change({ busy: true, error: undefined, submitted: input });
-              try {
-                const material = await request((rpc) =>
-                  rpc['materials.createManualDocument'](input)
-                );
-                setCreatedId(String(material.id));
-                await client.invalidateQueries({ queryKey: ['materials'] });
-                await navigate({
-                  to: '/materials/$materialId',
-                  params: { materialId: String(material.id) },
-                  search: {}
-                });
-              } catch (cause) {
-                setError(toStudyError(cause).kind === 'invalid_input' ? 'rejected' : 'uncertain');
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
+          <DocumentEditing.CreationForm onSubmit={submit}>
             <label>
               {t('DocumentTitle')}
               <Input value={title} onValueChange={setTitle} maxLength={200} disabled={busy} />
@@ -158,133 +88,54 @@ export function NewDocument() {
             >
               {t('DocumentCreate')}
             </Button>
-            {submitted && (error === 'uncertain' || createdId) && (
-              <section
-                aria-label={t('DocumentCreationSubmitted')}
-                className="space-y-2 rounded-md border border-border p-3"
-              >
-                <h3 className="text-sm font-medium">{t('DocumentCreationSubmitted')}</h3>
-                <p className="font-medium">{submitted.title}</p>
-                <DocumentReader document={submitted.document} />
-              </section>
-            )}
-            {createdId ? (
-              <div className="material-actions">
-                <Link to="/materials/$materialId" params={{ materialId: createdId }} search={{}}>
-                  {t('DocumentOpenCopy')}
-                </Link>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => client.setQueryData(creationKey, initial)}
-                >
-                  {t('LibraryStartAnother')}
-                </Button>
-              </div>
-            ) : (
-              error && (
-                <ErrorState
-                  title={t('ErrorStateTitle')}
-                  description={
-                    <>
-                      {t(
-                        error === 'rejected' ? 'DocumentCreateRejected' : 'DocumentCreateUncertain'
-                      )}
-                    </>
-                  }
-                />
-              )
-            )}
-            {error === 'uncertain' && !createdId && (
-              <CreationLibraryReview
-                busy={busy}
-                onResolve={() => {
-                  client.setQueryData<Creation>(creationKey, (old) =>
-                    old && !old.busy && !old.createdId && old.error === 'uncertain'
-                      ? { ...old, error: undefined, submitted: undefined }
-                      : old
-                  );
-                }}
-              />
-            )}
-          </form>
+            <CreationReceipt view={view} />
+          </DocumentEditing.CreationForm>
         </DialogPopup>
       </Dialog>
     </>
   );
 }
-export function DocumentActions({
-  version,
-  current
-}: {
-  version: MaterialVersionDetailDto;
-  current: MaterialVersionDetailDto['id'];
-}) {
-  const { t } = useI18n();
-  const client = useQueryClient();
-  const content = version.content;
-  const document =
-    content.kind === 'document'
-      ? content
-      : 'extracted' in content
-        ? content.extracted?.document
-        : undefined;
-  // User-authored drafts and exact retry receipts live until explicit discard.
-  client.setQueryDefaults(['document-editor'], { gcTime: Infinity });
-  const draftKey = ['document-editor', String(version.material_id), String(version.id)];
-  const [draft, setDraft] = useState<typeof documentSchema.Type | undefined>(() =>
-    client.getQueryData(draftKey)
-  );
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-  const [outcome, setOutcomeState] = useState<Outcome | undefined>(() =>
-    client.getQueryData([...draftKey, 'outcome'])
-  );
-  function setOutcome(value: Outcome | undefined) {
-    setOutcomeState(value);
-    client.setQueryData([...draftKey, 'outcome'], value);
-    if (!value) client.removeQueries({ queryKey: [...draftKey, 'outcome'], exact: true });
-  }
-  const [comparison, setComparison] = useState<Comparison>();
-  const [savedCopy, setSavedCopy] = useState<string>();
-  const saveKey = useRef(
-    client.getQueryData<string>([...draftKey, 'save-key']) ?? crypto.randomUUID()
-  );
-  client.setQueryData([...draftKey, 'save-key'], saveKey.current);
-  const [pendingSave, setPendingSave] = useState<typeof saveDocumentInputSchema.Type | undefined>(
-    () => client.getQueryData([...draftKey, 'pending-save'])
-  );
-  const [undoOutcome, setUndoOutcome] = useState<Outcome | undefined>(() =>
-    client.getQueryData([...draftKey, 'undo-outcome'])
-  );
-  const lock = useRef(false);
-  function change(value: typeof documentSchema.Type) {
-    setDraft(value);
-    client.setQueryData(draftKey, value);
-    saveKey.current = crypto.randomUUID();
-    client.setQueryData([...draftKey, 'save-key'], saveKey.current);
-    setOutcome(undefined);
-    setComparison(undefined);
-  }
-  async function run(action: () => Promise<void>) {
-    if (lock.current) return;
-    lock.current = true;
-    setBusy(true);
-    setError(false);
-    try {
-      await action();
-    } catch {
-      setError(true);
-    } finally {
-      lock.current = false;
-      setBusy(false);
-    }
-  }
+
+type DocumentEditor = ReturnType<typeof useDocumentEditor>;
+
+export function DocumentActions(props: Parameters<typeof useDocumentEditor>[0]) {
+  const view = useDocumentEditor(props);
+  const { t, document } = view;
+
   if (!document) return null;
+
   return (
-    <section className="reader-history document-writing">
+    <DocumentEditing.Editor>
       <h2>{t('DocumentEditing')}</h2>
+      <DocumentEditEntry view={view} />
+      <DocumentDraft view={view} />
+      <DocumentSavedActions view={view} />
+      <DocumentCopyStatus view={view} />
+    </DocumentEditing.Editor>
+  );
+}
+
+function DocumentEditEntry({ view }: { view: DocumentEditor }) {
+  const {
+    t,
+    client,
+    content,
+    document,
+    version,
+    current,
+    draft,
+    busy,
+    error,
+    savedCopy,
+    setSavedCopy,
+    change,
+    run
+  } = view;
+
+  if (!document) return null;
+
+  return (
+    <>
       {content.kind === 'document' && version.id === current && !draft && (
         <Button onClick={() => change(structuredClone(document))}>{t('DocumentEdit')}</Button>
       )}
@@ -300,6 +151,7 @@ export function DocumentActions({
                   inputVersionId: version.id
                 })
               );
+
               setSavedCopy(String(copy.id));
               await client.invalidateQueries({ queryKey: ['materials'] });
             })
@@ -308,6 +160,33 @@ export function DocumentActions({
           {t('DocumentEditCopy')}
         </Button>
       )}
+    </>
+  );
+}
+
+function DocumentDraft({ view }: { view: DocumentEditor }) {
+  const {
+    t,
+    client,
+    document,
+    version,
+    draftKey,
+    draft,
+    busy,
+    outcome,
+    setOutcome,
+    saveKey,
+    pendingSave,
+    setPendingSave,
+    change,
+    run,
+    discard
+  } = view;
+
+  if (!document) return null;
+
+  return (
+    <>
       {draft && (
         <>
           <BlockEditor
@@ -325,9 +204,11 @@ export function DocumentActions({
                   saveKey: saveKey.current,
                   document: draft
                 };
+
                 setPendingSave(input);
                 client.setQueryData([...draftKey, 'pending-save'], input);
                 const result = await request((rpc) => rpc['materials.saveDocument'](input));
+
                 setOutcome(result);
                 await client.invalidateQueries({ queryKey: ['materials'] });
               })
@@ -335,22 +216,31 @@ export function DocumentActions({
           >
             {t('DocumentSave')}
           </Button>
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => {
-              setDraft(undefined);
-              client.removeQueries({ queryKey: draftKey });
-              setOutcome(undefined);
-              setPendingSave(undefined);
-              setUndoOutcome(undefined);
-              saveKey.current = crypto.randomUUID();
-            }}
-          >
+          <Button variant="ghost" disabled={busy} onClick={discard}>
             {t('DocumentCloseDraft')}
           </Button>
         </>
       )}
+    </>
+  );
+}
+
+function DocumentSavedActions({ view }: { view: DocumentEditor }) {
+  const {
+    t,
+    client,
+    version,
+    draftKey,
+    busy,
+    outcome,
+    setComparison,
+    undoOutcome,
+    setUndoOutcome,
+    run
+  } = view;
+
+  return (
+    <>
       {outcome && (
         <p role="status">
           {t(outcome.outcome === 'conflict' ? 'DocumentConflict' : 'DocumentSaved')}
@@ -390,8 +280,10 @@ export function DocumentActions({
                 restoreVersionId: version.id,
                 undoKey: crypto.randomUUID()
               };
+
               client.setQueryData([...draftKey, 'undo-input'], input);
               const result = await request((rpc) => rpc['materials.undoDocument'](input));
+
               client.setQueryData([...draftKey, 'undo-outcome'], result);
               setUndoOutcome(result);
               await client.invalidateQueries({ queryKey: ['materials'] });
@@ -406,6 +298,18 @@ export function DocumentActions({
           {t(undoOutcome.outcome === 'saved' ? 'DocumentUndone' : 'DocumentUndoConflict')}
         </p>
       )}
+    </>
+  );
+}
+
+function DocumentCopyStatus({ view }: { view: DocumentEditor }) {
+  const { t, document, draft, busy, error, outcome, comparison, savedCopy, setSavedCopy, run } =
+    view;
+
+  if (!document) return null;
+
+  return (
+    <>
       {outcome?.outcome === 'conflict' && draft && (
         <Button
           disabled={busy || error || !!savedCopy}
@@ -418,6 +322,7 @@ export function DocumentActions({
                   inputVersionId: outcome.submittedVersionId
                 })
               );
+
               setSavedCopy(String(copy.id));
             })
           }
@@ -434,6 +339,60 @@ export function DocumentActions({
       {error && (
         <ErrorState title={t('ErrorStateTitle')} description={<> {t('DocumentActionFailed')} </>} />
       )}
-    </section>
+    </>
+  );
+}
+
+function CreationReceipt({ view }: { view: ReturnType<typeof useDocumentCreation> }) {
+  const { t, client, creationKey, initial, submitted, error, createdId, busy } = view;
+
+  return (
+    <>
+      {submitted && (error === 'uncertain' || createdId) && (
+        <DocumentEditing.Submitted aria-label={t('DocumentCreationSubmitted')}>
+          <DocumentEditing.SubmittedHeading>
+            {t('DocumentCreationSubmitted')}
+          </DocumentEditing.SubmittedHeading>
+          <DocumentEditing.SubmittedTitle>{submitted.title}</DocumentEditing.SubmittedTitle>
+          <DocumentReader document={submitted.document} />
+        </DocumentEditing.Submitted>
+      )}
+      {createdId ? (
+        <DocumentEditing.Actions>
+          <Link to="/materials/$materialId" params={{ materialId: createdId }} search={{}}>
+            {t('DocumentOpenCopy')}
+          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => client.setQueryData(creationKey, initial)}
+          >
+            {t('LibraryStartAnother')}
+          </Button>
+        </DocumentEditing.Actions>
+      ) : (
+        error && (
+          <ErrorState
+            title={t('ErrorStateTitle')}
+            description={
+              <>{t(error === 'rejected' ? 'DocumentCreateRejected' : 'DocumentCreateUncertain')}</>
+            }
+          />
+        )
+      )}
+      {error === 'uncertain' && !createdId && (
+        <CreationLibraryReview
+          busy={busy}
+          onResolve={() => {
+            client.setQueryData<Creation>(creationKey, (old) =>
+              old && !old.busy && !old.createdId && old.error === 'uncertain'
+                ? { ...old, error: undefined, submitted: undefined }
+                : old
+            );
+          }}
+        />
+      )}
+    </>
   );
 }

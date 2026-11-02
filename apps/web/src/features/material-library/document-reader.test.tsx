@@ -7,9 +7,10 @@ import { Schema } from 'effect';
 import { expect, it } from 'vite-plus/test';
 
 import { LanguageProvider } from '../../lib/i18n';
-import { DocumentReader } from './document-reader';
+import { DocumentReader } from '../document-presentation';
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
+
 function document(contents: BlockContent[]): typeof documentSchema.Type {
   return {
     blocks: contents.map((content, index) => ({
@@ -77,8 +78,9 @@ it('preserves heading, inline marks, table paragraphs, code, list nesting and st
       ])}
     />
   );
+
   expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('A heading');
-  expect(container.querySelector('strong em')).toHaveTextContent('Important');
+  expect(container.querySelector('em strong')).toHaveTextContent('Important');
   expect(container.querySelector('th')?.querySelectorAll('p')).toHaveLength(2);
   expect(container.querySelector('script')).toBeNull();
   expect(container.querySelector('pre code')).toHaveTextContent('<script>not executed</script>');
@@ -99,6 +101,7 @@ it('discloses omissions and unavailable exact image revisions in both languages 
       <DocumentReader document={document([image])} />
     </LanguageProvider>
   );
+
   expect(screen.getByText(catalogs.english.ReaderImageUnavailable)).toBeInTheDocument();
   expect(screen.getByText(catalogs.english.ReaderOmitNestedTable)).toBeInTheDocument();
   expect(container.querySelector('img')).toBeNull();
@@ -139,6 +142,7 @@ it('keeps parent continuations after intervening nested list content', () => {
     />
   );
   const item = container.querySelector('.material-prose section > ul > li');
+
   expect(Array.from(item?.children ?? []).map((child) => child.textContent)).toEqual([
     'Before',
     'Child',

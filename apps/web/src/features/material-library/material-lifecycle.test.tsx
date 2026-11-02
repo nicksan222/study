@@ -31,6 +31,7 @@ it('recovers failed durable deletion on a fresh reader whose content is already 
     errorKind: 'transient',
     completedAt: null
   });
+
   rpc['materials.material'].mockReturnValue(Effect.fail(new StudyError('not_found', 'Retired')));
   rpc['materials.deletion'].mockReturnValue(Effect.succeed(operation));
   rpc['materials.retryDeletion'].mockReturnValue(
@@ -39,6 +40,7 @@ it('recovers failed durable deletion on a fresh reader whose content is already 
   mountLibraryRoute('/materials/41', rpc);
   const user = userEvent.setup();
   const recovery = await screen.findByRole('region', { name: catalogs.english.DocumentDelete });
+
   await within(recovery).findByText(catalogs.english.DocumentCleanupFailed);
   await user.click(
     within(recovery).getByRole('button', { name: catalogs.english.DocumentRetryCleanup })
@@ -81,6 +83,7 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
       .fn<StudyClient['materials.requestHistoryPrune']>()
       .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
   };
+
   // Subsequent requests emulate the durable server receipt, including replay of the same input.
   rpc['materials.requestHistoryPrune'].mockImplementation(
     ({ operationId, materialId, policy, candidateIds }) =>
@@ -109,6 +112,7 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
     );
   let view = mount();
   const user = userEvent.setup();
+
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
   await user.click(
@@ -117,6 +121,7 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
   await screen.findByRole('alert');
   expect(screen.queryByRole('button', { name: catalogs.english.DocumentPruneNext })).toBeNull();
   const first = rpc['materials.requestHistoryPrune'].mock.calls[0]![0];
+
   view.unmount();
   view = mount();
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
@@ -145,6 +150,7 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
   );
   await screen.findByText(catalogs.english.DocumentCleanupCompleted);
   const next = rpc['materials.requestHistoryPrune'].mock.calls[2]![0];
+
   expect(next.operationId).not.toBe(first.operationId);
   expect(next.token).toBe('b'.repeat(64));
   expect(next.candidateIds).toEqual([versionId('100')]);

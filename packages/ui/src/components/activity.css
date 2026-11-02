@@ -185,7 +185,7 @@
 .activity-empty-footer > a {
   flex-shrink: 0;
 }
-.activity-empty-copy {
+.activity-empty-footer > div {
   min-width: 0;
 }
 .activity-empty h4 {
@@ -193,7 +193,7 @@
   line-height: 1.5rem;
   font-weight: 500;
 }
-.activity-empty-copy p {
+.activity-empty-footer > div p {
   max-width: 65ch;
   margin-top: 0.25rem;
   color: var(--contrast-muted-foreground);

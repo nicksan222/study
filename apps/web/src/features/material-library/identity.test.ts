@@ -10,6 +10,7 @@ it('validates route identities instead of accepting numeric prefixes or nonposit
     expect(() => materialId(input)).toThrow();
     expect(() => versionId(input)).toThrow();
   }
+
   expect(materialId('12')).toBe(12n);
   expect(versionId('42')).toBe(Schema.decodeUnknownSync(materialVersionIdSchema)(42n));
 });
@@ -21,6 +22,7 @@ it('does not confuse Source identity with Material identity or titles during bou
     { id: materialId('7'), title: 'Same title', importProcessing: { sourceId: otherSourceId } },
     { id: materialId('99'), title: 'Renamed', importProcessing: { sourceId } }
   ] as MaterialSummaryDto[];
+
   expect(acceptedMaterial({ id: sourceId }, visible)?.id).toBe(99n);
   expect(acceptedMaterial({ id: sourceId }, visible.slice(0, 1))).toBeUndefined();
   expect(acceptedMaterial({ id: sourceId }, [])).toBeUndefined();

@@ -7,13 +7,15 @@ import { Schema } from 'effect';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { Composer } from './composer';
+import type * as SessionQueries from './session-workspace.queries';
 import { ask, saveNote } from './session-workspace.queries';
 
 vi.mock('../../lib/i18n', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
 }));
 vi.mock('./session-workspace.queries', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./session-workspace.queries')>();
+  const actual = await importOriginal<typeof SessionQueries>();
+
   return {
     ...actual,
     ask: vi.fn(),
@@ -24,7 +26,9 @@ vi.mock('./session-workspace.queries', async (importOriginal) => {
     })
   };
 });
+
 const id = Schema.decodeUnknownSync(sessionIdSchema)(9007199254740993n);
+
 const receipt = Schema.decodeUnknownSync(askResultSchema)({
   sessionId: id,
   requestId: 'request-exact',
@@ -33,7 +37,9 @@ const receipt = Schema.decodeUnknownSync(askResultSchema)({
   userMessageId: 1n,
   userVersionId: 2n
 });
+
 beforeEach(() => vi.clearAllMocks());
+
 function mount(
   cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
@@ -48,8 +54,10 @@ function mount(
     )
   };
 }
+
 it('uses one atomic Ask call and keeps later unsent typing after the receipt', async () => {
   let resolve!: (value: typeof receipt) => void;
+
   vi.mocked(ask).mockImplementation(
     () =>
       new Promise((accept) => {
@@ -76,16 +84,19 @@ it('uses one atomic Ask call and keeps later unsent typing after the receipt', a
   await act(async () => resolve(receipt));
   await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('Later draft'));
 });
+
 it('recovers an ambiguous Ask after navigation using its original payload and intent key', async () => {
   vi.mocked(ask)
     .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
     .mockResolvedValueOnce(receipt);
   const first = mount();
+
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Original question' } });
   await waitFor(() => expect(screen.getByRole('button', { name: 'SessionAsk' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
   await screen.findByRole('alert');
   const submitted = vi.mocked(ask).mock.calls[0]![0];
+
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Do not send this yet' } });
   first.unmount();
   mount(first.cache);
@@ -96,6 +107,7 @@ it('recovers an ambiguous Ask after navigation using its original payload and in
   expect(saveNote).not.toHaveBeenCalled();
   await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('Do not send this yet'));
 });
+
 it('does not automatically resubmit a note whose save was not confirmed', async () => {
   vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
   mount();
@@ -110,8 +122,10 @@ it('does not automatically resubmit a note whose save was not confirmed', async 
   expect(screen.getByRole('textbox')).toHaveValue('Keep this note');
   expect(ask).not.toHaveBeenCalled();
 });
+
 it('blocks Ask while exact selection edits remain unsaved', async () => {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   cache.setQueryData(['session-drafts', String(id), 'selection'], { revision: 8n, targets: [] });
   mount(cache);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Question' } });
@@ -127,6 +141,7 @@ it('saves a note with the primary keyboard shortcut without asking for a reply',
   await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'Rough lecture notes', []));
   expect(ask).not.toHaveBeenCalled();
 });
+
 it('keeps Enter and composition keystrokes in the notebook editor', () => {
   mount();
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'First line' } });

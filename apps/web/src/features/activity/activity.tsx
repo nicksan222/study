@@ -1,33 +1,26 @@
 import type { ErrorKind } from '@study/contracts/errors';
-import type { executionSchema, executionsPageSchema } from '@study/contracts/workflows/schemas';
+import type { executionSchema } from '@study/contracts/workflows/schemas';
 import type { StaticMessageKey } from '@study/localization';
+import { ActivityPanel } from '@study/ui/activity';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import {
-  Activity as ActivityIcon,
-  ArrowRight,
-  AudioLines,
-  BookOpen,
-  Check,
-  FileText,
-  ScanText,
-  ChevronDown,
-  Clock3,
-  RefreshCw
-} from 'lucide-react';
+import { Activity as ActivityIcon, ArrowRight, Clock3, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
-import './activity.css';
-
 import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
+import {
+  activityPagesOptions,
+  activityExecutionOptions,
+  cancelExecutionOptions
+} from './activity.queries';
 
 type Execution = typeof executionSchema.Type;
-type Cursor = typeof executionsPageSchema.Type.next;
+
 const workflowLabels: Readonly<Partial<Record<string, StaticMessageKey>>> = {
   'source-ingestion': 'workspace.task.source-ingestion',
   'source-correction': 'workspace.task.source-correction',
@@ -63,35 +56,21 @@ const failureGuidance: Readonly<Record<ErrorKind, StaticMessageKey>> = {
 export function activityState(item: Execution) {
   return item.outcome === 'failure' ? 'failure' : item.status;
 }
+
 export function Activity() {
   const { t, date } = useI18n();
   const client = useQueryClient();
   const [selected, select] = useState<Execution['id']>();
-  const list = useInfiniteQuery({
-    queryKey: ['activity', 'pages'],
-    initialPageParam: null as Cursor,
-    queryFn: ({ pageParam, signal }) =>
-      request(
-        (c) => c['workflows.executions']({ limit: 20, before: pageParam ?? undefined }),
-        signal
-      ),
-    getNextPageParam: (page) => page.next ?? undefined,
-    refetchInterval: 5000
-  });
-  const detail = useQuery({
-    queryKey: ['activity', selected],
-    enabled: selected !== undefined,
-    queryFn: ({ signal }) => request((c) => c['workflows.execution']({ id: selected! }), signal),
-    refetchInterval: 5000
-  });
+  const list = useInfiniteQuery(activityPagesOptions());
+  const detail = useQuery(activityExecutionOptions(selected));
   const cancel = useMutation({
-    mutationFn: (id: Execution['id']) =>
-      request((c) => c['workflows.cancelExecution']({ id, mode: 'safe' })),
+    ...cancelExecutionOptions(),
     onSettled: () => client.invalidateQueries({ queryKey: ['activity'] })
   });
+
   return (
-    <div className="activity-page">
-      <div className="activity-body">
+    <ActivityPanel.Root>
+      <ActivityPanel.Body>
         <Settings.Section
           title={t('workspace.activityTitle')}
           actions={
@@ -110,84 +89,45 @@ export function Activity() {
             {list.isPending && <Loading layout="panel" label={t('collections.loading')} />}
             {list.isError && <ErrorState title={t('collections.readError')} />}
             {!list.isError && list.data?.pages.every((page) => page.items.length === 0) && (
-              <div className="activity-empty">
-                <ol className="activity-flow">
-                  <li className="activity-flow-step">
-                    <div className="activity-flow-preview activity-flow-files" aria-hidden="true">
-                      <span className="activity-file-back">
-                        <AudioLines />
-                      </span>
-                      <span className="activity-file-front">
-                        <FileText />
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    </div>
-                    <span>{t('workspace.activityImport')}</span>
-                    <p>{t('workspace.activityImportHelp')}</p>
-                    <ArrowRight className="activity-flow-arrow" aria-hidden="true" />
-                  </li>
-                  <li className="activity-flow-step">
-                    <div
-                      className="activity-flow-preview activity-flow-processing"
-                      aria-hidden="true"
-                    >
-                      <span className="activity-scan">
-                        <ScanText />
-                      </span>
-                      <span className="activity-scan-lines">
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    </div>
-                    <span>{t('workspace.activityProcess')}</span>
-                    <p>{t('workspace.activityProcessHelp')}</p>
-                    <ArrowRight className="activity-flow-arrow" aria-hidden="true" />
-                  </li>
-                  <li className="activity-flow-step">
-                    <div className="activity-flow-preview activity-flow-result" aria-hidden="true">
-                      <span className="activity-result">
-                        <BookOpen />
-                        <i />
-                        <i />
-                      </span>
-                      <span className="activity-result-check">
-                        <Check />
-                      </span>
-                    </div>
-                    <span>{t('workspace.activityReady')}</span>
-                    <p>{t('workspace.activityReadyHelp')}</p>
-                  </li>
-                </ol>
-                <div className="activity-empty-footer">
-                  <div className="activity-empty-copy">
-                    <h4>{t('workspace.activityEmptyTitle')}</h4>
-                    <p>{t('workspace.activityEmpty')}</p>
-                  </div>
-                  <Button variant="outline" size="sm" render={<Link to="/sessions" />}>
-                    {t('workspace.activityOpenSessions')}
-                    <ArrowRight aria-hidden="true" />
-                  </Button>
+              <ActivityPanel.Empty
+                stages={[
+                  {
+                    title: t('workspace.activityImport'),
+                    description: t('workspace.activityImportHelp')
+                  },
+                  {
+                    title: t('workspace.activityProcess'),
+                    description: t('workspace.activityProcessHelp')
+                  },
+                  {
+                    title: t('workspace.activityReady'),
+                    description: t('workspace.activityReadyHelp')
+                  }
+                ]}
+              >
+                <div>
+                  <h4>{t('workspace.activityEmptyTitle')}</h4>
+                  <p>{t('workspace.activityEmpty')}</p>
                 </div>
-              </div>
+                <Button variant="outline" size="sm" render={<Link to="/sessions" />}>
+                  {t('workspace.activityOpenSessions')}
+                  <ArrowRight aria-hidden="true" />
+                </Button>
+              </ActivityPanel.Empty>
             )}
-            <ul className="activity-list">
+            <ActivityPanel.List>
               {list.data?.pages
                 .flatMap((page) => page.items)
                 .map((item) => (
-                  <li key={item.id} className="activity-item">
-                    <Button
-                      variant="ghost"
+                  <ActivityPanel.Item key={item.id}>
+                    <ActivityPanel.Toggle
                       aria-expanded={selected === item.id}
                       onClick={() => select(selected === item.id ? undefined : item.id)}
-                      className="activity-row"
                     >
-                      <span className="activity-task-icon" aria-hidden="true">
+                      <ActivityPanel.Icon aria-hidden="true">
                         <ActivityIcon />
-                      </span>
-                      <span className="activity-row-copy">
+                      </ActivityPanel.Icon>
+                      <ActivityPanel.Copy>
                         {t(workflowLabels[item.workflow] ?? 'workspace.task.other')}
                         <time>
                           {item.createdAtMs >= -8_640_000_000_000_000n &&
@@ -195,76 +135,21 @@ export function Activity() {
                             ? date(item.createdAtMs / 1000n)
                             : t('workspace.dateUnavailable')}
                         </time>
-                      </span>
-                      <span className="activity-state" data-state={activityState(item)}>
+                      </ActivityPanel.Copy>
+                      <ActivityPanel.State state={activityState(item)}>
                         {t(`workspace.state.${activityState(item)}`)}
-                      </span>
-                      <ChevronDown className="activity-chevron" aria-hidden="true" />
-                    </Button>
-                    {selected === item.id && (
-                      <div className="activity-detail">
-                        {detail.isPending && <Loading label={t('collections.loading')} />}
-                        {detail.isError && (
-                          <ErrorState
-                            title={t('collections.readError')}
-                            action={
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void detail.refetch()}
-                              >
-                                {t('collections.retry')}
-                              </Button>
-                            }
-                          />
-                        )}
-                        {detail.data && !detail.isError && (
-                          <>
-                            <p className="activity-state" data-state={activityState(detail.data)}>
-                              {t(`workspace.state.${activityState(detail.data)}`)}
-                            </p>
-                            {detail.data.outcome === 'failure' && (
-                              <p className="max-w-prose text-muted-foreground">
-                                {t(failureGuidance[detail.data.failureKind ?? 'internal'])}
-                              </p>
-                            )}
-                            <details>
-                              <summary>{t('workspace.details')}</summary>
-                              <dl className="activity-metadata">
-                                <dt>{t('workspace.execution')}</dt>
-                                <dd>{detail.data.id}</dd>
-                                <dt>{t('workspace.workflow')}</dt>
-                                <dd>{detail.data.workflow}</dd>
-                                {detail.data.correlationId && (
-                                  <>
-                                    <dt>{t('workspace.context')}</dt>
-                                    <dd>{detail.data.correlationId}</dd>
-                                  </>
-                                )}
-                              </dl>
-                            </details>
-                            {detail.data.canCancel && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={cancel.isPending}
-                                onClick={() => cancel.mutate(detail.data.id)}
-                              >
-                                {t('collections.cancel')}
-                              </Button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </li>
+                      </ActivityPanel.State>
+                      <ActivityPanel.Chevron />
+                    </ActivityPanel.Toggle>
+                    {selected === item.id && <ActivityDetail detail={detail} cancel={cancel} />}
+                  </ActivityPanel.Item>
                 ))}
-            </ul>
+            </ActivityPanel.List>
           </Settings.Group>
-          <p className="activity-update-note">
+          <ActivityPanel.UpdateNote>
             <Clock3 aria-hidden="true" />
             {t('workspace.activityHelp')}
-          </p>
+          </ActivityPanel.UpdateNote>
         </Settings.Section>
         {cancel.isError && <ErrorState title={t('workspace.cancelError')} />}
         {list.hasNextPage && (
@@ -277,7 +162,71 @@ export function Activity() {
             {t('collections.more')}
           </Button>
         )}
-      </div>
-    </div>
+      </ActivityPanel.Body>
+    </ActivityPanel.Root>
+  );
+}
+
+function ActivityDetail({
+  detail,
+  cancel
+}: {
+  detail: UseQueryResult<Execution>;
+  cancel: { isPending: boolean; mutate: (id: Execution['id']) => void };
+}) {
+  const { t } = useI18n();
+
+  return (
+    <ActivityPanel.Detail>
+      {detail.isPending && <Loading label={t('collections.loading')} />}
+      {detail.isError && (
+        <ErrorState
+          title={t('collections.readError')}
+          action={
+            <Button variant="outline" size="sm" onClick={() => void detail.refetch()}>
+              {t('collections.retry')}
+            </Button>
+          }
+        />
+      )}
+      {detail.data && !detail.isError && (
+        <>
+          <ActivityPanel.State state={activityState(detail.data)}>
+            {t(`workspace.state.${activityState(detail.data)}`)}
+          </ActivityPanel.State>
+          {detail.data.outcome === 'failure' && (
+            <ErrorState
+              title={t('workspace.state.failure')}
+              description={t(failureGuidance[detail.data.failureKind ?? 'internal'])}
+            />
+          )}
+          <details>
+            <summary>{t('workspace.details')}</summary>
+            <ActivityPanel.Metadata>
+              <dt>{t('workspace.execution')}</dt>
+              <dd>{detail.data.id}</dd>
+              <dt>{t('workspace.workflow')}</dt>
+              <dd>{detail.data.workflow}</dd>
+              {detail.data.correlationId && (
+                <>
+                  <dt>{t('workspace.context')}</dt>
+                  <dd>{detail.data.correlationId}</dd>
+                </>
+              )}
+            </ActivityPanel.Metadata>
+          </details>
+          {detail.data.canCancel && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={cancel.isPending}
+              onClick={() => cancel.mutate(detail.data.id)}
+            >
+              {t('collections.cancel')}
+            </Button>
+          )}
+        </>
+      )}
+    </ActivityPanel.Detail>
   );
 }

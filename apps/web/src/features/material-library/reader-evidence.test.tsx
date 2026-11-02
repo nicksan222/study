@@ -67,11 +67,13 @@ it.each([
         .fn<StudyClient['materials.annotations']>()
         .mockReturnValue(Effect.succeed({ items: [], nextCursor: null }))
     };
+
     mountLibraryRoute('/materials/41?version=101', rpc);
     await userEvent.setup().click(await screen.findByText(catalogs.english.DocumentEvidence));
     expect(await screen.findByText(label)).toBeInTheDocument();
     expect(screen.getByText('My explicit reasoning')).toBeInTheDocument();
     const citation = screen.getByText('A disputed claim').closest('blockquote')!;
+
     expect(citation).toHaveTextContent(status);
     expect(citation).toHaveTextContent(catalogs.english.ReaderUnavailable);
     expect(screen.getByText(catalogs.english.DocumentEvidenceExplanation)).toBeInTheDocument();

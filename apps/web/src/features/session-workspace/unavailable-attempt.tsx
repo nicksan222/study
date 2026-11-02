@@ -1,6 +1,7 @@
 import type { SessionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { Notebook } from '@study/ui/session-workspace';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -24,15 +25,17 @@ export function UnavailableAttempt({
   const { t } = useI18n();
   const client = useQueryClient();
   const [review, setReview] = useState<'idle' | 'pending' | 'ready' | 'failed'>('idle');
+
   return (
-    <section className="session-attempt-recovery" aria-label={t('SessionAttemptUnavailable')}>
+    <Notebook.AttemptRecovery aria-label={t('SessionAttemptUnavailable')}>
       <p role="status">{t('SessionAttemptUnavailable')}</p>
-      <p className="session-muted">{t('SessionAbandonAttemptHelp')}</p>
+      <Notebook.Muted>{t('SessionAbandonAttemptHelp')}</Notebook.Muted>
       <Button
         variant="outline"
         disabled={busy || review === 'pending'}
         onClick={async () => {
           setReview('pending');
+
           try {
             await Promise.all([
               client.fetchQuery({ ...selectionOptions(id), staleTime: 0 }),
@@ -61,6 +64,6 @@ export function UnavailableAttempt({
           {t('SessionAbandonAttempt')}
         </Button>
       )}
-    </section>
+    </Notebook.AttemptRecovery>
   );
 }

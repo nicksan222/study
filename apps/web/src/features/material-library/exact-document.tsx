@@ -2,12 +2,13 @@ import type { DocumentId, MaterialVersionId } from '@study/contracts/ids';
 import type { documentSchema } from '@study/contracts/sources/schemas';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { Loading } from '@study/ui/loading';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
-import { DocumentReader } from './document-reader';
+import { DocumentReader } from '../document-presentation';
+import { exactImageOptions, exactDocumentOptions } from './material-library.queries';
 
 function ExactImage({
   id,
@@ -19,25 +20,28 @@ function ExactImage({
   block: (typeof documentSchema.Type.blocks)[number];
 }) {
   const { t } = useI18n();
-  const state = useQuery({
-    queryKey: ['materials', 'image', String(id), String(documentId), block.id],
-    queryFn: ({ signal }) =>
-      request(
-        (rpc) => rpc['materials.materialVersionImage']({ id, documentId, blockId: block.id }),
-        signal
-      ),
-    gcTime: 0,
-    retry: false
-  });
-  const [image, setImage] = useState<{ data: typeof state.data; url: string }>();
+  const state = useQuery(exactImageOptions(id, documentId, block.id));
+  const imageRef = useRef<HTMLImageElement>(null);
+
   useEffect(() => {
     const value = state.data;
-    if (!value) return;
+
+    const node = imageRef.current;
+
+    if (!value || !node || state.isError) return;
+
     const url = URL.createObjectURL(new Blob([new Uint8Array(value.bytes)], { type: value.mime }));
-    setImage({ data: value, url });
-    return () => URL.revokeObjectURL(url);
-  }, [state.data]);
+
+    node.src = url;
+
+    return () => {
+      node.removeAttribute('src');
+      URL.revokeObjectURL(url);
+    };
+  }, [state.data, state.isError]);
+
   if (block.content.type !== 'image') return null;
+
   return (
     <figure>
       {state.isError ? (
@@ -52,10 +56,10 @@ function ExactImage({
             </>
           }
         />
-      ) : image && image.data === state.data ? (
-        <img src={image.url} alt={block.content.alt} />
+      ) : state.data ? (
+        <img ref={imageRef} alt={block.content.alt} />
       ) : (
-        <p role="status">{t('LoadingStudy')}</p>
+        <Loading label={t('LoadingStudy')} />
       )}
       <figcaption>{block.content.alt}</figcaption>
     </figure>
@@ -64,11 +68,8 @@ function ExactImage({
 
 export function ExactDocument({ id }: { id: MaterialVersionId }) {
   const { t } = useI18n();
-  const state = useQuery({
-    queryKey: ['materials', 'document', String(id)],
-    queryFn: ({ signal }) =>
-      request((rpc) => rpc['materials.materialVersionDocument']({ id }), signal)
-  });
+  const state = useQuery(exactDocumentOptions(id));
+
   if (state.isError)
     return (
       <ErrorState
@@ -83,8 +84,11 @@ export function ExactDocument({ id }: { id: MaterialVersionId }) {
         }
       />
     );
-  if (!state.data) return <p role="status">{t('LoadingStudy')}</p>;
+
+  if (!state.data) return <Loading label={t('LoadingStudy')} />;
+
   const value = state.data;
+
   return (
     <DocumentReader
       document={value.document}

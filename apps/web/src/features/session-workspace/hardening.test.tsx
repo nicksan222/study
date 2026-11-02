@@ -29,7 +29,7 @@ import { History, CapturedContext } from './history';
 import { SelectionPanel } from './selection';
 import {
   executionOptions,
-  exactDocumentOptions,
+  sessionDocumentOptions,
   contextOptions,
   provenanceOptions,
   generationOptions,
@@ -60,6 +60,7 @@ const rpc = vi.hoisted(() => ({
   version: vi.fn(),
   document: vi.fn()
 }));
+
 vi.mock('../../lib/i18n', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
 }));
@@ -67,6 +68,7 @@ vi.mock('../../lib/study-client/client', async () => {
   const { Effect } = await import('effect');
   const call = (handler: (input: unknown) => unknown) => (input: unknown) =>
     Effect.tryPromise({ try: () => Promise.resolve(handler(input)), catch: (error) => error });
+
   return {
     studyClient: Effect.succeed({
       'conversations.session': call(rpc.session),
@@ -91,11 +93,16 @@ vi.mock('../../lib/study-client/client', async () => {
     })
   };
 });
+
 const id = Schema.decodeUnknownSync(sessionIdSchema)(9007199254740993n);
+
 const draftKey = ['session-drafts', String(id), 'selection'];
+
 const selection = (revision = 8n, targets: readonly unknown[] = []) =>
   Schema.decodeUnknownSync(sessionSelectionSchema)({ revision, targets });
+
 const target = (versionId: bigint) => ({ versionId, scope: { kind: 'document' } });
+
 const generation = (patch = {}) =>
   Schema.decodeUnknownSync(materialGenerationSnapshotSchema)({
     id: 'transform-1',
@@ -109,6 +116,7 @@ const generation = (patch = {}) =>
     resultVersionId: null,
     ...patch
   });
+
 const execution = (name: string) =>
   Schema.decodeUnknownSync(executionSchema)({
     id: name,
@@ -121,14 +129,19 @@ const execution = (name: string) =>
     createdAtMs: 1n,
     updatedAtMs: 2n
   });
+
 const caches: QueryClient[] = [];
+
 function cache() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
+
   caches.push(client);
+
   return client;
 }
+
 function mount(children: ReactNode, client = cache(), search = '') {
   const root = createRootRoute({
     validateSearch: (value) => value as { id?: string; project?: string },
@@ -140,11 +153,14 @@ function mount(children: ReactNode, client = cache(), search = '') {
     stringifySearch: stringifySearchWith(String),
     history: createMemoryHistory({ initialEntries: [`/${search}`] })
   });
+
   return { client, ...render(<RouterProvider router={router} />) };
 }
+
 async function openSection(name: string) {
   fireEvent.click(await screen.findByText(name));
 }
+
 function seedTransform(client: QueryClient) {
   rpc.generations.mockResolvedValue({
     items: [
@@ -168,6 +184,7 @@ function seedTransform(client: QueryClient) {
     runs: [{ id: 'transform-1', contextId: 'capture-1' }]
   });
 }
+
 beforeEach(() => {
   vi.resetAllMocks();
   rpc.sessions.mockResolvedValue({ items: [], next: null });
@@ -208,9 +225,11 @@ it.each(['pending', 'failed', 'completed'] as const)(
       attempt: 1,
       completedAt: status === 'completed' ? 2n : null
     });
+
     rpc.deletion.mockResolvedValue(receipt);
     rpc.retryDeletion.mockResolvedValue({ ...receipt, status: 'pending', attempt: 2 });
     mount(<SessionWorkspace />, cache(), `?id=${id}`);
+
     if (status === 'failed') {
       fireEvent.click(await screen.findByRole('button', { name: 'SessionRetryDelete' }));
       await waitFor(() => expect(rpc.retryDeletion).toHaveBeenCalledWith({ id }));
@@ -218,6 +237,7 @@ it.each(['pending', 'failed', 'completed'] as const)(
     } else {
       await screen.findByText(status === 'pending' ? 'SessionDeleting' : 'SessionDeleted');
     }
+
     expect(rpc.deletion).toHaveBeenCalledWith({ id });
     expect(screen.queryByRole('button', { name: 'SessionAsk' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'SessionConfirmDelete' })).not.toBeInTheDocument();
@@ -228,6 +248,7 @@ it.each(['pending', 'failed', 'completed'] as const)(
 it('requires successful list review and deliberate acknowledgment before another ambiguous create', async () => {
   rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
   const first = mount(<SessionWorkspace />);
+
   fireEvent.click(await screen.findByRole('button', { name: 'SessionNew' }));
   await screen.findByText('SessionCreationUncertain');
   first.unmount();
@@ -272,15 +293,19 @@ it('persists an ambiguous retry key across remounts and waits for its exact exec
     .mockRejectedValueOnce(new StudyError('transient', 'Receipt lost'))
     .mockResolvedValue(generation());
   const client = cache();
+
   seedTransform(client);
   const first = mount(<Transformation id={id} />, client);
+
   await openSection('SessionTransform');
   fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(screen.getAllByRole('button', { name: 'Retry' }).length).toBe(2));
   const original = rpc.retryGeneration.mock.calls[0]![0];
+
   first.unmount();
   const second = mount(<Transformation id={id} />, client);
+
   await openSection('SessionTransform');
   fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(2));
@@ -314,6 +339,7 @@ it('persists an ambiguous retry key across remounts and waits for its exact exec
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   await act(async () => {
     const failed = execution('retry-failure');
+
     client.setQueryData(executionOptions('transform-1').queryKey, { items: [failed], next: null });
     client.setQueryData(executionOptions('transform-1', original.retryId).queryKey, {
       items: [failed],
@@ -329,6 +355,7 @@ it('keeps cancelled transforms terminal and offers a fresh transform instead', a
   rpc.generation.mockResolvedValue(generation({ cancelled: true }));
   rpc.executions.mockResolvedValue({ items: [execution('old-failure')], next: null });
   const client = cache();
+
   seedTransform(client);
   mount(<Transformation id={id} />, client);
   await openSection('SessionTransform');
@@ -344,21 +371,25 @@ it('keeps cancelled transforms terminal and offers a fresh transform instead', a
 
 it('invalidates cached Library and selection search once per committed publication across remounts', async () => {
   const client = cache();
+
   seedTransform(client);
   const libraryKey = ['materials', 'library', undefined];
   const searchKey = ['session-material-search', 'Derivative'];
+
   client.setQueryData(libraryKey, {
     pages: [{ items: [], nextCursor: null }],
     pageParams: [undefined]
   });
   client.setQueryData(searchKey, { hits: [] });
   const first = mount(<Transformation id={id} />, client);
+
   await openSection('SessionTransform');
   await waitFor(() => expect(rpc.generation).toHaveBeenCalled());
   await waitFor(() =>
     expect(client.isFetching({ queryKey: ['session-generation', 'transform-1'] })).toBe(0)
   );
   const invalidations = vi.spyOn(client, 'invalidateQueries');
+
   await act(async () => {
     client.setQueryData(
       generationOptions('transform-1').queryKey,
@@ -382,6 +413,7 @@ it.each([false, true])(
   'preserves newer selection drafts and monotonic canonical revisions (newer receipt: %s)',
   async (newerReceipt) => {
     let resolve!: (value: ReturnType<typeof selection>) => void;
+
     rpc.updateSelection.mockImplementation(
       () =>
         new Promise((accept) => {
@@ -390,8 +422,10 @@ it.each([false, true])(
     );
     const client = cache();
     const submitted = selection(8n, [target(11n)]);
+
     client.setQueryData(draftKey, submitted);
     const first = mount(<SelectionPanel id={id} />, client);
+
     await openSection('SessionSelection');
     fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveSelection' }));
     await waitFor(() =>
@@ -409,10 +443,13 @@ it.each([false, true])(
     await waitFor(() => expect(client.isFetching()).toBe(0));
     // Model a newer cache writer while the original observer is unmounted.
     const later = selection(newerReceipt ? 10n : 8n, [target(12n)]);
+
     await act(async () => {
       client.setQueryData(draftKey, later);
+
       if (newerReceipt)
         client.setQueryData(selectionOptions(id).queryKey, selection(10n, [target(13n)]));
+
       resolve(selection(9n, submitted.targets));
     });
     await waitFor(() =>
@@ -453,6 +490,7 @@ it('exposes operation toggle state and contextual version groups', async () => {
         createdAt: 1n
       }))
     });
+
   rpc.thread.mockResolvedValue({ items: [message(1n), message(2n)], next: null });
   mount(
     <>
@@ -462,16 +500,21 @@ it('exposes operation toggle state and contextual version groups', async () => {
     client
   );
   await openSection('SessionTransform');
+
   for (const summary of await screen.findAllByText('SessionVersions', { selector: 'summary' }))
     fireEvent.click(summary);
+
   const clarity = await screen.findByRole('button', { name: 'SessionOpClarity' });
+
   expect(clarity).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(clarity);
   await waitFor(() => expect(clarity).toHaveAttribute('aria-pressed', 'false'));
   const groups = await screen.findAllByRole('group', { name: /^SessionNote/ });
+
   expect(groups).toHaveLength(2);
   expect(groups[0]!.getAttribute('aria-label')).not.toBe(groups[1]!.getAttribute('aria-label'));
   const group = within(groups[0]!);
+
   expect(group.getByRole('button', { name: 'ReaderVersion 2' })).toHaveAttribute(
     'aria-pressed',
     'true'
@@ -491,11 +534,14 @@ it('exposes exact block selection state and saves canonical native Document targ
   rpc.materials.mockResolvedValue({ items: [summary()], nextCursor: null });
   rpc.updateSelection.mockImplementation(({ targets }) => selection(9n, targets));
   const client = cache();
+
   mount(<SelectionPanel id={id} />, client);
   await openSection('SessionSelection');
   const choice = await screen.findByText('Material 41 · ReaderVersion 2');
+
   fireEvent.click(choice);
   const block = await screen.findByRole('button', { name: 'SessionUseBlock · b0' });
+
   expect(block).toHaveAttribute('aria-pressed', 'false');
   fireEvent.click(block);
   await waitFor(() => expect(block).toHaveAttribute('aria-pressed', 'true'));
@@ -515,11 +561,14 @@ it('exposes exact block selection state and saves canonical native Document targ
 
 it('clears only the submitted selection draft after a late receipt across navigation', async () => {
   const pending = deferred<ReturnType<typeof selection>>();
+
   rpc.updateSelection.mockReturnValue(pending.promise);
   const client = cache();
   const submitted = selection(8n, [target(11n)]);
+
   client.setQueryData(draftKey, submitted);
   const first = mount(<SelectionPanel id={id} />, client);
+
   await openSection('SessionSelection');
   fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveSelection' }));
   await waitFor(() => expect(rpc.updateSelection).toHaveBeenCalledTimes(1));
@@ -539,6 +588,7 @@ it.each([undefined, null, Schema.decodeUnknownSync(projectIdSchema)(900719925474
   async (project) => {
     const client = cache();
     const options = sessionPagesOptions(project);
+
     await client.fetchInfiniteQuery(options);
     expect(rpc.sessions).toHaveBeenCalledWith({ limit: 30, project, before: undefined });
     expect(options.queryKey).not.toEqual(
@@ -558,10 +608,12 @@ it('uses the routed project filter before pagination and trusts the server page'
     createdAt: 1n,
     updatedAt: 2n
   });
+
   rpc.sessions
     .mockResolvedValueOnce({ items: [item], next: cursor })
     .mockResolvedValue({ items: [], next: null });
   const client = cache();
+
   client.setQueryData(['session-workspace', 'creation'], { uncertain: true });
   mount(<SessionWorkspace />, client, `?project=${project}`);
   expect(await screen.findByText('Server-selected session')).toBeInTheDocument();
@@ -576,8 +628,10 @@ it('keeps global, projectless and membership pages in distinct query-cache entri
   const client = cache();
   const project = Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n);
   const filters = [undefined, null, project];
+
   for (const filter of filters)
     await client.fetchInfiniteQuery({ ...sessionPagesOptions(filter), staleTime: Infinity });
+
   expect(rpc.sessions).toHaveBeenCalledTimes(3);
   expect(client.getQueryCache().findAll({ queryKey: ['sessions', 'pages'] })).toHaveLength(3);
   expect(sessionPagesOptions().queryKey).toEqual(sessionPagesOptions(undefined).queryKey);
@@ -608,6 +662,7 @@ it('queries citations for the exact viewed historical version, with no active-ve
       createdAt: 1n
     }))
   });
+
   rpc.thread.mockResolvedValue({ items: [message], next: null });
   rpc.citations.mockImplementation(({ versionId }) =>
     Promise.resolve({
@@ -651,23 +706,25 @@ it('queries citations for the exact viewed historical version, with no active-ve
 it('removes cached exact picker content after a failed refresh and retries the same version', async () => {
   rpc.materials.mockResolvedValue({ items: [summary()], nextCursor: null });
   const client = cache();
+
   mount(<SelectionPanel id={id} />, client);
   await openSection('SessionSelection');
   fireEvent.click(await screen.findByText('Material 41 · ReaderVersion 2'));
   expect(await screen.findByRole('button', { name: 'SessionUseBlock · b0' })).toBeEnabled();
   const versionId = summary().version.id;
+
   rpc.document.mockRejectedValue(new StudyError('not_found', 'Retired'));
   await act(async () => {
-    await client.invalidateQueries({ queryKey: exactDocumentOptions(versionId).queryKey });
+    await client.invalidateQueries({ queryKey: sessionDocumentOptions(versionId).queryKey });
   });
   await waitFor(() =>
     expect(screen.queryByRole('button', { name: 'SessionUseBlock · b0' })).toBeNull()
   );
   expect(screen.queryByRole('button', { name: 'SessionUseWhole' })).toBeNull();
-  expect(client.getQueryData(exactDocumentOptions(versionId).queryKey)).toBeDefined();
+  expect(client.getQueryData(sessionDocumentOptions(versionId).queryKey)).toBeDefined();
   rpc.document.mockImplementation(({ id: requested }) => exactDocument(requested));
   await act(async () => {
-    await client.refetchQueries({ queryKey: exactDocumentOptions(versionId).queryKey });
+    await client.refetchQueries({ queryKey: sessionDocumentOptions(versionId).queryKey });
   });
   expect(await screen.findByRole('button', { name: 'SessionUseBlock · b0' })).toBeEnabled();
   expect(rpc.document.mock.calls.every(([input]) => input.id === versionId)).toBe(true);
@@ -675,6 +732,7 @@ it('removes cached exact picker content after a failed refresh and retries the s
 
 it('hides captured instructions after a failed exact-context read while retaining retry identity', async () => {
   const client = cache();
+
   mount(<CapturedContext requestId="capture-1" />, client);
   expect(await screen.findByText('Clarify')).toBeVisible();
   rpc.context.mockRejectedValue(new StudyError('not_found', 'Retired context'));
@@ -685,6 +743,7 @@ it('hides captured instructions after a failed exact-context read while retainin
   expect(client.getQueryData(contextOptions('capture-1').queryKey)).toBeDefined();
   expect(rpc.context.mock.calls.every(([input]) => input.requestId === 'capture-1')).toBe(true);
   const retained = client.getQueryData(contextOptions('capture-1').queryKey);
+
   rpc.context.mockResolvedValue(retained);
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('Clarify')).toBeVisible();
@@ -718,9 +777,11 @@ it('hides cached reply provenance on failure and recovers the same exact reply a
       }
     ]
   });
+
   rpc.thread.mockResolvedValue({ items: [message], next: null });
   rpc.provenance.mockResolvedValue({ state: 'available', requestId: 'capture-1' });
   const client = cache();
+
   mount(<History id={id} />, client);
   fireEvent.click(await screen.findByText('SessionContextUsed', { selector: 'summary' }));
   expect(await screen.findByText('Clarify')).toBeVisible();
@@ -728,6 +789,7 @@ it('hides cached reply provenance on failure and recovers the same exact reply a
   expect(screen.queryByRole('button', { name: 'SessionVersions' })).toBeNull();
   rpc.provenance.mockRejectedValue(new StudyError('not_found', 'Retired reply context'));
   const options = provenanceOptions(id, message.id, message.activeVersionId!);
+
   await act(async () => {
     await client.invalidateQueries({ queryKey: options.queryKey });
   });
@@ -752,15 +814,19 @@ it('hides cached reply provenance on failure and recovers the same exact reply a
 it('suppresses cached picker controls after exact version failure and preserves unsaved selection through recovery', async () => {
   rpc.materials.mockResolvedValue({ items: [summary()], nextCursor: null });
   const client = cache();
+
   mount(<SelectionPanel id={id} />, client);
   await openSection('SessionSelection');
   fireEvent.click(await screen.findByText('Material 41 · ReaderVersion 2'));
   fireEvent.click(await screen.findByRole('button', { name: 'SessionUseBlock · b0' }));
   const unsaved = client.getQueryData(draftKey);
+
   expect(unsaved).toBeDefined();
   const versionId = summary().version.id;
+
   rpc.version.mockRejectedValue(new StudyError('not_found', 'Retired version'));
   const key = versionOptions(versionId).queryKey;
+
   await act(async () => {
     await client.invalidateQueries({ queryKey: key });
   });
@@ -785,6 +851,7 @@ it('suppresses cached picker controls after exact version failure and preserves 
 
 it('starts from a notebook draft, retaining later typing until creation is confirmed', async () => {
   const creation = deferred<typeof sessionSchema.Type>();
+
   rpc.create.mockReturnValue(creation.promise);
   rpc.session.mockResolvedValue({
     id,
@@ -796,6 +863,7 @@ it('starts from a notebook draft, retaining later typing until creation is confi
   rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
   const view = mount(<SessionWorkspace />);
   const input = await screen.findByRole('textbox', { name: 'SessionCompose' });
+
   fireEvent.change(input, { target: { value: 'Cell cycle lecture' } });
   fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
   fireEvent.change(input, { target: { value: 'Cell cycle lecture — checkpoint question' } });
@@ -807,9 +875,11 @@ it('starts from a notebook draft, retaining later typing until creation is confi
   );
   expect(rpc.create).toHaveBeenCalledTimes(1);
 });
+
 it('retains the start draft through an uncertain creation and remount', async () => {
   rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
   const first = mount(<SessionWorkspace />);
+
   fireEvent.change(await screen.findByRole('textbox', { name: 'SessionCompose' }), {
     target: { value: 'Keep these notes' }
   });
@@ -828,6 +898,7 @@ it('replaces a failed session landing page with the shared error state and recov
   rpc.sessions.mockRejectedValue(new StudyError('transient', 'Offline'));
   mount(<SessionWorkspace />);
   const alert = await screen.findByRole('alert');
+
   expect(within(alert).getByRole('heading', { name: 'SessionReadErrorTitle' })).toBeVisible();
   expect(screen.queryByRole('textbox', { name: 'SessionCompose' })).not.toBeInTheDocument();
   rpc.sessions.mockResolvedValue({ items: [], next: null });
@@ -839,6 +910,7 @@ it('fences repeated start shortcuts before the creation receipt arrives', async 
   rpc.create.mockReturnValue(new Promise(() => {}));
   mount(<SessionWorkspace />);
   const input = await screen.findByRole('textbox', { name: 'SessionCompose' });
+
   fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
   fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
   await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));

@@ -25,6 +25,7 @@ const source = Schema.decodeUnknownSync(sourceSchema)({
   uri: 'https://example.com',
   createdAt: 1n
 });
+
 function form(client = new QueryClient()) {
   return (
     <QueryClientProvider client={client}>
@@ -36,6 +37,7 @@ function form(client = new QueryClient()) {
 it('retains Source-only acceptance without requiring a collection or Material ID', async () => {
   vi.mocked(request).mockReset().mockResolvedValueOnce(source);
   const user = userEvent.setup();
+
   render(form());
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.LibraryLink }),
@@ -48,6 +50,7 @@ it('retains Source-only acceptance without requiring a collection or Material ID
 
 it('retains a pending import through unmount and prevents resubmission on reopening', async () => {
   let finish: (value: typeof source) => void = () => {};
+
   vi.mocked(request)
     .mockReset()
     .mockImplementationOnce(
@@ -59,6 +62,7 @@ it('retains a pending import through unmount and prevents resubmission on reopen
   const client = new QueryClient();
   const user = userEvent.setup();
   const mounted = render(form(client));
+
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.LibraryLink }),
     'https://example.com'
@@ -66,6 +70,7 @@ it('retains a pending import through unmount and prevents resubmission on reopen
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryImport }));
   mounted.unmount();
   const reopened = render(form(client));
+
   expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LibraryImporting);
   expect(screen.getByRole('button', { name: catalogs.english.LibraryImport })).toBeDisabled();
   reopened.unmount();
@@ -83,6 +88,7 @@ it('retains ambiguous submission recovery after dismissal instead of enabling a 
   const client = new QueryClient();
   const user = userEvent.setup();
   const mounted = render(form(client));
+
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.LibraryLink }),
     'https://example.com'
@@ -102,10 +108,12 @@ it('allows correcting a definitive typed rejection without claiming acceptance',
     .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported URL'))
     .mockResolvedValueOnce(source);
   const user = userEvent.setup();
+
   render(form());
   const input = screen.getByRole('textbox', {
     name: catalogs.english.LibraryLink
   });
+
   await user.type(input, 'ftp://example.com');
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryImport }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -125,8 +133,10 @@ it('requires explicit acknowledgment of an ambiguous result before allowing anot
     .mockRejectedValueOnce(new Error('connection lost'))
     .mockResolvedValueOnce(source);
   const user = userEvent.setup();
+
   render(form());
   const input = screen.getByRole('textbox', { name: catalogs.english.LibraryLink });
+
   await user.type(input, 'https://example.com');
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryImport }));
   await screen.findByRole('alert');
@@ -149,8 +159,10 @@ it('permits replacing an unreadable local file with a link without sending file 
   vi.mocked(request).mockReset().mockResolvedValueOnce(source);
   const file = new File(['unreadable'], 'notes.txt', { type: 'text/plain' });
   const read = vi.fn().mockRejectedValue(new Error('File disappeared'));
+
   Object.defineProperty(file, 'arrayBuffer', { value: read });
   const user = userEvent.setup();
+
   render(form());
   await user.upload(screen.getByLabelText(catalogs.english.LibraryFile), file);
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryImport }));
@@ -174,10 +186,13 @@ it('clears the native picker when explicitly starting another import of the same
   vi.mocked(request).mockReset().mockResolvedValue(source);
   const file = new File(['notes'], 'notes.txt', { type: 'text/plain' });
   const read = vi.fn().mockResolvedValue(new Uint8Array([110, 111, 116, 101, 115]).buffer);
+
   Object.defineProperty(file, 'arrayBuffer', { value: read });
   const user = userEvent.setup();
+
   render(form());
   const picker = screen.getByLabelText(catalogs.english.LibraryFile);
+
   await user.upload(picker, file);
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryImport }));
   expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LibraryAccepted);

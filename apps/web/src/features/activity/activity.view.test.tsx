@@ -15,11 +15,15 @@ const rpc = vi.hoisted(() => ({
   'workflows.execution': vi.fn<StudyClient['workflows.execution']>(),
   'workflows.cancelExecution': vi.fn<StudyClient['workflows.cancelExecution']>()
 }));
+
 vi.mock('../../lib/study-client/client', async () => {
   const { Effect } = await import('effect');
+
   return { studyClient: Effect.succeed(rpc) };
 });
+
 const t = catalogs.english;
+
 function execution(id: string, workflow: string) {
   return Schema.decodeUnknownSync(executionSchema)({
     id,
@@ -33,19 +37,25 @@ function execution(id: string, workflow: string) {
     updatedAtMs: 9007199254740993n
   });
 }
+
 const a = execution('run-z', 'source-ingestion');
+
 const b = execution('run-a', 'unrecognized-task');
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((accept) => {
     resolve = accept;
   });
+
   return { promise, resolve };
 }
+
 function mount() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
+
   return render(
     <QueryClientProvider client={client}>
       <LanguageProvider locale="english">
@@ -54,9 +64,11 @@ function mount() {
     </QueryClientProvider>
   );
 }
+
 function row(name: string) {
   return screen.getByRole('button', { name: new RegExp(name) });
 }
+
 beforeEach(() => {
   vi.resetAllMocks();
   rpc['workflows.executions'].mockReturnValue(Effect.succeed({ items: [a, b], next: null }));
@@ -69,6 +81,7 @@ afterEach(() => {
 it('passes the full tied-timestamp cursor and preserves authoritative page order', async () => {
   const cursor = { id: b.id, createdAtMs: 9007199254740993n };
   const older = execution('older', 'conversation-reply');
+
   rpc['workflows.executions'].mockImplementation(({ before }) =>
     Effect.succeed(before ? { items: [older], next: null } : { items: [a, b], next: cursor })
   );
@@ -81,6 +94,7 @@ it('passes the full tied-timestamp cursor and preserves authoritative page order
     before: { id: b.id, createdAtMs: 9007199254740993n }
   });
   const rows = within(screen.getByRole('list')).getAllByRole('listitem');
+
   expect(rows).toHaveLength(3);
   expect(rows[0]).toHaveTextContent(t['workspace.task.source-ingestion']);
   expect(rows[1]).toHaveTextContent(t['workspace.task.other']);
@@ -96,6 +110,7 @@ it('uses friendly known names and a generic unknown name while retaining raw wor
   fireEvent.click(row(t['workspace.task.source-ingestion']));
   const summary = await screen.findByText(t['workspace.details']);
   const details = summary.closest('details')!;
+
   expect(details).not.toHaveAttribute('open');
   fireEvent.click(summary);
   expect(within(details).getByText('source-ingestion')).toBeInTheDocument();
@@ -108,6 +123,7 @@ it('uses friendly known names and a generic unknown name while retaining raw wor
 it('keeps cancellation bound to A when B is selected and excludes a second action until reconciliation settles', async () => {
   const response = deferred<typeof a>();
   const reconciliation = deferred<typeof b>();
+
   rpc['workflows.cancelExecution'].mockReturnValue(Effect.promise(() => response.promise));
   mount();
   fireEvent.click(
@@ -117,9 +133,11 @@ it('keeps cancellation bound to A when B is selected and excludes a second actio
   await waitFor(() => expect(rpc['workflows.cancelExecution']).toHaveBeenCalledTimes(1));
   fireEvent.click(row(t['workspace.task.other']));
   const cancelB = await screen.findByRole('button', { name: t['collections.cancel'] });
+
   expect(cancelB).toBeDisabled();
   fireEvent.click(cancelB);
   const detailCalls = rpc['workflows.execution'].mock.calls.length;
+
   rpc['workflows.execution'].mockReturnValue(Effect.promise(() => reconciliation.promise));
   await act(async () => {
     response.resolve({ ...a, status: 'cancelling', canCancel: false });
@@ -146,6 +164,7 @@ it('keeps cancellation bound to A when B is selected and excludes a second actio
 
 it('warns on a lost cancellation response and reconciles committed state without replay', async () => {
   let cancelled = false;
+
   rpc['workflows.execution'].mockImplementation(() =>
     Effect.succeed(cancelled ? { ...a, status: 'cancelled' as const, canCancel: false } : a)
   );
@@ -188,6 +207,7 @@ it('polls both list and selected detail to recover a missed status hint', async 
   await screen.findByRole('button', { name: t['collections.cancel'] });
   const listCalls = rpc['workflows.executions'].mock.calls.length;
   const detailCalls = rpc['workflows.execution'].mock.calls.length;
+
   rpc['workflows.executions'].mockReturnValue(
     Effect.succeed({
       items: [
@@ -249,8 +269,10 @@ it('retries failed selected detail with a fresh exact read', async () => {
     await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) })
   );
   const alert = await screen.findByRole('alert');
+
   expect(alert).toHaveTextContent(t['collections.readError']);
   const reads = rpc['workflows.execution'].mock.calls.length;
+
   fireEvent.click(within(alert).getByRole('button', { name: t['collections.retry'] }));
   await screen.findByText(t['workspace.details']);
   expect(rpc['workflows.execution']).toHaveBeenCalledTimes(reads + 1);
@@ -268,6 +290,7 @@ it.each(['auth', 'not_found', 'rate_limited', null] as const)(
       failureKind,
       canCancel: false
     };
+
     rpc['workflows.executions'].mockReturnValue(Effect.succeed({ items: [failed], next: null }));
     rpc['workflows.execution'].mockReturnValue(Effect.succeed(failed));
     mount();

@@ -39,6 +39,7 @@ export function validateSearch(search: Record<string, unknown>): AppSearch {
     (!decimalId(search.version) || !Schema.is(materialVersionIdSchema)(BigInt(search.version)))
   )
     throw new Error('Invalid version identity');
+
   return {
     ...(decimalId(search.project) ? { project: search.project } : {}),
     ...(decimalId(search.id) ? { id: search.id } : {}),

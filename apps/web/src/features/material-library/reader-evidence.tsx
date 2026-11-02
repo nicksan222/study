@@ -1,123 +1,86 @@
-import type { MaterialAnnotationId } from '@study/contracts/ids';
 import type {
-  annotationSchema,
-  annotationOutcomeSchema,
-  createAnnotationSchema
-} from '@study/contracts/materials/evidence';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
-import type { documentTextRangeSchema } from '@study/contracts/sources/schemas';
+  materialCitationSchema,
+  MaterialVersionDetailDto
+} from '@study/contracts/materials/schemas';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { Loading } from '@study/ui/loading';
+import { MaterialLibrary } from '@study/ui/material-library';
 import { Textarea } from '@study/ui/textarea';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
 import { AnnotationControls } from './annotation-controls';
-import { retainAnnotations } from './annotation-state';
 import { EvidenceTarget, TargetPicker } from './annotation-target';
+import { useReaderEvidence } from './reader-evidence.queries';
 
-export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto }) {
-  const { t } = useI18n();
-  const client = useQueryClient();
-  const [open, setOpen] = useState(false);
-  type Creation = {
-    note: string;
-    range?: typeof documentTextRangeSchema.Type;
-    generation: number;
-    busy: boolean;
-    unresolved?: typeof createAnnotationSchema.Type;
-    reviewed: boolean;
-    outcome?: typeof annotationOutcomeSchema.Type;
-  };
-  const creationKey = ['annotationCreation', String(version.id)];
-  const creation = useQuery<Creation>({
-    queryKey: creationKey,
-    initialData: { note: '', generation: 0, busy: false, reviewed: false },
-    queryFn: () => ({ note: '', generation: 0, busy: false, reviewed: false }),
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const { note, range, busy, unresolved, reviewed, outcome } = creation.data;
-  function change(next: Partial<Creation>) {
-    client.setQueryData<Creation>(
-      creationKey,
-      (old) => old && { ...old, ...next, generation: old.generation + 1 }
-    );
+type EvidenceController = ReturnType<typeof useReaderEvidence>;
+
+type Citation = typeof materialCitationSchema.Type;
+
+function citationPrecision(citation: Citation) {
+  if (citation.evidence?.availability !== 'available') return 'ReaderUnavailable';
+
+  return citation.evidence.precision === 'exact' ? 'DocumentExact' : 'DocumentApproximate';
+}
+
+function citationSupport(citation: Citation) {
+  switch (citation.support?.state) {
+    case 'assessed':
+      return 'DocumentUserAssessed';
+    case 'stale':
+      return 'DocumentStale';
+    case 'unavailable':
+      return 'ReaderUnavailable';
+    default:
+      return 'DocumentUnassessed';
   }
-  const retained = useQuery<readonly (typeof annotationSchema.Type)[]>({
-    queryKey: ['annotationRetained', String(version.material_id)],
-    initialData: [],
-    queryFn: () => [],
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const identity = useQuery({
-    queryKey: ['materials', 'document', String(version.id)],
-    enabled: open,
-    queryFn: () => request((rpc) => rpc['materials.materialVersionDocument']({ id: version.id }))
-  });
+}
 
-  const citations = useInfiniteQuery({
-    queryKey: ['materials', 'citations', String(version.id)],
-    enabled: open,
-    initialPageParam: undefined as bigint | undefined,
-    queryFn: ({ pageParam }) =>
-      request((rpc) =>
-        rpc['materials.citations']({ id: version.id, limit: 30, cursor: pageParam })
-      ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined
-  });
-  const annotations = useInfiniteQuery({
-    queryKey: ['materials', 'annotations', String(version.material_id)],
-    enabled: open,
-    initialPageParam: undefined as MaterialAnnotationId | undefined,
-    queryFn: ({ pageParam }) =>
-      request((rpc) =>
-        rpc['materials.annotations']({
-          materialId: version.material_id,
-          limit: 30,
-          cursor: pageParam
-        })
-      ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined
-  });
-  useEffect(() => {
-    if (!annotations.data) return;
-    client.setQueryData<readonly (typeof annotationSchema.Type)[]>(
-      ['annotationRetained', String(version.material_id)],
-      (old) =>
-        retainAnnotations(
-          old ?? [],
-          annotations.data.pages.flatMap((page) => page.items)
-        )
-    );
-  }, [annotations.data, client, version.material_id]);
-  const possibleMatches = unresolved
-    ? retained.data.filter(
-        (item) =>
-          !item.deleted &&
-          item.note === unresolved.note &&
-          item.kind === unresolved.kind &&
-          item.target.materialId === unresolved.target.materialId &&
-          item.target.range.versionId === unresolved.target.range.versionId &&
-          item.target.range.documentId === unresolved.target.range.documentId &&
-          item.target.range.blockId === unresolved.target.range.blockId &&
-          item.target.range.start === unresolved.target.range.start &&
-          item.target.range.end === unresolved.target.range.end
-      )
-    : [];
+function CitationDetails({ citation }: { citation: Citation }) {
+  const { t } = useI18n();
+
   return (
-    <details
-      className="reader-history"
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary>{t('DocumentEvidence')}</summary>
-      <p>{t('DocumentEvidenceExplanation')}</p>
+    <blockquote key={String(citation.marker)}>
+      <p>{citation.quote}</p>
+      {citation.evidence && <EvidenceTarget reference={citation.evidence.reference} />}
+      <p>
+        {t('DocumentCitation')} {String(citation.marker)} · {t(citationPrecision(citation))}
+      </p>
+      <p>
+        {t('DocumentSupport')} {t(citationSupport(citation))}
+      </p>
+      {citation.support && citation.support.state !== 'unassessed' && (
+        <>
+          <p>
+            {t(
+              citation.support.assessment.judgment === 'supports'
+                ? 'DocumentSupports'
+                : citation.support.assessment.judgment === 'contradicts'
+                  ? 'DocumentContradicts'
+                  : 'DocumentUncertain'
+            )}
+          </p>
+          {citation.support.assessment.note && <p>{citation.support.assessment.note}</p>}
+          <EvidenceTarget
+            reference={{ kind: 'range', target: citation.support.assessment.claim }}
+          />
+          <EvidenceTarget
+            reference={{ kind: 'range', target: citation.support.assessment.evidence }}
+          />
+        </>
+      )}
+    </blockquote>
+  );
+}
+
+function EvidenceQueryStatus({ c }: { c: EvidenceController }) {
+  const { t } = useI18n();
+  const { open, citations, annotations, identity } = c;
+
+  return (
+    <>
       {open && (citations.isPending || annotations.isPending) && (
-        <p role="status">{t('LoadingStudy')}</p>
+        <Loading label={t('LoadingStudy')} />
       )}
       {identity.isError && (
         <ErrorState
@@ -130,55 +93,20 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
           }
         />
       )}
+    </>
+  );
+}
+
+function CitationResults({ c }: { c: EvidenceController }) {
+  const { t } = useI18n();
+  const { citations } = c;
+
+  return (
+    <>
       {citations.data?.pages
         .flatMap((page) => page.items)
         .map((citation) => (
-          <blockquote key={String(citation.marker)}>
-            <p>{citation.quote}</p>
-            {citation.evidence && <EvidenceTarget reference={citation.evidence.reference} />}
-            <p>
-              {t('DocumentCitation')} {String(citation.marker)} ·{' '}
-              {t(
-                citation.evidence?.availability === 'available'
-                  ? citation.evidence.precision === 'exact'
-                    ? 'DocumentExact'
-                    : 'DocumentApproximate'
-                  : 'ReaderUnavailable'
-              )}
-            </p>
-            <p>
-              {t('DocumentSupport')}{' '}
-              {t(
-                citation.support?.state === 'assessed'
-                  ? 'DocumentUserAssessed'
-                  : citation.support?.state === 'stale'
-                    ? 'DocumentStale'
-                    : citation.support?.state === 'unavailable'
-                      ? 'ReaderUnavailable'
-                      : 'DocumentUnassessed'
-              )}
-            </p>
-            {citation.support && citation.support.state !== 'unassessed' && (
-              <>
-                <p>
-                  {t(
-                    citation.support.assessment.judgment === 'supports'
-                      ? 'DocumentSupports'
-                      : citation.support.assessment.judgment === 'contradicts'
-                        ? 'DocumentContradicts'
-                        : 'DocumentUncertain'
-                  )}
-                </p>
-                {citation.support.assessment.note && <p>{citation.support.assessment.note}</p>}
-                <EvidenceTarget
-                  reference={{ kind: 'range', target: citation.support.assessment.claim }}
-                />
-                <EvidenceTarget
-                  reference={{ kind: 'range', target: citation.support.assessment.evidence }}
-                />
-              </>
-            )}
-          </blockquote>
+          <CitationDetails key={String(citation.marker)} citation={citation} />
         ))}
       {citations.hasNextPage && (
         <Button
@@ -188,16 +116,18 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
           {t('LibraryMore')}
         </Button>
       )}
+    </>
+  );
+}
+
+function AnnotationResults({ c }: { c: EvidenceController }) {
+  const { t } = useI18n();
+  const { annotations } = c;
+
+  return (
+    <>
       <ul>
-        {[
-          ...(annotations.data?.pages.flatMap((page) => page.items) ?? []),
-          ...retained.data.filter(
-            (item) =>
-              !annotations.data?.pages.some((page) =>
-                page.items.some((visible) => visible.id === item.id)
-              )
-          )
-        ].map((annotation) => (
+        {c.allAnnotations.map((annotation) => (
           <li key={String(annotation.id)}>
             <p>{annotation.note}</p>
             <AnnotationControls annotation={annotation} />
@@ -226,6 +156,16 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
           {t('LibraryMore')}
         </Button>
       )}
+    </>
+  );
+}
+
+function EvidenceFailure({ c }: { c: EvidenceController }) {
+  const { t } = useI18n();
+  const { citations, annotations } = c;
+
+  return (
+    <>
       {(citations.isError || annotations.isError) && (
         <ErrorState
           title={t('ErrorStateTitle')}
@@ -244,6 +184,22 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
           }
         />
       )}
+    </>
+  );
+}
+
+function AnnotationCreation({
+  c,
+  version
+}: {
+  c: EvidenceController;
+  version: MaterialVersionDetailDto;
+}) {
+  const { t } = useI18n();
+  const { open, range, change, note, busy, unresolved } = c;
+
+  return (
+    <>
       {open && (
         <>
           <h3>{t('DocumentAnnotate')}</h3>
@@ -273,56 +229,21 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
               onChange={(event) => change({ note: event.target.value })}
             />
           </label>
-          <Button
-            disabled={busy || Boolean(unresolved) || !range}
-            onClick={async () => {
-              const submitted = client.getQueryData<Creation>(creationKey);
-              if (!submitted?.range || submitted.busy || submitted.unresolved) return;
-              const input = {
-                target: { materialId: version.material_id, range: submitted.range },
-                kind: submitted.note.trim() ? ('note' as const) : ('highlight' as const),
-                note: submitted.note
-              };
-              client.setQueryData(creationKey, {
-                ...submitted,
-                busy: true,
-                reviewed: false,
-                outcome: undefined
-              });
-              try {
-                const result = await request((rpc) => rpc['materials.createAnnotation'](input));
-                client.setQueryData<Creation>(
-                  creationKey,
-                  (old) =>
-                    old && {
-                      ...old,
-                      outcome: result,
-                      ...(result.outcome === 'saved' && old.generation === submitted.generation
-                        ? { range: undefined, note: '' }
-                        : {})
-                    }
-                );
-                if (result.outcome === 'saved') {
-                  client.setQueryData<readonly (typeof annotationSchema.Type)[]>(
-                    ['annotationRetained', String(version.material_id)],
-                    (old) => retainAnnotations(old ?? [], [result.annotation])
-                  );
-                  await client.invalidateQueries({ queryKey: ['materials', 'annotations'] });
-                }
-              } catch {
-                client.setQueryData<Creation>(
-                  creationKey,
-                  (old) => old && { ...old, unresolved: input, reviewed: false }
-                );
-              } finally {
-                client.setQueryData<Creation>(creationKey, (old) => old && { ...old, busy: false });
-              }
-            }}
-          >
+          <Button disabled={busy || Boolean(unresolved) || !range} onClick={c.saveAnnotation}>
             {t('DocumentSaveAnnotation')}
           </Button>
         </>
       )}
+    </>
+  );
+}
+
+function AnnotationOutcome({ c }: { c: EvidenceController }) {
+  const { t } = useI18n();
+  const { outcome } = c;
+
+  return (
+    <>
       {outcome && (
         <p role="status">
           {t(
@@ -334,6 +255,16 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
           )}
         </p>
       )}
+    </>
+  );
+}
+
+function AnnotationRecovery({ c }: { c: EvidenceController }) {
+  const { t } = useI18n();
+  const { unresolved, possibleMatches, busy, annotations, reviewed } = c;
+
+  return (
+    <>
       {unresolved && (
         <ErrorState
           title={t('ErrorStateTitle')}
@@ -352,16 +283,7 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
                   </li>
                 ))}
               </ul>
-              <Button
-                disabled={busy || annotations.isFetching}
-                onClick={async () => {
-                  const result = await annotations.refetch();
-                  client.setQueryData<Creation>(
-                    creationKey,
-                    (old) => old && { ...old, reviewed: !result.isError && !old.busy }
-                  );
-                }}
-              >
+              <Button disabled={busy || annotations.isFetching} onClick={c.refreshCreation}>
                 {t('LibraryRefresh')}
               </Button>
               <Button
@@ -372,13 +294,7 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
                   annotations.isError ||
                   annotations.hasNextPage
                 }
-                onClick={() =>
-                  client.setQueryData<Creation>(creationKey, (old) =>
-                    old && !old.busy && old.reviewed
-                      ? { ...old, unresolved: undefined, reviewed: false }
-                      : old
-                  )
-                }
+                onClick={c.acknowledgeCreation}
               >
                 {t('AnnotationCreationReviewed')}
               </Button>
@@ -386,6 +302,28 @@ export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto
           }
         />
       )}
-    </details>
+    </>
+  );
+}
+
+export function EvidenceDetails({ version }: { version: MaterialVersionDetailDto }) {
+  const { t } = useI18n();
+  const c = useReaderEvidence(version);
+
+  return (
+    <MaterialLibrary.History
+      open={c.open}
+      onToggle={(event) => c.setOpen(event.currentTarget.open)}
+    >
+      <summary>{t('DocumentEvidence')}</summary>
+      <p>{t('DocumentEvidenceExplanation')}</p>
+      <EvidenceQueryStatus c={c} />
+      <CitationResults c={c} />
+      <AnnotationResults c={c} />
+      <EvidenceFailure c={c} />
+      <AnnotationCreation c={c} version={version} />
+      <AnnotationOutcome c={c} />
+      <AnnotationRecovery c={c} />
+    </MaterialLibrary.History>
   );
 }

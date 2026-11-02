@@ -1,3 +1,5 @@
+import type { SourceId } from '@study/contracts/ids';
+
 import type { AskInput } from './session-workspace.queries';
 
 export type Draft = {
@@ -6,10 +8,11 @@ export type Draft = {
   askAttempt?: AskInput;
   askUnavailable?: boolean;
   noteAttempt?: string;
-  noteSourceIds?: readonly import('@study/contracts/ids').SourceId[];
+  noteSourceIds?: readonly SourceId[];
   pending?: boolean;
   preferences?: { language?: 'english' | 'italian'; detail?: 'brief' | 'balanced' | 'detailed' };
 };
+
 export const emptyDraft: Draft = { text: '', instruction: '' };
 
 /** A receipt clears only its submitted text; typing during an in-flight save survives. */

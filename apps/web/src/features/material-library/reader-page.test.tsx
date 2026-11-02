@@ -18,9 +18,12 @@ vi.mock('../../lib/study-client/request', () => ({ request: vi.fn() }));
 
 it('rejects a foreign Material version before rendering extraction or exposing its original', async () => {
   const rpc = materialRpc();
+
   rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(importedVersion(101n, 99n)));
   mountLibraryRoute('/materials/41?version=101', rpc);
-  expect(await screen.findByRole('alert')).toHaveTextContent(catalogs.english.ReaderUnavailable);
+  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
+    catalogs.english.ReaderUnavailable
+  );
   expect(screen.queryByText('Historical extraction')).toBeNull();
   expect(screen.queryByText('Current extraction 41')).toBeNull();
   expect(screen.queryByRole('button', { name: catalogs.english.ReaderOriginal })).toBeNull();
@@ -35,11 +38,14 @@ it('rejects a foreign Material version before rendering extraction or exposing i
 
 it('keeps unavailable historical extraction unavailable without falling back to current content or bytes', async () => {
   const rpc = materialRpc();
+
   rpc['materials.materialVersion'].mockReturnValue(
     Effect.fail(new StudyError('not_found', 'Revision unavailable'))
   );
   mountLibraryRoute('/materials/41?version=101', rpc);
-  expect(await screen.findByRole('alert')).toHaveTextContent(catalogs.english.ReaderUnavailable);
+  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
+    catalogs.english.ReaderUnavailable
+  );
   expect(screen.queryByText('Current extraction 41')).toBeNull();
   expect(screen.queryByRole('button', { name: catalogs.english.ReaderOriginal })).toBeNull();
   expect(rpc['materials.materialVersion']).toHaveBeenCalledExactlyOnceWith({
@@ -54,6 +60,7 @@ it('keeps unavailable historical extraction unavailable without falling back to 
 it('exports the selected historical version with its exact retained bytes, MIME and filename', async () => {
   const rpc = materialRpc();
   const bytes = new Uint8Array([0, 128, 255]);
+
   rpc['materials.materialVersionExport'].mockReturnValue(
     Effect.succeed({ source: importedSource, bytes })
   );
@@ -61,6 +68,7 @@ it('exports the selected historical version with its exact retained bytes, MIME 
     .fn<(blob: Blob) => string>()
     .mockReturnValue('blob:historical-original');
   const revokeObjectURL = vi.fn();
+
   vi.stubGlobal(
     'URL',
     class extends URL {
@@ -74,21 +82,26 @@ it('exports the selected historical version with its exact retained bytes, MIME 
   ) {
     delivery = { href: this.href, filename: this.download };
   });
+
   try {
     mountLibraryRoute('/materials/41?version=101', rpc);
     await screen.findByText('Historical extraction');
     expect(screen.queryByText('Current extraction 41')).toBeNull();
     const original = screen.getByRole('button', { name: catalogs.english.ReaderOriginal });
+
     await userEvent.setup().click(original);
     await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
     const blob = createObjectURL.mock.calls[0]![0];
+
     expect(blob.type).toBe(importedSource.mime);
     const retained = await new Promise<ArrayBuffer>((resolve, reject) => {
       const reader = new FileReader();
+
       reader.onload = () => resolve(reader.result as ArrayBuffer);
       reader.onerror = () => reject(reader.error);
       reader.readAsArrayBuffer(blob);
     });
+
     expect(new Uint8Array(retained)).toEqual(bytes);
     expect(delivery).toEqual({ href: 'blob:historical-original', filename: importedSource.name });
     expect(rpc['materials.materialVersionExport']).toHaveBeenCalledExactlyOnceWith({
@@ -105,13 +118,15 @@ it('exports the selected historical version with its exact retained bytes, MIME 
 
 it('reports an unavailable historical original without requesting a current-version or Source fallback', async () => {
   const rpc = materialRpc();
+
   rpc['materials.materialVersionExport'].mockReturnValue(
     Effect.fail(new StudyError('not_found', 'Original unavailable'))
   );
   mountLibraryRoute('/materials/41?version=101', rpc);
   const original = await screen.findByRole('button', { name: catalogs.english.ReaderOriginal });
+
   await userEvent.setup().click(original);
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
     catalogs.english.ReaderOriginalUnavailable
   );
   expect(rpc['materials.materialVersionExport']).toHaveBeenCalledExactlyOnceWith({
@@ -126,6 +141,7 @@ it('loads history only on opening, paginates by version cursor and preserves col
   const decode = Schema.decodeUnknownSync(materialVersionSummarySchema);
   const current = decode(importedVersion(102n));
   const old = decode({ ...importedVersion(), availability: 'unavailable' });
+
   rpc['materials.materialVersions']
     .mockReturnValueOnce(Effect.succeed({ items: [current], nextCursor: versionId('102') }))
     .mockReturnValueOnce(Effect.succeed({ items: [old], nextCursor: null }));
@@ -136,9 +152,11 @@ it('loads history only on opening, paginates by version cursor and preserves col
   );
   const { router } = mountLibraryRoute('/materials/41?project=3', rpc);
   const user = userEvent.setup();
+
   await screen.findByText('Current extraction 41');
   expect(rpc['materials.materialVersions']).not.toHaveBeenCalled();
   const summary = screen.getByText(catalogs.english.ReaderHistory);
+
   expect(summary.closest('details')).not.toHaveAttribute('open');
   await user.click(summary);
   await screen.findByRole('link', { name: new RegExp(`${catalogs.english.ReaderVersion} 2`) });
@@ -146,6 +164,7 @@ it('loads history only on opening, paginates by version cursor and preserves col
   const historic = await screen.findByRole('link', {
     name: new RegExp(`${catalogs.english.ReaderVersion} 1`)
   });
+
   expect(historic).toHaveTextContent(catalogs.english.ReaderUnavailable);
   expect(rpc['materials.materialVersions']).toHaveBeenNthCalledWith(1, {
     materialId: materialId('41'),
@@ -158,7 +177,9 @@ it('loads history only on opening, paginates by version cursor and preserves col
     limit: 30
   });
   await user.click(historic);
-  expect(await screen.findByRole('alert')).toHaveTextContent(catalogs.english.ReaderUnavailable);
+  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
+    catalogs.english.ReaderUnavailable
+  );
   expect(router.state.location.search).toMatchObject({ project: '3', version: '101' });
   expect(screen.queryByText('Current extraction 41')).toBeNull();
   expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
@@ -166,6 +187,7 @@ it('loads history only on opening, paginates by version cursor and preserves col
 
 it('preserves the collection while moving from historical to current content', async () => {
   const { router } = mountLibraryRoute('/materials/41?project=3&version=101');
+
   await screen.findByText('Historical extraction');
   await userEvent.setup().click(screen.getByRole('link', { name: catalogs.english.ReaderCurrent }));
   await screen.findByText('Current extraction 41');
@@ -207,11 +229,14 @@ it('opens deletion through reader Actions and recovers accepted cleanup after th
       .fn<StudyClient['materials.requestDeletion']>()
       .mockReturnValue(Effect.succeed(operation))
   };
+
   rpc['materials.deletion'].mockReturnValue(Effect.succeed(operation));
   mountLibraryRoute('/materials/41', rpc);
   const user = userEvent.setup();
+
   await screen.findByText('Current extraction 41');
   const actions = screen.getByText(catalogs.english.ReaderActions, { selector: 'summary' });
+
   expect(actions.closest('details')).not.toHaveAttribute('open');
   await user.click(actions);
   expect(actions.closest('details')).toHaveAttribute('open');
@@ -219,6 +244,7 @@ it('opens deletion through reader Actions and recovers accepted cleanup after th
   const dialog = within(
     await screen.findByRole('dialog', { name: catalogs.english.DocumentDelete })
   );
+
   expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
   await user.click(dialog.getByRole('button', { name: catalogs.english.DocumentPreview }));
   await dialog.findByRole('button', { name: catalogs.english.DocumentConfirmDelete });
@@ -232,6 +258,7 @@ it('opens deletion through reader Actions and recovers accepted cleanup after th
   const recovery = within(
     await screen.findByRole('region', { name: catalogs.english.DocumentDelete })
   );
+
   await recovery.findByText(catalogs.english.DocumentCleanupPending);
   expect(screen.queryByText('Current extraction 41')).toBeNull();
   expect(rpc['materials.requestDeletion']).toHaveBeenCalledExactlyOnceWith({

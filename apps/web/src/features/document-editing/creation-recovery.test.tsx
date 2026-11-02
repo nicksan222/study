@@ -18,9 +18,13 @@ import {
 vi.mock('../../lib/study-client/request', () => ({ request: vi.fn() }));
 
 const copy = catalogs.english;
+
 const review = () => within(screen.getByRole('region', { name: copy.DocumentCreationReviewAll }));
+
 const submitted = () => screen.getByRole('region', { name: copy.DocumentCreationSubmitted });
+
 const create = () => screen.getByRole('button', { name: copy.DocumentCreate });
+
 const acknowledged = () => screen.queryByRole('button', { name: copy.DocumentCreationReviewed });
 
 async function loseCreation(user: ReturnType<typeof userEvent.setup>) {
@@ -46,13 +50,16 @@ async function remount(router: ReturnType<typeof mountLibraryRoute>['router'], p
 
 it('keeps the exact submitted A Document and block identity separate from editable B through remount and explicit resolution', async () => {
   const rpc = materialRpc();
+
   rpc['materials.createManualDocument'].mockReturnValue(
     Effect.fail(new StudyError('internal', 'Response lost'))
   );
   const { router } = mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await loseCreation(user);
   const input = rpc['materials.createManualDocument'].mock.calls[0]![0];
+
   expect(Schema.decodeUnknownSync(createManualDocumentSchema)(input)).toEqual(input);
   expect(input).toMatchObject({
     title: 'Submitted A',
@@ -74,6 +81,7 @@ it('keeps the exact submitted A Document and block identity separate from editab
   expect(input.document.blocks).toHaveLength(1);
   const title = screen.getByRole('textbox', { name: copy.DocumentTitle });
   const body = screen.getByRole('textbox', { name: copy.DocumentInitialText });
+
   await user.clear(title);
   await user.type(title, 'Draft B');
   await user.clear(body);
@@ -98,6 +106,7 @@ it('keeps the exact submitted A Document and block identity separate from editab
   await user.click(create());
   await screen.findByText(copy.DocumentCreateUncertain);
   const next = rpc['materials.createManualDocument'].mock.calls[1]![0];
+
   expect(next.title).toBe('Draft B');
   expect(next.document.blocks[0]!.text).toBe('Unsent body B');
   expect(next.document.blocks[0]!.id).not.toBe(input.document.blocks[0]!.id);
@@ -105,6 +114,7 @@ it('keeps the exact submitted A Document and block identity separate from editab
 
 it('reviews global RPC pages from a collection and requires the last page and a fresh explicit review after remount', async () => {
   const rpc = materialRpc();
+
   rpc['materials.createManualDocument'].mockReturnValue(
     Effect.fail(new StudyError('internal', 'Response lost'))
   );
@@ -113,6 +123,7 @@ it('reviews global RPC pages from a collection and requires the last page and a 
     nextCursor: ReturnType<typeof materialId>;
   }>();
   const last = deferred<{ items: ReturnType<typeof summary>[]; nextCursor: null }>();
+
   rpc['materials.materials'].mockImplementation(({ projectId, cursor }) =>
     projectId
       ? Effect.succeed({ items: [summary(41n)], nextCursor: null })
@@ -122,6 +133,7 @@ it('reviews global RPC pages from a collection and requires the last page and a 
   );
   const { router, queryClient } = mountLibraryRoute('/library?project=3', rpc);
   const user = userEvent.setup();
+
   await loseCreation(user);
   await act(async () => {
     await queryClient.refetchQueries({ queryKey: materialsOptions(collectionId('3')).queryKey });
@@ -180,14 +192,18 @@ it.each(['first', 'next'] as const)(
   'blocks acknowledgement after a failed %s global page until successful explicit recovery',
   async (failedPage) => {
     const rpc = materialRpc();
+
     rpc['materials.createManualDocument'].mockReturnValue(
       Effect.fail(new StudyError('internal', 'Response lost'))
     );
     let fail = true;
+
     rpc['materials.materials'].mockImplementation(({ projectId, cursor }) => {
       if (projectId) return Effect.succeed({ items: [summary()], nextCursor: null });
+
       if (fail && (failedPage === 'first' || cursor))
         return Effect.fail(new StudyError('internal', 'Library unavailable'));
+
       return Effect.succeed({
         items: [summary(cursor ? 99n : 61n)],
         nextCursor: cursor ? null : materialId('61')
@@ -195,10 +211,13 @@ it.each(['first', 'next'] as const)(
     });
     mountLibraryRoute('/library?project=3', rpc);
     const user = userEvent.setup();
+
     await loseCreation(user);
     await user.click(review().getByRole('button', { name: copy.LibraryRefresh }));
+
     if (failedPage === 'next')
       await user.click(await review().findByRole('button', { name: copy.LibraryMore }));
+
     expect(await review().findByRole('alert')).toHaveTextContent(copy.LibraryLoadFailed);
     expect(acknowledged()).toBeNull();
     expect(create()).toBeDisabled();

@@ -1,14 +1,16 @@
 import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
 import type { BackupId } from '@study/contracts/system/backups';
 import { Button } from '@study/ui/button';
+import { DataManagement } from '@study/ui/data-management';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
+import { ErrorState } from '@study/ui/error-state';
 import { Settings } from '@study/ui/settings';
 import { useState } from 'react';
 
 import { useI18n } from '../../../lib/i18n';
 import { useDataSettings } from './use-data';
 
-export function DataSettings() {
+function useDataView() {
   const { t, number, date } = useI18n();
   const { state, owner } = useDataSettings();
   const [deletion, setDeletion] = useState<{ id: BackupId } | 'recovery'>();
@@ -16,14 +18,35 @@ export function DataSettings() {
   const [confirmedToken, setConfirmedToken] = useState<string>();
   const busy = state.busy || !!state.uncertain;
   const disabled = busy || !state.statusReady || !state.listReady || !!state.error;
-  const canDiscard =
-    !busy &&
-    state.statusReady &&
-    !!state.status &&
-    state.status.state !== 'restart-required' &&
-    (state.status.recoveryCopy || state.status.state !== 'idle');
+  const canDiscard = recoveryDiscardAllowed(state, busy);
   const mutable = !disabled && state.status?.state !== 'restart-required';
   const preview = state.preview;
+
+  return {
+    t,
+    number,
+    date,
+    state,
+    owner,
+    deletion,
+    setDeletion,
+    confirmed,
+    setConfirmed,
+    confirmedToken,
+    setConfirmedToken,
+    busy,
+    canDiscard,
+    mutable,
+    preview
+  };
+}
+
+type DataView = ReturnType<typeof useDataView>;
+
+export function DataSettings() {
+  const view = useDataView();
+  const { t, state, owner, setConfirmedToken } = view;
+
   return (
     <Settings.Section
       title={t('DataSettingsTitle')}
@@ -41,7 +64,21 @@ export function DataSettings() {
         </Button>
       }
     >
-      <p className="mb-4 text-sm text-muted-foreground">{t('DataSettingsDescription')}</p>
+      <DataNotices view={view} />
+      <BackupCatalog view={view} />
+      <RecoveryStatus view={view} />
+      <PreviewDialog view={view} />
+      <DeletionDialog view={view} />
+    </Settings.Section>
+  );
+}
+
+function DataNotices({ view }: { view: DataView }) {
+  const { t, state, owner } = view;
+
+  return (
+    <>
+      <DataManagement.Description>{t('DataSettingsDescription')}</DataManagement.Description>
       {state.busy && <p role="status">{t('DataPending')}</p>}
       {state.error && (
         <Settings.Status>
@@ -72,48 +109,27 @@ export function DataSettings() {
           {t('DataUncertain')} <span>{state.uncertain.id ?? state.uncertain.fileName}</span>
         </Settings.Status>
       )}
-      {state.submitted && (
-        <details className="mb-4 break-all text-sm">
-          <summary className="cursor-pointer text-muted-foreground">
-            {t('workspace.details')}
-          </summary>
-          <p>
-            {t('DataSubmitted')}:{' '}
-            {t(
-              (
-                {
-                  create: 'DataCreate',
-                  import: 'DataImport',
-                  delete: 'DataDelete',
-                  accept: 'DataAccept',
-                  discard: 'DataDiscard'
-                } as const
-              )[state.submitted.kind]
-            )}
-          </p>
-          <p>{state.submitted.id ?? state.submitted.fileName}</p>
-          {state.submitted.acceptance && (
-            <dl>
-              <dt>{t('DataToken')}</dt>
-              <dd>{state.submitted.acceptance.token}</dd>
-              <dt>{t('DataDigest')}</dt>
-              <dd>{state.submitted.acceptance.sha256}</dd>
-              <dt>{t('DataTarget')}</dt>
-              <dd>{state.submitted.acceptance.target}</dd>
-            </dl>
-          )}
-        </details>
-      )}
-      {state.receipt && (
-        <p role="status" className="mb-4 text-sm">
-          {t('DataReceipt')}{' '}
-          {'id' in state.receipt
-            ? state.receipt.id
-            : 'state' in state.receipt
-              ? t(`DataState${state.receipt.state}`)
-              : null}
-        </p>
-      )}
+      <DataReceipts view={view} />
+    </>
+  );
+}
+
+function BackupCatalog({ view }: { view: DataView }) {
+  const {
+    t,
+    number,
+    date,
+    state,
+    owner,
+    setDeletion,
+    setConfirmed,
+    setConfirmedToken,
+    busy,
+    mutable
+  } = view;
+
+  return (
+    <>
       <Settings.Group>
         <Settings.Row
           title={t('DataCreate')}
@@ -129,15 +145,17 @@ export function DataSettings() {
           </Button>
         </Settings.Row>
         <Settings.Row title={t('DataImport')} description={t('DataFileError')}>
-          <input
+          <DataManagement.File
             type="file"
             accept=".studybackup"
             aria-label={t('DataImport')}
             disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
-            className="max-w-56 text-sm"
+
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
+
               event.currentTarget.value = '';
+
               if (file) void owner.importFile(file);
             }}
           />
@@ -148,7 +166,7 @@ export function DataSettings() {
             title={date(backup.createdAtMs / 1000)}
             description={`${number(backup.bytes)} B`}
           >
-            <div className="flex flex-wrap justify-end gap-2">
+            <DataManagement.Actions>
               <Button
                 size="sm"
                 variant="outline"
@@ -179,11 +197,20 @@ export function DataSettings() {
               >
                 {t('DataDelete')}
               </Button>
-            </div>
+            </DataManagement.Actions>
           </Settings.Row>
         ))}
       </Settings.Group>
       {state.loaded && !state.backups.length && <Settings.Empty>{t('DataEmpty')}</Settings.Empty>}
+    </>
+  );
+}
+
+function RecoveryStatus({ view }: { view: DataView }) {
+  const { t, state, setDeletion, setConfirmed, canDiscard } = view;
+
+  return (
+    <>
       {state.status && (
         <Settings.Section title={t('DataStatus')}>
           <Settings.Group>
@@ -216,6 +243,16 @@ export function DataSettings() {
           </Settings.Group>
         </Settings.Section>
       )}
+    </>
+  );
+}
+
+function PreviewDialog({ view }: { view: DataView }) {
+  const { t, number, date, state, owner, confirmedToken, setConfirmedToken, preview } = view;
+  const blocked = restoreBlocked(view);
+
+  return (
+    <>
       <Dialog
         open={!!preview}
         onOpenChange={(open) => {
@@ -225,18 +262,18 @@ export function DataSettings() {
           }
         }}
       >
-        <DialogPopup closeLabel={t('Close')} className="overflow-y-auto">
+        <DataManagement.PreviewPopup closeLabel={t('Close')}>
           <DialogHeader>
             <DialogTitle>{t('DataPreview')}</DialogTitle>
           </DialogHeader>
           {preview && (
-            <div className="space-y-4 px-6 pb-6 text-sm">
+            <DataManagement.DialogContent>
               <p>{t('DataRestoreWarning')}</p>
               <details>
-                <summary className="cursor-pointer text-muted-foreground">
+                <DataManagement.DetailsToggle>
                   {t('workspace.details')}
-                </summary>
-                <dl className="mt-3 space-y-2 break-all">
+                </DataManagement.DetailsToggle>
+                <DataManagement.Details>
                   <dt>{t('DataBackup')}</dt>
                   <dd>{preview.backup.id}</dd>
                   <dt>{t('DataCreated')}</dt>
@@ -255,10 +292,10 @@ export function DataSettings() {
                   <dd>{preview.backup.sha256}</dd>
                   <dt>{t('DataTarget')}</dt>
                   <dd>{preview.target}</dd>
-                </dl>
+                </DataManagement.Details>
               </details>
-              <table className="w-full text-start tabular-nums [&_th]:py-2 [&_td]:py-2 [&_td]:text-end [&_tr]:border-b [&_tr]:border-border">
-                <caption className="text-start">{t('DataScope')}</caption>
+              <DataManagement.Scope>
+                <DataManagement.ScopeCaption>{t('DataScope')}</DataManagement.ScopeCaption>
                 <thead>
                   <tr>
                     <th scope="col">{t('DataScope')}</th>
@@ -269,47 +306,53 @@ export function DataSettings() {
                 <tbody>
                   {(Object.keys(preview.current) as (keyof typeof preview.current)[]).map((key) => (
                     <tr key={key}>
-                      <th scope="row" className="text-start font-normal">
+                      <DataManagement.ScopeLabel scope="row">
                         {t(`DataScope${key}`)}
-                      </th>
+                      </DataManagement.ScopeLabel>
                       <td>{number(preview.current[key])}</td>
                       <td>{number(preview.backup.scope[key])}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-              {preview.blockedByCurrentBarriers && <p role="alert">{t('DataBlocked')}</p>}
-              {state.status?.recoveryCopy && <p role="alert">{t('DataRecoveryBlocked')}</p>}
-              <label className="flex items-start gap-2">
+              </DataManagement.Scope>
+              {preview.blockedByCurrentBarriers && (
+                <ErrorState title={t('ErrorStateTitle')} description={t('DataBlocked')} />
+              )}
+              {state.status?.recoveryCopy && (
+                <ErrorState title={t('ErrorStateTitle')} description={t('DataRecoveryBlocked')} />
+              )}
+              <DataManagement.Consent>
                 <input
                   type="checkbox"
                   checked={confirmedToken === preview.token}
-                  disabled={
-                    !mutable || preview.blockedByCurrentBarriers || state.status?.recoveryCopy
-                  }
+                  disabled={blocked}
                   onChange={(event) =>
                     setConfirmedToken(event.target.checked ? preview.token : undefined)
                   }
                 />
                 {t('DataConfirmRestore')}
-              </label>
+              </DataManagement.Consent>
               <Button
-                disabled={
-                  !mutable ||
-                  confirmedToken !== preview.token ||
-                  preview.blockedByCurrentBarriers ||
-                  state.status?.recoveryCopy
-                }
+                disabled={blocked || confirmedToken !== preview.token}
                 onClick={() => {
                   if (confirmedToken === preview.token) void owner.accept(preview);
                 }}
               >
                 {t('DataAccept')}
               </Button>
-            </div>
+            </DataManagement.DialogContent>
           )}
-        </DialogPopup>
+        </DataManagement.PreviewPopup>
       </Dialog>
+    </>
+  );
+}
+
+function DeletionDialog({ view }: { view: DataView }) {
+  const { t, owner, deletion, setDeletion, confirmed, setConfirmed, canDiscard, mutable } = view;
+
+  return (
+    <>
       <Dialog
         open={!!deletion}
         onOpenChange={(open) => {
@@ -320,18 +363,20 @@ export function DataSettings() {
           <DialogHeader>
             <DialogTitle>{t(deletion === 'recovery' ? 'DataDiscard' : 'DataDelete')}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 px-6 pb-6 text-sm">
+          <DataManagement.DialogContent>
             <p>{t(deletion === 'recovery' ? 'DataDiscardWarning' : 'DataDeleteWarning')}</p>
-            {deletion && deletion !== 'recovery' && <p className="break-all">{deletion.id}</p>}
-            <label className="flex items-start gap-2">
+            {deletion && deletion !== 'recovery' && (
+              <DataManagement.Identity>{deletion.id}</DataManagement.Identity>
+            )}
+            <DataManagement.Consent>
               <input
                 type="checkbox"
                 checked={confirmed}
                 onChange={(event) => setConfirmed(event.target.checked)}
               />
               {t('DataDeliberate')}
-            </label>
-          </div>
+            </DataManagement.Consent>
+          </DataManagement.DialogContent>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeletion(undefined)}>
               {t('Cancel')}
@@ -341,8 +386,10 @@ export function DataSettings() {
               onClick={() => {
                 if (!confirmed || !deletion || (deletion === 'recovery' ? !canDiscard : !mutable))
                   return;
+
                 if (deletion === 'recovery') void owner.discard();
                 else void owner.delete(deletion.id);
+
                 setDeletion(undefined);
               }}
             >
@@ -351,6 +398,71 @@ export function DataSettings() {
           </DialogFooter>
         </DialogPopup>
       </Dialog>
-    </Settings.Section>
+    </>
+  );
+}
+
+function recoveryDiscardAllowed(state: ReturnType<typeof useDataSettings>['state'], busy: boolean) {
+  return (
+    !busy &&
+    state.statusReady &&
+    !!state.status &&
+    state.status.state !== 'restart-required' &&
+    (state.status.recoveryCopy || state.status.state !== 'idle')
+  );
+}
+
+function restoreBlocked(view: DataView) {
+  return (
+    !view.mutable || !!view.preview?.blockedByCurrentBarriers || !!view.state.status?.recoveryCopy
+  );
+}
+
+function DataReceipts({ view }: { view: DataView }) {
+  const { t, state } = view;
+
+  return (
+    <>
+      {state.submitted && (
+        <DataManagement.Submitted>
+          <DataManagement.DetailsToggle>{t('workspace.details')}</DataManagement.DetailsToggle>
+          <p>
+            {t('DataSubmitted')}:{' '}
+            {t(
+              (
+                {
+                  create: 'DataCreate',
+                  import: 'DataImport',
+                  delete: 'DataDelete',
+                  accept: 'DataAccept',
+                  discard: 'DataDiscard'
+                } as const
+              )[state.submitted.kind]
+            )}
+          </p>
+          <p>{state.submitted.id ?? state.submitted.fileName}</p>
+          {state.submitted.acceptance && (
+            <dl>
+              <dt>{t('DataToken')}</dt>
+              <dd>{state.submitted.acceptance.token}</dd>
+              <dt>{t('DataDigest')}</dt>
+              <dd>{state.submitted.acceptance.sha256}</dd>
+              <dt>{t('DataTarget')}</dt>
+              <dd>{state.submitted.acceptance.target}</dd>
+            </dl>
+          )}
+        </DataManagement.Submitted>
+      )}
+      {state.receipt && (
+        <DataManagement.Receipt role="status">
+          {t('DataReceipt')}{' '}
+          {'id' in state.receipt
+            ? state.receipt.id
+            : 'state' in state.receipt
+              ? t(`DataState${state.receipt.state}`)
+              : null}
+        </DataManagement.Receipt>
+      )}
+    </>
   );
 }

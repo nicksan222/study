@@ -57,11 +57,13 @@ it('retries the exact document and individual image, distinguishes loading, and 
       .mockReturnValueOnce(Effect.promise(() => pending.promise))
       .mockReturnValue(Effect.succeed({ ...image, bytes: new Uint8Array([2]) }))
   };
+
   vi.mocked(request).mockImplementation((invoke, signal) =>
     runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
   );
   const create = vi.fn().mockReturnValueOnce('blob:first').mockReturnValueOnce('blob:replacement');
   const revoke = vi.fn();
+
   vi.stubGlobal(
     'URL',
     class extends URL {
@@ -76,6 +78,7 @@ it('retries the exact document and individual image, distinguishes loading, and 
     </QueryClientProvider>
   );
   const user = userEvent.setup();
+
   try {
     await screen.findByText(catalogs.english.ReaderUnavailable);
     await user.click(screen.getByRole('button', { name: catalogs.english.LibraryRefresh }));
@@ -94,12 +97,15 @@ it('retries the exact document and individual image, distinguishes loading, and 
     );
     expect(rpc['materials.materialVersionDocument']).toHaveBeenCalledTimes(2);
     expect(rpc['materials.materialVersionImage']).toHaveBeenCalledTimes(2);
+
     for (const [input] of rpc['materials.materialVersionDocument'].mock.calls) {
       expect(input).toEqual({ id: versionId('101') });
     }
+
     for (const [input] of rpc['materials.materialVersionImage'].mock.calls) {
       expect(input).toEqual({ id: versionId('101'), documentId: value.id, blockId: block.id });
     }
+
     await act(async () => {
       await client.invalidateQueries({ queryKey: ['materials', 'image'] });
     });
@@ -146,16 +152,20 @@ it('retries one failed image without reacquiring an already displayed neighbor',
       .mockImplementation(({ blockId }) => {
         if (blockId === first.id && interrupted) {
           interrupted = false;
+
           return Effect.fail(new StudyError('transient', 'Interrupted'));
         }
+
         return Effect.succeed(asset);
       })
   };
+
   vi.mocked(request).mockImplementation((invoke, signal) =>
     runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
   );
   const revoke = vi.fn();
   let urlNumber = 0;
+
   vi.stubGlobal(
     'URL',
     class extends URL {
@@ -169,15 +179,18 @@ it('retries one failed image without reacquiring an already displayed neighbor',
       <ExactDocument id={versionId('101')} />
     </QueryClientProvider>
   );
+
   try {
     const visible = await screen.findByRole('img', { name: 'Available neighbor' });
     const url = visible.getAttribute('src');
+
     await userEvent
       .setup()
       .click(await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
     await screen.findByRole('img', { name: 'Interrupted figure' });
     expect(screen.getByRole('img', { name: 'Available neighbor' })).toHaveAttribute('src', url);
     const calls = rpc['materials.materialVersionImage'].mock.calls.map(([input]) => input);
+
     expect(calls.filter((input) => input.blockId === neighbor.id)).toHaveLength(1);
     expect(calls.filter((input) => input.blockId === first.id)).toHaveLength(2);
     expect(revoke).not.toHaveBeenCalled();

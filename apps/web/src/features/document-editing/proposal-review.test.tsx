@@ -5,6 +5,7 @@ import {
 } from '@study/contracts/materials/editing';
 import { materialVersionDetailSchema } from '@study/contracts/materials/schemas';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type * as MockModule0 from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
@@ -18,6 +19,7 @@ const rpc = vi.hoisted(() => ({
   keep: vi.fn(),
   version: vi.fn()
 }));
+
 vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('../../lib/study-client/request', () => ({
   request: (fn: (client: unknown) => unknown) =>
@@ -27,7 +29,7 @@ vi.mock('../../lib/study-client/request', () => ({
       'materials.keepDocumentProposal': rpc.keep
     })
 }));
-vi.mock('../material-library/material-library.queries', () => ({
+vi.mock('../../lib/study-client/materials.queries', () => ({
   versionOptions: (id: unknown) => ({
     queryKey: ['materials', 'version', String(id)],
     queryFn: () => rpc.version(id)
@@ -35,7 +37,7 @@ vi.mock('../material-library/material-library.queries', () => ({
 }));
 vi.mock('./document-actions', () => ({ ComparisonView: () => <p>Structural comparison</p> }));
 vi.mock('@tanstack/react-router', async (load) => ({
-  ...(await load<typeof import('@tanstack/react-router')>()),
+  ...(await load<typeof MockModule0>()),
   Link: ({ children }: { children: ReactNode }) => <span>{children}</span>
 }));
 
@@ -44,6 +46,7 @@ function deferred<T>() {
   const promise = new Promise<T>((accept) => {
     resolve = accept;
   });
+
   return { promise, resolve };
 }
 
@@ -78,6 +81,7 @@ const version = (id: bigint) =>
       }
     }
   });
+
 const comparison = (current = 101n, base = 100n) =>
   Schema.decodeUnknownSync(documentComparisonSchema)({
     beforeVersionId: base,
@@ -90,6 +94,7 @@ const comparison = (current = 101n, base = 100n) =>
     currentChanges: [],
     evidence: 'structural_only'
   });
+
 const receipt = (outcome = 'applied') =>
   Schema.decodeUnknownSync(documentProposalOutcomeSchema)({
     requestId: 'proposal-1',
@@ -100,12 +105,15 @@ const receipt = (outcome = 'applied') =>
     resultVersionId: outcome === 'conflict' ? null : 103n,
     replayed: false
   });
+
 const clients: QueryClient[] = [];
+
 function mount(
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   copies = 1
 ) {
   if (!clients.includes(client)) clients.push(client);
+
   return {
     client,
     ...render(
@@ -117,6 +125,7 @@ function mount(
     )
   };
 }
+
 beforeEach(() => {
   vi.resetAllMocks();
   rpc.compare.mockResolvedValue(comparison());
@@ -131,10 +140,12 @@ it.each(['apply', 'keep'] as const)(
   'retries the exact %s payload after comparison refresh and remount',
   async (kind) => {
     const operation = rpc[kind];
+
     operation
       .mockRejectedValueOnce(new StudyError('transient', 'Receipt lost'))
       .mockResolvedValueOnce(receipt(kind === 'apply' ? 'applied' : 'kept'));
     const first = mount();
+
     fireEvent.click(
       await screen.findByRole('button', {
         name: kind === 'apply' ? 'DocumentApply' : 'DocumentKeepNew'
@@ -142,9 +153,12 @@ it.each(['apply', 'keep'] as const)(
     );
     await screen.findByRole('alert');
     const submitted = operation.mock.calls[0]![0];
+
     expect(submitted).toMatchObject({ requestId: 'proposal-1', key: expect.any(String) });
+
     if (kind === 'apply')
       expect(submitted).toMatchObject({ expectedVersionId: 101n, baseVersionId: 100n });
+
     rpc.compare.mockResolvedValue(comparison(201n, 200n));
     await act(async () => {
       await first.client.invalidateQueries({ queryKey: ['materials', 'proposal-comparison'] });
@@ -165,10 +179,13 @@ it.each(['apply', 'keep'] as const)(
 
 it('excludes duplicate mounts synchronously and retains a late receipt before invalidation finishes', async () => {
   const response = deferred<ReturnType<typeof receipt>>();
+
   rpc.apply.mockReturnValue(response.promise);
   const first = mount(undefined, 2);
+
   await screen.findAllByRole('button', { name: 'DocumentApply' });
   const buttons = screen.getAllByRole('button', { name: 'DocumentApply' });
+
   act(() => {
     fireEvent.click(buttons[0]!);
     fireEvent.click(buttons[1]!);
@@ -177,11 +194,13 @@ it('excludes duplicate mounts synchronously and retains a late receipt before in
   first.unmount();
   const refresh = deferred<void>();
   const invalidate = vi.spyOn(first.client, 'invalidateQueries').mockReturnValue(refresh.promise);
+
   await act(async () => {
     response.resolve(receipt());
     await response.promise;
   });
   const reopened = mount(first.client);
+
   await screen.findByText('DocumentProposalSaved');
   expect(rpc.version).toHaveBeenCalledWith(103n);
   expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
@@ -203,6 +222,7 @@ it('requires deliberate Keep after conflict and gives it a distinct operation ke
   rpc.apply.mockResolvedValue(receipt('conflict'));
   rpc.keep.mockResolvedValue(receipt('kept'));
   const first = mount();
+
   fireEvent.click(await screen.findByRole('button', { name: 'DocumentApply' }));
   await screen.findByText('DocumentConflict');
   expect(rpc.keep).not.toHaveBeenCalled();

@@ -1,4 +1,4 @@
-import { CollectionsPage } from '../../features/collections/collections-page';
+import { CollectionsPage } from '../../features/collections';
 
 export function PageView() {
   return <CollectionsPage />;

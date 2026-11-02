@@ -11,6 +11,7 @@ it.each(['english', 'italian'] as const)(
     const t = catalogs[locale];
     const navigation = within(await screen.findByRole('navigation', { name: t.Home }));
     const links = navigation.getAllByRole('link');
+
     expect(links).toHaveLength(3);
     expect(navigation.getByRole('link', { name: new RegExp(t.Sessions) })).toHaveAttribute(
       'href',
@@ -29,6 +30,7 @@ it.each(['english', 'italian'] as const)(
 it('offers unscoped links when no project is selected', async () => {
   renderPage('/home', 'english');
   const navigation = within(await screen.findByRole('navigation', { name: catalogs.english.Home }));
+
   expect(navigation.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
     '/sessions',
     '/library',

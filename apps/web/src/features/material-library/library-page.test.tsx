@@ -22,6 +22,7 @@ vi.mock('../../lib/study-client/request', () => ({ request: vi.fn() }));
 async function acceptImport(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryImport }));
   const dialog = await screen.findByRole('dialog');
+
   await user.type(
     within(dialog).getByRole('textbox', { name: catalogs.english.LibraryLink }),
     'https://example.com'
@@ -38,6 +39,7 @@ function receipt() {
 
 it('preserves exact loaded pages, scroll and originating row on repeated Back/Forward POPs', async () => {
   const rpc = materialRpc();
+
   rpc['materials.materials'].mockImplementation(({ cursor }) =>
     Effect.succeed(
       cursor
@@ -47,13 +49,16 @@ it('preserves exact loaded pages, scroll and originating row on repeated Back/Fo
   );
   const { history, router, queryClient } = mountLibraryRoute('/library?project=3', rpc);
   const user = userEvent.setup();
+
   await screen.findByRole('link', { name: /Material 61/ });
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryMore }));
   const origin = await screen.findByRole('link', { name: /Material 41/ });
   const options = materialsOptions(collectionId('3'));
   const cached = queryClient.getQueryData(options.queryKey);
+
   expect(cached?.pages).toHaveLength(2);
   const main = await scrollMain(786);
+
   await user.click(origin);
   await locationIs(router, '/materials/41');
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Material 41' })).toHaveFocus());
@@ -77,6 +82,7 @@ it('preserves exact loaded pages, scroll and originating row on repeated Back/Fo
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Material 41' })).toHaveFocus());
     expect(main.scrollTop).toBe(0);
   }
+
   expect(rpc['materials.materials']).toHaveBeenCalledTimes(2);
 });
 
@@ -85,6 +91,7 @@ it('uses the Library heading when the original row is no longer in the authorita
   const user = userEvent.setup();
   const origin = await screen.findByRole('link', { name: /Material 41/ });
   const main = await scrollMain(244);
+
   await user.click(origin);
   await locationIs(router, '/materials/41');
   act(() =>
@@ -98,10 +105,12 @@ it('uses the Library heading when the original row is no longer in the authorita
   });
   await locationIs(router, '/library');
   await waitFor(() =>
-    expect(screen.getByRole('heading', { name: catalogs.english.SidebarLibrary })).toHaveFocus()
+    expect(
+      screen.getByRole('heading', { name: catalogs.english.SidebarLibrary, level: 2 })
+    ).toHaveFocus()
   );
   expect(
-    screen.getByRole('heading', { level: 1, name: catalogs.english.SidebarLibrary })
+    screen.getByRole('heading', { level: 2, name: catalogs.english.SidebarLibrary })
   ).toHaveAttribute('tabindex', '-1');
   expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   expect(main.scrollTop).toBe(244);
@@ -110,12 +119,15 @@ it('uses the Library heading when the original row is no longer in the authorita
 it('keeps a deferred import across Settings navigation without late navigation or duplicate mutation', async () => {
   const pending = deferred<typeof importedSource>();
   const rpc = materialRpc();
+
   rpc['sources.addLink'].mockReturnValue(Effect.promise(() => pending.promise));
   const { router } = mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await screen.findByRole('link', { name: /Material 41/ });
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryImport }));
   let dialog = await screen.findByRole('dialog');
+
   await user.type(
     within(dialog).getByRole('textbox', { name: catalogs.english.LibraryLink }),
     'https://example.com'
@@ -153,6 +165,7 @@ it('keeps a deferred import across Settings navigation without late navigation o
 
 it('does not let a deferred reveal replace the restored multipage browse snapshot', async () => {
   const rpc = materialRpc();
+
   rpc['materials.materials']
     .mockReturnValueOnce(
       Effect.succeed({
@@ -163,13 +176,16 @@ it('does not let a deferred reveal replace the restored multipage browse snapsho
     .mockReturnValueOnce(Effect.succeed({ items: [summary(41n)], nextCursor: null }));
   const { queryClient, router } = mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await screen.findByRole('link', { name: /Material 61/ });
   await user.click(screen.getByRole('button', { name: catalogs.english.LibraryMore }));
   await screen.findByRole('link', { name: /Material 41/ });
   const main = await scrollMain(533);
   const cached = queryClient.getQueryData(materialsOptions().queryKey);
+
   await acceptImport(user);
   const reveal = deferred<{ items: ReturnType<typeof summary>[]; nextCursor: null }>();
+
   rpc['materials.materials'].mockReturnValueOnce(Effect.promise(() => reveal.promise));
   await user.click(receipt().getByRole('button', { name: catalogs.english.LibraryRefresh }));
   await waitFor(() => expect(rpc['materials.materials']).toHaveBeenCalledTimes(3));
@@ -183,7 +199,11 @@ it('does not let a deferred reveal replace the restored multipage browse snapsho
   await settle();
   expect(queryClient.getQueryData(materialsOptions().queryKey)).toBe(cached);
   expect(main.scrollTop).toBe(533);
-  expect(screen.getByRole('heading', { name: catalogs.english.SidebarLibrary })).toHaveFocus();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('heading', { name: catalogs.english.SidebarLibrary, level: 2 })
+    ).toHaveFocus()
+  );
   expect(screen.queryByRole('link', { name: /Material 99/ })).toBeNull();
   expect(screen.queryByText(catalogs.english.LibraryAccepted)).toBeNull();
   expect(rpc['sources.addLink']).toHaveBeenCalledTimes(1);
@@ -194,13 +214,16 @@ it.each(['filter', 'settings', 'unmount'] as const)(
   async (destination) => {
     const { rpc, router, queryClient, unmount } = mountLibraryRoute();
     const user = userEvent.setup();
+
     await screen.findByRole('link', { name: /Material 41/ });
     await acceptImport(user);
     const cached = queryClient.getQueryData(materialsOptions().queryKey);
     const reveal = deferred<{ items: ReturnType<typeof summary>[]; nextCursor: null }>();
+
     rpc['materials.materials'].mockReturnValueOnce(Effect.promise(() => reveal.promise));
     await user.click(receipt().getByRole('button', { name: catalogs.english.LibraryRefresh }));
     await waitFor(() => expect(rpc['materials.materials']).toHaveBeenCalledTimes(2));
+
     if (destination === 'unmount') unmount();
     else
       await act(async () => {
@@ -210,6 +233,7 @@ it.each(['filter', 'settings', 'unmount'] as const)(
             : { to: '/library', search: { project: '3' } }
         );
       });
+
     await act(async () => {
       reveal.resolve({ items: [summary(99n)], nextCursor: null });
       await reveal.promise;
@@ -228,17 +252,20 @@ it.each(['filter', 'settings', 'unmount'] as const)(
 it('invalidates reveal when filter navigation starts, before a delayed destination loader commits', async () => {
   const { rpc, router, queryClient } = mountLibraryRoute();
   const user = userEvent.setup();
+
   await screen.findByRole('link', { name: /Material 41/ });
   await acceptImport(user);
   const cached = queryClient.getQueryData(materialsOptions().queryKey);
   const reveal = deferred<{ items: ReturnType<typeof summary>[]; nextCursor: null }>();
   const filtered = deferred<{ items: ReturnType<typeof summary>[]; nextCursor: null }>();
+
   rpc['materials.materials']
     .mockReturnValueOnce(Effect.promise(() => reveal.promise))
     .mockReturnValueOnce(Effect.promise(() => filtered.promise));
   await user.click(receipt().getByRole('button', { name: catalogs.english.LibraryRefresh }));
   await waitFor(() => expect(rpc['materials.materials']).toHaveBeenCalledTimes(2));
   let navigation!: Promise<void>;
+
   act(() => {
     navigation = router.navigate({ to: '/library', search: { project: '3' } });
   });
@@ -261,6 +288,7 @@ it('invalidates reveal when filter navigation starts, before a delayed destinati
 
 it('restores submitted search, later draft text, collection, scroll and result focus on browser Back', async () => {
   const rpc = materialRpc();
+
   rpc['system.materialSearch'].mockReturnValue(
     Effect.succeed({
       semantic: false,
@@ -283,11 +311,14 @@ it('restores submitted search, later draft text, collection, scroll and result f
   const { history, router } = mountLibraryRoute('/library?project=3', rpc);
   const user = userEvent.setup();
   const search = await screen.findByRole('textbox', { name: catalogs.english.LibraryGlobalSearch });
+
   await user.type(search, 'old passage');
   await user.click(screen.getByRole('button', { name: catalogs.english.LibrarySearchAction }));
   const hit = await screen.findByRole('link', { name: 'Exact historical hit' });
+
   await user.type(search, ' unsent');
   const main = await scrollMain(455);
+
   await user.click(hit);
   await locationIs(router, '/materials/41');
   expect(router.state.location.search).toMatchObject({ project: '3', version: '101' });
@@ -311,9 +342,11 @@ it('restores submitted search, later draft text, collection, scroll and result f
 
 it('opens accepted imports using the canonical relation even when absent from loaded Library pages', async () => {
   const rpc = materialRpc();
+
   rpc['materials.importedMaterial'].mockReturnValue(Effect.succeed(summary(99n)));
   mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await screen.findByRole('link', { name: /Material 41/ });
   await acceptImport(user);
   expect(

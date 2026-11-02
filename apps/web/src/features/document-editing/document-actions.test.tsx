@@ -34,12 +34,15 @@ function editorRpc() {
     'materials.saveDocument': vi.fn<StudyClient['materials.saveDocument']>(),
     'materials.undoDocument': vi.fn<StudyClient['materials.undoDocument']>()
   };
+
   rpc['materials.material'].mockReturnValue(
     Effect.succeed({ ...material(), kind: 'document', version })
   );
   rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(version));
+
   return rpc;
 }
+
 const receipt = (submitted = 103n, expected = 101n, outcome = 'saved') =>
   Schema.decodeUnknownSync(documentEditOutcomeSchema)({
     outcome,
@@ -52,6 +55,7 @@ const receipt = (submitted = 103n, expected = 101n, outcome = 'saved') =>
 async function startDraft(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentEdit }));
   const text = screen.getByRole('textbox', { name: `${catalogs.english.DocumentText} 1` });
+
   await user.clear(text);
   await user.type(text, 'My unsaved correction');
 }
@@ -62,7 +66,6 @@ it('retains an unsaved draft through a route absence longer than default query G
     kind: 'document',
     content: { kind: 'document', ...exactDocument().document }
   });
-  vi.useFakeTimers();
   const client = createStudyQueryClient();
   const mount = () =>
     render(
@@ -71,9 +74,11 @@ it('retains an unsaved draft through a route absence longer than default query G
       </QueryClientProvider>
     );
   const view = mount();
-  const timedUser = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  const timedUser = userEvent.setup();
+
   try {
     await startDraft(timedUser);
+    vi.useFakeTimers();
     view.unmount();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6 * 60_000);
@@ -81,8 +86,10 @@ it('retains an unsaved draft through a route absence longer than default query G
   } finally {
     vi.useRealTimers();
   }
+
   const user = userEvent.setup();
   const reopened = mount();
+
   try {
     expect(
       await screen.findByRole('textbox', { name: `${catalogs.english.DocumentText} 1` })
@@ -100,6 +107,7 @@ it('retains an unsaved draft through a route absence longer than default query G
 
 it('replays the immutable save and undo after lost responses and remount, and removes acknowledged undo', async () => {
   const rpc = editorRpc();
+
   rpc['materials.saveDocument']
     .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
     .mockReturnValueOnce(Effect.succeed({ ...receipt(), replayed: true }));
@@ -108,6 +116,7 @@ it('replays the immutable save and undo after lost responses and remount, and re
     .mockReturnValueOnce(Effect.succeed({ ...receipt(104n, 103n), replayed: true }));
   const { router } = mountLibraryRoute('/materials/41', rpc);
   const user = userEvent.setup();
+
   async function remount() {
     await act(async () => {
       await router.navigate({ to: '/settings', search: {} });
@@ -120,10 +129,12 @@ it('replays the immutable save and undo after lost responses and remount, and re
       });
     });
   }
+
   await startDraft(user);
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentSave }));
   await screen.findByText(catalogs.english.DocumentActionFailed);
   const save = rpc['materials.saveDocument'].mock.calls[0]![0];
+
   await remount();
   expect(
     await screen.findByRole('textbox', { name: `${catalogs.english.DocumentText} 1` })
@@ -136,6 +147,7 @@ it('replays the immutable save and undo after lost responses and remount, and re
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentUndo }));
   await screen.findByText(catalogs.english.DocumentActionFailed);
   const undo = rpc['materials.undoDocument'].mock.calls[0]![0];
+
   expect(undo).toMatchObject({
     expectedVersionId: versionId('103'),
     restoreVersionId: versionId('101')
@@ -153,13 +165,16 @@ it('replays the immutable save and undo after lost responses and remount, and re
 
 it('permits correction after a known creation rejection', async () => {
   const rpc = materialRpc();
+
   rpc['materials.createManualDocument']
     .mockReturnValueOnce(Effect.fail(new StudyError('invalid_input', 'Rejected')))
     .mockReturnValueOnce(Effect.succeed(material()));
   mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentNew }));
   const title = screen.getByRole('textbox', { name: catalogs.english.DocumentTitle });
+
   await user.type(title, 'Rejected title');
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.DocumentInitialText }),
@@ -192,11 +207,13 @@ it('permits correction after a known creation rejection', async () => {
 
 it('requires Library review and explicit acknowledgement before another uncertain creation', async () => {
   const rpc = materialRpc();
+
   rpc['materials.createManualDocument'].mockReturnValue(
     Effect.fail(new StudyError('internal', 'Response lost'))
   );
   const { router } = mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentNew }));
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.DocumentTitle }),
@@ -218,6 +235,7 @@ it('requires Library review and explicit acknowledgement before another uncertai
   await reopenCreation(router);
   expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeDisabled();
   const review = screen.getByRole('region', { name: catalogs.english.DocumentCreationReviewAll });
+
   await user.click(within(review).getByRole('button', { name: catalogs.english.LibraryRefresh }));
   await user.click(
     await screen.findByRole('button', { name: catalogs.english.DocumentCreationReviewed })
@@ -230,9 +248,11 @@ it('requires Library review and explicit acknowledgement before another uncertai
 
 it('retains a known created ID when later refresh fails and never resubmits creation', async () => {
   const rpc = materialRpc();
+
   rpc['materials.createManualDocument'].mockReturnValue(Effect.succeed(material()));
   const { queryClient, router } = mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentNew }));
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.DocumentTitle }),
@@ -245,20 +265,24 @@ it('retains a known created ID when later refresh fails and never resubmits crea
   const invalidate = vi
     .spyOn(queryClient, 'invalidateQueries')
     .mockRejectedValueOnce(new Error('Refresh interrupted'));
+
   try {
     await user.click(screen.getByRole('button', { name: catalogs.english.DocumentCreate }));
     const open = await screen.findByRole('link', { name: catalogs.english.DocumentOpenCopy });
+
     expect(open).toHaveAttribute('href', '/materials/41');
     expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeDisabled();
     expect(
       screen.queryByRole('button', { name: catalogs.english.DocumentCreationReviewed })
     ).toBeNull();
     const title = screen.getByRole('textbox', { name: catalogs.english.DocumentTitle });
+
     await user.clear(title);
     await user.type(title, 'Later unsent title');
     const submitted = screen.getByRole('region', {
       name: catalogs.english.DocumentCreationSubmitted
     });
+
     expect(within(submitted).getByText('Created once')).toBeInTheDocument();
     await reopenCreation(router);
     expect(screen.getByRole('textbox', { name: catalogs.english.DocumentTitle })).toHaveValue(
@@ -270,6 +294,7 @@ it('retains a known created ID when later refresh fails and never resubmits crea
       ).getByText('Created once')
     ).toBeInTheDocument();
     const recovered = await screen.findByRole('link', { name: catalogs.english.DocumentOpenCopy });
+
     expect(recovered).toHaveAttribute('href', '/materials/41');
     expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeDisabled();
     await user.click(recovered);
@@ -307,6 +332,7 @@ async function reopenCreation(router: ReturnType<typeof mountLibraryRoute>['rout
 it('requires both title and nonempty body before creation and retains the draft across remount', async () => {
   const { rpc, router } = mountLibraryRoute();
   const user = userEvent.setup();
+
   await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentNew }));
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.DocumentTitle }),
@@ -336,9 +362,11 @@ it('requires both title and nonempty body before creation and retains the draft 
 it('retains the in-flight creation fence and known receipt across remount', async () => {
   const rpc = materialRpc();
   const response = deferred<ReturnType<typeof material>>();
+
   rpc['materials.createManualDocument'].mockReturnValue(Effect.promise(() => response.promise));
   const { router } = mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
+
   await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentNew }));
   await user.type(
     screen.getByRole('textbox', { name: catalogs.english.DocumentTitle }),
@@ -351,6 +379,7 @@ it('retains the in-flight creation fence and known receipt across remount', asyn
   const form = screen
     .getByRole('textbox', { name: catalogs.english.DocumentTitle })
     .closest('form')!;
+
   // Repeated native submits must hit the synchronous fence before Query notifications render.
   act(() => {
     fireEvent.submit(form);

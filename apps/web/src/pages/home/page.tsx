@@ -1,5 +1,5 @@
-import { PageView } from './page.view';
+import { HomeScreen } from './home-screen';
 
 export function Page() {
-  return <PageView />;
+  return <HomeScreen />;
 }

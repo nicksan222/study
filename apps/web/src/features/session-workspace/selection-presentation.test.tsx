@@ -7,6 +7,7 @@ import { afterEach, expect, it, vi } from 'vite-plus/test';
 import { SelectedTarget } from './selection';
 
 const reads = vi.hoisted(() => ({ version: vi.fn(), material: vi.fn(), document: vi.fn() }));
+
 vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('../material-library/material-library.queries', () => ({
   versionOptions: (id: unknown) => ({
@@ -20,14 +21,15 @@ vi.mock('../material-library/material-library.queries', () => ({
   materialsOptions: vi.fn()
 }));
 vi.mock('./session-workspace.queries', () => ({
-  exactDocumentOptions: (id: unknown) => ({
+  sessionDocumentOptions: (id: unknown) => ({
     queryKey: ['document', String(id)],
     queryFn: () => reads.document(id)
   }),
-  materialSearchOptions: vi.fn(),
+  sessionMaterialSearchOptions: vi.fn(),
   selectionOptions: vi.fn(),
   updateSelection: vi.fn()
 }));
+
 const target = Schema.decodeUnknownSync(sessionSelectionTargetSchema)({
   versionId: 41n,
   documentId: 51n,
@@ -36,22 +38,28 @@ const target = Schema.decodeUnknownSync(sessionSelectionTargetSchema)({
     ranges: [{ versionId: 41n, documentId: 51n, blockId: 'paragraph', start: 5, end: 13 }]
   }
 });
+
 const clients: QueryClient[] = [];
+
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
       <SelectedTarget target={target} />
     </QueryClientProvider>
   );
+
   return client;
 }
+
 afterEach(() => {
   cleanup();
   clients.splice(0).forEach((client) => client.clear());
   vi.resetAllMocks();
 });
+
 it('labels the retained version and excerpts only its selected range', async () => {
   reads.version.mockResolvedValue({ id: 41n, material_id: 31n, number: 2n });
   reads.material.mockResolvedValue({ title: 'Mechanics', version: { id: 99n } });
@@ -68,6 +76,7 @@ it('labels the retained version and excerpts only its selected range', async () 
   expect(reads.version).not.toHaveBeenCalledWith(99n);
   expect(screen.queryByText('Keep selected outside')).toBeNull();
 });
+
 it('does not display excerpts from a different document identity', async () => {
   reads.version.mockResolvedValue({ id: 41n, material_id: 31n, number: 2n });
   reads.material.mockResolvedValue({ title: 'Mechanics' });
@@ -97,6 +106,7 @@ it('updates the current catalog title without replacing exact retained content w
     })
   );
   const client = mount();
+
   expect(await screen.findByText('selected')).toBeVisible();
   expect(await screen.findByText('Old catalog title')).toBeVisible();
   reads.material.mockResolvedValue({ title: 'Renamed catalog title', version: { id: 100n } });

@@ -14,6 +14,7 @@ export function ErrorState({
   layout?: 'page' | 'inline' | 'sidebar';
 }) {
   const id = useId();
+
   return (
     <section role="alert" aria-labelledby={id} className="ui-error-state" data-layout={layout}>
       <div className="ui-error-state-icon">

@@ -1,6 +1,8 @@
+import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { expect, it, vi } from 'vite-plus/test';
 
@@ -9,8 +11,10 @@ import { TargetPicker, EvidenceTarget } from './annotation-target';
 import { exactDocument, importedVersion } from './test/support';
 vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('../../lib/study-client/request', () => ({ request: vi.fn() }));
+
 function setup(rpc: object, child: ReactNode) {
   vi.mocked(request).mockImplementation((invoke) => invoke(rpc as never) as never);
+
   return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -19,10 +23,12 @@ function setup(rpc: object, child: ReactNode) {
     </QueryClientProvider>
   );
 }
+
 it('selects one canonical block and rejects a split UTF-16 surrogate pair', async () => {
   const owner = importedVersion();
   const doc = exactDocument(101n, 'A😀BC');
   const pick = vi.fn();
+
   setup(
     {
       'materials.materialVersions': () => Promise.resolve({ items: [], nextCursor: null }),
@@ -34,6 +40,7 @@ it('selects one canonical block and rejects a split UTF-16 surrogate pair', asyn
   await userEvent.setup().click(await screen.findByLabelText('DocumentBlock'));
   await userEvent.setup().click(await screen.findByRole('option', { name: '1 · A😀BC' }));
   const field = screen.getByLabelText('DocumentSelectPassage') as HTMLTextAreaElement;
+
   field.setSelectionRange(1, 2);
   fireEvent.select(field);
   expect(pick).toHaveBeenLastCalledWith(undefined);
@@ -45,13 +52,21 @@ it('selects one canonical block and rejects a split UTF-16 surrogate pair', asyn
   });
   expect(screen.getByLabelText('AnnotationPreview')).toHaveTextContent('😀');
 });
+
 it('does not show current text when retained document identity differs', async () => {
   const owner = importedVersion();
   const target = {
     materialId: owner.material_id,
-    range: { versionId: owner.id, documentId: exactDocument().id, blockId: 'b0', start: 0, end: 4 }
+    range: {
+      versionId: owner.id,
+      documentId: exactDocument().id,
+      blockId: Schema.decodeUnknownSync(blockIdSchema)('b0'),
+      start: 0,
+      end: 4
+    }
   };
   const read = vi.fn().mockResolvedValue(exactDocument(102n, 'Wrong current text'));
+
   setup(
     {
       'materials.resolveEvidence': () =>

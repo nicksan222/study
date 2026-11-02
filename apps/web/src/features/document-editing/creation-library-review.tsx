@@ -1,11 +1,13 @@
 import { Button } from '@study/ui/button';
+import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
+import { Loading } from '@study/ui/loading';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { materialsOptions } from '../material-library/material-library.queries';
+import { materialsOptions } from '../../lib/study-client/materials.queries';
 
 /** A global, explicitly refreshed review for a possibly accepted unscoped creation. */
 export function CreationLibraryReview({
@@ -18,22 +20,24 @@ export function CreationLibraryReview({
   const { t } = useI18n();
   const [refreshed, setRefreshed] = useState(false);
   const library = useInfiniteQuery({ ...materialsOptions(), enabled: false });
-  const reviewable = refreshed && library.isSuccess && !library.isFetching && !library.hasNextPage;
+  const reviewable = completedReview(refreshed, library);
+
   return (
-    <section aria-label={t('DocumentCreationReviewAll')} className="space-y-3">
-      <p className="text-sm text-muted-foreground">{t('DocumentCreationReviewAll')}</p>
+    <DocumentEditing.CreationReview aria-label={t('DocumentCreationReviewAll')}>
+      <DocumentEditing.Muted>{t('DocumentCreationReviewAll')}</DocumentEditing.Muted>
       <Button
         type="button"
         disabled={busy || library.isFetching}
         onClick={async () => {
           setRefreshed(false);
           const result = await library.refetch();
+
           setRefreshed(!result.isError);
         }}
       >
         {t('LibraryRefresh')}
       </Button>
-      {library.isFetching && <p role="status">{t('collections.loading')}</p>}
+      {library.isFetching && <Loading label={t('collections.loading')} />}
       {library.isError && (
         <ErrorState title={t('ErrorStateTitle')} description={<> {t('LibraryLoadFailed')} </>} />
       )}
@@ -42,11 +46,11 @@ export function CreationLibraryReview({
           {library.data.pages.every((page) => page.items.length === 0) && (
             <p>{t('DocumentCreationReviewEmpty')}</p>
           )}
-          <ul className="max-h-60 overflow-auto divide-y divide-border">
+          <DocumentEditing.ReviewList>
             {library.data.pages
               .flatMap((page) => page.items)
               .map((item) => (
-                <li key={String(item.id)} className="py-2">
+                <DocumentEditing.ReviewRow key={String(item.id)}>
                   <Link
                     to="/materials/$materialId"
                     params={{ materialId: String(item.id) }}
@@ -54,9 +58,9 @@ export function CreationLibraryReview({
                   >
                     {item.title}
                   </Link>
-                </li>
+                </DocumentEditing.ReviewRow>
               ))}
-          </ul>
+          </DocumentEditing.ReviewList>
           {library.hasNextPage && (
             <Button
               type="button"
@@ -79,6 +83,13 @@ export function CreationLibraryReview({
           {t('DocumentCreationReviewed')}
         </Button>
       )}
-    </section>
+    </DocumentEditing.CreationReview>
   );
+}
+
+function completedReview(
+  refreshed: boolean,
+  library: { isSuccess: boolean; isFetching: boolean; hasNextPage: boolean }
+) {
+  return refreshed && library.isSuccess && !library.isFetching && !library.hasNextPage;
 }

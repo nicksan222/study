@@ -32,8 +32,10 @@ it('edits a text run without flattening marks, links or neighboring structures',
     ]
   });
   let latest = { ...blankDocument(), blocks: [paragraph, table, list] };
+
   function Harness() {
     const [document, change] = useState(latest);
+
     return (
       <BlockEditor
         document={document}
@@ -44,9 +46,11 @@ it('edits a text run without flattening marks, links or neighboring structures',
       />
     );
   }
+
   render(<Harness />);
   const input = screen.getAllByRole('textbox')[0]!;
   const user = userEvent.setup();
+
   await user.clear(input);
   await user.type(input, 'Changed');
   expect(latest.blocks[0]!.id).toBe(paragraph.id);
@@ -68,6 +72,7 @@ it('gives independent copies fresh authored identities while preserving rich con
   );
   const document = { ...blankDocument(), blocks: [block] };
   const copy = authoredCopy(document);
+
   expect(copy.blocks[0]!.id).not.toBe(block.id);
   expect(copy.blocks[0]!.content).toEqual(block.content);
   expect(copy.blocks[0]!.anchor).toEqual({ type: 'authored' });

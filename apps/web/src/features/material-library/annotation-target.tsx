@@ -7,16 +7,23 @@ import type {
 import { validDocumentTextRange } from '@study/contracts/sources/document';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { EvidenceExcerpt } from '@study/ui/evidence-target';
+import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Textarea } from '@study/ui/textarea';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
+import {
+  annotationDocumentOptions,
+  resolvedEvidenceOptions,
+  retainedRangeOptions
+} from './annotation-target.queries';
 import { historyOptions } from './material-library.queries';
 
 export type Target = typeof evidenceTargetSchema.Type;
+
 export function TargetPicker({
   materialId,
   initialVersion,
@@ -29,6 +36,7 @@ export function TargetPicker({
   const { t } = useI18n();
   const [version, setVersion] = useState(initialVersion);
   const versions = useInfiniteQuery(historyOptions(materialId));
+
   return (
     <div>
       <SelectControl
@@ -48,15 +56,19 @@ export function TargetPicker({
           const item = versions.data?.pages
             .flatMap((page) => page.items)
             .find((item) => String(item.id) === selected && item.availability !== 'unavailable');
+
           if (selected === String(initialVersion) || item) {
             setVersion(item?.id ?? initialVersion);
             onPick(undefined);
           }
         }}
       />
-      {versions.isPending && <p role="status">{t('LoadingStudy')}</p>}
+      {versions.isPending && <Loading label={t('LoadingStudy')} />}
       {versions.isError && (
-        <Button onClick={() => void versions.refetch()}>{t('LibraryRefresh')}</Button>
+        <ErrorState
+          title={t('ReaderUnavailable')}
+          action={<Button onClick={() => void versions.refetch()}>{t('LibraryRefresh')}</Button>}
+        />
       )}
       {versions.hasNextPage && (
         <Button
@@ -75,6 +87,7 @@ export function TargetPicker({
     </div>
   );
 }
+
 function BlockPicker({
   materialId,
   version,
@@ -87,22 +100,13 @@ function BlockPicker({
   const { t } = useI18n();
   const [blockId, setBlockId] = useState('');
   const [preview, setPreview] = useState('');
-  const state = useQuery({
-    queryKey: ['materials', 'annotationDocument', String(materialId), String(version)],
-    queryFn: async ({ signal }) => {
-      const owner = await request(
-        (rpc) => rpc['materials.materialVersion']({ id: version }),
-        signal
-      );
-      if (owner.material_id !== materialId) return null;
-      return request((rpc) => rpc['materials.materialVersionDocument']({ id: version }), signal);
-    }
-  });
+  const state = useQuery(annotationDocumentOptions(materialId, version));
   const value = state.data;
   const block = value?.document.blocks.find((item) => item.id === blockId);
+
   return (
     <div>
-      {state.isPending && <p role="status">{t('LoadingStudy')}</p>}
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
       {(state.isError || value === null) && (
         <ErrorState
           title={t('ErrorStateTitle')}
@@ -155,6 +159,7 @@ function BlockPicker({
                       { versionId: version, documentId: value.id },
                       range
                     );
+
                   setPreview(valid ? block.text.slice(range.start, range.end) : '');
                   onPick(valid ? { materialId, range } : undefined);
                 }}
@@ -162,12 +167,9 @@ function BlockPicker({
             </label>
           )}
           {preview && (
-            <blockquote
-              style={{ maxHeight: '12rem', overflow: 'auto', whiteSpace: 'pre-wrap' }}
-              aria-label={t('AnnotationPreview')}
-            >
+            <EvidenceExcerpt kind="preview" aria-label={t('AnnotationPreview')}>
               {preview}
-            </blockquote>
+            </EvidenceExcerpt>
           )}
         </>
       )}
@@ -185,29 +187,13 @@ export function EvidenceTarget({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(preview);
-  const state = useQuery({
-    queryKey: [
-      'materials',
-      'resolvedEvidence',
-      reference.kind === 'range'
-        ? [
-            reference.target.materialId,
-            reference.target.range.versionId,
-            reference.target.range.documentId,
-            reference.target.range.blockId,
-            reference.target.range.start,
-            reference.target.range.end
-          ].join(':')
-        : [reference.versionId, JSON.stringify(reference.anchor), reference.quote].join(':')
-    ],
-    enabled: open,
-    queryFn: ({ signal }) => request((rpc) => rpc['materials.resolveEvidence'](reference), signal)
-  });
+  const state = useQuery(resolvedEvidenceOptions(reference, open));
   const resolved = state.data;
+
   return (
     <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary>{t('AnnotationOpenTarget')}</summary>
-      {state.isPending && <p role="status">{t('LoadingStudy')}</p>}
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
       {state.isError && (
         <ErrorState
           title={t('ErrorStateTitle')}
@@ -221,71 +207,24 @@ export function EvidenceTarget({
       )}
       {resolved?.availability === 'unavailable' && <p role="status">{t('ReaderUnavailable')}</p>}
       {resolved?.availability === 'available' && (
-        <>
-          <p>{t(resolved.precision === 'exact' ? 'DocumentExact' : 'DocumentApproximate')}</p>
-          <p>
-            {t('ReaderVersion')}{' '}
-            {String(
-              reference.kind === 'range' ? reference.target.range.versionId : reference.versionId
-            )}
-          </p>
-          {reference.kind === 'range' ? (
-            <RetainedRange target={reference.target} />
-          ) : (
-            <>
-              <blockquote>{reference.quote}</blockquote>
-              <ApproximateLocation resolution={resolved} />
-            </>
-          )}
-        </>
+        <ResolvedEvidence reference={reference} resolution={resolved} />
       )}
     </details>
   );
 }
+
 function RetainedRange({ target }: { target: Target }) {
   const { t } = useI18n();
-  const state = useQuery({
-    queryKey: [
-      'materials',
-      'retainedRange',
-      [
-        target.materialId,
-        target.range.versionId,
-        target.range.documentId,
-        target.range.blockId,
-        target.range.start,
-        target.range.end
-      ].join(':')
-    ],
-    queryFn: async ({ signal }) => {
-      const owner = await request(
-        (rpc) => rpc['materials.materialVersion']({ id: target.range.versionId }),
-        signal
-      );
-      if (owner.material_id !== target.materialId) return null;
-      const value = await request(
-        (rpc) => rpc['materials.materialVersionDocument']({ id: target.range.versionId }),
-        signal
-      );
-      if (
-        !validDocumentTextRange(
-          value.document,
-          { versionId: target.range.versionId, documentId: value.id },
-          target.range
-        )
-      )
-        return null;
-      return value.document.blocks.find((block) => block.id === target.range.blockId)?.text ?? null;
-    }
-  });
+  const state = useQuery(retainedRangeOptions(target));
   const range = target.range;
+
   return (
     <div>
       <p>
         {String(target.materialId)} · {String(range.versionId)} · {String(range.documentId)} ·{' '}
         {range.blockId} · {range.start}–{range.end}
       </p>
-      {state.isPending && <p role="status">{t('LoadingStudy')}</p>}
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
       {(state.isError || state.data === null) && (
         <ErrorState
           title={t('ErrorStateTitle')}
@@ -298,11 +237,11 @@ function RetainedRange({ target }: { target: Target }) {
         />
       )}
       {typeof state.data === 'string' && (
-        <p style={{ whiteSpace: 'pre-wrap', maxHeight: '24rem', overflow: 'auto' }}>
+        <EvidenceExcerpt kind="retained">
           {state.data.slice(0, range.start)}
           <mark>{state.data.slice(range.start, range.end)}</mark>
           {state.data.slice(range.end)}
-        </p>
+        </EvidenceExcerpt>
       )}
     </div>
   );
@@ -315,8 +254,10 @@ function ApproximateLocation({
 }) {
   const { t } = useI18n();
   const anchor = resolution.location;
+
   if (resolution.locationPrecision === 'unavailable' || anchor.type === 'authored')
     return <p>{t('AnnotationLocationUnavailable')}</p>;
+
   switch (anchor.type) {
     case 'page':
       return (
@@ -356,4 +297,34 @@ function ApproximateLocation({
         </p>
       );
   }
+}
+
+function ResolvedEvidence({
+  reference,
+  resolution
+}: {
+  reference: typeof evidenceReferenceSchema.Type;
+  resolution: Extract<typeof evidenceResolutionSchema.Type, { availability: 'available' }>;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      <p>{t(resolution.precision === 'exact' ? 'DocumentExact' : 'DocumentApproximate')}</p>
+      <p>
+        {t('ReaderVersion')}{' '}
+        {String(
+          reference.kind === 'range' ? reference.target.range.versionId : reference.versionId
+        )}
+      </p>
+      {reference.kind === 'range' ? (
+        <RetainedRange target={reference.target} />
+      ) : (
+        <>
+          <blockquote>{reference.quote}</blockquote>
+          <ApproximateLocation resolution={resolution} />
+        </>
+      )}
+    </>
+  );
 }

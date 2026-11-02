@@ -9,6 +9,7 @@ it.each(['english', 'italian'] as const)(
   async (locale) => {
     const { router } = renderPage('/sessions?project=9007199254740993', locale);
     const copy = catalogs[locale];
+
     expect(await screen.findByRole('heading', { name: copy.Sessions })).toBeInTheDocument();
     expect(
       await screen.findByRole('heading', { name: copy.SessionStartTitle })

@@ -25,6 +25,7 @@ export function deferred<T>() {
   const promise = new Promise<T>((accept) => {
     resolve = accept;
   });
+
   return { promise, resolve };
 }
 
@@ -92,7 +93,9 @@ export function importedVersion(id = 101n, owner = 41n, text = 'Historical extra
 
 export function exactDocument(id = 101n, text = 'Historical extraction') {
   const content = importedVersion(id, 41n, text).content;
+
   if (!('extracted' in content) || !content.extracted) throw new Error('Expected extraction');
+
   return Schema.decodeUnknownSync(materialVersionDocumentSchema)({
     id: id + 1000n,
     document: content.extracted.document
@@ -101,6 +104,7 @@ export function exactDocument(id = 101n, text = 'Historical extraction') {
 
 export function material(id = 41n) {
   const version = importedVersion(102n, id, `Current extraction ${id}`);
+
   return Schema.decodeUnknownSync(materialDetailSchema)({
     id,
     title: `Material ${id}`,
@@ -157,6 +161,9 @@ export function materialRpc() {
       .fn<StudyClient['materials.materialVersions']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
     'materials.materialVersionExport': vi.fn<StudyClient['materials.materialVersionExport']>(),
+    'sources.sources': vi
+      .fn<StudyClient['sources.sources']>()
+      .mockReturnValue(Effect.succeed({ items: [], next: null })),
     'sources.addLink': vi
       .fn<StudyClient['sources.addLink']>()
       .mockReturnValue(Effect.succeed(importedSource)),
@@ -189,6 +196,7 @@ export function mountLibraryRoute(initial = '/library', rpc = materialRpc()) {
       <RouterProvider router={router} />
     </Providers>
   );
+
   return { ...view, rpc, queryClient, history, router };
 }
 
@@ -201,7 +209,9 @@ export async function settle() {
 
 export async function scrollMain(scroll: number) {
   const main = await screen.findByRole('main');
+
   main.scrollTop = scroll;
+
   return main;
 }
 
