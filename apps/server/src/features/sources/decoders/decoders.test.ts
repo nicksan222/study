@@ -425,3 +425,49 @@ test('HTML list wrappers preserve descendants, paragraph boundaries and continua
       ]
     );
 });
+
+test('HTML structural and unknown wrappers retain nested flow without splitting phrasing', async () => {
+  const { decodeHtml } = await import('#server/features/sources/decoders/html');
+  const { documentSchema } = await import('@study/contracts/sources/schemas');
+  const { Schema } = await import('effect');
+  for (const wrapper of ['details open', 'study-wrapper']) {
+    const tag = wrapper.split(' ')[0];
+    const result = decodeHtml({
+      bytes: bytes(
+        `<main><${wrapper}><summary>Topic</summary><p>Before</p><ul><li>Evidence</li></ul><table><tr><td>Cell</td></tr></table>inter<strong>national</strong></${tag}></main>`
+      )
+    });
+    Schema.decodeUnknownSync(documentSchema)(result);
+    assert.deepEqual(
+      result.blocks.map((block) => [block.content.type, block.text]),
+      [
+        ['paragraph', 'Topic'],
+        ['paragraph', 'Before'],
+        ['list_item', 'Evidence'],
+        ['table', 'Cell'],
+        ['paragraph', 'international']
+      ]
+    );
+    const list = decodeHtml({
+      bytes: bytes(
+        `<ol start="3"><li><${wrapper}><summary>Topic</summary><p>Before</p><ul><li>Evidence</li></ul><p>After</p>inter<strong>national</strong></${tag}></li></ol>`
+      )
+    });
+    Schema.decodeUnknownSync(documentSchema)(list);
+    assert.equal(list.blocks.length, 1);
+    assert.equal(list.blocks[0]!.text, 'Topic\nBefore\nEvidence\nAfter\ninternational');
+    const content = list.blocks[0]!.content;
+    assert.equal(content.type, 'list_item');
+    if (content.type === 'list_item')
+      assert.deepEqual(
+        content.items.map(({ depth, continuation }) => [depth, continuation]),
+        [
+          [0, false],
+          [0, true],
+          [1, false],
+          [0, true],
+          [0, true]
+        ]
+      );
+  }
+});

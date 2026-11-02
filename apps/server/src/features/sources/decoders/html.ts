@@ -42,6 +42,8 @@ export function decodeHtml(
     'address',
     'figure',
     'figcaption',
+    'details',
+    'summary',
     'header',
     'footer',
     'h1',
@@ -52,6 +54,21 @@ export function decodeHtml(
     'h6',
     'pre'
   ]);
+  // Unknown wrappers may contain recognized flow content. Only true phrasing subtrees
+  // belong in the inline buffer, whose decoder intentionally excludes lists and tables.
+  const flowNodes = new WeakMap<Node, boolean>();
+  function containsFlow(node: Node): boolean {
+    if (node.type !== 'tag') return false;
+    const cached = flowNodes.get(node);
+    if (cached !== undefined) return cached;
+    const flow =
+      flowContainers.has(node.tagName) ||
+      ['ul', 'ol', 'table'].includes(node.tagName) ||
+      $(node).contents().toArray().some(containsFlow);
+    flowNodes.set(node, flow);
+    return flow;
+  }
+
   const hasPhrasing = (nodes: Node[]) =>
     nodes.some(
       (node) => node.type === 'tag' || (node.type === 'text' && node.data.trim().length > 0)
@@ -165,7 +182,7 @@ export function decodeHtml(
               if (child.type === 'tag' && ['ul', 'ol'].includes(child.tagName)) {
                 save(true);
                 visit(child, depth + 1);
-              } else if (child.type === 'tag' && flowContainers.has(child.tagName)) {
+              } else if (child.type === 'tag' && containsFlow(child)) {
                 save();
                 read($(child).contents().toArray());
                 save();
@@ -278,7 +295,7 @@ export function decodeHtml(
       if (name === 'ul' || name === 'ol') {
         save();
         list(node);
-      } else if (name === 'table' || flowContainers.has(name)) {
+      } else if (containsFlow(node)) {
         save();
         if (!structured(node, name)) walk($(node).contents().toArray());
       } else pending.push(node);
