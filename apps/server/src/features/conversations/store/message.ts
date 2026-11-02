@@ -213,9 +213,6 @@ export const MessageStore = defineStore({
 
               if (!source) throw new StudyError('not_found', 'attachment not found');
 
-              if (source.project_id !== session.project_id)
-                throw new StudyError('invalid_input', 'attachment belongs to another project');
-
               return source;
             });
             const message = db.orm

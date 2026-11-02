@@ -63,7 +63,7 @@ export function LibraryListView({
         const { Icon, labelKey } = libraryItemPresentation(kind);
         const label = t(labelKey);
         const title = item.type === 'source' ? item.value.name : item.value.title;
-        const projectId = item.type === 'source' ? item.value.projectId : item.value.project_id;
+        const projectId = itemProjectId(item);
         const updated = item.type === 'source' ? item.value.createdAt : item.value.updated_at;
         const owner = subjects.find((subject) => subject.id === projectId);
         const active =
@@ -86,7 +86,7 @@ export function LibraryListView({
             aria-label={title}
             aria-current={active ? 'page' : undefined}
             title={title}
-            render={<Link {...itemLocation(item)} />}
+            render={<Link {...itemLocation(item, search.project)} />}
           />
         );
       })}
@@ -116,4 +116,10 @@ function libraryItemPresentation(kind: string) {
     default:
       return { Icon: GraduationCap, labelKey: 'SidebarQuiz' as const };
   }
+}
+
+function itemProjectId(item: LibraryItem) {
+  if (item.type === 'source') return item.value.projectId;
+
+  return item.value.projectIds.length === 1 ? item.value.projectIds[0] : undefined;
 }

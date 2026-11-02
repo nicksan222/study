@@ -413,6 +413,12 @@ export function makeReads({ db: store }: StoreResources) {
 
     return {
       ...row,
+      projectIds: store.orm
+        .select()
+        .from(s.project_materials)
+        .where(eq(s.project_materials.material_id, row.id))
+        .all()
+        .map((link) => link.project_id),
       version: required(published ?? draft),
       latestPublishedVersion: published && isPublished(published) ? published : null,
       latestDraftVersion: draft && isDraft(draft) ? draft : null
@@ -473,6 +479,12 @@ export function makeReads({ db: store }: StoreResources) {
           r.material.id,
           {
             ...r.material,
+            projectIds: store.orm
+              .select()
+              .from(s.project_materials)
+              .where(eq(s.project_materials.material_id, r.material.id))
+              .all()
+              .map((link) => link.project_id),
             version: required(published ?? draft),
             latestPublishedVersion: published,
             latestDraftVersion: draft

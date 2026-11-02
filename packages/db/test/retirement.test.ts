@@ -58,7 +58,7 @@ test('retirement upgrades populated canonical state, references, sequences and s
     `);
     const triggerSql = old
       .prepare(
-        "SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions' OR name='conversation_recording_posts_validate_insert') ORDER BY name"
+        "SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') ORDER BY name"
       )
       .all()
       .map((row) => ({ ...row }));
@@ -72,7 +72,7 @@ test('retirement upgrades populated canonical state, references, sequences and s
       assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
       assert.deepEqual(
         db.all(
-          sql`SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions' OR name='conversation_recording_posts_validate_insert') ORDER BY name`
+          sql`SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') ORDER BY name`
         ),
         triggerSql
       );
@@ -144,13 +144,7 @@ test('retirement upgrades populated canonical state, references, sequences and s
         db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`),
         undefined
       );
-      connection.exec('DELETE FROM projects WHERE id=1');
-      assert.equal(db.get(sql`SELECT id FROM materials WHERE id=1`), undefined);
-      assert.equal(
-        db.get(sql`SELECT card_id FROM material_card_schedules WHERE card_id=1`),
-        undefined
-      );
-      assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
+      assertLibraryRetention(connection);
     } finally {
       connection.close();
     }
@@ -163,4 +157,16 @@ function retainPrecedingMigrations(migrations: string) {
   for (const entry of readdirSync(migrations))
     if (entry >= '20261029213743')
       rmSync(join(migrations, entry), { recursive: true, force: true });
+}
+
+function assertLibraryRetention(connection: Db) {
+  const db = connection.orm;
+
+  connection.exec('DELETE FROM projects WHERE id=1');
+  assert.equal(db.get(sql`SELECT id FROM materials WHERE id=1`)?.id, 1n);
+  assert.equal(
+    db.get(sql`SELECT card_id FROM material_card_schedules WHERE card_id=1`)?.card_id,
+    1n
+  );
+  assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
 }

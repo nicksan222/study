@@ -16,6 +16,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { projectIdSchema } from '@study/contracts/ids';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -261,7 +262,7 @@ test('generates and publishes all material kinds with captured evidence and repl
       await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.requestMaterialGeneration({
-            projectId: doc.project_id,
+            projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0]),
             title: kind,
             kind,
             inputVersionIds: [doc.version.id]
@@ -521,7 +522,7 @@ test('generates and publishes all material kinds with captured evidence and repl
       await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.requestMaterialGeneration({
-            projectId: doc.project_id,
+            projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0]),
             title: 'race',
             kind: 'flashcards',
             inputVersionIds: [doc.version.id]
@@ -669,12 +670,12 @@ test('generates and publishes all material kinds with captured evidence and repl
 
         yield* materials.openGenerationScope({
           scopeId: 'closed-scope',
-          projectId: doc.project_id
+          projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0])
         });
         yield* materials.requestMaterialGenerationOnce({
           requestId: 'closed-request',
           request: {
-            projectId: doc.project_id,
+            projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0]),
             title: 'closed',
             kind: 'flashcards',
             inputVersionIds: [doc.version.id],
@@ -683,7 +684,7 @@ test('generates and publishes all material kinds with captured evidence and repl
         });
         yield* materials.closeGenerationScope({
           scopeId: 'closed-scope',
-          projectId: doc.project_id
+          projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0])
         });
       }).pipe(Effect.provide(domain()))
     );

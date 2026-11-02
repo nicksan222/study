@@ -2,10 +2,12 @@ import r0 from './rules/application-transactions.ts';
 import r2 from './rules/executed-query.ts';
 import r5 from './rules/feature-persistence-boundary.ts';
 import r1 from './rules/guarded-mutations.ts';
+import libraryOwnership from './rules/library-ownership.ts';
 import r3 from './rules/sql-null-comparison.ts';
 import r4 from './rules/workflow-persistence-boundary.ts';
 
 export default {
+  'library-ownership': libraryOwnership,
   'application-transactions': r0,
   'guarded-mutations': r1,
   'executed-query': r2,

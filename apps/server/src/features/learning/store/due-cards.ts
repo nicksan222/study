@@ -18,6 +18,7 @@ import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
+import { projectMaterialScope } from './project-scope.ts';
 import { now } from './quiz.ts';
 
 type Input = typeof dueCardsInputSchema.Type & {
@@ -27,6 +28,8 @@ type Input = typeof dueCardsInputSchema.Type & {
 export function makeDueCards(resources: StoreResources) {
   const { db, clock } = resources;
   const dueCards = (input: Input) => {
+    const scope = projectMaterialScope(db, input.projectId);
+
     // Unscheduled cards use a stable zero due value for pagination.
     const due = sql<bigint>`coalesce(${s.material_card_schedules.due}, 0)`.mapWith(
       s.material_card_schedules.due
@@ -59,7 +62,7 @@ export function makeDueCards(resources: StoreResources) {
       )
       .where(
         and(
-          eq(s.material_versions.project_id, input.projectId),
+          scope,
           eq(s.material_versions.status, 'published'),
           isNull(s.materials.archived_at),
           sql`${s.material_versions.number} = (SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id = ${s.material_versions.material_id} AND latest.status = 'published')`,

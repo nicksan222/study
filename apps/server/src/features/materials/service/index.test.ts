@@ -154,20 +154,16 @@ test('materials versions, links, citations and session membership preserve SQLit
           content
         });
 
-        assert.equal(
-          (yield* Effect.flip(
-            materials.createVersion({
-              materialId: first.id,
-              content,
-              inputs: [foreign.version.id]
-            })
-          )).kind,
-          'invalid_input'
-        );
+        const shared = yield* materials.createVersion({
+          materialId: first.id,
+          content,
+          inputs: [foreign.version.id]
+        });
+
+        assert.deepEqual(shared.inputs, [foreign.version.id]);
         const session = context.db.orm
           .insert(sessions)
           .values({
-            project_id: project.id,
             title: 'Session',
             title_source: 'user',
             created_at: 1n,
@@ -211,7 +207,7 @@ test('materials versions, links, citations and session membership preserve SQLit
             .from(workflowEvents)
             .all()
             .filter((e) => e.type === 'MaterialPublished').length,
-          3
+          4
         );
       }).pipe(Effect.provide(services))
     );
@@ -341,8 +337,10 @@ test('published image retains its source revision through replacement and draft 
             sql`UPDATE material_source_snapshots SET metadata='{}' WHERE version_id=${image.version.id}`
           )
         );
-        assert.throws(() =>
-          context.db.orm.run(sql`UPDATE sources SET project_id=${other.id} WHERE id=${source.id}`)
+        context.db.orm.run(sql`UPDATE sources SET project_id=${other.id} WHERE id=${source.id}`);
+        assert.equal(
+          (yield* materials.materialVersion({ id: image.version.id })).id,
+          image.version.id
         );
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${project.id}`);
       }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
@@ -530,8 +528,8 @@ test('generation validation, rollback, RPC, and persistent snapshots', async () 
           (yield* materials.materialGeneration({ requestId: otherRequestId })).id,
           otherRequestId
         );
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 1);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_inputs`).length, 1);
+        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 2);
+        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_inputs`).length, 2);
       }).pipe(Effect.provide(makeServices()))
     );
   } finally {

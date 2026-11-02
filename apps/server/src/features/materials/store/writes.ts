@@ -21,7 +21,7 @@ import type {
   SessionId
 } from '@study/contracts/ids';
 import type { createMaterialVersionInputSchema } from '@study/contracts/materials/schemas';
-import { eq, desc } from '@study/db';
+import { and, eq, desc } from '@study/db';
 import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -41,13 +41,26 @@ export function makeWrites(resources: StoreResources) {
     required(store.orm.select().from(s.projects).where(eq(s.projects.id, id)).get());
   }
 
-  function assertSession(id: SessionId, projectId: ProjectId) {
-    const session = required(
-      store.orm.select().from(s.sessions).where(eq(s.sessions.id, id)).get()
-    );
+  function assertSession(id: SessionId) {
+    required(store.orm.select().from(s.sessions).where(eq(s.sessions.id, id)).get());
+  }
 
-    if (session.project_id !== projectId)
-      throw new StudyError('invalid_input', 'Session belongs to another project');
+  function assertMembership(projectId: ProjectId, materialId: MaterialId) {
+    assertProject(projectId);
+
+    if (
+      !store.orm
+        .select()
+        .from(s.project_materials)
+        .where(
+          and(
+            eq(s.project_materials.project_id, projectId),
+            eq(s.project_materials.material_id, materialId)
+          )
+        )
+        .get()
+    )
+      throw new StudyError('invalid_input', 'Material is outside the collection scope');
   }
 
   function assertLinkTarget(
@@ -62,7 +75,6 @@ export function makeWrites(resources: StoreResources) {
     if (
       id === version.id ||
       target.status !== 'published' ||
-      target.project_id !== version.project_id ||
       (parent && target.material_id !== version.material_id)
     )
       throw new StudyError('invalid_input', 'Invalid material version link');
@@ -96,8 +108,7 @@ export function makeWrites(resources: StoreResources) {
             .insert(s.material_version_inputs)
             .values({
               version_id: version.id,
-              input_version_id: id,
-              project_id: version.project_id
+              input_version_id: id
             })
             .run();
       }
@@ -124,7 +135,6 @@ export function makeWrites(resources: StoreResources) {
       .insert(s.material_versions)
       .values({
         material_id: materialId,
-        project_id: material.project_id,
         kind: material.kind,
         number: (last?.number ?? 0n) + 1n,
         status: 'draft',
@@ -190,5 +200,5 @@ export function makeWrites(resources: StoreResources) {
       .run();
   }
 
-  return { assertProject, assertSession, insertLinks, insertVersion, publish };
+  return { assertProject, assertSession, assertMembership, insertLinks, insertVersion, publish };
 }

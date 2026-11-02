@@ -123,6 +123,7 @@ export const lint = {
     'study/effect-v4-api': 'error',
     'eslint/no-restricted-imports': ['error', { patterns: effectV4Imports }],
     'study/database-ownership': 'error',
+    'study/library-ownership': 'error',
     'study/browser-boundary': 'error',
     'study/package-boundary': 'error',
     'study/theme-colors': 'error',

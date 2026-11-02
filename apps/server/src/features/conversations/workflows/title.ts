@@ -59,7 +59,6 @@ export const conversationTitleHandler = ({
 
           if (
             snapshot.sessionId !== event.sessionId ||
-            snapshot.projectId !== event.projectId ||
             snapshot.contextRevision !== event.contextRevision ||
             snapshot.title !== event.title ||
             snapshot.titleSource !== event.titleSource ||

@@ -43,7 +43,7 @@ export function makeGeneration(resources: StoreResources) {
   const { createMaterial } = makeCreateMaterial(resources);
   const { materialRow, versionRow } = makeReads(resources);
   const { setCitations } = makeSetCitationsAction(resources);
-  const { publish, assertProject } = makeWrites(resources);
+  const { publish, assertProject, assertMembership } = makeWrites(resources);
 
   function requestGenerationOnce(value: {
     requestId: string;
@@ -95,8 +95,9 @@ export function makeGeneration(resources: StoreResources) {
       const version = versionRow(id);
       const material = materialRow(version.material_id);
 
+      assertMembership(request.projectId, material.id);
+
       if (
-        version.project_id !== request.projectId ||
         version.status !== 'published' ||
         version.kind !== 'document' ||
         material.archived_at !== null
@@ -138,7 +139,6 @@ export function makeGeneration(resources: StoreResources) {
       .values(
         request.inputVersionIds.map((id, position) => ({
           request_id: value.requestId,
-          project_id: request.projectId,
           version_id: id,
           position: BigInt(position)
         }))
@@ -202,6 +202,8 @@ export function makeGeneration(resources: StoreResources) {
     for (const [index, id] of request.inputVersionIds.entries()) {
       const version = versionRow(id);
       const material = materialRow(version.material_id, true);
+
+      assertMembership(request.projectId, material.id);
       const document = db.orm
         .select()
         .from(s.material_document_versions)
@@ -209,8 +211,6 @@ export function makeGeneration(resources: StoreResources) {
         .get();
 
       if (
-        version.project_id !== request.projectId ||
-        material.project_id !== request.projectId ||
         version.kind !== 'document' ||
         version.status !== 'published' ||
         !document ||
@@ -475,6 +475,8 @@ export function makeGeneration(resources: StoreResources) {
     scopeId?: string | undefined;
     projectId: Scope['projectId'];
   }) {
+    assertProject(request.projectId);
+
     if (request.scopeId === undefined) return;
 
     const scope = db.orm

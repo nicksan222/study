@@ -12,8 +12,8 @@ function fixture(run: (db: ReturnType<ReturnType<typeof createTestDatabase>['ope
   try {
     db.exec(`
       INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
-      INSERT INTO sessions(id,project_id,title,title_source,created_at,updated_at)
-        VALUES(1,1,'One','user',1,1),(2,2,'Two','user',1,1),(3,1,'Other','user',1,1);
+      INSERT INTO sessions(id,title,title_source,created_at,updated_at)
+        VALUES(1,'One','user',1,1),(2,'Two','user',1,1),(3,'Other','user',1,1);
       INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'user',1),(2,2,'user',1),(3,3,'user',1);
       INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at)
         VALUES(1,1,'attachment','text','text/plain','One',1,zeroblob(32),1),
@@ -29,40 +29,18 @@ function fixture(run: (db: ReturnType<ReturnType<typeof createTestDatabase>['ope
   }
 }
 
-function mismatch(action: () => void) {
-  assert.throws(action, /attachment source project mismatch/);
-}
-
-test('raw attachment writes preserve source and session project ownership', () =>
+test('explicit attachment selection crosses collections and still rejects missing sources', () =>
   fixture((db) => {
-    for (const sourceId of [2, 3])
-      mismatch(() =>
-        db.exec(
-          `INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,1,${sourceId},'Invalid','text')`
-        )
-      );
-
-    mismatch(() => db.exec('UPDATE message_parts SET source_id=2 WHERE id=1'));
-    mismatch(() => db.exec('UPDATE message_parts SET source_id=3 WHERE id=1'));
-    mismatch(() => db.exec('UPDATE message_parts SET message_id=2 WHERE id=1'));
-    db.exec('UPDATE message_parts SET source_id=1,message_id=3 WHERE id=1');
-    db.exec('UPDATE message_parts SET source_id=NULL,message_id=2 WHERE id=1');
-    db.exec('UPDATE message_parts SET source_id=2 WHERE id=1');
-  }));
-
-test('raw owner changes cannot invalidate attachments but allow valid moves and no-ops', () =>
-  fixture((db) => {
-    mismatch(() => db.exec('UPDATE sources SET project_id=2 WHERE id=1'));
-    mismatch(() => db.exec('UPDATE sources SET project_id=NULL WHERE id=1'));
-    mismatch(() => db.exec('UPDATE messages SET session_id=2 WHERE id=1'));
-    mismatch(() => db.exec('UPDATE sessions SET project_id=2 WHERE id=1'));
-    db.exec('UPDATE sources SET project_id=1 WHERE id=1');
-    db.exec('UPDATE messages SET session_id=3 WHERE id=1');
-    db.exec('UPDATE sessions SET project_id=1 WHERE id=3');
-    db.exec('UPDATE message_parts SET source_id=NULL WHERE id=1');
+    db.exec(
+      "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,1,2,'Shared','text')"
+    );
+    assert.throws(() =>
+      db.exec(
+        "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,2,999,'Missing','text')"
+      )
+    );
     db.exec('UPDATE sources SET project_id=NULL WHERE id=1');
-    db.exec('UPDATE messages SET session_id=2 WHERE id=1');
-    db.exec('UPDATE sessions SET project_id=2 WHERE id=3');
+    assert.equal(db.orm.get(sql`SELECT source_id FROM message_parts WHERE id=1`)?.source_id, 1n);
   }));
 
 test('source cleanup and session or project cascades remain possible', () => {
@@ -80,7 +58,7 @@ test('source cleanup and session or project cascades remain possible', () => {
   });
   fixture((db) => {
     db.exec('DELETE FROM projects WHERE id=1');
-    assert.equal(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
+    assert.equal(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
     assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
   });
 });

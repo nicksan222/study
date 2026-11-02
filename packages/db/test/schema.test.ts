@@ -88,7 +88,6 @@ test('Drizzle reads and writes identities beyond Number precision without losing
       const session = db
         .insert(schema.sessions)
         .values({
-          project_id: id,
           title: 'Session',
           title_source: 'user',
           created_at: 1n,
@@ -97,17 +96,15 @@ test('Drizzle reads and writes identities beyond Number precision without losing
         .returning()
         .get();
 
-      assert.equal(session.project_id, id);
+      db.insert(schema.project_sessions).values({ project_id: id, session_id: session.id }).run();
+      assert.equal(db.select().from(schema.project_sessions).get()?.project_id, id);
       assert.throws(
         () =>
           db
-            .insert(schema.sessions)
+            .insert(schema.project_sessions)
             .values({
               project_id: Schema.decodeUnknownSync(projectIdSchema)(id + 100n),
-              title: 'Missing project',
-              title_source: 'user',
-              created_at: 1n,
-              updated_at: 1n
+              session_id: session.id
             })
             .run(),
         (error: unknown) =>
@@ -117,7 +114,7 @@ test('Drizzle reads and writes identities beyond Number precision without losing
           error.cause.errcode === 787
       );
       db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
-      assert.equal(db.select().from(schema.sessions).get(), undefined);
+      assert.equal(db.select().from(schema.sessions).get()?.id, session.id);
       db.insert(schema.projects)
         .values({
           id,

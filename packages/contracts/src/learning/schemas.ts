@@ -4,7 +4,6 @@ import {
   materialCardIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
-  projectIdSchema,
   quizAttemptIdSchema,
   quizChoiceIdSchema,
   quizQuestionIdSchema
@@ -150,7 +149,6 @@ export const quizAttemptInProgressSchema = Schema.Struct({
   id: quizAttemptIdSchema,
   versionId: materialVersionIdSchema,
   materialId: materialIdSchema,
-  projectId: projectIdSchema,
   startedAt: Schema.BigInt,
   status: Schema.Literal('in_progress'),
   questions: Schema.mutable(Schema.Array(quizAttemptInProgressQuestionSchema))
@@ -160,7 +158,6 @@ export const quizAttemptCompletedSchema = Schema.Struct({
   id: quizAttemptIdSchema,
   versionId: materialVersionIdSchema,
   materialId: materialIdSchema,
-  projectId: projectIdSchema,
   startedAt: Schema.BigInt,
   status: Schema.Literal('completed'),
   finishedAt: Schema.BigInt,

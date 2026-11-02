@@ -65,7 +65,7 @@ export const Conversations = defineService(
 
     return {
       titleSnapshot: titles.titleSnapshot,
-      createUntitledSession: (input: { project: ProjectId }) =>
+      createUntitledSession: (input: { project?: ProjectId }) =>
         Effect.gen(function* () {
           const settings = yield* Settings;
           const language = yield* settings.language();
@@ -191,7 +191,7 @@ export const Conversations = defineService(
         requestId: string;
         sessionId: SessionId;
         sourceId: SourceId;
-        projectId: ProjectId;
+        projectId: ProjectId | null;
         durationMs: number;
       }) =>
         publicationTransaction((tx) => {

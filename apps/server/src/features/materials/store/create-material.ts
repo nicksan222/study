@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
 import type { DocumentId } from '@study/contracts/ids';
 import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
 import { createMaterialInputSchema } from '@study/contracts/materials/schemas';
@@ -44,15 +43,14 @@ export function makeCreateMaterial(resources: StoreResources) {
   }
 
   function insertMaterial(input: CreateMaterialInput, documentId?: DocumentId): MaterialDetailDto {
-    assertProject(input.projectId);
+    if (input.projectId !== undefined) assertProject(input.projectId);
 
-    if (input.sessionId !== undefined) assertSession(input.sessionId, input.projectId);
+    if (input.sessionId !== undefined) assertSession(input.sessionId);
 
     const timestamp = now(clock);
     const row = store.orm
       .insert(s.materials)
       .values({
-        project_id: input.projectId,
         kind: input.content.kind,
         title: input.title,
         created_at: timestamp,
@@ -60,6 +58,12 @@ export function makeCreateMaterial(resources: StoreResources) {
       })
       .returning()
       .get();
+
+    if (input.projectId !== undefined)
+      store.orm
+        .insert(s.project_materials)
+        .values({ project_id: input.projectId, material_id: row.id })
+        .run();
 
     insertVersion(row.id, input, documentId);
 
@@ -77,15 +81,6 @@ export function makeCreateMaterial(resources: StoreResources) {
       const doc = required(
         store.orm.select().from(s.documents).where(eq(s.documents.id, input.documentId)).get()
       );
-
-      if (doc.source_id !== null) {
-        const source = required(
-          store.orm.select().from(s.sources).where(eq(s.sources.id, doc.source_id)).get()
-        );
-
-        if (source.project_id !== input.projectId)
-          throw new StudyError('invalid_input', 'Document belongs to another project');
-      }
 
       const blocks = store.orm
         .select()

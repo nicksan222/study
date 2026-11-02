@@ -111,6 +111,7 @@ function SidebarSearchResults({
 }
 
 function SidebarSessions({
+  project,
   selectedSession,
   subjects,
   invalidSubject,
@@ -119,7 +120,13 @@ function SidebarSessions({
   reloadSessions
 }: Pick<
   SidebarModel,
-  'selectedSession' | 'subjects' | 'invalidSubject' | 'sessions' | 'sessionState' | 'reloadSessions'
+  | 'project'
+  | 'selectedSession'
+  | 'subjects'
+  | 'invalidSubject'
+  | 'sessions'
+  | 'sessionState'
+  | 'reloadSessions'
 >) {
   const { t, locale, date } = useI18n();
   const now = useNowMinute();
@@ -135,7 +142,11 @@ function SidebarSessions({
       {sessionState === 'ready' &&
         !invalidSubject &&
         sessions.map((session) => {
-          const owner = subjects.find((item) => item.id === session.projectId);
+          const owner = subjects.find(
+            (item) =>
+              item.id === project ||
+              (session.projectIds.length === 1 && session.projectIds.includes(item.id))
+          );
 
           return (
             <SidebarUI.Item
@@ -163,7 +174,10 @@ function SidebarSessions({
               render={
                 <Link
                   to="/sessions"
-                  search={{ project: String(session.projectId), id: String(session.id) }}
+                  search={{
+                    ...(project ? { project: String(project) } : {}),
+                    id: String(session.id)
+                  }}
                 />
               }
             />

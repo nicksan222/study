@@ -219,7 +219,9 @@ function sidebarSessions(
 ) {
   if (invalid) return [];
 
-  return requested ? sessions.filter((session) => session.projectId === project) : sessions;
+  return requested
+    ? sessions.filter((session) => project !== undefined && session.projectIds.includes(project))
+    : sessions;
 }
 
 function searchResultState<T>(

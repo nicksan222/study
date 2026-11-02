@@ -1,6 +1,6 @@
 import type { LibraryItem } from './library.logic';
 
-export function itemLocation(item: LibraryItem) {
+export function itemLocation(item: LibraryItem, project?: string) {
   if (item.type === 'source')
     return {
       to: '/media-list',
@@ -17,6 +17,6 @@ export function itemLocation(item: LibraryItem) {
         : item.value.kind === 'flashcards'
           ? '/flashcards'
           : '/practice',
-    search: { project: String(item.value.project_id), material: String(item.value.id) }
+    search: { ...(project ? { project } : {}), material: String(item.value.id) }
   } as const;
 }

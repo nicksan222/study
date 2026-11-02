@@ -61,7 +61,7 @@ test('recording imports are fenced, atomic, and replayed only for identical inpu
       sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'one',1,1),(2,'two',1,1)`
     );
     context.db.orm.run(
-      sql`INSERT INTO sessions (id,project_id,title,title_source,created_at,updated_at) VALUES (1,1,'one','user',1,1)`
+      sql`INSERT INTO sessions (id,title,title_source,created_at,updated_at) VALUES (1,'one','user',1,1)`
     );
 
     function* verifyRecordingImports() {
@@ -190,7 +190,7 @@ test('recording imports are fenced, atomic, and replayed only for identical inpu
     );
     assert.equal(completed, true);
     context.db.orm.run(sql`DELETE FROM projects WHERE id = 1`);
-    assert.equal(context.db.orm.all(sql`SELECT * FROM source_recording_imports`).length, 0);
+    assert.equal(context.db.orm.all(sql`SELECT * FROM source_recording_imports`).length, 1);
   } finally {
     context.close();
     location.cleanup();

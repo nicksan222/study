@@ -35,11 +35,13 @@ const sessionPageSchema = Schema.Struct({
 const sessionIdInputSchema = Schema.Struct({ id: sessionIdSchema });
 
 export const createSessionInputSchema = Schema.Struct({
-  project: projectIdSchema,
+  project: Schema.optional(projectIdSchema),
   title: Schema.String
 });
 
-const createUntitledSessionInputSchema = Schema.Struct({ project: projectIdSchema });
+const createUntitledSessionInputSchema = Schema.Struct({
+  project: Schema.optional(projectIdSchema)
+});
 
 const messageIdInputSchema = Schema.Struct({ id: messageIdSchema });
 

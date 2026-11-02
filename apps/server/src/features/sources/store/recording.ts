@@ -25,7 +25,7 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 
 const inputSchema = Schema.Struct({
   requestId: Schema.String,
-  projectId: projectIdSchema,
+  projectId: Schema.NullOr(projectIdSchema),
   sessionId: sessionIdSchema,
   name: Schema.String,
   bytes: Schema.Uint8Array,
@@ -80,12 +80,7 @@ export const RecordingImportStore = defineStore({
           const session = db.orm
             .select({ id: tables.sessions.id })
             .from(tables.sessions)
-            .where(
-              and(
-                eq(tables.sessions.id, input.sessionId),
-                eq(tables.sessions.project_id, input.projectId)
-              )
-            )
+            .where(and(eq(tables.sessions.id, input.sessionId)))
             .get();
 
           if (!session)

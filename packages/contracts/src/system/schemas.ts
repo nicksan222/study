@@ -36,19 +36,16 @@ export const searchHitSchema = Schema.Struct({
     }),
     Schema.Struct({
       type: Schema.Literal('session'),
-      projectId: projectIdSchema,
       sessionId: sessionIdSchema
     }),
     Schema.Struct({
       type: Schema.Literal('material'),
-      projectId: projectIdSchema,
       materialId: materialIdSchema,
       versionId: materialVersionIdSchema,
       materialKind: materialKindSchema
     }),
     Schema.Struct({
       type: Schema.Literal('question'),
-      projectId: projectIdSchema,
       materialId: materialIdSchema,
       versionId: materialVersionIdSchema,
       questionId: quizQuestionIdSchema

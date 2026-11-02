@@ -118,7 +118,7 @@ export const Sources = defineService(
         }),
       importRecording: (input: {
         requestId: string;
-        projectId: ProjectId;
+        projectId: ProjectId | null;
         sessionId: SessionId;
         name: string;
         bytes: Uint8Array;

@@ -265,6 +265,79 @@ test('source ingestion projects published materials and replay survives reopen',
     );
 
     assert.notEqual(archived.archived_at, null);
+
+    const reassignedEvent = await Effect.runPromise(
+      Effect.gen(function* () {
+        const sources = yield* Sources;
+
+        yield* sources.setSourceProject({ id: event.sourceId, projectId: fixture.otherId });
+        const row = context.db.orm
+          .select()
+          .from(workflowEvents)
+          .all()
+          .filter((entry) => entry.type === 'SourceIndexed')
+          .at(-1);
+
+        assert.ok(row);
+        const indexed = decodeEvent(row.payload);
+
+        assert.equal(indexed.type, 'SourceIndexed');
+
+        return indexed;
+      }).pipe(Effect.provide(services()))
+    );
+    const reassigned = await project('reassigned', reassignedEvent);
+
+    assert.equal(reassigned.original.id, afterArchive.original.id);
+    assert.equal(reassigned.extracted.id, afterArchive.extracted.id);
+    assert.equal(reassigned.original.version.id, afterArchive.original.version.id);
+    assert.equal(reassigned.extracted.version.id, afterArchive.extracted.version.id);
+    assert.ok(reassigned.original.projectIds.includes(fixture.otherId));
+    assert.ok(reassigned.extracted.projectIds.includes(fixture.otherId));
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const materials = yield* Materials;
+        const projects = yield* Projects;
+        const listed = yield* materials.materials({
+          projectId: fixture.otherId,
+          archived: false,
+          limit: 10
+        });
+
+        assert.deepEqual(
+          new Set(listed.items.map((item) => item.id)),
+          new Set([reassigned.original.id, reassigned.extracted.id])
+        );
+        yield* materials.requestMaterialGeneration({
+          projectId: fixture.otherId,
+          kind: 'diagram',
+          title: 'Destination',
+          inputVersionIds: [reassigned.extracted.version.id]
+        });
+
+        for (const material of [reassigned.original, reassigned.extracted])
+          yield* projects.removeMaterial({ projectId: fixture.otherId, materialId: material.id });
+      }).pipe(Effect.provide(services()))
+    );
+    context.close();
+    context = new ServerContext(location.open());
+    await project('reassigned', reassignedEvent);
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const materials = yield* Materials;
+        const listed = yield* materials.materials({
+          projectId: fixture.otherId,
+          archived: false,
+          limit: 10
+        });
+
+        assert.equal(
+          listed.items.length,
+          0,
+          'completed workflow replay preserves later membership removal'
+        );
+      }).pipe(Effect.provide(services()))
+    );
   } finally {
     await auth.dispose();
     context.close();

@@ -141,7 +141,7 @@ test('messages retain immutable versions and paginate in chronological order', a
   }
 });
 
-test('attachment snapshots enforce project ownership and survive source deletion', async () => {
+test('explicit attachment snapshots share sources across collections and survive source deletion', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
@@ -177,19 +177,16 @@ test('attachment snapshots enforce project ownership and survive source deletion
         const b = source(project.id, 'b.txt');
         const foreign = source(other.id, 'foreign.txt');
 
-        assert.equal(
-          (yield* Effect.flip(
-            conversations.postMessage({
-              sessionId: session.id,
-              text: 'x',
-              sourceIds: [foreign.id]
-            })
-          )).kind,
-          'invalid_input'
-        );
+        const shared = yield* conversations.postMessage({
+          sessionId: session.id,
+          text: 'x',
+          sourceIds: [foreign.id]
+        });
+
+        assert.equal(shared.parts[0]?.sourceId, foreign.id);
         assert.equal(
           (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.length,
-          0
+          1
         );
         const message = yield* conversations.postMessage({
           sessionId: session.id,
@@ -620,18 +617,17 @@ test('reply captures pending attachments and invalidates deleted context', async
           .set({ document_id: document.id, published_request_id: 'one' })
           .where(eq(source_processing.source_id, source.id))
           .run();
-        assert.throws(
-          () =>
-            context.db.orm
-              .update(sources)
-              .set({ project_id: other.id })
-              .where(eq(sources.id, source.id))
-              .run(),
-          (error: unknown) =>
-            error instanceof Error &&
-            error.cause instanceof Error &&
-            error.cause.message === 'attachment source project mismatch'
-        );
+        // Collection reassignment is permitted; keep the captured input unchanged for readiness.
+        context.db.orm
+          .update(sources)
+          .set({ project_id: other.id })
+          .where(eq(sources.id, source.id))
+          .run();
+        context.db.orm
+          .update(sources)
+          .set({ project_id: project.id })
+          .where(eq(sources.id, source.id))
+          .run();
         assert.equal(
           (yield* conversations.replyReadiness({ requestId: request.requestId })).length,
           0

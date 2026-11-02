@@ -32,9 +32,9 @@ export function makeDetachAction(resources: StoreResources) {
   const { assertSession } = makeWrites(resources);
   const detach = (input: Input) =>
     materialIntegrity(() => {
-      const material = materialRow(input.materialId);
+      materialRow(input.materialId);
 
-      assertSession(input.sessionId, material.project_id);
+      assertSession(input.sessionId);
       store.orm
         .delete(s.session_materials)
         .where(

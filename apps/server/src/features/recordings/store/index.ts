@@ -239,9 +239,7 @@ export const RecordingPostStore = defineStore({
               return post(existing.request_id);
             }
 
-            const session = required(
-              db.orm.select().from(sessions).where(eq(sessions.id, input.session)).get()
-            );
+            required(db.orm.select().from(sessions).where(eq(sessions.id, input.session)).get());
             const chunks = db.orm
               .select({ pcm: recording_chunks.pcm })
               .from(recording_chunks)
@@ -256,7 +254,7 @@ export const RecordingPostStore = defineStore({
                 request_id: input.requestId,
                 recording_id: input.recording,
                 session_id: input.session,
-                project_id: session.project_id,
+                project_id: null,
                 name: input.name.trim(),
                 wav: Buffer.from(wav),
                 duration_ms: BigInt(Math.round(Number(record.samples) / 16)),
@@ -320,8 +318,7 @@ export const RecordingPostSnapshotStore = defineStore({
               .where(eq(sessions.id, row.session_id))
               .get();
 
-            if (!session || session.project_id !== row.project_id)
-              throw new StudyError('invalid_input', 'Recording session is unavailable');
+            if (!session) throw new StudyError('invalid_input', 'Recording session is unavailable');
 
             return {
               ...post(requestId),

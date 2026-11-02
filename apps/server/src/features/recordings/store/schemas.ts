@@ -26,7 +26,7 @@ export const finishRecordingPostInputSchema = Schema.Struct({
 
 export const recordingPostSnapshotSchema = Schema.Struct({
   ...recordingPostSchema.fields,
-  projectId: projectIdSchema,
+  projectId: Schema.NullOr(projectIdSchema),
   name: Schema.String,
   bytes: Schema.Uint8Array,
   durationMs: Schema.Int

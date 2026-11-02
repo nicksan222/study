@@ -223,14 +223,14 @@ for (const deleteCommittedMessage of [false, true])
           if (!deleteCommittedMessage) assert.equal(messages.items[0]?.recordedIn, result.sourceId);
 
           yield* (yield* Projects).deleteProject({ id: pending.project.id });
-          assert.equal(context.db.orm.select().from(tables.recording_posts).all().length, 0);
+          assert.equal(context.db.orm.select().from(tables.recording_posts).all().length, 1);
           assert.equal(
             context.db.orm.select().from(tables.conversation_recording_posts).all().length,
-            0
+            1
           );
           assert.equal(
             context.db.orm.select().from(tables.source_recording_imports).all().length,
-            0
+            1
           );
         }).pipe(Effect.provide(services()))
       );

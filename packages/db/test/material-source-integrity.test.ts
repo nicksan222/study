@@ -11,8 +11,8 @@ function sourceDraft(db: ReturnType<ReturnType<typeof createTestDatabase>['open'
     INSERT INTO source_blobs(source_id,bytes) VALUES(1,X'01');
     INSERT INTO source_processing(source_id,revision,request_id) VALUES(1,1,'one');
     INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,1,X'01','audio','audio/wav');
-    INSERT INTO materials(id,project_id,kind,title,created_at,updated_at) VALUES(1,1,'audio','Recording',1,1);
-    INSERT INTO material_versions(id,material_id,project_id,kind,number,created_at) VALUES(1,1,1,'audio',1,1);
+    INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'audio','Recording',1,1);
+    INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'audio',1,1);
     INSERT INTO material_audio_versions(version_id,source_id) VALUES(1,1);
   `);
 }
@@ -37,7 +37,7 @@ test('source-backed publication requires an immutable pin', () => {
       db.exec("UPDATE material_source_snapshots SET metadata='{}' WHERE version_id=1")
     );
     assert.throws(() => db.exec('DELETE FROM material_source_snapshots WHERE version_id=1'));
-    db.exec(`INSERT INTO material_versions(id,material_id,project_id,kind,number,created_at) VALUES(2,1,1,'audio',2,1);
+    db.exec(`INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(2,1,'audio',2,1);
       INSERT INTO material_audio_versions(version_id,source_id) VALUES(2,1);
       INSERT INTO material_source_snapshots(version_id,source_id,revision,metadata) SELECT 2,source_id,revision,metadata FROM material_source_snapshots WHERE version_id=1;`);
     assert.throws(

@@ -18,7 +18,9 @@ import type {
   createProjectInputSchema,
   projectIdInputSchema,
   renameProjectInputSchema,
-  setExamInputSchema
+  setExamInputSchema,
+  projectMaterialInputSchema,
+  projectSessionInputSchema
 } from '@study/contracts/projects/rpc';
 import { Effect } from 'effect';
 
@@ -61,6 +63,14 @@ export const Projects = defineService(
     const store = yield* useStore(ProjectsStore);
 
     return {
+      addMaterial: (input: typeof projectMaterialInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).addMaterial(input)),
+      removeMaterial: (input: typeof projectMaterialInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).removeMaterial(input)),
+      addSession: (input: typeof projectSessionInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).addSession(input)),
+      removeSession: (input: typeof projectSessionInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).removeSession(input)),
       project: store.project,
       findProject: store.findProject,
       projects: (input: typeof projectPageInputSchema.Type) => pageById(store.projects, input),

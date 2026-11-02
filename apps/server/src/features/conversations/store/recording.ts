@@ -31,7 +31,7 @@ const inputSchema = Schema.Struct({
   requestId: Schema.String,
   sessionId: sessionIdSchema,
   sourceId: sourceIdSchema,
-  projectId: projectIdSchema,
+  projectId: Schema.NullOr(projectIdSchema),
   durationMs: Schema.Number
 });
 
@@ -42,7 +42,7 @@ function hash(input: typeof inputSchema.Type) {
         input.requestId,
         input.sessionId.toString(),
         input.sourceId.toString(),
-        input.projectId.toString(),
+        String(input.projectId),
         input.durationMs
       ])
     )
@@ -122,7 +122,6 @@ function assertRecordingContext(
 ) {
   if (
     !session ||
-    session.project_id !== input.projectId ||
     !source ||
     source.project_id !== input.projectId ||
     source.origin !== 'recording' ||

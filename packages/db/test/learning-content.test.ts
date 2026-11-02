@@ -28,10 +28,10 @@ test('learning tables enforce typed content and ownership', (t) => {
     [4, 'flashcards']
   ] as const) {
     run(
-      sql`INSERT INTO materials(id,project_id,kind,title,created_at,updated_at) VALUES (${id},1,${kind},'M',1,1)`
+      sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (${id},${kind},'M',1,1)`
     );
     run(
-      sql`INSERT INTO material_versions(id,material_id,project_id,kind,number,status,created_at) VALUES (${id},${id},1,${kind},1,'draft',1)`
+      sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (${id},${id},${kind},1,'draft',1)`
     );
   }
 

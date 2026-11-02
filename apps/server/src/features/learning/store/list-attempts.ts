@@ -19,16 +19,19 @@ import * as s from '@study/db/schema';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { cursorPage } from '#server/platform/pagination';
 
+import { projectMaterialScope } from './project-scope.ts';
+
 type Input = typeof attemptsInputSchema.Type;
 
 export function makeListAttempts(resources: StoreResources) {
   const { db } = resources;
   const listAttempts = (input: Input) => {
+    const scope = projectMaterialScope(db, input.projectId);
+
     const rows = db.orm
       .select({
         attempt: s.material_quiz_attempts,
-        materialId: s.material_versions.material_id,
-        projectId: s.material_versions.project_id
+        materialId: s.material_versions.material_id
       })
       .from(s.material_quiz_attempts)
       .innerJoin(
@@ -37,7 +40,7 @@ export function makeListAttempts(resources: StoreResources) {
       )
       .where(
         and(
-          input.projectId ? eq(s.material_versions.project_id, input.projectId) : undefined,
+          scope,
           input.materialId ? eq(s.material_versions.material_id, input.materialId) : undefined,
           input.cursor ? lt(s.material_quiz_attempts.id, input.cursor) : undefined
         )

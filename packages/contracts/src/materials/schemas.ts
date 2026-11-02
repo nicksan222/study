@@ -374,7 +374,6 @@ export const materialContentDetailSchema = Schema.Union([
 export const materialVersionSummarySchema = Schema.Struct({
   id: materialVersionIdSchema,
   material_id: materialIdSchema,
-  project_id: projectIdSchema,
   kind: materialKindSchema,
   number: Schema.BigInt,
   status: materialStatusSchema,
@@ -389,7 +388,6 @@ export const materialVersionSummarySchema = Schema.Struct({
 const materialVersionBaseFields = {
   id: materialVersionIdSchema,
   material_id: materialIdSchema,
-  project_id: projectIdSchema,
   number: Schema.BigInt,
   operation: materialOperationSchema,
   creator: materialCreatorSchema,
@@ -489,8 +487,8 @@ export const draftMaterialVersionDetailSchema = materialVersionDetailFor(
 );
 
 export const materialSchema = Schema.Struct({
+  projectIds: Schema.Array(projectIdSchema),
   id: materialIdSchema,
-  project_id: projectIdSchema,
   kind: materialKindSchema,
   title: Schema.String,
   created_at: Schema.BigInt,
@@ -545,7 +543,7 @@ export const createMaterialVersionInputSchema = Schema.Struct({
 
 export const createMaterialInputSchema = Schema.Struct({
   ...createMaterialVersionInputSchema.fields,
-  projectId: projectIdSchema,
+  projectId: Schema.optional(projectIdSchema),
   sessionId: Schema.optional(sessionIdSchema),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200))
 }).check(uniqueMaterialLinks);

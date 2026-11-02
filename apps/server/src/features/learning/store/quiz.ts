@@ -185,7 +185,6 @@ export function makeQuiz(resources: StoreResources) {
       id: attempt.id,
       versionId: attempt.version_id,
       materialId: version.material_id,
-      projectId: version.project_id,
       startedAt: attempt.started_at
     };
 

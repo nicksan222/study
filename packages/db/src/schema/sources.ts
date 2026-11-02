@@ -34,7 +34,7 @@ export const sources = sqliteTable(
     id: integer().primaryKey({ autoIncrement: true }).$type<SourceId>(),
     project_id: integer()
       .$type<ProjectId>()
-      .references((): AnySQLiteColumn => projects.id, { onDelete: 'cascade' }),
+      .references((): AnySQLiteColumn => projects.id, { onDelete: 'set null' }),
     origin: text({ enum: codes_source_origin.code.enumValues })
       .notNull()
       .references((): AnySQLiteColumn => codes_source_origin.code, {
