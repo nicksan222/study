@@ -1,4 +1,5 @@
 import { Button } from '@study/ui/button';
+import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { useRouter } from '@tanstack/react-router';
 
@@ -15,13 +16,15 @@ export function RouteError() {
   const router = useRouter();
 
   return (
-    <Button
-      variant="ghost-muted"
-      onClick={() => {
-        void router.invalidate();
-      }}
-    >
-      {t('StudyLoadError')}
-    </Button>
+    <ErrorState
+      layout="page"
+      title={t('PageErrorTitle')}
+      description={t('StudyLoadError')}
+      action={
+        <Button variant="outline" onClick={() => void router.invalidate()}>
+          {t('Retry')}
+        </Button>
+      }
+    />
   );
 }

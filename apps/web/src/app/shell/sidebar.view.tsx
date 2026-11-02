@@ -416,8 +416,8 @@ function SidebarToolbar({
         size="icon"
         variant="ghost-muted"
         aria-label={t('NewSession')}
-        title={t(project ? 'NewSession' : 'ChooseProject')}
-        disabled={!project || creating}
+        title={t('NewSession')}
+        disabled={creating}
         onClick={() => void createSession()}
       >
         <SidebarCreateSessionIcon creating={creating} />

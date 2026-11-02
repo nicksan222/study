@@ -1,3 +1,5 @@
+import { LibraryPage } from '../../features/material-library';
+
 export function PageView() {
-  return null;
+  return <LibraryPage />;
 }

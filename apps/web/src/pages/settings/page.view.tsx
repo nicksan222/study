@@ -1,10 +1,11 @@
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
-import { Palette, Settings2, Bot, GraduationCap, Gauge } from 'lucide-react';
+import { Palette, Settings2, Bot, GraduationCap, Gauge, Database } from 'lucide-react';
 
 import { useI18n } from '../../lib/i18n';
 import { AiSettings } from './ai';
+import { DataSettings } from './data';
 import { GeneralSettings } from './general';
 import { InterfaceSettings } from './interface-settings';
 import { PerformanceSettings } from './performance';
@@ -12,7 +13,7 @@ import { StudySettings } from './study';
 import { ColorScheme, ThemeLibrary } from './theme-library';
 import type { AppearanceModel } from './use-page';
 
-export type SettingsSectionId = 'general' | 'appearance' | 'ai' | 'study' | 'performance';
+export type SettingsSectionId = 'general' | 'appearance' | 'ai' | 'study' | 'performance' | 'data';
 
 const sections = [
   {
@@ -28,6 +29,13 @@ const sections = [
     label: 'Appearance',
     Icon: Palette,
     keywords: ['Themes', 'AppearanceContrast', 'GlassOpacity', 'PanelAnimations', 'TextSize']
+  },
+  {
+    id: 'data',
+    group: 'SettingsGroupApplication',
+    label: 'DataSettingsTitle',
+    Icon: Database,
+    keywords: ['DataCreate', 'DataImport', 'DataPreview']
   },
   {
     id: 'ai',
@@ -185,6 +193,8 @@ function SectionContent({
   search: string;
 }) {
   switch (section) {
+    case 'data':
+      return <DataSettings />;
     case 'appearance':
       return <AppearanceContent model={model} search={search} />;
     case 'general':

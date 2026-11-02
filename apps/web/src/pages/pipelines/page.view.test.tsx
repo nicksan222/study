@@ -1,12 +1,11 @@
-import { render } from '@testing-library/react';
-import { expect, it, vi } from 'vite-plus/test';
+import { catalogs } from '@study/localization';
+import { screen } from '@testing-library/react';
+import { expect, it } from 'vite-plus/test';
 
-import { PageView } from './page.view';
-
-it('keeps the empty page presentation independent of application services', () => {
-  const fetch = vi.spyOn(globalThis, 'fetch');
-  const { container } = render(<PageView />);
-
-  expect(container).toBeEmptyDOMElement();
-  expect(fetch).not.toHaveBeenCalled();
+import { renderPage } from '../../test/render-page';
+it('renders background activity instead of an empty page', async () => {
+  renderPage('/pipelines', 'english');
+  expect(await screen.findByText('Background work · updates every 5 seconds')).toBeInTheDocument();
+  expect(await screen.findByText(catalogs.english['workspace.activityEmpty'])).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).toBeNull();
 });

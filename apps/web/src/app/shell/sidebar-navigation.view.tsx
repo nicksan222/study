@@ -8,7 +8,7 @@ import { SettingsMenu } from '../../pages/settings/menu';
 
 const sections = [
   ['/sessions', 'sessions', MessagesSquare, 'Sessions'],
-  ['/media-list', 'library', Library, 'SidebarLibrary'],
+  ['/library', 'library', Library, 'SidebarLibrary'],
   ['/practice', 'practice', GraduationCap, 'Practice'],
   ['/pipelines', 'pipelines', Activity, 'Pipelines']
 ] as const;
