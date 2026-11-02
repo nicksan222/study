@@ -44,3 +44,44 @@ test('checks queries returned by a store make callback', () => {
     ['apps/server/src/features/items/store/index.ts']
   );
 });
+
+test('native generation queries retain entity-derived names and canonical required roles', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/index.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({
+          entity: { singular: 'materialGeneration', plural: 'materialGenerations' },
+          make: () => ({
+            queries: { materialGeneration: storeQuery({ role: 'required' }) },
+            mutations: {}
+          })
+        });
+      `,
+      'apps/server/src/features/materials/store/alias.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({
+          entity: { singular: 'materialGeneration', plural: 'materialGenerations' },
+          make: () => ({
+            queries: { readGeneration: storeQuery({ role: 'required' }) },
+            mutations: {}
+          })
+        });
+      `,
+      'apps/server/src/features/conversations/store/role.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({
+          entity: { singular: 'sessionContext', plural: 'sessionContexts' },
+          make: () => ({
+            queries: { sessionContext: storeQuery({ role: 'snapshot' }) },
+            mutations: {}
+          })
+        });
+      `
+    }),
+    [
+      'apps/server/src/features/conversations/store/role.ts',
+      'apps/server/src/features/materials/store/alias.ts'
+    ]
+  );
+});

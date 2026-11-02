@@ -18,13 +18,14 @@ import { createHash } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import {
+  documentTransformReportSchema,
   materialGenerationInputSchema,
   materialGenerationPayloadSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
 import { decodeBlockContent } from '@study/contracts/sources/document';
 import { hasTextualContent } from '@study/contracts/sources/schemas';
-import { and, asc, eq } from '@study/db';
+import { and, asc, eq, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -37,6 +38,8 @@ import { makeReads, required } from './reads.ts';
 import { anchorSchema } from './schemas.ts';
 import { makeSetCitationsAction } from './set-citations-action.ts';
 import { makeWrites, now } from './writes.ts';
+
+const reportCodec = Schema.fromJsonString(Schema.toCodecJson(documentTransformReportSchema));
 
 const codec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema));
 
@@ -55,24 +58,19 @@ export function makeGeneration(resources: StoreResources) {
     const existing = readGeneration(value.requestId);
 
     if (existing) {
-      const payload = ({
-        title,
-        kind,
-        instruction,
-        inputVersionIds,
-        scopeId,
-        questionSpec
-      }: typeof request) =>
-        Schema.encodeSync(codec)({
-          title,
-          kind,
-          instruction,
-          inputVersionIds,
-          scopeId,
-          questionSpec
-        });
+      const same = Schema.toEquivalence(materialGenerationInputSchema);
+      const canonical = (input: typeof request) => ({
+        projectId: input.projectId,
+        title: input.title,
+        kind: input.kind,
+        documentTransform: input.documentTransform,
+        instruction: input.instruction,
+        inputVersionIds: input.inputVersionIds,
+        scopeId: input.scopeId,
+        questionSpec: input.questionSpec
+      });
 
-      if (existing.projectId !== request.projectId || payload(existing) !== payload(request))
+      if (!same(canonical(existing), canonical(request)))
         throw new StudyError('invalid_input', 'Generation request key has different intent');
 
       return { request: { id: existing.id, ...request }, created: false };
@@ -90,14 +88,60 @@ export function makeGeneration(resources: StoreResources) {
   }) {
     const request = Schema.decodeUnknownSync(materialGenerationInputSchema)(value.request);
 
-    assertProject(request.projectId);
+    if (
+      request.documentTransform &&
+      value.requestId !== `document/${request.documentTransform.contextRequestId}`
+    )
+      throw new StudyError(
+        'invalid_input',
+        'Document request must use its captured context identity'
+      );
+
     assertActiveScope(request);
 
+    assertRequestedInputVersions(request);
+
+    const { title, kind, instruction, scopeId, questionSpec, documentTransform } = request;
+
+    db.orm
+      .insert(s.material_generation_requests)
+      .values({
+        id: value.requestId,
+        project_id: request.projectId ?? null,
+        payload: Schema.encodeSync(codec)({
+          documentTransform,
+          title,
+          kind,
+          instruction,
+          scopeId,
+          questionSpec,
+          inputVersionIds: request.inputVersionIds
+        }),
+        created_at: now(clock)
+      })
+      .run();
+
+    if (request.inputVersionIds.length)
+      db.orm
+        .insert(s.material_generation_inputs)
+        .values(
+          request.inputVersionIds.map((id, position) => ({
+            request_id: value.requestId,
+            version_id: id,
+            position: BigInt(position)
+          }))
+        )
+        .run();
+
+    return { id: value.requestId, ...request };
+  }
+
+  function assertRequestedInputVersions(request: typeof materialGenerationInputSchema.Type) {
     for (const id of request.inputVersionIds) {
       const version = versionRow(id);
       const material = materialRow(version.material_id);
 
-      assertMembership(request.projectId, material.id);
+      if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
 
       if (version.status !== 'published' || material.archived_at !== null)
         throw new StudyError(
@@ -110,37 +154,6 @@ export function makeGeneration(resources: StoreResources) {
     }
 
     for (const id of request.inputVersionIds) assertTextEvidence(required(versionDocumentId(id)));
-
-    const { title, kind, instruction, scopeId, questionSpec } = request;
-
-    db.orm
-      .insert(s.material_generation_requests)
-      .values({
-        id: value.requestId,
-        project_id: request.projectId,
-        payload: Schema.encodeSync(codec)({
-          title,
-          kind,
-          instruction,
-          scopeId,
-          questionSpec,
-          inputVersionIds: request.inputVersionIds
-        }),
-        created_at: now(clock)
-      })
-      .run();
-    db.orm
-      .insert(s.material_generation_inputs)
-      .values(
-        request.inputVersionIds.map((id, position) => ({
-          request_id: value.requestId,
-          version_id: id,
-          position: BigInt(position)
-        }))
-      )
-      .run();
-
-    return { id: value.requestId, ...request };
   }
 
   function readGeneration(requestId: string) {
@@ -176,7 +189,12 @@ export function makeGeneration(resources: StoreResources) {
 
     return {
       id: row.id,
-      projectId: row.project_id,
+      projectId: row.project_id ?? undefined,
+      cancelled: row.cancelled,
+      report:
+        row.result_metadata === null
+          ? null
+          : Schema.decodeUnknownSync(reportCodec)(row.result_metadata),
       ...payload,
       inputVersionIds: inputs.map((input) => input.versionId),
       documentIds: inputs.map((input) => required(input.documentId)),
@@ -197,7 +215,7 @@ export function makeGeneration(resources: StoreResources) {
 
   function validateInputs(request: NonNullable<ReturnType<typeof readGeneration>>) {
     if (
-      request.inputVersionIds.length === 0 ||
+      (request.kind !== 'document' && request.inputVersionIds.length === 0) ||
       request.inputVersionIds.length !== request.documentIds.length
     )
       throw new StudyError('invalid_input', 'Generation inputs are incomplete');
@@ -206,7 +224,8 @@ export function makeGeneration(resources: StoreResources) {
       const version = versionRow(id);
       const material = materialRow(version.material_id, true);
 
-      assertMembership(request.projectId, material.id);
+      if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
+
       const documentId = versionDocumentId(id);
 
       if (documentId !== null) assertTextEvidence(documentId);
@@ -229,6 +248,7 @@ export function makeGeneration(resources: StoreResources) {
     if (request && eventId !== undefined) assertGenerationEvent(request, eventId);
 
     if (request && request.resultVersionId === null && !verifyOnly) {
+      assertNotCancelled(request);
       assertActiveScope(request);
       validateInputs(request);
     }
@@ -274,6 +294,9 @@ export function makeGeneration(resources: StoreResources) {
 
   function prepareGenerationRetry(value: { requestId: string; retryId: string }) {
     const request = required(readGeneration(value.requestId));
+
+    if (request.resultVersionId === null) assertNotCancelled(request);
+
     const existing = db.orm
       .select()
       .from(s.workflowEvents)
@@ -291,6 +314,7 @@ export function makeGeneration(resources: StoreResources) {
 
     if (request.resultVersionId !== null) return { request, created: false };
 
+    assertNotCancelled(request);
     assertActiveScope(request);
     validateInputs(request);
 
@@ -339,11 +363,15 @@ export function makeGeneration(resources: StoreResources) {
     );
     const hash = createHash('sha256')
       .update(
-        Schema.encodeSync(publicationCodec)({
-          requestId: value.requestId,
-          content: value.content,
-          citations
-        })
+        canonicalJson(
+          Schema.encodeSync(publicationCodec)({
+            requestId: value.requestId,
+            content: value.content,
+            language: value.language,
+            report: value.report,
+            citations
+          })
+        )
       )
       .digest('hex');
     const row = required(
@@ -363,15 +391,10 @@ export function makeGeneration(resources: StoreResources) {
 
     const request = required(readGeneration(value.requestId));
 
+    assertNotCancelled(request);
     assertActiveScope(request);
     validateInputs(request);
-    assertQuestionSpec(request.questionSpec, value.content);
-
-    if (value.content.kind !== request.kind)
-      throw new StudyError('invalid_input', 'Generation kind mismatch');
-
-    if (new Set(citations.map((c) => c.marker)).size !== citations.length)
-      throw new StudyError('invalid_input', 'Duplicate citation markers');
+    assertGenerationContent(request, value);
 
     const resolved = citations.map((citation) => {
       const index = request.inputVersionIds.indexOf(citation.inputVersionId);
@@ -397,6 +420,7 @@ export function makeGeneration(resources: StoreResources) {
         marker: citation.marker,
         inputVersionId: citation.inputVersionId,
         anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(block.anchor)),
+        ...(citation.target === undefined ? {} : { target: citation.target }),
         quote: citation.quote
       };
     });
@@ -404,6 +428,7 @@ export function makeGeneration(resources: StoreResources) {
 
     const material = createMaterial({
       projectId: request.projectId,
+      sessionId: undefined,
       title: request.title,
       content: value.content,
       inputs: request.inputVersionIds,
@@ -425,16 +450,59 @@ export function makeGeneration(resources: StoreResources) {
     publish(material.version.id);
     db.orm
       .update(s.material_generation_requests)
-      .set({ result_version_id: material.version.id, result_hash: hash })
+      .set({
+        result_version_id: material.version.id,
+        result_hash: hash,
+        result_metadata:
+          value.report === undefined ? null : Schema.encodeSync(reportCodec)(value.report)
+      })
       .where(eq(s.material_generation_requests.id, request.id))
       .run();
 
     return { versionId: material.version.id, event, materialId: material.id };
   }
 
+  function assertGenerationContent(
+    request: NonNullable<ReturnType<typeof readGeneration>>,
+    value: typeof materialGenerationPublicationSchema.Type
+  ) {
+    assertQuestionSpec(request.questionSpec, value.content);
+
+    if (value.content.kind !== request.kind)
+      throw new StudyError('invalid_input', 'Generation kind mismatch');
+
+    assertFreshDerivativeIds(value.content);
+
+    if (request.kind !== 'document' && value.citations.length === 0)
+      throw new StudyError('invalid_input', 'Generated content must cite captured evidence');
+
+    if (new Set(value.citations.map((c) => c.marker)).size !== value.citations.length)
+      throw new StudyError('invalid_input', 'Duplicate citation markers');
+  }
+
+  function assertFreshDerivativeIds(
+    content: typeof materialGenerationPublicationSchema.Type.content
+  ) {
+    if (
+      content.kind === 'document' &&
+      content.blocks.length &&
+      db.orm
+        .select({ id: s.blocks.id })
+        .from(s.blocks)
+        .where(
+          inArray(
+            s.blocks.editing_id,
+            content.blocks.map((block) => block.id)
+          )
+        )
+        .get()
+    )
+      throw new StudyError('invalid_input', 'Derivative block identities must be fresh');
+  }
+
   type Scope = {
     scopeId: string;
-    projectId: (typeof materialGenerationInputSchema.Type)['projectId'];
+    projectId: NonNullable<(typeof materialGenerationInputSchema.Type)['projectId']>;
   };
 
   function setGenerationScope(value: Scope, enabled: boolean) {
@@ -473,8 +541,14 @@ export function makeGeneration(resources: StoreResources) {
 
   function assertActiveScope(request: {
     scopeId?: string | undefined;
-    projectId: Scope['projectId'];
+    projectId?: Scope['projectId'];
+    kind?: string;
   }) {
+    if (request.kind === 'document') return;
+
+    if (request.projectId === undefined)
+      throw new StudyError('invalid_input', 'Collection generation requires a project');
+
     assertProject(request.projectId);
 
     if (request.scopeId === undefined) return;
@@ -489,7 +563,25 @@ export function makeGeneration(resources: StoreResources) {
       throw new StudyError('invalid_input', 'Generation scope is not active for this project');
   }
 
+  function assertNotCancelled(request: { id: string; cancelled: boolean }) {
+    if (request.cancelled) throw new StudyError('cancelled', 'Generation was cancelled');
+  }
+
+  function cancelGeneration(value: { requestId: string }) {
+    const request = required(readGeneration(value.requestId));
+
+    if (request.resultVersionId === null)
+      db.orm
+        .update(s.material_generation_requests)
+        .set({ cancelled: true })
+        .where(eq(s.material_generation_requests.id, value.requestId))
+        .run();
+
+    return required(readGeneration(value.requestId));
+  }
+
   return {
+    cancelGeneration,
     generationContext,
     prepareGenerationRetry,
     prepareGenerationFailure,
@@ -498,4 +590,15 @@ export function makeGeneration(resources: StoreResources) {
     requestGenerationOnce,
     setGenerationScope
   };
+}
+
+/** Schema JSON values have stable object ordering; array order remains meaningful. */
+function canonicalJson(encoded: string): string {
+  return JSON.stringify(JSON.parse(encoded), (_, value: unknown) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+
+    return Object.fromEntries(
+      Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+    );
+  });
 }

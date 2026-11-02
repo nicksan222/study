@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { Db } from '../src/index.ts';
+import { material_generation_scopes } from '../src/schema.ts';
 
 function fixture(run: (path: string) => void) {
   const folder = mkdtempSync(join(tmpdir(), 'study-db-'));
@@ -235,3 +236,59 @@ test(
   'expired async scopes cannot use orm, start transactions, or close the database',
   expiredAsyncScopes
 );
+
+test('boolean columns retain true and false alongside bigint integers across transactions and reopen', () =>
+  fixture((path) => {
+    const db = Db.open(path);
+
+    try {
+      db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1);
+        INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at)
+        VALUES('open',1,1,1,1),('closed',1,0,1,1),('retained',1,1,1,1)`);
+      assert.equal(
+        db.orm
+          .select()
+          .from(material_generation_scopes)
+          .where(eq(material_generation_scopes.id, 'open'))
+          .get()?.enabled,
+        true
+      );
+      assert.equal(
+        db.orm
+          .select()
+          .from(material_generation_scopes)
+          .where(eq(material_generation_scopes.id, 'closed'))
+          .get()?.enabled,
+        false
+      );
+      db.transaction(() => {
+        const row = db.orm
+          .update(material_generation_scopes)
+          .set({ enabled: false, updated_at: 2n })
+          .where(eq(material_generation_scopes.id, 'open'))
+          .returning()
+          .get();
+
+        assert.equal(row?.enabled, false);
+        assert.equal(row?.project_id, 1n);
+      });
+    } finally {
+      db.close();
+    }
+
+    const reopened = Db.open(path);
+
+    try {
+      const rows = reopened.orm.select().from(material_generation_scopes).all();
+
+      assert.equal(rows.length, 3);
+      assert.deepEqual(Object.fromEntries(rows.map((row) => [row.id, row.enabled])), {
+        open: false,
+        closed: false,
+        retained: true
+      });
+      assert.ok(rows.every((row) => row.project_id === 1n));
+    } finally {
+      reopened.close();
+    }
+  }));

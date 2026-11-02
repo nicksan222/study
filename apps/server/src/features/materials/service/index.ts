@@ -16,6 +16,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { sessionSelectionTargetSchema } from '@study/contracts/conversations/context';
+import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
@@ -25,7 +26,7 @@ import type {
   materialGenerationInputSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 
 import {
   MaterialSelectionStore,
@@ -38,6 +39,7 @@ import {
   MaterialCitationsStore
 } from '#server/features/materials/store/index';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
+import { Workflows } from '#server/features/workflows/index';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import {
@@ -45,10 +47,18 @@ import {
   useStore,
   publicationTransaction
 } from '#server/platform/definitions/define-store';
+import { WorkflowControl } from '#server/platform/workflows/control';
+
+import {
+  requestDocumentTransform,
+  publishDocumentTransform,
+  retryDocumentTransform,
+  assertDocumentContext
+} from './document-transform.ts';
+import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 
 function* makeMaterials() {
-  const generations = yield* useStore(MaterialGenerationStore),
-    materials = yield* useStore(MaterialsStore),
+  const materials = yield* useStore(MaterialsStore),
     versions = yield* useStore(MaterialVersionsStore),
     versionExports = yield* useStore(MaterialVersionExportStore),
     inputs = yield* useStore(MaterialInputsStore),
@@ -99,31 +109,86 @@ function* makeMaterials() {
       transaction((tx) => tx.store(MaterialGenerationStore).openScope(value)),
     closeGenerationScope: (value: { scopeId: string; projectId: ProjectId }) =>
       transaction((tx) => tx.store(MaterialGenerationStore).closeScope(value)),
-    materialGeneration: generations.materialGeneration,
+    materialGeneration: (value: { requestId: string; eventId?: string; verifyOnly?: boolean }) =>
+      transaction((tx) => {
+        const request = tx.store(MaterialGenerationStore).materialGeneration(value);
+        const cancelled =
+          request.resultVersionId === null &&
+          (request.cancelled ||
+            Workflows.correlatedExecutions(tx, request.id).some(
+              (run) =>
+                run.workflow === 'material-generation/v1' &&
+                (run.status === 'cancelled' || run.status === 'cancelling')
+            ));
+
+        if (!value.verifyOnly && request.resultVersionId === null) {
+          assertGenerationActive(tx, request.id);
+        }
+
+        return { ...request, cancelled };
+      }),
+    cancelMaterialGeneration: (value: { requestId: string }) =>
+      Effect.gen(function* () {
+        const result = yield* transaction((tx) => {
+          const request = tx.store(MaterialGenerationStore).cancelGeneration(value);
+
+          return {
+            request,
+            runs:
+              request.resultVersionId === null
+                ? Workflows.correlatedExecutions(tx, request.id).filter(
+                    (run) => run.workflow === 'material-generation/v1' && run.canCancel
+                  )
+                : []
+          };
+        });
+
+        if (result.runs.length) {
+          const control = yield* Effect.serviceOption(WorkflowControl);
+
+          if (Option.isNone(control))
+            return yield* Effect.fail(
+              new StudyError('unsupported', 'Native cancellation control is unavailable')
+            );
+
+          for (const run of result.runs) yield* control.value.cancel({ id: run.id, mode: 'safe' });
+        }
+
+        return result.request;
+      }),
     publishMaterialGeneration: (value: typeof materialGenerationPublicationSchema.Type) =>
       publicationTransaction((tx) => {
+        const request = tx
+          .store(MaterialGenerationStore)
+          .materialGeneration({ requestId: value.requestId, verifyOnly: true });
+
+        if (request.documentTransform)
+          throw new StudyError(
+            'invalid_input',
+            'Session publication requires captured context coordination'
+          );
+
+        if (request.resultVersionId === null) assertGenerationActive(tx, request.id);
+
         const result = materialIntegrity(() =>
           tx.store(MaterialGenerationStore).publishGeneration(value)
         );
 
-        if (result.event && result.materialId !== undefined)
-          tx.emit({
-            type: 'MaterialPublished',
-            eventId: randomUUID(),
-            causationId: result.event.eventId,
-            correlationId: result.event.correlationId,
-            inputVersion: 1,
-            depth: result.event.depth + 1,
-            materialId: result.materialId,
-            materialVersionId: result.versionId,
-            generationRequestId: value.requestId
-          });
+        emitGenerationPublication(tx, value.requestId, result);
 
         return result.versionId;
       }),
     retryMaterialGenerationOnce: (value: { requestId: string; retryId: string }) =>
       transaction((tx) => {
         const { request, created } = tx.store(MaterialGenerationStore).prepareRetry(value);
+
+        if (request.resultVersionId === null) assertGenerationActive(tx, request.id);
+
+        if (request.documentTransform)
+          throw new StudyError(
+            'invalid_input',
+            'Session retry requires captured context coordination'
+          );
 
         if (created)
           tx.emit({
@@ -328,6 +393,11 @@ function* makeMaterials() {
 
 export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
   resolveSessionSelection,
+  readGeneration,
+  requestDocumentTransform,
+  publishDocumentTransform,
+  retryDocumentTransform,
+  assertDocumentContext,
   registerImportedSource,
   assignImportedSourceProject
 });
@@ -365,4 +435,13 @@ function resolveSessionSelection(
   target: typeof sessionSelectionTargetSchema.Type
 ) {
   return tx.store(MaterialSelectionStore).materialSelection(target);
+}
+
+/** Read the owned generation request within a cross-feature transaction. */
+function readGeneration(tx: Transaction, value: { requestId: string; verifyOnly?: boolean }) {
+  const request = tx.store(MaterialGenerationStore).materialGeneration(value);
+
+  if (!value.verifyOnly && request.resultVersionId === null) assertGenerationActive(tx, request.id);
+
+  return request;
 }

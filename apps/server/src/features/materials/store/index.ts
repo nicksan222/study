@@ -18,7 +18,7 @@ import {
 } from '@study/contracts/conversations/context';
 import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import { sourceIndexedSchema, materialGenerationRequestedSchema } from '@study/contracts/events';
-import { sourceIdSchema } from '@study/contracts/ids';
+import { sourceIdSchema, projectIdSchema } from '@study/contracts/ids';
 import * as input from '@study/contracts/materials/rpc';
 import {
   materialGenerationSchema,
@@ -31,7 +31,6 @@ import {
 } from '@study/contracts/materials/schemas';
 import { validDocumentTextRange } from '@study/contracts/sources/document';
 import { sourceExportSchema } from '@study/contracts/sources/rpc';
-import { anchorSchema } from '@study/contracts/sources/schemas';
 import { and, asc, eq, gt } from '@study/db';
 import * as tables from '@study/db/schema';
 import { Option, Schema } from 'effect';
@@ -40,6 +39,7 @@ import { defineStore, storeQuery, storeMutation } from '#server/platform/definit
 
 import { makeArchiveAction } from './archive-action.ts';
 import { makeAttachAction } from './attach-action.ts';
+import { readCitation } from './citations.ts';
 import { makeCreateAction } from './create-action.ts';
 import { makeCreateVersionAction } from './create-version-action.ts';
 import { makeDeleteDraftAction } from './delete-draft-action.ts';
@@ -437,12 +437,7 @@ export const MaterialCitationsStore = defineStore({
               .orderBy(asc(tables.material_version_citations.marker))
               .limit(value.limit + 1)
               .all();
-            const items = rows.slice(0, value.limit).map((row) => ({
-              marker: row.marker,
-              inputVersionId: row.input_version_id,
-              anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(row.anchor)),
-              quote: row.quote
-            }));
+            const items = rows.slice(0, value.limit).map(readCitation);
 
             return { items, nextCursor: rows.length > value.limit ? items.at(-1)!.marker : null };
           }
@@ -458,6 +453,7 @@ export const MaterialGenerationStore = defineStore({
   entity: { singular: 'materialGeneration', plural: 'materialGenerations' },
   make: (resources) => {
     const {
+      cancelGeneration,
       generationContext,
       prepareGenerationRetry,
       prepareGenerationFailure,
@@ -481,6 +477,11 @@ export const MaterialGenerationStore = defineStore({
         })
       },
       mutations: {
+        cancelGeneration: storeMutation({
+          input: Schema.Struct({ requestId: Schema.String }),
+          output: materialGenerationSnapshotSchema,
+          run: cancelGeneration
+        }),
         prepareRetry: storeMutation({
           input: Schema.Struct({
             requestId: Schema.String.check(Schema.isMinLength(1)),
@@ -509,7 +510,7 @@ export const MaterialGenerationStore = defineStore({
         openScope: storeMutation({
           input: Schema.Struct({
             scopeId: Schema.String.check(Schema.isMinLength(1)),
-            projectId: materialGenerationInputSchema.fields.projectId
+            projectId: projectIdSchema
           }),
           output: Schema.Void,
           run: (value) => setGenerationScope(value, true)
@@ -517,7 +518,7 @@ export const MaterialGenerationStore = defineStore({
         closeScope: storeMutation({
           input: Schema.Struct({
             scopeId: Schema.String.check(Schema.isMinLength(1)),
-            projectId: materialGenerationInputSchema.fields.projectId
+            projectId: projectIdSchema
           }),
           output: Schema.Void,
           run: (value) => setGenerationScope(value, false)

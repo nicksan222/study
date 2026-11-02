@@ -11,7 +11,13 @@ import {
   sessionIdSchema,
   sourceIdSchema
 } from '../ids.ts';
-import { anchorSchema, documentSchema, sourceSchema } from '../sources/schemas.ts';
+import {
+  anchorSchema,
+  blockIdSchema,
+  documentSchema,
+  documentTextRangeSchema,
+  sourceSchema
+} from '../sources/schemas.ts';
 
 export { materialIdSchema };
 
@@ -29,14 +35,56 @@ export const materialKindSchema = Schema.Literals([
   'flashcards'
 ]);
 
-export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diagram', 'quiz']);
+export const materialGenerationKindSchema = Schema.Literals([
+  'flashcards',
+  'diagram',
+  'quiz',
+  'document'
+]);
+
+/** Session transforms always create a derivative, never revise an input. */
+export const documentTransformSchema = Schema.Struct({
+  contextRequestId: Schema.String.check(Schema.isMinLength(1)),
+  operations: Schema.Array(
+    Schema.Literals([
+      'clarity',
+      'grammar',
+      'structure',
+      'combine',
+      'deduplicate',
+      'summarize',
+      'explain',
+      'expand',
+      'translate',
+      'factual_correction'
+    ])
+  ).check(Schema.isBetweenLength(1, 10))
+}).check(Schema.makeFilter((value) => new Set(value.operations).size === value.operations.length));
+
+export const documentTransformReportSchema = Schema.Struct({
+  notes: Schema.Array(
+    Schema.Struct({
+      kind: Schema.Literals([
+        'addition',
+        'omission',
+        'conflict',
+        'uncertainty',
+        'correction_proposal',
+        'limit'
+      ]),
+      explanation: Schema.Trim.check(Schema.isBetweenLength(1, 4000)),
+      blockIds: Schema.Array(blockIdSchema).check(Schema.isMaxLength(200))
+    })
+  ).check(Schema.isBetweenLength(1, 200))
+});
 
 export const materialGenerationInputSchema = Schema.Struct({
-  projectId: projectIdSchema,
+  projectId: Schema.optional(projectIdSchema),
+  documentTransform: Schema.optional(documentTransformSchema),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
   kind: materialGenerationKindSchema,
   inputVersionIds: Schema.mutable(Schema.Array(materialVersionIdSchema)).check(
-    Schema.isBetweenLength(1, 20)
+    Schema.isBetweenLength(0, 20)
   ),
   instruction: Schema.optional(Schema.Trim.check(Schema.isBetweenLength(1, 100000))),
   scopeId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
@@ -47,11 +95,34 @@ export const materialGenerationInputSchema = Schema.Struct({
   Schema.makeFilter(
     (value) =>
       new Set(value.inputVersionIds).size === value.inputVersionIds.length &&
-      (value.questionSpec === undefined || value.kind === 'quiz')
+      (value.questionSpec === undefined || value.kind === 'quiz') &&
+      validGenerationScope(value)
   )
 );
 
+function validGenerationScope(value: {
+  kind: typeof materialGenerationKindSchema.Type;
+  documentTransform?: typeof documentTransformSchema.Type;
+  projectId?: typeof projectIdSchema.Type;
+  scopeId?: string;
+  inputVersionIds: readonly (typeof materialVersionIdSchema.Type)[];
+}) {
+  if (value.kind === 'document')
+    return (
+      value.documentTransform !== undefined &&
+      value.projectId === undefined &&
+      value.scopeId === undefined
+    );
+
+  return (
+    value.documentTransform === undefined &&
+    value.projectId !== undefined &&
+    value.inputVersionIds.length > 0
+  );
+}
+
 export const materialGenerationPayloadSchema = Schema.Struct({
+  documentTransform: materialGenerationInputSchema.fields.documentTransform,
   inputVersionIds: materialGenerationInputSchema.fields.inputVersionIds,
   title: materialGenerationInputSchema.fields.title,
   kind: materialGenerationKindSchema,
@@ -68,6 +139,8 @@ export const materialGenerationSchema = Schema.Struct({
 export const materialGenerationSnapshotSchema = Schema.Struct({
   ...materialGenerationSchema.fields,
   documentIds: Schema.Array(documentIdSchema),
+  cancelled: Schema.Boolean,
+  report: Schema.NullOr(documentTransformReportSchema),
   resultVersionId: Schema.NullOr(materialVersionIdSchema)
 });
 
@@ -208,6 +281,7 @@ export const materialContentInputSchema = Schema.Union([
 ]);
 
 export const materialGenerationPublicationSchema = Schema.Struct({
+  report: Schema.optional(documentTransformReportSchema),
   generationEventId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
   requestId: Schema.String.check(Schema.isMinLength(1)),
   content: materialContentInputSchema,
@@ -217,10 +291,11 @@ export const materialGenerationPublicationSchema = Schema.Struct({
         marker: Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 4294967295n })),
         inputVersionId: materialVersionIdSchema,
         blockOrdinal: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+        target: Schema.optional(documentTextRangeSchema),
         quote: Schema.String.check(Schema.isMinLength(1))
       })
     )
-  ).check(Schema.isMinLength(1)),
+  ),
   language: Schema.optional(Schema.NullOr(Schema.Trim.check(Schema.isBetweenLength(1, 64))))
 });
 
@@ -501,6 +576,7 @@ export const materialCitationSchema = Schema.Struct({
   marker: Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 4294967295n })),
   inputVersionId: materialVersionIdSchema,
   anchor: materialAnchorSchema,
+  target: Schema.optional(documentTextRangeSchema),
   quote: nonemptySchema
 });
 

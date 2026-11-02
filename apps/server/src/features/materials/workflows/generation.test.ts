@@ -750,16 +750,21 @@ test('generates and publishes all material kinds with captured evidence and repl
       await cancel!();
     };
     await assert.rejects(executeEvent(cancelled));
-    assert.equal(
-      (
-        await Effect.runPromise(
-          Effect.flatMap(Materials, (m) =>
-            m.materialGeneration({ requestId: cancelled.requestId })
-          ).pipe(Effect.provide(domain()))
-        )
-      ).resultVersionId,
-      null
+    const cancelledState = await Effect.runPromise(
+      Effect.flatMap(Materials, (m) =>
+        m.materialGeneration({ requestId: cancelled.requestId, verifyOnly: true })
+      ).pipe(Effect.provide(domain()))
     );
+
+    assert.equal(cancelledState.resultVersionId, null);
+    assert.equal(cancelledState.cancelled, true);
+    const blocked = await Effect.runPromise(
+      Effect.flatMap(Materials, (m) =>
+        Effect.flip(m.materialGeneration({ requestId: cancelled.requestId }))
+      ).pipe(Effect.provide(domain()))
+    );
+
+    assert.equal(blocked.kind, 'cancelled');
   } finally {
     await auth.dispose();
     context.close();

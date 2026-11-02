@@ -12,9 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 
+import { Conversations } from '#server/features/conversations/index';
 import { Materials } from '#server/features/materials/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
@@ -22,8 +24,28 @@ export const MaterialsRpcLive = defineRpc(
   MaterialsRpc,
   Effect.gen(function* () {
     const materials = yield* Materials;
+    const conversations = yield* Effect.serviceOption(Conversations);
 
     return {
+      'materials.requestDocumentTransform': (value) =>
+        Option.isSome(conversations)
+          ? conversations.value.requestDocumentTransform(value)
+          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
+      'materials.materialGeneration': (value) =>
+        materials.materialGeneration({ ...value, verifyOnly: true }),
+      'materials.cancelMaterialGeneration': (value) => materials.cancelMaterialGeneration(value),
+      'materials.retryMaterialGeneration': (value) =>
+        materials
+          .materialGeneration({ ...value, verifyOnly: true })
+          .pipe(
+            Effect.flatMap((request) =>
+              request.documentTransform
+                ? Option.isSome(conversations)
+                  ? conversations.value.retryDocumentTransform(value)
+                  : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'))
+                : materials.retryMaterialGenerationOnce(value)
+            )
+          ),
       'materials.requestMaterialGeneration': (value) => materials.requestMaterialGeneration(value),
       'materials.material': (value) => materials.material(value),
       'materials.materials': (value) => materials.materials(value),

@@ -172,6 +172,7 @@ export const material_version_citations = sqliteTable(
     marker: integer().$type<bigint>().notNull(),
     input_version_id: integer().$type<MaterialVersionId>().notNull(),
     anchor: text().notNull(),
+    target: text(),
     quote: text().notNull()
   },
   (t) => [

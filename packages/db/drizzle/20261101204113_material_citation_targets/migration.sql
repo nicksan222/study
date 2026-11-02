@@ -1,0 +1,1 @@
+ALTER TABLE `material_version_citations` ADD `target` text;

@@ -149,7 +149,9 @@ export const material_generation_requests = sqliteTable(
   'material_generation_requests',
   {
     id: text().primaryKey(),
-    project_id: integer().$type<ProjectId>().notNull(),
+    project_id: integer().$type<ProjectId>(),
+    cancelled: integer({ mode: 'boolean' }).notNull().default(false),
+    result_metadata: text(),
     payload: text().notNull(),
     result_version_id: integer().$type<MaterialVersionId>(),
     result_hash: text(),

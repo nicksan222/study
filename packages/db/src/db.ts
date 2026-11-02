@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { types } from 'node:util';
 
-import { drizzle } from 'drizzle-orm/node-sqlite';
+import { drizzle, nodeSQLiteCodecs } from 'drizzle-orm/node-sqlite';
 import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
@@ -21,7 +21,17 @@ export class Db {
   private constructor(sqlite: DatabaseSync, path: string) {
     this.sqlite = sqlite;
     this.path = path;
-    this.database = drizzle({ client: sqlite });
+    this.database = drizzle({
+      client: sqlite,
+      codecs: {
+        ...nodeSQLiteCodecs,
+        'integer:boolean': {
+          ...nodeSQLiteCodecs['integer:boolean'],
+          // DatabaseSync returns integer columns as bigint, including boolean storage.
+          normalize: (value: unknown) => value === 1n || value === 1
+        }
+      }
+    });
   }
 
   static open(path: string): Db {
