@@ -234,6 +234,7 @@ test('native selection guards exact historic ranges, captures once and survives 
                         marker: 1,
                         sourceId: null,
                         materialVersionId: material.version.id,
+                        selectedRange: range,
                         documentId,
                         blockOrdinal: 0,
                         quote: 'before'
@@ -253,6 +254,7 @@ test('native selection guards exact historic ranges, captures once and survives 
                 marker: 1,
                 sourceId: null,
                 materialVersionId: material.version.id,
+                selectedRange: range,
                 documentId,
                 blockOrdinal: 0,
                 quote: 'selected'
@@ -261,12 +263,32 @@ test('native selection guards exact historic ranges, captures once and survives 
                 marker: 2,
                 sourceId: null,
                 materialVersionId: material.version.id,
+                selectedRange: range,
                 documentId,
                 blockOrdinal: 0,
                 quote: 'selected'
               }
             ]
           };
+
+          for (const selectedRange of [undefined, { ...range, start: range.start - 1 }])
+            assert.equal(
+              (yield* Effect.flip(
+                withTestPublication(
+                  context,
+                  conversations
+                    .publishReply({
+                      ...publication,
+                      citations: publication.citations.map((citation) => ({
+                        ...citation,
+                        selectedRange
+                      }))
+                    })
+                    .pipe(Effect.asVoid)
+                )
+              )).kind,
+              'invalid_input'
+            );
 
           for (let replay = 0; replay < 2; replay++)
             yield* withTestPublication(
@@ -677,6 +699,129 @@ test('selected image blocks retain exact asset revisions while ranges expose onl
           bytes
         );
       }).pipe(Effect.provide(services()))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('native capture rejects foreign or deleted boundaries and preserves exact bounded replay', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const handlers = ConversationsRpcLive.pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(Conversations.layer, Materials.layer, Settings.layer, Sources.layer).pipe(
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
+      )
+    )
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+        const sources = yield* Sources;
+        const session = yield* client('conversations.createSession', { title: 'Bounded' });
+        const other = yield* client('conversations.createSession', { title: 'Other' });
+        const first = yield* client('conversations.postMessage', {
+          sessionId: session.id,
+          text: 'First'
+        });
+        const deleted = yield* client('conversations.postMessage', {
+          sessionId: session.id,
+          text: 'Deleted'
+        });
+        yield* client('conversations.deleteMessage', { id: deleted.id });
+        const foreign = yield* client('conversations.postMessage', {
+          sessionId: other.id,
+          text: 'Foreign'
+        });
+        const source = yield* sources.createSource({
+          name: 'thread.txt',
+          projectId: null,
+          bytes: new TextEncoder().encode('Attachment')
+        });
+        const root = yield* client('conversations.postMessage', {
+          sessionId: session.id,
+          text: 'Root',
+          sourceIds: [source.id]
+        });
+        const siblingRoot = yield* client('conversations.postMessage', {
+          sessionId: session.id,
+          text: 'Sibling',
+          sourceIds: [source.id]
+        });
+        const threadRoot = root.parts[0]!.id;
+        const sibling = yield* client('conversations.postMessage', {
+          sessionId: session.id,
+          threadRoot: siblingRoot.parts[0]!.id,
+          text: 'Sibling child'
+        });
+        const child = yield* client('conversations.postMessage', {
+          sessionId: session.id,
+          threadRoot,
+          text: 'Child'
+        });
+        const intent = {
+          sessionId: session.id,
+          intentKey: 'exact-boundary',
+          throughMessageId: first.id,
+          instruction: '',
+          preferences: {}
+        };
+
+        for (const [index, scope] of [
+          { throughMessageId: deleted.id },
+          { throughMessageId: foreign.id },
+          { throughMessageId: child.id },
+          { threadRoot, throughMessageId: sibling.id },
+          { threadRoot, throughMessageId: siblingRoot.id }
+        ].entries()) {
+          assert.equal(
+            (yield* Effect.flip(
+              client('conversations.captureSessionContext', {
+                ...intent,
+                ...scope,
+                intentKey: 'invalid-' + index
+              })
+            )).kind,
+            'invalid_input'
+          );
+        }
+        assert.equal(context.db.orm.select().from(s.session_run_contexts).all().length, 0);
+        const captured = yield* client('conversations.captureSessionContext', intent);
+        assert.deepEqual(
+          captured.messages.map((message) => message.messageId),
+          [first.id]
+        );
+        const rootOnly = yield* client('conversations.captureSessionContext', {
+          ...intent,
+          intentKey: 'root-only',
+          threadRoot,
+          throughMessageId: root.id
+        });
+        assert.deepEqual(
+          rootOnly.messages.map((message) => message.messageId),
+          [root.id]
+        );
+        const threaded = yield* client('conversations.captureSessionContext', {
+          ...intent,
+          intentKey: 'threaded',
+          threadRoot,
+          throughMessageId: child.id
+        });
+        assert.deepEqual(
+          threaded.messages.map((message) => message.messageId),
+          [root.id, child.id]
+        );
+        yield* client('conversations.editMessage', {
+          messageId: first.id,
+          text: 'Changed afterwards'
+        });
+        yield* client('conversations.postMessage', { sessionId: session.id, text: 'Later' });
+        assert.deepEqual(yield* client('conversations.captureSessionContext', intent), captured);
+      }).pipe(Effect.scoped, Effect.provide(handlers))
     );
   } finally {
     context.close();

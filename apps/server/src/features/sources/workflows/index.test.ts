@@ -32,6 +32,7 @@ import {
   sourceIndexedHandler,
   sourceIndexedWorkflow
 } from '#server/features/materials/workflows/index';
+import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/service/index';
 import {
@@ -53,9 +54,13 @@ test('native ingestion and projection let quick sessions capture a historic impo
   const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
   const domain = () =>
-    Layer.mergeAll(Sources.layer, Materials.layer, Conversations.layer, Settings.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
+    Layer.mergeAll(
+      Sources.layer,
+      Materials.layer,
+      Conversations.layer,
+      Settings.layer,
+      Projects.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const services = () =>
     Layer.mergeAll(
       ConversationsRpcLive.pipe(Layer.provideMerge(domain())),
@@ -75,10 +80,12 @@ test('native ingestion and projection let quick sessions capture a historic impo
           const sources = yield* Sources;
           const materials = yield* Materials;
           const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+          const projects = yield* Projects;
+          const collection = yield* projects.createProject({ name: 'Temporary organization' });
           const source = yield* sources.createSource({
             name: 'test.txt',
             bytes: new TextEncoder().encode('Hello historic extraction'),
-            projectId: null
+            projectId: collection.id
           });
           const original = (yield* materials.materials({ archived: false, limit: 10 })).items[0]!;
           const engine = yield* WorkflowEngine.WorkflowEngine;
@@ -112,10 +119,26 @@ test('native ingestion and projection let quick sessions capture a historic impo
               .find((item) => item.type === 'SourceIndexed' && item.documentId === documentId);
 
             assert.ok(indexed?.type === 'SourceIndexed');
+            if (revision === 1) {
+              assert.equal(indexed.projectId, collection.id);
+              yield* projects.deleteProject({ id: collection.id });
+            }
             const projected = yield* engine.execute(sourceIndexedWorkflow, {
               executionId: 'projection-' + revision,
               payload: { event: indexed }
             });
+
+            const replayed = yield* engine.execute(sourceIndexedWorkflow, {
+              executionId: 'projection-replay-' + revision,
+              payload: { event: indexed }
+            });
+
+            assert.equal(replayed.extracted.version.id, projected.extracted.version.id);
+            assert.equal(
+              (yield* materials.material({ id: original.id })).importProcessing?.status,
+              'ready'
+            );
+            assert.equal(context.db.orm.select().from(tables.project_materials).all().length, 0);
 
             return { documentId, projected };
           }

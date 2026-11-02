@@ -297,6 +297,15 @@ export const SessionContextStore = defineStore({
               history = [root, ...history];
             }
 
+            if (
+              input.throughMessageId !== undefined &&
+              history.at(-1)?.messageId !== input.throughMessageId
+            )
+              throw new StudyError(
+                'invalid_input',
+                'Conversation boundary is unavailable in this scope'
+              );
+
             const total = db.orm
               .select()
               .from(messages)

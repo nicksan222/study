@@ -11,7 +11,7 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
-import { anchorSchema, blockIdSchema } from '../sources/schemas.ts';
+import { anchorSchema, blockIdSchema, documentTextRangeSchema } from '../sources/schemas.ts';
 import { sourceKindSchema } from '../sources/sniff.ts';
 import {
   runSelectionContextSchema,
@@ -179,6 +179,7 @@ export const publishReplyInputSchema = Schema.Struct({
       marker: Schema.Number,
       sourceId: Schema.NullOr(sourceIdSchema),
       materialVersionId: Schema.optional(materialVersionIdSchema),
+      selectedRange: Schema.optional(documentTextRangeSchema),
       documentId: documentIdSchema,
       blockOrdinal: Schema.Number,
       quote: Schema.String

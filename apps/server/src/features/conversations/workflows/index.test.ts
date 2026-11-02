@@ -597,7 +597,11 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         const block = createBlock({
           type: 'paragraph',
           inlines: [
-            { type: 'text', text: 'secret before alpha selected passage secret after', marks: [] }
+            {
+              type: 'text',
+              text: 'secret before alpha selected passage secret after alpha',
+              marks: []
+            }
           ]
         });
         const material = yield* materials.create({
@@ -641,6 +645,20 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
                     blockId: block.id,
                     start: 14,
                     end: 36
+                  },
+                  {
+                    versionId: material.version.id,
+                    documentId,
+                    blockId: block.id,
+                    start: 14,
+                    end: 19
+                  },
+                  {
+                    versionId: material.version.id,
+                    documentId,
+                    blockId: block.id,
+                    start: 50,
+                    end: 55
                   }
                 ]
               }
@@ -672,7 +690,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
 
     assertEventType(selectedEvent, 'ConversationGenerationRequested', 'wrong selected event');
     toolCall = true;
-    output = 'Exact answer [1]';
+    output = 'Exact answer [1] [2] [3]';
     await execute(selectedEvent, 'selected-range');
     assert.match(bodies.at(-1)!, /alpha selected passage/);
     assert.doesNotMatch(bodies.at(-1)!, /secret before|secret after|New unrelated message/);
@@ -682,6 +700,21 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
 
     assert.equal(selectedAnswer.citations[0]?.quote, 'alpha selected passage');
     assert.equal(selectedAnswer.citations[0]?.rangeStart, 14);
+    assert.deepEqual(
+      selectedAnswer.citations.map((citation) => [citation.rangeStart, citation.rangeEnd]),
+      [
+        [14, 36],
+        [14, 19],
+        [50, 55]
+      ]
+    );
+    await execute(selectedEvent, 'selected-range');
+    const selectedEdit = await run(
+      Effect.flatMap(Conversations, (c) =>
+        c.editMessage({ messageId: selected.messageId, text: 'Retained evidence [1] [2] [3]' })
+      )
+    );
+    assert.deepEqual(selectedEdit.citations, selectedAnswer.citations);
     await assertLongHistoryPreservesEarlyMessages();
 
     async function assertLongHistoryPreservesEarlyMessages() {

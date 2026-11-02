@@ -804,9 +804,24 @@ export const ReplyStore = defineStore({
                   item.versionId === citation.materialVersionId &&
                   item.documentId === citation.documentId
               );
-              const excerpt = selected?.excerpts.find(
+
+              const range = citation.selectedRange;
+
+              if (
+                !selected ||
+                !range ||
+                range.versionId !== selected.versionId ||
+                range.documentId !== selected.documentId
+              )
+                return invalid();
+
+              const excerpt = selected.excerpts.find(
                 (item) =>
-                  item.blockOrdinal === citation.blockOrdinal && item.text.includes(citation.quote)
+                  item.blockOrdinal === citation.blockOrdinal &&
+                  item.blockId === range.blockId &&
+                  item.start === range.start &&
+                  item.end === range.end &&
+                  item.text.includes(citation.quote)
               );
               const document = db.orm
                 .select()
@@ -835,7 +850,8 @@ export const ReplyStore = defineStore({
             function attachmentCitation(
               citation: (typeof publishReplyInputSchema.Type.citations)[number]
             ) {
-              if (citation.sourceId === null) return invalid();
+              if (citation.sourceId === null || citation.selectedRange !== undefined)
+                return invalid();
 
               const attachment = snapshot.messages
                 .flatMap((message) => message.attachments)

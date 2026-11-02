@@ -29,6 +29,7 @@ import {
 } from '@study/contracts/events';
 import { versionIdSchema } from '@study/contracts/ids';
 import type { DocumentId, SourceId, MaterialVersionId } from '@study/contracts/ids';
+import type { DocumentTextRange } from '@study/contracts/sources/document';
 import { Effect, Result, Schema } from 'effect';
 import { Activity, DurableDeferred } from 'effect/workflow';
 
@@ -358,6 +359,7 @@ function selectionCatalog(snapshot: typeof replySnapshotSchema.Type) {
   const catalog = createEvidenceCatalog<{
     sourceId: SourceId | null;
     materialVersionId?: MaterialVersionId;
+    selectedRange?: DocumentTextRange;
     documentId: DocumentId;
   }>([]);
 
@@ -370,6 +372,13 @@ function selectionCatalog(snapshot: typeof replySnapshotSchema.Type) {
         reference: {
           sourceId: null,
           materialVersionId: input.versionId,
+          selectedRange: {
+            versionId: input.versionId,
+            documentId: input.documentId,
+            blockId: excerpt.blockId,
+            start: excerpt.start,
+            end: excerpt.end
+          },
           documentId: input.documentId
         },
         blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
