@@ -25,6 +25,11 @@ import { Workflow, WorkflowEngine } from 'effect/workflow';
 
 import { Materials } from '#server/features/materials/service/index';
 import { Projects } from '#server/features/projects/index';
+import { Sources } from '#server/features/sources/index';
+import {
+  sourceIngestionWorkflow,
+  sourceIngestionHandler
+} from '#server/features/sources/workflows/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -34,12 +39,15 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
+import { sourceIndexedWorkflow, sourceIndexedHandler } from './index.ts';
 
 test('rejects mismatched generation event before reaching a provider', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const database = Layer.succeed(Database, { store: context });
-  const domain = Layer.mergeAll(Projects.layer, Materials.layer).pipe(Layer.provideMerge(database));
+  const domain = Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer).pipe(
+    Layer.provideMerge(database)
+  );
   const services = Layer.mergeAll(
     domain,
     database,
@@ -203,7 +211,7 @@ test('generates and publishes all material kinds with captured evidence and repl
   );
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
   const domain = () =>
-    Layer.mergeAll(Projects.layer, Materials.layer).pipe(
+    Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const services = () =>
@@ -232,27 +240,50 @@ test('generates and publishes all material kinds with captured evidence and repl
       Effect.gen(function* () {
         const project = yield* (yield* Projects).createProject({ name: 'test' });
 
-        return yield* (yield* Materials).create({
+        const sources = yield* Sources;
+        const source = yield* sources.createSource({
           projectId: project.id,
-          title: 'doc',
-          content: {
-            kind: 'document',
-            blocks: [
-              { kind: 'paragraph', text: 'alpha evidence', anchor: { type: 'page', page: 1 } }
-            ],
-            meta: {
-              extractor: null,
-              extractorVersion: 1,
-              provider: null,
-              durationMs: null,
-              pageCount: null,
-              refiners: [],
-              waitingFor: [],
-              corrected: false
+          name: 'evidence.txt',
+          bytes: new TextEncoder().encode('alpha evidence')
+        });
+        const state = yield* sources.sourceProcessing(source.id);
+
+        assert.ok(state.requestId);
+        const engine = yield* WorkflowEngine.WorkflowEngine;
+
+        yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
+        yield* engine.execute(sourceIngestionWorkflow, {
+          executionId: 'import-evidence',
+          payload: {
+            event: {
+              type: 'SourceProcessingRequested',
+              eventId: 'import-evidence',
+              causationId: null,
+              correlationId: state.requestId,
+              inputVersion: state.revision,
+              depth: 0,
+              sourceId: source.id,
+              requestId: state.requestId
             }
           }
         });
-      }).pipe(Effect.provide(domain()))
+        const row = context.db.orm
+          .select()
+          .from(s.workflowEvents)
+          .all()
+          .find((event) => event.type === 'SourceIndexed');
+
+        assert.ok(row);
+        const event = decodeEvent(row.payload);
+
+        assertEventType(event, 'SourceIndexed', 'missing projection');
+        yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
+
+        return (yield* engine.execute(sourceIndexedWorkflow, {
+          executionId: 'project-evidence',
+          payload: { event }
+        })).extracted;
+      }).pipe(Effect.scoped, Effect.provide(services()))
     );
     const generate = async (
       kind: 'flashcards' | 'quiz' | 'diagram',

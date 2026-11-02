@@ -26,6 +26,7 @@ import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { createUnregisteredSource } from '#testing/source';
 
 import { Sources } from './index.ts';
 
@@ -62,7 +63,7 @@ test('sources service persists requests and pages, and rolls back invalid reques
           'invalid_input'
         );
         assert.deepEqual(yield* sources.sourceProcessing(first.id), state);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 2);
+        assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 4);
         assert.equal(
           (yield* Effect.flip(
             sources.replaceSource({
@@ -89,7 +90,7 @@ test('sources service persists requests and pages, and rolls back invalid reques
         const next = yield* sources.requestSourceProcessing({ id: first.id, expectedRevision: 1 });
 
         assert.notEqual(next.requestId, state.requestId);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 3);
+        assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 5);
         assert.equal((yield* sources.sourceSnapshot({ id: first.id, revision: 1 })).kind, 'text');
       }).pipe(Effect.provide(layer))
     );
@@ -538,7 +539,7 @@ test('deleting a pending source fences publication and removes indexed content',
   try {
     function* verifyDeletedSourceFencing() {
       const sources = yield* Sources;
-      const source = yield* sources.createSource({
+      const source = yield* createUnregisteredSource({
         name: 'test.txt',
         bytes: new Uint8Array([1]),
         projectId: null
@@ -655,11 +656,12 @@ test('published and archived source-backed materials prevent source deletion', a
           bytes: new Uint8Array([1]),
           projectId: 1n as ProjectId
         });
-        const material = yield* materials.create({
-          projectId: 1n as ProjectId,
-          title: 'Original',
-          content: { kind: 'file', sourceId: source.id },
-          publish: true
+        const material = yield* materials.material({
+          id: (yield* materials.materials({
+            projectId: 1n as ProjectId,
+            archived: false,
+            limit: 10
+          })).items[0]!.id
         });
 
         yield* materials.archive({ id: material.id });

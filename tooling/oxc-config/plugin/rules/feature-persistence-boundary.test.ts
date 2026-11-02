@@ -81,3 +81,30 @@ test('collection membership writes stay with organization and the identity-creat
     ].sort()
   );
 });
+
+test('import identity and representation pins remain material-owned across acquisition participants', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/sources/store.ts': `
+      import * as schema from '@study/db/schema';
+      import { sql } from '@study/db';
+      import type { Db } from '@study/db'; declare const db: Db;
+      const { material_imports: identities } = schema;
+      const pins = schema.material_source_snapshots;
+      db.select().from(identities);
+      db.insert(identities);
+      db.update(pins);
+      sql\`DELETE FROM material_imports WHERE source_id=1\`;
+    `,
+    'src/features/materials/store.ts': `
+      import { material_imports, material_source_snapshots } from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(material_imports); db.insert(material_source_snapshots);
+    `
+  });
+
+  assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    'Feature sources may not write material_imports.',
+    'Feature sources may not write material_imports.',
+    'Feature sources may not write material_source_snapshots.'
+  ]);
+});

@@ -49,7 +49,7 @@ test(
         )
       );
 
-      assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
+      assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 2);
       await server.close();
       await app.close();
       app = await App.open({ path: location.path });

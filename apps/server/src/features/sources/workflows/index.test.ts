@@ -17,10 +17,17 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { ProjectId } from '@study/contracts/ids';
+import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
+import { Materials } from '#server/features/materials/index';
+import {
+  sourceIndexedHandler,
+  sourceIndexedWorkflow
+} from '#server/features/materials/workflows/index';
+import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/service/index';
 import {
   sourceIngestionWorkflow,
@@ -33,6 +40,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
+import { decodeEvent } from '#server/platform/workflows/events';
 
 test('native ingestion publishes an anchored text document through Sources', async () => {
   const location = createTestDatabase();
@@ -42,7 +50,9 @@ test('native ingestion publishes an anchored text document through Sources', asy
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
-    Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
+    Layer.mergeAll(Sources.layer, Materials.layer, Projects.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    ),
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
@@ -56,10 +66,13 @@ test('native ingestion publishes an anchored text document through Sources', asy
       Effect.scoped(
         Effect.gen(function* () {
           const sources = yield* Sources;
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const collection = yield* projects.createProject({ name: 'Temporary organization' });
           const source = yield* sources.createSource({
             name: 'test.txt',
             bytes: new TextEncoder().encode('Hello'),
-            projectId: null
+            projectId: collection.id
           });
           const state = yield* sources.sourceProcessing(source.id);
 
@@ -82,6 +95,31 @@ test('native ingestion publishes an anchored text document through Sources', asy
             payload: { event }
           });
 
+          const indexed = context.db.orm
+            .select()
+            .from(tables.workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload))
+            .find((item) => item.type === 'SourceIndexed' && item.documentId === id);
+
+          assert.ok(indexed?.type === 'SourceIndexed');
+          yield* projects.deleteProject({ id: collection.id });
+          yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
+          const projected = yield* engine.execute(sourceIndexedWorkflow, {
+            executionId: 'projection',
+            payload: { event: indexed }
+          });
+          const replayed = yield* engine.execute(sourceIndexedWorkflow, {
+            executionId: 'projection-replay',
+            payload: { event: indexed }
+          });
+
+          assert.equal(projected.extracted.version.id, replayed.extracted.version.id);
+          assert.equal(
+            (yield* materials.material({ id: projected.extracted.id })).importProcessing?.status,
+            'ready'
+          );
+          assert.equal(context.db.orm.select().from(tables.project_materials).all().length, 0);
           assert.equal((yield* sources.sourceProcessing(source.id)).documentId, id);
           const rows = context.db.orm.all<{ text: string }>('SELECT text FROM blocks');
 

@@ -240,7 +240,6 @@ function makePractice(resources: StoreResources) {
                 .from(s.project_materials)
                 .where(eq(s.project_materials.project_id, projectId))
             ),
-            eq(s.material_versions.kind, 'document'),
             eq(s.material_versions.status, 'published')
           )
         )
@@ -253,7 +252,13 @@ function makePractice(resources: StoreResources) {
         .where(eq(s.material_document_versions.version_id, id))
         .get();
 
-      if (!row || !material || material.archived_at !== null || !document)
+      const imported = db.orm
+        .select()
+        .from(s.material_source_snapshots)
+        .where(eq(s.material_source_snapshots.version_id, id))
+        .get()?.document_id;
+
+      if (!row || !material || material.archived_at !== null || (!document && !imported))
         invalid('practice input must be an active published project document');
     }
   }

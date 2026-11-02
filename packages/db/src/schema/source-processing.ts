@@ -1,4 +1,4 @@
-import type { DocumentId, SourceId, MaterialVersionId } from '@study/contracts/ids';
+import type { DocumentId, SourceId, MaterialVersionId, MaterialId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
 import {
   blob,
@@ -7,12 +7,13 @@ import {
   integer,
   primaryKey,
   sqliteTable,
-  text
+  text,
+  uniqueIndex
 } from 'drizzle-orm/sqlite-core';
 
 import { codes_source_kind } from './codes.ts';
 import { documents } from './documents.ts';
-import { material_versions } from './material-versions.ts';
+import { materials, material_versions } from './material-versions.ts';
 import { sources } from './sources.ts';
 
 export const source_processing = sqliteTable(
@@ -63,12 +64,32 @@ export const material_source_snapshots = sqliteTable(
       .references(() => material_versions.id, { onDelete: 'cascade' }),
     source_id: integer().$type<SourceId>().notNull(),
     revision: integer().$type<bigint>().notNull(),
-    metadata: text().notNull()
+    metadata: text().notNull(),
+    document_id: integer()
+      .$type<DocumentId>()
+      .references(() => documents.id, { onDelete: 'no action' })
   },
   (t) => [
+    uniqueIndex('material_source_document_unique').on(t.document_id),
     foreignKey({
       columns: [t.source_id, t.revision],
       foreignColumns: [source_snapshots.source_id, source_snapshots.revision]
     })
   ]
+);
+
+/** One supplied source has one durable library identity, independent of revision or archive. */
+export const material_imports = sqliteTable(
+  'material_imports',
+  {
+    source_id: integer()
+      .$type<SourceId>()
+      .primaryKey()
+      .references(() => sources.id, { onDelete: 'no action' }),
+    material_id: integer()
+      .$type<MaterialId>()
+      .notNull()
+      .references(() => materials.id, { onDelete: 'no action' })
+  },
+  (t) => [uniqueIndex('material_imports_material_unique').on(t.material_id)]
 );

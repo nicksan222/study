@@ -254,15 +254,21 @@ export const materialGenerationPublicationSchema = Schema.Struct({
   language: Schema.optional(Schema.NullOr(Schema.Trim.check(Schema.isBetweenLength(1, 64))))
 });
 
+const importedExtractionFields = {
+  extracted: Schema.NullOr(Schema.Struct({ id: documentIdSchema, document: documentSchema }))
+};
+
 const fileContentDetailSchema = Schema.Struct({
   kind: Schema.Literal('file'),
   sourceId: sourceIdSchema,
+  ...importedExtractionFields,
   source: sourceSchema
 });
 
 const audioContentDetailSchema = Schema.Struct({
   kind: Schema.Literal('audio'),
   sourceId: sourceIdSchema,
+  ...importedExtractionFields,
   source: sourceSchema,
   durationMs: nonnegativeNullableBigIntSchema,
   sampleRate: positiveNullableBigIntSchema,
@@ -272,6 +278,7 @@ const audioContentDetailSchema = Schema.Struct({
 const videoContentDetailSchema = Schema.Struct({
   kind: Schema.Literal('video'),
   sourceId: sourceIdSchema,
+  ...importedExtractionFields,
   source: sourceSchema,
   durationMs: nonnegativeNullableBigIntSchema,
   width: positiveNullableBigIntSchema,
@@ -281,6 +288,7 @@ const videoContentDetailSchema = Schema.Struct({
 const imageContentDetailSchema = Schema.Struct({
   kind: Schema.Literal('image'),
   sourceId: sourceIdSchema,
+  ...importedExtractionFields,
   source: sourceSchema,
   width: positiveNullableBigIntSchema,
   height: positiveNullableBigIntSchema
@@ -289,6 +297,7 @@ const imageContentDetailSchema = Schema.Struct({
 const linkContentDetailSchema = Schema.Struct({
   kind: Schema.Literal('link'),
   sourceId: sourceIdSchema,
+  ...importedExtractionFields,
   source: sourceSchema
 });
 
@@ -487,6 +496,14 @@ export const draftMaterialVersionDetailSchema = materialVersionDetailFor(
 );
 
 export const materialSchema = Schema.Struct({
+  importProcessing: Schema.optional(
+    Schema.Struct({
+      sourceId: sourceIdSchema,
+      revision: Schema.Int,
+      requestId: Schema.String,
+      status: Schema.Literals(['pending', 'ready', 'failed'])
+    })
+  ),
   projectIds: Schema.Array(projectIdSchema),
   id: materialIdSchema,
   kind: materialKindSchema,

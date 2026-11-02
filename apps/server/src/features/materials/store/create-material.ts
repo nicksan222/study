@@ -12,15 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { DocumentId } from '@study/contracts/ids';
 import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
 import { createMaterialInputSchema } from '@study/contracts/materials/schemas';
-import { eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { required, makeReads } from '#server/features/materials/store/reads';
-import { documentSchema } from '#server/features/materials/store/schemas';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { now, makeWrites } from '#server/features/materials/store/writes';
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -36,13 +33,19 @@ export function makeCreateMaterial(resources: StoreResources) {
   const { assertProject, assertSession, insertVersion } = makeWrites(resources);
   const { attachMaterial } = makeSessionMembership(resources);
 
-  function createMaterial(input: CreateMaterialInput): MaterialDetailDto {
+  function createMaterial(
+    input: CreateMaterialInput,
+    creator: 'user' | 'import' = 'user'
+  ): MaterialDetailDto {
     return materialIntegrity(() =>
-      insertMaterial(Schema.decodeUnknownSync(createMaterialInputSchema)(input))
+      insertMaterial(Schema.decodeUnknownSync(createMaterialInputSchema)(input), creator)
     );
   }
 
-  function insertMaterial(input: CreateMaterialInput, documentId?: DocumentId): MaterialDetailDto {
+  function insertMaterial(
+    input: CreateMaterialInput,
+    creator: 'user' | 'import'
+  ): MaterialDetailDto {
     if (input.projectId !== undefined) assertProject(input.projectId);
 
     if (input.sessionId !== undefined) assertSession(input.sessionId);
@@ -65,51 +68,12 @@ export function makeCreateMaterial(resources: StoreResources) {
         .values({ project_id: input.projectId, material_id: row.id })
         .run();
 
-    insertVersion(row.id, input, documentId);
+    insertVersion(row.id, input, creator === 'import' ? { documentId: null } : undefined);
 
     if (input.sessionId !== undefined) attachMaterial(input.sessionId, row.id);
 
     return required(readMaterial(row.id));
   }
 
-  function createMaterialFromDocument(
-    input: Omit<CreateMaterialInput, 'content'> & {
-      documentId: DocumentId;
-    }
-  ): MaterialDetailDto {
-    return materialIntegrity(() => {
-      const doc = required(
-        store.orm.select().from(s.documents).where(eq(s.documents.id, input.documentId)).get()
-      );
-
-      const blocks = store.orm
-        .select()
-        .from(s.blocks)
-        .where(eq(s.blocks.document_id, doc.id))
-        .all()
-        .map((b) => ({
-          kind: b.kind,
-          text: b.text,
-          anchor: JSON.parse(b.anchor)
-        }));
-      const document = Schema.decodeUnknownSync(documentSchema)({
-        blocks,
-        meta: JSON.parse(doc.meta)
-      });
-      const parsed = Schema.decodeUnknownSync(createMaterialInputSchema)({
-        ...input,
-        content: {
-          kind: 'document',
-          ...document
-        }
-      });
-
-      return insertMaterial(parsed, doc.id);
-    });
-  }
-
-  return {
-    createMaterial,
-    createMaterialFromDocument
-  };
+  return { createMaterial };
 }
