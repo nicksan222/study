@@ -57,15 +57,21 @@ export function decodeHtml(
   // Unknown wrappers may contain recognized flow content. Only true phrasing subtrees
   // belong in the inline buffer, whose decoder intentionally excludes lists and tables.
   const flowNodes = new WeakMap<Node, boolean>();
+
   function containsFlow(node: Node): boolean {
     if (node.type !== 'tag') return false;
+
     const cached = flowNodes.get(node);
+
     if (cached !== undefined) return cached;
+
     const flow =
       flowContainers.has(node.tagName) ||
       ['ul', 'ol', 'table'].includes(node.tagName) ||
       $(node).contents().toArray().some(containsFlow);
+
     flowNodes.set(node, flow);
+
     return flow;
   }
 
@@ -280,7 +286,11 @@ export function decodeHtml(
   function walk(nodes: Node[]): void {
     let pending: Node[] = [];
     const save = () => {
-      if (hasPhrasing(pending)) add({ type: 'paragraph', inlines: inline(pending) }, pending[0]!);
+      if (hasPhrasing(pending)) {
+        const inlines = inline(pending);
+
+        if (inlines.length) add({ type: 'paragraph', inlines }, pending[0]!);
+      }
 
       pending = [];
     };
@@ -292,11 +302,13 @@ export function decodeHtml(
       }
 
       const name = node.tagName;
+
       if (name === 'ul' || name === 'ol') {
         save();
         list(node);
       } else if (containsFlow(node)) {
         save();
+
         if (!structured(node, name)) walk($(node).contents().toArray());
       } else pending.push(node);
     }

@@ -373,6 +373,7 @@ test('HTML groups loose phrasing without breaking words or losing inline marks',
       ['international link', 'Next', 'ending']
     );
     assert.equal(result.blocks[0]!.content.type, 'paragraph');
+
     if (result.blocks[0]!.content.type === 'paragraph')
       assert.deepEqual(result.blocks[0]!.content.inlines, [
         { type: 'text', text: 'inter', marks: [] },
@@ -380,6 +381,7 @@ test('HTML groups loose phrasing without breaking words or losing inline marks',
         { type: 'text', text: ' ', marks: [] },
         { type: 'link', href: 'https://example.test/', text: 'link' }
       ]);
+
     assert.deepEqual(result.blocks[0]!.anchor, {
       type: 'url',
       url: 'https://example.test/page',
@@ -413,6 +415,7 @@ test('HTML list wrappers preserve descendants, paragraph boundaries and continua
   const content = contents[0]!;
 
   assert.equal(content.type, 'list_item');
+
   if (content.type === 'list_item')
     assert.deepEqual(
       content.items.map(({ depth, start, continuation }) => ({ depth, start, continuation })),
@@ -430,6 +433,7 @@ test('HTML structural and unknown wrappers retain nested flow without splitting 
   const { decodeHtml } = await import('#server/features/sources/decoders/html');
   const { documentSchema } = await import('@study/contracts/sources/schemas');
   const { Schema } = await import('effect');
+
   for (const wrapper of ['details open', 'study-wrapper']) {
     const tag = wrapper.split(' ')[0];
     const result = decodeHtml({
@@ -437,6 +441,7 @@ test('HTML structural and unknown wrappers retain nested flow without splitting 
         `<main><${wrapper}><summary>Topic</summary><p>Before</p><ul><li>Evidence</li></ul><table><tr><td>Cell</td></tr></table>inter<strong>national</strong></${tag}></main>`
       )
     });
+
     Schema.decodeUnknownSync(documentSchema)(result);
     assert.deepEqual(
       result.blocks.map((block) => [block.content.type, block.text]),
@@ -453,11 +458,14 @@ test('HTML structural and unknown wrappers retain nested flow without splitting 
         `<ol start="3"><li><${wrapper}><summary>Topic</summary><p>Before</p><ul><li>Evidence</li></ul><p>After</p>inter<strong>national</strong></${tag}></li></ol>`
       )
     });
+
     Schema.decodeUnknownSync(documentSchema)(list);
     assert.equal(list.blocks.length, 1);
     assert.equal(list.blocks[0]!.text, 'Topic\nBefore\nEvidence\nAfter\ninternational');
     const content = list.blocks[0]!.content;
+
     assert.equal(content.type, 'list_item');
+
     if (content.type === 'list_item')
       assert.deepEqual(
         content.items.map(({ depth, continuation }) => [depth, continuation]),
