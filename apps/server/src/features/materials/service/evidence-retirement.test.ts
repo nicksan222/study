@@ -65,6 +65,7 @@ test('prune acceptance filters each annotation revision before list and history 
           kind: 'note',
           note: 'PRUNED_OLD_NOTE'
         });
+
         assert.equal(hidden.outcome, 'saved');
         assert.equal(moved.outcome, 'saved');
         const updated = yield* rpc('materials.updateAnnotation', {
@@ -73,6 +74,7 @@ test('prune acceptance filters each annotation revision before list and history 
           kind: 'note',
           note: 'Retained note'
         });
+
         assert.equal(updated.outcome, 'saved');
         const current = yield* rpc('materials.saveDocument', {
           materialId: material.id,
@@ -80,6 +82,7 @@ test('prune acceptance filters each annotation revision before list and history 
           saveKey: 'new-head',
           document: body
         });
+
         assert.equal(current.outcome, 'saved');
         const target = {
           ...oldTarget,
@@ -98,13 +101,16 @@ test('prune acceptance filters each annotation revision before list and history 
           expectedRevision: 2n,
           target
         });
+
         assert.equal(reanchored.outcome, 'saved');
         const sibling = yield* rpc('materials.createAnnotation', {
           target,
           kind: 'note',
           note: 'Sibling note'
         });
+
         assert.equal(sibling.outcome, 'saved');
+
         return {
           materialId: material.id,
           hidden: hidden.annotation.id,
@@ -118,6 +124,7 @@ test('prune acceptance filters each annotation revision before list and history 
       Effect.runPromise(
         Effect.gen(function* () {
           const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+
           assert.equal(
             (yield* Effect.flip(rpc('materials.annotation', { id: saved.hidden }))).kind,
             'not_found'
@@ -126,6 +133,7 @@ test('prune acceptance filters each annotation revision before list and history 
             materialId: saved.materialId,
             limit: 1
           });
+
           assert.deepEqual(
             page.items.map((item) => item.id),
             [saved.moved]
@@ -136,12 +144,14 @@ test('prune acceptance filters each annotation revision before list and history 
             limit: 1,
             cursor: page.nextCursor!
           });
+
           assert.deepEqual(
             next.items.map((item) => item.id),
             [saved.sibling]
           );
           assert.equal(next.nextCursor, null);
           const history = yield* rpc('materials.annotationHistory', { id: saved.moved, limit: 1 });
+
           assert.deepEqual(
             history.items.map((item) => [item.revision, item.note]),
             [[3n, 'Retained note']]
@@ -151,6 +161,7 @@ test('prune acceptance filters each annotation revision before list and history 
       );
 
     const operationId = 'annotation-prune';
+
     await acceptHistory(f, saved.materialId, operationId);
     await assertVisible();
     f.context.db.orm.run(

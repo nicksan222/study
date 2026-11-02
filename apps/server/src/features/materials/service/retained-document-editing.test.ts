@@ -32,6 +32,7 @@ for (const kind of ['delete', 'prune'] as const)
   test(`${kind} preserves guarded editing and exact unavailable provenance of kept Documents`, async () => {
     const f = await documentTransformFixture();
     const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+
     try {
       const setup = await Effect.runPromise(
         Effect.gen(function* () {
@@ -59,6 +60,7 @@ for (const kind of ['delete', 'prune'] as const)
             inputs: [evidence.version.id],
             publish: false
           });
+
           yield* rpc('materials.setCitations', {
             id: claim.version.id,
             citations: [
@@ -72,25 +74,32 @@ for (const kind of ['delete', 'prune'] as const)
             ]
           });
           yield* rpc('materials.publishVersion', { id: claim.version.id });
+
           if (kind === 'prune')
             yield* rpc('materials.createVersion', {
               materialId: evidence.id,
               content: { kind: 'document', ...deletionDocument('New evidence') },
               publish: true
             });
+
           return { evidence, claim, target };
         }).pipe(Effect.scoped, Effect.provide(handlers()))
       );
       const operationId = 'retained-edit-prune';
+
       if (kind === 'delete') await acceptMaterialDeletion(f, setup.evidence.id);
       else await acceptHistory(f, setup.evidence.id, operationId);
+
       let currentId = setup.claim.version.id;
+
       for (const phase of ['accepted', 'cleaned'] as const) {
         if (phase === 'cleaned') {
           if (kind === 'delete') await cleanupMaterial(f, setup.evidence.id);
           else await cleanupHistory(f, operationId);
+
           f.reopen();
         }
+
         currentId = await Effect.runPromise(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
@@ -101,6 +110,7 @@ for (const kind of ['delete', 'prune'] as const)
               document: deletionDocument(`Edited ${phase} [1]`)
             };
             const saved = yield* rpc('materials.saveDocument', input);
+
             assert.equal(saved.outcome, 'saved');
             assert.deepEqual(yield* rpc('materials.saveDocument', input), {
               ...saved,
@@ -110,6 +120,7 @@ for (const kind of ['delete', 'prune'] as const)
               ...input,
               saveKey: `conflict-${phase}`
             });
+
             assert.equal(conflict.outcome, 'conflict');
             const undo = yield* rpc('materials.undoDocument', {
               materialId: setup.claim.id,
@@ -117,21 +128,26 @@ for (const kind of ['delete', 'prune'] as const)
               restoreVersionId: setup.claim.version.id,
               undoKey: `undo-${phase}`
             });
+
             assert.equal(undo.outcome, 'saved');
+
             for (const id of [
               saved.submittedVersionId,
               undo.submittedVersionId,
               conflict.submittedVersionId
             ]) {
               const version = yield* rpc('materials.materialVersion', { id });
+
               assert.deepEqual(version.inputs, [setup.evidence.version.id]);
               const { items: citations } = yield* rpc('materials.citations', { id, limit: 10 });
+
               assert.equal(citations.length, 1);
               assert.deepEqual(citations[0]!.target, setup.target);
               assert.equal(citations[0]!.inputVersionId, setup.evidence.version.id);
               assert.equal(citations[0]!.quote, 'Evidence');
               assert.equal(citations[0]!.evidence?.availability, 'unavailable');
             }
+
             assert.equal(
               (yield* Effect.flip(
                 rpc('materials.materialVersion', { id: setup.evidence.version.id })
@@ -149,6 +165,7 @@ for (const kind of ['delete', 'prune'] as const)
               )).kind,
               'not_found'
             );
+
             if (kind === 'prune')
               assert.equal(
                 (yield* Effect.flip(
@@ -162,6 +179,7 @@ for (const kind of ['delete', 'prune'] as const)
                 )).kind,
                 'not_found'
               );
+
             return undo.submittedVersionId;
           }).pipe(Effect.scoped, Effect.provide(handlers()))
         );

@@ -36,6 +36,7 @@ for (const kind of ['delete', 'prune'] as const)
   test(`${kind} acceptance hides claim-owned assessments while retaining unrelated judgments`, async () => {
     const f = await documentTransformFixture();
     const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -57,6 +58,7 @@ for (const kind of ['delete', 'prune'] as const)
             end: 8
           };
           const claims = [];
+
           for (const note of ['PRIVATE_CLAIM_NOTE', 'Retained judgment']) {
             const claimBody = deletionDocument('Claim [1]');
             const claim = yield* rpc('materials.create', {
@@ -65,6 +67,7 @@ for (const kind of ['delete', 'prune'] as const)
               inputs: [evidence.version.id],
               publish: false
             });
+
             yield* rpc('materials.setCitations', {
               id: claim.version.id,
               citations: [
@@ -100,13 +103,16 @@ for (const kind of ['delete', 'prune'] as const)
             });
             claims.push(claim);
           }
+
           const removed = claims[0]!;
+
           if (kind === 'prune')
             yield* rpc('materials.createVersion', {
               materialId: removed.id,
               content: { kind: 'document', ...deletionDocument('Current claim') },
               publish: true
             });
+
           return { removed, kept: claims[1]! };
         }).pipe(Effect.scoped, Effect.provide(handlers()))
       );
@@ -114,6 +120,7 @@ for (const kind of ['delete', 'prune'] as const)
         Effect.runPromise(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+
             assert.equal(
               (yield* Effect.flip(
                 rpc('materials.citationSupport', {
@@ -127,15 +134,19 @@ for (const kind of ['delete', 'prune'] as const)
               versionId: saved.kept.version.id,
               marker: 1n
             });
+
             assert.equal(kept.state, 'assessed');
             assert.equal(kept.assessment.note, 'Retained judgment');
           }).pipe(Effect.scoped, Effect.provide(handlers()))
         );
       const operationId = 'assessment-prune';
+
       if (kind === 'delete') await acceptMaterialDeletion(f, saved.removed.id);
       else await acceptHistory(f, saved.removed.id, operationId);
+
       const cleanup = () =>
         kind === 'delete' ? cleanupMaterial(f, saved.removed.id) : cleanupHistory(f, operationId);
+
       await assertHidden();
       f.context.db.orm.run(
         sql`CREATE TRIGGER reject_assessment_cleanup BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT, 'injected'); END`
