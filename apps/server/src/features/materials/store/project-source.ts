@@ -136,7 +136,6 @@ export function makeProjectSource(resources: StoreResources) {
       .get();
 
     if (
-      source.project_id !== event.projectId ||
       !document ||
       document.source_id !== source.id ||
       state.document_id !== event.documentId ||

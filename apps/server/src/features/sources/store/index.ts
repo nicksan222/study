@@ -463,6 +463,11 @@ export const SourceStore = defineStore({
               return { documentId: current.documentId, published: false };
 
             const doc = input.document;
+            if (!doc.blocks.some((block) => block.text.trim().length > 0))
+              throw new StudyError(
+                'invalid_input',
+                'Source extraction contains no readable content'
+              );
             const id = db.orm
               .insert(tables.documents)
               .values({
