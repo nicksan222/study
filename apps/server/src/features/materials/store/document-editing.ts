@@ -201,8 +201,18 @@ function makeDocumentEditing(resources: StoreResources) {
 
   function relevantInputsUnchanged(base: ReturnType<typeof documentVersion>) {
     return base.inputs.every((id) => {
+      // Retirement leaves provenance identities, not live inputs that undo must refresh.
+      const retiredMaterial = db.orm
+        .select()
+        .from(s.material_versions)
+        .innerJoin(
+          s.material_deletion_members,
+          eq(s.material_deletion_members.material_id, s.material_versions.material_id)
+        )
+        .where(eq(s.material_versions.id, id))
+        .get();
+      if (retiredMaterial) return true;
       const input = required(reads.readVersion(id));
-
       return input.material_id === base.material_id || head(input.material_id).id === id;
     });
   }
@@ -234,23 +244,27 @@ function makeDocumentEditing(resources: StoreResources) {
         ...value.document
       });
 
-      const submittedVersionId = insertVersion(value.materialId, {
-        content,
-        operation: 'edit',
-        parents: [base.id],
-        inputs,
-        language: source.language,
-        publish: false
-      });
+      const submittedVersionId = insertVersion(
+        value.materialId,
+        {
+          content,
+          operation: 'edit',
+          parents: [...new Set([base.id, source.id])],
+          inputs,
+          language: source.language,
+          publish: false
+        },
+        undefined,
+        source.id
+      );
 
-      setCitations({ id: submittedVersionId, citations: readCitations(source.id) });
+      setCitations({ id: submittedVersionId, citations: readCitations(source.id) }, source.id);
 
       const relevantUnchanged = operation !== 'undo' || relevantInputsUnchanged(base);
-
       const outcome =
         current.id === base.id && relevantUnchanged ? ('saved' as const) : ('conflict' as const);
 
-      if (outcome === 'saved') publish(submittedVersionId);
+      if (outcome === 'saved') publish(submittedVersionId, false, source.id);
 
       db.orm
         .insert(s.document_edit_receipts)

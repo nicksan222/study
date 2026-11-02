@@ -249,7 +249,13 @@ BEGIN SELECT RAISE(ABORT,'deletion member requires exact accepted selection'); E
 CREATE TRIGGER material_deletion_publication BEFORE UPDATE OF status ON material_versions
 WHEN NEW.status='published' AND OLD.status!='published' AND (
  EXISTS(SELECT 1 FROM material_deletion_members WHERE material_id=NEW.material_id)
- OR EXISTS(SELECT 1 FROM material_version_inputs i JOIN material_versions v ON v.id=i.input_version_id JOIN material_deletion_members d ON d.material_id=v.material_id WHERE i.version_id=NEW.id)
+ OR EXISTS(SELECT 1 FROM material_version_inputs i JOIN material_versions v ON v.id=i.input_version_id JOIN material_deletion_members d ON d.material_id=v.material_id WHERE i.version_id=NEW.id AND NOT EXISTS(SELECT 1 FROM material_versions revision
+ JOIN material_version_parents p ON p.version_id=revision.id
+ JOIN material_versions parent ON parent.id=p.parent_version_id AND parent.material_id=revision.material_id
+ JOIN material_version_inputs inherited ON inherited.version_id=parent.id AND inherited.input_version_id=i.input_version_id
+ WHERE revision.id=NEW.id AND revision.kind='document' AND revision.creator='user' AND revision.operation='edit'
+ AND revision.generation_request_id IS NULL AND parent.status='published'
+ AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=parent.material_id)))
  OR EXISTS(SELECT 1 FROM material_deletion_requests WHERE request_id=NEW.generation_request_id))
 BEGIN SELECT RAISE(ABORT,'deleted Material cannot publish'); END;
 --> statement-breakpoint
@@ -258,7 +264,15 @@ WHEN EXISTS(SELECT 1 FROM material_deletion_members WHERE material_id=NEW.materi
 BEGIN SELECT RAISE(ABORT,'deleted Material cannot create versions'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_deletion_input_insert BEFORE INSERT ON material_version_inputs
-WHEN EXISTS(SELECT 1 FROM material_versions v JOIN material_deletion_members d ON d.material_id=v.material_id WHERE v.id IN (NEW.version_id,NEW.input_version_id))
+WHEN EXISTS(SELECT 1 FROM material_versions v JOIN material_deletion_members d ON d.material_id=v.material_id WHERE v.id=NEW.version_id)
+ OR (EXISTS(SELECT 1 FROM material_versions v JOIN material_deletion_members d ON d.material_id=v.material_id WHERE v.id=NEW.input_version_id)
+ AND NOT EXISTS(SELECT 1 FROM material_versions revision
+ JOIN material_version_parents p ON p.version_id=revision.id
+ JOIN material_versions parent ON parent.id=p.parent_version_id AND parent.material_id=revision.material_id
+ JOIN material_version_inputs inherited ON inherited.version_id=parent.id AND inherited.input_version_id=NEW.input_version_id
+ WHERE revision.id=NEW.version_id AND revision.kind='document' AND revision.creator='user' AND revision.operation='edit'
+ AND revision.generation_request_id IS NULL AND parent.status='published'
+ AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=parent.material_id)))
 BEGIN SELECT RAISE(ABORT,'deleted Material cannot be used'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_deletion_generation_input BEFORE INSERT ON material_generation_inputs
@@ -275,13 +289,13 @@ WHEN EXISTS(SELECT 1 FROM material_deletion_requests WHERE request_id=NEW.reques
  OR EXISTS(SELECT 1 FROM json_each(NEW.snapshot,'$.context.inputs') i JOIN material_deletion_members d ON CAST(d.material_id AS TEXT)=json_extract(i.value,'$.materialId'))
 BEGIN SELECT RAISE(ABORT,'deleted Material cannot be captured'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_source_processing_insert BEFORE INSERT ON source_processing WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_source_processing_insert BEFORE INSERT ON source_processing WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_source_processing_update BEFORE UPDATE ON source_processing WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_source_processing_update BEFORE UPDATE ON source_processing WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_documents_insert BEFORE INSERT ON documents WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_documents_insert BEFORE INSERT ON documents WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_documents_update BEFORE UPDATE ON documents WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_documents_update BEFORE UPDATE ON documents WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_deletion_blocks_insert BEFORE INSERT ON blocks WHEN EXISTS(SELECT 1 FROM documents doc JOIN material_imports i ON i.source_id=doc.source_id JOIN material_deletion_members d ON d.material_id=i.material_id WHERE doc.id=NEW.document_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
@@ -466,3 +480,50 @@ BEGIN SELECT RAISE(ABORT,'deleted Material cannot restore annotations'); END;
 CREATE TRIGGER material_assessment_deletion_insert BEFORE INSERT ON material_citation_assessments
 WHEN EXISTS(SELECT 1 FROM material_versions v JOIN material_deletion_members d ON d.material_id=v.material_id WHERE v.id IN (NEW.claim_version_id,NEW.evidence_version_id))
 BEGIN SELECT RAISE(ABORT,'deleted Material cannot restore assessments'); END;
+
+--> statement-breakpoint
+-- Deletion keeps existing published owners; it never makes remaining bytes newly acquirable.
+CREATE TRIGGER document_asset_deleted_acquisition BEFORE INSERT ON document_assets
+WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) AND NOT EXISTS(SELECT 1 FROM material_versions owner JOIN (
+ SELECT dv.version_id,a.source_id,a.revision FROM material_document_versions dv JOIN document_assets a ON a.document_id=dv.document_id
+ UNION ALL SELECT version_id,source_id,revision FROM material_source_snapshots
+ ) asset ON asset.version_id=owner.id
+ WHERE asset.source_id=NEW.source_id AND asset.revision=NEW.revision AND owner.status='published'
+ AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=owner.material_id)
+ )
+BEGIN SELECT RAISE(ABORT,'deleted image requires a retained published owner'); END;
+--> statement-breakpoint
+CREATE TRIGGER material_document_deleted_assets_insert BEFORE INSERT ON material_document_versions
+WHEN EXISTS(SELECT 1 FROM document_assets a WHERE a.document_id=NEW.document_id AND EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=a.source_id AND retired.revision=a.revision) AND NOT EXISTS(SELECT 1 FROM material_versions owner JOIN (
+ SELECT dv.version_id,a.source_id,a.revision FROM material_document_versions dv JOIN document_assets a ON a.document_id=dv.document_id
+ UNION ALL SELECT version_id,source_id,revision FROM material_source_snapshots
+ ) asset ON asset.version_id=owner.id
+ WHERE asset.source_id=a.source_id AND asset.revision=a.revision AND owner.status='published'
+ AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=owner.material_id)
+ AND (owner.material_id=(SELECT material_id FROM material_versions WHERE id=NEW.version_id) OR EXISTS(
+ SELECT 1 FROM material_version_inputs i WHERE i.version_id=NEW.version_id AND i.input_version_id=owner.id))))
+BEGIN SELECT RAISE(ABORT,'deleted image requires explicit retained ownership'); END;
+--> statement-breakpoint
+CREATE TRIGGER material_document_deleted_assets_update BEFORE UPDATE ON material_document_versions
+WHEN EXISTS(SELECT 1 FROM document_assets a WHERE a.document_id=NEW.document_id AND EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=a.source_id AND retired.revision=a.revision) AND NOT EXISTS(SELECT 1 FROM material_versions owner JOIN (
+ SELECT dv.version_id,a.source_id,a.revision FROM material_document_versions dv JOIN document_assets a ON a.document_id=dv.document_id
+ UNION ALL SELECT version_id,source_id,revision FROM material_source_snapshots
+ ) asset ON asset.version_id=owner.id
+ WHERE asset.source_id=a.source_id AND asset.revision=a.revision AND owner.status='published'
+ AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=owner.material_id)
+ AND (owner.material_id=(SELECT material_id FROM material_versions WHERE id=NEW.version_id) OR EXISTS(
+ SELECT 1 FROM material_version_inputs i WHERE i.version_id=NEW.version_id AND i.input_version_id=owner.id))))
+BEGIN SELECT RAISE(ABORT,'deleted image requires explicit retained ownership'); END;
+--> statement-breakpoint
+CREATE TRIGGER material_document_deleted_assets_publish BEFORE UPDATE OF status ON material_versions
+WHEN NEW.status='published' AND OLD.status!='published' AND EXISTS(
+ SELECT 1 FROM material_document_versions dv JOIN document_assets a ON a.document_id=dv.document_id
+ WHERE dv.version_id=NEW.id AND EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=a.source_id AND retired.revision=a.revision) AND NOT EXISTS(SELECT 1 FROM material_versions owner JOIN (
+ SELECT dv.version_id,a.source_id,a.revision FROM material_document_versions dv JOIN document_assets a ON a.document_id=dv.document_id
+ UNION ALL SELECT version_id,source_id,revision FROM material_source_snapshots
+ ) asset ON asset.version_id=owner.id
+ WHERE asset.source_id=a.source_id AND asset.revision=a.revision AND owner.status='published'
+ AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=owner.material_id)
+ AND (owner.material_id=(SELECT material_id FROM material_versions WHERE id=NEW.id) OR EXISTS(
+ SELECT 1 FROM material_version_inputs i WHERE i.version_id=NEW.id AND i.input_version_id=owner.id))))
+BEGIN SELECT RAISE(ABORT,'deleted image cannot acquire a new publication owner'); END;

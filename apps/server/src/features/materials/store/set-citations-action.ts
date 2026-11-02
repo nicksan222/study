@@ -13,10 +13,11 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type { setCitationsInputSchema } from '@study/contracts/materials/rpc';
+import type { MaterialVersionId } from '@study/contracts/ids';
+import { setCitationsInputSchema } from '@study/contracts/materials/rpc';
 import { validDocumentTextRange } from '@study/contracts/sources/document';
 import { documentTextRangeSchema } from '@study/contracts/sources/schemas';
-import { eq } from '@study/db';
+import { eq, and } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -34,10 +35,44 @@ export function makeSetCitationsAction(resources: StoreResources) {
   const { db: store } = resources;
   const { readCitations } = makeCitations(resources);
   const { versionRow, versionDocumentId, readCanonicalDocument } = makeReads(resources);
-  const setCitations = (input: Input) =>
+  const setCitations = (input: Input, inheritedFrom?: MaterialVersionId) =>
     materialIntegrity(() => {
-      versionRow(input.id, true);
+      const destination = versionRow(input.id, true);
       const db = store.orm;
+      const inherited = inheritedFrom === undefined ? undefined : versionRow(inheritedFrom);
+      if (
+        inherited &&
+        (inherited.status !== 'published' ||
+          inherited.material_id !== destination.material_id ||
+          destination.kind !== 'document' ||
+          destination.creator !== 'user' ||
+          destination.operation !== 'edit' ||
+          destination.generation_request_id !== null ||
+          !db
+            .select()
+            .from(s.material_version_parents)
+            .where(
+              and(
+                eq(s.material_version_parents.version_id, input.id),
+                eq(s.material_version_parents.parent_version_id, inherited.id)
+              )
+            )
+            .get())
+      )
+        throw new StudyError(
+          'invalid_input',
+          'Citation inheritance requires retained published history'
+        );
+      const previous = inherited === undefined ? undefined : readCitations(inherited.id);
+      if (
+        previous !== undefined &&
+        !Schema.toEquivalence(setCitationsInputSchema.fields.citations)(previous, input.citations)
+      )
+        throw new StudyError(
+          'invalid_input',
+          'Inherited citations must match exact retained references'
+        );
+
       const inputs = db
         .select()
         .from(s.material_version_inputs)
@@ -61,9 +96,9 @@ export function makeSetCitationsAction(resources: StoreResources) {
         .run();
 
       for (const citation of input.citations) {
-        versionRow(citation.inputVersionId);
+        if (inherited === undefined) versionRow(citation.inputVersionId);
 
-        if (citation.target) {
+        if (inherited === undefined && citation.target) {
           const documentId = versionDocumentId(citation.inputVersionId);
 
           if (documentId === null)

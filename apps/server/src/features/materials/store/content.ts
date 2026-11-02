@@ -17,7 +17,7 @@ import { StudyError } from '@study/contracts/errors';
 import type { DocumentId, MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { encodeBlockContent } from '@study/contracts/sources/document';
-import { and, eq } from '@study/db';
+import { and, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -168,6 +168,53 @@ export function makeContent(resources: StoreResources) {
       .run();
   }
 
+  function assertImageRevision(
+    version: typeof s.material_versions.$inferSelect,
+    sourceId: typeof s.sources.$inferSelect.id,
+    revision: bigint
+  ) {
+    const image = store.orm
+      .select()
+      .from(s.source_snapshots)
+      .where(
+        and(
+          eq(s.source_snapshots.source_id, sourceId),
+          eq(s.source_snapshots.revision, revision),
+          sql`((NOT EXISTS (
+        SELECT 1 FROM source_material_deletion_assets a WHERE a.source_id=${sourceId} AND a.revision=${revision}
+
+      )) OR EXISTS (
+        SELECT 1 FROM material_versions owner JOIN (
+          SELECT dv.version_id,a.source_id,a.revision FROM material_document_versions dv
+          JOIN document_assets a ON a.document_id=dv.document_id
+          UNION ALL SELECT version_id,source_id,revision FROM material_source_snapshots
+        ) asset ON asset.version_id=owner.id
+        WHERE asset.source_id=${sourceId} AND asset.revision=${revision} AND owner.status='published'
+        AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=owner.material_id)
+        AND (owner.material_id=${version.material_id} OR EXISTS(
+          SELECT 1 FROM material_version_inputs i WHERE i.version_id=${version.id} AND i.input_version_id=owner.id
+        ))
+      ))`
+        )
+      )
+      .get();
+    if (!image || image.kind !== 'image' || !image.mime.toLowerCase().startsWith('image/'))
+      throw new StudyError('invalid_input', 'Managed image revision is unavailable');
+  }
+
+  function assertDocumentImages(version: typeof s.material_versions.$inferSelect) {
+    const assets = store.orm
+      .select({ sourceId: s.document_assets.source_id, revision: s.document_assets.revision })
+      .from(s.material_document_versions)
+      .innerJoin(
+        s.document_assets,
+        eq(s.document_assets.document_id, s.material_document_versions.document_id)
+      )
+      .where(eq(s.material_document_versions.version_id, version.id))
+      .all();
+    for (const asset of assets) assertImageRevision(version, asset.sourceId, asset.revision);
+  }
+
   function insertDocument(
     version: typeof s.material_versions.$inferSelect,
     c: Extract<MaterialContentInput, { kind: 'document' }>
@@ -176,21 +223,8 @@ export function makeContent(resources: StoreResources) {
       id = version.id;
 
     for (const block of c.blocks) {
-      if (block.content.type !== 'image') continue;
-
-      const image = db
-        .select()
-        .from(s.source_snapshots)
-        .where(
-          and(
-            eq(s.source_snapshots.source_id, block.content.sourceId),
-            eq(s.source_snapshots.revision, BigInt(block.content.revision))
-          )
-        )
-        .get();
-
-      if (!image || image.kind !== 'image' || !image.mime.toLowerCase().startsWith('image/'))
-        throw new StudyError('invalid_input', 'Managed image revision is unavailable');
+      if (block.content.type === 'image')
+        assertImageRevision(version, block.content.sourceId, BigInt(block.content.revision));
     }
 
     db.delete(s.material_source_snapshots)
@@ -455,6 +489,7 @@ export function makeContent(resources: StoreResources) {
   }
 
   return {
+    assertDocumentImages,
     insertContent,
     removeContent
   };
