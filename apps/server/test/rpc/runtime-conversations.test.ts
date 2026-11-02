@@ -5,7 +5,7 @@
  * │ remain pending and visible.                                                              │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Covers durable sign-in waits, atomic Ask reopen and exact reply provenance.             │
+ * │ - Covers durable sign-in waits, atomic Ask reopen and exact reply provenance.            │
  * │ - Exercises bounded Material-only search through the native service composition.         │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
@@ -18,9 +18,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
+import { materialSearchInputSchema } from '@study/contracts/system/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -120,6 +121,7 @@ test('atomic Ask returns its note and exact request over native HTTP RPC after p
   const location = createTestDatabase();
   let app = await App.open({ path: location.path });
   let server = await serve(app);
+
   try {
     const saved = await Effect.runPromise(
       Effect.scoped(
@@ -133,15 +135,18 @@ test('atomic Ask returns its note and exact request over native HTTP RPC after p
             text: 'Exact note'
           };
           const result = yield* client['conversations.ask'](input);
+
           assert.equal(
             (yield* client['conversations.message']({ id: result.userMessageId })).activeVersionId,
             result.userVersionId
           );
           assert.deepEqual(yield* client['conversations.ask'](input), result);
+
           return { input, result };
         })
       )
     );
+
     await server.close();
     await app.close();
     app = await App.open({ path: location.path });
@@ -150,6 +155,7 @@ test('atomic Ask returns its note and exact request over native HTTP RPC after p
       Effect.scoped(
         Effect.gen(function* () {
           const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+
           assert.deepEqual(yield* client['conversations.ask'](saved.input), saved.result);
           assert.deepEqual(
             yield* client['conversations.replyVersion']({
@@ -178,6 +184,7 @@ test('native Material search binds bounded canonical targets without mixing cata
   const location = createTestDatabase();
   const app = await App.open({ path: location.path });
   const server = await serve(app);
+
   try {
     await Effect.runPromise(
       Effect.scoped(
@@ -189,10 +196,13 @@ test('native Material search binds bounded canonical targets without mixing cata
             content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A-->B' },
             publish: true
           });
-          const found = yield* client['system.materialSearch']({
-            query: '  NativeSearchToken  ',
-            limit: 1
-          });
+          const found = yield* client['system.materialSearch'](
+            Schema.decodeUnknownSync(materialSearchInputSchema)({
+              query: '  NativeSearchToken  ',
+              limit: 1
+            })
+          );
+
           assert.equal(found.semantic, false);
           assert.equal(found.hits.length, 1);
           assert.equal(found.hits[0]?.kind, 'material');

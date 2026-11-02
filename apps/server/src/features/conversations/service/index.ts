@@ -103,6 +103,22 @@ import {
   inspectMaterialHistory
 } from './material-history.ts';
 
+function normalizeAsk(input: typeof askInputSchema.Type) {
+  return {
+    sessionId: input.sessionId,
+    threadRoot: input.threadRoot ?? null,
+    intentKey: input.intentKey,
+    expectedSelectionRevision: input.expectedSelectionRevision,
+    text: input.text.trim(),
+    sourceIds: input.sourceIds ?? [],
+    instruction: input.instruction ?? '',
+    preferences: {
+      language: input.preferences?.language,
+      detail: input.preferences?.detail
+    }
+  };
+}
+
 export const Conversations = defineService(
   'study/Conversations',
   Effect.gen(function* () {
@@ -276,18 +292,24 @@ export const Conversations = defineService(
         transaction((tx) => {
           if (Option.isSome(tx.store(SessionDeletionStore).findSessionDeletion(input.sessionId)))
             throw new StudyError('not_found', 'Session is unavailable');
+
           const value = tx.store(MessageVersionCitationsStore).messageVersionCitations(input);
+
           return { ...value, citations: resolveVersionCitations(tx, value.citations) };
         }),
       sessionGenerations: (input: typeof sessionGenerationPageInputSchema.Type) =>
         transaction((tx) => {
           tx.store(SessionStore).session(input.sessionId);
+
           if (Option.isSome(tx.store(SessionDeletionStore).findSessionDeletion(input.sessionId)))
             throw new StudyError('not_found', 'Session is unavailable');
+
           const items = Materials.sessionGenerations(tx, input).map((item) => {
             if (item.state !== 'available' || item.contextRequestId === null) return item;
+
             try {
               readCapturedContext(tx, item.contextRequestId);
+
               return item;
             } catch (error) {
               if (
@@ -295,6 +317,7 @@ export const Conversations = defineService(
                 (error.kind === 'not_found' || error.kind === 'invalid_input')
               )
                 return { ...item, state: 'unavailable' as const };
+
               throw error;
             }
           });
@@ -303,14 +326,18 @@ export const Conversations = defineService(
             last && items.length === input.limit
               ? Materials.sessionGenerations(tx, { ...input, limit: 1, before: last.requestId })
               : [];
+
           return { items, next: more.length && last ? last.requestId : null };
         }),
       replyVersion: (input: typeof replyVersionInputSchema.Type) =>
         transaction((tx) => {
           const provenance = tx.store(ReplyVersionStore).replyVersion(input);
+
           if (provenance.state !== 'available') return provenance;
+
           try {
             readCapturedContext(tx, provenance.requestId);
+
             return provenance;
           } catch (error) {
             if (
@@ -318,24 +345,13 @@ export const Conversations = defineService(
               (error.kind === 'not_found' || error.kind === 'invalid_input')
             )
               return { state: 'unavailable' as const, requestId: provenance.requestId };
+
             throw error;
           }
         }),
       ask: (input: typeof askInputSchema.Type) =>
         transaction((tx) => {
-          const normalized = {
-            sessionId: input.sessionId,
-            threadRoot: input.threadRoot ?? null,
-            intentKey: input.intentKey,
-            expectedSelectionRevision: input.expectedSelectionRevision,
-            text: input.text.trim(),
-            sourceIds: input.sourceIds ?? [],
-            instruction: input.instruction ?? '',
-            preferences: {
-              language: input.preferences?.language,
-              detail: input.preferences?.detail
-            }
-          };
+          const normalized = normalizeAsk(input);
           const askDigest = impactToken(normalized);
           const intent = {
             sessionId: input.sessionId,
@@ -346,6 +362,7 @@ export const Conversations = defineService(
             askDigest
           };
           const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
+
           if (Option.isSome(existing)) {
             const context = existing.value;
             const previous = tx
@@ -354,20 +371,26 @@ export const Conversations = defineService(
             const note = context.messages.find(
               (item) => item.messageId === context.throughMessageId
             );
+
             if (Option.isNone(previous) || !note || note.role !== 'user')
               throw new StudyError('not_found', 'Captured Ask is unavailable');
+
             for (const target of context.inputs) assertCapturedTarget(tx, target);
+
             return {
               ...previous.value,
               userMessageId: note.messageId,
               userVersionId: note.versionId
             };
           }
+
           const selection = tx
             .store(SessionSelectionStore)
             .sessionSelection({ sessionId: input.sessionId });
+
           if (selection.revision !== input.expectedSelectionRevision)
             throw new StudyError('invalid_input', 'Session selection changed');
+
           tx.store(ReplyStore).prepareReply(input);
           const note = tx.store(MessageStore).postMessage(input);
           const context = captureContext(
@@ -378,7 +401,9 @@ export const Conversations = defineService(
           const result = tx
             .store(ReplyStore)
             .requestReply({ ...input, requestId: context.requestId, context });
+
           emitReplyRequest(tx, result, 'reply');
+
           return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>

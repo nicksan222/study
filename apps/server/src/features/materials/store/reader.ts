@@ -36,6 +36,7 @@ export const MaterialVersionDocumentStore = defineStore({
           run: ({ id }) => {
             reads.versionRow(id);
             const documentId = required(reads.versionDocumentId(id));
+
             return { id: documentId, document: reads.readCanonicalDocument(documentId) };
           }
         })
@@ -66,7 +67,9 @@ export const ImportedMaterialStore = defineStore({
                 .where(eq(s.material_imports.source_id, sourceId))
                 .get()
             );
+
             reads.materialRow(binding.material_id);
+
             return required(reads.readMaterialSummaries([binding.material_id])[0]);
           }
         })
@@ -91,13 +94,17 @@ export const MaterialVersionImageStore = defineStore({
           output: input.materialVersionImageSchema,
           run: (value) => {
             const version = reads.versionRow(value.id);
+
             if (reads.versionDocumentId(version.id) !== value.documentId)
               throw new StudyError('not_found', 'Version Document is unavailable');
+
             const block = reads
               .readCanonicalDocument(value.documentId)
               .blocks.find((item) => item.id === value.blockId);
+
             if (block?.content.type !== 'image')
               throw new StudyError('not_found', 'Version image block is unavailable');
+
             const image = block.content;
             // A draft cannot acquire read authority from a retired source revision.
             // An already published retained owner keeps its exact immutable asset.
@@ -128,8 +135,10 @@ export const MaterialVersionImageStore = defineStore({
                 )
               )
               .get()?.snapshot;
+
             if (!row || row.kind !== 'image' || !row.mime.toLowerCase().startsWith('image/'))
               throw new StudyError('not_found', 'Version image bytes are unavailable');
+
             return {
               sourceId: image.sourceId,
               revision: image.revision,

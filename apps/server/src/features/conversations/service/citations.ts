@@ -64,6 +64,7 @@ function resolveCitation(tx: Transaction, citation: Citation): NonNullable<Citat
 export function resolveVersionCitations(tx: Transaction, citations: Message['citations']) {
   return citations.map((citation) => {
     const evidence = resolveCitation(tx, citation);
+
     return { ...citation, precision: evidence.precision, evidence };
   });
 }

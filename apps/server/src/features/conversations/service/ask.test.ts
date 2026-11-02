@@ -49,6 +49,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
       ),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
   try {
     const saved = await Effect.runPromise(
       Effect.scoped(
@@ -63,6 +64,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             content: { kind: 'document', ...deletionDocument('Selected evidence') },
             publish: true
           });
+
           yield* rpc('conversations.updateSessionSelection', {
             sessionId: session.id,
             expectedRevision: 0n,
@@ -96,6 +98,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
               s.workflowEvents
             ].map((table) => context.db.orm.select().from(table).all().length);
           const empty = counts();
+
           assert.equal(
             (yield* Effect.flip(
               rpc('conversations.ask', { ...input, expectedSelectionRevision: 0n })
@@ -125,6 +128,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             { concurrency: 2 }
           );
           const result = duplicates[0]!;
+
           assert.deepEqual(duplicates[1], result);
           assert.deepEqual(
             counts().map((n, i) => n - empty[i]!),
@@ -133,6 +137,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
           const captured = yield* rpc('conversations.inspectSessionContext', {
             requestId: result.requestId
           });
+
           assert.equal(captured.throughMessageId, result.userMessageId);
           assert.equal(captured.messages.at(-1)?.versionId, result.userVersionId);
           assert.equal(captured.messages.at(-1)?.text, 'Explain this');
@@ -140,6 +145,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             (yield* rpc('conversations.message', { id: result.messageId })).replyTo,
             result.userMessageId
           );
+
           for (const changed of [
             { ...submitted, text: 'Different' },
             { ...submitted, expectedSelectionRevision: 1n },
@@ -152,6 +158,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
               (yield* Effect.flip(rpc('conversations.ask', changed))).kind,
               'invalid_input'
             );
+
           assert.equal(
             (yield* Effect.flip(
               rpc('conversations.requestReply', {
@@ -190,6 +197,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             messageId: result.userMessageId,
             text: 'Edited after capture'
           });
+
           assert.notEqual(editedNote.activeVersionId, result.userVersionId);
           assert.deepEqual(yield* rpc('conversations.ask', submitted), result);
           assert.deepEqual(
@@ -200,6 +208,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             messageId: result.messageId,
             origin: 'improve'
           });
+
           yield* withTestPublication(
             context,
             c
@@ -211,6 +220,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
               .pipe(Effect.asVoid)
           );
           const reanswer = yield* rpc('conversations.reanswer', { messageId: result.messageId });
+
           yield* withTestPublication(
             context,
             c
@@ -226,6 +236,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             messageId: result.messageId,
             versionId: result.versionId
           };
+
           assert.deepEqual(yield* rpc('conversations.replyVersion', key), {
             state: 'available',
             requestId: result.requestId
@@ -266,11 +277,13 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
           };
           const threaded = yield* rpc('conversations.ask', attachmentInput);
           const attached = yield* rpc('conversations.message', { id: threaded.userMessageId });
+
           assert.equal(attached.threadRoot, root.parts[0]!.id);
           assert.equal(attached.parts[0]?.sourceId, source.id);
           const attachmentSnapshot = yield* rpc('conversations.replySnapshot', {
             requestId: threaded.requestId
           });
+
           assert.ok(
             attachmentSnapshot.pendingAttachments?.some(
               (part) => part.sourceId === source.id && part.messageId === threaded.userMessageId
@@ -289,6 +302,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             })
             .returning()
             .get();
+
           yield* (yield* Sources).setSourceProject({ id: source.id, projectId: movedProject.id });
           assert.deepEqual(yield* rpc('conversations.ask', attachmentInput), threaded);
           assert.deepEqual(
@@ -299,6 +313,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
             }),
             { state: 'available', requestId: threaded.requestId }
           );
+
           return {
             submitted,
             result,
@@ -311,12 +326,14 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
         }).pipe(Effect.provide(handlers()))
       )
     );
+
     context.close();
     context = new ServerContext(location.open());
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const rpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+
           assert.deepEqual(yield* rpc('conversations.ask', saved.submitted), saved.result);
           assert.deepEqual(
             yield* rpc('conversations.inspectSessionContext', {
@@ -360,6 +377,7 @@ test('Ask fences stale windows, replays full intent once, rolls back outbox fail
 
 test('Ask binds ordered attachments to its intent and rejects changed order without writes', async () => {
   const f = await documentTransformFixture();
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -385,6 +403,7 @@ test('Ask binds ordered attachments to its intent and rejects changed order with
         };
         const result = yield* c.ask(input);
         const note = yield* c.message(result.userMessageId);
+
         assert.deepEqual(
           note.parts.map((part) => part.sourceId),
           [first.id, second.id]
@@ -396,6 +415,7 @@ test('Ask binds ordered attachments to its intent and rejects changed order with
           f.context.db.orm.select().from(s.workflowEvents).all().length
         ];
         const committed = counts();
+
         assert.equal(
           (yield* Effect.flip(c.ask({ ...input, sourceIds: [second.id, first.id] }))).kind,
           'invalid_input'
@@ -413,6 +433,7 @@ test('Ask binds ordered attachments to its intent and rejects changed order with
 for (const mode of ['history', 'material', 'session'] as const) {
   test(`Ask cannot resurrect its captured authority after native ${mode} cleanup`, async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -424,6 +445,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
             publish: true
           });
           const session = yield* c.createUntitledSession({});
+
           yield* c.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 0n,
@@ -438,6 +460,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
           };
           const result = yield* c.ask(input);
           const captured = yield* c.inspectSessionContext({ requestId: result.requestId });
+
           assert.equal(captured.selectionRevision, 1n);
           assert.equal(captured.inputs[0]?.versionId, material.version.id);
           assert.equal(captured.messages.at(-1)?.versionId, result.userVersionId);
@@ -455,17 +478,21 @@ for (const mode of ['history', 'material', 'session'] as const) {
             messageId: result.messageId,
             text: 'A later manual version must not supply provenance for the retired answer'
           });
+
           if (mode === 'history')
             yield* materials.createVersion({
               materialId: material.id,
               content: { kind: 'document', ...deletionDocument('New head') },
               publish: true
             });
+
           return { input, result, material, session, manualVersionId: manual.activeVersionId! };
         }).pipe(Effect.provide(f.domain()))
       );
+
       if (mode === 'history') {
         const accepted = await acceptHistory(f, saved.material.id, 'ask-history-cleanup');
+
         await cleanupHistory(f, accepted.operationId);
       } else if (mode === 'material') {
         await acceptMaterialDeletion(f, saved.material.id);
@@ -478,10 +505,12 @@ for (const mode of ['history', 'material', 'session'] as const) {
         );
         await cleanup(f, saved.session.id);
       }
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Conversations;
           const count = f.context.db.orm.select().from(s.messages).all().length;
+
           assert.equal((yield* Effect.flip(c.ask(saved.input))).kind, 'not_found');
           assert.equal(f.context.db.orm.select().from(s.messages).all().length, count);
           const key = {
@@ -489,6 +518,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
             messageId: saved.result.messageId,
             versionId: saved.result.versionId
           };
+
           if (mode === 'session')
             assert.equal((yield* Effect.flip(c.replyVersion(key))).kind, 'not_found');
           else {
@@ -496,6 +526,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
               state: 'manual'
             });
             const provenance = yield* c.replyVersion(key);
+
             assert.ok(provenance.state === 'retired' || provenance.state === 'unavailable');
             assert.equal(provenance.requestId, saved.result.requestId);
             assert.equal(

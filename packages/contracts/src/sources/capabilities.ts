@@ -1,10 +1,12 @@
 import { Schema } from 'effect';
 
 import { sourceKindSchema } from './sniff.ts';
+
 export const importCapabilityInputSchema = Schema.Struct({
   kind: sourceKindSchema,
   mime: Schema.String
 });
+
 export const importCapabilitySchema = Schema.Struct({
   kind: sourceKindSchema,
   recognized: Schema.Boolean,

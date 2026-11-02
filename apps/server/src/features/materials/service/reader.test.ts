@@ -21,25 +21,26 @@ import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { documentTransformFixture } from '#testing/document-transform';
 import { deletionDocument } from '#testing/material-deletion';
 import { acceptHistory, cleanupHistory } from '#testing/material-history';
+import { materialRpcHandlers } from '#testing/material-rpc';
 
 test('reader resolves exact authored Documents, managed image revisions and imported identities across reopen', async () => {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const handlers = () =>
-    MaterialsRpcLive.pipe(
+    materialRpcHandlers.pipe(
       Layer.provideMerge(
         Layer.mergeAll(Materials.layer, Sources.layer).pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))
         )
       )
     );
+
   try {
     const saved = await Effect.runPromise(
       Effect.scoped(
@@ -53,6 +54,7 @@ test('reader resolves exact authored Documents, managed image revisions and impo
             bytes
           });
           const imported = yield* rpc('materials.importedMaterial', { sourceId: source.id });
+
           assert.equal(imported.importProcessing?.sourceId, source.id);
           const sameName = yield* sources.createSource({
             projectId: null,
@@ -60,6 +62,7 @@ test('reader resolves exact authored Documents, managed image revisions and impo
             bytes: new Uint8Array([...bytes, 1])
           });
           const otherImport = yield* rpc('materials.importedMaterial', { sourceId: sameName.id });
+
           assert.notEqual(otherImport.id, imported.id);
           assert.equal(otherImport.importProcessing?.sourceId, sameName.id);
           assert.equal(
@@ -81,6 +84,7 @@ test('reader resolves exact authored Documents, managed image revisions and impo
           const original = yield* rpc('materials.materialVersionDocument', {
             id: material.version.id
           });
+
           assert.deepEqual(original.document, document);
           const other = yield* rpc('materials.createManualDocument', {
             title: 'Other',
@@ -89,9 +93,11 @@ test('reader resolves exact authored Documents, managed image revisions and impo
           const otherDocument = yield* rpc('materials.materialVersionDocument', {
             id: other.version.id
           });
+
           assert.notEqual(original.id, otherDocument.id);
           const key = { id: material.version.id, documentId: original.id, blockId: block.id };
           const image = yield* rpc('materials.materialVersionImage', key);
+
           assert.deepEqual(image, { sourceId: source.id, revision: 1, mime: 'image/png', bytes });
           assert.equal(
             (yield* Effect.flip(
@@ -126,6 +132,7 @@ test('reader resolves exact authored Documents, managed image revisions and impo
           const revisedDocument = yield* rpc('materials.materialVersionDocument', {
             id: revision.id
           });
+
           assert.notEqual(revisedDocument.id, original.id);
           assert.equal(
             (yield* Effect.flip(
@@ -140,16 +147,19 @@ test('reader resolves exact authored Documents, managed image revisions and impo
             yield* rpc('materials.materialVersionDocument', { id: material.version.id }),
             original
           );
+
           return { key, image, original, importedId: imported.id, sourceId: source.id };
         }).pipe(Effect.provide(handlers()))
       )
     );
+
     context.close();
     context = new ServerContext(location.open());
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+
           assert.deepEqual(yield* rpc('materials.materialVersionImage', saved.key), saved.image);
           assert.deepEqual(
             yield* rpc('materials.materialVersionDocument', { id: saved.key.id }),
@@ -170,7 +180,8 @@ test('reader resolves exact authored Documents, managed image revisions and impo
 
 test('accepted history prune fences exact reader versions while another published owner retains image bytes', async () => {
   const f = await documentTransformFixture();
-  const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+  const handlers = () => materialRpcHandlers.pipe(Layer.provideMerge(f.domain()));
+
   try {
     const saved = await Effect.runPromise(
       Effect.scoped(
@@ -201,6 +212,7 @@ test('accepted history prune fences exact reader versions while another publishe
             publish: true
           });
           const after = yield* rpc('materials.materialVersionDocument', { id: next.id });
+
           return {
             material,
             before: { id: material.version.id, documentId: before.id, blockId: block.id },
@@ -209,12 +221,14 @@ test('accepted history prune fences exact reader versions while another publishe
         }).pipe(Effect.provide(handlers()))
       )
     );
+
     await acceptHistory(f, saved.material.id, 'reader-history');
     const assertRetained = () =>
       Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+
             assert.equal(
               (yield* Effect.flip(
                 rpc('materials.materialVersionDocument', { id: saved.before.id })
@@ -229,6 +243,7 @@ test('accepted history prune fences exact reader versions while another publishe
           }).pipe(Effect.provide(handlers()))
         )
       );
+
     await assertRetained();
     await cleanupHistory(f, 'reader-history');
     f.reopen();

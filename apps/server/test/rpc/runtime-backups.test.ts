@@ -57,6 +57,7 @@ test('System native API inventory includes the managed backup lifecycle', async 
       'system.health',
       'system.importBackup',
       'system.listBackups',
+      'system.materialSearch',
       'system.previewRestore',
       'system.readBackup',
       'system.restoreStatus',

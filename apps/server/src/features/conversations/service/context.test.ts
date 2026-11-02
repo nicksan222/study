@@ -922,6 +922,7 @@ test('retained legacy and attachment citations keep bounded precision; wrong exa
             messageId: message.id,
             versionId: message.activeVersionId!
           });
+
           assert.deepEqual(exactVersion.citations, read.citations);
           assert.deepEqual(
             (yield* rpc('conversations.setActiveVersion', {

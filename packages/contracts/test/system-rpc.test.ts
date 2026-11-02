@@ -15,11 +15,14 @@ test('Material search trims queries and bounds work before dispatch', () => {
     project: null
   });
   assert.equal(decode({ query: 'x', limit: 1 }).limit, 1);
+
   for (const query of ['', '   ', 'x'.repeat(1001)]) {
     assert.throws(() => decode({ query }));
   }
+
   for (const limit of [0, -1, 101, 1.5, Infinity]) {
     assert.throws(() => decode({ query: 'Evidence', limit }));
   }
+
   assert.throws(() => decode({ query: 'Evidence', project: 0n }));
 });

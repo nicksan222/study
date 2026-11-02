@@ -5,10 +5,12 @@ import { blockIdSchema } from '../sources/schemas.ts';
 import { materialVersionDetailSchema, materialCitationSchema } from './schemas.ts';
 
 export const exportFormatSchema = Schema.Literals(['markdown', 'html', 'aid_json', 'csv']);
+
 export const exportMaterialVersionInputSchema = Schema.Struct({
   id: materialVersionIdSchema,
   format: exportFormatSchema
 });
+
 export const exportOmissionSchema = Schema.Struct({
   code: Schema.Literals([
     'image_not_embedded',
@@ -20,6 +22,7 @@ export const exportOmissionSchema = Schema.Struct({
   ]),
   blockId: Schema.optional(blockIdSchema)
 });
+
 export const materialVersionFileSchema = Schema.Struct({
   versionId: materialVersionIdSchema,
   format: exportFormatSchema,
@@ -33,6 +36,7 @@ export const materialVersionFileSchema = Schema.Struct({
   bytes: Schema.Uint8Array.check(Schema.makeFilter((bytes) => bytes.length <= 8 * 1024 * 1024)),
   omissions: Schema.Array(exportOmissionSchema)
 });
+
 export const MAX_EXPORT_BYTES = 8 * 1024 * 1024;
 
 /** JSON transport uses decimal strings for branded bigint identities, via toCodecJson. */

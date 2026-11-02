@@ -41,6 +41,7 @@ export function makeMaterialRetirement(resources: StoreResources) {
       .from(s.material_history_requests)
       .where(eq(s.material_history_requests.request_id, requestId))
       .get();
+
     if (context)
       db.orm
         .insert(s.conversation_history_intents)

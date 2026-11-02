@@ -196,8 +196,10 @@ test('search indexes only current published quiz material and prompts', async ()
 test('bounded global Material search fills results past archived matches and uses canonical identities', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
+
   try {
     const run = (query: ReturnType<typeof sql>) => context.db.orm.run(query);
+
     run(sql`INSERT INTO materials(id,kind,title,created_at,updated_at)
       VALUES (1,'diagram','GlobalReaderToken',1,1),(2,'diagram','GlobalReaderToken',1,1),(3,'diagram','GlobalReaderToken',1,1)`);
     run(sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at)
@@ -214,6 +216,7 @@ test('bounded global Material search fills results past archived matches and use
         store.searches({ query: 'GlobalReaderToken', kinds: ['material'], limit: 1 })
       );
     const hits = await find();
+
     assert.equal(hits.length, 1);
     assert.deepEqual(hits[0]?.target, {
       type: 'material',
@@ -225,6 +228,7 @@ test('bounded global Material search fills results past archived matches and use
     const tied = await Effect.runPromise(
       store.searches({ query: 'GlobalReaderToken', kinds: ['material'], limit: 2 })
     );
+
     assert.deepEqual(
       tied.map((hit) => hit.target),
       [

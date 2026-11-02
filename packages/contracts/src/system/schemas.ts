@@ -22,7 +22,7 @@ export const searchKindSchema = Schema.Literals([
   'question'
 ]);
 
-export const materialSearchTargetSchema = Schema.Struct({
+const materialSearchTargetSchema = Schema.Struct({
   type: Schema.Literal('material'),
   materialId: materialIdSchema,
   versionId: materialVersionIdSchema,
@@ -60,7 +60,7 @@ export const searchHitSchema = Schema.Struct({
   ])
 });
 
-export const materialSearchHitSchema = Schema.Struct({
+const materialSearchHitSchema = Schema.Struct({
   ...searchHitSchema.fields,
   kind: Schema.Literal('material'),
   target: materialSearchTargetSchema

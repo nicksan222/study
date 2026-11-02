@@ -124,6 +124,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
               )).kind,
               'not_found'
             );
+
             if (setup.copy) {
               const exact = yield* rpc('materials.materialVersionDocument', {
                 id: setup.copy.version.id
@@ -134,6 +135,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 documentId: exact.id,
                 blockId: image.id
               });
+
               if (owner === 'published') {
                 assert.deepEqual(
                   (yield* read).bytes,

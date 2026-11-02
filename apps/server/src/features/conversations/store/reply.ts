@@ -571,6 +571,72 @@ export const ReplyVersionStore = defineStore({
     const { db } = resources;
     const { assertSnapshotAttachments } = makeHelpers(resources);
 
+    function matchesRetainedRequest(
+      retained: typeof conversation_reply_requests.$inferSelect,
+      requestId: string,
+      sessionId: typeof messages.$inferSelect.session_id
+    ) {
+      return retained.request_id === requestId && retained.session_id === sessionId;
+    }
+
+    function snapshotAvailable(retained: typeof conversation_reply_requests.$inferSelect) {
+      try {
+        assertSnapshotAttachments(Schema.decodeUnknownSync(codec)(retained.snapshot), true);
+
+        return true;
+      } catch (error) {
+        if (
+          error instanceof StudyError &&
+          (error.kind === 'not_found' || error.kind === 'invalid_input')
+        )
+          return false;
+
+        throw error;
+      }
+    }
+
+    function retainedState(
+      requestId: string,
+      retained: typeof conversation_reply_requests.$inferSelect | undefined
+    ) {
+      const retired = db.orm
+        .select()
+        .from(workflow_retired_correlations)
+        .where(
+          and(
+            eq(workflow_retired_correlations.correlation_id, requestId),
+            eq(workflow_retired_correlations.event_type, 'ConversationGenerationRequested')
+          )
+        )
+        .get();
+
+      if (retired) return { state: 'retired' as const, requestId };
+
+      const scrubbed =
+        db.orm
+          .select()
+          .from(material_history_requests)
+          .where(eq(material_history_requests.request_id, requestId))
+          .get() ||
+        db.orm
+          .select()
+          .from(material_deletion_requests)
+          .where(eq(material_deletion_requests.request_id, requestId))
+          .get();
+      const context = db.orm
+        .select()
+        .from(session_run_contexts)
+        .where(eq(session_run_contexts.request_id, requestId))
+        .get();
+
+      if (scrubbed || !retained || !context) return { state: 'unavailable' as const, requestId };
+
+      return {
+        state: snapshotAvailable(retained) ? ('available' as const) : ('unavailable' as const),
+        requestId
+      };
+    }
+
     return {
       queries: {
         replyVersion: storeQuery({
@@ -590,67 +656,25 @@ export const ReplyVersionStore = defineStore({
                 )
               )
               .get();
+
             if (!row) throw new StudyError('not_found', 'Message version is unavailable');
+
             if (row.version.origin === 'typed' || row.version.origin === 'edited')
               return { state: 'manual' as const };
+
             const retained = db.orm
               .select()
               .from(conversation_reply_requests)
               .where(eq(conversation_reply_requests.version_id, input.versionId))
               .get();
             const requestId = row.version.generation_request_id ?? retained?.request_id ?? null;
+
             if (requestId === null) return { state: 'unavailable' as const, requestId };
-            if (
-              retained &&
-              (retained.request_id !== requestId || retained.session_id !== input.sessionId)
-            )
+
+            if (retained && !matchesRetainedRequest(retained, requestId, input.sessionId))
               return { state: 'unavailable' as const, requestId };
-            const retired = db.orm
-              .select()
-              .from(workflow_retired_correlations)
-              .where(
-                and(
-                  eq(workflow_retired_correlations.correlation_id, requestId),
-                  eq(workflow_retired_correlations.event_type, 'ConversationGenerationRequested')
-                )
-              )
-              .get();
-            if (retired) return { state: 'retired' as const, requestId };
-            const scrubbed =
-              db.orm
-                .select()
-                .from(material_history_requests)
-                .where(eq(material_history_requests.request_id, requestId))
-                .get() ||
-              db.orm
-                .select()
-                .from(material_deletion_requests)
-                .where(eq(material_deletion_requests.request_id, requestId))
-                .get();
-            const context = db.orm
-              .select()
-              .from(session_run_contexts)
-              .where(eq(session_run_contexts.request_id, requestId))
-              .get();
-            if (!scrubbed && retained && context) {
-              try {
-                assertSnapshotAttachments(Schema.decodeUnknownSync(codec)(retained.snapshot), true);
-              } catch (error) {
-                if (
-                  error instanceof StudyError &&
-                  (error.kind === 'not_found' || error.kind === 'invalid_input')
-                )
-                  return { state: 'unavailable' as const, requestId };
-                throw error;
-              }
-            }
-            return {
-              state:
-                scrubbed || !retained || !context
-                  ? ('unavailable' as const)
-                  : ('available' as const),
-              requestId
-            };
+
+            return retainedState(requestId, retained);
           }
         })
       },
@@ -680,8 +704,11 @@ export const ReplyRequestStore = defineStore({
               .get();
 
             if (!row) return Option.none();
+
             const snapshot = Schema.decodeUnknownSync(codec)(row.snapshot);
+
             assertSnapshotAttachments(snapshot, true);
+
             return Option.some(snapshot);
           }
         })

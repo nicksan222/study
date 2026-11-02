@@ -50,10 +50,12 @@ export const sessionGenerationSchema = Schema.Struct({
   proposedVersionId: Schema.NullOr(materialVersionIdSchema),
   baseVersionId: Schema.NullOr(materialVersionIdSchema)
 });
-export const sessionGenerationPageSchema = Schema.Struct({
+
+const sessionGenerationPageSchema = Schema.Struct({
   items: Schema.Array(sessionGenerationSchema),
   next: Schema.NullOr(Schema.String)
 });
+
 export const messageVersionCitationsSchema = Schema.Struct({
   sessionId: sessionIdSchema,
   messageId: messageIdSchema,

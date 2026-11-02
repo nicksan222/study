@@ -3,7 +3,7 @@
  * │ @file Discovers bounded session generation identities from durable feature owners.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Reads exact capture, proposal and retirement associations without retaining payloads.     │
+ * │ - Reads exact capture, proposal and retirement associations without retaining payloads.  │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Feature policy uses public participants; native Workflow owns execution.                 │

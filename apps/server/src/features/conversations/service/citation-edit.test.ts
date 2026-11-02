@@ -91,6 +91,7 @@ test('edits preserve and renumber surviving citation evidence without changing h
         messageId: original.id,
         versionId: original.activeVersionId
       });
+
       assert.deepEqual(
         exact.citations.map((c) => c.marker),
         [1, 2, 3]
@@ -109,6 +110,7 @@ test('edits preserve and renumber surviving citation evidence without changing h
         edited.citations
       );
       const other = yield* conversations.createSession({ title: 'Other' });
+
       assert.equal(
         (yield* Effect.flip(
           conversations.messageVersionCitations({
@@ -120,6 +122,7 @@ test('edits preserve and renumber surviving citation evidence without changing h
         'not_found'
       );
       const note = yield* conversations.postMessage({ sessionId: session.id, text: 'No evidence' });
+
       assert.equal(
         (yield* Effect.flip(
           conversations.messageVersionCitations({

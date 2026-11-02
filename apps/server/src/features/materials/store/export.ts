@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ Reads bounded retained dependency links and citation evidence for version exports.       │
+ * │ @file Reads bounded retained dependency links and citation evidence for version exports. │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Guards exact version availability before returning export aggregates.                  │
@@ -22,8 +22,8 @@ import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
-import { exportBudget } from '../export-budget.ts';
 import { makeCitations } from './citations.ts';
+import { exportBudget } from './export-budget.ts';
 import { makeReads } from './reads.ts';
 
 /** Availability and graph links without hydrating unrelated version content. */
@@ -44,8 +44,10 @@ export const MaterialExportInputsStore = defineStore({
             .where(eq(s.material_version_inputs.version_id, id))
             .limit(1001)
             .all();
+
           if (rows.length > 1000)
             throw new StudyError('invalid_input', 'Export dependency limit exceeded');
+
           return { ids: rows.map((row) => row.id) };
         }
       })
@@ -69,6 +71,7 @@ export const MaterialExportCitationsStore = defineStore({
         output: Schema.Struct({ citations: Schema.Array(materialCitationSchema) }),
         run: ({ id, budget }) => {
           const reads = makeReads(resources);
+
           reads.versionRow(id);
           const bytes = exportBudget(budget);
           let cached:
@@ -79,15 +82,19 @@ export const MaterialExportCitationsStore = defineStore({
             | undefined;
           const citations = makeCitations(resources, (documentId) => {
             if (cached?.id === documentId) return cached.document;
+
             // Release the prior document before loading another, keeping the cache bounded.
             cached = undefined;
             const document = reads.readCanonicalDocument(documentId);
+
             exportBudget().consume(document);
             cached = { id: documentId, document };
+
             return document;
           });
           const result: (typeof materialCitationSchema.Type)[] = [];
           let cursor: bigint | undefined;
+
           for (;;) {
             const row = resources.db.orm
               .select()
@@ -101,11 +108,15 @@ export const MaterialExportCitationsStore = defineStore({
               .orderBy(asc(s.material_version_citations.marker))
               .limit(1)
               .get();
+
             if (!row) return { citations: result };
+
             if (result.length >= 10000)
               throw new StudyError('invalid_input', 'Export citation limit exceeded');
+
             reads.versionRow(row.input_version_id);
             const citation = citations.readCitationDetails(row);
+
             bytes.consume(citation);
             bytes.consume(null); // Reserve at least the array separator overhead.
             result.push(citation);

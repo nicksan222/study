@@ -48,6 +48,11 @@ import {
 } from '#server/features/materials/store/document-proposals';
 import { EvidenceStore, DependencyStatusStore } from '#server/features/materials/store/evidence';
 import {
+  MaterialExportInputsStore,
+  MaterialExportCitationsStore
+} from '#server/features/materials/store/export';
+import { exportBudget } from '#server/features/materials/store/export-budget';
+import {
   MaterialSelectionStore,
   MaterialGenerationStore,
   MaterialsStore,
@@ -75,8 +80,6 @@ import {
 } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
-import { exportBudget } from '../export-budget.ts';
-import { MaterialExportInputsStore, MaterialExportCitationsStore } from '../store/export.ts';
 import { materialDeletionOperations, deletionParticipantsLayer } from './deletion.ts';
 import {
   requestDocumentTransform,
@@ -423,30 +426,38 @@ function* makeMaterials() {
     exportMaterialVersion: (value: typeof exportMaterialVersionInputSchema.Type) =>
       transaction((tx) => {
         const version = tx.store(MaterialVersionsStore).materialVersion({ id: value.id });
+
         exportBudget().consume(version);
         const pending = [version.id];
         const seen = new Set(pending);
+
         while (pending.length) {
           const id = pending.pop()!;
+
           for (const inputId of tx.store(MaterialExportInputsStore).exportInputGraph({ id }).ids) {
             if (seen.has(inputId)) continue;
+
             if (seen.size >= 1000)
               throw new StudyError('invalid_input', 'Export dependency limit exceeded');
+
             seen.add(inputId);
             pending.push(inputId);
           }
         }
+
         const document =
           value.format === 'markdown' || value.format === 'html'
             ? tx.store(MaterialVersionDocumentStore).materialVersionDocument({ id: value.id })
                 .document
             : null;
         const budget = exportBudget();
+
         budget.consume({ version, document, citations: [] });
         const exportedCitations = tx.store(MaterialExportCitationsStore).exportCitationSnapshot({
           id: value.id,
           budget: budget.remaining()
         }).citations;
+
         return serializeMaterialVersion(version, value.format, document, exportedCitations);
       }),
     materialVersionDocument: reader.materialVersionDocument,

@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ Exercises exact native exports and their retained content availability barriers.         │
+ * │ @file Exercises exact native exports and their retained content availability barriers.   │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Checks deterministic serialization, escaped literals and explicit list numbering.      │
@@ -22,14 +22,14 @@ import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
+import { exportBudget } from '#server/features/materials/store/export-budget';
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { deletionDocument } from '#testing/material-deletion';
+import { materialRpcHandlers } from '#testing/material-rpc';
 
-import { exportBudget } from '../export-budget.ts';
 import { safeExportLink, escapeHtml } from './export-serializer.ts';
 
 test('export primitives reject active protocols and escape text and attributes', () => {
@@ -41,6 +41,7 @@ test('export primitives reject active protocols and escape text and attributes',
     'file:///tmp/x'
   ])
     assert.equal(safeExportLink(link), false);
+
   assert.equal(safeExportLink('https://example.com/a'), true);
   assert.equal(escapeHtml('<script a="x">&'), '&lt;script a=&quot;x&quot;&gt;&amp;');
 });
@@ -51,9 +52,10 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
   const services = Layer.mergeAll(Materials.layer, Sources.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
-  const handlers = Layer.mergeAll(MaterialsRpcLive, SourcesRpcLive).pipe(
+  const handlers = Layer.mergeAll(materialRpcHandlers, SourcesRpcLive).pipe(
     Layer.provideMerge(services)
   );
+
   try {
     await Effect.runPromise(
       Effect.scoped(
@@ -77,8 +79,10 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
           });
           const key = { id: material.version.id, format: 'html' as const };
           const first = yield* rpc('materials.exportMaterialVersion', key);
+
           assert.deepEqual(first, yield* rpc('materials.exportMaterialVersion', key));
           const text = new TextDecoder().decode(first.bytes);
+
           assert.ok(!text.includes('<script>'));
           assert.ok(text.includes('&lt;script&gt;'));
           assert.ok(first.omissions.some((o) => o.code === 'math_not_rendered'));
@@ -88,14 +92,17 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
               .kind,
             'unsupported'
           );
+
           for (const kind of ['audio', 'video'] as const) {
             const capability = yield* sourceRpc('sources.importCapability', {
               kind,
               mime: kind + '/test'
             });
+
             assert.equal(capability.status, 'unavailable');
             assert.equal(capability.provider.capability, 'unverified');
           }
+
           const literal = '![pixel](https://example.com/pixel) [open](file:///tmp/x) `code` *word*';
           const listItems = [
             {
@@ -144,6 +151,7 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
             })).bytes
           );
           const visible = markdown.split('\n\n~~~')[0]!;
+
           assert.ok(!visible.includes('![pixel]'));
           assert.ok(!visible.includes('[open]'));
           assert.ok(visible.includes('&#33;&#91;pixel&#93;'));
@@ -167,6 +175,7 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
             inputs: [large.version.id],
             content: { kind: 'document', ...deletionDocument('Cited') }
           });
+
           yield* rpc('materials.setCitations', {
             id: cited.version.id,
             citations: Array.from({ length: 40 }, (_, index) => ({
@@ -203,11 +212,13 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
             id: aid.version.id,
             format: 'csv'
           });
+
           assert.ok(new TextDecoder().decode(csv.bytes).includes("'=1+1"));
           const aidJson = yield* rpc('materials.exportMaterialVersion', {
             id: aid.version.id,
             format: 'aid_json'
           });
+
           assert.equal(
             JSON.parse(new TextDecoder().decode(aidJson.bytes)).version.content.kind,
             'flashcards'
@@ -217,6 +228,7 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
             publish: true,
             content: { kind: 'document', ...deletionDocument('BEFORE_EXACT') }
           });
+
           yield* rpc('materials.createVersion', {
             materialId: historical.id,
             publish: true,
@@ -226,10 +238,12 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
             id: historical.version.id,
             format: 'markdown'
           });
+
           assert.ok(new TextDecoder().decode(exact.bytes).includes('BEFORE_EXACT'));
           assert.ok(!new TextDecoder().decode(exact.bytes).includes('AFTER_CURRENT'));
           const scope = { materialId: historical.id, policy: { keepLatest: 1 } };
           const history = yield* rpc('materials.previewHistoryPrune', scope);
+
           yield* rpc('materials.requestHistoryPrune', {
             ...scope,
             operationId: 'export-history',
@@ -246,6 +260,7 @@ test('native export is deterministic, exact, escaped and fenced by deletion acce
             'not_found'
           );
           const preview = yield* rpc('materials.previewDeletion', { materialId: material.id });
+
           // Acceptance uses the production preview token rather than performing cleanup.
           yield* rpc('materials.requestDeletion', {
             materialId: material.id,
@@ -282,18 +297,22 @@ test('export budget counts escaped UTF-8 exactly and rejects before reading late
     );
     const bytes = new TextEncoder().encode(serialized).length;
     const exact = exportBudget(bytes);
+
     exact.consume(value);
     assert.equal(exact.remaining(), 0);
     assert.throws(() => exportBudget(bytes - 1).consume(value), { kind: 'invalid_input' });
   }
+
   let readLater = false;
   const evidence = {
     first: 'é'.repeat(100),
     get later() {
       readLater = true;
+
       return 'must not read';
     }
   };
+
   assert.throws(() => exportBudget(20).consume(evidence), { kind: 'invalid_input' });
   assert.equal(readLater, false);
 });

@@ -54,6 +54,7 @@ test('sessions support normalized creation, bounded pagination and missing reads
           first.id
         );
         const global = yield* conversations.createSession({ title: 'Projectless' });
+
         assert.deepEqual(
           (yield* conversations.sessions({ limit: 1, project: project.id })).items.map(
             (item) => item.id
@@ -61,6 +62,7 @@ test('sessions support normalized creation, bounded pagination and missing reads
           [second.id]
         );
         const scoped = yield* conversations.sessions({ limit: 1, project: project.id });
+
         assert.deepEqual(
           (yield* conversations.sessions({
             limit: 1,

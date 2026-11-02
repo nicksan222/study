@@ -373,6 +373,7 @@ for (const scenario of [
             limit: 10
           });
           const discovered = page.items.find((item) => item.requestId === setup.request.id);
+
           assert.ok(discovered);
           assert.equal(discovered.contextRequestId, setup.context.requestId);
           assert.equal(discovered.resultVersionId, proposalId);

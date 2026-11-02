@@ -393,7 +393,9 @@ export const MessageVersionCitationsStore = defineStore({
               )
             )
             .get();
+
           if (!version) throw new StudyError('not_found', 'Message version not found');
+
           return { ...input, citations: helpers.readCitations(input.versionId) };
         }
       })

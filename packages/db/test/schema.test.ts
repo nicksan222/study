@@ -189,12 +189,14 @@ test('retired projection tables and message job ownership are absent', () =>
 test('Ask migration retains exact retirement and reply publication guards after table rebuilds', () =>
   fixture((path) => {
     const connection = Db.open(path);
+
     try {
       const names = new Set(
         connection.orm
           .all(sql`SELECT name FROM sqlite_schema WHERE type='trigger'`)
           .map((row) => row.name)
       );
+
       for (const name of [
         'message_fts_ai',
         'message_fts_ad',
@@ -208,6 +210,7 @@ test('Ask migration retains exact retirement and reply publication guards after 
         'session_history_intent_insert'
       ])
         assert.ok(names.has(name), name);
+
       assert.throws(() =>
         connection.orm.run(sql`INSERT INTO conversation_history_intents
         (session_id,intent_key,deletion_request_id) VALUES (1,'forged','missing')`)

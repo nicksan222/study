@@ -43,6 +43,7 @@ import {
   SourceFailureNoticeStore
 } from '#server/features/sources/store/index';
 import { RecordingImportStore } from '#server/features/sources/store/recording';
+import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
@@ -106,11 +107,16 @@ export const Sources = defineService(
         Effect.gen(function* () {
           const session = yield* Effect.serviceOption(ChatGptSession);
           const path = decoderPath(input);
-          const authentication = Option.isSome(session)
-            ? session.value.manager.sessionConfigured
-              ? 'session_configured'
-              : 'signed_out'
-            : 'unavailable';
+          const authentication = (() => {
+            if (Option.isNone(session)) return 'unavailable' as const;
+
+            const auth: AuthManager = session.value.manager;
+
+            return auth.sessionConfigured
+              ? ('session_configured' as const)
+              : ('signed_out' as const);
+          })();
+
           return {
             kind: input.kind,
             recognized: input.kind !== 'other',

@@ -36,6 +36,7 @@ import { createTestDatabase } from '@study/db/testing';
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import { App } from '#server/runtime/index';
 import { acceptance, backupFixture, createDocument } from '#testing/managed-backups';
+import { inTestPhase } from '#testing/progress';
 
 async function childOwner(path: string) {
   const child = fork(
@@ -266,13 +267,14 @@ test('failed ordinary database acquisition releases its lease and auth owner for
 
 test(
   'a competing process cannot remove the real scratch of an in-progress backup',
-  { timeout: 15000 },
-  async () => {
+  // Real App startup and owned backup cleanup use the runner's integration deadline.
+  // IPC state and exact scratch bytes establish ownership, not subprocess startup speed.
+  async (t) => {
     const { ManagedBackups } = await import('#server/platform/database/backups');
 
     const { backupPolicy } = await import('#server/runtime/backups');
 
-    const f = await backupFixture();
+    const f = await backupFixture(t);
 
     let entered!: () => void;
 
@@ -295,25 +297,27 @@ test(
       }
     });
 
-    const creating = owner.create();
+    const creating = inTestPhase(t, 'backup-create', () => owner.create());
 
     try {
-      await Promise.race([
-        prepared,
-        creating.then((): never => {
-          throw new Error('Backup completed before reaching the preparation gate');
-        })
-      ]);
+      await inTestPhase(t, 'backup-prepared', () =>
+        Promise.race([
+          prepared,
+          creating.then((): never => {
+            throw new Error('Backup completed before reaching the preparation gate');
+          })
+        ])
+      );
 
       const scratch = f.location.path + '.backups/scratch.sqlite';
 
       const bytes = readFileSync(scratch);
 
-      const contender = await childOwner(f.location.path);
+      const contender = await inTestPhase(t, 'contender-start', () => childOwner(f.location.path));
 
       try {
         assert.deepEqual(contender.message, { state: 'rejected', kind: 'transient' });
-        await contender.exited;
+        await inTestPhase(t, 'contender-exit', () => contender.exited);
         assert.deepEqual(readFileSync(scratch), bytes);
       } finally {
         contender.child.kill('SIGKILL');

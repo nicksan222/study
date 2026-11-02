@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exercises durable bounded request discovery after restart and retirement.       │
+ * │ @file Exercises durable bounded request discovery after restart and retirement.          │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Checks persisted request ownership, stable cursors and content-free retirement reads.    │
+ * │ - Checks persisted request ownership, stable cursors and content-free retirement reads.  │
  * │ - Uses database fixtures to verify service-visible invariants and failures.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
@@ -31,6 +31,7 @@ import {
 
 test('session generation RPC discovers bounded exact requests across reopen and input retirement', async () => {
   const fixture = await documentTransformFixture();
+
   try {
     const setup = await Effect.runPromise(
       Effect.gen(function* () {
@@ -43,6 +44,7 @@ test('session generation RPC discovers bounded exact requests across reopen and 
           publish: true,
           content: { kind: 'document', ...deletionDocument('Retained discovery evidence') }
         });
+
         yield* chats.updateSessionSelection({
           sessionId: session.id,
           expectedRevision: 0n,
@@ -50,6 +52,7 @@ test('session generation RPC discovers bounded exact requests across reopen and 
         });
         const note = yield* chats.postMessage({ sessionId: session.id, text: 'Captured context' });
         const requests = [];
+
         for (const intentKey of ['first', 'second', 'third']) {
           const capture = yield* chats.captureSessionContext({
             sessionId: session.id,
@@ -62,8 +65,10 @@ test('session generation RPC discovers bounded exact requests across reopen and 
             title: 'Transform',
             operations: ['clarity']
           });
+
           requests.push({ requestId: request.id, contextRequestId: capture.requestId });
         }
+
         return {
           session,
           note,
@@ -73,6 +78,7 @@ test('session generation RPC discovers bounded exact requests across reopen and 
         };
       }).pipe(Effect.provide(fixture.domain()))
     );
+
     fixture.reopen();
     await Effect.runPromise(
       Effect.scoped(
@@ -82,6 +88,7 @@ test('session generation RPC discovers bounded exact requests across reopen and 
             sessionId: setup.session.id,
             limit: 1
           });
+
           assert.equal(first.items[0]?.requestId, setup.requests[0]!.requestId);
           assert.equal(first.items[0]?.contextRequestId, setup.requests[0]!.contextRequestId);
           assert.equal(first.items[0]?.state, 'available');
@@ -91,6 +98,7 @@ test('session generation RPC discovers bounded exact requests across reopen and 
             limit: 2,
             before: first.next!
           });
+
           assert.deepEqual(
             rest.items.map((i) => i.requestId),
             setup.requests.slice(1).map((i) => i.requestId)
@@ -109,8 +117,10 @@ test('session generation RPC discovers bounded exact requests across reopen and 
     await Effect.runPromise(
       Effect.gen(function* () {
         const chats = yield* Conversations;
+
         yield* chats.editMessage({ messageId: setup.note.id, text: 'Changed after capture' });
         const page = yield* chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 });
+
         assert.ok(page.items.every((item) => item.state === 'available'));
         assert.deepEqual(
           page.items.map((item) => item.requestId),
@@ -127,6 +137,7 @@ test('session generation RPC discovers bounded exact requests across reopen and 
           sessionId: setup.session.id,
           limit: 100
         });
+
         assert.deepEqual(
           page.items.map((i) => i.requestId),
           setup.requests.map((i) => i.requestId)
