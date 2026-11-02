@@ -24,6 +24,7 @@ export const SourcesRpcLive = defineRpc(
     const sources = yield* Sources;
 
     return {
+      'sources.importCapability': (value) => sources.importCapability(value),
       'sources.sourceExport': ({ id }) => sources.sourceExport(id),
       'sources.source': ({ id }) => sources.source(id),
       'sources.findSource': ({ id }) => sources.findSource(id),

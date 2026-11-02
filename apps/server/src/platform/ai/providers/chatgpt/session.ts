@@ -217,6 +217,11 @@ export class AuthManager {
     this.options = options;
   }
 
+  /** Configuration only: does not refresh credentials or verify provider/model capability. */
+  get sessionConfigured(): boolean {
+    return !!this.session && !this.closed && !this.closing;
+  }
+
   get clock(): Clock.Clock {
     return this.options.clock ?? liveClock();
   }

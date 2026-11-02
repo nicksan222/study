@@ -35,6 +35,7 @@ export const SystemRpcLive = defineRpc(
       'system.restoreStatus': () => system.restoreStatus(),
       'system.discardRestoreRecovery': () => system.discardRestoreRecovery(),
       'system.health': () => system.health(),
+      'system.materialSearch': (input) => system.materialSearch(input),
       'system.search': (input) => system.search(input),
       'system.startWorkers': () => system.startWorkers(),
       'system.stopWorkers': () => system.stopWorkers()

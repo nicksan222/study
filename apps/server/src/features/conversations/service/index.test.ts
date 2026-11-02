@@ -53,6 +53,29 @@ test('sessions support normalized creation, bounded pagination and missing reads
           (yield* conversations.sessions({ limit: 1, before: page.next! })).items[0]?.id,
           first.id
         );
+        const global = yield* conversations.createSession({ title: 'Projectless' });
+        assert.deepEqual(
+          (yield* conversations.sessions({ limit: 1, project: project.id })).items.map(
+            (item) => item.id
+          ),
+          [second.id]
+        );
+        const scoped = yield* conversations.sessions({ limit: 1, project: project.id });
+        assert.deepEqual(
+          (yield* conversations.sessions({
+            limit: 1,
+            project: project.id,
+            before: scoped.next!
+          })).items.map((item) => item.id),
+          [first.id]
+        );
+        assert.deepEqual(
+          (yield* conversations.sessions({ limit: 100, project: null })).items.map(
+            (item) => item.id
+          ),
+          [global.id]
+        );
+        assert.equal((yield* conversations.sessions({ limit: 1 })).items[0]?.id, global.id);
         const absent = 999n as SessionId;
 
         assert.ok(Option.isNone(yield* conversations.findSession(absent)));

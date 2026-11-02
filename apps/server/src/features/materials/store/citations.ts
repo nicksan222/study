@@ -24,12 +24,15 @@ import { readCitation } from './citation-row.ts';
 import { makeSupport } from './citation-support.ts';
 import { makeEvidence } from './evidence.ts';
 
-export function makeCitations(resources: StoreResources) {
+export function makeCitations(
+  resources: StoreResources,
+  readDocument?: ReturnType<typeof makeReads>['readCanonicalDocument']
+) {
   const { db } = resources;
   const store = db;
   const { versionRow } = makeReads(resources);
-  const support = makeSupport(resources);
-  const evidence = makeEvidence(resources);
+  const support = makeSupport(resources, readDocument);
+  const evidence = makeEvidence(resources, readDocument);
 
   function readCitationDetails(row: typeof s.material_version_citations.$inferSelect) {
     const citation = readCitation(row);

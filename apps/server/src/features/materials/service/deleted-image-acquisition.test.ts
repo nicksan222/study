@@ -118,6 +118,34 @@ for (const owner of ['none', 'draft', 'published'] as const)
 
             assert.equal(
               (yield* Effect.flip(
+                rpc('materials.importedMaterial', {
+                  sourceId: setup.source.id
+                })
+              )).kind,
+              'not_found'
+            );
+            if (setup.copy) {
+              const exact = yield* rpc('materials.materialVersionDocument', {
+                id: setup.copy.version.id
+              });
+              const image = exact.document.blocks[0]!;
+              const read = rpc('materials.materialVersionImage', {
+                id: setup.copy.version.id,
+                documentId: exact.id,
+                blockId: image.id
+              });
+              if (owner === 'published') {
+                assert.deepEqual(
+                  (yield* read).bytes,
+                  new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+                );
+              } else {
+                assert.equal((yield* Effect.flip(read)).kind, 'not_found');
+              }
+            }
+
+            assert.equal(
+              (yield* Effect.flip(
                 rpc('materials.materialVersionExport', { id: setup.original.version.id })
               )).kind,
               'not_found'

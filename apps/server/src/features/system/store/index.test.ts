@@ -192,3 +192,87 @@ test('search indexes only current published quiz material and prompts', async ()
     location.cleanup();
   }
 });
+
+test('bounded global Material search fills results past archived matches and uses canonical identities', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  try {
+    const run = (query: ReturnType<typeof sql>) => context.db.orm.run(query);
+    run(sql`INSERT INTO materials(id,kind,title,created_at,updated_at)
+      VALUES (1,'diagram','GlobalReaderToken',1,1),(2,'diagram','GlobalReaderToken',1,1),(3,'diagram','GlobalReaderToken',1,1)`);
+    run(sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at)
+      VALUES (1,1,'diagram',1,'draft',1),(2,2,'diagram',1,'draft',1),(3,3,'diagram',1,'draft',1)`);
+    run(sql`INSERT INTO material_diagram_versions(version_id,format,payload)
+      VALUES (1,'mermaid','graph TD; A-->B'),(2,'mermaid','graph TD; A-->B'),(3,'mermaid','graph TD; A-->B')`);
+    run(sql`UPDATE material_versions SET status='published',published_at=2`);
+    run(sql`UPDATE materials SET archived_at=3 WHERE id=1`);
+    const store = Effect.runSync(
+      useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
+    );
+    const find = () =>
+      Effect.runPromise(
+        store.searches({ query: 'GlobalReaderToken', kinds: ['material'], limit: 1 })
+      );
+    const hits = await find();
+    assert.equal(hits.length, 1);
+    assert.deepEqual(hits[0]?.target, {
+      type: 'material',
+      materialId: 2n,
+      versionId: 2n,
+      materialKind: 'diagram'
+    });
+    assert.deepEqual(await find(), hits);
+    const tied = await Effect.runPromise(
+      store.searches({ query: 'GlobalReaderToken', kinds: ['material'], limit: 2 })
+    );
+    assert.deepEqual(
+      tied.map((hit) => hit.target),
+      [
+        { type: 'material', materialId: 2n, versionId: 2n, materialKind: 'diagram' },
+        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }
+      ]
+    );
+    run(
+      sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Scope',1,1),(2,'Other',1,1),(3,'Later match',1,1)`
+    );
+    run(sql`INSERT INTO project_materials(project_id,material_id) VALUES (1,2),(3,3)`);
+    assert.deepEqual(
+      await Effect.runPromise(
+        store.searches({
+          query: 'GlobalReaderToken',
+          kinds: ['material'],
+          limit: 1,
+          project: 1n as never
+        })
+      ),
+      hits
+    );
+    assert.deepEqual(
+      (
+        await Effect.runPromise(
+          store.searches({
+            query: 'GlobalReaderToken',
+            kinds: ['material'],
+            limit: 1,
+            project: 3n as never
+          })
+        )
+      ).map((hit) => hit.target),
+      [{ type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }]
+    );
+    assert.deepEqual(
+      await Effect.runPromise(
+        store.searches({
+          query: 'GlobalReaderToken',
+          kinds: ['material'],
+          limit: 1,
+          project: 2n as never
+        })
+      ),
+      []
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});

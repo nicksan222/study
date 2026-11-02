@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 
 import { resolvedSelectionSchema } from '@study/contracts/conversations/context';
 import type {
+  sessionContextIntentSchema,
   captureSessionContextSchema,
   updateSessionSelectionSchema
 } from '@study/contracts/conversations/context';
@@ -28,9 +29,12 @@ import type {
   setActiveVersionInputSchema,
   threadInputSchema,
   renameSessionInputSchema,
-  sessionPageInputSchema
+  sessionPageInputSchema,
+  sessionGenerationPageInputSchema
 } from '@study/contracts/conversations/rpc';
 import type {
+  askInputSchema,
+  replyVersionInputSchema,
   publishReplyInputSchema,
   publishTitleInputSchema,
   replyRequestSchema,
@@ -61,11 +65,15 @@ import {
   SessionDeletionCorrelationStore
 } from '#server/features/conversations/store/deletion';
 import { SessionStore } from '#server/features/conversations/store/index';
-import { MessageStore } from '#server/features/conversations/store/message';
+import {
+  MessageStore,
+  MessageVersionCitationsStore
+} from '#server/features/conversations/store/message';
 import { RecordingPostStore } from '#server/features/conversations/store/recording';
 import {
   ReplyStore,
   ReplyRequestStore,
+  ReplyVersionStore,
   RetainedReplySnapshotStore,
   ReplyReadinessStore,
   ReplyWakeStore
@@ -81,8 +89,9 @@ import {
   useStore,
   publicationTransaction
 } from '#server/platform/definitions/define-store';
+import { impactToken } from '#server/platform/definitions/impact-token';
 
-import { resolveMessageCitations } from './citations.ts';
+import { resolveMessageCitations, resolveVersionCitations } from './citations.ts';
 import {
   prepareMaterialDeletion,
   scrubMaterialDeletion,
@@ -263,6 +272,115 @@ export const Conversations = defineService(
 
           return tx.store(ReplyStore).publishReply(input);
         }),
+      messageVersionCitations: (input: typeof replyVersionInputSchema.Type) =>
+        transaction((tx) => {
+          if (Option.isSome(tx.store(SessionDeletionStore).findSessionDeletion(input.sessionId)))
+            throw new StudyError('not_found', 'Session is unavailable');
+          const value = tx.store(MessageVersionCitationsStore).messageVersionCitations(input);
+          return { ...value, citations: resolveVersionCitations(tx, value.citations) };
+        }),
+      sessionGenerations: (input: typeof sessionGenerationPageInputSchema.Type) =>
+        transaction((tx) => {
+          tx.store(SessionStore).session(input.sessionId);
+          if (Option.isSome(tx.store(SessionDeletionStore).findSessionDeletion(input.sessionId)))
+            throw new StudyError('not_found', 'Session is unavailable');
+          const items = Materials.sessionGenerations(tx, input).map((item) => {
+            if (item.state !== 'available' || item.contextRequestId === null) return item;
+            try {
+              readCapturedContext(tx, item.contextRequestId);
+              return item;
+            } catch (error) {
+              if (
+                error instanceof StudyError &&
+                (error.kind === 'not_found' || error.kind === 'invalid_input')
+              )
+                return { ...item, state: 'unavailable' as const };
+              throw error;
+            }
+          });
+          const last = items.at(-1);
+          const more =
+            last && items.length === input.limit
+              ? Materials.sessionGenerations(tx, { ...input, limit: 1, before: last.requestId })
+              : [];
+          return { items, next: more.length && last ? last.requestId : null };
+        }),
+      replyVersion: (input: typeof replyVersionInputSchema.Type) =>
+        transaction((tx) => {
+          const provenance = tx.store(ReplyVersionStore).replyVersion(input);
+          if (provenance.state !== 'available') return provenance;
+          try {
+            readCapturedContext(tx, provenance.requestId);
+            return provenance;
+          } catch (error) {
+            if (
+              error instanceof StudyError &&
+              (error.kind === 'not_found' || error.kind === 'invalid_input')
+            )
+              return { state: 'unavailable' as const, requestId: provenance.requestId };
+            throw error;
+          }
+        }),
+      ask: (input: typeof askInputSchema.Type) =>
+        transaction((tx) => {
+          const normalized = {
+            sessionId: input.sessionId,
+            threadRoot: input.threadRoot ?? null,
+            intentKey: input.intentKey,
+            expectedSelectionRevision: input.expectedSelectionRevision,
+            text: input.text.trim(),
+            sourceIds: input.sourceIds ?? [],
+            instruction: input.instruction ?? '',
+            preferences: {
+              language: input.preferences?.language,
+              detail: input.preferences?.detail
+            }
+          };
+          const askDigest = impactToken(normalized);
+          const intent = {
+            sessionId: input.sessionId,
+            threadRoot: input.threadRoot,
+            intentKey: input.intentKey,
+            instruction: normalized.instruction,
+            preferences: normalized.preferences,
+            askDigest
+          };
+          const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
+          if (Option.isSome(existing)) {
+            const context = existing.value;
+            const previous = tx
+              .store(ReplyRequestStore)
+              .findReplyRequest({ requestId: context.requestId });
+            const note = context.messages.find(
+              (item) => item.messageId === context.throughMessageId
+            );
+            if (Option.isNone(previous) || !note || note.role !== 'user')
+              throw new StudyError('not_found', 'Captured Ask is unavailable');
+            for (const target of context.inputs) assertCapturedTarget(tx, target);
+            return {
+              ...previous.value,
+              userMessageId: note.messageId,
+              userVersionId: note.versionId
+            };
+          }
+          const selection = tx
+            .store(SessionSelectionStore)
+            .sessionSelection({ sessionId: input.sessionId });
+          if (selection.revision !== input.expectedSelectionRevision)
+            throw new StudyError('invalid_input', 'Session selection changed');
+          tx.store(ReplyStore).prepareReply(input);
+          const note = tx.store(MessageStore).postMessage(input);
+          const context = captureContext(
+            tx,
+            { ...intent, throughMessageId: note.id },
+            randomUUID()
+          );
+          const result = tx
+            .store(ReplyStore)
+            .requestReply({ ...input, requestId: context.requestId, context });
+          emitReplyRequest(tx, result, 'reply');
+          return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
+        }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
         transaction((tx) => {
           const intent = {
@@ -426,6 +544,7 @@ export const Conversations = defineService(
           const more =
             last && items.length === input.limit
               ? yield* store.sessions({
+                  project: input.project,
                   limit: 1,
                   before: { updatedAt: last.updatedAt, id: last.id }
                 })
@@ -604,7 +723,7 @@ function emitReplyRequest(
 
 function captureContext(
   tx: Transaction,
-  input: typeof captureSessionContextSchema.Type,
+  input: typeof sessionContextIntentSchema.Type,
   requestId: string
 ) {
   const store = tx.store(SessionContextStore);

@@ -48,7 +48,10 @@ function sourceChanged(
   );
 }
 
-export function makeEvidence(resources: StoreResources) {
+export function makeEvidence(
+  resources: StoreResources,
+  readDocument?: ReturnType<typeof makeReads>['readCanonicalDocument']
+) {
   const { db } = resources;
   const reads = makeReads(resources);
 
@@ -251,7 +254,7 @@ export function makeEvidence(resources: StoreResources) {
     )
       return unavailable(reference, 'document_missing');
 
-    const document = reads.readCanonicalDocument(documentId);
+    const document = (readDocument ?? reads.readCanonicalDocument)(documentId);
     const block = document.blocks.find((item) => item.id === range.blockId);
 
     if (!block) return unavailable(reference, 'block_missing');

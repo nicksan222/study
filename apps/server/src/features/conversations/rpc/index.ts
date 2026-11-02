@@ -34,6 +34,11 @@ export const ConversationsRpcLive = defineRpc(
       'conversations.replySnapshot': (input) => conversations.inspectReplySnapshot(input),
       'conversations.createUntitledSession': (input) => conversations.createUntitledSession(input),
       'conversations.requestTitle': (input) => conversations.requestTitle(input),
+      'conversations.ask': (input) => conversations.ask(input),
+      'conversations.messageVersionCitations': (input) =>
+        conversations.messageVersionCitations(input),
+      'conversations.sessionGenerations': (input) => conversations.sessionGenerations(input),
+      'conversations.replyVersion': (input) => conversations.replyVersion(input),
       'conversations.requestReply': (input) => conversations.requestReply(input),
       'conversations.reanswer': (input) => conversations.reanswer(input),
       'conversations.rewriteMessage': (input) => conversations.rewriteMessage(input),

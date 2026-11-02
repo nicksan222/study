@@ -88,6 +88,7 @@ test('native materials RPC names cover the complete public API', async () => {
       'inputs',
       'materialVersion',
       'materialVersionExport',
+      'exportMaterialVersion',
       'materials',
       'materialVersions',
       'publishVersion',

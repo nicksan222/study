@@ -30,6 +30,29 @@ export function makeMaterialRetirement(resources: StoreResources) {
   const discardPending = makeDiscardPending(resources);
 
   function scrubRequest(requestId: string) {
+    const context = db.orm
+      .select()
+      .from(s.session_run_contexts)
+      .where(eq(s.session_run_contexts.request_id, requestId))
+      .get();
+
+    const history = db.orm
+      .select()
+      .from(s.material_history_requests)
+      .where(eq(s.material_history_requests.request_id, requestId))
+      .get();
+    if (context)
+      db.orm
+        .insert(s.conversation_history_intents)
+        .values({
+          session_id: context.session_id,
+          intent_key: context.intent_key,
+          request_id: history ? requestId : null,
+          deletion_request_id: history ? null : requestId
+        })
+        .onConflictDoNothing()
+        .run();
+
     const reply = db.orm
       .select({ message: s.messages, version: s.message_versions })
       .from(s.conversation_reply_requests)
@@ -40,6 +63,18 @@ export function makeMaterialRetirement(resources: StoreResources) {
       .innerJoin(s.messages, eq(s.messages.id, s.message_versions.message_id))
       .where(eq(s.conversation_reply_requests.request_id, requestId))
       .get();
+
+    // Older generated versions obtain their content-free identity before payload removal.
+    if (
+      reply &&
+      reply.version.status === 'complete' &&
+      reply.version.generation_request_id === null
+    )
+      db.orm
+        .update(s.message_versions)
+        .set({ generation_request_id: requestId })
+        .where(eq(s.message_versions.id, reply.version.id))
+        .run();
 
     if (reply && reply.version.status !== 'complete') discardPending(reply.message, reply.version);
 

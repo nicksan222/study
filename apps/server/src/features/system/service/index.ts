@@ -17,7 +17,7 @@ import type {
   acceptRestoreSchema,
   backupScopeSchema
 } from '@study/contracts/system/backups';
-import type { searchInputSchema } from '@study/contracts/system/rpc';
+import type { searchInputSchema, materialSearchInputSchema } from '@study/contracts/system/rpc';
 import { Effect } from 'effect';
 
 import { BackupScopeStore } from '#server/features/system/store/backup';
@@ -65,6 +65,17 @@ export const System = defineService(
         health.health(undefined).pipe(
           Effect.flatMap(() => workers.started),
           Effect.map(healthData)
+        ),
+      materialSearch: (input: typeof materialSearchInputSchema.Type) =>
+        store.searches({ ...input, kinds: ['material'] }).pipe(
+          Effect.map((hits) => ({
+            semantic: false as const,
+            hits: hits.flatMap((hit) =>
+              hit.target.type === 'material'
+                ? [{ ...hit, kind: 'material' as const, target: hit.target }]
+                : []
+            )
+          }))
         ),
       search: (input: typeof searchInputSchema.Type) =>
         store.searches(input).pipe(Effect.map((hits) => ({ semantic: false, hits }))),

@@ -22,6 +22,8 @@ import {
   rewriteMessageInputSchema,
   replySnapshotInputSchema,
   replySnapshotSchema,
+  replyVersionInputSchema,
+  replyVersionSchema,
   pendingReplyAttachmentSchema
 } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
@@ -41,6 +43,10 @@ import {
   source_processing,
   sources,
   workflowEvents,
+  session_run_contexts,
+  material_history_requests,
+  material_deletion_requests,
+  workflow_retired_correlations,
   workflowReceipts
 } from '@study/db/schema';
 import { Option, Schema } from 'effect';
@@ -294,6 +300,7 @@ function makeHelpers({ db, clock }: StoreResources) {
         message_id: message.id,
         number: (previous?.number ?? 0n) + 1n,
         ...generationFields(),
+        generation_request_id: input.requestId,
         status: 'pending',
         text: '',
         created_at: now
@@ -336,19 +343,24 @@ function makeHelpers({ db, clock }: StoreResources) {
     return result;
   }
 
-  function attachmentSource(part: {
-    sourceId: typeof sources.$inferSelect.id;
-    projectId: typeof sources.$inferSelect.project_id;
-  }) {
+  function attachmentSource(
+    part: {
+      sourceId: typeof sources.$inferSelect.id;
+      projectId: typeof sources.$inferSelect.project_id;
+    },
+    immutable = false
+  ) {
     return db.orm
       .select()
       .from(sources)
       .where(
         and(
           eq(sources.id, part.sourceId),
-          part.projectId === null
-            ? isNull(sources.project_id)
-            : eq(sources.project_id, part.projectId)
+          immutable
+            ? undefined
+            : part.projectId === null
+              ? isNull(sources.project_id)
+              : eq(sources.project_id, part.projectId)
         )
       )
       .get();
@@ -409,7 +421,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     return result;
   }
 
-  function assertSnapshotAttachments(result: typeof replySnapshotSchema.Type) {
+  function assertSnapshotAttachments(result: typeof replySnapshotSchema.Type, immutable = false) {
     for (const item of result.messages)
       for (const part of item.attachments) {
         const document = db.orm
@@ -418,18 +430,21 @@ function makeHelpers({ db, clock }: StoreResources) {
           .where(and(eq(documents.id, part.documentId), eq(documents.source_id, part.sourceId)))
           .get();
 
-        const source = attachmentSource(part);
+        const source = attachmentSource(part, immutable);
 
         if (!document || !source)
           throw new StudyError('invalid_input', 'captured attachment is unavailable');
       }
 
-    assertPendingAttachments(result.pendingAttachments ?? []);
+    assertPendingAttachments(result.pendingAttachments ?? [], immutable);
   }
 
-  function assertPendingAttachments(parts: readonly (typeof pendingReplyAttachmentSchema.Type)[]) {
+  function assertPendingAttachments(
+    parts: readonly (typeof pendingReplyAttachmentSchema.Type)[],
+    immutable = false
+  ) {
     for (const part of parts) {
-      const source = attachmentSource(part);
+      const source = attachmentSource(part, immutable);
 
       const processing = db.orm
         .select()
@@ -520,6 +535,7 @@ function makeHelpers({ db, clock }: StoreResources) {
   return {
     snapshot,
     readReplySnapshot,
+    assertSnapshotAttachments,
     discardPending,
     retirePending,
     replyContext,
@@ -548,11 +564,107 @@ export const RetainedReplySnapshotStore = defineStore({
   }
 });
 
+export const ReplyVersionStore = defineStore({
+  name: 'study/ReplyVersionStore',
+  entity: { singular: 'replyVersion', plural: 'replyVersions' },
+  make: (resources) => {
+    const { db } = resources;
+    const { assertSnapshotAttachments } = makeHelpers(resources);
+
+    return {
+      queries: {
+        replyVersion: storeQuery({
+          role: 'required',
+          input: replyVersionInputSchema,
+          output: replyVersionSchema,
+          run: (input) => {
+            const row = db.orm
+              .select({ version: message_versions, message: messages })
+              .from(message_versions)
+              .innerJoin(messages, eq(messages.id, message_versions.message_id))
+              .where(
+                and(
+                  eq(message_versions.id, input.versionId),
+                  eq(messages.id, input.messageId),
+                  eq(messages.session_id, input.sessionId)
+                )
+              )
+              .get();
+            if (!row) throw new StudyError('not_found', 'Message version is unavailable');
+            if (row.version.origin === 'typed' || row.version.origin === 'edited')
+              return { state: 'manual' as const };
+            const retained = db.orm
+              .select()
+              .from(conversation_reply_requests)
+              .where(eq(conversation_reply_requests.version_id, input.versionId))
+              .get();
+            const requestId = row.version.generation_request_id ?? retained?.request_id ?? null;
+            if (requestId === null) return { state: 'unavailable' as const, requestId };
+            if (
+              retained &&
+              (retained.request_id !== requestId || retained.session_id !== input.sessionId)
+            )
+              return { state: 'unavailable' as const, requestId };
+            const retired = db.orm
+              .select()
+              .from(workflow_retired_correlations)
+              .where(
+                and(
+                  eq(workflow_retired_correlations.correlation_id, requestId),
+                  eq(workflow_retired_correlations.event_type, 'ConversationGenerationRequested')
+                )
+              )
+              .get();
+            if (retired) return { state: 'retired' as const, requestId };
+            const scrubbed =
+              db.orm
+                .select()
+                .from(material_history_requests)
+                .where(eq(material_history_requests.request_id, requestId))
+                .get() ||
+              db.orm
+                .select()
+                .from(material_deletion_requests)
+                .where(eq(material_deletion_requests.request_id, requestId))
+                .get();
+            const context = db.orm
+              .select()
+              .from(session_run_contexts)
+              .where(eq(session_run_contexts.request_id, requestId))
+              .get();
+            if (!scrubbed && retained && context) {
+              try {
+                assertSnapshotAttachments(Schema.decodeUnknownSync(codec)(retained.snapshot), true);
+              } catch (error) {
+                if (
+                  error instanceof StudyError &&
+                  (error.kind === 'not_found' || error.kind === 'invalid_input')
+                )
+                  return { state: 'unavailable' as const, requestId };
+                throw error;
+              }
+            }
+            return {
+              state:
+                scrubbed || !retained || !context
+                  ? ('unavailable' as const)
+                  : ('available' as const),
+              requestId
+            };
+          }
+        })
+      },
+      mutations: {}
+    };
+  }
+});
+
 export const ReplyRequestStore = defineStore({
   name: 'study/ReplyRequestStore',
   entity: { singular: 'replyRequest', plural: 'replyRequests' },
   make: (resources) => {
     const { db } = resources;
+    const { assertSnapshotAttachments } = makeHelpers(resources);
 
     return {
       queries: {
@@ -567,7 +679,10 @@ export const ReplyRequestStore = defineStore({
               .where(eq(conversation_reply_requests.request_id, requestId))
               .get();
 
-            return row ? Option.some(Schema.decodeUnknownSync(codec)(row.snapshot)) : Option.none();
+            if (!row) return Option.none();
+            const snapshot = Schema.decodeUnknownSync(codec)(row.snapshot);
+            assertSnapshotAttachments(snapshot, true);
+            return Option.some(snapshot);
           }
         })
       },

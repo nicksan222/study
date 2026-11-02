@@ -126,7 +126,7 @@ export const SystemStore = defineStore({
       target: Extract<SearchHit['target'], { type: 'material' | 'question' }>
     ): (typeof searchHitSchema.Type)[] {
       const rows = db.orm.all(
-        sql`SELECT m.id AS material_id,m.kind AS material_kind,m.title,m.updated_at,v.id AS version_id,q.id AS question_id FROM materials m JOIN material_versions v ON v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(h.number) FROM material_versions h WHERE h.material_id=m.id AND h.status='published') LEFT JOIN material_quiz_questions q ON q.version_id=v.id WHERE m.archived_at IS NULL AND ((${target.type}='material' AND m.id=${target.id}) OR (${target.type}='question' AND q.id=${target.id})) LIMIT 1`
+        sql`SELECT m.id AS material_id,m.kind AS material_kind,m.title,m.updated_at,v.id AS version_id,q.id AS question_id FROM materials m JOIN material_versions v ON v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(h.number) FROM material_versions h WHERE h.material_id=m.id AND h.status='published') LEFT JOIN material_quiz_questions q ON q.version_id=v.id WHERE m.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id) AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id) AND ((${target.type}='material' AND m.id=${target.id}) OR (${target.type}='question' AND q.id=${target.id})) LIMIT 1`
       );
       const row = rows[0];
 

@@ -16,12 +16,14 @@
 import { randomUUID } from 'node:crypto';
 
 import type { sessionSelectionTargetSchema } from '@study/contracts/conversations/context';
+import type { sessionGenerationPageInputSchema } from '@study/contracts/conversations/rpc';
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
 import type { ProjectId, SourceId, SessionId } from '@study/contracts/ids';
 import type * as editing from '@study/contracts/materials/editing';
 import type * as evidence from '@study/contracts/materials/evidence';
+import type { exportMaterialVersionInputSchema } from '@study/contracts/materials/export';
 import type * as input from '@study/contracts/materials/rpc';
 import type {
   MaterialVersionDetailDto,
@@ -55,6 +57,12 @@ import {
   MaterialDependentsStore,
   MaterialCitationsStore
 } from '#server/features/materials/store/index';
+import {
+  MaterialVersionDocumentStore,
+  ImportedMaterialStore,
+  MaterialVersionImageStore
+} from '#server/features/materials/store/reader';
+import { SessionGenerationsStore } from '#server/features/materials/store/session-generations';
 import { SessionMaterialRetirementStore } from '#server/features/materials/store/session-retirement';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { Workflows } from '#server/features/workflows/index';
@@ -67,6 +75,8 @@ import {
 } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
+import { exportBudget } from '../export-budget.ts';
+import { MaterialExportInputsStore, MaterialExportCitationsStore } from '../store/export.ts';
 import { materialDeletionOperations, deletionParticipantsLayer } from './deletion.ts';
 import {
   requestDocumentTransform,
@@ -74,6 +84,7 @@ import {
   retryDocumentTransform,
   assertDocumentContext
 } from './document-transform.ts';
+import { serializeMaterialVersion } from './export-serializer.ts';
 import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 import { materialHistoryOperations } from './history.ts';
 
@@ -95,6 +106,9 @@ function published(tx: Transaction, version: MaterialVersionDetailDto) {
 }
 
 function* makeMaterials() {
+  const reader = yield* useStore(MaterialVersionDocumentStore);
+  const imported = yield* useStore(ImportedMaterialStore);
+  const images = yield* useStore(MaterialVersionImageStore);
   const materials = yield* useStore(MaterialsStore),
     versions = yield* useStore(MaterialVersionsStore),
     versionExports = yield* useStore(MaterialVersionExportStore),
@@ -406,6 +420,38 @@ function* makeMaterials() {
 
         return request;
       }),
+    exportMaterialVersion: (value: typeof exportMaterialVersionInputSchema.Type) =>
+      transaction((tx) => {
+        const version = tx.store(MaterialVersionsStore).materialVersion({ id: value.id });
+        exportBudget().consume(version);
+        const pending = [version.id];
+        const seen = new Set(pending);
+        while (pending.length) {
+          const id = pending.pop()!;
+          for (const inputId of tx.store(MaterialExportInputsStore).exportInputGraph({ id }).ids) {
+            if (seen.has(inputId)) continue;
+            if (seen.size >= 1000)
+              throw new StudyError('invalid_input', 'Export dependency limit exceeded');
+            seen.add(inputId);
+            pending.push(inputId);
+          }
+        }
+        const document =
+          value.format === 'markdown' || value.format === 'html'
+            ? tx.store(MaterialVersionDocumentStore).materialVersionDocument({ id: value.id })
+                .document
+            : null;
+        const budget = exportBudget();
+        budget.consume({ version, document, citations: [] });
+        const exportedCitations = tx.store(MaterialExportCitationsStore).exportCitationSnapshot({
+          id: value.id,
+          budget: budget.remaining()
+        }).citations;
+        return serializeMaterialVersion(version, value.format, document, exportedCitations);
+      }),
+    materialVersionDocument: reader.materialVersionDocument,
+    importedMaterial: imported.importedMaterial,
+    materialVersionImage: images.materialVersionImage,
     material: materials.material,
     findMaterial: materials.findMaterial,
     materials: materials.materials,
@@ -509,6 +555,8 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
   ) => tx.store(SessionMaterialRetirementStore).prepare(value),
   scrubSessionRetirement: (tx: Transaction, sessionId: SessionId) =>
     tx.store(SessionMaterialRetirementStore).scrub(sessionId),
+  sessionGenerations: (tx: Transaction, input: typeof sessionGenerationPageInputSchema.Type) =>
+    tx.store(SessionGenerationsStore).sessionGenerations(input),
   resolveEvidence,
   resolveSessionSelection,
   readGeneration,
