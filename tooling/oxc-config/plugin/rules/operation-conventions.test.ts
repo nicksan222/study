@@ -150,3 +150,28 @@ test('Material deletion status, preview and participants bind their own canonica
     Array(2).fill('apps/server/src/features/materials/store/bypass.ts')
   );
 });
+
+test('history status, preview, publication and source impact keep canonical singular descriptors', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/history.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'materialHistory',plural:'materialHistories'},make:()=>({queries:{materialHistory:storeQuery({role:'required'}),findMaterialHistory:storeQuery({role:'optional'})},mutations:{}})});
+
+      defineStore({entity:{singular:'materialHistoryPublication',plural:'materialHistoryPublications'},make:()=>({queries:{materialHistoryPublication:storeQuery({role:'required'})},mutations:{}})});
+
+    `,
+      'apps/server/src/features/sources/store/history.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'sourceMaterialHistory',plural:'sourceMaterialHistories'},make:()=>({queries:{sourceMaterialHistory:storeQuery({role:'required'})},mutations:{}})});
+
+    `,
+      'apps/server/src/features/materials/store/unsafe-history.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'materialHistory',plural:'materialHistories'},make:()=>({queries:{readStatus:storeQuery({role:'required'}),findMaterialHistory:storeQuery({role:'required'})},mutations:{}})});
+
+    `
+    }),
+    Array(2).fill('apps/server/src/features/materials/store/unsafe-history.ts')
+  );
+});

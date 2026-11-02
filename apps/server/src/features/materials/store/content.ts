@@ -182,7 +182,8 @@ export function makeContent(resources: StoreResources) {
           eq(s.source_snapshots.revision, revision),
           sql`((NOT EXISTS (
         SELECT 1 FROM source_material_deletion_assets a WHERE a.source_id=${sourceId} AND a.revision=${revision}
-
+      ) AND NOT EXISTS (
+        SELECT 1 FROM source_history_revisions h WHERE h.source_id=${sourceId} AND h.revision=${revision}
       )) OR EXISTS (
         SELECT 1 FROM material_versions owner JOIN (
           SELECT dv.version_id,a.source_id,a.revision FROM material_document_versions dv
@@ -191,6 +192,7 @@ export function makeContent(resources: StoreResources) {
         ) asset ON asset.version_id=owner.id
         WHERE asset.source_id=${sourceId} AND asset.revision=${revision} AND owner.status='published'
         AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=owner.material_id)
+        AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=owner.id)
         AND (owner.material_id=${version.material_id} OR EXISTS(
           SELECT 1 FROM material_version_inputs i WHERE i.version_id=${version.id} AND i.input_version_id=owner.id
         ))

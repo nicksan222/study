@@ -309,3 +309,29 @@ test('Material cleanup composes public synchronous participants and cannot expos
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/deletion.ts')));
 });
+
+test('history pruning composes public participants without exposing private ownership stores', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/features/materials/service/history.ts': `
+      import { Sources } from '#server/features/sources/index';
+      import { Conversations } from '#server/features/conversations/index';
+      import { Learning } from '#server/features/learning/index';
+      import { Workflows } from '#server/features/workflows/index';
+      export const finish = tx => {
+        Sources.scrubMaterialHistory(tx, 'exact'); Conversations.scrubMaterialHistory(tx, 'exact');
+
+        Learning.scrubMaterialHistory(tx, []); Workflows.scrubRetiredCorrelations(tx, []);
+      };
+
+    `,
+    'src/features/materials/service/private-history.ts': `
+      import { SourceMaterialHistoryStore } from '#server/features/sources/store/material-history';
+      import { ConversationMaterialHistoryStore } from '#server/features/conversations/store/material-history';
+    `,
+    'src/features/sources/index.ts': `export { SourceMaterialHistoryStore } from './store/material-history';`
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/history.ts')));
+});

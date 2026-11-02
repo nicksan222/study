@@ -30,6 +30,7 @@ import {
 } from '#server/features/learning/workflows/index';
 import { materialDeletionRegistration } from '#server/features/materials/workflows/deletion';
 import { materialGenerationRegistration } from '#server/features/materials/workflows/generation';
+import { materialHistoryRegistration } from '#server/features/materials/workflows/history';
 import { sourceIndexedRegistration } from '#server/features/materials/workflows/index';
 import { recordingPostRegistration } from '#server/features/recordings/workflows/index';
 import { sourceCorrectionRegistration } from '#server/features/sources/workflows/index';
@@ -37,6 +38,7 @@ import { sourceIngestionRegistration } from '#server/features/sources/workflows/
 
 /** Each workflow is registered once with its durable event subscriptions. */
 const entries = [
+  materialHistoryRegistration,
   materialDeletionRegistration,
   sessionDeletionRegistration,
   practiceFailureRegistration,

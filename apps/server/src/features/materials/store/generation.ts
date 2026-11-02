@@ -172,6 +172,15 @@ export function makeGeneration(resources: StoreResources) {
     if (
       db.orm
         .select()
+        .from(s.material_history_requests)
+        .where(eq(s.material_history_requests.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Generation input history is unavailable');
+
+    if (
+      db.orm
+        .select()
         .from(s.material_deletion_requests)
         .where(eq(s.material_deletion_requests.request_id, requestId))
         .get()

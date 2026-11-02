@@ -41,8 +41,7 @@ import {
   source_processing,
   sources,
   workflowEvents,
-  workflowReceipts,
-  material_deletion_requests
+  workflowReceipts
 } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -51,6 +50,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 
+import { makeAssertContextAvailable } from './context-availability.ts';
 import { makeHistory } from './history.ts';
 import { makeDiscardPending } from './pending.ts';
 import { makePersistence } from './persistence.ts';
@@ -72,6 +72,7 @@ const requestInput = Schema.Struct({
 
 function makeHelpers({ db, clock }: StoreResources) {
   const discardPending = makeDiscardPending({ db, clock });
+  const assertContextAvailable = makeAssertContextAvailable({ db, clock });
   const { insertSelectedVersion } = makePersistence({ db, clock });
   const { conversationHistory, conversationRoot } = makeHistory({ db, clock });
   const { assertThreadRoot } = makeThread({ db, clock });
@@ -353,14 +354,7 @@ function makeHelpers({ db, clock }: StoreResources) {
   }
 
   function replyContext(requestId: string) {
-    if (
-      db.orm
-        .select()
-        .from(material_deletion_requests)
-        .where(eq(material_deletion_requests.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', 'Reply context is unavailable');
+    assertContextAvailable(requestId, 'Reply context is unavailable');
 
     const row = db.orm
       .select()

@@ -87,6 +87,11 @@ import {
   scrubMaterialDeletion,
   inspectMaterialDeletion
 } from './material-deletion.ts';
+import {
+  prepareMaterialHistory,
+  scrubMaterialHistory,
+  inspectMaterialHistory
+} from './material-history.ts';
 
 export const Conversations = defineService(
   'study/Conversations',
@@ -484,7 +489,14 @@ export const Conversations = defineService(
         })
     };
   }),
-  { prepareMaterialDeletion, scrubMaterialDeletion, inspectMaterialDeletion }
+  {
+    prepareMaterialHistory,
+    scrubMaterialHistory,
+    inspectMaterialHistory,
+    prepareMaterialDeletion,
+    scrubMaterialDeletion,
+    inspectMaterialDeletion
+  }
 );
 
 function resolveTargets(

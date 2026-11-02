@@ -49,7 +49,12 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-export function setup(fixture: DeletionFixture, marker: string, target = false) {
+export function setup(
+  fixture: DeletionFixture,
+  marker: string,
+  target = false,
+  additionalInputVersionId?: MaterialVersionId
+) {
   return Effect.runPromise(
     Effect.gen(function* () {
       const chats = yield* Conversations;
@@ -78,7 +83,12 @@ export function setup(fixture: DeletionFixture, marker: string, target = false) 
       yield* chats.updateSessionSelection({
         sessionId: session.id,
         expectedRevision: 0n,
-        targets: [{ versionId: library.version.id, scope: { kind: 'document' } }]
+        targets: [
+          { versionId: library.version.id, scope: { kind: 'document' } },
+          ...(additionalInputVersionId === undefined
+            ? []
+            : [{ versionId: additionalInputVersionId, scope: { kind: 'document' as const } }])
+        ]
       });
 
       const capture = yield* chats.captureSessionContext({

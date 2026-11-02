@@ -231,3 +231,89 @@ test('upgrade preserves captured media metadata when the current source changes 
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('history guards upgrade populated publications without counting a newer tombstone as retained content', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'study-history-upgrade-'));
+  const path = join(directory, 'study.db');
+  const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
+  const oldMigrations = join(directory, 'old-migrations');
+
+  try {
+    for (const entry of readdirSync(migrations)) {
+      if (entry < '20261102035518_material-history')
+        cpSync(join(migrations, entry), join(oldMigrations, entry), { recursive: true });
+    }
+
+    const old = new DatabaseSync(path, { readBigInts: true });
+
+    try {
+      old.exec('PRAGMA foreign_keys=OFF');
+
+      migrate(drizzle({ client: old }), { migrationsFolder: oldMigrations });
+
+      old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
+      old.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','Upgrade history',1,1);
+        INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1),(2,1,'diagram',2,1),(3,1,'diagram',3,1);
+        INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','old'),(2,'mermaid','middle'),(3,'mermaid','current');
+        UPDATE material_versions SET status='published',published_at=2;`);
+    } finally {
+      old.close();
+    }
+
+    const upgraded = Db.open(path);
+
+    try {
+      assert.throws(() =>
+        upgraded.exec('DELETE FROM material_diagram_versions WHERE version_id=1')
+      );
+      upgraded.exec(`INSERT INTO material_history_prunes(operation_id,material_id,keep_latest,token,selection,status,created_at)
+        VALUES('upgrade-middle',1,1,'${'f'.repeat(64)}','["2"]','pending',3);
+        INSERT INTO material_history_members(version_id,operation_id) VALUES(2,'upgrade-middle');
+        DELETE FROM material_diagram_versions WHERE version_id=2;
+        UPDATE material_history_prunes SET status='completed',completed_at=4 WHERE operation_id='upgrade-middle';
+        INSERT INTO material_history_prunes(operation_id,material_id,keep_latest,token,selection,status,created_at)
+        VALUES('upgrade-keep-two',1,2,'${'a'.repeat(64)}','["1","3"]','pending',5);`);
+      assert.throws(() =>
+        upgraded.exec(
+          "INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'upgrade-keep-two')"
+        )
+      );
+      assert.throws(() =>
+        upgraded.exec(
+          "INSERT INTO material_history_members(version_id,operation_id) VALUES(3,'upgrade-keep-two')"
+        )
+      );
+      assert.throws(() =>
+        upgraded.exec("UPDATE material_diagram_versions SET payload='rewritten' WHERE version_id=1")
+      );
+      assert.deepEqual(upgraded.orm.all(sql`PRAGMA foreign_key_check`), []);
+    } finally {
+      upgraded.close();
+    }
+
+    const reopened = Db.open(path);
+
+    try {
+      assert.deepEqual(
+        reopened.orm
+          .all<{ version_id: bigint; payload: string }>(
+            sql`SELECT version_id,payload FROM material_diagram_versions ORDER BY version_id`
+          )
+          .map((row) => ({ ...row })),
+        [
+          { version_id: 1n, payload: 'old' },
+          { version_id: 3n, payload: 'current' }
+        ]
+      );
+      assert.throws(() =>
+        reopened.exec(
+          "INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'upgrade-keep-two')"
+        )
+      );
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

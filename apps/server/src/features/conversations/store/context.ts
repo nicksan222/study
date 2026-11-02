@@ -30,13 +30,14 @@ import {
   messages,
   message_parts,
   message_versions,
-  material_deletion_requests
+  conversation_history_intents
 } from '@study/db/schema';
 import { Schema, Option } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
+import { makeAssertContextAvailable } from './context-availability.ts';
 import { makeHistory } from './history.ts';
 
 const targetsCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
@@ -69,7 +70,7 @@ function canonicalIntent(input: typeof captureSessionContextSchema.Type) {
   };
 }
 
-function makeContextReads({ db }: StoreResources) {
+function makeContextReads({ db, clock }: StoreResources) {
   function session(id: typeof sessionSelectionInputSchema.Type.sessionId) {
     const row = db.orm.select().from(sessions).where(eq(sessions.id, id)).get();
 
@@ -117,19 +118,10 @@ function makeContextReads({ db }: StoreResources) {
       .get();
   }
 
-  function assertContextAvailable(requestId: string) {
-    if (
-      db.orm
-        .select()
-        .from(material_deletion_requests)
-        .where(eq(material_deletion_requests.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', 'Captured context is unavailable');
-  }
+  const assertContextAvailable = makeAssertContextAvailable({ db, clock });
 
   function requiredContext(requestId: string, available: boolean) {
-    assertContextAvailable(requestId);
+    assertContextAvailable(requestId, 'Captured context is unavailable');
 
     const row = retainedContext(requestId);
 
@@ -232,6 +224,20 @@ export const SessionContextIntentStore = defineStore({
           input: captureSessionContextSchema,
           output: Schema.Option(runSelectionContextSchema),
           run: (input) => {
+            if (
+              db.orm
+                .select()
+                .from(conversation_history_intents)
+                .where(
+                  and(
+                    eq(conversation_history_intents.session_id, input.sessionId),
+                    eq(conversation_history_intents.intent_key, input.intentKey)
+                  )
+                )
+                .get()
+            )
+              throw new StudyError('not_found', 'Captured input history is unavailable');
+
             const row = db.orm
               .select()
               .from(session_run_contexts)
@@ -284,7 +290,7 @@ export const SessionContextStore = defineStore({
           input: replySnapshotInputSchema,
           output: Schema.Option(runSelectionContextSchema),
           run: ({ requestId }) => {
-            assertContextAvailable(requestId);
+            assertContextAvailable(requestId, 'Captured context is unavailable');
 
             const row = retainedContext(requestId);
 

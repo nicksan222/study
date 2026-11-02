@@ -245,6 +245,20 @@ export const MaterialDeletionStore = defineStore({
 
             if (existing) return replayScope(input);
 
+            if (
+              db.orm
+                .select()
+                .from(s.material_history_prunes)
+                .where(
+                  sql`${s.material_history_prunes.material_id} IN (${sql.join(
+                    [input.materialId, ...input.descendantIds].map((id) => sql`${id}`),
+                    sql`,`
+                  )}) AND ${s.material_history_prunes.status} != 'completed'`
+                )
+                .get()
+            )
+              throw new StudyError('invalid_input', 'Material history cleanup is pending');
+
             const current = preview(input.materialId);
 
             if (current.token !== input.token)

@@ -12,17 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { materialIdSchema, materialVersionIdSchema } from '@study/contracts/ids';
-import { eq, inArray, sql } from '@study/db';
+import { materialIdSchema } from '@study/contracts/ids';
+import { inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-const inputIdsCodec = Schema.fromJsonString(
-  Schema.toCodecJson(Schema.Array(materialVersionIdSchema))
-);
+import { makeMaterialRetirement } from './material-retirement.ts';
 
 function makeVersionIds({ db }: StoreResources) {
   return (ids: readonly (typeof materialIdSchema.Type)[]) =>
@@ -40,6 +38,7 @@ export const LearningMaterialDeletionStore = defineStore({
   make: (resources) => {
     const { db } = resources;
     const versionIds = makeVersionIds(resources);
+    const retirement = makeMaterialRetirement(resources);
 
     return {
       queries: {},
@@ -50,50 +49,7 @@ export const LearningMaterialDeletionStore = defineStore({
           run: (ids) => {
             const versions = versionIds(ids);
 
-            const attempts = db.orm
-              .select()
-              .from(s.material_quiz_attempts)
-              .where(inArray(s.material_quiz_attempts.version_id, versions))
-              .all();
-
-            const slots = db.orm
-              .select()
-              .from(s.learning_practice_slots)
-              .all()
-              .filter(
-                (p) =>
-                  (p.version_id !== null && versions.includes(p.version_id)) ||
-                  (p.status === 'pending' &&
-                    Schema.decodeUnknownSync(inputIdsCodec)(p.input_version_ids).some((v) =>
-                      versions.some((id) => id === v)
-                    ))
-              );
-
-            for (const p of slots) {
-              const ownsOutput = p.version_id !== null && versions.includes(p.version_id);
-
-              db.orm
-                .update(s.learning_practice_slots)
-                .set({
-                  status: 'cancelled',
-                  ...(ownsOutput ? { version_id: null, attempt_id: null } : {})
-                })
-                .where(eq(s.learning_practice_slots.id, p.id))
-                .run();
-            }
-
-            const events = db.orm
-              .select()
-              .from(s.workflowEvents)
-              .where(
-                inArray(
-                  sql<string>`json_extract(${s.workflowEvents.payload}, '$.attemptId')`,
-                  attempts.map((a) => String(a.id))
-                )
-              )
-              .all();
-
-            return [...new Set([...slots.map((p) => p.id), ...events.map((e) => e.correlationId)])];
+            return retirement.cancelSlots(versions);
           }
         }),
         scrub: storeMutation({
@@ -102,15 +58,7 @@ export const LearningMaterialDeletionStore = defineStore({
           run: (ids) => {
             const versions = versionIds(ids);
 
-            db.orm
-              .delete(s.material_quiz_attempts)
-              .where(inArray(s.material_quiz_attempts.version_id, versions))
-              .run();
-
-            db.orm
-              .delete(s.material_card_reviews)
-              .where(inArray(s.material_card_reviews.version_id, versions))
-              .run();
+            retirement.scrubVersions(versions);
 
             const cards = db.orm
               .select()

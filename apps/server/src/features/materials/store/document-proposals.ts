@@ -135,6 +135,15 @@ function makeDocumentProposals(resources: StoreResources) {
       | typeof contract.applyDocumentProposalSchema.Type,
     operation: 'apply' | 'keep'
   ) {
+    if (
+      db.orm
+        .select()
+        .from(s.material_history_requests)
+        .where(eq(s.material_history_requests.request_id, value.requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Proposal input history is unavailable');
+
     const previous = db.orm
       .select()
       .from(s.document_proposal_receipts)

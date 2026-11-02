@@ -15,10 +15,7 @@
 
 import { createHash } from 'node:crypto';
 
-import {
-  runSelectionContextSchema,
-  selectionTargetsSchema
-} from '@study/contracts/conversations/context';
+import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { replySnapshotSchema } from '@study/contracts/conversations/schemas';
 import { materialIdSchema, sourceIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import { eq } from '@study/db';
@@ -28,13 +25,11 @@ import { Schema } from 'effect';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-import { makeDiscardPending } from './pending.ts';
+import { makeMaterialRetirement } from './material-retirement.ts';
 
 const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
 
 const replyCodec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
-
-const selectionCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
 
 function makeCapturedRows({ db }: StoreResources) {
   return (
@@ -46,7 +41,7 @@ function makeCapturedRows({ db }: StoreResources) {
       .from(s.material_versions)
       .all()
       .filter((v) => materialIds.includes(v.material_id))
-      .map((v) => String(v.id));
+      .map((v) => v.id);
     const matches = (snapshot: unknown) =>
       captured(snapshot, materialIds.map(String), sourceIds.map(String));
     const contexts = db.orm
@@ -70,7 +65,7 @@ export const ConversationMaterialDeletionStore = defineStore({
   make: (resources) => {
     const { db } = resources;
 
-    const discardPending = makeDiscardPending(resources);
+    const retirement = makeMaterialRetirement(resources);
     const capturedRows = makeCapturedRows(resources);
 
     return {
@@ -88,21 +83,7 @@ export const ConversationMaterialDeletionStore = defineStore({
 
             const ids = [...new Set([...contexts, ...replies].map((r) => r.request_id))];
 
-            for (const session of db.orm.select().from(s.sessions).all()) {
-              const previous = Schema.decodeUnknownSync(selectionCodec)(session.selection);
-
-              const selected = previous.filter((t) => !versionIds.includes(String(t.versionId)));
-
-              if (selected.length !== previous.length)
-                db.orm
-                  .update(s.sessions)
-                  .set({
-                    selection: Schema.encodeSync(selectionCodec)(selected),
-                    selection_revision: session.selection_revision + 1n
-                  })
-                  .where(eq(s.sessions.id, session.id))
-                  .run();
-            }
+            retirement.removeSelections(versionIds);
 
             return ids;
           }
@@ -118,29 +99,7 @@ export const ConversationMaterialDeletionStore = defineStore({
               .all();
 
             for (const r of requests) {
-              const reply = db.orm
-                .select({ message: s.messages, version: s.message_versions })
-                .from(s.conversation_reply_requests)
-                .innerJoin(
-                  s.message_versions,
-                  eq(s.message_versions.id, s.conversation_reply_requests.version_id)
-                )
-                .innerJoin(s.messages, eq(s.messages.id, s.message_versions.message_id))
-                .where(eq(s.conversation_reply_requests.request_id, r.request_id))
-                .get();
-
-              if (reply && reply.version.status !== 'complete')
-                discardPending(reply.message, reply.version);
-
-              db.orm
-                .delete(s.conversation_reply_requests)
-                .where(eq(s.conversation_reply_requests.request_id, r.request_id))
-                .run();
-
-              db.orm
-                .delete(s.session_run_contexts)
-                .where(eq(s.session_run_contexts.request_id, r.request_id))
-                .run();
+              retirement.scrubRequest(r.request_id);
             }
           }
         })
@@ -172,6 +131,7 @@ export const ConversationMaterialImpactStore = defineStore({
   make: (resources) => {
     const { db } = resources;
     const capturedRows = makeCapturedRows(resources);
+    const retirement = makeMaterialRetirement(resources);
 
     return {
       queries: {
@@ -206,15 +166,7 @@ export const ConversationMaterialImpactStore = defineStore({
                       .some((v) => materialIds.includes(v.material_id)))
               );
 
-            const sessions = db.orm
-              .select()
-              .from(s.sessions)
-              .all()
-              .filter((r) =>
-                Schema.decodeUnknownSync(selectionCodec)(r.selection).some((t) =>
-                  versionIds.includes(String(t.versionId))
-                )
-              );
+            const sessions = retirement.selectedSessions(versionIds);
 
             return {
               token: createHash('sha256')
