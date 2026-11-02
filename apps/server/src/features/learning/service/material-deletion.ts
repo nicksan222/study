@@ -1,6 +1,7 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Public synchronous participants retain feature ownership during Material cleanup.  │
+ * │ @file Public transaction participants keep learning persistence behind its owning        │
+ * │ feature.                                                                                 │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Keeps exact deletion behavior behind the owning feature boundary.                      │
@@ -12,33 +13,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialId, SourceId } from '@study/contracts/ids';
+import type { MaterialId } from '@study/contracts/ids';
 
+import { LearningMaterialDeletionStore } from '#server/features/learning/store/material-deletion';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
-import {
-  ConversationMaterialDeletionStore,
-  ConversationMaterialImpactStore
-} from './store/material-deletion.ts';
-
-export function prepareMaterialDeletion(
-  tx: Transaction,
-  input: {
-    deletionId: MaterialId;
-    materialIds: readonly MaterialId[];
-    sourceIds: readonly SourceId[];
-  }
-) {
-  return tx.store(ConversationMaterialDeletionStore).prepare(input);
+export function prepareMaterialDeletion(tx: Transaction, ids: readonly MaterialId[]) {
+  return tx.store(LearningMaterialDeletionStore).prepare(ids);
 }
 
-export function scrubMaterialDeletion(tx: Transaction, id: MaterialId) {
-  tx.store(ConversationMaterialDeletionStore).scrub(id);
-}
-
-export function inspectMaterialDeletion(
-  tx: Transaction,
-  input: { materialIds: readonly MaterialId[]; sourceIds: readonly SourceId[] }
-) {
-  return tx.store(ConversationMaterialImpactStore).conversationMaterialImpact(input);
+export function scrubMaterialDeletion(tx: Transaction, ids: readonly MaterialId[]) {
+  tx.store(LearningMaterialDeletionStore).scrub(ids);
 }

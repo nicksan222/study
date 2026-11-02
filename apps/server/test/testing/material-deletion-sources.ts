@@ -24,6 +24,7 @@ import { WorkflowEngine } from 'effect/workflow';
 import { Conversations } from '#server/features/conversations/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
+import { makeCreateMaterial } from '#server/features/materials/store/create-material';
 import { Recordings } from '#server/features/recordings/index';
 import {
   recordingPostWorkflow,
@@ -147,15 +148,22 @@ export async function sourceCopies(
 
       assert.ok(original);
 
-      const copy = yield* materials.create({
-        title: 'Independent source-bearing copy',
-        publish: true,
-        ...(linked ? { inputs: [original.version.id] } : {}),
-        content:
-          kind === 'image'
-            ? { kind: 'image', sourceId: source.id, width: null, height: null }
-            : { kind: 'file', sourceId: source.id }
-      });
+      // Independent source-bearing versions are a persistence invariant, not a public
+      // acquisition API. Exercise the owning writer in a real server transaction.
+      const copy = f.context.transaction(() =>
+        makeCreateMaterial({
+          db: f.context.db,
+          clock: f.context.clock
+        }).createMaterial({
+          title: 'Independent source-bearing copy',
+          publish: true,
+          ...(linked ? { inputs: [original.version.id] } : {}),
+          content:
+            kind === 'image'
+              ? { kind: 'image', sourceId: source.id, width: null, height: null }
+              : { kind: 'file', sourceId: source.id }
+        })
+      );
 
       const pin = f.context.db.orm
         .select()

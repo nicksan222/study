@@ -14,12 +14,11 @@
 
 import type { MaterialId, SourceId } from '@study/contracts/ids';
 
-import type { Transaction } from '#server/platform/definitions/define-store';
-
 import {
   SourceMaterialDeletionStore,
   SourceMaterialImpactStore
-} from './store/material-deletion.ts';
+} from '#server/features/sources/store/material-deletion';
+import type { Transaction } from '#server/platform/definitions/define-store';
 
 export function prepareMaterialDeletion(tx: Transaction, id: MaterialId) {
   return tx.store(SourceMaterialDeletionStore).prepare(id);

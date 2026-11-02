@@ -64,6 +64,20 @@ function makeDeletion({ db, clock }: StoreResources) {
     };
   }
 
+  function replayScope(input: typeof requestMaterialDeletionSchema.Type) {
+    const previous = status(input.materialId);
+    const requested = [input.materialId, ...input.descendantIds];
+
+    if (
+      previous.materialId !== input.materialId ||
+      requested.length !== previous.materialIds.length ||
+      requested.some((id) => !previous.materialIds.includes(id))
+    )
+      throw new StudyError('invalid_input', 'Overlapping deletion has a different scope');
+
+    return previous;
+  }
+
   function preview(id: MaterialId) {
     if (!db.orm.select().from(s.materials).where(eq(s.materials.id, id)).get())
       throw new StudyError('not_found', 'Material is unavailable');
@@ -175,14 +189,14 @@ function makeDeletion({ db, clock }: StoreResources) {
     return { ...value, token };
   }
 
-  return { status, preview, db, clock };
+  return { status, preview, replayScope, db, clock };
 }
 
 export const MaterialDeletionStore = defineStore({
   name: 'study/MaterialDeletionStore',
   entity: { singular: 'materialDeletion', plural: 'materialDeletions' },
   make: (resources) => {
-    const { status, preview, db, clock } = makeDeletion(resources);
+    const { status, preview, replayScope, db, clock } = makeDeletion(resources);
 
     const { removeContent } = makeContent(resources);
 
@@ -229,20 +243,7 @@ export const MaterialDeletionStore = defineStore({
               .where(eq(s.material_deletion_members.material_id, input.materialId))
               .get();
 
-            if (existing) {
-              const previous = status(input.materialId);
-
-              const requested = [input.materialId, ...input.descendantIds];
-
-              if (
-                previous.materialId !== input.materialId ||
-                requested.length !== previous.materialIds.length ||
-                requested.some((id) => !previous.materialIds.includes(id))
-              )
-                throw new StudyError('invalid_input', 'Overlapping deletion has a different scope');
-
-              return previous;
-            }
+            if (existing) return replayScope(input);
 
             const current = preview(input.materialId);
 

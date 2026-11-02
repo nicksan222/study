@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Public participants preserve recording ownership during Material retirement.       │
+ * │ @file Public synchronous participants retain feature ownership during Material cleanup.  │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Keeps exact deletion behavior behind the owning feature boundary.                      │
@@ -14,17 +14,30 @@
 
 import type { MaterialId, SourceId } from '@study/contracts/ids';
 
+import {
+  ConversationMaterialDeletionStore,
+  ConversationMaterialImpactStore
+} from '#server/features/conversations/store/material-deletion';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
-import {
-  RecordingMaterialImpactStore,
-  RecordingMaterialDeletionStore
-} from './store/material-deletion.ts';
-
-export function inspectMaterialDeletion(tx: Transaction, ids: readonly SourceId[]) {
-  return tx.store(RecordingMaterialImpactStore).recordingMaterialImpact(ids);
+export function prepareMaterialDeletion(
+  tx: Transaction,
+  input: {
+    deletionId: MaterialId;
+    materialIds: readonly MaterialId[];
+    sourceIds: readonly SourceId[];
+  }
+) {
+  return tx.store(ConversationMaterialDeletionStore).prepare(input);
 }
 
 export function scrubMaterialDeletion(tx: Transaction, id: MaterialId) {
-  tx.store(RecordingMaterialDeletionStore).scrub(id);
+  tx.store(ConversationMaterialDeletionStore).scrub(id);
+}
+
+export function inspectMaterialDeletion(
+  tx: Transaction,
+  input: { materialIds: readonly MaterialId[]; sourceIds: readonly SourceId[] }
+) {
+  return tx.store(ConversationMaterialImpactStore).conversationMaterialImpact(input);
 }

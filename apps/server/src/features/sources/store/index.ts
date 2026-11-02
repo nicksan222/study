@@ -115,8 +115,10 @@ function makeHelpers({ db }: StoreResources) {
         .get() !== undefined
     );
   }
+
   function find(id: SourceId) {
     if (unavailable(id)) throw new StudyError('not_found', 'Source is unavailable');
+
     const row = selectSources().where(eq(tables.sources.id, id)).get();
 
     return row ? sourceRow(row) : null;
@@ -124,6 +126,7 @@ function makeHelpers({ db }: StoreResources) {
 
   function state(id: SourceId) {
     if (unavailable(id)) throw new StudyError('not_found', 'Source is unavailable');
+
     const row = db.orm
       .select()
       .from(tables.source_processing)
@@ -669,8 +672,10 @@ export const SourceSnapshotStore = defineStore({
               )
             )
             .get();
+
           if (deleted && !retained)
             throw new StudyError('not_found', 'Source revision is unavailable');
+
           const row = db.orm
             .select()
             .from(tables.source_snapshots)

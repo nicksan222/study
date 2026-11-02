@@ -36,6 +36,8 @@ import {
 } from '#server/platform/definitions/define-store';
 import { pageById } from '#server/platform/definitions/page-by-id';
 
+import { inspectMaterialDeletion, scrubMaterialDeletion } from './material-deletion.ts';
+
 export const Recordings = defineService(
   'study/Recordings',
   Effect.gen(function* () {
@@ -91,5 +93,6 @@ export const Recordings = defineService(
           return tx.store(RecordingPostStore).finishRecordingPost(input);
         })
     };
-  })
+  }),
+  { inspectMaterialDeletion, scrubMaterialDeletion }
 );

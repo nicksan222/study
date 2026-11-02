@@ -77,6 +77,7 @@ export function nativeLayers(
     Workflows.layer,
     Recordings.layer,
     Materials.layer,
+    Materials.deletionParticipantsLayer({ Conversations, Learning, Sources, Recordings }),
     Conversations.layer,
     Learning.layer.pipe(Layer.provide(Layer.mergeAll(Settings.layer, Materials.layer))),
     Projects.layer,

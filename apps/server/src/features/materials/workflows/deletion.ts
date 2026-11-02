@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Runs retryable Material cleanup using native cancellation and guarded Activity.     │
+ * │ @file Runs retryable Material cleanup using native cancellation and guarded Activity.    │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Retains durable ownership and content-free retirement state.                           │
@@ -10,11 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
+import { failureSchema } from '@study/contracts/errors';
 import { materialDeletionRequestedSchema } from '@study/contracts/events';
 import { materialDeletionSchema } from '@study/contracts/materials/deletion';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import { Cause, Effect, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
 import { Materials } from '#server/features/materials/index';
@@ -23,7 +23,7 @@ import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
+import { retryResumableActivity, settleWorkflowFailure } from '#server/platform/workflows/retry';
 
 export const materialDeletionWorkflow = defineWorkflow({
   name: 'material-deletion',
@@ -69,28 +69,15 @@ export const materialDeletionHandler = ({
         })
       })
     ).pipe(
-      Effect.catchCause((cause) => {
-        const failure = Cause.squash(cause);
-        const kind =
-          failure instanceof StudyError
-            ? failure.kind
-            : Cause.hasInterrupts(cause)
-              ? 'cancelled'
-              : 'internal';
-        const error = new StudyError(kind, 'Material cleanup failed');
-
-        return materials
-          .failMaterialDeletion({
+      Effect.catchCause((cause) =>
+        settleWorkflowFailure(cause, 'Material cleanup failed', (kind) =>
+          materials.failMaterialDeletion({
             materialId: event.materialId,
             errorKind: kind,
             attempt: event.attempt
           })
-          .pipe(
-            Effect.uninterruptible,
-            Effect.catchCause(() => Effect.fail(error)),
-            Effect.andThen(Effect.fail(error))
-          );
-      })
+        )
+      )
     );
   });
 

@@ -100,6 +100,8 @@ export const MaterialDeletionOwnershipStore = defineStore({
             if (previous && previous.deletion_id !== deletionId)
               throw new StudyError('invalid_input', 'Deletion overlaps private cleanup ownership');
 
+            // Kind is first-claim provenance; the correlation has one global owner.
+            // Each participant resolves its own persisted rows under that owner.
             if (previous) continue;
 
             db.orm

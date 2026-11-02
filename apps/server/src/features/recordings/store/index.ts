@@ -78,6 +78,7 @@ function makeHelpers({ db }: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Recording capture is unavailable');
+
     const row = required(
       db.orm.select().from(recording_posts).where(eq(recording_posts.request_id, requestId)).get()
     );

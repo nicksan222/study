@@ -12,5 +12,4 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-export { inspectMaterialDeletion, scrubMaterialDeletion } from './material-deletion.ts';
 export { Recordings } from './service/index.ts';

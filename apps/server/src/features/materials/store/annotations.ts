@@ -49,6 +49,7 @@ function makeAnnotations(resources: StoreResources) {
     if (!row) return null;
 
     const value = decode(row.payload);
+
     if (
       db.orm
         .select()
@@ -154,6 +155,7 @@ function makeAnnotations(resources: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Material is unavailable');
+
     const rows = db.orm
       .select({ id: s.material_annotations.id })
       .from(s.material_annotations)
@@ -178,6 +180,7 @@ function makeAnnotations(resources: StoreResources) {
 
   function history(value: typeof contract.annotationHistoryInputSchema.Type) {
     if (!read(value.id)) throw new StudyError('not_found', 'Annotation is unavailable');
+
     const rows = db.orm
       .select()
       .from(s.material_annotation_revisions)

@@ -177,6 +177,7 @@ export function makeGeneration(resources: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Material generation has been retired');
+
     const row = db.orm
       .select()
       .from(s.material_generation_requests)

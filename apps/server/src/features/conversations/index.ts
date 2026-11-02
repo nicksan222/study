@@ -11,10 +11,4 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-export {
-  prepareMaterialDeletion,
-  scrubMaterialDeletion,
-  inspectMaterialDeletion
-} from './material-deletion.ts';
-
 export { Conversations } from './service/index.ts';

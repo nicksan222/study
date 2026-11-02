@@ -26,6 +26,7 @@ import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeDiscardPending } from './pending.ts';
 
@@ -35,6 +36,34 @@ const replyCodec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema)
 
 const selectionCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
 
+function makeCapturedRows({ db }: StoreResources) {
+  return (
+    materialIds: readonly (typeof materialIdSchema.Type)[],
+    sourceIds: readonly (typeof sourceIdSchema.Type)[]
+  ) => {
+    const versionIds = db.orm
+      .select()
+      .from(s.material_versions)
+      .all()
+      .filter((v) => materialIds.includes(v.material_id))
+      .map((v) => String(v.id));
+    const matches = (snapshot: unknown) =>
+      captured(snapshot, materialIds.map(String), sourceIds.map(String));
+    const contexts = db.orm
+      .select()
+      .from(s.session_run_contexts)
+      .all()
+      .filter((r) => matches(Schema.decodeUnknownSync(contextCodec)(r.snapshot)));
+    const replies = db.orm
+      .select()
+      .from(s.conversation_reply_requests)
+      .all()
+      .filter((r) => matches(Schema.decodeUnknownSync(replyCodec)(r.snapshot)));
+
+    return { versionIds, contexts, replies };
+  };
+}
+
 export const ConversationMaterialDeletionStore = defineStore({
   name: 'study/ConversationMaterialDeletionStore',
   entity: { singular: 'conversationMaterialDeletion', plural: 'conversationMaterialDeletions' },
@@ -42,6 +71,7 @@ export const ConversationMaterialDeletionStore = defineStore({
     const { db } = resources;
 
     const discardPending = makeDiscardPending(resources);
+    const capturedRows = makeCapturedRows(resources);
 
     return {
       queries: {},
@@ -54,27 +84,7 @@ export const ConversationMaterialDeletionStore = defineStore({
           }),
           output: Schema.Array(Schema.String),
           run: ({ materialIds, sourceIds }) => {
-            const versionIds = db.orm
-              .select()
-              .from(s.material_versions)
-              .all()
-              .filter((v) => materialIds.includes(v.material_id))
-              .map((v) => String(v.id));
-
-            const matches = (snapshot: unknown) =>
-              captured(snapshot, materialIds.map(String), sourceIds.map(String));
-
-            const contexts = db.orm
-              .select()
-              .from(s.session_run_contexts)
-              .all()
-              .filter((r) => matches(Schema.decodeUnknownSync(contextCodec)(r.snapshot)));
-
-            const replies = db.orm
-              .select()
-              .from(s.conversation_reply_requests)
-              .all()
-              .filter((r) => matches(Schema.decodeUnknownSync(replyCodec)(r.snapshot)));
+            const { versionIds, contexts, replies } = capturedRows(materialIds, sourceIds);
 
             const ids = [...new Set([...contexts, ...replies].map((r) => r.request_id))];
 
@@ -105,8 +115,7 @@ export const ConversationMaterialDeletionStore = defineStore({
               .select()
               .from(s.material_deletion_requests)
               .where(eq(s.material_deletion_requests.deletion_id, id))
-              .all()
-              .filter((r) => r.kind === 'context');
+              .all();
 
             for (const r of requests) {
               const reply = db.orm
@@ -160,90 +169,75 @@ function captured(
 export const ConversationMaterialImpactStore = defineStore({
   name: 'study/ConversationMaterialImpactStore',
   entity: { singular: 'conversationMaterialImpact', plural: 'conversationMaterialImpacts' },
-  make: ({ db }) => ({
-    queries: {
-      conversationMaterialImpact: storeQuery({
-        role: 'required',
-        input: Schema.Struct({
-          materialIds: Schema.Array(materialIdSchema),
-          sourceIds: Schema.Array(sourceIdSchema)
-        }),
-        output: Schema.Struct({
-          token: Schema.String,
-          requestIds: Schema.Array(Schema.String),
-          sessionIds: Schema.Array(sessionIdSchema),
-          messageCitationCount: Schema.Int
-        }),
-        run: ({ materialIds, sourceIds }) => {
-          const versionIds = db.orm
-            .select()
-            .from(s.material_versions)
-            .all()
-            .filter((v) => materialIds.includes(v.material_id))
-            .map((v) => String(v.id));
+  make: (resources) => {
+    const { db } = resources;
+    const capturedRows = makeCapturedRows(resources);
 
-          const matches = (snapshot: unknown) =>
-            captured(snapshot, materialIds.map(String), sourceIds.map(String));
+    return {
+      queries: {
+        conversationMaterialImpact: storeQuery({
+          role: 'required',
+          input: Schema.Struct({
+            materialIds: Schema.Array(materialIdSchema),
+            sourceIds: Schema.Array(sourceIdSchema)
+          }),
+          output: Schema.Struct({
+            token: Schema.String,
+            requestIds: Schema.Array(Schema.String),
+            sessionIds: Schema.Array(sessionIdSchema),
+            messageCitationCount: Schema.Int
+          }),
+          run: ({ materialIds, sourceIds }) => {
+            const { versionIds, contexts, replies } = capturedRows(materialIds, sourceIds);
 
-          const contexts = db.orm
-            .select()
-            .from(s.session_run_contexts)
-            .all()
-            .filter((r) => matches(Schema.decodeUnknownSync(contextCodec)(r.snapshot)));
+            const citations = db.orm
+              .select()
+              .from(s.citations)
+              .all()
+              .filter(
+                (c) =>
+                  (c.source_id !== null && sourceIds.includes(c.source_id)) ||
+                  (c.material_version_id !== null &&
+                    db.orm
+                      .select()
+                      .from(s.material_versions)
+                      .where(eq(s.material_versions.id, c.material_version_id))
+                      .all()
+                      .some((v) => materialIds.includes(v.material_id)))
+              );
 
-          const replies = db.orm
-            .select()
-            .from(s.conversation_reply_requests)
-            .all()
-            .filter((r) => matches(Schema.decodeUnknownSync(replyCodec)(r.snapshot)));
-
-          const citations = db.orm
-            .select()
-            .from(s.citations)
-            .all()
-            .filter(
-              (c) =>
-                (c.source_id !== null && sourceIds.includes(c.source_id)) ||
-                (c.material_version_id !== null &&
-                  db.orm
-                    .select()
-                    .from(s.material_versions)
-                    .where(eq(s.material_versions.id, c.material_version_id))
-                    .all()
-                    .some((v) => materialIds.includes(v.material_id)))
-            );
-
-          const sessions = db.orm
-            .select()
-            .from(s.sessions)
-            .all()
-            .filter((r) =>
-              Schema.decodeUnknownSync(selectionCodec)(r.selection).some((t) =>
-                versionIds.includes(String(t.versionId))
-              )
-            );
-
-          return {
-            token: createHash('sha256')
-              .update(
-                JSON.stringify({ contexts, replies, citations, sessions }, (_, v) =>
-                  typeof v === 'bigint' ? String(v) : v
+            const sessions = db.orm
+              .select()
+              .from(s.sessions)
+              .all()
+              .filter((r) =>
+                Schema.decodeUnknownSync(selectionCodec)(r.selection).some((t) =>
+                  versionIds.includes(String(t.versionId))
                 )
-              )
-              .digest('hex'),
-            requestIds: [...new Set([...contexts, ...replies].map((r) => r.request_id))],
-            sessionIds: [
-              ...new Set(
-                [...contexts, ...replies, ...sessions].map((r) =>
-                  'session_id' in r ? r.session_id : r.id
+              );
+
+            return {
+              token: createHash('sha256')
+                .update(
+                  JSON.stringify({ contexts, replies, citations, sessions }, (_, v) =>
+                    typeof v === 'bigint' ? String(v) : v
+                  )
                 )
-              )
-            ],
-            messageCitationCount: citations.length
-          };
-        }
-      })
-    },
-    mutations: {}
-  })
+                .digest('hex'),
+              requestIds: [...new Set([...contexts, ...replies].map((r) => r.request_id))],
+              sessionIds: [
+                ...new Set(
+                  [...contexts, ...replies, ...sessions].map((r) =>
+                    'session_id' in r ? r.session_id : r.id
+                  )
+                )
+              ],
+              messageCitationCount: citations.length
+            };
+          }
+        })
+      },
+      mutations: {}
+    };
+  }
 });

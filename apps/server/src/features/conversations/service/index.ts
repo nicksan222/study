@@ -82,6 +82,11 @@ import {
 } from '#server/platform/definitions/define-store';
 
 import { resolveMessageCitations } from './citations.ts';
+import {
+  prepareMaterialDeletion,
+  scrubMaterialDeletion,
+  inspectMaterialDeletion
+} from './material-deletion.ts';
 
 export const Conversations = defineService(
   'study/Conversations',
@@ -478,7 +483,8 @@ export const Conversations = defineService(
           return status;
         })
     };
-  })
+  }),
+  { prepareMaterialDeletion, scrubMaterialDeletion, inspectMaterialDeletion }
 );
 
 function resolveTargets(

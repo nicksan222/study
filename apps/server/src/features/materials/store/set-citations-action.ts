@@ -62,6 +62,7 @@ export function makeSetCitationsAction(resources: StoreResources) {
 
       for (const citation of input.citations) {
         versionRow(citation.inputVersionId);
+
         if (citation.target) {
           const documentId = versionDocumentId(citation.inputVersionId);
 

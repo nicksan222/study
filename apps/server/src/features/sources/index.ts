@@ -12,10 +12,4 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-export {
-  prepareMaterialDeletion,
-  scrubMaterialDeletion,
-  inspectMaterialDeletion
-} from './material-deletion.ts';
-
 export { Sources } from './service/index.ts';

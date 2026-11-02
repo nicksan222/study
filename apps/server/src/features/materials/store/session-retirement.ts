@@ -111,6 +111,7 @@ export function makeProposalRetirement(resources: StoreResources) {
 function makeRetirement(resources: StoreResources) {
   const { db } = resources;
   const retireProposal = makeProposalRetirement(resources);
+
   return {
     prepare: storeMutation({
       input: Schema.Struct({ sessionId: sessionIdSchema, contextIds: Schema.Array(Schema.String) }),

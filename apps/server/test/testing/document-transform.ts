@@ -23,6 +23,7 @@ import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/index';
 import { conversationReplyWorkflow } from '#server/features/conversations/workflows/index';
+import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import {
   materialGenerationWorkflow,
@@ -179,6 +180,7 @@ export async function documentTransformFixture() {
     const domain = () =>
       Layer.mergeAll(
         Materials.layer,
+        Materials.deletionParticipantsLayer({ Conversations, Learning, Sources, Recordings }),
         Projects.layer,
         Conversations.layer,
         Settings.layer,

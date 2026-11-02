@@ -287,10 +287,10 @@ test('deletion coordinators compose public Materials and Workflows retirement pa
 test('Material cleanup composes public synchronous participants and cannot expose or import private retirement stores', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/features/materials/service/deletion.ts': `
-      import * as Sources from '#server/features/sources/index';
-      import * as Conversations from '#server/features/conversations/index';
-      import * as Recordings from '#server/features/recordings/index';
-      import * as Learning from '#server/features/learning/index';
+      import { Sources } from '#server/features/sources/index';
+      import { Conversations } from '#server/features/conversations/index';
+      import { Recordings } from '#server/features/recordings/index';
+      import { Learning } from '#server/features/learning/index';
       import { Workflows } from '#server/features/workflows/index';
       import { publicationTransaction } from '#server/platform/definitions/define-store';
       export const finish = id => publicationTransaction(tx => {

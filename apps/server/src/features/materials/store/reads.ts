@@ -59,6 +59,7 @@ export function makeReads({ db: store }: StoreResources) {
     )
       throw new StudyError('not_found', 'Material is unavailable');
   }
+
   function materialRow(id: MaterialId, active = false) {
     assertAvailable(id);
     const row = required(store.orm.select().from(s.materials).where(eq(s.materials.id, id)).get());
@@ -191,6 +192,7 @@ export function makeReads({ db: store }: StoreResources) {
     if (!row) return null;
 
     assertAvailable(row.material_id);
+
     return readVersionContent(row);
   }
 

@@ -181,6 +181,21 @@ for (const rewrite of [false, true]) {
 
       const otherGate = DurableDeferred.make('unrelated-reply-gate');
 
+      const pausedReply = ({ event }: typeof conversationReplyWorkflow.payloadSchema.Type) =>
+        Effect.gen(function* () {
+          if (event.requestId === saved.pending.requestId) {
+            yield* Activity.make({
+              name: 'private-reply-checkpoint',
+              success: Schema.String,
+              execute: Effect.succeed('PRIVATE_REPLY_CHECKPOINT_ONLY')
+            });
+
+            yield* DurableDeferred.await(gate);
+          } else yield* DurableDeferred.await(otherGate);
+
+          return event.versionId;
+        });
+
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -188,21 +203,7 @@ for (const rewrite of [false, true]) {
 
             const m = yield* Materials;
 
-            yield* engine.register(conversationReplyWorkflow, ({ event }) =>
-              Effect.gen(function* () {
-                if (event.requestId === saved.pending.requestId) {
-                  yield* Activity.make({
-                    name: 'private-reply-checkpoint',
-                    success: Schema.String,
-                    execute: Effect.succeed('PRIVATE_REPLY_CHECKPOINT_ONLY')
-                  });
-
-                  yield* DurableDeferred.await(gate);
-                } else yield* DurableDeferred.await(otherGate);
-
-                return event.versionId;
-              })
-            );
+            yield* engine.register(conversationReplyWorkflow, pausedReply);
 
             yield* engine.register(materialDeletionWorkflow, materialDeletionHandler);
 

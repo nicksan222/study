@@ -17,24 +17,61 @@ import { randomUUID, createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
-import type { MaterialId } from '@study/contracts/ids';
+import type { MaterialId, SourceId, SessionId } from '@study/contracts/ids';
 import type {
   requestMaterialDeletionSchema,
   materialDeletionSchema
 } from '@study/contracts/materials/deletion';
-import { Option } from 'effect';
+import { Context, Effect, Layer, Option } from 'effect';
 
-import * as Conversations from '#server/features/conversations/index';
-import * as Learning from '#server/features/learning/index';
-import * as Recordings from '#server/features/recordings/index';
-import * as Sources from '#server/features/sources/index';
+import {
+  MaterialDeletionStore,
+  MaterialDeletionPreviewStore
+} from '#server/features/materials/store/deletion';
+import { MaterialDeletionGenerationStore } from '#server/features/materials/store/deletion-generation';
+import { MaterialDeletionOwnershipStore } from '#server/features/materials/store/deletion-ownership';
 import { Workflows } from '#server/features/workflows/index';
 import { transaction, publicationTransaction } from '#server/platform/definitions/define-store';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
-import { MaterialDeletionGenerationStore } from '../store/deletion-generation.ts';
-import { MaterialDeletionOwnershipStore } from '../store/deletion-ownership.ts';
-import { MaterialDeletionStore, MaterialDeletionPreviewStore } from '../store/deletion.ts';
+type Scope = { materialIds: readonly MaterialId[]; sourceIds: readonly SourceId[] };
+type Inspect = { token: string; requestIds: readonly string[] };
+type ParticipantSet = {
+  Conversations: {
+    inspectMaterialDeletion: (
+      tx: Transaction,
+      scope: Scope
+    ) => Inspect & {
+      sessionIds: readonly SessionId[];
+      messageCitationCount: number;
+    };
+    prepareMaterialDeletion: (
+      tx: Transaction,
+      scope: Scope & { deletionId: MaterialId }
+    ) => readonly string[];
+    scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
+  };
+  Sources: {
+    inspectMaterialDeletion: (tx: Transaction, ids: readonly SourceId[]) => string;
+    prepareMaterialDeletion: (tx: Transaction, id: MaterialId) => readonly string[];
+    scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
+  };
+  Recordings: {
+    inspectMaterialDeletion: (tx: Transaction, ids: readonly SourceId[]) => Inspect;
+    scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
+  };
+  Learning: {
+    prepareMaterialDeletion: (tx: Transaction, ids: readonly MaterialId[]) => readonly string[];
+    scrubMaterialDeletion: (tx: Transaction, ids: readonly MaterialId[]) => void;
+  };
+};
+
+const DeletionParticipants = Context.Service<ParticipantSet>('study/MaterialDeletionParticipants');
+
+/** Runtime supplies public synchronous participants without reversing feature dependencies. */
+export function deletionParticipantsLayer(participants: ParticipantSet) {
+  return Layer.succeed(DeletionParticipants, participants);
+}
 
 const eventTypes = [
   'RecordingPostRequested',
@@ -69,19 +106,19 @@ function correlations(tx: Transaction, id: MaterialId) {
   return tx.store(MaterialDeletionOwnershipStore).materialDeletionOwnership(id).requestIds;
 }
 
-function preview(tx: Transaction, materialId: MaterialId) {
+function preview(tx: Transaction, materialId: MaterialId, participants: ParticipantSet) {
   const base = tx.store(MaterialDeletionPreviewStore).materialDeletionPreview(materialId);
 
   const materialIds = [materialId, ...base.descendants];
 
-  const conversation = Conversations.inspectMaterialDeletion(tx, {
+  const conversation = participants.Conversations.inspectMaterialDeletion(tx, {
     materialIds,
     sourceIds: base.sourceIds
   });
 
-  const source = Sources.inspectMaterialDeletion(tx, base.sourceIds);
+  const source = participants.Sources.inspectMaterialDeletion(tx, base.sourceIds);
 
-  const recordings = Recordings.inspectMaterialDeletion(tx, base.sourceIds);
+  const recordings = participants.Recordings.inspectMaterialDeletion(tx, base.sourceIds);
 
   return {
     ...base,
@@ -99,80 +136,94 @@ function preview(tx: Transaction, materialId: MaterialId) {
 export function materialDeletionOperations() {
   return {
     previewDeletion: ({ materialId }: { materialId: MaterialId }) =>
-      transaction((tx) => preview(tx, materialId)),
+      Effect.flatMap(DeletionParticipants, (participants) =>
+        transaction((tx) => preview(tx, materialId, participants))
+      ),
     deletion: ({ materialId }: { materialId: MaterialId }) =>
       transaction((tx) => tx.store(MaterialDeletionStore).materialDeletion(materialId)),
     requestDeletion: (input: typeof requestMaterialDeletionSchema.Type) =>
-      transaction((tx) => {
-        const previous = tx.store(MaterialDeletionStore).findMaterialDeletion(input.materialId);
+      Effect.flatMap(DeletionParticipants, (participants) =>
+        transaction((tx) => {
+          const previous = tx.store(MaterialDeletionStore).findMaterialDeletion(input.materialId);
 
-        if (Option.isNone(previous) && preview(tx, input.materialId).token !== input.token)
-          throw new StudyError('invalid_input', 'Deletion preview changed');
+          if (
+            Option.isNone(previous) &&
+            preview(tx, input.materialId, participants).token !== input.token
+          )
+            throw new StudyError('invalid_input', 'Deletion preview changed');
 
-        const base = Option.isNone(previous)
-          ? tx.store(MaterialDeletionPreviewStore).materialDeletionPreview(input.materialId)
-          : null;
+          const base = Option.isNone(previous)
+            ? tx.store(MaterialDeletionPreviewStore).materialDeletionPreview(input.materialId)
+            : null;
 
-        const status = tx
-          .store(MaterialDeletionStore)
-          .accept({ ...input, token: base?.token ?? input.token, operationId: randomUUID() });
+          const status = tx
+            .store(MaterialDeletionStore)
+            .accept({ ...input, token: base?.token ?? input.token, operationId: randomUUID() });
 
-        if (Option.isSome(previous)) return status;
+          if (Option.isSome(previous)) return status;
 
-        const sourceIdsForScope = tx
-          .store(MaterialDeletionOwnershipStore)
-          .materialDeletionOwnership(status.materialId).sourceIds;
+          const sourceIdsForScope = tx
+            .store(MaterialDeletionOwnershipStore)
+            .materialDeletionOwnership(status.materialId).sourceIds;
 
-        const contextIds = Conversations.prepareMaterialDeletion(tx, {
-          deletionId: status.materialId,
-          materialIds: status.materialIds,
-          sourceIds: sourceIdsForScope
-        });
+          const contextIds = participants.Conversations.prepareMaterialDeletion(tx, {
+            deletionId: status.materialId,
+            materialIds: status.materialIds,
+            sourceIds: sourceIdsForScope
+          });
 
-        const ownership = tx.store(MaterialDeletionOwnershipStore);
+          const ownership = tx.store(MaterialDeletionOwnershipStore);
 
-        ownership.retain({
-          deletionId: status.materialId,
-          requestIds: contextIds,
-          kind: 'context'
-        });
+          ownership.retain({
+            deletionId: status.materialId,
+            requestIds: contextIds,
+            kind: 'context'
+          });
 
-        tx.store(MaterialDeletionGenerationStore).prepare({
-          deletionId: status.materialId,
-          contextIds
-        });
+          tx.store(MaterialDeletionGenerationStore).prepare({
+            deletionId: status.materialId,
+            contextIds
+          });
 
-        const sourceIds = Sources.prepareMaterialDeletion(tx, status.materialId);
+          const sourceIds = participants.Sources.prepareMaterialDeletion(tx, status.materialId);
 
-        const learningIds = Learning.prepareMaterialDeletion(tx, status.materialIds);
+          const learningIds = participants.Learning.prepareMaterialDeletion(tx, status.materialIds);
 
-        const recordingIds = Recordings.inspectMaterialDeletion(tx, sourceIdsForScope).requestIds;
+          const recordingIds = participants.Recordings.inspectMaterialDeletion(
+            tx,
+            sourceIdsForScope
+          ).requestIds;
 
-        ownership.retain({ deletionId: status.materialId, requestIds: sourceIds, kind: 'source' });
+          ownership.retain({
+            deletionId: status.materialId,
+            requestIds: sourceIds,
+            kind: 'source'
+          });
 
-        ownership.retain({
-          deletionId: status.materialId,
-          requestIds: recordingIds,
-          kind: 'recording'
-        });
+          ownership.retain({
+            deletionId: status.materialId,
+            requestIds: recordingIds,
+            kind: 'recording'
+          });
 
-        ownership.retain({
-          deletionId: status.materialId,
-          requestIds: learningIds,
-          kind: 'learning'
-        });
+          ownership.retain({
+            deletionId: status.materialId,
+            requestIds: learningIds,
+            kind: 'learning'
+          });
 
-        ownership.retain({
-          deletionId: status.materialId,
-          requestIds: ownership.materialDeletionOwnership(status.materialId).publicationIds,
-          kind: 'publication'
-        });
+          ownership.retain({
+            deletionId: status.materialId,
+            requestIds: ownership.materialDeletionOwnership(status.materialId).publicationIds,
+            kind: 'publication'
+          });
 
-        Workflows.retireCorrelations(tx, correlations(tx, status.materialId), eventTypes);
-        emit(tx, status);
+          Workflows.retireCorrelations(tx, correlations(tx, status.materialId), eventTypes);
+          emit(tx, status);
 
-        return status;
-      }),
+          return status;
+        })
+      ),
     retryDeletion: ({ materialId }: { materialId: MaterialId }) =>
       transaction((tx) => {
         const previous = tx.store(MaterialDeletionStore).materialDeletion(materialId);
@@ -196,27 +247,29 @@ export function materialDeletionOperations() {
     materialDeletionExecutions: (id: MaterialId) =>
       transaction((tx) => Workflows.retireCorrelations(tx, correlations(tx, id), eventTypes)),
     finishMaterialDeletion: (input: { materialId: MaterialId; attempt: number }) =>
-      publicationTransaction((tx) => {
-        const status = tx.store(MaterialDeletionStore).materialDeletion(input.materialId);
+      Effect.flatMap(DeletionParticipants, (participants) =>
+        publicationTransaction((tx) => {
+          const status = tx.store(MaterialDeletionStore).materialDeletion(input.materialId);
 
-        if (status.status === 'completed' || status.attempt !== input.attempt) return status;
+          if (status.status === 'completed' || status.attempt !== input.attempt) return status;
 
-        tx.store(MaterialDeletionGenerationStore).scrub(status.materialId);
+          tx.store(MaterialDeletionGenerationStore).scrub(status.materialId);
 
-        Conversations.scrubMaterialDeletion(tx, status.materialId);
+          participants.Conversations.scrubMaterialDeletion(tx, status.materialId);
 
-        Learning.scrubMaterialDeletion(tx, status.materialIds);
+          participants.Learning.scrubMaterialDeletion(tx, status.materialIds);
 
-        tx.store(MaterialDeletionStore).scrub(status.materialId);
+          tx.store(MaterialDeletionStore).scrub(status.materialId);
 
-        Sources.scrubMaterialDeletion(tx, status.materialId);
+          participants.Sources.scrubMaterialDeletion(tx, status.materialId);
 
-        Recordings.scrubMaterialDeletion(tx, status.materialId);
+          participants.Recordings.scrubMaterialDeletion(tx, status.materialId);
 
-        Workflows.scrubRetiredCorrelations(tx, correlations(tx, status.materialId));
+          Workflows.scrubRetiredCorrelations(tx, correlations(tx, status.materialId));
 
-        return tx.store(MaterialDeletionStore).settle({ ...input, errorKind: null });
-      }),
+          return tx.store(MaterialDeletionStore).settle({ ...input, errorKind: null });
+        })
+      ),
     failMaterialDeletion: (input: {
       materialId: MaterialId;
       attempt: number;

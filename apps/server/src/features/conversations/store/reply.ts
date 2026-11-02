@@ -361,6 +361,7 @@ function makeHelpers({ db, clock }: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Reply context is unavailable');
+
     const row = db.orm
       .select()
       .from(conversation_reply_requests)

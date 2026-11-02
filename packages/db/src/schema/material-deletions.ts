@@ -25,6 +25,7 @@ export const material_deletions = sqliteTable(
     )
   ]
 );
+
 export const material_deletion_members = sqliteTable('material_deletion_members', {
   material_id: integer().$type<MaterialId>().primaryKey(),
   deletion_id: integer()
@@ -32,6 +33,7 @@ export const material_deletion_members = sqliteTable('material_deletion_members'
     .notNull()
     .references(() => material_deletions.material_id)
 });
+
 /** Exact captured ownership survives scrub and restart without retaining captured content. */
 export const material_deletion_requests = sqliteTable('material_deletion_requests', {
   request_id: text().primaryKey(),

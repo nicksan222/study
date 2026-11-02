@@ -10,6 +10,7 @@ import {
 } from '../ids.ts';
 
 export const materialDeletionKeySchema = Schema.Struct({ materialId: materialIdSchema });
+
 export const materialDeletionPreviewSchema = Schema.Struct({
   materialId: materialIdSchema,
   token: Schema.String,
@@ -36,11 +37,13 @@ export const materialDeletionPreviewSchema = Schema.Struct({
   privateRequestIds: Schema.Array(Schema.String),
   retainedCopies: Schema.Literal('unselected_materials_and_published_messages_including_recordings')
 });
+
 export const requestMaterialDeletionSchema = Schema.Struct({
   materialId: materialIdSchema,
   token: Schema.String,
   descendantIds: Schema.Array(materialIdSchema)
 });
+
 export const materialDeletionSchema = Schema.Struct({
   materialId: materialIdSchema,
   operationId: Schema.String,

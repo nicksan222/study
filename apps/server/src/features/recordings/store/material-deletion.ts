@@ -76,7 +76,6 @@ export const RecordingMaterialDeletionStore = defineStore({
             .from(s.material_deletion_requests)
             .where(eq(s.material_deletion_requests.deletion_id, id))
             .all()
-            .filter((r) => r.kind === 'recording')
             .map((r) => r.request_id);
 
           for (const requestId of ids) {

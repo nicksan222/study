@@ -28,6 +28,7 @@ import {
 } from '#server/features/materials/workflows/deletion';
 import { decodeEvent } from '#server/platform/workflows/events';
 import type { documentTransformFixture } from '#testing/document-transform';
+
 export type MaterialDeletionFixture = Awaited<ReturnType<typeof documentTransformFixture>>;
 
 export function acceptMaterialDeletion(

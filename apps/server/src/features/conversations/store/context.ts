@@ -117,7 +117,7 @@ function makeContextReads({ db }: StoreResources) {
       .get();
   }
 
-  function requiredContext(requestId: string, available: boolean) {
+  function assertContextAvailable(requestId: string) {
     if (
       db.orm
         .select()
@@ -126,6 +126,11 @@ function makeContextReads({ db }: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Captured context is unavailable');
+  }
+
+  function requiredContext(requestId: string, available: boolean) {
+    assertContextAvailable(requestId);
+
     const row = retainedContext(requestId);
 
     if (!row) throw new StudyError('not_found', 'Captured context is unavailable');
@@ -135,7 +140,14 @@ function makeContextReads({ db }: StoreResources) {
       : Schema.decodeUnknownSync(contextCodec)(row.snapshot);
   }
 
-  return { session, selection, decodeContext, retainedContext, requiredContext };
+  return {
+    session,
+    selection,
+    decodeContext,
+    retainedContext,
+    requiredContext,
+    assertContextAvailable
+  };
 }
 
 export const SessionSelectionStore = defineStore({
@@ -255,7 +267,7 @@ export const SessionContextStore = defineStore({
   entity: { singular: 'sessionContext', plural: 'sessionContexts' },
   make: (resources) => {
     const { db } = resources;
-    const { session, requiredContext, retainedContext, decodeContext } =
+    const { session, requiredContext, retainedContext, decodeContext, assertContextAvailable } =
       makeContextReads(resources);
     const { conversationHistory, conversationRoot } = makeHistory(resources);
 
@@ -272,14 +284,8 @@ export const SessionContextStore = defineStore({
           input: replySnapshotInputSchema,
           output: Schema.Option(runSelectionContextSchema),
           run: ({ requestId }) => {
-            if (
-              db.orm
-                .select()
-                .from(material_deletion_requests)
-                .where(eq(material_deletion_requests.request_id, requestId))
-                .get()
-            )
-              throw new StudyError('not_found', 'Captured context is unavailable');
+            assertContextAvailable(requestId);
+
             const row = retainedContext(requestId);
 
             return row ? Option.some(decodeContext(row.snapshot)) : Option.none();

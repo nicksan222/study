@@ -245,6 +245,8 @@ test('preview rejects unrelated and duplicate scope, new descendants and newly c
             'invalid_input'
           );
 
+        yield* (yield* Conversations).abandonReply(saved.pending);
+
         const p2 = yield* m.previewDeletion({ materialId: saved.library.id });
 
         yield* (yield* Conversations).captureSessionContext({
@@ -622,6 +624,18 @@ test('native retirement rejects late checkpoints and deferred delivery while unr
       success: Schema.String
     });
 
+    const pausedGeneration = Effect.gen(function* () {
+      yield* Activity.make({
+        name: 'private-material-partial',
+        success: Schema.String,
+        execute: Effect.succeed('PRIVATE_NATIVE_CHECKPOINT_DELETE')
+      });
+
+      yield* DurableDeferred.await(gate);
+
+      return saved.library.version.id;
+    });
+
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -629,19 +643,7 @@ test('native retirement rejects late checkpoints and deferred delivery while unr
 
           const m = yield* Materials;
 
-          yield* engine.register(materialGenerationWorkflow, () =>
-            Effect.gen(function* () {
-              yield* Activity.make({
-                name: 'private-material-partial',
-                success: Schema.String,
-                execute: Effect.succeed('PRIVATE_NATIVE_CHECKPOINT_DELETE')
-              });
-
-              yield* DurableDeferred.await(gate);
-
-              return saved.library.version.id;
-            })
-          );
+          yield* engine.register(materialGenerationWorkflow, () => pausedGeneration);
 
           yield* engine.register(independent, () =>
             DurableDeferred.await(independentGate).pipe(Effect.as('kept'))
@@ -728,10 +730,10 @@ test('generated output committed before acceptance retains copied text after inp
   try {
     const saved = await setup(f, 'PRIVATE_GENERATED_CONTEXT');
 
-    f.replies.push({
-      kind: 'output',
-      output: validDocumentTransformOutput('INTENTIONAL_PUBLISHED_COPY')
-    });
+    f.replies.push(
+      { kind: 'sources', query: 'Independent library evidence' },
+      { kind: 'output', output: validDocumentTransformOutput('INTENTIONAL_PUBLISHED_COPY [1]') }
+    );
 
     await f.execute(f.event(saved.request.id), 'completed-before-material-deletion');
 
@@ -885,10 +887,10 @@ test('accepted input deletion blocks proposal apply and keep while retiring the 
   try {
     const saved = await setup(f, 'PROPOSAL_CONTEXT_RETAINED_MESSAGE', true);
 
-    f.replies.push({
-      kind: 'output',
-      output: validDocumentTransformOutput('PRIVATE_PROPOSAL_DELETE_MARKER')
-    });
+    f.replies.push(
+      { kind: 'sources', query: 'Independent library evidence' },
+      { kind: 'output', output: validDocumentTransformOutput('PRIVATE_PROPOSAL_DELETE_MARKER [1]') }
+    );
 
     await f.execute(f.event(saved.request.id), 'proposal-before-deletion');
 
@@ -944,6 +946,8 @@ test('distinct Materials sharing one private capture reject overlapping retireme
         });
 
         const c = yield* Conversations;
+
+        yield* c.abandonReply(saved.pending);
 
         yield* c.updateSessionSelection({
           sessionId: saved.session.id,
@@ -1063,7 +1067,23 @@ test('published recording messages keep owned PCM while private WAV captures and
 
     await acceptMaterialDeletion(f, saved.root.id);
 
+    // Import and recording publication deliberately share this correlation. The first
+    // provenance must stay immutable while both feature owners clean their own rows.
+    const owner = f.context.db.orm
+      .select()
+      .from(s.material_deletion_requests)
+      .where(eq(s.material_deletion_requests.request_id, prepared.post.requestId))
+      .get();
+
+    assert.ok(owner);
+
+    assert.equal(owner.kind, 'source');
+
+    assert.equal(owner.deletion_id, saved.root.id);
+
     await cleanupMaterial(f, saved.root.id);
+
+    f.reopen();
 
     const post = f.context.db.orm
       .select()

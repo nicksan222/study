@@ -49,6 +49,12 @@ import { validateLink } from '#server/platform/http/index';
 
 type SourcePageInput = typeof sourcePageInputSchema.Type;
 
+import {
+  prepareMaterialDeletion,
+  scrubMaterialDeletion,
+  inspectMaterialDeletion
+} from './material-deletion.ts';
+
 export const Sources = defineService(
   'study/Sources',
   Effect.gen(function* () {
@@ -315,5 +321,6 @@ export const Sources = defineService(
           return documentId;
         })
     };
-  })
+  }),
+  { prepareMaterialDeletion, scrubMaterialDeletion, inspectMaterialDeletion }
 );

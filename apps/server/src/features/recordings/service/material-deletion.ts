@@ -1,7 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Public transaction participants keep learning persistence behind its owning        │
- * │ feature.                                                                                 │
+ * │ @file Public participants preserve recording ownership during Material retirement.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Keeps exact deletion behavior behind the owning feature boundary.                      │
@@ -13,16 +12,18 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialId } from '@study/contracts/ids';
+import type { MaterialId, SourceId } from '@study/contracts/ids';
 
+import {
+  RecordingMaterialImpactStore,
+  RecordingMaterialDeletionStore
+} from '#server/features/recordings/store/material-deletion';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
-import { LearningMaterialDeletionStore } from './store/material-deletion.ts';
-
-export function prepareMaterialDeletion(tx: Transaction, ids: readonly MaterialId[]) {
-  return tx.store(LearningMaterialDeletionStore).prepare(ids);
+export function inspectMaterialDeletion(tx: Transaction, ids: readonly SourceId[]) {
+  return tx.store(RecordingMaterialImpactStore).recordingMaterialImpact(ids);
 }
 
-export function scrubMaterialDeletion(tx: Transaction, ids: readonly MaterialId[]) {
-  tx.store(LearningMaterialDeletionStore).scrub(ids);
+export function scrubMaterialDeletion(tx: Transaction, id: MaterialId) {
+  tx.store(RecordingMaterialDeletionStore).scrub(id);
 }
