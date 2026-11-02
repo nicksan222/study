@@ -241,7 +241,7 @@ export function workflowEngineLayer(context: ServerContext) {
     const resume = Effect.fnUntraced(function* (workflow: Workflow.Any, id: string) {
       const row = yield* Effect.sync(() => store.execution(id));
 
-      if (!row || isTerminalExecution(row.status)) return;
+      if (!row || store.retired(id) || isTerminalExecution(row.status)) return;
 
       const w = workflow as StoredWorkflow;
       const payload = yield* checkpoint(() => decode(payloadCodec(w), JSON.parse(row.payload)));
@@ -269,6 +269,8 @@ export function workflowEngineLayer(context: ServerContext) {
             options.detached ? undefined : options.parent?.executionId
           )
         );
+
+        if (store.retired(options.executionId)) return new Workflow.Suspended({}) as any;
 
         if (row && isTerminalExecution(row.status) && row.result)
           return decode(codec(w), JSON.parse(row.result)) as any;
@@ -306,6 +308,17 @@ export function workflowEngineLayer(context: ServerContext) {
           if (Option.isSome(fiber)) {
             interrupted.set(id, 'unsafe');
             yield* Fiber.interrupt(fiber.value);
+          }
+
+          if (store.retired(id)) {
+            const lifetime = lifetimes.get(id);
+
+            if (lifetime) {
+              for (const instance of lifetime.instances) instance.abandoned = true;
+
+              yield* Scope.close(lifetime.scope, Exit.void);
+              lifetimes.delete(id);
+            }
           }
 
           yield* resume(workflow, id);

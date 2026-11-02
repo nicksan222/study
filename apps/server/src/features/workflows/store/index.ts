@@ -146,6 +146,12 @@ export const ExecutionStore = defineStore({
                         sql<string>`json_extract(${workflow_executions.payload}, '$.event.correlationId')`,
                         input.correlationId
                       ),
+                  input.eventId === undefined
+                    ? undefined
+                    : eq(
+                        sql<string>`json_extract(${workflow_executions.payload}, '$.event.eventId')`,
+                        input.eventId
+                      ),
                   input.before === undefined
                     ? undefined
                     : or(

@@ -35,6 +35,7 @@ import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
 import { documentTransformFixture } from '#testing/document-transform';
 import { makeMaterialOutput } from '#testing/material-output';
+import { withTestPublication } from '#testing/publication';
 
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
@@ -668,10 +669,29 @@ for (const scenario of [
             )).kind,
             'not_found'
           );
+          yield* withTestPublication(
+            f.context,
+            chats
+              .finishSessionDeletion({ sessionId: setup.session.id, attempt: 1 })
+              .pipe(Effect.asVoid)
+          );
+          assert.equal(
+            (yield* materials.materialVersion({ id: outcomes.independentId })).status,
+            'published'
+          );
+
+          if (outcomes.resultVersionId !== null)
+            assert.equal(
+              (yield* materials.citationSupport({
+                versionId: outcomes.resultVersionId,
+                marker: 1n
+              })).state,
+              'stale'
+            );
         }).pipe(Effect.provide(f.domain()))
       );
 
-      assert.equal(await f.execute(event, `proposal-replay-${scenario}`), proposalId);
+      await assert.rejects(f.execute(event, `proposal-replay-${scenario}`));
 
       assert.equal(f.bodies.length, 2);
 
@@ -681,7 +701,7 @@ for (const scenario of [
           .from(s.document_proposals)
           .where(eq(s.document_proposals.request_id, setup.request.id))
           .all().length,
-        1
+        0
       );
     } finally {
       await f.close();

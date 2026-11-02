@@ -4,6 +4,8 @@ import { persistenceWriters } from './persistence-writers.ts';
 import { production } from './synchronous-transactions.ts';
 
 const owners: Record<string, string[]> = {
+  workflow_retired_correlations: ['retirement'],
+  workflow_retired_executions: ['retirement'],
   workflow_executions: ['store', 'triggers'],
   workflow_activities: ['store'],
   workflow_deferreds: ['store'],

@@ -11,6 +11,7 @@
     "./ai/title": "./src/ai/title.ts",
     "./ai/vision-transcription": "./src/ai/vision-transcription.ts",
     "./auth/schemas": "./src/auth/schemas.ts",
+    "./conversations/deletion": "./src/conversations/deletion.ts",
     "./conversations/context": "./src/conversations/context.ts",
     "./conversations": "./src/conversations/index.ts",
     "./conversations/messages": "./src/conversations/messages.ts",

@@ -119,3 +119,30 @@ export const document_proposal_receipts = sqliteTable(
     )
   ]
 );
+
+/** Exact session ownership permits prompt retirement without deleting library results. */
+export const session_generation_retirements = sqliteTable('session_generation_retirements', {
+  request_id: text()
+    .primaryKey()
+    .references(() => material_generation_requests.id),
+  session_id: integer().$type<SessionId>().notNull()
+});
+
+/** Completed proposal outcomes retain identities only, independent of the removed draft. */
+export const retired_document_proposal_receipts = sqliteTable(
+  'retired_document_proposal_receipts',
+  {
+    key: text().primaryKey(),
+    intent: text().notNull(),
+    current_version_id: integer().$type<MaterialVersionId>().notNull(),
+    proposed_version_id: integer().$type<MaterialVersionId>().notNull(),
+    request_id: text().notNull(),
+    operation: text({ enum: ['apply', 'keep'] }).notNull(),
+    outcome: text({ enum: ['applied', 'kept'] }).notNull(),
+    base_version_id: integer().$type<MaterialVersionId>().notNull(),
+    result_version_id: integer()
+      .$type<MaterialVersionId>()
+      .notNull()
+      .references(() => material_versions.id)
+  }
+);

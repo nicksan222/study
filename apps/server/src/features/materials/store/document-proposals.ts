@@ -141,7 +141,32 @@ function makeDocumentProposals(resources: StoreResources) {
       .where(eq(s.document_proposal_receipts.key, value.key))
       .get();
 
-    if (!previous) return undefined;
+    if (!previous) {
+      const retired = db.orm
+        .select()
+        .from(s.retired_document_proposal_receipts)
+        .where(eq(s.retired_document_proposal_receipts.key, value.key))
+        .get();
+
+      if (!retired) return undefined;
+
+      if (
+        retired.request_id !== value.requestId ||
+        retired.operation !== operation ||
+        retired.intent !== proposalIntent(value, operation)
+      )
+        throw new StudyError('invalid_input', 'Application key already has a different intent');
+
+      return {
+        requestId: retired.request_id,
+        outcome: retired.outcome,
+        baseVersionId: retired.base_version_id,
+        proposedVersionId: retired.proposed_version_id,
+        currentVersionId: retired.current_version_id,
+        resultVersionId: retired.result_version_id,
+        replayed: true
+      };
+    }
 
     const intent = proposalIntent(value, operation);
 

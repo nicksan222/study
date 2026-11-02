@@ -16,8 +16,13 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type { Db } from '@study/db';
 import { and, eq, sql } from '@study/db';
-import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';
+import {
+  workflow_configuration_waits,
+  workflow_executions,
+  workflow_retired_executions
+} from '@study/db/schema';
 import { Context, Effect, Exit } from 'effect';
 import { DurableDeferred } from 'effect/workflow';
 import type { WorkflowEngine } from 'effect/workflow';
@@ -90,4 +95,17 @@ export function notifyConfigurationChanged(
 
     return rows.length;
   });
+}
+
+/** A retired execution cannot retain configuration deferred names or captured revision state. */
+export function scrubRetiredConfiguration(db: Db, executionId: string) {
+  db.orm
+    .delete(workflow_configuration_waits)
+    .where(
+      and(
+        eq(workflow_configuration_waits.execution_id, executionId),
+        sql`EXISTS (SELECT 1 FROM ${workflow_retired_executions} r WHERE r.execution_id = ${workflow_configuration_waits.execution_id})`
+      )
+    )
+    .run();
 }

@@ -110,3 +110,21 @@ test('proposal, receipt, comparison and context-validity stores use their own ca
     ]
   );
 });
+
+test('deletion aggregates require their own canonical descriptors beside status', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/conversations/store/deletion.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'sessionDeletion',plural:'sessionDeletions'},make:()=>({queries:{sessionDeletion:storeQuery({role:'required'}),findSessionDeletion:storeQuery({role:'optional'})},mutations:{}})});
+      defineStore({entity:{singular:'deletionOwnership',plural:'deletionOwnerships'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'})},mutations:{}})});
+      defineStore({entity:{singular:'deletionCorrelation',plural:'deletionCorrelations'},make:()=>({queries:{deletionCorrelation:storeQuery({role:'required'})},mutations:{}})});
+    `,
+      'apps/server/src/features/conversations/store/bypass.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'sessionDeletion',plural:'sessionDeletions'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'}),deletionCorrelations:storeQuery({role:'required'})},mutations:{}})});
+    `
+    }),
+    Array(2).fill('apps/server/src/features/conversations/store/bypass.ts')
+  );
+});

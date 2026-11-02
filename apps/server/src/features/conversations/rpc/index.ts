@@ -48,6 +48,8 @@ export const ConversationsRpcLive = defineRpc(
       'conversations.findSession': ({ id }) => conversations.findSession(id),
       'conversations.sessions': (input) => conversations.sessions(input),
       'conversations.createSession': (input) => conversations.createSession(input),
+      'conversations.sessionDeletion': ({ id }) => conversations.sessionDeletion(id),
+      'conversations.retrySessionDeletion': ({ id }) => conversations.retrySessionDeletion(id),
       'conversations.deleteSession': ({ id }) => conversations.deleteSession(id)
     };
   })

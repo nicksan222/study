@@ -49,7 +49,8 @@ function makeHelpers({ db, clock }: StoreResources) {
       )
       .get();
 
-    if (!foundEventRow) throw new StudyError('not_found', 'title request not found');
+    if (!foundEventRow || foundEventRow.payload === '{}')
+      throw new StudyError('not_found', 'title request not found');
 
     const eventRow = foundEventRow;
 

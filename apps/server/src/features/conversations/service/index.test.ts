@@ -209,7 +209,7 @@ test('explicit attachment snapshots share sources across collections and survive
             [a.id, 'a.txt']
           ]
         );
-        assert.equal(yield* conversations.deleteSession(session.id), true);
+        assert.equal((yield* conversations.deleteSession(session.id)).status, 'pending');
         assert.equal((yield* Effect.flip(conversations.message(message.id))).kind, 'not_found');
       }).pipe(Effect.provide(layer))
     );

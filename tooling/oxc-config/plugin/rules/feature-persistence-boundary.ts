@@ -23,7 +23,9 @@ const groups: Record<string, string[]> = {
     'citations',
     'conversation_recording_posts',
     'conversation_reply_requests',
-    'session_run_contexts'
+    'session_run_contexts',
+    'session_deletions',
+    'session_deletion_correlations'
   ],
   recordings: ['recordings', 'recording_chunks', 'recording_posts'],
   materials: [
@@ -35,6 +37,8 @@ const groups: Record<string, string[]> = {
     'material_annotation_revisions',
     'document_edit_receipts',
     'document_proposals',
+    'session_generation_retirements',
+    'retired_document_proposal_receipts',
     'document_proposal_receipts',
     'material_version_parents',
     'material_version_inputs',
@@ -82,6 +86,8 @@ const groups: Record<string, string[]> = {
     'codes_block_kind'
   ],
   workflow: [
+    'workflow_retired_correlations',
+    'workflow_retired_executions',
     'workflow_executions',
     'workflow_activities',
     'workflow_deferreds',

@@ -84,3 +84,23 @@ test('destructuring does not grant permission to forge capabilities', () => {
     'apps/server/src/features/sources/workflow.ts'
   ]);
 });
+
+test('session cleanup cannot forge publication or Activity ownership while invoking native retirement', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/conversations/workflows/deletion.ts': `
+      import { Activity } from 'effect/workflow';
+      import { withPublicationGuard } from '#server/platform/workflows/publication';
+      export const cleanup = () => Activity.make({execute:withPublicationGuard(context,finishSessionDeletion(input))});
+    `,
+      'apps/server/src/features/conversations/service/deletion.ts': `
+      import { Effect, Layer } from 'effect';
+      import { PublicationGuard } from '#server/platform/workflows/publication';
+      import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
+      Effect.provideService(finishSessionDeletion(input), PublicationGuard, forged);
+      Layer.succeed(WorkflowActivityOwner, forged);
+    `
+    }),
+    Array(2).fill('apps/server/src/features/conversations/service/deletion.ts')
+  );
+});

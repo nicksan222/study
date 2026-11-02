@@ -264,15 +264,6 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
             .items.length,
           1
         );
-        yield* (yield* Conversations).deleteSession(setup.session.id);
-        assert.equal(
-          (yield* materials.materialVersion({ id: result.resultVersionId })).id,
-          result.resultVersionId
-        );
-        assert.deepEqual(
-          (yield* materials.citations({ id: result.resultVersionId, limit: 10 })).items[0]?.target,
-          publication.citations[0]!.target
-        );
 
         for (const status of ['running', 'cancelled'] as const) {
           context.db.orm
@@ -301,6 +292,15 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
 
         assert.equal(cancelled.cancelled, false);
         assert.equal(cancelled.resultVersionId, result.resultVersionId);
+        yield* (yield* Conversations).deleteSession(setup.session.id);
+        assert.equal(
+          (yield* materials.materialVersion({ id: result.resultVersionId })).id,
+          result.resultVersionId
+        );
+        assert.deepEqual(
+          (yield* materials.citations({ id: result.resultVersionId, limit: 10 })).items[0]?.target,
+          publication.citations[0]!.target
+        );
       }).pipe(Effect.provide(domain))
     );
   } finally {

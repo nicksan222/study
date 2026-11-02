@@ -739,3 +739,284 @@ test('the proposal guard upgrade preserves an earlier published receipt and its 
     location.cleanup();
   }
 });
+
+test('session retirement upgrade clears only proven private instruction metadata and seals every other published field', () => {
+  const location = createTestDatabase();
+
+  const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
+
+  const previous = join(location.dir, 'before-session-deletion');
+
+  try {
+    for (const entry of readdirSync(migrations)) {
+      if (entry < '20261102005133_session-deletion-barrier')
+        cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
+    }
+
+    const old = new DatabaseSync(location.path);
+
+    try {
+      old.exec('PRAGMA foreign_keys=OFF');
+
+      migrate(drizzle({ client: old }), { migrationsFolder: previous });
+
+      old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
+
+      old.exec(seed);
+
+      seedPrivateSessionOutput(drizzle({ client: old }), 1, 4, 'OLD_PRIVATE_INSTRUCTION_8');
+
+      seedPrivateSessionOutput(drizzle({ client: old }), 2, 5, 'OTHER_PRIVATE_INSTRUCTION_8');
+    } finally {
+      old.close();
+    }
+
+    let db = location.open();
+
+    try {
+      const before = retainedSessionLibrary(db);
+
+      const other = db.orm.get('SELECT * FROM material_versions WHERE id=5');
+
+      const oldVersion = db.orm.get('SELECT * FROM material_versions WHERE id=4');
+
+      assert.equal(oldVersion?.instruction, 'OLD_PRIVATE_INSTRUCTION_8');
+
+      assert.throws(
+        () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
+        triggerConstraint
+      );
+
+      assert.throws(
+        () => db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',2)"),
+        triggerConstraint
+      );
+
+      db.exec(
+        "INSERT INTO session_deletions(session_id,operation_id,status,created_at) VALUES(1,'delete-old-capture','pending',2)"
+      );
+
+      assert.throws(
+        () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
+        triggerConstraint
+      );
+
+      assert.throws(
+        () => db.exec("INSERT INTO session_generation_retirements VALUES('document/private-2',1)"),
+        triggerConstraint
+      );
+
+      db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',1)");
+
+      for (const assignment of [
+        'id=400',
+        'material_id=5',
+        "kind='diagram'",
+        'number=2',
+        "status='draft',published_at=NULL",
+        "operation='edit'",
+        "creator='user'",
+        "generation_request_id='document/private-2'",
+        "language='it'",
+        'created_at=7',
+        'published_at=7'
+      ]) {
+        assert.throws(
+          () => db.exec(`UPDATE material_versions SET instruction=NULL,${assignment} WHERE id=4`),
+          triggerConstraint
+        );
+      }
+
+      assert.throws(
+        () => db.exec("UPDATE material_versions SET instruction='replacement' WHERE id=4"),
+        triggerConstraint
+      );
+
+      assert.throws(
+        () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=5'),
+        triggerConstraint
+      );
+
+      assert.throws(
+        () => db.exec("UPDATE blocks SET text='overwritten' WHERE document_id=4"),
+        triggerConstraint
+      );
+
+      assert.throws(
+        () => db.exec('DELETE FROM material_version_citations WHERE version_id=4'),
+        triggerConstraint
+      );
+      // Failure/restart keeps the narrow provenance proof usable; no guards are removed.
+      db.exec(
+        "UPDATE session_deletions SET status='failed',error_kind='internal' WHERE session_id=1"
+      );
+
+      db.close();
+
+      db = location.open();
+
+      db.transaction(() => {
+        db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4');
+
+        db.exec(
+          "UPDATE material_generation_requests SET payload='{}',result_metadata=NULL,cancelled=1 WHERE id='document/private-1'"
+        );
+
+        db.exec("DELETE FROM material_generation_inputs WHERE request_id='document/private-1'");
+
+        db.exec('DELETE FROM sessions WHERE id=1');
+
+        db.exec(
+          "UPDATE session_deletions SET status='completed',error_kind=NULL,completed_at=3 WHERE session_id=1"
+        );
+      });
+
+      const after = db.orm.get('SELECT * FROM material_versions WHERE id=4');
+
+      assert.deepEqual(after, { ...oldVersion, instruction: null });
+
+      assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
+
+      assert.deepEqual(retainedSessionLibrary(db), before);
+
+      assert.throws(
+        () =>
+          db.exec(
+            "UPDATE material_versions SET instruction='OLD_PRIVATE_INSTRUCTION_8' WHERE id=4"
+          ),
+        triggerConstraint
+      );
+
+      assert.throws(
+        () =>
+          db.exec(
+            "UPDATE material_generation_requests SET payload=json_object('instruction','OLD_PRIVATE_INSTRUCTION_8') WHERE id='document/private-1'"
+          ),
+        triggerConstraint
+      );
+
+      db.close();
+
+      db = location.open();
+
+      assert.deepEqual(retainedSessionLibrary(db), before);
+
+      assert.equal(
+        db.orm.get('SELECT instruction FROM material_versions WHERE id=4')?.instruction,
+        null
+      );
+
+      assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
+
+      for (const table of [
+        'sessions',
+        'session_run_contexts',
+        'material_generation_requests',
+        'material_versions',
+        'documents',
+        'blocks'
+      ]) {
+        const persisted = JSON.stringify(
+          db.orm.all(sql.raw(`SELECT * FROM ${table}`)),
+          (_, value) => (typeof value === 'bigint' ? String(value) : value)
+        );
+
+        assert.ok(!persisted.includes('OLD_PRIVATE_INSTRUCTION_8'), table);
+      }
+
+      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+    } finally {
+      db.close();
+    }
+  } finally {
+    location.cleanup();
+  }
+});
+
+function seedPrivateSessionOutput(
+  db: ReturnType<typeof drizzle>,
+  sessionId: number,
+  id: number,
+  instruction: string
+) {
+  const contextId = `private-${sessionId}`;
+
+  const requestId = `document/${contextId}`;
+
+  const snapshot = JSON.stringify({
+    requestId: contextId,
+    sessionId: String(sessionId),
+    instruction,
+    inputs: [{ versionId: '1', materialId: '1', documentId: '1', scope: { kind: 'document' } }]
+  });
+
+  const payload = JSON.stringify({
+    title: `Private output ${sessionId}`,
+    kind: 'document',
+    instruction,
+    inputVersionIds: ['1'],
+    documentTransform: { contextRequestId: contextId, operations: ['clarity'] }
+  });
+
+  db.run(
+    sql`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(${sessionId},'Private session','user',1,1)`
+  );
+
+  db.run(
+    sql`INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot) VALUES(${contextId},${sessionId},'private',${JSON.stringify({ instruction })},${snapshot})`
+  );
+
+  db.run(
+    sql`INSERT INTO material_generation_requests(id,payload,created_at) VALUES(${requestId},${payload},1)`
+  );
+
+  db.run(
+    sql`INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES(${requestId},1,0)`
+  );
+
+  db.run(
+    sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(${id},'document',${`Private output ${sessionId}`},1,1)`
+  );
+
+  db.run(sql`INSERT INTO material_versions(id,material_id,kind,number,creator,operation,instruction,generation_request_id,language,created_at)
+    VALUES(${id},${id},'document',1,'agent','generate',${instruction},${requestId},'en',1)`);
+
+  db.run(
+    sql`INSERT INTO documents(id,extractor_version,meta,created_at) SELECT ${id},extractor_version,meta,created_at FROM documents WHERE id=1`
+  );
+
+  db.run(sql`INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content)
+    SELECT ${id},ordinal,kind,text,anchor,editing_id,content FROM blocks WHERE document_id=1`);
+
+  db.run(sql`INSERT INTO material_document_versions(version_id,document_id) VALUES(${id},${id})`);
+
+  db.run(sql`INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(${id},1)`);
+
+  db.run(sql`INSERT INTO material_version_citations(version_id,marker,input_version_id,anchor,quote)
+    VALUES(${id},1,1,'{"type":"page","page":1}','Evidence')`);
+
+  db.run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=${id}`);
+
+  db.run(
+    sql`UPDATE material_generation_requests SET result_version_id=${id},result_hash=${'0'.repeat(64)} WHERE id=${requestId}`
+  );
+}
+
+function retainedSessionLibrary(db: Db) {
+  return {
+    documents: db.orm.all('SELECT * FROM documents WHERE id IN (1,4,5) ORDER BY id'),
+    blocks: db.orm.all(
+      'SELECT * FROM blocks WHERE document_id IN (1,4,5) ORDER BY document_id,ordinal'
+    ),
+    citations: db.orm.all(
+      'SELECT * FROM material_version_citations WHERE version_id IN (4,5) ORDER BY version_id,marker'
+    ),
+    inputs: db.orm.all(
+      'SELECT * FROM material_version_inputs WHERE version_id IN (4,5) ORDER BY version_id'
+    ),
+    documentsByVersion: db.orm.all(
+      'SELECT * FROM material_document_versions WHERE version_id IN (1,4,5) ORDER BY version_id'
+    ),
+    materials: db.orm.all('SELECT * FROM materials WHERE id IN (1,4,5) ORDER BY id')
+  };
+}

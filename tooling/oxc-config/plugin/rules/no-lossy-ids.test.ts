@@ -72,3 +72,12 @@ test('annotation and historic source identities stay lossless while SQLite edito
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
 });
+
+test('deletion and retired receipt identities remain lossless while attempt counters are numeric', () => {
+  const diagnostics = lintRule('no-lossy-ids', {
+    'src/features/conversations/store/deletion.ts': `Number(row.session_id); parseInt(value.sessionId, 10); Number(row.attempt);`,
+    'src/features/materials/store/session-retirement.ts': `Number(row.result_version_id); Number(row.proposed_version_id); String(row.base_version_id); String(value.requestId);`
+  });
+
+  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+});

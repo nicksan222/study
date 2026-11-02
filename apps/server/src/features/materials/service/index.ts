@@ -19,7 +19,7 @@ import type { sessionSelectionTargetSchema } from '@study/contracts/conversation
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
-import type { ProjectId, SourceId } from '@study/contracts/ids';
+import type { ProjectId, SourceId, SessionId } from '@study/contracts/ids';
 import type * as editing from '@study/contracts/materials/editing';
 import type * as evidence from '@study/contracts/materials/evidence';
 import type * as input from '@study/contracts/materials/rpc';
@@ -51,6 +51,7 @@ import {
   MaterialDependentsStore,
   MaterialCitationsStore
 } from '#server/features/materials/store/index';
+import { SessionMaterialRetirementStore } from '#server/features/materials/store/session-retirement';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { Workflows } from '#server/features/workflows/index';
 import { defineService } from '#server/platform/definitions/define-service';
@@ -485,6 +486,12 @@ function* makeMaterials() {
 }
 
 export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
+  prepareSessionRetirement: (
+    tx: Transaction,
+    value: { sessionId: SessionId; contextIds: readonly string[] }
+  ) => tx.store(SessionMaterialRetirementStore).prepare(value),
+  scrubSessionRetirement: (tx: Transaction, sessionId: SessionId) =>
+    tx.store(SessionMaterialRetirementStore).scrub(sessionId),
   resolveEvidence,
   resolveSessionSelection,
   readGeneration,

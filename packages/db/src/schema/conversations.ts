@@ -294,3 +294,31 @@ export const session_run_contexts = sqliteTable(
     check('session_run_contexts_json', sql`json_valid(${t.snapshot}) AND json_valid(${t.intent})`)
   ]
 );
+
+/** Durable content-free deletion barrier; deliberately outlives the session row. */
+export const session_deletions = sqliteTable(
+  'session_deletions',
+  {
+    session_id: integer().$type<SessionId>().primaryKey(),
+    operation_id: text().notNull().unique(),
+    status: text({ enum: ['pending', 'failed', 'completed'] }).notNull(),
+    error_kind: text(),
+    attempt: integer().notNull().default(1),
+    created_at: integer().$type<bigint>().notNull(),
+    completed_at: integer().$type<bigint>()
+  },
+  (t) => [
+    check(
+      'session_deletion_state_check',
+      sql`${t.attempt} >= 1 AND ${t.status} IN ('pending','failed','completed') AND ((${t.status} = 'completed') = (${t.completed_at} IS NOT NULL)) AND ((${t.status} = 'failed') = (${t.error_kind} IS NOT NULL))`
+    )
+  ]
+);
+
+export const session_deletion_correlations = sqliteTable('session_deletion_correlations', {
+  correlation_id: text().primaryKey(),
+  session_id: integer()
+    .$type<SessionId>()
+    .notNull()
+    .references(() => session_deletions.session_id)
+});

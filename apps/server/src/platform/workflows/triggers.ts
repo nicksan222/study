@@ -118,6 +118,7 @@ export function dispatchPending(
         .where(
           and(
             eq(workflowEvents.type, trigger.event),
+            sql`NOT EXISTS (SELECT 1 FROM workflow_retired_correlations r WHERE r.correlation_id = ${workflowEvents.correlationId} AND r.event_type = ${workflowEvents.type})`,
             lt(workflowEvents.depth, 8),
             sql`NOT EXISTS (SELECT 1 FROM ${workflowReceipts} WHERE ${workflowReceipts.eventId} = ${workflowEvents.eventId} AND ${workflowReceipts.subscription} = ${trigger.subscription} AND ${workflowReceipts.workflowVersion} = ${trigger.workflowVersion} AND ${workflowReceipts.inputVersion} = ${workflowEvents.inputVersion})`
           )

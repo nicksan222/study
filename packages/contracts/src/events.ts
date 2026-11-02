@@ -122,6 +122,13 @@ export const conversationGenerationRequestedSchema = Schema.Struct({
   operation: Schema.Literals(['reply', 'rewrite'])
 });
 
+export const sessionDeletionRequestedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('SessionDeletionRequested'),
+  sessionId: sessionIdSchema,
+  attempt: Schema.Int
+});
+
 export const conversationTitleRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('ConversationTitleRequested'),
@@ -157,6 +164,7 @@ export const recordingPostRequestedSchema = Schema.Struct({
 });
 
 export const workflowEventSchema = Schema.Union([
+  sessionDeletionRequestedSchema,
   recordingPostRequestedSchema,
   sourceProcessingRequestedSchema,
   sourceCorrectionRequestedSchema,
