@@ -44,7 +44,7 @@ export const material_deletion_requests = sqliteTable('material_deletion_request
   }).notNull()
 });
 
-/** Sources retains exact revision cleanup candidates before Document asset roots disappear. */
+/** Sources retains exact revisions before source-version and Document asset roots disappear. */
 export const source_material_deletion_assets = sqliteTable(
   'source_material_deletion_assets',
   {

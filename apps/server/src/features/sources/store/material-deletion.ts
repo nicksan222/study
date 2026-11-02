@@ -49,6 +49,11 @@ export const SourceMaterialDeletionStore = defineStore({
             .where(inArray(s.material_versions.material_id, members))
             .all()
             .map((v) => v.id);
+          const snapshots = db.orm
+            .select()
+            .from(s.material_source_snapshots)
+            .where(inArray(s.material_source_snapshots.version_id, versions))
+            .all();
           const docs = [
             ...db.orm
               .select()
@@ -56,19 +61,14 @@ export const SourceMaterialDeletionStore = defineStore({
               .where(inArray(s.material_document_versions.version_id, versions))
               .all()
               .map((d) => d.document_id),
-            ...db.orm
-              .select()
-              .from(s.material_source_snapshots)
-              .where(inArray(s.material_source_snapshots.version_id, versions))
-              .all()
-              .flatMap((d) => (d.document_id === null ? [] : [d.document_id]))
+            ...snapshots.flatMap((d) => (d.document_id === null ? [] : [d.document_id]))
           ];
           const assets = db.orm
             .select()
             .from(s.document_assets)
             .where(inArray(s.document_assets.document_id, docs))
             .all();
-          for (const asset of assets) {
+          for (const asset of [...assets, ...snapshots]) {
             const original = db.orm
               .select()
               .from(s.material_imports)

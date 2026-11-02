@@ -29,6 +29,35 @@ export const MaterialDeletionGenerationStore = defineStore({
   make: (resources) => {
     const { db } = resources;
     const retireProposal = makeProposalRetirement(resources);
+    function alreadyScrubbed(requestId: string, ownerId: typeof materialIdSchema.Type) {
+      const owner = db.orm
+        .select()
+        .from(s.material_deletions)
+        .where(eq(s.material_deletions.material_id, ownerId))
+        .get();
+      const request = db.orm
+        .select()
+        .from(s.material_generation_requests)
+        .where(eq(s.material_generation_requests.id, requestId))
+        .get();
+      const input = db.orm
+        .select()
+        .from(s.material_generation_inputs)
+        .where(eq(s.material_generation_inputs.request_id, requestId))
+        .get();
+
+      return (
+        owner?.status === 'completed' &&
+        owner.phase === 'completed' &&
+        request?.payload === '{}' &&
+        request.cancelled &&
+        request.result_metadata === null &&
+        request.result_version_id === null &&
+        request.result_hash === null &&
+        !input
+      );
+    }
+
     return {
       queries: {},
       mutations: {
@@ -74,14 +103,15 @@ export const MaterialDeletionGenerationStore = defineStore({
                     ))
               )
               .map((r) => r.id);
+            const ownedIds: string[] = [];
             for (const id of ids) {
-              if (
-                db.orm
-                  .select()
-                  .from(s.material_deletion_requests)
-                  .where(eq(s.material_deletion_requests.request_id, id))
-                  .get()
-              )
+              const owner = db.orm
+                .select()
+                .from(s.material_deletion_requests)
+                .where(eq(s.material_deletion_requests.request_id, id))
+                .get();
+              if (owner?.kind === 'generation' && alreadyScrubbed(id, owner.deletion_id)) continue;
+              if (owner)
                 throw new StudyError(
                   'invalid_input',
                   'Deletion overlaps generation cleanup ownership'
@@ -90,8 +120,9 @@ export const MaterialDeletionGenerationStore = defineStore({
                 .insert(s.material_deletion_requests)
                 .values({ request_id: id, deletion_id: deletionId, kind: 'generation' })
                 .run();
+              ownedIds.push(id);
             }
-            return ids;
+            return ownedIds;
           }
         }),
         scrub: storeMutation({

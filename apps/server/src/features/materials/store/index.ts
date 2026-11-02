@@ -355,6 +355,7 @@ export const MaterialVersionExportStore = defineStore({
   entity: { singular: 'materialVersionExport', plural: 'materialVersionExports' },
   make: (resources) => {
     const { db } = resources;
+    const { versionRow } = makeReads(resources);
 
     return {
       queries: {
@@ -363,6 +364,8 @@ export const MaterialVersionExportStore = defineStore({
           input: input.materialVersionInputSchema,
           output: sourceExportSchema,
           run: (value) => {
+            versionRow(value.id);
+
             const row = db.orm
               .select({
                 metadata: tables.material_source_snapshots.metadata,

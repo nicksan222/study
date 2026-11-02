@@ -26,82 +26,103 @@ import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
+
+import { makeDiscardPending } from './pending.ts';
+
 const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
 const replyCodec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
 const selectionCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
 export const ConversationMaterialDeletionStore = defineStore({
   name: 'study/ConversationMaterialDeletionStore',
   entity: { singular: 'conversationMaterialDeletion', plural: 'conversationMaterialDeletions' },
-  make: ({ db }) => ({
-    queries: {},
-    mutations: {
-      prepare: storeMutation({
-        input: Schema.Struct({
-          deletionId: materialIdSchema,
-          materialIds: Schema.Array(materialIdSchema),
-          sourceIds: Schema.Array(sourceIdSchema)
+  make: (resources) => {
+    const { db } = resources;
+    const discardPending = makeDiscardPending(resources);
+    return {
+      queries: {},
+      mutations: {
+        prepare: storeMutation({
+          input: Schema.Struct({
+            deletionId: materialIdSchema,
+            materialIds: Schema.Array(materialIdSchema),
+            sourceIds: Schema.Array(sourceIdSchema)
+          }),
+          output: Schema.Array(Schema.String),
+          run: ({ materialIds, sourceIds }) => {
+            const versionIds = db.orm
+              .select()
+              .from(s.material_versions)
+              .all()
+              .filter((v) => materialIds.includes(v.material_id))
+              .map((v) => String(v.id));
+            const matches = (snapshot: unknown) =>
+              captured(snapshot, materialIds.map(String), sourceIds.map(String));
+            const contexts = db.orm
+              .select()
+              .from(s.session_run_contexts)
+              .all()
+              .filter((r) => matches(Schema.decodeUnknownSync(contextCodec)(r.snapshot)));
+            const replies = db.orm
+              .select()
+              .from(s.conversation_reply_requests)
+              .all()
+              .filter((r) => matches(Schema.decodeUnknownSync(replyCodec)(r.snapshot)));
+            const ids = [...new Set([...contexts, ...replies].map((r) => r.request_id))];
+            for (const session of db.orm.select().from(s.sessions).all()) {
+              const previous = Schema.decodeUnknownSync(selectionCodec)(session.selection);
+              const selected = previous.filter((t) => !versionIds.includes(String(t.versionId)));
+              if (selected.length !== previous.length)
+                db.orm
+                  .update(s.sessions)
+                  .set({
+                    selection: Schema.encodeSync(selectionCodec)(selected),
+                    selection_revision: session.selection_revision + 1n
+                  })
+                  .where(eq(s.sessions.id, session.id))
+                  .run();
+            }
+            return ids;
+          }
         }),
-        output: Schema.Array(Schema.String),
-        run: ({ materialIds, sourceIds }) => {
-          const versionIds = db.orm
-            .select()
-            .from(s.material_versions)
-            .all()
-            .filter((v) => materialIds.includes(v.material_id))
-            .map((v) => String(v.id));
-          const matches = (snapshot: unknown) =>
-            captured(snapshot, materialIds.map(String), sourceIds.map(String));
-          const contexts = db.orm
-            .select()
-            .from(s.session_run_contexts)
-            .all()
-            .filter((r) => matches(Schema.decodeUnknownSync(contextCodec)(r.snapshot)));
-          const replies = db.orm
-            .select()
-            .from(s.conversation_reply_requests)
-            .all()
-            .filter((r) => matches(Schema.decodeUnknownSync(replyCodec)(r.snapshot)));
-          const ids = [...new Set([...contexts, ...replies].map((r) => r.request_id))];
-          for (const session of db.orm.select().from(s.sessions).all()) {
-            const previous = Schema.decodeUnknownSync(selectionCodec)(session.selection);
-            const selected = previous.filter((t) => !versionIds.includes(String(t.versionId)));
-            if (selected.length !== previous.length)
+        scrub: storeMutation({
+          input: materialIdSchema,
+          output: Schema.Void,
+          run: (id) => {
+            const requests = db.orm
+              .select()
+              .from(s.material_deletion_requests)
+              .where(eq(s.material_deletion_requests.deletion_id, id))
+              .all()
+              .filter((r) => r.kind === 'context');
+            for (const r of requests) {
+              const reply = db.orm
+                .select({ message: s.messages, version: s.message_versions })
+                .from(s.conversation_reply_requests)
+                .innerJoin(
+                  s.message_versions,
+                  eq(s.message_versions.id, s.conversation_reply_requests.version_id)
+                )
+                .innerJoin(s.messages, eq(s.messages.id, s.message_versions.message_id))
+                .where(eq(s.conversation_reply_requests.request_id, r.request_id))
+                .get();
+
+              if (reply && reply.version.status !== 'complete')
+                discardPending(reply.message, reply.version);
+
               db.orm
-                .update(s.sessions)
-                .set({
-                  selection: Schema.encodeSync(selectionCodec)(selected),
-                  selection_revision: session.selection_revision + 1n
-                })
-                .where(eq(s.sessions.id, session.id))
+                .delete(s.conversation_reply_requests)
+                .where(eq(s.conversation_reply_requests.request_id, r.request_id))
                 .run();
+              db.orm
+                .delete(s.session_run_contexts)
+                .where(eq(s.session_run_contexts.request_id, r.request_id))
+                .run();
+            }
           }
-          return ids;
-        }
-      }),
-      scrub: storeMutation({
-        input: materialIdSchema,
-        output: Schema.Void,
-        run: (id) => {
-          const requests = db.orm
-            .select()
-            .from(s.material_deletion_requests)
-            .where(eq(s.material_deletion_requests.deletion_id, id))
-            .all()
-            .filter((r) => r.kind === 'context');
-          for (const r of requests) {
-            db.orm
-              .delete(s.conversation_reply_requests)
-              .where(eq(s.conversation_reply_requests.request_id, r.request_id))
-              .run();
-            db.orm
-              .delete(s.session_run_contexts)
-              .where(eq(s.session_run_contexts.request_id, r.request_id))
-              .run();
-          }
-        }
-      })
-    }
-  })
+        })
+      }
+    };
+  }
 });
 
 function captured(
