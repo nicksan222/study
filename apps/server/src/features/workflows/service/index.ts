@@ -31,14 +31,19 @@ import { WorkflowRetirementStore } from '#server/platform/workflows/retirement';
 
 function* makeWorkflows() {
   const changes = yield* databaseChanges;
+
   const control = yield* WorkflowControl;
+
   const store = yield* useStore(ExecutionStore);
 
   const executions = (input: typeof executionsInputSchema.Type) =>
     Effect.gen(function* () {
       const items = yield* store.executions(input);
+
       const last = items.at(-1);
+
       const cursor = last ? { id: last.id, createdAtMs: last.createdAtMs } : null;
+
       const more =
         cursor && items.length === input.limit
           ? yield* store.executions({ ...input, before: cursor, limit: 1 })
@@ -80,6 +85,9 @@ function* makeWorkflows() {
 }
 
 export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflows), {
+  validateBackup: (tx: Transaction) =>
+    tx.store(WorkflowRetirementStore).workflowRetirement(undefined),
+  prepareBackup: (tx: Transaction) => tx.store(WorkflowRetirementStore).prepareBackup(undefined),
   correlatedExecutions,
   retireCorrelations: (
     tx: Transaction,
@@ -91,8 +99,10 @@ export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflo
 });
 
 /** Inspect native runs in a caller transaction without transferring execution ownership. */
+
 function correlatedExecutions(tx: Transaction, correlationId: string, eventId?: string) {
   const rows: (typeof executionSchema.Type)[] = [];
+
   let before: typeof executionsInputSchema.Type.before;
 
   for (;;) {
@@ -101,6 +111,7 @@ function correlatedExecutions(tx: Transaction, correlationId: string, eventId?: 
       .executions({ correlationId, eventId, limit: 100, before });
 
     rows.push(...page);
+
     const last = page.at(-1);
 
     if (page.length < 100 || !last) return rows;

@@ -121,7 +121,7 @@ function makeContextReads({ db, clock }: StoreResources) {
   const assertContextAvailable = makeAssertContextAvailable({ db, clock });
 
   function requiredContext(requestId: string, available: boolean) {
-    assertContextAvailable(requestId, 'Captured context is unavailable');
+    assertContextAvailable(requestId, 'Captured context is unavailable', available);
 
     const row = retainedContext(requestId);
 
@@ -147,6 +147,7 @@ export const SessionSelectionStore = defineStore({
   entity: { singular: 'sessionSelection', plural: 'sessionSelections' },
   make: (resources) => {
     const { db } = resources;
+
     const { session, selection } = makeContextReads(resources);
 
     return {
@@ -215,7 +216,8 @@ export const SessionContextIntentStore = defineStore({
   entity: { singular: 'sessionContextIntent', plural: 'sessionContextIntents' },
   make: (resources) => {
     const { db } = resources;
-    const { decodeContext } = makeContextReads(resources);
+
+    const { decodeContext, assertContextAvailable } = makeContextReads(resources);
 
     return {
       queries: {
@@ -251,6 +253,8 @@ export const SessionContextIntentStore = defineStore({
 
             if (!row) return Option.none();
 
+            assertContextAvailable(row.request_id, 'Captured reply is unavailable');
+
             if (
               !sameIntent(
                 canonicalIntent(Schema.decodeUnknownSync(intentCodec)(row.intent)),
@@ -273,8 +277,10 @@ export const SessionContextStore = defineStore({
   entity: { singular: 'sessionContext', plural: 'sessionContexts' },
   make: (resources) => {
     const { db } = resources;
+
     const { session, requiredContext, retainedContext, decodeContext, assertContextAvailable } =
       makeContextReads(resources);
+
     const { conversationHistory, conversationRoot } = makeHistory(resources);
 
     return {
@@ -308,6 +314,7 @@ export const SessionContextStore = defineStore({
           output: runSelectionContextSchema,
           run: (input) => {
             const row = session(input.sessionId);
+
             let history = conversationHistory(
               row.id,
               input.throughMessageId,
@@ -325,6 +332,7 @@ export const SessionContextStore = defineStore({
               if (!part) throw new StudyError('not_found', 'Thread root is unavailable');
 
               const root = conversationRoot(row.id, part.message_id);
+
               let size = root.text.length + history.reduce((n, item) => n + item.text.length, 0);
 
               while (size > 200000 && history.length > 1) size -= history.shift()!.text.length;
@@ -342,6 +350,7 @@ export const SessionContextStore = defineStore({
               .from(messages)
               .where(eq(messages.session_id, row.id))
               .all().length;
+
             const intent = {
               sessionId: input.sessionId,
               intentKey: input.intentKey,
@@ -350,6 +359,7 @@ export const SessionContextStore = defineStore({
               threadRoot: input.threadRoot,
               throughMessageId: input.throughMessageId
             };
+
             const snapshot = {
               ...intent,
               requestId: input.requestId,
@@ -385,11 +395,13 @@ export const SessionContextStore = defineStore({
 });
 
 /** Conservative validity for captured selection and active versions of relevant messages. */
+
 export const SessionContextValidityStore = defineStore({
   name: 'study/SessionContextValidityStore',
   entity: { singular: 'sessionContextValidity', plural: 'sessionContextValidities' },
   make: (resources) => {
     const { db } = resources;
+
     const { requiredContext, session } = makeContextReads(resources);
 
     return {
@@ -400,6 +412,7 @@ export const SessionContextValidityStore = defineStore({
           output: Schema.Boolean,
           run: ({ requestId }) => {
             const captured = requiredContext(requestId, true);
+
             const owner = session(captured.sessionId);
 
             return (

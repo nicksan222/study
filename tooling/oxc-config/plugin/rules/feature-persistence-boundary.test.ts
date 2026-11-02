@@ -396,3 +396,20 @@ test('history proof ownership survives table aliases and raw SQL across all sync
     'Feature learning may not write source_history_revisions.'
   ]);
 });
+
+test('System snapshot policy cannot gain credential, pending-shell or content writer authority', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/system/store/backup.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.select().from(s.messages); db.delete(s.preferences); db.delete(s.message_versions);
+      db.update(s.material_generation_requests); db.update(s.learning_practice_controls);
+    `,
+    'src/features/conversations/store/backup.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.delete(s.message_versions);
+    `
+  });
+
+  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/store/backup.ts')));
+});

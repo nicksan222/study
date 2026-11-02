@@ -56,3 +56,14 @@ test('Date function calls read the clock even with arguments, while shadows rema
     ]
   );
 });
+
+test('managed artifact timestamps use the injected native clock', () => {
+  assertDiagnostics(
+    'native-clock',
+    lintRule('native-clock', {
+      'src/platform/database/backups.ts':
+        'const current = Date.now; current(); clock.currentTimeMillisUnsafe();'
+    }),
+    [['src/platform/database/backups.ts', message]]
+  );
+});

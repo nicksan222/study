@@ -18,13 +18,17 @@ import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';
+import { ManagedBackups } from '#server/platform/database/backups';
 import { ServerContext } from '#server/platform/database/context';
+import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 
+import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';
 import { nativeLayers } from './native.ts';
 import { Workers } from './workers.ts';
 
 /** Owns the database, native services, and workflow consumer for one application. */
+
 export class App {
   readonly shutdown = new AbortController();
   private closing?: Promise<void>;
@@ -52,12 +56,16 @@ export class App {
     this.scope = scope;
   }
 
-  static open(options: {
+  static async open(options: {
     path: string;
     issuer?: string;
     hostId?: string;
     fetch?: typeof fetch;
   }): Promise<App> {
+    const ownership = await acquireDatabaseOwnership(options.path);
+
+    options = { ...options, path: ownership.path };
+
     const issuer = options.issuer ?? 'https://auth.openai.com';
 
     function* openScope(
@@ -65,9 +73,16 @@ export class App {
     ) {
       const scope = yield* Scope.make();
 
+      yield* Scope.addFinalizer(
+        scope,
+        Effect.tryPromise({ try: ownership.release, catch: (cause) => cause }).pipe(Effect.orDie)
+      );
+
       function* acquireApplication() {
         let runtime: ReturnType<typeof createNativeRuntime> | undefined;
+
         const clock = yield* Clock.Clock;
+
         const auth = yield* Effect.acquireRelease(
           Effect.try({
             try: () =>
@@ -93,6 +108,7 @@ export class App {
               catch: (error) => error
             }).pipe(Effect.orDie)
         );
+
         const store = yield* Effect.acquireRelease(
           Effect.try({
             try: () => ServerContext.open(options.path, clock),
@@ -100,8 +116,11 @@ export class App {
           }),
           (context) => Effect.sync(() => context.close())
         );
+
         const queue = yield* Queue.sliding<void>(1);
+
         let workers: Workers;
+
         const native = nativeLayers(
           store,
           auth,
@@ -188,7 +207,17 @@ export class App {
       return result.value;
     }
 
-    return runNative(Effect.uninterruptibleMask((restore) => Effect.gen(() => openScope(restore))));
+    try {
+      await ManagedBackups.activate(options.path, backupPolicy);
+
+      return await runNative(
+        Effect.uninterruptibleMask((restore) => Effect.gen(() => openScope(restore)))
+      );
+    } catch (cause) {
+      await ownership.release();
+
+      throw cause;
+    }
   }
 
   // fallow-ignore-next-line unused-class-member -- Runtime lifecycle and RPC tests close the inferred App instance.
@@ -196,6 +225,7 @@ export class App {
     if (this.closing) return this.closing;
 
     const stopped = this.workers.close();
+
     const closing = Promise.resolve().then(() => this.release(stopped));
 
     this.closing = closing;
@@ -210,6 +240,8 @@ export class App {
   private async release(stopped: Promise<void>) {
     const errors: unknown[] = [];
 
+    await this.native.backups.close();
+
     try {
       await stopped;
     } catch (error) {
@@ -223,6 +255,7 @@ export class App {
     }
 
     // Refresh persistence calls the Auth service, so its runtime and SQLite must remain alive.
+
     try {
       await this.auth.dispose();
     } catch (error) {

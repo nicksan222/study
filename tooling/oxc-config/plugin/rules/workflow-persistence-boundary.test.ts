@@ -202,3 +202,24 @@ test('history participants cannot mutate native payloads, checkpoints, deferreds
     ]
   );
 });
+
+test('snapshot sanitizers cannot clear native payloads or receipts outside the canonical workflow owners', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/system/store/backup.ts': `
+      import * as s from '@study/db/schema'; import { sql } from '@study/db';
+      db.select().from(s.workflow_executions);
+      db.update(s.workflow_executions); db.delete(s.workflow_activities);
+      db.delete(s.workflowReceipts); db.delete(s.workflow_configuration_waits);
+      sql\`UPDATE workflow_events SET payload='{}'\`;
+    `,
+      'apps/server/src/platform/database/backups.ts': `
+      import * as s from '@study/db/schema'; db.delete(s.workflow_retired_executions);
+    `
+    }),
+    [
+      ...Array(5).fill('apps/server/src/features/system/store/backup.ts'),
+      'apps/server/src/platform/database/backups.ts'
+    ]
+  );
+});

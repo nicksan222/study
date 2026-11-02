@@ -66,6 +66,16 @@ export const AuthStore = defineStore({
         })
       },
       mutations: {
+        sanitizeBackup: storeMutation({
+          input: Schema.Void,
+          output: Schema.Void,
+          run: () => {
+            db.orm
+              .delete(preferences)
+              .where(sql`${preferences.scope} = ${scope}`)
+              .run();
+          }
+        }),
         saveAccount: storeMutation({
           input: Schema.Json,
           output: Schema.Void,
@@ -117,6 +127,27 @@ export const AuthGenerationStore = defineStore({
 
           return row ? Schema.decodeUnknownSync(Schema.String)(JSON.parse(row.value)) : 'initial';
         }
+      })
+    },
+    mutations: {}
+  })
+});
+
+export const AuthBackupStore = defineStore({
+  name: 'study/AuthBackupStore',
+  entity: { singular: 'backupSanitized', plural: 'backupSanitizedAccounts' },
+  make: ({ db }) => ({
+    queries: {
+      backupSanitized: storeQuery({
+        role: 'required',
+        input: Schema.Void,
+        output: Schema.Boolean,
+        run: () =>
+          !db.orm
+            .select()
+            .from(preferences)
+            .where(sql`${preferences.scope} = ${scope}`)
+            .get()
       })
     },
     mutations: {}

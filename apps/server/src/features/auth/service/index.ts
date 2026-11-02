@@ -18,11 +18,12 @@ import { randomUUID } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import { Effect, Exit, Option, Scope } from 'effect';
 
-import { AuthGenerationStore, AuthStore } from '#server/features/auth/store/index';
+import { AuthBackupStore, AuthGenerationStore, AuthStore } from '#server/features/auth/store/index';
 import { acquireSignIn, decodeAccount, encodeAccount } from '#server/platform/ai/auth/index';
 import type { Account, SignIn } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { defineService } from '#server/platform/definitions/define-service';
+import type { Transaction } from '#server/platform/definitions/define-store';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { classifyError } from '#server/platform/errors/classify-error';
 
@@ -50,24 +51,34 @@ const invalid = (message: string) => new StudyError('invalid_input', message);
 
 function* makeAuth() {
   const readAuthGenerationStore = yield* useStore(AuthGenerationStore);
+
   const { manager, issuer, hostId, request } = yield* ChatGptSession;
+
   const store = yield* useStore(AuthStore);
+
   const read = () =>
     store
       .findAccount(undefined)
       .pipe(Effect.map((value) => (Option.isSome(value) ? decodeAccount(value.value) : undefined)));
+
   let active:
     | { id: string; signin: SignIn; scope: Scope.Closeable; finishing: boolean }
     | undefined;
+
   let generation = 0;
+
   let closing = false;
+
   let transition = false;
+
   const cancel = (id?: string) =>
     Effect.gen(function* () {
       if (id !== undefined && id !== active?.id) return { cancelled: false, version: generation };
 
       generation++;
+
       const attempt = active;
+
       const version = generation;
 
       active = undefined;
@@ -83,6 +94,7 @@ function* makeAuth() {
       yield* cancel();
     })
   );
+
   const saved = yield* read();
 
   if (saved) yield* Effect.tryPromise({ try: () => manager.replace(saved), catch: authFailure });
@@ -104,6 +116,7 @@ function* makeAuth() {
 
     function* removeAccount() {
       yield* Effect.tryPromise({ try: () => manager.signOut(), catch: authFailure });
+
       const before = yield* read();
 
       yield* transaction((tx) => tx.store(AuthStore).deleteAccount(undefined)).pipe(
@@ -160,11 +173,14 @@ function* makeAuth() {
             try: () => manager.replace(result.account, result),
             catch: authFailure
           });
+
           const after = yield* read();
+
           const account =
             before && after && same(before, result.account) && !same(before, after)
               ? { ...result.account, refreshToken: after.refreshToken }
               : result.account;
+
           const persist = Effect.gen(function* () {
             if (closing || active !== attempt) return yield* Effect.fail(cancelled());
 
@@ -237,7 +253,9 @@ function* makeAuth() {
           if (closing) return yield* Effect.fail(cancelled());
 
           const { version } = yield* cancel();
+
           const scope = yield* Scope.make();
+
           const signin = yield* acquireSignIn({
             issuer,
             hostId,
@@ -276,6 +294,7 @@ function* makeAuth() {
     rotateRefreshToken: (input: { previous: Account; token: string }) =>
       transaction((tx) => {
         const value = tx.store(AuthStore).findAccount(undefined);
+
         const saved = Option.isSome(value) ? decodeAccount(value.value) : undefined;
 
         if (!saved) throw invalid('Sign-in changed during refresh');
@@ -293,4 +312,7 @@ function* makeAuth() {
 
 const make = Effect.gen(makeAuth);
 
-export const Auth = defineService('study/Auth', make);
+export const Auth = defineService('study/Auth', make, {
+  validateBackup: (tx: Transaction) => tx.store(AuthBackupStore).backupSanitized(undefined),
+  sanitizeBackup: (tx: Transaction) => tx.store(AuthStore).sanitizeBackup(undefined)
+});

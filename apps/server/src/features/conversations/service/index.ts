@@ -47,6 +47,7 @@ import type { materialGenerationPublicationSchema } from '@study/contracts/mater
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
+import { ConversationBackupStore } from '#server/features/conversations/store/backup';
 import {
   SessionContextStore,
   SessionContextValidityStore,
@@ -97,10 +98,15 @@ export const Conversations = defineService(
   'study/Conversations',
   Effect.gen(function* () {
     const readReplyReadinessStore = yield* useStore(ReplyReadinessStore);
+
     const readReplyWakeStore = yield* useStore(ReplyWakeStore);
+
     const store = yield* useStore(SessionStore);
+
     const titles = yield* useStore(TitleStore);
+
     const selections = yield* useStore(SessionSelectionStore);
+
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
@@ -111,6 +117,7 @@ export const Conversations = defineService(
           if (Option.isSome(replay)) return replay.value;
 
           const context = proposalContext(tx, value);
+
           const relevantValid = tx
             .store(SessionContextValidityStore)
             .sessionContextValidity({ requestId: context.requestId });
@@ -188,6 +195,7 @@ export const Conversations = defineService(
       createUntitledSession: (input: { project?: ProjectId }) =>
         Effect.gen(function* () {
           const settings = yield* Settings;
+
           const language = yield* settings.language();
 
           return yield* transaction((tx) =>
@@ -201,6 +209,7 @@ export const Conversations = defineService(
       requestTitle: (input: { sessionId: SessionId }) =>
         transaction((tx) => {
           const requestId = randomUUID();
+
           const snapshot = tx.store(TitleStore).captureTitle({ ...input, requestId });
 
           tx.emit({
@@ -263,6 +272,7 @@ export const Conversations = defineService(
             instruction: input.instruction ?? '',
             preferences: input.preferences ?? {}
           };
+
           const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
 
           if (Option.isSome(existing)) {
@@ -280,8 +290,11 @@ export const Conversations = defineService(
           }
 
           tx.store(ReplyStore).prepareReply(input);
+
           const context = captureContext(tx, intent, randomUUID());
+
           const requestId = context.requestId;
+
           const previous = tx.store(ReplyRequestStore).findReplyRequest({ requestId });
 
           if (Option.isSome(previous)) return previous.value;
@@ -301,8 +314,11 @@ export const Conversations = defineService(
       thread: (input: typeof threadInputSchema.Type) =>
         transaction((tx) => {
           const messages = tx.store(MessageStore);
+
           const items = messages.messages(input);
+
           const first = items[0];
+
           const more =
             first && items.length === input.limit
               ? messages.messages({
@@ -327,6 +343,7 @@ export const Conversations = defineService(
       }) =>
         publicationTransaction((tx) => {
           const recording = tx.store(RecordingPostStore);
+
           const existing = recording.prepareRecordingPost(input);
 
           if (existing !== null) return existing;
@@ -342,6 +359,7 @@ export const Conversations = defineService(
       postMessage: (input: typeof postMessageInputSchema.Type) =>
         transaction((tx) => {
           const message = tx.store(MessageStore).postMessage(input);
+
           const mentioned = [...input.text.matchAll(/(?:^|\s)(@[a-z]+)/giu)].some(
             (match) => match[1]!.toLowerCase() === mentionLabel('assistant')
           );
@@ -353,6 +371,7 @@ export const Conversations = defineService(
               sessionId: input.sessionId,
               threadRoot: input.threadRoot
             });
+
             const context = captureContext(
               tx,
               {
@@ -364,6 +383,7 @@ export const Conversations = defineService(
               },
               requestId
             );
+
             const result = tx.store(ReplyStore).requestReply({
               sessionId: input.sessionId,
               threadRoot: input.threadRoot,
@@ -400,7 +420,9 @@ export const Conversations = defineService(
       sessions: (input: typeof sessionPageInputSchema.Type) =>
         Effect.gen(function* () {
           const items = yield* store.sessions(input);
+
           const last = items.at(-1);
+
           const more =
             last && items.length === input.limit
               ? yield* store.sessions({
@@ -427,14 +449,17 @@ export const Conversations = defineService(
       retrySessionDeletion: (id: SessionId) =>
         transaction((tx) => {
           const previous = tx.store(SessionDeletionStore).sessionDeletion(id);
+
           const runs = Workflows.correlatedExecutions(
             tx,
             previous.operationId,
             `${previous.operationId}/${previous.attempt}`
           );
+
           const pendingTerminal =
             runs.length > 0 &&
             runs.every((run) => run.status === 'completed' || run.status === 'cancelled');
+
           const result = tx.store(SessionDeletionStore).retry({ sessionId: id, pendingTerminal });
 
           if (result.attempt !== previous.attempt) emitDeletion(tx, result);
@@ -465,9 +490,11 @@ export const Conversations = defineService(
           if (Option.isSome(existing)) return existing.value;
 
           const owned = tx.store(SessionDeletionOwnershipStore).deletionOwnership(id);
+
           const status = tx
             .store(SessionDeletionStore)
             .accept({ sessionId: id, operationId: randomUUID() });
+
           const generations = Materials.prepareSessionRetirement(tx, {
             sessionId: id,
             contextIds: owned.contextIds
@@ -477,6 +504,7 @@ export const Conversations = defineService(
             sessionId: id,
             correlations: [...owned.correlations, ...generations]
           });
+
           Workflows.retireCorrelations(
             tx,
             [...owned.correlations, ...generations],
@@ -490,6 +518,9 @@ export const Conversations = defineService(
     };
   }),
   {
+    prepareBackup: (tx: Transaction) => tx.store(ConversationBackupStore).prepare(undefined),
+    validateBackup: (tx: Transaction, requireRetired = false) =>
+      tx.store(ConversationBackupStore).backupConversation(requireRetired),
     prepareMaterialHistory,
     scrubMaterialHistory,
     inspectMaterialHistory,
@@ -531,7 +562,9 @@ function requestTarget(
   const requestId = randomUUID();
 
   tx.store(ReplyStore).retireTargetPending(input);
+
   const message = tx.store(MessageStore).message(input.messageId);
+
   const context = captureContext(
     tx,
     {
@@ -544,6 +577,7 @@ function requestTarget(
     },
     requestId
   );
+
   const result = tx.store(ReplyStore).requestTarget({ ...input, requestId, context });
 
   emitReplyRequest(tx, result, input.origin === 'answer' ? 'reply' : 'rewrite');
@@ -574,6 +608,7 @@ function captureContext(
   requestId: string
 ) {
   const store = tx.store(SessionContextStore);
+
   const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(input);
 
   if (Option.isSome(existing)) {
@@ -602,6 +637,7 @@ function assertCapturedTarget(tx: Transaction, target: typeof resolvedSelectionS
 }
 
 /** Availability checked immutable context, composed inside another feature transaction. */
+
 function readCapturedContext(tx: Transaction, requestId: string) {
   const snapshot = tx.store(SessionContextStore).sessionContext({ requestId });
 
@@ -613,6 +649,7 @@ function readCapturedContext(tx: Transaction, requestId: string) {
 }
 
 /** Completed receipts no longer require a retained session capture. */
+
 function pendingTransformContext(tx: Transaction, requestId: string) {
   const request = Materials.readGeneration(tx, { requestId, verifyOnly: true });
 
@@ -624,8 +661,10 @@ function pendingTransformContext(tx: Transaction, requestId: string) {
 }
 
 /** Retained proposals are actionable only while their exact session capture is available. */
+
 function proposalContext(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
   const proposal = Materials.documentProposal(tx, value);
+
   const request = Materials.readGeneration(tx, { requestId: value.requestId, verifyOnly: true });
 
   if (!request.documentTransform || request.cancelled)
@@ -659,6 +698,7 @@ function emitDeletion(tx: Transaction, value: typeof sessionDeletionSchema.Type)
 }
 
 /** Source extraction and MaterialPublished notifications have independent library ownership. */
+
 const deletionEventTypes = [
   'ConversationGenerationRequested',
   'ConversationTitleRequested',

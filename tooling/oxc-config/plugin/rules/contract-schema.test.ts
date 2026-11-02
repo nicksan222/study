@@ -167,3 +167,26 @@ test('history policies, exact candidates and native operations derive from check
 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
+
+test('backup descriptors and restore acknowledgements use checked canonical schemas', () => {
+  const diagnostics = lintRule(
+    'contract-schema',
+    {
+      'packages/contracts/src/system/backups.ts': `
+      import { Schema } from 'effect';
+
+      export const status = Schema.Struct({state: Schema.Literals(['idle', 'restart-required', 'applied']), recoveryCopy: Schema.Boolean});
+
+      export type Status = typeof status.Type;
+
+      export interface UncheckedRestore { backupId: string; target: string }
+
+      export const unchecked = Schema.Struct({manifest: Schema.Unknown});
+
+    `
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

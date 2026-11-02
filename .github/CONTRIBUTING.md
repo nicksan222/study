@@ -73,7 +73,12 @@ Run `npm run format` to format, `npm run format:check` to check formatting, and 
 for the combined format/lint gate with warnings denied.
 The Vite+ pipeline uses syntax-only lint analysis, React stability rules and package-manifest
 sorting; dedicated TypeScript checks and Study's architecture rules remain required. Server tests keep the actual Node
-runtime (`npm run server:test`) with the streaming TAP reporter so failure diagnostics appear before suite completion.
+runtime (`npm run server:test`) with TAP results and an execution-ordered progress reporter. JSON progress lines on stderr
+identify dequeued/completed tests by entry file and test ID, and named fixture phases distinguish
+setup, body operations and cleanup without operation payloads. The inherited test timeout is
+three minutes; the crash-recovery lifecycle test has a one-minute timeout, and automatic
+resource/database cleanup hooks have a thirty-second timeout. These bounds fail tests; they
+do not cancel arbitrary promises or guarantee a blocked event loop can recover.
 The CI server test step fails after ten minutes, allowing the remaining independent gates to run; frontend tests use the verbose
 Vitest reporter. TypeScript checks keep `tsc`.
 Run `npm run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.

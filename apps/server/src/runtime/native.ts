@@ -51,6 +51,7 @@ import { Agents } from '#server/platform/ai/agents';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
+import { BackupStorage, ManagedBackups } from '#server/platform/database/backups';
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
@@ -58,6 +59,7 @@ import { WorkflowControl } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { WorkerLifecycle } from '#server/platform/workflows/lifecycle';
 
+import { backupPolicy } from './backups.ts';
 import { workflowHandlers } from './workflows.ts';
 
 export function nativeLayers(
@@ -70,8 +72,15 @@ export function nativeLayers(
   request?: typeof fetch
 ) {
   const admission = admissionLayer(makeAdmission());
+
   const database = Layer.succeed(Database, { store });
+
+  const backupOwner = new ManagedBackups(store.db, backupPolicy, store.clock);
+
+  const backups = Layer.succeed(BackupStorage, { owner: backupOwner });
+
   const lifecycleLayer = Layer.succeed(WorkerLifecycle, lifecycle);
+
   const services = Layer.mergeAll(
     Sources.layer,
     Workflows.layer,
@@ -86,22 +95,29 @@ export function nativeLayers(
     System.layer
   ).pipe(
     Layer.provideMerge(
-      Layer.mergeAll(database, lifecycleLayer, Layer.succeed(WorkflowControl, control))
+      Layer.mergeAll(database, backups, lifecycleLayer, Layer.succeed(WorkflowControl, control))
     )
   );
+
   const session = Layer.succeed(ChatGptSession, { manager, issuer, hostId, request });
+
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(database, session)));
+
   const allServices = Layer.mergeAll(services, auth);
+
   const configuration = Layer.effect(
     WorkflowConfiguration,
     Effect.gen(function* () {
       const settings = yield* Settings;
+
       const account = yield* Auth;
 
       return {
         revision: Effect.gen(function* () {
           const llm = yield* settings.llmSettings();
+
           const publicAccount = yield* account.publicAccount();
+
           const credentialGeneration = yield* account.credentialGeneration();
 
           return createHash('sha256')
@@ -111,10 +127,12 @@ export function nativeLayers(
       };
     })
   ).pipe(Layer.provide(allServices));
+
   const agents = Layer.effect(
     Agents,
     Effect.gen(function* () {
       const settings = yield* Settings;
+
       const aiAdmission = yield* AiAdmission;
 
       return {
@@ -133,9 +151,11 @@ export function nativeLayers(
       };
     })
   ).pipe(Layer.provide(Layer.mergeAll(services, admission)));
+
   const shared = Layer.mergeAll(allServices, session, agents, configuration, admission).pipe(
     Layer.provideMerge(Layer.succeed(Logger.LogToStderr, true))
   );
+
   const handlers = Layer.mergeAll(
     SourcesRpcLive,
     WorkflowsRpcLive,
@@ -149,7 +169,8 @@ export function nativeLayers(
     ThemesRpcLive,
     SystemRpcLive
   );
+
   const workflows = workflowHandlers.pipe(Layer.provideMerge(workflowEngineLayer(store)));
 
-  return { handlers, services: shared, workflows };
+  return { handlers, services: shared, workflows, backups: backupOwner };
 }

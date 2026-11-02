@@ -1,5 +1,20 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  BackupScope:
+    'Backups include library content, collections, sessions, annotations, practice and retained history. Account credentials are excluded.',
+  BackupRetention: 'A backup keeps its snapshot even after content is deleted from Study.',
+  BackupRestoreWarning:
+    'Restoring replaces all current content after restart and requires a new sign-in. Captured background work will not resume.',
+  BackupRestoreBarriers:
+    'This database contains deletion or history-pruning barriers. Restore into a new empty database to preserve those protections.',
+  BackupRestartRequired:
+    'Restore accepted. Restart Study to activate it. Further changes will invalidate this restore.',
+  BackupActivationFailed:
+    'Restore could not be activated. Current content is preserved. Discard the staged recovery state and review a new preview to retry.',
+  BackupTargetChanged: 'The database changed after acceptance. Review a new restore preview.',
+  BackupRecoveryCopy: 'One private recovery copy is retained until you explicitly discard it.',
+  BackupFormatBounds:
+    'Format 1 requires the exact supported schema. Each snapshot is limited to 64 MiB; up to 8 managed backups are retained.',
   AiSettingsAccount: 'ChatGPT account',
   AiSettingsChatGpt: 'ChatGPT',
   AiSettingsPlanDescription: 'Connect your ChatGPT account to run AI tasks on your plan.',

@@ -62,6 +62,7 @@ export function makeReads({ db: store }: StoreResources) {
 
   function materialRow(id: MaterialId, active = false) {
     assertAvailable(id);
+
     const row = required(store.orm.select().from(s.materials).where(eq(s.materials.id, id)).get());
 
     if (active && row.archived_at !== null)
@@ -83,6 +84,7 @@ export function makeReads({ db: store }: StoreResources) {
 
   function versionRow(id: MaterialVersionId, draft = false) {
     assertVersionAvailable(id);
+
     const row = required(
       store.orm.select().from(s.material_versions).where(eq(s.material_versions.id, id)).get()
     );
@@ -167,6 +169,7 @@ export function makeReads({ db: store }: StoreResources) {
     if (!row) return undefined;
 
     const state = row.state;
+
     const ready =
       state.published_request_id === state.request_id &&
       state.document_id !== null &&
@@ -175,6 +178,7 @@ export function makeReads({ db: store }: StoreResources) {
         .from(s.material_source_snapshots)
         .where(eq(s.material_source_snapshots.document_id, state.document_id))
         .get() !== undefined;
+
     const failed = store.orm
       .select()
       .from(s.workflowEvents)
@@ -186,16 +190,27 @@ export function makeReads({ db: store }: StoreResources) {
       )
       .get();
 
+    const retired = store.orm
+      .select()
+      .from(s.workflow_retired_correlations)
+      .where(eq(s.workflow_retired_correlations.correlation_id, state.request_id))
+      .get();
+
     return {
       sourceId: state.source_id,
       revision: Number(state.revision),
       requestId: state.request_id,
-      status: ready ? ('ready' as const) : failed ? ('failed' as const) : ('pending' as const)
+      status: ready
+        ? ('ready' as const)
+        : failed || retired
+          ? ('failed' as const)
+          : ('pending' as const)
     };
   }
 
   function readVersion(id: MaterialVersionId): MaterialVersionDetailDto | null {
     assertVersionAvailable(id);
+
     const row = store.orm
       .select()
       .from(s.material_versions)
@@ -262,6 +277,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'diagram' }> {
     const id = base.id;
+
     const c = required(
       store.orm
         .select()
@@ -281,6 +297,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'file' }> {
     const id = base.id;
+
     const c = required(
       store.orm
         .select()
@@ -305,6 +322,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'link' }> {
     const id = base.id;
+
     const c = required(
       store.orm
         .select()
@@ -329,6 +347,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'audio' }> {
     const id = base.id;
+
     const c = required(
       store.orm
         .select()
@@ -356,6 +375,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'video' }> {
     const id = base.id;
+
     const c = required(
       store.orm
         .select()
@@ -383,6 +403,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'image' }> {
     const id = base.id;
+
     const c = required(
       store.orm
         .select()
@@ -409,6 +430,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'document' }> {
     const id = base.id;
+
     const c = required(
       store.orm
         .select()
@@ -429,6 +451,7 @@ export function makeReads({ db: store }: StoreResources) {
       const doc = required(
         store.orm.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
       );
+
       const blocks = store.orm
         .select()
         .from(s.blocks)
@@ -456,6 +479,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'quiz' }> {
     const id = base.id;
+
     const choiceRows = store.orm
       .select({ choice: s.material_quiz_choices })
       .from(s.material_quiz_choices)
@@ -466,6 +490,7 @@ export function makeReads({ db: store }: StoreResources) {
       .where(eq(s.material_quiz_questions.version_id, id))
       .orderBy(asc(s.material_quiz_choices.question_id), asc(s.material_quiz_choices.position))
       .all();
+
     const byQuestion = new Map<
       QuizQuestionId,
       { id: QuizChoiceId; text: string; isCorrect: boolean }[]
@@ -490,7 +515,9 @@ export function makeReads({ db: store }: StoreResources) {
       )
       .where(eq(s.material_quiz_questions.version_id, id))
       .all();
+
     const references = new Map(openRows.map((r) => [r.questionId, r.reference]));
+
     const questions: QuizQuestionDetailDto[] = store.orm
       .select()
       .from(s.material_quiz_questions)
@@ -521,6 +548,7 @@ export function makeReads({ db: store }: StoreResources) {
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'flashcards' }> {
     const id = base.id;
+
     const cards = store.orm
       .select()
       .from(s.material_flashcard_entries)
@@ -543,13 +571,17 @@ export function makeReads({ db: store }: StoreResources) {
 
   function readMaterial(id: MaterialId): MaterialDetailDto | null {
     assertAvailable(id);
+
     const row = store.orm.select().from(s.materials).where(eq(s.materials.id, id)).get();
 
     if (!row) return null;
 
     const publishedRow = latestVersion(id, 'published');
+
     const draftRow = latestVersion(id, 'draft');
+
     const published = publishedRow ? readVersion(publishedRow.id) : null;
+
     const draft = draftRow ? readVersion(draftRow.id) : null;
 
     return {
@@ -580,6 +612,7 @@ export function makeReads({ db: store }: StoreResources) {
   }
 
   /** Bounded collection reads: payloads are loaded only by detail endpoints. */
+
   function readMaterialSummaries(ids: MaterialId[]): MaterialSummaryDto[] {
     if (!ids.length) return [];
 
@@ -596,12 +629,15 @@ export function makeReads({ db: store }: StoreResources) {
       .from(s.materials)
       .where(inArray(s.materials.id, ids))
       .all();
+
     const decodeVersionId = Schema.decodeUnknownSync(materialVersionIdSchema);
+
     const versionIds = rows.flatMap((r) =>
       [r.publishedId, r.draftId]
         .filter((id): id is bigint => id !== null)
         .map((id) => decodeVersionId(id))
     );
+
     const versions = versionIds.length
       ? store.orm
           .select()
@@ -609,11 +645,14 @@ export function makeReads({ db: store }: StoreResources) {
           .where(inArray(s.material_versions.id, versionIds))
           .all()
       : [];
+
     const byVersion = new Map(versions.map((v) => [v.id, v]));
+
     const byMaterial = new Map(
       rows.map((r) => {
         const published =
           r.publishedId === null ? null : required(byVersion.get(decodeVersionId(r.publishedId)));
+
         const draft =
           r.draftId === null ? null : required(byVersion.get(decodeVersionId(r.draftId)));
 
