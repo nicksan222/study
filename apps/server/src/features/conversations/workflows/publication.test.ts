@@ -213,6 +213,17 @@ test('guarded publication validates captured citations and replays without write
               assert.equal(message.versions[0]?.text, 'Answer [1]');
               assert.deepEqual(message.citations, [
                 {
+                  origin: 'agent',
+                  precision: 'approximate',
+                  support: { state: 'unassessed' },
+                  evidence: {
+                    availability: 'unavailable',
+                    precision: 'approximate',
+                    reason: 'attachment_target_unresolved',
+                    sourceId: source.id,
+                    anchor: { type: 'page', page: 3 },
+                    quote: 'quoted passage'
+                  },
                   marker: 1,
                   sourceId: source.id,
                   materialVersionId: null,

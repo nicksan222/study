@@ -21,6 +21,7 @@ import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
 import type * as editing from '@study/contracts/materials/editing';
+import type * as evidence from '@study/contracts/materials/evidence';
 import type * as input from '@study/contracts/materials/rpc';
 import type {
   MaterialVersionDetailDto,
@@ -29,11 +30,17 @@ import type {
 } from '@study/contracts/materials/schemas';
 import { Effect, Option } from 'effect';
 
+import {
+  AnnotationsStore,
+  AnnotationHistoryStore
+} from '#server/features/materials/store/annotations';
+import { CitationSupportStore } from '#server/features/materials/store/citation-support';
 import { DocumentEditingStore } from '#server/features/materials/store/document-editing';
 import {
   DocumentProposalStore,
   DocumentProposalReceiptStore
 } from '#server/features/materials/store/document-proposals';
+import { EvidenceStore, DependencyStatusStore } from '#server/features/materials/store/evidence';
 import {
   MaterialSelectionStore,
   MaterialGenerationStore,
@@ -88,6 +95,37 @@ function* makeMaterials() {
     dependents = yield* useStore(MaterialDependentsStore),
     citations = yield* useStore(MaterialCitationsStore);
 
+  const support = yield* useStore(CitationSupportStore);
+  const annotations = yield* useStore(AnnotationsStore);
+  const annotationHistory = yield* useStore(AnnotationHistoryStore);
+  const evidenceReader = yield* useStore(EvidenceStore);
+  const dependencyStatus = yield* useStore(DependencyStatusStore);
+
+  const changeAnnotation = (
+    mutate: (tx: Transaction) => typeof evidence.annotationOutcomeSchema.Type
+  ) =>
+    transaction((tx) => {
+      const result = mutate(tx);
+
+      if (result.outcome === 'saved') {
+        const eventId = randomUUID();
+
+        tx.emit({
+          type: 'MaterialAnnotationChanged',
+          eventId,
+          causationId: null,
+          correlationId: eventId,
+          inputVersion: 1,
+          depth: 0,
+          annotationId: result.annotation.id,
+          materialId: result.annotation.target.materialId,
+          revision: result.annotation.revision
+        });
+      }
+
+      return result;
+    });
+
   const editDocument = (
     mutate: (tx: Transaction) => typeof editing.documentEditOutcomeSchema.Type
   ) =>
@@ -104,6 +142,22 @@ function* makeMaterials() {
     });
 
   return {
+    citationSupport: support.citationSupport,
+    assessCitation: (value: typeof evidence.assessCitationSchema.Type) =>
+      transaction((tx) => tx.store(CitationSupportStore).assessCitation(value)),
+    annotation: annotations.annotation,
+    annotations: annotations.annotations,
+    annotationHistory: annotationHistory.annotationRevisions,
+    resolveEvidence: evidenceReader.evidence,
+    dependencyStatus: dependencyStatus.dependencyStatuses,
+    createAnnotation: (value: typeof evidence.createAnnotationSchema.Type) =>
+      changeAnnotation((tx) => tx.store(AnnotationsStore).createAnnotation(value)),
+    updateAnnotation: (value: typeof evidence.updateAnnotationSchema.Type) =>
+      changeAnnotation((tx) => tx.store(AnnotationsStore).updateAnnotation(value)),
+    reanchorAnnotation: (value: typeof evidence.reanchorAnnotationSchema.Type) =>
+      changeAnnotation((tx) => tx.store(AnnotationsStore).reanchorAnnotation(value)),
+    deleteAnnotation: (value: typeof evidence.annotationMutationSchema.Type) =>
+      changeAnnotation((tx) => tx.store(AnnotationsStore).deleteAnnotation(value)),
     createManualDocument: (value: typeof editing.createManualDocumentSchema.Type) =>
       transaction((tx) => {
         const result = tx.store(DocumentEditingStore).createManualDocument(value);
@@ -431,6 +485,7 @@ function* makeMaterials() {
 }
 
 export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
+  resolveEvidence,
   resolveSessionSelection,
   readGeneration,
   requestDocumentTransform,
@@ -445,6 +500,11 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
   compareDocumentProposal,
   findDocumentProposalReceipt
 });
+
+/** Resolve retained evidence within the caller's consistent database snapshot. */
+function resolveEvidence(tx: Transaction, reference: typeof evidence.evidenceReferenceSchema.Type) {
+  return tx.store(EvidenceStore).evidence(reference);
+}
 
 /** Register acquisition in its caller's synchronous transaction, including the outbox event. */
 function registerImportedSource(tx: Transaction, sourceId: SourceId) {

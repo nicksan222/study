@@ -18,7 +18,8 @@ import { test } from 'node:test';
 
 import type { MaterialVersionId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
-import { sql } from '@study/db';
+import { eq, sql } from '@study/db';
+import { material_document_versions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
@@ -244,8 +245,40 @@ test('guarded generation publishes once and replays its receipt', async () => {
 
         assert.equal(published.operation, 'generate');
         assert.deepEqual(published.inputs, [doc.version.id]);
+        const inputDocumentId = context.db.orm
+          .select()
+          .from(material_document_versions)
+          .where(eq(material_document_versions.version_id, doc.version.id))
+          .get()!.document_id;
+
         assert.deepEqual((yield* materials.citations({ id: result, limit: 10 })).items, [
           {
+            precision: 'approximate',
+            support: { state: 'unassessed' },
+            evidence: {
+              availability: 'available',
+              reference: {
+                kind: 'anchor',
+                versionId: doc.version.id,
+                anchor: { type: 'authored' },
+                quote: 'Source'
+              },
+              materialId: doc.id,
+              origin: 'user',
+              precision: 'approximate',
+              location: { type: 'authored' },
+              locationPrecision: 'unavailable',
+              block: null,
+              excerpt: null,
+              revision: {
+                inputVersionId: doc.version.id,
+                currentVersionId: doc.version.id,
+                inputDocumentId,
+                currentDocumentId: inputDocumentId,
+                source: null,
+                state: 'current'
+              }
+            },
             marker: 1n,
             inputVersionId: doc.version.id,
             anchor: { type: 'authored' },

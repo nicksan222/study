@@ -20,7 +20,10 @@ import type {
   MessageId,
   SourceId
 } from '@study/contracts/ids';
-import type { materialVersionDetailSchema } from '@study/contracts/materials/schemas';
+import type {
+  materialVersionDetailSchema,
+  materialCitationSchema
+} from '@study/contracts/materials/schemas';
 import type { Block } from '@study/contracts/sources/document';
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
@@ -112,6 +115,80 @@ function assertIndependentImage(
   assert.notEqual(independent.content.blocks[1]!.id, proposal.content.blocks[1]!.id);
 }
 
+function assessAppliedCitation(
+  applied: typeof materialVersionDetailSchema.Type,
+  cited: typeof materialCitationSchema.Type
+) {
+  return Effect.gen(function* () {
+    const materials = yield* Materials;
+
+    if (applied.content.kind !== 'document') throw new Error('Missing applied Document');
+
+    if (!cited.target || cited.evidence?.availability !== 'available')
+      throw new Error('Expected exact proposal citation');
+
+    const claimBlock = applied.content.blocks[0]!;
+    const claimEvidence = yield* materials.resolveEvidence({
+      kind: 'anchor',
+      versionId: applied.id,
+      anchor: { type: 'authored' },
+      quote: ''
+    });
+
+    if (
+      claimEvidence.availability !== 'available' ||
+      claimEvidence.revision.inputDocumentId === null
+    )
+      throw new Error('Expected retained applied Document');
+
+    const assessed = yield* materials.assessCitation({
+      claim: {
+        materialId: applied.material_id,
+        range: {
+          versionId: applied.id,
+          documentId: claimEvidence.revision.inputDocumentId,
+          blockId: claimBlock.id,
+          start: 0,
+          end: claimBlock.text.length
+        }
+      },
+      evidence: { materialId: cited.evidence.materialId, range: cited.target },
+      marker: 1n,
+      judgment: 'uncertain',
+      note: 'Manual judgment on the applied revision'
+    });
+
+    assert.notEqual(assessed.state, 'unassessed');
+
+    if (assessed.state !== 'unassessed') {
+      assert.equal(assessed.claim.availability, 'available');
+      assert.equal(assessed.evidence.availability, 'available');
+      assert.equal(assessed.assessment.suppliedBy, 'user');
+      assert.equal(assessed.assessment.independentVerification, false);
+    }
+
+    return assessed;
+  });
+}
+
+function assertHistoricProposalEvidence(cited: typeof materialCitationSchema.Type) {
+  return Effect.gen(function* () {
+    const materials = yield* Materials;
+
+    if (cited.target && cited.evidence?.availability === 'available') {
+      const historical = yield* materials.resolveEvidence({
+        kind: 'range',
+        target: { materialId: cited.evidence.materialId, range: cited.target }
+      });
+
+      assert.equal(historical.availability, 'available');
+
+      if (historical.availability === 'available')
+        assert.equal(historical.excerpt?.includes(cited.quote), true);
+    }
+  });
+}
+
 function undoAppliedProposal(
   setup: ProposalSetup & { imageBlock: { id: Block['id'] } },
   proposalId: MaterialVersionId,
@@ -133,7 +210,14 @@ function undoAppliedProposal(
       (yield* materials.citations({ id: proposalId, limit: 10 })).items
     );
 
+    const cited = (yield* materials.citations({ id: applied.id, limit: 10 })).items[0]!;
+
+    assert.equal(cited.support?.state, 'unassessed');
+    assert.equal(cited.evidence?.availability, 'available');
+
     assert.deepEqual(applied.parents, [setup.target.version.id]);
+
+    const assessed = yield* assessAppliedCitation(applied, cited);
 
     const value = {
       materialId: setup.target.id,
@@ -145,6 +229,23 @@ function undoAppliedProposal(
     const undo = yield* materials.undoDocument(value);
 
     assert.equal(undo.outcome, 'saved');
+
+    assert.equal(
+      (yield* materials.citationSupport({ versionId: undo.submittedVersionId, marker: 1n })).state,
+      'unassessed'
+    );
+
+    yield* assertHistoricProposalEvidence(cited);
+
+    const historicSupport = yield* materials.citationSupport({ versionId: applied.id, marker: 1n });
+
+    assert.equal(historicSupport.state, 'stale');
+
+    if (assessed.state !== 'unassessed') {
+      assert.ok(historicSupport.reasons.includes('claim_changed'));
+      assert.deepEqual(historicSupport.assessment, assessed.assessment);
+      assert.equal(historicSupport.evidence.availability, 'available');
+    }
 
     assert.equal((yield* materials.undoDocument(value)).replayed, true);
   });
@@ -373,17 +474,23 @@ for (const scenario of [
             assert.deepEqual(output(), beforeApplication);
           }
 
-          if (scenario === 'apply') {
-            f.context.db.orm.run(
-              sql`CREATE TRIGGER reject_proposal_event BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialPublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
-            );
+          function assertApplicationRollback() {
+            return Effect.gen(function* () {
+              if (scenario === 'apply') {
+                f.context.db.orm.run(
+                  sql`CREATE TRIGGER reject_proposal_event BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialPublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
+                );
 
-            yield* Effect.flip(chats.applyDocumentProposal(value));
+                yield* Effect.flip(chats.applyDocumentProposal(value));
 
-            assert.deepEqual(output(), beforeApplication);
+                assert.deepEqual(output(), beforeApplication);
 
-            f.context.db.orm.run(sql`DROP TRIGGER reject_proposal_event`);
+                f.context.db.orm.run(sql`DROP TRIGGER reject_proposal_event`);
+              }
+            });
           }
+
+          yield* assertApplicationRollback();
 
           const result = yield* chats.applyDocumentProposal(value);
 
@@ -455,6 +562,14 @@ for (const scenario of [
 
           const independent = yield* materials.materialVersion({ id: kept.resultVersionId! });
 
+          const independentCitations = (yield* materials.citations({
+            id: independent.id,
+            limit: 10
+          })).items;
+
+          assert.equal(independentCitations[0]?.support?.state, 'unassessed');
+          assert.equal(independentCitations[0]?.evidence?.availability, 'available');
+
           assert.notEqual(independent.material_id, setup.target.id);
 
           assertIndependentImage(independent, proposal, setup.image.id);
@@ -480,6 +595,14 @@ for (const scenario of [
           assert.equal(f.context.db.orm.select().from(s.materials).all().length, 4);
 
           yield* undoAppliedProposal(setup, proposalId, result.resultVersionId);
+          assert.equal(
+            (yield* materials.citationSupport({ versionId: independent.id, marker: 1n })).state,
+            'unassessed'
+          );
+          assert.equal(
+            (yield* materials.citationSupport({ versionId: proposalId, marker: 1n })).state,
+            'unassessed'
+          );
 
           return {
             independentId: independent.id,
@@ -507,6 +630,20 @@ for (const scenario of [
             outcomes.independentId
           );
 
+          if (outcomes.resultVersionId !== null)
+            assert.equal(
+              (yield* materials.citationSupport({
+                versionId: outcomes.resultVersionId,
+                marker: 1n
+              })).state,
+              'stale'
+            );
+
+          assert.equal(
+            (yield* materials.citationSupport({ versionId: outcomes.independentId, marker: 1n }))
+              .state,
+            'unassessed'
+          );
           yield* chats.deleteSession(setup.session.id);
 
           assert.equal(

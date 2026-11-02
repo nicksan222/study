@@ -17,6 +17,9 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeMaterialOutput({ db }: StoreResources) {
   return () => ({
+    annotations: db.orm.select().from(s.material_annotations).all(),
+    annotationRevisions: db.orm.select().from(s.material_annotation_revisions).all(),
+    citationAssessments: db.orm.select().from(s.material_citation_assessments).all(),
     materials: db.orm.select().from(s.materials).all(),
     versions: db.orm.select().from(s.material_versions).all(),
     documentRows: db.orm.select().from(s.documents).all(),

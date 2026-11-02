@@ -53,3 +53,22 @@ test('editing tokens and captured target identities stay lossless across native 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
 });
+
+test('annotation and historic source identities stay lossless while SQLite editor offsets become numbers', () => {
+  const diagnostics = lintRule('no-lossy-ids', {
+    'src/features/materials/store/unsafe.ts': `
+      Number(value.annotationId);
+      Number(value.target.range.versionId);
+      Number(revision.source.currentDocumentId);
+    `,
+    'src/features/conversations/store/offsets.ts': `
+      Number(row.range_start);
+      Number(row.range_end);
+      Number(processing.revision);
+      String(value.target.range.documentId);
+    `
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
+});

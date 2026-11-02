@@ -14,21 +14,50 @@
  */
 
 import type { MaterialVersionId } from '@study/contracts/ids';
-import { documentTextRangeSchema } from '@study/contracts/sources/schemas';
 import { asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { Schema } from 'effect';
 
 import { makeReads } from '#server/features/materials/store/reads';
-import { anchorSchema } from '#server/features/materials/store/schemas';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-const targetCodec = Schema.fromJsonString(Schema.toCodecJson(documentTextRangeSchema));
+import { readCitation } from './citation-row.ts';
+import { makeSupport } from './citation-support.ts';
+import { makeEvidence } from './evidence.ts';
 
 export function makeCitations(resources: StoreResources) {
   const { db } = resources;
   const store = db;
   const { versionRow } = makeReads(resources);
+  const support = makeSupport(resources);
+  const evidence = makeEvidence(resources);
+
+  function readCitationDetails(row: typeof s.material_version_citations.$inferSelect) {
+    const citation = readCitation(row);
+    const reference =
+      citation.target === undefined
+        ? {
+            kind: 'anchor' as const,
+            versionId: citation.inputVersionId,
+            anchor: citation.anchor,
+            quote: citation.quote
+          }
+        : {
+            kind: 'range' as const,
+            target: {
+              materialId: versionRow(citation.inputVersionId).material_id,
+              range: citation.target
+            }
+          };
+
+    const resolved = evidence.resolve(reference);
+
+    return {
+      ...citation,
+      precision: resolved.precision,
+      support: support.support({ versionId: row.version_id, marker: row.marker }),
+      evidence: resolved
+    };
+  }
 
   function readCitations(id: MaterialVersionId) {
     versionRow(id);
@@ -39,20 +68,11 @@ export function makeCitations(resources: StoreResources) {
       .where(eq(s.material_version_citations.version_id, id))
       .orderBy(asc(s.material_version_citations.marker))
       .all()
-      .map(readCitation);
+      .map(readCitationDetails);
   }
 
   return {
-    readCitations
-  };
-}
-
-export function readCitation(row: typeof s.material_version_citations.$inferSelect) {
-  return {
-    marker: row.marker,
-    inputVersionId: row.input_version_id,
-    anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(row.anchor)),
-    ...(row.target === null ? {} : { target: Schema.decodeUnknownSync(targetCodec)(row.target) }),
-    quote: row.quote
+    readCitations,
+    readCitationDetails
   };
 }

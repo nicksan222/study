@@ -39,7 +39,7 @@ import { defineStore, storeQuery, storeMutation } from '#server/platform/definit
 
 import { makeArchiveAction } from './archive-action.ts';
 import { makeAttachAction } from './attach-action.ts';
-import { readCitation } from './citations.ts';
+import { makeCitations } from './citations.ts';
 import { makeCreateAction } from './create-action.ts';
 import { makeCreateVersionAction } from './create-version-action.ts';
 import { makeDeleteDraftAction } from './delete-draft-action.ts';
@@ -435,6 +435,7 @@ export const MaterialCitationsStore = defineStore({
   entity: { singular: 'citation', plural: 'citations' },
   make: (resources) => {
     const { db } = resources;
+    const { readCitationDetails } = makeCitations(resources);
 
     const { versionRow } = makeReads(resources);
 
@@ -462,7 +463,7 @@ export const MaterialCitationsStore = defineStore({
               .limit(value.limit + 1)
               .all();
 
-            const items = rows.slice(0, value.limit).map(readCitation);
+            const items = rows.slice(0, value.limit).map(readCitationDetails);
 
             return { items, nextCursor: rows.length > value.limit ? items.at(-1)!.marker : null };
           }

@@ -50,6 +50,7 @@
     "./themes/rpc": "./src/themes/rpc.ts",
     "./system/rpc": "./src/system/rpc.ts",
     "./conversations/rpc": "./src/conversations/rpc.ts",
+    "./materials/evidence": "./src/materials/evidence.ts",
     "./materials/editing": "./src/materials/editing.ts",
     "./materials/rpc": "./src/materials/rpc.ts",
     "./learning/rpc": "./src/learning/rpc.ts",

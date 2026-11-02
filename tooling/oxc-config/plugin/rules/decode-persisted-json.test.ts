@@ -85,3 +85,24 @@ test('durable citation targets and transform reports use canonical codecs instea
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('annotation history and assessment payloads require canonical schema decoding', () => {
+  const diagnostics = lintRule('decode-persisted-json', {
+    'src/features/materials/store/annotations.ts': `
+      import { Schema } from 'effect';
+      import { annotationRevisionSchema } from '@study/contracts/materials/evidence';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(annotationRevisionSchema));
+      const revision = Schema.decodeUnknownSync(codec)(row.payload);
+      const unchecked = JSON.parse(row.payload) as typeof annotationRevisionSchema.Type;
+    `,
+    'src/features/materials/store/citation-support.ts': `
+      import { Schema } from 'effect';
+      import { citationAssessmentSchema } from '@study/contracts/materials/evidence';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(citationAssessmentSchema));
+      const assessment = Schema.decodeUnknownSync(codec)(row.payload);
+      const unchecked: typeof citationAssessmentSchema.Type = JSON.parse(row.payload);
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});
