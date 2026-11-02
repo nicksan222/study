@@ -11,6 +11,15 @@ import {
   versionIdSchema
 } from '../ids.ts';
 import {
+  sessionSelectionInputSchema,
+  sessionSelectionSchema,
+  updateSessionSelectionSchema,
+  captureSessionContextSchema,
+  runSelectionContextSchema
+} from './context.ts';
+import {
+  replySnapshotInputSchema,
+  replySnapshotSchema,
   chatMessageSchema,
   sessionSchema,
   replyRequestInputSchema,
@@ -81,6 +90,36 @@ export const renameSessionInputSchema = Schema.Struct({
 });
 
 export const ConversationsRpc = RpcGroup.make(
+  Rpc.make('sessionSelection', {
+    payload: sessionSelectionInputSchema,
+    success: sessionSelectionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('updateSessionSelection', {
+    payload: updateSessionSelectionSchema,
+    success: sessionSelectionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('captureSessionContext', {
+    payload: captureSessionContextSchema,
+    success: runSelectionContextSchema,
+    error: failureSchema
+  }),
+  Rpc.make('inspectSessionContext', {
+    payload: replySnapshotInputSchema,
+    success: runSelectionContextSchema,
+    error: failureSchema
+  }),
+  Rpc.make('sessionContext', {
+    payload: replySnapshotInputSchema,
+    success: runSelectionContextSchema,
+    error: failureSchema
+  }),
+  Rpc.make('replySnapshot', {
+    payload: replySnapshotInputSchema,
+    success: replySnapshotSchema,
+    error: failureSchema
+  }),
   Rpc.make('createUntitledSession', {
     payload: createUntitledSessionInputSchema,
     success: sessionSchema,

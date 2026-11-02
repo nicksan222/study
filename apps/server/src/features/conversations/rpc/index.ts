@@ -25,6 +25,13 @@ export const ConversationsRpcLive = defineRpc(
     const conversations = yield* Conversations;
 
     return {
+      'conversations.sessionSelection': (input) => conversations.sessionSelection(input),
+      'conversations.updateSessionSelection': (input) =>
+        conversations.updateSessionSelection(input),
+      'conversations.captureSessionContext': (input) => conversations.captureSessionContext(input),
+      'conversations.inspectSessionContext': (input) => conversations.inspectSessionContext(input),
+      'conversations.sessionContext': (input) => conversations.sessionContext(input),
+      'conversations.replySnapshot': (input) => conversations.inspectReplySnapshot(input),
       'conversations.createUntitledSession': (input) => conversations.createUntitledSession(input),
       'conversations.requestTitle': (input) => conversations.requestTitle(input),
       'conversations.requestReply': (input) => conversations.requestReply(input),

@@ -49,3 +49,18 @@ test('rich block persistence uses the canonical codec instead of a public type a
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('captured preferences and context use canonical schema codecs at persistence reads', () => {
+  const diagnostics = lintRule('decode-persisted-json', {
+    'src/features/conversations/store/capture.ts': `
+      import { runSelectionContextSchema } from '@study/contracts/conversations/context';
+      import { Schema } from 'effect';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
+      const snapshot = Schema.decodeUnknownSync(codec)(row.snapshot);
+      const asserted = JSON.parse(row.snapshot) as typeof runSelectionContextSchema.Type;
+      const preferences: typeof runPreferencesSchema.Type = JSON.parse(row.preferences);
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

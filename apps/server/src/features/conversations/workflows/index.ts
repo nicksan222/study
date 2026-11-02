@@ -28,7 +28,8 @@ import {
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
 import { versionIdSchema } from '@study/contracts/ids';
-import type { DocumentId, SourceId } from '@study/contracts/ids';
+import type { DocumentId, SourceId, MaterialVersionId } from '@study/contracts/ids';
+import type { DocumentTextRange } from '@study/contracts/sources/document';
 import { Effect, Result, Schema } from 'effect';
 import { Activity, DurableDeferred } from 'effect/workflow';
 
@@ -63,7 +64,8 @@ export const conversationReplyHandler = ({
     const conversations = yield* Conversations;
     const sources = yield* Sources;
     const agents = yield* Agents;
-    const { store } = yield* Database;
+    const database = yield* Database;
+    const { store } = database;
 
     const pending = yield* conversations.replyReadiness({ requestId: event.requestId });
 
@@ -97,10 +99,10 @@ export const conversationReplyHandler = ({
 
           yield* validateReplyEvent(snapshot, event);
 
-          const catalog = createEvidenceCatalog<{
-            sourceId: SourceId;
-            documentId: DocumentId;
-          }>([]);
+          if (snapshot.context)
+            yield* conversations.sessionContext({ requestId: snapshot.requestId });
+
+          const catalog = selectionCatalog(snapshot);
           const seen = new Set<string>();
 
           for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
@@ -138,10 +140,19 @@ export const conversationReplyHandler = ({
             maxRetries: 0,
             preflight: conversations
               .replySnapshot({ requestId: event.requestId })
-              .pipe(Effect.asVoid)
+              .pipe(
+                Effect.andThen(
+                  snapshot.context
+                    ? conversations.sessionContext({ requestId: event.requestId })
+                    : Effect.void
+                ),
+                Effect.asVoid,
+                Effect.provideService(Database, database)
+              )
           };
           const agentServices = {
             ...agents,
+            language: snapshot.context?.preferences.language ?? agents.language,
             searchSources: (query: string) => Effect.sync(() => catalog.search(query))
           };
           const text = yield* (
@@ -154,17 +165,32 @@ export const conversationReplyHandler = ({
                       content: message.text
                     })),
                     origin: snapshot.generation.origin,
-                    instruction: snapshot.generation.instruction
+                    instruction: snapshot.generation.instruction,
+                    preferences: snapshot.context?.preferences
                   },
                   options
                 )
               : generateAgent(
                   replyAgent,
                   {
-                    messages: snapshot.messages.map((message) => ({
-                      role: message.role,
-                      content: message.text
-                    }))
+                    messages: snapshot.messages
+                      .map((message) => ({
+                        role: message.role,
+                        content: message.text
+                      }))
+                      .concat(
+                        snapshot.context
+                          ? [
+                              {
+                                role: 'user' as const,
+                                content:
+                                  snapshot.context.instruction +
+                                  '\nPreferences: ' +
+                                  JSON.stringify(snapshot.context.preferences)
+                              }
+                            ]
+                          : []
+                      )
                   },
                   options
                 )
@@ -328,6 +354,38 @@ export const conversationAttachmentWakeRegistration = defineWorkflowHandler(
     }))
   }
 );
+
+function selectionCatalog(snapshot: typeof replySnapshotSchema.Type) {
+  const catalog = createEvidenceCatalog<{
+    sourceId: SourceId | null;
+    materialVersionId?: MaterialVersionId;
+    selectedRange?: DocumentTextRange;
+    documentId: DocumentId;
+  }>([]);
+
+  for (const input of snapshot.context?.inputs ?? [])
+    for (const [index, excerpt] of input.excerpts.entries())
+      catalog.addDocument({
+        key: `selection:${input.versionId}:${index}`,
+        name: input.name,
+        quoteLimit: 100000,
+        reference: {
+          sourceId: null,
+          materialVersionId: input.versionId,
+          selectedRange: {
+            versionId: input.versionId,
+            documentId: input.documentId,
+            blockId: excerpt.blockId,
+            start: excerpt.start,
+            end: excerpt.end
+          },
+          documentId: input.documentId
+        },
+        blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
+      });
+
+  return catalog;
+}
 
 function validateReplyEvent(
   snapshot: typeof replySnapshotSchema.Type,

@@ -261,7 +261,7 @@ test(
 test(
   'unsafe workflow cancellation aborts an active real HTTP fetch',
   { timeout: 10000 },
-  async () => {
+  async (t) => {
     const { createServer } = await import('node:http');
     let entered!: () => void;
     let aborted!: () => void;
@@ -276,6 +276,11 @@ test(
       response.writeHead(200, { 'content-type': 'text/html' });
       response.write('<html><body>pending');
       entered();
+    });
+
+    t.after(async () => {
+      peer.closeAllConnections();
+      await new Promise<void>((resolve) => peer.close(() => resolve()));
     });
 
     await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));

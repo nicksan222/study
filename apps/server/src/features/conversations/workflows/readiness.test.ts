@@ -389,6 +389,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
           for (const mode of [
             'delete',
             'replace',
+            'reprocess',
             'unsupported',
             'later-pending',
             'ready-reference'
@@ -397,7 +398,13 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
           }
 
           function* assertInvalidationResumesReply(
-            mode: 'delete' | 'replace' | 'unsupported' | 'later-pending' | 'ready-reference'
+            mode:
+              | 'delete'
+              | 'replace'
+              | 'reprocess'
+              | 'unsupported'
+              | 'later-pending'
+              | 'ready-reference'
           ) {
             const nextSession = yield* conversations.createSession({
               project: project.id,
@@ -447,6 +454,9 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
                 : [nextSource.id]
             });
             const nextRequest = yield* conversations.requestReply({ sessionId: nextSession.id });
+            const captured = yield* conversations.inspectReplySnapshot({
+              requestId: nextRequest.requestId
+            });
 
             dispatchPending(context, conversationReplyRegistration.triggers, Date.now());
             const eventRow = context.db.orm
@@ -492,6 +502,19 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
                   name: 'new.txt',
                   bytes: new TextEncoder().encode('new')
                 });
+
+              if (mode === 'reprocess') {
+                yield* sources.requestSourceProcessing({ id: nextSource.id, expectedRevision: 1 });
+                const replacement = yield* sources.sourceProcessing(nextSource.id);
+                const accepted = captured.pendingAttachments![0]!;
+
+                assert.equal(BigInt(replacement.revision), accepted.inputRevision);
+                assert.notEqual(replacement.requestId, accepted.requestId);
+                assert.deepEqual(
+                  yield* conversations.inspectReplySnapshot({ requestId: nextRequest.requestId }),
+                  captured
+                );
+              }
 
               if (mode === 'unsupported') {
                 const ingestion = context.db.orm

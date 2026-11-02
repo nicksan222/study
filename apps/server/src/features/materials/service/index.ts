@@ -15,6 +15,7 @@
 
 import { randomUUID } from 'node:crypto';
 
+import type { sessionSelectionTargetSchema } from '@study/contracts/conversations/context';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
@@ -27,6 +28,7 @@ import type {
 import { Effect } from 'effect';
 
 import {
+  MaterialSelectionStore,
   MaterialGenerationStore,
   MaterialsStore,
   MaterialVersionsStore,
@@ -325,6 +327,7 @@ function* makeMaterials() {
 }
 
 export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
+  resolveSessionSelection,
   registerImportedSource,
   assignImportedSourceProject
 });
@@ -354,4 +357,12 @@ function registerImportedSource(tx: Transaction, sourceId: SourceId) {
 /** Apply an explicit organization instruction immediately, including pending imports. */
 function assignImportedSourceProject(tx: Transaction, sourceId: SourceId) {
   tx.store(MaterialsStore).assignSourceProject(sourceId);
+}
+
+/** Resolve exact published content inside the caller's synchronous capture transaction. */
+function resolveSessionSelection(
+  tx: Transaction,
+  target: typeof sessionSelectionTargetSchema.Type
+) {
+  return tx.store(MaterialSelectionStore).materialSelection(target);
 }

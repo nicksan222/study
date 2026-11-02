@@ -24,6 +24,7 @@ import { Effect, Layer, Option } from 'effect';
 import { Projects } from '#server/features/projects/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { withTestPublication } from '#testing/publication';
 
 import { Conversations } from './index.ts';
 
@@ -383,8 +384,12 @@ test('reply request persists its context and rejects another pending request', a
         );
         yield* conversations.editMessage({ messageId: message.id, text: 'changed' });
         assert.equal(
-          (yield* Effect.flip(conversations.replySnapshot({ requestId: request.requestId }))).kind,
-          'invalid_input'
+          (yield* conversations.replySnapshot({ requestId: request.requestId })).messages[0]?.text,
+          'hello'
+        );
+        yield* withTestPublication(
+          context,
+          conversations.abandonReply(request).pipe(Effect.asVoid)
         );
         const replacement = yield* conversations.requestReply({ sessionId: session.id });
 
@@ -509,10 +514,9 @@ test('reply snapshots retain historical attachments after reopen and reprocessin
           messageId: saved.message.id,
           versionId: saved.message.activeVersionId!
         });
-        assert.equal(
-          (yield* Effect.flip(conversations.replySnapshot({ requestId: saved.request.requestId })))
-            .kind,
-          'invalid_input'
+        assert.deepEqual(
+          yield* conversations.replySnapshot({ requestId: saved.request.requestId }),
+          snapshot
         );
       }).pipe(Effect.provide(layer()))
     );

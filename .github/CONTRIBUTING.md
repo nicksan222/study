@@ -73,7 +73,8 @@ Run `npm run format` to format, `npm run format:check` to check formatting, and 
 for the combined format/lint gate with warnings denied.
 The Vite+ pipeline uses syntax-only lint analysis, React stability rules and package-manifest
 sorting; dedicated TypeScript checks and Study's architecture rules remain required. Server tests keep the actual Node
-runtime (`npm run server:test`) with the spec reporter; frontend tests use the verbose
+runtime (`npm run server:test`) with the streaming TAP reporter so failure diagnostics appear before suite completion.
+The CI server test step fails after ten minutes, allowing the remaining independent gates to run; frontend tests use the verbose
 Vitest reporter. TypeScript checks keep `tsc`.
 Run `npm run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.
 It checks the full repository for dead code, code health and duplication and fails on

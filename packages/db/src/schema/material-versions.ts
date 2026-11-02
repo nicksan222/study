@@ -1,4 +1,4 @@
-import type { MaterialId, MaterialVersionId, ProjectId, SessionId } from '@study/contracts/ids';
+import type { MaterialId, MaterialVersionId, ProjectId } from '@study/contracts/ids';
 import { sql, desc } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -13,7 +13,6 @@ import {
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { materialKinds, materialOperations } from '../material-kinds.ts';
-import { sessions } from './conversations.ts';
 
 /** Durable library content; collection and session membership never own it. */
 export const materials = sqliteTable(
@@ -37,29 +36,6 @@ export const materials = sqliteTable(
       'materials_times_check',
       sql`id > 0 AND typeof(created_at) = 'integer' AND typeof(updated_at) = 'integer' AND created_at >= 0 AND updated_at >= created_at AND (archived_at IS NULL OR (typeof(archived_at) = 'integer' AND archived_at >= created_at))`
     )
-  ]
-);
-
-export const session_materials = sqliteTable(
-  'session_materials',
-  {
-    session_id: integer().$type<SessionId>().notNull(),
-    material_id: integer().$type<MaterialId>().notNull(),
-    position: integer().$type<bigint>().notNull()
-  },
-  (t) => [
-    primaryKey({ columns: [t.session_id, t.material_id] }),
-    foreignKey({
-      columns: [t.session_id],
-      foreignColumns: [sessions.id]
-    }).onDelete('cascade'),
-    foreignKey({
-      columns: [t.material_id],
-      foreignColumns: [materials.id]
-    }).onDelete('cascade'),
-    uniqueIndex('session_materials_position_unique').on(t.session_id, t.position),
-    index('session_materials_material_idx').on(t.material_id, t.session_id),
-    check('session_materials_position_check', sql`typeof(position) = 'integer' AND position >= 0`)
   ]
 );
 

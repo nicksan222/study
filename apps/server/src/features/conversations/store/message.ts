@@ -113,6 +113,11 @@ function makeHelpers({ db, clock }: StoreResources) {
               .map((c) => ({
                 marker: Number(c.marker),
                 sourceId: c.source_id,
+                materialVersionId: c.material_version_id,
+                documentId: c.document_id,
+                blockId: c.block_id,
+                rangeStart: c.range_start === null ? null : Number(c.range_start),
+                rangeEnd: c.range_end === null ? null : Number(c.range_end),
                 sourceName: c.source_name,
                 anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(c.anchor)),
                 quote: c.quote
@@ -290,6 +295,11 @@ export const MessageStore = defineStore({
                   version_id: version.id,
                   marker: BigInt(index + 1),
                   source_id: citation.sourceId,
+                  material_version_id: citation.materialVersionId,
+                  document_id: citation.documentId,
+                  block_id: citation.blockId,
+                  range_start: citation.rangeStart == null ? null : BigInt(citation.rangeStart),
+                  range_end: citation.rangeEnd == null ? null : BigInt(citation.rangeEnd),
                   source_name: citation.sourceName,
                   anchor: JSON.stringify(citation.anchor),
                   quote: citation.quote

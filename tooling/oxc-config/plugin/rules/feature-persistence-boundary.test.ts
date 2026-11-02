@@ -137,3 +137,34 @@ test('canonical asset roots are derived from blocks and cannot be written by fea
     'Feature sources may not write document_assets.'
   ]);
 });
+
+test('captured session context is conversation-owned while material selection pins stay material-owned', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/materials/store/participants.ts': `
+      import * as schema from '@study/db/schema';
+      import { sql } from '@study/db';
+      import type { Db } from '@study/db'; declare const db: Db;
+      const { session_run_contexts: captures } = schema;
+      db.select().from(captures);
+      db.insert(captures);
+      sql\`DELETE FROM session_run_contexts WHERE session_id=1\`;
+      db.insert(schema.material_source_snapshots);
+    `,
+    'src/features/conversations/store/capture.ts': `
+      import * as schema from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(schema.session_run_contexts);
+      db.delete(schema.session_run_contexts);
+      db.select().from(schema.material_document_versions);
+      db.update(schema.material_document_versions);
+      db.insert(schema.session_materials);
+    `
+  });
+
+  assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    'Feature conversations may not write material_document_versions.',
+    'Feature conversations may not write session_materials.',
+    'Feature materials may not write session_run_contexts.',
+    'Feature materials may not write session_run_contexts.'
+  ]);
+});

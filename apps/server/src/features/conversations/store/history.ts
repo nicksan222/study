@@ -35,7 +35,12 @@ export function makeHistory({ db }: StoreResources) {
       );
   }
 
-  function conversationHistory(sessionId: SessionId, through?: MessageId, threadRoot?: PartId) {
+  function conversationHistory(
+    sessionId: SessionId,
+    through?: MessageId,
+    threadRoot?: PartId,
+    allowEmpty = false
+  ) {
     const rows = selectedMessages()
       .where(
         and(
@@ -72,7 +77,7 @@ export function makeHistory({ db }: StoreResources) {
       });
     }
 
-    if (!history.length)
+    if (!history.length && !allowEmpty)
       throw new StudyError('invalid_input', 'conversation has no complete messages');
 
     return history.reverse();

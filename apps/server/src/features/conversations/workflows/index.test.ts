@@ -17,6 +17,8 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 
+import type { messageVersionSchema } from '@study/contracts/conversations/schemas';
+import { createBlock } from '@study/contracts/sources/document';
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -27,6 +29,7 @@ import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/service/index';
+import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
@@ -130,7 +133,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
   );
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
   const domain = () =>
-    Layer.merge(Conversations.layer, Sources.layer).pipe(
+    Layer.mergeAll(Conversations.layer, Sources.layer, Materials.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   const services = () =>
@@ -161,7 +164,13 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       workflowEngineLayer(context)
     );
   const run = <A, E>(
-    effect: Effect.Effect<A, E, Database | Context.Service.Identifier<typeof Conversations>>
+    effect: Effect.Effect<
+      A,
+      E,
+      | Database
+      | Context.Service.Identifier<typeof Conversations>
+      | Context.Service.Identifier<typeof Materials>
+    >
   ) => Effect.runPromise(effect.pipe(Effect.provide(domain())));
 
   try {
@@ -208,30 +217,20 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     const first = await post();
     const stale = await request();
 
-    await run(
-      Effect.flatMap(Conversations, (c) => c.editMessage({ messageId: first.id, text: 'Changed' }))
-    );
+    await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(stale.messageId)));
     await assert.rejects(execute(stale, 'stale'));
     assert.equal(calls, 0);
     const resolverRace = await request();
 
     duringModelResolution = async () => {
-      await run(
-        Effect.flatMap(Conversations, (c) =>
-          c.editMessage({ messageId: first.id, text: 'Changed while resolving model' })
-        )
-      );
+      await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(resolverRace.messageId)));
     };
     await assert.rejects(execute(resolverRace, 'model-resolution-race'));
     assert.equal(calls, 0, 'stale context must not reach the provider after model resolution');
     const languageRace = await request();
 
     duringLanguageResolution = async () => {
-      await run(
-        Effect.flatMap(Conversations, (c) =>
-          c.editMessage({ messageId: first.id, text: 'Changed while resolving language' })
-        )
-      );
+      await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(languageRace.messageId)));
     };
     await assert.rejects(execute(languageRace, 'language-resolution-race'));
     assert.equal(calls, 0, 'stale context must not reach the provider after language resolution');
@@ -281,7 +280,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
 
     assert.equal(reanswer.messageId, current.messageId);
     assert.equal(answered.versions.length, 2);
-    assert.equal(answered.versions.at(-1)?.text, 'Another answer');
+    assert.equal(latestVersion(answered.versions).text, 'Another answer');
     const rewrite = await run(
       Effect.flatMap(Conversations, (c) =>
         c.rewriteMessage({
@@ -319,9 +318,11 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     const rewritten = await run(Effect.flatMap(Conversations, (c) => c.message(current.messageId)));
 
     assert.equal(rewrite.messageId, current.messageId);
-    assert.equal(rewritten.versions.at(-1)?.origin, 'instruction');
-    assert.equal(rewritten.versions.at(-1)?.instruction, 'Use bullet points');
-    assert.match(bodies.at(-1)!, /Use bullet points/);
+    assert.equal(latestVersion(rewritten.versions).origin, 'instruction');
+    assert.equal(latestVersion(rewritten.versions).instruction, 'Use bullet points');
+    assert.match(bodies.at(-1)!, /Another answer/);
+    assert.equal(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
+    assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
     const userRewrite = await run(
       Effect.flatMap(Conversations, (c) =>
         c.rewriteMessage({ messageId: first.id, origin: 'summarize' })
@@ -335,9 +336,10 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
 
     output = 'Short question';
     await execute(userEvent, 'rewrite-user');
+    assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
     const userResult = await run(Effect.flatMap(Conversations, (c) => c.message(first.id)));
 
-    assert.equal(userResult.versions.at(-1)?.origin, 'summarize');
+    assert.equal(latestVersion(userResult.versions).origin, 'summarize');
     assert.equal(userResult.activeVersionId, userRewrite.versionId);
     const oldRequest = await run(
       Effect.flatMap(Conversations, (c) =>
@@ -379,15 +381,11 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     await assert.rejects(execute(newerEvent, 'manual-edit'));
     assert.equal(calls, callsBeforeOld);
     output = 'A plain answer';
-    const question = await post();
+    await post();
     const racing = await request();
 
     duringCall = async () => {
-      await run(
-        Effect.flatMap(Conversations, (c) =>
-          c.editMessage({ messageId: question.id, text: 'Edited during call' })
-        )
-      );
+      await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(racing.messageId)));
     };
     await assert.rejects(execute(racing, 'race'));
     output = 'Fake [1]';
@@ -471,7 +469,11 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
       .run();
     await run(
       Effect.flatMap(Conversations, (c) =>
-        c.postMessage({ sessionId: groundedSession.id, text: 'Find alpha', sourceIds: [source.id] })
+        c.postMessage({
+          sessionId: groundedSession.id,
+          text: 'Find alpha',
+          sourceIds: [source.id]
+        })
       )
     );
     await run(
@@ -513,7 +515,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     assert.match(bodies.at(-1)!, /alpha old evidence/);
     assert.doesNotMatch(bodies.at(-1)!, /alpha new evidence/);
 
-    const toolRaceMessage = await run(
+    await run(
       Effect.flatMap(Conversations, (c) =>
         c.postMessage({ sessionId: groundedSession.id, text: 'One more alpha question' })
       )
@@ -532,11 +534,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
 
     toolCall = true;
     duringToolCall = async () => {
-      await run(
-        Effect.flatMap(Conversations, (c) =>
-          c.editMessage({ messageId: toolRaceMessage.id, text: 'Changed between model tool steps' })
-        )
-      );
+      await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(toolRace.messageId)));
     };
     await assert.rejects(execute(toolRace, 'tool-step-race'));
     assert.equal(
@@ -580,6 +578,144 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         .find((c) => c.version_id === grounded.versionId)?.quote,
       'alpha old evidence'
     );
+    const attachmentAnswer = await run(
+      Effect.flatMap(Conversations, (c) => c.message(grounded.messageId))
+    );
+    const attachmentEdit = await run(
+      Effect.flatMap(Conversations, (c) =>
+        c.editMessage({ messageId: grounded.messageId, text: 'Edited attachment answer [1]' })
+      )
+    );
+
+    assert.equal(attachmentAnswer.citations[0]?.sourceId, source.id);
+    assert.deepEqual(attachmentEdit.citations, attachmentAnswer.citations);
+    const selected = await run(
+      Effect.gen(function* () {
+        const materials = yield* Materials;
+        const conversations = yield* Conversations;
+        const session = yield* conversations.createSession({ title: 'Selected passages' });
+        const block = createBlock({
+          type: 'paragraph',
+          inlines: [
+            {
+              type: 'text',
+              text: 'secret before alpha selected passage secret after alpha',
+              marks: []
+            }
+          ]
+        });
+        const material = yield* materials.create({
+          title: 'Exact authored input',
+          publish: true,
+          content: {
+            kind: 'document',
+            blocks: [block],
+            meta: {
+              extractor: null,
+              extractorVersion: 1,
+              provider: null,
+              durationMs: null,
+              pageCount: null,
+              refiners: [],
+              waitingFor: [],
+              corrected: false,
+              omissions: []
+            }
+          }
+        });
+        const documentId = context.db.orm
+          .select()
+          .from(s.material_document_versions)
+          .all()
+          .find((row) => row.version_id === material.version.id)!.document_id;
+
+        yield* conversations.updateSessionSelection({
+          sessionId: session.id,
+          expectedRevision: 0n,
+          targets: [
+            {
+              versionId: material.version.id,
+              documentId,
+              scope: {
+                kind: 'ranges',
+                ranges: [
+                  {
+                    versionId: material.version.id,
+                    documentId,
+                    blockId: block.id,
+                    start: 14,
+                    end: 36
+                  },
+                  {
+                    versionId: material.version.id,
+                    documentId,
+                    blockId: block.id,
+                    start: 14,
+                    end: 19
+                  },
+                  {
+                    versionId: material.version.id,
+                    documentId,
+                    blockId: block.id,
+                    start: 50,
+                    end: 55
+                  }
+                ]
+              }
+            }
+          ]
+        });
+        const message = yield* conversations.postMessage({
+          sessionId: session.id,
+          text: 'Explain alpha'
+        });
+        const request = yield* conversations.requestReply({
+          sessionId: session.id,
+          intentKey: 'exact-workflow'
+        });
+
+        yield* conversations.updateSessionSelection({
+          sessionId: session.id,
+          expectedRevision: 1n,
+          targets: []
+        });
+        yield* conversations.editMessage({ messageId: message.id, text: 'New unrelated message' });
+
+        return request;
+      })
+    );
+    const selectedEvent = decodeEvent(
+      context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
+    );
+
+    assertEventType(selectedEvent, 'ConversationGenerationRequested', 'wrong selected event');
+    toolCall = true;
+    output = 'Exact answer [1] [2] [3]';
+    await execute(selectedEvent, 'selected-range');
+    assert.match(bodies.at(-1)!, /alpha selected passage/);
+    assert.doesNotMatch(bodies.at(-1)!, /secret before|secret after|New unrelated message/);
+    const selectedAnswer = await run(
+      Effect.flatMap(Conversations, (c) => c.message(selected.messageId))
+    );
+
+    assert.equal(selectedAnswer.citations[0]?.quote, 'alpha selected passage');
+    assert.equal(selectedAnswer.citations[0]?.rangeStart, 14);
+    assert.deepEqual(
+      selectedAnswer.citations.map((citation) => [citation.rangeStart, citation.rangeEnd]),
+      [
+        [14, 36],
+        [14, 19],
+        [50, 55]
+      ]
+    );
+    await execute(selectedEvent, 'selected-range');
+    const selectedEdit = await run(
+      Effect.flatMap(Conversations, (c) =>
+        c.editMessage({ messageId: selected.messageId, text: 'Retained evidence [1] [2] [3]' })
+      )
+    );
+
+    assert.deepEqual(selectedEdit.citations, selectedAnswer.citations);
     await assertLongHistoryPreservesEarlyMessages();
 
     async function assertLongHistoryPreservesEarlyMessages() {
@@ -627,4 +763,12 @@ function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
   assert.ok(event && event.type === type, message);
+}
+
+function latestVersion(versions: ReadonlyArray<typeof messageVersionSchema.Type>) {
+  const version = versions.at(-1);
+
+  assert.ok(version, 'expected a retained message version');
+
+  return version;
 }
