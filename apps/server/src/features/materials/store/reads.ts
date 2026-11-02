@@ -49,7 +49,18 @@ export function required<T>(value: T | null | undefined): T {
 }
 
 export function makeReads({ db: store }: StoreResources) {
+  function assertAvailable(id: MaterialId) {
+    if (
+      store.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.material_id, id))
+        .get()
+    )
+      throw new StudyError('not_found', 'Material is unavailable');
+  }
   function materialRow(id: MaterialId, active = false) {
+    assertAvailable(id);
     const row = required(store.orm.select().from(s.materials).where(eq(s.materials.id, id)).get());
 
     if (active && row.archived_at !== null)
@@ -62,6 +73,8 @@ export function makeReads({ db: store }: StoreResources) {
     const row = required(
       store.orm.select().from(s.material_versions).where(eq(s.material_versions.id, id)).get()
     );
+
+    assertAvailable(row.material_id);
 
     if (draft && row.status !== 'draft')
       throw new StudyError('invalid_input', 'Published versions are immutable');
@@ -177,6 +190,7 @@ export function makeReads({ db: store }: StoreResources) {
 
     if (!row) return null;
 
+    assertAvailable(row.material_id);
     return readVersionContent(row);
   }
 
@@ -513,6 +527,7 @@ export function makeReads({ db: store }: StoreResources) {
   }
 
   function readMaterial(id: MaterialId): MaterialDetailDto | null {
+    assertAvailable(id);
     const row = store.orm.select().from(s.materials).where(eq(s.materials.id, id)).get();
 
     if (!row) return null;

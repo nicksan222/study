@@ -17,7 +17,7 @@ import type { materialsInputSchema } from '@study/contracts/materials/rpc';
 
 type Input = typeof materialsInputSchema.Type;
 
-import { and, asc, desc, eq, gt, isNotNull, isNull, lt, inArray } from '@study/db';
+import { and, asc, desc, eq, gt, isNotNull, isNull, lt, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
 
 import { makeReads, required } from '#server/features/materials/store/reads';
@@ -32,6 +32,7 @@ export function makeListAction(resources: StoreResources) {
     if (input.projectId !== undefined) assertProject(input.projectId);
 
     return [
+      sql`NOT EXISTS (SELECT 1 FROM material_deletion_members d WHERE d.material_id=${s.materials.id})`,
       input.projectId === undefined
         ? undefined
         : inArray(

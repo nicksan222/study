@@ -25,3 +25,4 @@ export * from './schema/project-memberships.ts';
 export * from './schema/document-edits.ts';
 
 export * from './schema/material-annotations.ts';
+export * from './schema/material-deletions.ts';

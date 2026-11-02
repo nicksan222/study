@@ -29,7 +29,8 @@ import {
   session_run_contexts,
   messages,
   message_parts,
-  message_versions
+  message_versions,
+  material_deletion_requests
 } from '@study/db/schema';
 import { Schema, Option } from 'effect';
 
@@ -117,6 +118,14 @@ function makeContextReads({ db }: StoreResources) {
   }
 
   function requiredContext(requestId: string, available: boolean) {
+    if (
+      db.orm
+        .select()
+        .from(material_deletion_requests)
+        .where(eq(material_deletion_requests.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Captured context is unavailable');
     const row = retainedContext(requestId);
 
     if (!row) throw new StudyError('not_found', 'Captured context is unavailable');
@@ -263,6 +272,14 @@ export const SessionContextStore = defineStore({
           input: replySnapshotInputSchema,
           output: Schema.Option(runSelectionContextSchema),
           run: ({ requestId }) => {
+            if (
+              db.orm
+                .select()
+                .from(material_deletion_requests)
+                .where(eq(material_deletion_requests.request_id, requestId))
+                .get()
+            )
+              throw new StudyError('not_found', 'Captured context is unavailable');
             const row = retainedContext(requestId);
 
             return row ? Option.some(decodeContext(row.snapshot)) : Option.none();

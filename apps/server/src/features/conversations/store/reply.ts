@@ -41,7 +41,8 @@ import {
   source_processing,
   sources,
   workflowEvents,
-  workflowReceipts
+  workflowReceipts,
+  material_deletion_requests
 } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -350,6 +351,14 @@ function makeHelpers({ db, clock }: StoreResources) {
   }
 
   function replyContext(requestId: string) {
+    if (
+      db.orm
+        .select()
+        .from(material_deletion_requests)
+        .where(eq(material_deletion_requests.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Reply context is unavailable');
     const row = db.orm
       .select()
       .from(conversation_reply_requests)

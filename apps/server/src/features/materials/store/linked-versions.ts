@@ -52,7 +52,20 @@ export function makeLinkedVersions(resources: StoreResources) {
       page = rows.slice(0, input.limit);
 
     return {
-      items: page.map((row) => row.version),
+      items: page.map((row) =>
+        store.orm
+          .select()
+          .from(s.material_deletion_members)
+          .where(eq(s.material_deletion_members.material_id, row.version.material_id))
+          .get()
+          ? {
+              ...row.version,
+              instruction: null,
+              language: null,
+              availability: 'unavailable' as const
+            }
+          : row.version
+      ),
       nextCursor: rows.length > input.limit ? page.at(-1)!.version.id : null
     };
   };

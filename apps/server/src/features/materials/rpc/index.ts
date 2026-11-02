@@ -27,6 +27,10 @@ export const MaterialsRpcLive = defineRpc(
     const conversations = yield* Effect.serviceOption(Conversations);
 
     return {
+      'materials.previewDeletion': (value) => materials.previewDeletion(value),
+      'materials.requestDeletion': (value) => materials.requestDeletion(value),
+      'materials.deletion': (value) => materials.deletion(value),
+      'materials.retryDeletion': (value) => materials.retryDeletion(value),
       'materials.applyDocumentProposal': (value) =>
         Option.isSome(conversations)
           ? conversations.value.applyDocumentProposal(value)

@@ -98,7 +98,7 @@ export function makeSearch({ db }: StoreResources) {
   ) {
     if (kinds.includes('passage')) {
       const rows = db.orm.all(
-        sql`SELECT c.id,c.document_id,c.anchor,c.text,d.source_id,s.project_id,bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c ON c.id=chunks_fts.rowid JOIN documents d ON d.id=c.document_id JOIN sources s ON s.id=d.source_id WHERE chunks_fts MATCH ${expression} AND d.id=(SELECT published.document_id FROM source_processing published WHERE published.source_id=d.source_id) AND (${project} IS NULL OR s.project_id=${project}) ORDER BY rank LIMIT ${limit}`
+        sql`SELECT c.id,c.document_id,c.anchor,c.text,d.source_id,s.project_id,bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c ON c.id=chunks_fts.rowid JOIN documents d ON d.id=c.document_id JOIN sources s ON s.id=d.source_id WHERE chunks_fts MATCH ${expression} AND NOT EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members dm ON dm.material_id=i.material_id WHERE i.source_id=s.id) AND d.id=(SELECT published.document_id FROM source_processing published WHERE published.source_id=d.source_id) AND (${project} IS NULL OR s.project_id=${project}) ORDER BY rank LIMIT ${limit}`
       );
 
       for (const r of rows)
@@ -158,7 +158,7 @@ export function makeSearch({ db }: StoreResources) {
         sql`SELECT kind,target_id,project_id,text,bm25(catalog_fts) AS rank FROM catalog_fts WHERE catalog_fts MATCH ${expression} AND kind IN (${sql.join(
           catalog.map((kind) => sql`${kind}`),
           sql`, `
-        )}) AND (${project} IS NULL OR
+        )}) AND NOT (kind='source' AND EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members dm ON dm.material_id=i.material_id WHERE i.source_id=CAST(target_id AS INTEGER))) AND (${project} IS NULL OR
  (kind='material' AND EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
  (kind='question' AND EXISTS(SELECT 1 FROM project_materials pm JOIN material_versions v ON v.material_id=pm.material_id JOIN material_quiz_questions q ON q.version_id=v.id WHERE q.id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
  (kind='session' AND EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=CAST(target_id AS INTEGER) AND ps.project_id=${project})) OR
@@ -234,7 +234,7 @@ export function makeSearch({ db }: StoreResources) {
       .select({ id: table.id, projectId: scope, text: label })
       .from(table)
       .where(
-        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
+        sql`${kind === 'source' ? sql`NOT EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members dm ON dm.material_id=i.material_id WHERE i.source_id=${schema.sources.id})` : sql`1`} AND ${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
       )
       .limit(limit)
       .all();

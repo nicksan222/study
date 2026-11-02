@@ -119,6 +119,22 @@ export function makeEvidence(resources: StoreResources) {
       .from(s.material_versions)
       .where(eq(s.material_versions.id, id))
       .get();
+    const deleted =
+      version &&
+      db.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.material_id, version.material_id))
+        .get();
+    if (deleted)
+      return {
+        inputVersionId: id,
+        currentVersionId: null,
+        inputDocumentId: null,
+        currentDocumentId: null,
+        source: null,
+        state: 'unavailable' as const
+      };
     const current = currentVersion(version);
     const inputDocumentId = version ? reads.versionDocumentId(id) : null;
     const currentDocumentId = current ? reads.versionDocumentId(current.id) : null;
@@ -146,7 +162,15 @@ export function makeEvidence(resources: StoreResources) {
       .where(eq(s.material_versions.id, id))
       .get();
 
-    if (!version || version.status !== 'published')
+    if (
+      !version ||
+      version.status !== 'published' ||
+      db.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.material_id, version.material_id))
+        .get()
+    )
       return unavailable(reference, 'version_missing');
 
     const base = {
