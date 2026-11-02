@@ -281,3 +281,28 @@ test('a busy region cannot put its shared indicator only in the ready branch', (
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('Material query pending states use the existing shared loading primitive', () => {
+  assert.equal(
+    lintRule(
+      'shared-loading',
+      {
+        'apps/web/src/features/material-library/library-page.tsx': `export function LibraryPage({state}) { return state.isPending && <p role="status">Wait</p>; }`,
+        'apps/web/src/features/material-library/reader-page.tsx': `export function ReaderPage({state}) { if (state.isPending) return <p role="status">Wait</p>; return <Content/>; }`
+      },
+      true
+    ).length,
+    2
+  );
+  assert.deepEqual(
+    lintRule(
+      'shared-loading',
+      {
+        'apps/web/src/features/material-library/library-page.tsx': `import {Loading} from '@study/ui/loading'; export function LibraryPage({state}) { return state.isPending && <Loading label="Wait"/>; }`,
+        'apps/web/src/features/material-library/reader-page.tsx': `import {Loading} from '@study/ui/loading'; export function ReaderPage({state}) { if (state.isPending) return <Loading label="Wait"/>; return <Content/>; }`
+      },
+      true
+    ),
+    []
+  );
+});

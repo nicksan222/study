@@ -58,8 +58,10 @@ image independently of its path filters.
 
 ### Everyday commands
 
-Run `bun dev` from the repository root to start the web app and tRPC server at
-`http://localhost:5173`. Development data lives in `target/web/study.sqlite`; set
+Run `bun dev` from the repository root to start the web app and Effect RPC server at
+`http://localhost:5173`. Vite updates frontend modules; Node watch restarts the backend when
+its imported source changes. The native Vite config loader avoids temporary bundled-config
+restart loops. Development data lives in `target/web/study.sqlite`; set
 `STUDY_DATABASE` to use another database. `just run` starts the desktop host of the same app.
 
 The root scripts and Just recipes share the project commands; `just --list` lists all tasks. Web Vite, router and TypeScript

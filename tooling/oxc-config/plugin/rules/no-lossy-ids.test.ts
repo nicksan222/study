@@ -116,3 +116,13 @@ test('backup inventories keep exact content identities while bounded scope count
 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
+
+test('workspace project selections and membership identities stay lossless', () => {
+  const diagnostics = lintRule('no-lossy-ids', {
+    'apps/web/src/pages/home/page.view.tsx': `Number(search.projectId);`,
+    'apps/web/src/features/collections/collections-page.tsx': `parseInt(project.id, 10); Number(item.materialId);`,
+    'apps/web/src/features/collections/identity.ts': `String(project.id); String(item.materialId); Number(pageCount);`
+  });
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/identity.ts')));
+});

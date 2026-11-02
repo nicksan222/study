@@ -38,6 +38,8 @@ try {
   server = await serve(app);
   await app.workers.start();
   web = await createServer({
+    // Node watch must not observe Vite's disposable bundled configuration files.
+    configLoader: 'native',
     configFile: resolve(root, 'apps/web/vite.config.ts'),
     server: { proxy: studyRpcProxy(server.url) }
   });
