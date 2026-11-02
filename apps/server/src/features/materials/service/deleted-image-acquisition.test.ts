@@ -165,3 +165,105 @@ for (const owner of ['none', 'draft', 'published'] as const)
       await f.close();
     }
   });
+
+test('retained image draft replacements validate submitted ownership before writing content', async () => {
+  const f = await documentTransformFixture();
+  const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+  try {
+    const setup = await Effect.runPromise(
+      Effect.gen(function* () {
+        const source = yield* (yield* Sources).createSource({
+          projectId: null,
+          name: 'retained.png',
+          bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+        });
+        const original = (yield* (yield* Materials).materials({
+          archived: false,
+          limit: 20
+        })).items.find((item) => item.importProcessing?.sourceId === source.id)!;
+        assert.ok(original);
+        const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+        const image = () =>
+          createBlock({ type: 'image', sourceId: source.id, revision: 1, alt: 'Kept' });
+        const body = () => ({ ...deletionDocument('Caption'), blocks: [image()] });
+        const owner = yield* rpc('materials.createManualDocument', {
+          title: 'Owner',
+          document: body()
+        });
+        const unrelated = yield* rpc('materials.createManualDocument', {
+          title: 'Unrelated',
+          document: deletionDocument('Other')
+        });
+        const draft = yield* rpc('materials.create', {
+          title: 'Draft',
+          content: { kind: 'document', ...body() },
+          inputs: [owner.version.id],
+          publish: false
+        });
+        return { source, original, owner, unrelated, draft, body };
+      }).pipe(Effect.scoped, Effect.provide(handlers()))
+    );
+    await acceptMaterialDeletion(f, setup.original.id);
+    for (const phase of ['accepted', 'cleaned'] as const) {
+      if (phase === 'cleaned') {
+        await cleanupMaterial(f, setup.original.id);
+        f.reopen();
+      }
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+          const content = { kind: 'document' as const, ...setup.body() };
+          const replacement = yield* rpc('materials.replaceDraft', {
+            id: setup.draft.version.id,
+            content,
+            inputs: [setup.owner.version.id]
+          });
+          assert.equal(replacement.content.kind, 'document');
+          assert.deepEqual(replacement.inputs, [setup.owner.version.id]);
+          for (const inputs of [[], [setup.unrelated.version.id], [setup.original.version.id]]) {
+            const rejected = yield* Effect.flip(
+              rpc('materials.replaceDraft', { id: setup.draft.version.id, content, inputs })
+            );
+            assert.equal(
+              rejected.kind,
+              inputs[0] === setup.original.version.id ? 'not_found' : 'invalid_input'
+            );
+            assert.deepEqual(
+              yield* rpc('materials.materialVersion', { id: setup.draft.version.id }),
+              replacement
+            );
+          }
+          // Source-owned Documents remain fenced; source-less creation and replacement above are admitted.
+          assert.throws(() =>
+            f.context.db.orm.run(
+              sql`INSERT INTO documents(source_id,extractor,extractor_version,meta,created_at) VALUES(${setup.source.id},'text',1,'{}',1)`
+            )
+          );
+          if (phase === 'accepted')
+            assert.throws(() =>
+              f.context.db.orm.run(
+                sql`UPDATE source_processing SET revision=revision+1 WHERE source_id=${setup.source.id}`
+              )
+            );
+          if (phase === 'cleaned') {
+            yield* rpc('materials.publishVersion', { id: setup.draft.version.id });
+            const retained = yield* rpc('materials.materialVersion', {
+              id: setup.draft.version.id
+            });
+            assert.equal(retained.status, 'published');
+            assert.equal(
+              f.context.db.orm
+                .select()
+                .from(s.source_snapshots)
+                .where(eq(s.source_snapshots.source_id, setup.source.id))
+                .all().length,
+              1
+            );
+          }
+        }).pipe(Effect.scoped, Effect.provide(handlers()))
+      );
+    }
+  } finally {
+    await f.close();
+  }
+});

@@ -289,13 +289,13 @@ WHEN EXISTS(SELECT 1 FROM material_deletion_requests WHERE request_id=NEW.reques
  OR EXISTS(SELECT 1 FROM json_each(NEW.snapshot,'$.context.inputs') i JOIN material_deletion_members d ON CAST(d.material_id AS TEXT)=json_extract(i.value,'$.materialId'))
 BEGIN SELECT RAISE(ABORT,'deleted Material cannot be captured'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_source_processing_insert BEFORE INSERT ON source_processing WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_source_processing_insert BEFORE INSERT ON source_processing WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_source_processing_update BEFORE UPDATE ON source_processing WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_source_processing_update BEFORE UPDATE ON source_processing WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_documents_insert BEFORE INSERT ON documents WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_documents_insert BEFORE INSERT ON documents WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
-CREATE TRIGGER material_deletion_documents_update BEFORE UPDATE ON documents WHEN EXISTS(SELECT 1 FROM source_material_deletion_assets retired WHERE retired.source_id=NEW.source_id AND retired.revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
+CREATE TRIGGER material_deletion_documents_update BEFORE UPDATE ON documents WHEN EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=NEW.source_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_deletion_blocks_insert BEFORE INSERT ON blocks WHEN EXISTS(SELECT 1 FROM documents doc JOIN material_imports i ON i.source_id=doc.source_id JOIN material_deletion_members d ON d.material_id=i.material_id WHERE doc.id=NEW.document_id) BEGIN SELECT RAISE(ABORT,'deleted source cannot publish'); END;
 --> statement-breakpoint
