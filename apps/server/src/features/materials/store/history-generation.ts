@@ -84,7 +84,25 @@ export const MaterialHistoryGenerationStore = defineStore({
             .from(s.material_history_prunes)
             .where(eq(s.material_history_prunes.operation_id, owner.operation_id))
             .get();
-          if (prior?.status === 'completed') continue;
+          const request = requests.find((value) => value.id === id);
+          const hasInputs =
+            db.orm
+              .select()
+              .from(s.material_generation_inputs)
+              .where(eq(s.material_generation_inputs.request_id, id))
+              .get() !== undefined;
+
+          if (
+            owner.kind === 'generation' &&
+            prior?.status === 'completed' &&
+            request?.payload === '{}' &&
+            request.cancelled &&
+            request.result_metadata === null &&
+            request.result_version_id === null &&
+            request.result_hash === null &&
+            !hasInputs
+          )
+            continue;
           throw new StudyError('invalid_input', 'History overlaps generation cleanup');
         }
         db.orm

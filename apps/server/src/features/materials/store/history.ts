@@ -24,6 +24,7 @@ import { Schema, Option } from 'effect';
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
+import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeContent } from './content.ts';
 import { historyBodyBytes } from './history-bytes.ts';
@@ -117,8 +118,8 @@ function makeHistory(resources: StoreResources) {
                     processing.some(
                       (p) =>
                         p.source_id === pin.source_id &&
-                        (p.revision === pin.revision ||
-                          (p.document_id === pin.document_id && pin.document_id !== null))
+                        p.document_id === pin.document_id &&
+                        pin.document_id !== null
                     ))
                 ? 'source_root'
                 : null;
@@ -360,28 +361,6 @@ export const MaterialHistoryStore = defineStore({
                 .insert(s.material_history_members)
                 .values({ version_id: versionId, operation_id: input.operationId })
                 .run();
-            const publications = db.orm
-              .select()
-              .from(s.workflowEvents)
-              .where(eq(s.workflowEvents.type, 'MaterialPublished'))
-              .all()
-              .filter(
-                (e) =>
-                  e.payload !== '{}' &&
-                  input.candidateIds.some(
-                    (id) => JSON.parse(e.payload).materialVersionId === String(id)
-                  )
-              );
-            for (const e of publications)
-              db.orm
-                .insert(s.material_history_requests)
-                .values({
-                  operation_id: input.operationId,
-                  request_id: e.correlationId,
-                  kind: 'publication'
-                })
-                .onConflictDoNothing()
-                .run();
             return status(input.operationId);
           }
         }),
@@ -500,6 +479,36 @@ export const MaterialHistoryOwnershipStore = defineStore({
             .where(eq(s.material_history_requests.operation_id, operationId))
             .all()
             .map((r) => r.request_id)
+      })
+    },
+    mutations: {}
+  })
+});
+
+export const MaterialHistoryPublicationStore = defineStore({
+  name: 'study/MaterialHistoryPublicationStore',
+  entity: { singular: 'materialHistoryPublication', plural: 'materialHistoryPublications' },
+  make: ({ db }) => ({
+    queries: {
+      materialHistoryPublication: storeQuery({
+        role: 'required',
+        input: h.historyVersionIdsSchema,
+        output: Schema.Array(Schema.String),
+        run: (ids) =>
+          db.orm
+            .select()
+            .from(s.workflowEvents)
+            .where(eq(s.workflowEvents.type, 'MaterialPublished'))
+            .all()
+            .flatMap((row) => {
+              if (row.payload === '{}') return [];
+
+              const event = decodeEvent(row.payload);
+
+              return event.type === 'MaterialPublished' && ids.includes(event.materialVersionId)
+                ? [row.correlationId]
+                : [];
+            })
       })
     },
     mutations: {}

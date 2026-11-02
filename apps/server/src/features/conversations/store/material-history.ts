@@ -48,23 +48,56 @@ export const ConversationMaterialHistoryStore = defineStore({
     const { db } = resources;
     const discardPending = makeDiscardPending(resources);
     function rows(ids: typeof historyVersionIdsSchema.Type) {
-      const contexts = db.orm
+      const documentIds = [
+        ...db.orm
+          .select()
+          .from(s.material_source_snapshots)
+          .where(inArray(s.material_source_snapshots.version_id, [...ids]))
+          .all()
+          .flatMap((pin) => (pin.document_id === null ? [] : [pin.document_id])),
+        ...db.orm
+          .select()
+          .from(s.material_document_versions)
+          .where(inArray(s.material_document_versions.version_id, [...ids]))
+          .all()
+          .map((pin) => pin.document_id)
+      ];
+      const documents = db.orm
         .select()
-        .from(s.session_run_contexts)
-        .all()
-        .filter((r) =>
-          Schema.decodeUnknownSync(contextCodec)(r.snapshot).inputs.some((i) =>
-            ids.includes(i.versionId)
-          )
-        );
+        .from(s.documents)
+        .where(inArray(s.documents.id, documentIds))
+        .all();
       const replies = db.orm
         .select()
         .from(s.conversation_reply_requests)
         .all()
-        .filter((r) =>
-          Schema.decodeUnknownSync(replyCodec)(r.snapshot).context?.inputs.some((i) =>
-            ids.includes(i.versionId)
-          )
+        .filter((row) => {
+          const snapshot = Schema.decodeUnknownSync(replyCodec)(row.snapshot);
+
+          return (
+            snapshot.context?.inputs.some((input) => ids.includes(input.versionId)) ||
+            snapshot.messages.some((message) =>
+              message.attachments.some((attachment) =>
+                documents.some(
+                  (document) =>
+                    document.id === attachment.documentId &&
+                    document.source_id === attachment.sourceId
+                )
+              )
+            )
+          );
+        });
+      const replyIds = new Set(replies.map((reply) => reply.request_id));
+      const contexts = db.orm
+        .select()
+        .from(s.session_run_contexts)
+        .all()
+        .filter(
+          (row) =>
+            replyIds.has(row.request_id) ||
+            Schema.decodeUnknownSync(contextCodec)(row.snapshot).inputs.some((input) =>
+              ids.includes(input.versionId)
+            )
         );
       const citations = db.orm
         .select()

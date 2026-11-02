@@ -22,6 +22,7 @@ import {
   MaterialHistoryStore,
   MaterialHistoryPreviewStore,
   MaterialHistoryOwnershipStore,
+  MaterialHistoryPublicationStore,
   historyHash
 } from '#server/features/materials/store/history';
 import { MaterialHistoryGenerationStore } from '#server/features/materials/store/history-generation';
@@ -129,6 +130,14 @@ export function materialHistoryOperations() {
             versionIds: state.candidateIds,
             contextIds
           });
+          store.retain({
+            operationId: state.operationId,
+            requestIds: tx
+              .store(MaterialHistoryPublicationStore)
+              .materialHistoryPublication(state.candidateIds),
+            kind: 'publication'
+          });
+
           const learningIds = participants.Learning.inspectMaterialHistory(
             tx,
             state.candidateIds
