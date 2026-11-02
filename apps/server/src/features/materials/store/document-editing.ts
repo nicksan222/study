@@ -202,6 +202,11 @@ function makeDocumentEditing(resources: StoreResources) {
   function relevantInputsUnchanged(base: ReturnType<typeof documentVersion>) {
     return base.inputs.every((id) => {
       // Retirement leaves provenance identities, not live inputs that undo must refresh.
+      const retiredVersion = db.orm
+        .select()
+        .from(s.material_history_members)
+        .where(eq(s.material_history_members.version_id, id))
+        .get();
       const retiredMaterial = db.orm
         .select()
         .from(s.material_versions)
@@ -212,7 +217,7 @@ function makeDocumentEditing(resources: StoreResources) {
         .where(eq(s.material_versions.id, id))
         .get();
 
-      if (retiredMaterial) return true;
+      if (retiredVersion || retiredMaterial) return true;
 
       const input = required(reads.readVersion(id));
 
