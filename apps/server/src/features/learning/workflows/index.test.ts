@@ -19,6 +19,7 @@ import { createServer } from 'node:http';
 import { test } from 'node:test';
 
 import { failureSchema } from '@study/contracts/errors';
+import { plainBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -319,9 +320,7 @@ test('practice slot workflow reuses its generation request and ignores manual pu
             title: 'Document',
             content: {
               kind: 'document',
-              blocks: [
-                { kind: 'paragraph', text: 'Practice source', anchor: { type: 'page', page: 1 } }
-              ],
+              blocks: [plainBlock('paragraph', 'Practice source', { type: 'authored' })],
               meta: {
                 extractor: null,
                 extractorVersion: 1,
@@ -330,7 +329,8 @@ test('practice slot workflow reuses its generation request and ignores manual pu
                 pageCount: null,
                 refiners: [],
                 waitingFor: [],
-                corrected: false
+                corrected: false,
+                omissions: []
               }
             }
           });

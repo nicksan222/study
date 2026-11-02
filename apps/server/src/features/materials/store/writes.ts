@@ -35,7 +35,7 @@ import { unixSeconds as now } from '#server/platform/time/index';
 export function makeWrites(resources: StoreResources) {
   const { db: store, clock } = resources;
   const { insertContent } = makeContent(resources);
-  const { materialRow, versionRow } = makeReads(resources);
+  const { materialRow, versionRow, readVersion } = makeReads(resources);
 
   function assertProject(id: ProjectId) {
     required(store.orm.select().from(s.projects).where(eq(s.projects.id, id)).get());
@@ -168,6 +168,9 @@ export function makeWrites(resources: StoreResources) {
 
     if (version.status !== 'draft')
       throw new StudyError('invalid_input', 'Published versions are immutable');
+
+    // Decode the canonical content again so a draft cannot publish a stale projection.
+    readVersion(id);
 
     // Recheck ownership and archive state at publication even for an older draft.
     const inputs = store.orm

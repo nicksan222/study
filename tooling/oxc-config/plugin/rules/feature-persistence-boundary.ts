@@ -64,6 +64,7 @@ const groups: Record<string, string[]> = {
   themes: ['themes'],
   'settings,auth,themes': ['preferences'],
   readonly: [
+    'document_assets',
     'codes_source_origin',
     'codes_source_kind',
     'codes_title_source',

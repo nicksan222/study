@@ -1,3 +1,4 @@
+import { blockKinds } from '@study/contracts/sources/schemas';
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const codes_source_origin = sqliteTable('codes_source_origin', {
@@ -53,6 +54,6 @@ export const codes_extractor_kind = sqliteTable('codes_extractor_kind', {
 
 export const codes_block_kind = sqliteTable('codes_block_kind', {
   code: text({
-    enum: ['code', 'heading', 'list_item', 'paragraph', 'segment', 'table']
+    enum: blockKinds
   }).primaryKey()
 });

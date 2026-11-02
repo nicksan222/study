@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { MaterialVersionId } from '@study/contracts/ids';
+import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer, Schema } from 'effect';
@@ -53,9 +54,7 @@ test('guarded generation publishes once and replays its receipt', async () => {
           title: 'Doc',
           content: {
             kind: 'document',
-            blocks: [
-              { kind: 'paragraph', text: 'Source evidence', anchor: { type: 'page', page: 1 } }
-            ],
+            blocks: [plainBlock('paragraph', 'Source evidence', { type: 'authored' })],
             meta: {
               extractor: null,
               extractorVersion: 1,
@@ -64,7 +63,8 @@ test('guarded generation publishes once and replays its receipt', async () => {
               pageCount: null,
               refiners: [],
               waitingFor: [],
-              corrected: false
+              corrected: false,
+              omissions: []
             }
           }
         });
@@ -248,7 +248,7 @@ test('guarded generation publishes once and replays its receipt', async () => {
           {
             marker: 1n,
             inputVersionId: doc.version.id,
-            anchor: { type: 'page', page: 1 },
+            anchor: { type: 'authored' },
             quote: 'Source'
           }
         ]);
@@ -400,9 +400,7 @@ test('receipt persists across reopen and a new workflow execution', async () => 
               title: 'Doc',
               content: {
                 kind: 'document',
-                blocks: [
-                  { kind: 'paragraph', text: 'Evidence', anchor: { type: 'page', page: 1 } }
-                ],
+                blocks: [plainBlock('paragraph', 'Evidence', { type: 'authored' })],
                 meta: {
                   extractor: null,
                   extractorVersion: 1,
@@ -411,7 +409,8 @@ test('receipt persists across reopen and a new workflow execution', async () => 
                   pageCount: null,
                   refiners: [],
                   waitingFor: [],
-                  corrected: false
+                  corrected: false,
+                  omissions: []
                 }
               }
             });

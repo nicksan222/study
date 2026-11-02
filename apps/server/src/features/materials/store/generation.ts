@@ -22,6 +22,8 @@ import {
   materialGenerationPayloadSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
+import { decodeBlockContent } from '@study/contracts/sources/document';
+import { hasTextualContent } from '@study/contracts/sources/schemas';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
@@ -107,6 +109,8 @@ export function makeGeneration(resources: StoreResources) {
         throw new StudyError('invalid_input', 'Generation requires an extracted document revision');
     }
 
+    for (const id of request.inputVersionIds) assertTextEvidence(required(versionDocumentId(id)));
+
     const { title, kind, instruction, scopeId, questionSpec } = request;
 
     db.orm
@@ -180,6 +184,17 @@ export function makeGeneration(resources: StoreResources) {
     };
   }
 
+  function assertTextEvidence(documentId: NonNullable<ReturnType<typeof versionDocumentId>>) {
+    const blocks = db.orm
+      .select({ content: s.blocks.content })
+      .from(s.blocks)
+      .where(eq(s.blocks.document_id, documentId))
+      .all();
+
+    if (!blocks.some((block) => hasTextualContent(decodeBlockContent(block.content))))
+      throw new StudyError('invalid_input', 'Generation requires captured textual evidence');
+  }
+
   function validateInputs(request: NonNullable<ReturnType<typeof readGeneration>>) {
     if (
       request.inputVersionIds.length === 0 ||
@@ -193,6 +208,8 @@ export function makeGeneration(resources: StoreResources) {
 
       assertMembership(request.projectId, material.id);
       const documentId = versionDocumentId(id);
+
+      if (documentId !== null) assertTextEvidence(documentId);
 
       if (
         version.status !== 'published' ||

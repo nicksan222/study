@@ -16,6 +16,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { DocumentId, MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
+import { encodeBlockContent } from '@study/contracts/sources/document';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -174,6 +175,24 @@ export function makeContent(resources: StoreResources) {
     const db = store.orm,
       id = version.id;
 
+    for (const block of c.blocks) {
+      if (block.content.type !== 'image') continue;
+
+      const image = db
+        .select()
+        .from(s.source_snapshots)
+        .where(
+          and(
+            eq(s.source_snapshots.source_id, block.content.sourceId),
+            eq(s.source_snapshots.revision, BigInt(block.content.revision))
+          )
+        )
+        .get();
+
+      if (!image || image.kind !== 'image' || !image.mime.toLowerCase().startsWith('image/'))
+        throw new StudyError('invalid_input', 'Managed image revision is unavailable');
+    }
+
     db.delete(s.material_source_snapshots)
       .where(eq(s.material_source_snapshots.version_id, id))
       .run();
@@ -197,6 +216,8 @@ export function makeContent(resources: StoreResources) {
           ordinal: BigInt(i),
           kind: b.kind,
           text: b.text,
+          editing_id: b.id,
+          content: encodeBlockContent(b.content),
           anchor: JSON.stringify(b.anchor)
         })
         .run()

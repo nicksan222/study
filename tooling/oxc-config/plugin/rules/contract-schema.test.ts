@@ -81,3 +81,22 @@ test('native RPC declarations specify payload, success and error schemas', () =>
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
+
+test('rich content remains schema-derived rather than a parallel public editor payload', () => {
+  const diagnostics = lintRule(
+    'contract-schema',
+    {
+      'packages/contracts/src/documents.ts': `
+      import { Schema } from 'effect';
+      interface Node { kind: string; children: readonly Node[] }
+      export type Editor = Readonly<{ blocks: readonly Node[] }>;
+      export const unchecked = Schema.Struct({ content: Schema.Unknown });
+      export type Canonical = typeof documentSchema.Type;
+      export type Block = Canonical['blocks'][number];
+    `
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

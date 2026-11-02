@@ -15,9 +15,9 @@ const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Proj
     INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'document','Input',1,1),(2,'diagram','Requested',1,1);
     INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'document',1,1),(3,1,'document',2,1);
     INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,1,'{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','Evidence','{"type":"page","page":1}');
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','Evidence','{"type":"page","page":1}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','Evidence','marks',json_array()))));
     INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 2,extractor_version,meta,created_at FROM documents WHERE id=1;
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor) SELECT 2,ordinal,kind,text,anchor FROM blocks WHERE document_id=1;
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) SELECT 2,ordinal,kind,text,anchor,editing_id,content FROM blocks WHERE document_id=1;
     INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1),(3,2);
     UPDATE material_versions SET status='published',published_at=2 WHERE id IN(1,3);
     INSERT OR IGNORE INTO project_materials(project_id,material_id) SELECT 1,id FROM materials;
@@ -155,7 +155,18 @@ test('upgrade retains a completed receipt and seals its captured inputs', () => 
       sqlite.close();
     }
 
-    const upgraded = location.open();
+    const current = join(location.dir, 'receipt-upgrade');
+
+    for (const entry of readdirSync(migrations)) {
+      if (entry < '20261101161641_romantic_miss_america')
+        cpSync(join(migrations, entry), join(current, entry), { recursive: true });
+    }
+
+    const upgraded = new DatabaseSync(location.path);
+
+    upgraded.exec('PRAGMA foreign_keys=OFF');
+    migrate(drizzle({ client: upgraded }), { migrationsFolder: current });
+    upgraded.exec('PRAGMA foreign_keys=ON');
 
     try {
       assert.throws(() =>
@@ -321,7 +332,7 @@ for (const stage of ['publication', 'receipt']) {
         INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(3,'document','Second input',1,1);
         INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(4,3,'document',1,1);
         INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM documents WHERE id=1;
-        INSERT INTO blocks(document_id,ordinal,kind,text,anchor) SELECT 3,ordinal,kind,text,anchor FROM blocks WHERE document_id=1;
+        INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) SELECT 3,ordinal,kind,text,anchor,editing_id,content FROM blocks WHERE document_id=1;
         INSERT INTO material_document_versions(version_id,document_id) VALUES(4,3);
         UPDATE material_versions SET status='published',published_at=2 WHERE id=4;
         INSERT INTO project_materials(project_id,material_id) VALUES(1,3),(2,3);

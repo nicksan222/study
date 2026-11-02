@@ -237,14 +237,14 @@ test('document versions reuse anchored documents and freeze their underlying blo
   `);
   assert.throws(() => publish(db, 1n));
   db.exec(
-    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','Derivative','{"type":"paragraph","index":0}')`
+    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','Derivative','{"type":"paragraph","index":0}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','Derivative','marks',json_array()))))`
   );
   publish(db, 1n);
   assert.throws(() => db.exec("UPDATE blocks SET text='changed' WHERE document_id=1"));
   assert.throws(() => db.exec('DELETE FROM blocks WHERE document_id=1'));
   assert.throws(() =>
     db.exec(
-      "INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,1,'paragraph','more','{}')"
+      "INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,1,'paragraph','more','{}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','more','marks',json_array()))))"
     )
   );
   assert.throws(() => db.exec('UPDATE documents SET meta=\'{"changed":true}\' WHERE id=1'));
@@ -265,7 +265,7 @@ test('collection deletion preserves source bytes, snapshots, versions and sessio
   draft(db, 2n, 'document');
   db.exec(`
     INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,0,'{"extractor":null,"extractorVersion":0,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','body','{"type":"paragraph","index":0}');
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','body','{"type":"paragraph","index":0}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','body','marks',json_array()))));
     INSERT INTO material_document_versions(version_id,document_id) VALUES(2,1);
     INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
     INSERT INTO session_materials(session_id,material_id,position) VALUES(1,1,0),(1,2,1);
@@ -333,7 +333,7 @@ test('publication rejects malformed canonical document anchors and citations', (
   );
   db.exec('INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1)');
   db.exec(
-    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','body','null')`
+    `INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','body','null',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','body','marks',json_array()))))`
   );
   assert.throws(() => publish(db, 1n));
 });
@@ -361,7 +361,7 @@ test('removing a draft material payload preserves a source-owned extraction snap
     INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at)
       VALUES(1,1,'import','text','text/plain','notes',1,zeroblob(32),1);
     INSERT INTO documents(id,source_id,extractor_version,meta,created_at) VALUES(1,1,0,'{}',1);
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor) VALUES(1,0,'paragraph','body','{}');
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','body','{}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','body','marks',json_array()))));
   `);
   draft(db, 1n, 'document');
   db.exec('INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1)');
@@ -408,4 +408,32 @@ test('material citations enforce positive unsigned 32 bit markers', (t) => {
     2n
   );
   assert.throws(() => insert(1n));
+});
+
+test('fresh canonical migrations preserve all published citation mutation guards', (t) => {
+  const db = fixture(t);
+
+  diagram(db, 1n);
+  publish(db, 1n);
+  diagram(db, 2n);
+  db.exec(`
+    INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
+    INSERT INTO material_version_citations(version_id,marker,input_version_id,anchor,quote)
+      VALUES(2,1,1,'{"type":"authored"}','Original quote');
+  `);
+  publish(db, 2n);
+
+  for (const statement of [
+    sql`INSERT INTO material_version_citations(version_id,marker,input_version_id,anchor,quote)
+      VALUES(2,2,1,'{"type":"authored"}','Added quote')`,
+    sql`UPDATE material_version_citations SET quote='Changed quote' WHERE version_id=2`,
+    sql`DELETE FROM material_version_citations WHERE version_id=2`
+  ])
+    assert.throws(() => db.orm.run(statement));
+
+  assert.deepEqual(
+    db.orm.all(sql`SELECT marker,anchor,quote FROM material_version_citations WHERE version_id=2`),
+    [{ marker: 1n, anchor: '{"type":"authored"}', quote: 'Original quote' }]
+  );
+  assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
 });

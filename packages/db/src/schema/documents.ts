@@ -1,4 +1,5 @@
 import type { DocumentId, SourceId } from '@study/contracts/ids';
+import type { BlockId } from '@study/contracts/sources/document';
 import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, uniqueIndex, index, check } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -40,10 +41,14 @@ export const blocks = sqliteTable(
       .references((): AnySQLiteColumn => codes_block_kind.code, {
         onDelete: 'no action'
       }),
+    editing_id: text().$type<BlockId>().notNull(),
+    content: text().notNull(),
     text: text().notNull(),
     anchor: text().notNull()
   },
   (t) => [
+    uniqueIndex('blocks_document_editing_id_unique').on(t.document_id, t.editing_id),
+    check('blocks_content_json', sql`json_valid(content)`),
     uniqueIndex('blocks_document_id_ordinal_unique').on(t.document_id, t.ordinal),
     check('blocks_check_1', sql`ordinal >= 0`),
     check('blocks_check_2', sql`json_valid(anchor)`)

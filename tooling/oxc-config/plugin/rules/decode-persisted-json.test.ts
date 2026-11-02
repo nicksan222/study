@@ -35,3 +35,17 @@ test('decode-persisted-json covers direct unsafe forms', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
+
+test('rich block persistence uses the canonical codec instead of a public type assertion', () => {
+  const diagnostics = lintRule('decode-persisted-json', {
+    'src/features/materials/store/content.ts': `
+      import { decodeBlockContent } from '@study/contracts/sources/document';
+      import type { BlockContent } from '@study/contracts/sources/schemas';
+      const safe = decodeBlockContent(row.content);
+      const asserted = JSON.parse(row.content) as BlockContent;
+      const assigned: BlockContent = JSON.parse(row.content);
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

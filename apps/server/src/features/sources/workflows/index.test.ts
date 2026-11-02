@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { ProjectId } from '@study/contracts/ids';
+import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
@@ -922,11 +923,7 @@ test('correction workflow publishes a new anchored document without changing his
           const state = yield* sources.sourceProcessing(source.id);
           const document = {
             blocks: [
-              {
-                kind: 'paragraph' as const,
-                text: 'before',
-                anchor: { type: 'page' as const, page: 1 }
-              }
+              plainBlock('paragraph' as const, 'before', { type: 'page' as const, page: 1 })
             ],
             meta: {
               extractor: null,
@@ -936,7 +933,8 @@ test('correction workflow publishes a new anchored document without changing his
               pageCount: null,
               refiners: [],
               waitingFor: [],
-              corrected: false
+              corrected: false,
+              omissions: []
             }
           };
           const old = yield* transaction((tx) =>
@@ -980,6 +978,14 @@ test('correction workflow publishes a new anchored document without changing his
           const current = yield* sources.sourceDocument(source.id);
 
           assert.equal(current.document.blocks[0].text, 'after');
+          assert.equal(current.document.blocks[0].id, document.blocks[0].id);
+          const historical = yield* sources.document({
+            id: old.documentId,
+            sourceId: source.id,
+            projectId: 1n as ProjectId
+          });
+
+          assert.deepEqual(historical.document, document);
           assert.deepEqual(current.document.blocks[0].anchor, document.blocks[0].anchor);
           assert.equal(current.document.meta.corrected, true);
           const indexed = context.db.orm.all<{ causation_id: string; correlation_id: string }>(

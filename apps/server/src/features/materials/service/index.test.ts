@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
+import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { sessions, workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -34,13 +35,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 const content = {
   kind: 'document' as const,
-  blocks: [
-    {
-      kind: 'paragraph' as const,
-      text: 'Canonical material',
-      anchor: { type: 'page' as const, page: 1 }
-    }
-  ],
+  blocks: [plainBlock('paragraph' as const, 'Canonical material', { type: 'authored' })],
   meta: {
     extractor: null,
     extractorVersion: 1,
@@ -49,7 +44,8 @@ const content = {
     pageCount: null,
     refiners: [],
     waitingFor: [],
-    corrected: false
+    corrected: false,
+    omissions: []
   }
 };
 

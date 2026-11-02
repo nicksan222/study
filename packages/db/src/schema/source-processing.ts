@@ -1,4 +1,5 @@
 import type { DocumentId, SourceId, MaterialVersionId, MaterialId } from '@study/contracts/ids';
+import type { BlockId } from '@study/contracts/sources/document';
 import { sql } from 'drizzle-orm';
 import {
   blob,
@@ -12,7 +13,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 
 import { codes_source_kind } from './codes.ts';
-import { documents } from './documents.ts';
+import { documents, blocks } from './documents.ts';
 import { materials, material_versions } from './material-versions.ts';
 import { sources } from './sources.ts';
 
@@ -92,4 +93,26 @@ export const material_imports = sqliteTable(
       .references(() => materials.id, { onDelete: 'no action' })
   },
   (t) => [uniqueIndex('material_imports_material_unique').on(t.material_id)]
+);
+
+/** Explicit retention roots for copied managed images, independent of membership/session. */
+export const document_assets = sqliteTable(
+  'document_assets',
+  {
+    document_id: integer().$type<DocumentId>().notNull(),
+    block_id: text().$type<BlockId>().notNull(),
+    source_id: integer().$type<SourceId>().notNull(),
+    revision: integer().$type<bigint>().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.document_id, t.block_id] }),
+    foreignKey({
+      columns: [t.document_id, t.block_id],
+      foreignColumns: [blocks.document_id, blocks.editing_id]
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.source_id, t.revision],
+      foreignColumns: [source_snapshots.source_id, source_snapshots.revision]
+    })
+  ]
 );
