@@ -45,6 +45,14 @@ const intentCodec = Schema.fromJsonString(Schema.toCodecJson(captureSessionConte
 
 const sameIntent = Schema.toEquivalence(captureSessionContextSchema);
 
+function assertHistoryBoundary(
+  history: typeof runSelectionContextSchema.Type.messages,
+  throughMessageId: typeof captureSessionContextSchema.Type.throughMessageId
+) {
+  if (throughMessageId !== undefined && history.at(-1)?.messageId !== throughMessageId)
+    throw new StudyError('invalid_input', 'Conversation boundary is unavailable in this scope');
+}
+
 function canonicalIntent(input: typeof captureSessionContextSchema.Type) {
   return {
     sessionId: input.sessionId,
@@ -297,14 +305,7 @@ export const SessionContextStore = defineStore({
               history = [root, ...history];
             }
 
-            if (
-              input.throughMessageId !== undefined &&
-              history.at(-1)?.messageId !== input.throughMessageId
-            )
-              throw new StudyError(
-                'invalid_input',
-                'Conversation boundary is unavailable in this scope'
-              );
+            assertHistoryBoundary(history, input.throughMessageId);
 
             const total = db.orm
               .select()

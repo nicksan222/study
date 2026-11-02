@@ -119,10 +119,12 @@ test('native ingestion and projection let quick sessions capture a historic impo
               .find((item) => item.type === 'SourceIndexed' && item.documentId === documentId);
 
             assert.ok(indexed?.type === 'SourceIndexed');
+
             if (revision === 1) {
               assert.equal(indexed.projectId, collection.id);
               yield* projects.deleteProject({ id: collection.id });
             }
+
             const projected = yield* engine.execute(sourceIndexedWorkflow, {
               executionId: 'projection-' + revision,
               payload: { event: indexed }

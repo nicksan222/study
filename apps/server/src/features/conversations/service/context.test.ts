@@ -732,6 +732,7 @@ test('native capture rejects foreign or deleted boundaries and preserves exact b
           sessionId: session.id,
           text: 'Deleted'
         });
+
         yield* client('conversations.deleteMessage', { id: deleted.id });
         const foreign = yield* client('conversations.postMessage', {
           sessionId: other.id,
@@ -789,8 +790,10 @@ test('native capture rejects foreign or deleted boundaries and preserves exact b
             'invalid_input'
           );
         }
+
         assert.equal(context.db.orm.select().from(s.session_run_contexts).all().length, 0);
         const captured = yield* client('conversations.captureSessionContext', intent);
+
         assert.deepEqual(
           captured.messages.map((message) => message.messageId),
           [first.id]
@@ -801,6 +804,7 @@ test('native capture rejects foreign or deleted boundaries and preserves exact b
           threadRoot,
           throughMessageId: root.id
         });
+
         assert.deepEqual(
           rootOnly.messages.map((message) => message.messageId),
           [root.id]
@@ -811,6 +815,7 @@ test('native capture rejects foreign or deleted boundaries and preserves exact b
           threadRoot,
           throughMessageId: child.id
         });
+
         assert.deepEqual(
           threaded.messages.map((message) => message.messageId),
           [root.id, child.id]

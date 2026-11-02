@@ -714,6 +714,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
         c.editMessage({ messageId: selected.messageId, text: 'Retained evidence [1] [2] [3]' })
       )
     );
+
     assert.deepEqual(selectedEdit.citations, selectedAnswer.citations);
     await assertLongHistoryPreservesEarlyMessages();
 
