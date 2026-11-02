@@ -3,7 +3,7 @@
  * │ @file Retires session prompts and proposal drafts while preserving library versions.     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Retains durable ownership and content-free retirement state.                            │
+ * │ - Retains durable ownership and content-free retirement state.                           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Feature policy uses public participants; native Workflow owns execution.                 │

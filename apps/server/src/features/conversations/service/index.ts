@@ -431,16 +431,17 @@ export const Conversations = defineService(
 
           return result;
         }),
-      finishSessionDeletion: (id: SessionId) =>
+      finishSessionDeletion: (value: { sessionId: SessionId; attempt: number }) =>
         publicationTransaction((tx) => {
-          Materials.scrubSessionRetirement(tx, id);
-          const status = tx.store(SessionDeletionStore).sessionDeletion(id);
+          const status = tx.store(SessionDeletionStore).sessionDeletion(value.sessionId);
 
-          Workflows.scrubRetiredCorrelations(tx, deletionCorrelations(tx, id));
+          if (status.status === 'completed' || status.attempt !== value.attempt) return status;
 
-          return tx
-            .store(SessionDeletionStore)
-            .settle({ sessionId: status.sessionId, errorKind: null });
+          Materials.scrubSessionRetirement(tx, value.sessionId);
+
+          Workflows.scrubRetiredCorrelations(tx, deletionCorrelations(tx, value.sessionId));
+
+          return tx.store(SessionDeletionStore).settle({ ...value, errorKind: null });
         }),
       failSessionDeletion: (value: {
         sessionId: SessionId;

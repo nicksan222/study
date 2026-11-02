@@ -261,3 +261,25 @@ test('conversation evidence composition consumes the public Materials participan
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/citations.ts')));
 });
+
+test('deletion coordinators compose public Materials and Workflows retirement participants', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/features/conversations/service/deletion.ts': `
+      import { Materials } from '#server/features/materials/index';
+      import { Workflows } from '#server/features/workflows/index';
+      import { transaction } from '#server/platform/definitions/define-store';
+      export const retire = input => transaction(tx => {
+        Materials.prepareSessionRetirement(tx, input);
+        Workflows.retireCorrelations(tx, input.ids, input.eventTypes);
+      });
+    `,
+    'src/features/conversations/service/private.ts': `
+      import { SessionMaterialRetirementStore } from '#server/features/materials/store/session-retirement';
+      import { ExecutionStore } from '#server/features/workflows/store/index';
+    `
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+
+  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
+});

@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Covers durable deletion with migrated SQLite, native RPC and Workflow cleanup.    │
+ * │ @file Covers durable deletion with migrated SQLite, native RPC and Workflow cleanup.     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Retains durable ownership and content-free retirement state.                            │
+ * │ - Retains durable ownership and content-free retirement state.                           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Feature policy uses public participants; native Workflow owns execution.                 │
@@ -14,8 +14,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
-import type { SessionId } from '@study/contracts/ids';
-import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Effect, Exit, Layer, Option, Schema } from 'effect';
@@ -34,142 +32,14 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 import { dispatchPending } from '#server/platform/workflows/triggers';
 import { documentTransformFixture } from '#testing/document-transform';
-
-type Fixture = Awaited<ReturnType<typeof documentTransformFixture>>;
-
-const meta = {
-  extractor: null,
-  extractorVersion: 1,
-  provider: null,
-  durationMs: null,
-  pageCount: null,
-  refiners: [],
-  waitingFor: [],
-  corrected: false,
-  omissions: []
-};
-
-const paragraph = (text: string) =>
-  createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
-
-function setup(fixture: Fixture, marker: string, target = false) {
-  return Effect.runPromise(
-    Effect.gen(function* () {
-      const chats = yield* Conversations;
-      const materials = yield* Materials;
-      const session = yield* chats.createUntitledSession({});
-      const other = yield* chats.createSession({ title: 'Keep other session' });
-      const library = yield* materials.createManualDocument({
-        title: 'Shared independent input',
-        document: { blocks: [paragraph('Independent library evidence')], meta }
-      });
-
-      yield* chats.postMessage({ sessionId: session.id, text: marker, requestReply: false });
-      yield* chats.requestTitle({ sessionId: session.id });
-      yield* chats.postMessage({
-        sessionId: other.id,
-        text: 'Other conversation',
-        requestReply: false
-      });
-      yield* chats.updateSessionSelection({
-        sessionId: session.id,
-        expectedRevision: 0n,
-        targets: [{ versionId: library.version.id, scope: { kind: 'document' } }]
-      });
-      const capture = yield* chats.captureSessionContext({
-        sessionId: session.id,
-        intentKey: 'delete-capture',
-        instruction: marker + '-instruction',
-        preferences: {}
-      });
-      const request = yield* chats.requestDocumentTransform({
-        contextRequestId: capture.requestId,
-        title: 'Generated result',
-        operations: ['clarity'],
-        ...(target ? { editTargetVersionId: library.version.id } : {})
-      });
-
-      yield* chats.requestReply({
-        sessionId: session.id,
-        intentKey: 'private-reply-capture',
-        instruction: marker + '-reply',
-        preferences: {}
-      });
-
-      return { session, other, library, capture, request };
-    }).pipe(Effect.provide(fixture.domain()))
-  );
-}
-
-function deletionEvent(fixture: Fixture, id: SessionId) {
-  const row = fixture.context.db.orm
-    .select()
-    .from(s.workflowEvents)
-    .where(eq(s.workflowEvents.type, 'SessionDeletionRequested'))
-    .all()
-    .at(-1);
-
-  assert.ok(row);
-  const event = decodeEvent(row.payload);
-
-  assert.equal(event.type, 'SessionDeletionRequested');
-  assert.equal(event.sessionId, id);
-
-  return event;
-}
-
-function cleanup(fixture: Fixture, id: SessionId) {
-  const event = deletionEvent(fixture, id);
-
-  return Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const engine = yield* WorkflowEngine.WorkflowEngine;
-
-        yield* engine.register(sessionDeletionWorkflow, sessionDeletionHandler);
-
-        return yield* engine.execute(sessionDeletionWorkflow, {
-          executionId: `cleanup/${event.eventId}`,
-          payload: { event }
-        });
-      }).pipe(Effect.provide(fixture.services()))
-    )
-  );
-}
-
-function assertScrubbed(fixture: Fixture, marker: string) {
-  const tables = [
-    s.sessions,
-    s.messages,
-    s.message_versions,
-    s.message_parts,
-    s.citations,
-    s.session_run_contexts,
-    s.conversation_reply_requests,
-    s.conversation_recording_posts,
-    s.recording_posts,
-    s.recordings,
-    s.workflowEvents,
-    s.workflow_executions,
-    s.workflow_activities,
-    s.workflow_deferreds,
-    s.workflow_configuration_waits,
-    s.material_versions,
-    s.material_generation_requests,
-    s.document_proposals,
-    s.document_proposal_receipts,
-    s.retired_document_proposal_receipts,
-    s.session_deletions
-  ];
-
-  for (const table of tables) {
-    const content = JSON.stringify(fixture.context.db.orm.select().from(table).all(), (_, value) =>
-      typeof value === 'bigint' ? String(value) : value
-    );
-
-    assert.ok(!content.includes(marker), 'Session capture remains in a persistence table');
-  }
-}
+import {
+  setup,
+  deletionEvent,
+  cleanup,
+  assertScrubbed,
+  annotateLibrary,
+  libraryState
+} from '#testing/session-deletion';
 
 test('native deletion RPC commits an idempotent unavailable barrier and scrubs queued captures after reopen', async () => {
   const fixture = await documentTransformFixture();
@@ -185,6 +55,33 @@ test('native deletion RPC commits an idempotent unavailable barrier and scrubs q
           const status = yield* client('conversations.deleteSession', { id: saved.session.id });
 
           assert.equal(status.status, 'pending');
+
+          assert.deepEqual(
+            yield* client('conversations.sessionDeletion', { id: saved.session.id }),
+            status
+          );
+          assert.deepEqual(
+            yield* client('conversations.retrySessionDeletion', { id: saved.session.id }),
+            status
+          );
+          const rejected = [
+            client('conversations.renameSession', {
+              id: saved.session.id,
+              title: 'Late rename'
+            }).pipe(Effect.asVoid),
+            client('conversations.requestTitle', { sessionId: saved.session.id }).pipe(
+              Effect.asVoid
+            ),
+            client('conversations.updateSessionSelection', {
+              sessionId: saved.session.id,
+              expectedRevision: 1n,
+              targets: [{ versionId: saved.library.version.id, scope: { kind: 'document' } }]
+            }).pipe(Effect.asVoid)
+          ];
+
+          for (const action of rejected)
+            assert.equal((yield* Effect.flip(action)).kind, 'not_found');
+
           assert.deepEqual(
             yield* client('conversations.deleteSession', { id: saved.session.id }),
             status
@@ -486,6 +383,13 @@ test('completed library publication wins deletion while native payload copies ar
         .get()?.instruction,
       null
     );
+
+    const retainedIds = [saved.library.version.id, receipt.result_version_id];
+
+    await annotateLibrary(fixture, retainedIds);
+
+    const beforeDeletion = await libraryState(fixture, retainedIds);
+
     await Effect.runPromise(
       Effect.flatMap(Conversations, (chats) => chats.deleteSession(saved.session.id)).pipe(
         Effect.provide(fixture.domain())
@@ -525,7 +429,13 @@ test('completed library publication wins deletion while native payload copies ar
 
     assert.ok(libraryEvent);
     assert.notEqual(libraryEvent.payload, '{}');
+
+    assert.deepEqual(await libraryState(fixture, retainedIds), beforeDeletion);
+
     fixture.reopen();
+
+    assert.deepEqual(await libraryState(fixture, retainedIds), beforeDeletion);
+
     const native = workflowStore(fixture.context);
 
     native.start(
@@ -616,6 +526,9 @@ test('late provider response after acceptance cannot publish or repopulate nativ
     assert.equal(request?.result_version_id, null);
     assert.equal(fixture.context.db.orm.select().from(s.materials).all().length, 1);
     assertScrubbed(fixture, marker);
+
+    assertScrubbed(fixture, 'Late unpublished response');
+
     assert.ok(
       !JSON.stringify(
         fixture.context.db.orm.select().from(s.workflow_activities).all(),

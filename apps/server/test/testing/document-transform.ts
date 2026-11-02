@@ -26,6 +26,8 @@ import {
   materialGenerationWorkflow,
   materialGenerationHandler
 } from '#server/features/materials/workflows/generation';
+import { Recordings } from '#server/features/recordings/index';
+import { recordingPostWorkflow } from '#server/features/recordings/workflows/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
@@ -167,18 +169,25 @@ export async function documentTransformFixture() {
     );
     const model = createChatGptModel({ auth, modelId: 'fixture', baseUrl: base });
     const domain = () =>
-      Layer.mergeAll(Materials.layer, Conversations.layer, Settings.layer, Sources.layer).pipe(
-        Layer.provideMerge(Layer.succeed(Database, { store: context }))
-      );
+      Layer.mergeAll(
+        Materials.layer,
+        Conversations.layer,
+        Settings.layer,
+        Sources.layer,
+        Recordings.layer
+      ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
     const services = () => {
       const engine = workflowEngineLayer(context);
       const control = Layer.effect(
         WorkflowControl,
         Effect.map(WorkflowEngine.WorkflowEngine, (engine) => ({
           cancel: (input: Parameters<typeof cancelExecution>[2]) =>
-            cancelExecution(context, [materialGenerationWorkflow], input).pipe(
-              Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
-            )
+            cancelExecution(
+              context,
+              [materialGenerationWorkflow, recordingPostWorkflow],
+              input
+            ).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine))
         }))
       ).pipe(Layer.provideMerge(engine));
 

@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Runs retryable session cleanup using native cancellation and guarded Activity.    │
+ * │ @file Runs retryable session cleanup using native cancellation and guarded Activity.     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Retains durable ownership and content-free retirement state.                            │
+ * │ - Retains durable ownership and content-free retirement state.                           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Feature policy uses public participants; native Workflow owns execution.                 │
@@ -61,7 +61,10 @@ export const sessionDeletionHandler = ({
 
           return yield* withPublicationGuard(
             store,
-            conversations.finishSessionDeletion(event.sessionId)
+            conversations.finishSessionDeletion({
+              sessionId: event.sessionId,
+              attempt: event.attempt
+            })
           );
         })
       })

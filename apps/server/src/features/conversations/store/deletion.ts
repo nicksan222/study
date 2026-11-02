@@ -3,7 +3,7 @@
  * │ @file Persists idempotent session deletion barriers and content-free cleanup status.     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Retains durable ownership and content-free retirement state.                            │
+ * │ - Retains durable ownership and content-free retirement state.                           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Feature policy uses public participants; native Workflow owns execution.                 │
@@ -126,7 +126,7 @@ export const SessionDeletionStore = defineStore({
           input: Schema.Struct({
             sessionId: sessionIdSchema,
             errorKind: Schema.NullOr(errorKindSchema),
-            attempt: Schema.optional(Schema.Int)
+            attempt: Schema.Int
           }),
           output: sessionDeletionSchema,
           run: ({ sessionId, errorKind, attempt }) => {
@@ -134,11 +134,7 @@ export const SessionDeletionStore = defineStore({
 
             if (!previous) throw new StudyError('not_found', 'Deletion is unavailable');
 
-            if (
-              previous.status === 'completed' ||
-              (attempt !== undefined && previous.attempt !== attempt)
-            )
-              return previous;
+            if (previous.status === 'completed' || previous.attempt !== attempt) return previous;
 
             db.orm
               .update(s.session_deletions)

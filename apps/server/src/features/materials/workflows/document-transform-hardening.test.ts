@@ -158,7 +158,9 @@ test('actual provider JSON images persist as canonical bigint assets and survive
         yield* chats.deleteSession(setup.session.id);
         yield* withTestPublication(
           fixture.context,
-          chats.finishSessionDeletion(setup.session.id).pipe(Effect.asVoid)
+          chats
+            .finishSessionDeletion({ sessionId: setup.session.id, attempt: 1 })
+            .pipe(Effect.asVoid)
         );
         const retained = yield* materials.materialVersion({ id: result });
 

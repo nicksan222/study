@@ -17,7 +17,8 @@
 import { StudyError } from '@study/contracts/errors';
 import { workflowEventSchema } from '@study/contracts/events';
 import type { WorkflowEvent } from '@study/contracts/events';
-import { and, eq } from '@study/db';
+import type { Db } from '@study/db';
+import { and, eq, inArray, sql } from '@study/db';
 import { workflowEvents, workflow_retired_correlations } from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -62,5 +63,19 @@ export function emitEvent(context: ServerContext, event: WorkflowEvent, createdA
       payload: encodeEvent(validated),
       createdAt
     })
+    .run();
+}
+
+/** Preserve event identity and dispatch receipts while clearing exactly fenced event payloads. */
+export function scrubRetiredEvents(db: Db, ids: readonly string[]) {
+  db.orm
+    .update(workflowEvents)
+    .set({ payload: '{}' })
+    .where(
+      and(
+        inArray(workflowEvents.correlationId, [...ids]),
+        sql`EXISTS (SELECT 1 FROM ${workflow_retired_correlations} r WHERE r.correlation_id = ${workflowEvents.correlationId} AND r.event_type = ${workflowEvents.type})`
+      )
+    )
     .run();
 }

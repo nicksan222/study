@@ -106,3 +106,18 @@ test('annotation history and assessment payloads require canonical schema decodi
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('retired intents and native attempt metadata require codecs at typed read boundaries', () => {
+  const diagnostics = lintRule('decode-persisted-json', {
+    'src/features/materials/store/session-retirement.ts': `
+      import { Schema } from 'effect';
+      import { keepDocumentProposalSchema } from '@study/contracts/materials/editing';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(keepDocumentProposalSchema));
+      const safe = Schema.decodeUnknownSync(codec)(row.intent);
+      const unsafe = JSON.parse(row.intent) as typeof keepDocumentProposalSchema.Type;
+    `,
+    'src/features/workflows/store/index.ts': `const unsafe: ExecutionMetadata = JSON.parse(row.payload);`
+  });
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

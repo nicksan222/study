@@ -15,6 +15,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type { Db } from '@study/db';
 import { and, eq, getTableColumns, gt, inArray, isNull, lte, or, sql } from '@study/db';
 import {
   workflow_activities,
@@ -335,4 +336,30 @@ export function workflowStore(context: ServerContext) {
       });
     }
   };
+}
+
+/** Remove captured native state only for an execution with a durable retirement fence. */
+export function scrubRetiredExecution(db: Db, executionId: string) {
+  if (
+    !db.orm
+      .select()
+      .from(workflow_retired_executions)
+      .where(eq(workflow_retired_executions.execution_id, executionId))
+      .get()
+  )
+    return;
+
+  for (const table of [workflow_activities, workflow_deferreds, workflow_clocks])
+    db.orm.delete(table).where(eq(table.execution_id, executionId)).run();
+
+  db.orm
+    .update(workflow_executions)
+    .set({
+      payload: '{}',
+      result: null,
+      owner_token: null,
+      status: sql`CASE WHEN status = 'completed' THEN 'completed' ELSE 'cancelled' END`
+    })
+    .where(eq(workflow_executions.execution_id, executionId))
+    .run();
 }

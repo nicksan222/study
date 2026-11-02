@@ -267,3 +267,26 @@ test('historic annotations and manual judgments stay Materials-owned while messa
     ].sort()
   );
 });
+
+test('deletion barriers are Conversations-owned and proposal retirement proofs are Materials-owned', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/conversations/store/deletion.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.session_deletions); db.insert(s.session_deletion_correlations);
+      db.select().from(s.session_generation_retirements);
+      db.delete(s.retired_document_proposal_receipts); db.insert(s.session_generation_retirements);
+    `,
+    'src/features/materials/store/session-retirement.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.session_generation_retirements); db.insert(s.retired_document_proposal_receipts);
+      db.select().from(s.session_deletions); db.update(s.session_deletions); db.delete(s.session_deletion_correlations);
+    `
+  });
+
+  assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    'Feature conversations may not write retired_document_proposal_receipts.',
+    'Feature conversations may not write session_generation_retirements.',
+    'Feature materials may not write session_deletion_correlations.',
+    'Feature materials may not write session_deletions.'
+  ]);
+});

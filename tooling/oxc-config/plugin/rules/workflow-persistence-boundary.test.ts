@@ -122,3 +122,31 @@ for (const identifier of ['constructor', '__proto__', 'ordinary']) {
     });
   }
 }
+
+test('retirement may write its fences but checkpoint and event mutations retain existing canonical owners', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/platform/workflows/retirement.ts': `
+      import * as s from '@study/db/schema';
+      db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
+      db.delete(s.workflow_activities); db.update(s.workflow_executions); db.update(s.workflowEvents);
+    `,
+      'apps/server/src/features/conversations/store/deletion.ts': `
+      import * as s from '@study/db/schema';
+      db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
+    `,
+      'apps/server/src/platform/workflows/control.ts': `
+      import { sql } from '@study/db';
+      sql\`DELETE FROM workflow_retired_executions WHERE execution_id=\${id}\`;
+    `,
+      'apps/server/src/platform/workflows/store.ts': `import * as s from '@study/db/schema'; db.delete(s.workflow_activities); db.update(s.workflow_executions);`,
+      'apps/server/src/platform/workflows/events.ts': `import * as s from '@study/db/schema'; db.update(s.workflowEvents);`,
+      'apps/server/src/platform/workflows/configuration.ts': `import * as s from '@study/db/schema'; db.delete(s.workflow_configuration_waits);`
+    }),
+    [
+      ...Array(2).fill('apps/server/src/features/conversations/store/deletion.ts'),
+      'apps/server/src/platform/workflows/control.ts',
+      ...Array(3).fill('apps/server/src/platform/workflows/retirement.ts')
+    ]
+  );
+});

@@ -671,7 +671,9 @@ for (const scenario of [
           );
           yield* withTestPublication(
             f.context,
-            chats.finishSessionDeletion(setup.session.id).pipe(Effect.asVoid)
+            chats
+              .finishSessionDeletion({ sessionId: setup.session.id, attempt: 1 })
+              .pipe(Effect.asVoid)
           );
           assert.equal(
             (yield* materials.materialVersion({ id: outcomes.independentId })).status,
