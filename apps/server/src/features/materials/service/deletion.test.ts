@@ -231,7 +231,7 @@ test('preview rejects unrelated and duplicate scope, new descendants and newly c
         Effect.flatMap(Conversations, (conversations) =>
           conversations.abandonReply(saved.pending)
         ).pipe(Effect.asVoid, Effect.provide(f.domain()))
-      )
+      ).pipe(Effect.provide(f.domain()))
     );
 
     await Effect.runPromise(
@@ -948,7 +948,7 @@ test('distinct Materials sharing one private capture reject overlapping retireme
         Effect.flatMap(Conversations, (conversations) =>
           conversations.abandonReply(saved.pending)
         ).pipe(Effect.asVoid, Effect.provide(f.domain()))
-      )
+      ).pipe(Effect.provide(f.domain()))
     );
 
     const other = await Effect.runPromise(

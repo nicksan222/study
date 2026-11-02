@@ -147,11 +147,15 @@ export const MaterialDeletionGenerationStore = defineStore({
           output: Schema.Void,
           run: (id) => {
             const requests = db.orm
-              .select()
+              .select({ request_id: s.material_deletion_requests.request_id })
               .from(s.material_deletion_requests)
-              .where(eq(s.material_deletion_requests.deletion_id, id))
-              .all()
-              .filter((x) => x.kind === 'generation');
+              .where(
+                and(
+                  eq(s.material_deletion_requests.deletion_id, id),
+                  eq(s.material_deletion_requests.kind, 'generation')
+                )
+              )
+              .all();
 
             for (const r of requests) {
               retireProposal(r.request_id);
