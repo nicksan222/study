@@ -32,6 +32,30 @@ export function decodeHtml(
   type Node = ReturnType<typeof root.contents>[number];
 
   const blocks: Block[] = [];
+  const flowContainers = new Set([
+    'p',
+    'div',
+    'main',
+    'article',
+    'section',
+    'blockquote',
+    'address',
+    'figure',
+    'figcaption',
+    'header',
+    'footer',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'pre'
+  ]);
+  const hasPhrasing = (nodes: Node[]) =>
+    nodes.some(
+      (node) => node.type === 'tag' || (node.type === 'text' && node.data.trim().length > 0)
+    );
   const omissions = new Set<Document['meta']['omissions'][number]>(['unsupported_markup']);
   const marks: Record<string, Extract<Inline, { type: 'text' }>['marks'][number]> = {
     b: 'strong',
@@ -120,15 +144,14 @@ export function decodeHtml(
         .children('li')
         .each((index, item) => {
           let pending: Node[] = [];
-          let continuation = false;
           let emitted = false;
-          const save = () => {
-            if (!emitted || pending.length) {
+          const save = (requireParent = false) => {
+            if (hasPhrasing(pending) || (requireParent && !emitted)) {
               items.push({
                 depth,
                 ordered: parent.type === 'tag' && parent.tagName === 'ol',
                 start: Math.max(1, Number($(parent).attr('start')) || 1) + index,
-                continuation,
+                continuation: emitted,
                 inlines: inline(pending)
               });
               emitted = true;
@@ -137,17 +160,21 @@ export function decodeHtml(
             pending = [];
           };
 
-          $(item)
-            .contents()
-            .toArray()
-            .forEach((child) => {
+          const read = (children: Node[]) => {
+            for (const child of children) {
               if (child.type === 'tag' && ['ul', 'ol'].includes(child.tagName)) {
-                save();
+                save(true);
                 visit(child, depth + 1);
-                continuation = true;
+              } else if (child.type === 'tag' && flowContainers.has(child.tagName)) {
+                save();
+                read($(child).contents().toArray());
+                save();
               } else pending.push(child);
-            });
-          save();
+            }
+          };
+
+          read($(item).contents().toArray());
+          save(true);
         });
     }
 
@@ -224,7 +251,7 @@ export function decodeHtml(
       return true;
     }
 
-    if (name === 'p' || (name === 'div' && !$(node).children('p,div,ul,ol,table,pre').length)) {
+    if (name === 'p') {
       add({ type: 'paragraph', inlines: inline($(node).contents().toArray()) }, node);
 
       return true;
@@ -233,31 +260,34 @@ export function decodeHtml(
     return false;
   }
 
-  function walk(node: Node): void {
-    if (node.type === 'text') {
-      if (node.data.trim()) add({ type: 'paragraph', inlines: inline([node]) }, node);
+  function walk(nodes: Node[]): void {
+    let pending: Node[] = [];
+    const save = () => {
+      if (hasPhrasing(pending)) add({ type: 'paragraph', inlines: inline(pending) }, pending[0]!);
 
-      return;
+      pending = [];
+    };
+
+    for (const node of nodes) {
+      if (node.type !== 'tag') {
+        pending.push(node);
+        continue;
+      }
+
+      const name = node.tagName;
+      if (name === 'ul' || name === 'ol') {
+        save();
+        list(node);
+      } else if (name === 'table' || flowContainers.has(name)) {
+        save();
+        if (!structured(node, name)) walk($(node).contents().toArray());
+      } else pending.push(node);
     }
 
-    if (node.type !== 'tag') return;
-
-    const name = node.tagName;
-
-    if (name === 'ul' || name === 'ol') {
-      list(node);
-
-      return;
-    }
-
-    if (structured(node, name)) return;
-
-    if (name === 'img') omissions.add('embedded_media');
-
-    $(node).contents().toArray().forEach(walk);
+    save();
   }
 
-  root.contents().toArray().forEach(walk);
+  walk(root.contents().toArray());
   const result = document(blocks, 'web');
 
   result.meta.omissions = [...omissions];

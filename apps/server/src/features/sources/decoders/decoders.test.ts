@@ -356,3 +356,72 @@ test('HTML table cells retain paragraphs, empty paragraphs and surrounding inlin
   assert.deepEqual(content.rows[0]!.cells[1]!.paragraphs, [[]]);
   assert.equal(result.blocks[0]!.text, 'Before\nFirst\n\nSecond\nAfter | ');
 });
+
+test('HTML groups loose phrasing without breaking words or losing inline marks', async () => {
+  const { decodeHtml } = await import('#server/features/sources/decoders/html');
+
+  for (const tag of ['main', 'article', 'section', 'div']) {
+    const result = decodeHtml({
+      bytes: bytes(
+        `<${tag} id="flow">inter<strong>national</strong> <a href="https://example.test">link</a><p>Next</p>end<em>ing</em></${tag}>`
+      ),
+      url: 'https://example.test/page'
+    });
+
+    assert.deepEqual(
+      result.blocks.map((block) => block.text),
+      ['international link', 'Next', 'ending']
+    );
+    assert.equal(result.blocks[0]!.content.type, 'paragraph');
+    if (result.blocks[0]!.content.type === 'paragraph')
+      assert.deepEqual(result.blocks[0]!.content.inlines, [
+        { type: 'text', text: 'inter', marks: [] },
+        { type: 'text', text: 'national', marks: ['strong'] },
+        { type: 'text', text: ' ', marks: [] },
+        { type: 'link', href: 'https://example.test/', text: 'link' }
+      ]);
+    assert.deepEqual(result.blocks[0]!.anchor, {
+      type: 'url',
+      url: 'https://example.test/page',
+      fragment: 'flow'
+    });
+  }
+});
+
+test('HTML list wrappers preserve descendants, paragraph boundaries and continuations', async () => {
+  const { decodeHtml } = await import('#server/features/sources/decoders/html');
+  const { documentSchema } = await import('@study/contracts/sources/schemas');
+  const { Schema } = await import('effect');
+  const forms = [
+    'Parent<ul><li>Child</li></ul>After',
+    '<div>Parent<ul><li>Child</li></ul>After</div>',
+    '<section><div><p>Parent</p><ul><li>Child</li></ul><p>After</p></div></section>'
+  ];
+  const contents = forms.map((item) => {
+    const result = decodeHtml({
+      bytes: bytes(`<ol start="3"><li>${item}</li><li><p>First</p><p>Second</p></li></ol>`)
+    });
+
+    Schema.decodeUnknownSync(documentSchema)(result);
+    assert.equal(result.blocks[0]!.text, 'Parent\nChild\nAfter\nFirst\nSecond');
+
+    return result.blocks[0]!.content;
+  });
+
+  assert.deepEqual(contents[1], contents[0]);
+  assert.deepEqual(contents[2], contents[0]);
+  const content = contents[0]!;
+
+  assert.equal(content.type, 'list_item');
+  if (content.type === 'list_item')
+    assert.deepEqual(
+      content.items.map(({ depth, start, continuation }) => ({ depth, start, continuation })),
+      [
+        { depth: 0, start: 3, continuation: false },
+        { depth: 1, start: 1, continuation: false },
+        { depth: 0, start: 3, continuation: true },
+        { depth: 0, start: 4, continuation: false },
+        { depth: 0, start: 4, continuation: true }
+      ]
+    );
+});
