@@ -29,8 +29,8 @@ import {
   MaterialDeletionStore,
   MaterialDeletionPreviewStore
 } from '#server/features/materials/store/deletion';
-import { MaterialDeletionGenerationStore } from '#server/features/materials/store/deletion-generation';
 import { MaterialDeletionOwnershipStore } from '#server/features/materials/store/deletion-ownership';
+import { MaterialGenerationCleanupStore } from '#server/features/materials/store/generation-cleanup';
 import { Workflows } from '#server/features/workflows/index';
 import { transaction, publicationTransaction } from '#server/platform/definitions/define-store';
 import type { Transaction } from '#server/platform/definitions/define-store';
@@ -216,8 +216,9 @@ export function materialDeletionOperations() {
             kind: 'context'
           });
 
-          tx.store(MaterialDeletionGenerationStore).prepare({
-            deletionId: status.materialId,
+          tx.store(MaterialGenerationCleanupStore).prepare({
+            kind: 'deletion',
+            id: status.materialId,
             contextIds
           });
 
@@ -289,7 +290,10 @@ export function materialDeletionOperations() {
 
           if (status.status === 'completed' || status.attempt !== input.attempt) return status;
 
-          tx.store(MaterialDeletionGenerationStore).scrub(status.materialId);
+          tx.store(MaterialGenerationCleanupStore).scrub({
+            kind: 'deletion',
+            id: status.materialId
+          });
 
           participants.Conversations.scrubMaterialDeletion(tx, status.materialId);
 

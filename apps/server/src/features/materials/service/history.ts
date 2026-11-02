@@ -16,6 +16,7 @@ import type { ErrorKind } from '@study/contracts/errors';
 import type * as h from '@study/contracts/materials/history';
 import { Effect, Option } from 'effect';
 
+import { MaterialGenerationCleanupStore } from '#server/features/materials/store/generation-cleanup';
 import {
   MaterialHistoryStore,
   MaterialHistoryPreviewStore,
@@ -23,7 +24,6 @@ import {
   MaterialHistoryPublicationStore,
   historyHash
 } from '#server/features/materials/store/history';
-import { MaterialHistoryGenerationStore } from '#server/features/materials/store/history-generation';
 import { Workflows } from '#server/features/workflows/index';
 import { transaction, publicationTransaction } from '#server/platform/definitions/define-store';
 import type { Transaction } from '#server/platform/definitions/define-store';
@@ -144,8 +144,9 @@ export function materialHistoryOperations() {
             versionIds: state.candidateIds
           });
 
-          tx.store(MaterialHistoryGenerationStore).prepare({
-            operationId: state.operationId,
+          tx.store(MaterialGenerationCleanupStore).prepare({
+            kind: 'history',
+            id: state.operationId,
             versionIds: state.candidateIds,
             contextIds
           });
@@ -208,7 +209,10 @@ export function materialHistoryOperations() {
 
           if (state.status === 'completed' || state.attempt !== input.attempt) return state;
 
-          tx.store(MaterialHistoryGenerationStore).scrub(input.operationId);
+          tx.store(MaterialGenerationCleanupStore).scrub({
+            kind: 'history',
+            id: input.operationId
+          });
 
           participants.Conversations.scrubMaterialHistory(tx, input.operationId);
 

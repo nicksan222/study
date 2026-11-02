@@ -167,7 +167,6 @@ export function makeGenerationRetirement(resources: StoreResources) {
     isScrubbed,
     retainRequest,
     scrubRequest,
-    scrubDeletion: (id: MaterialId) => scrubOwnedRequests({ kind: 'deletion', id }),
-    scrubHistory: (id: string) => scrubOwnedRequests({ kind: 'history', id })
+    scrubOwnedRequests
   };
 }

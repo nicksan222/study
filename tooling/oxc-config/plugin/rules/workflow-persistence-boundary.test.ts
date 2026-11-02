@@ -176,7 +176,7 @@ test('Material cleanup cannot acquire native execution, checkpoint, event or fen
 test('history participants cannot mutate native payloads, checkpoints, deferreds or fences', () => {
   assert.deepEqual(
     lint({
-      'apps/server/src/features/materials/store/history-generation.ts': `
+      'apps/server/src/features/materials/store/generation-cleanup.ts': `
       import * as schema from '@study/db/schema';
       const { workflow_activities: checkpoints, workflow_retired_executions: retired } = schema;
 
@@ -198,7 +198,7 @@ test('history participants cannot mutate native payloads, checkpoints, deferreds
     }),
     [
       ...Array(3).fill('apps/server/src/features/conversations/store/material-history.ts'),
-      ...Array(3).fill('apps/server/src/features/materials/store/history-generation.ts')
+      ...Array(3).fill('apps/server/src/features/materials/store/generation-cleanup.ts')
     ]
   );
 });
