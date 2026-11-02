@@ -12,7 +12,8 @@ vi.mock('../lib/study-client/client', async () => {
     'projects.projects': page,
     'conversations.sessions': page,
     'sources.sources': page,
-    'materials.materials': page
+    'materials.materials': page,
+    'workflows.executions': page
   };
 
   return {
@@ -36,22 +37,23 @@ beforeEach(() => {
   history.replaceState(null, '', '/');
 });
 
-it.each(pages)('renders an empty %s page without calling the server', async (page) => {
-  history.replaceState(
-    null,
-    '',
-    `/${page === 'MediaList' ? 'media-list' : page.toLowerCase()}?id=42`
-  );
-  const fetch = vi.spyOn(globalThis, 'fetch');
+it.each(pages)(
+  'renders the %s route with a localized heading without network access',
+  async (page) => {
+    history.replaceState(null, '', `/${page === 'MediaList' ? 'media-list' : page.toLowerCase()}`);
+    const fetch = vi.spyOn(globalThis, 'fetch');
 
-  render(<App />);
-  await screen.findByRole('heading', { name: catalogs.english[page] });
-  expect(screen.getByRole('main').textContent).toBe(
-    `${catalogs.english.AppName}/${catalogs.english[page]}`
-  );
-  expect(screen.getByRole('heading', { name: catalogs.english[page] })).toBeInTheDocument();
-  expect(fetch).not.toHaveBeenCalled();
-});
+    render(<App />);
+    const title = page === 'MediaList' ? catalogs.english.SidebarLibrary : catalogs.english[page];
+
+    expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveTextContent(catalogs.english.AppName);
+
+    if (page === 'MediaList') expect(location.pathname).toBe('/media-list');
+
+    expect(fetch).not.toHaveBeenCalled();
+  }
+);
 
 it('opens settings over the current page and restores focus without changing the URL', async () => {
   const user = userEvent.setup();

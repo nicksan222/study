@@ -77,7 +77,7 @@ export const searchStudy = (input: SearchInput, signal?: AbortSignal) =>
 export const createProject = (name: string) =>
   request((client) => client['projects.createProject']({ name }));
 
-export const createSession = (project: ProjectId) =>
+export const createSession = (project?: ProjectId) =>
   request((client) => client['conversations.createUntitledSession']({ project }));
 
 export const loadAppearance = (signal?: AbortSignal) =>

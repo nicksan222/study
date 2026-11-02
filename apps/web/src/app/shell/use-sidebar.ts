@@ -256,13 +256,13 @@ function useSidebarActions(
     clearSearch();
 
     if (global) {
-      void navigate({ to: '/home', search: { project: String(id) } });
+      void navigate({ to: '/library', search: { project: String(id) } });
     } else {
       void navigate({ to: '.', search: { project: String(id) } });
     }
   };
   const createSession = () => {
-    if (!project || creating) return;
+    if (creating) return;
 
     setActionError(false);
     sessionMutation.mutate(project, {
@@ -271,7 +271,7 @@ function useSidebarActions(
         clearSearch();
         void navigate({
           to: '/sessions',
-          search: { project: String(project), id: String(created.id) }
+          search: { ...(project ? { project: String(project) } : {}), id: String(created.id) }
         });
       }
     });

@@ -5,17 +5,39 @@ import { vi } from 'vite-plus/test';
 import { Providers } from '../app/providers';
 import { createAppRouter } from '../app/router';
 import type { Locale } from '../lib/i18n';
+import type { StudyClient } from '../lib/study-client/client';
 
 vi.mock('../lib/study-client/client', async () => {
   const { Effect } = await import('effect');
   const page = () => Effect.succeed({ items: [], next: null, nextCursor: null });
+
+  const workflows = {
+    'workflows.executions': vi
+      .fn<StudyClient['workflows.executions']>()
+      .mockReturnValue(Effect.succeed({ items: [], next: null })),
+    'workflows.execution': vi.fn<StudyClient['workflows.execution']>().mockReturnValue(
+      Effect.fail({
+        kind: 'not_found' as const,
+        message: 'No execution selected',
+        retryAfterMs: null
+      })
+    ),
+    'workflows.cancelExecution': vi.fn<StudyClient['workflows.cancelExecution']>().mockReturnValue(
+      Effect.fail({
+        kind: 'not_found' as const,
+        message: 'No execution selected',
+        retryAfterMs: null
+      })
+    )
+  };
 
   return {
     studyClient: Effect.succeed({
       'projects.projects': page,
       'conversations.sessions': page,
       'sources.sources': page,
-      'materials.materials': page
+      'materials.materials': page,
+      ...workflows
     })
   };
 });

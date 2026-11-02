@@ -917,6 +917,13 @@ test('retained legacy and attachment citations keep bounded precision; wrong exa
           });
 
           assert.deepEqual(edited.citations, read.citations);
+          const exactVersion = yield* rpc('conversations.messageVersionCitations', {
+            sessionId: session.id,
+            messageId: message.id,
+            versionId: message.activeVersionId!
+          });
+
+          assert.deepEqual(exactVersion.citations, read.citations);
           assert.deepEqual(
             (yield* rpc('conversations.setActiveVersion', {
               messageId: message.id,
@@ -933,7 +940,12 @@ test('retained legacy and attachment citations keep bounded precision; wrong exa
             rows
           );
 
-          return { id: message.id, citations: read.citations };
+          return {
+            id: message.id,
+            sessionId: session.id,
+            versionId: message.activeVersionId!,
+            citations: read.citations
+          };
         }).pipe(Effect.provide(handlers()))
       )
     );
@@ -947,6 +959,14 @@ test('retained legacy and attachment citations keep bounded precision; wrong exa
 
           assert.deepEqual(
             (yield* rpc('conversations.message', { id: retained.id })).citations,
+            retained.citations
+          );
+          assert.deepEqual(
+            (yield* rpc('conversations.messageVersionCitations', {
+              sessionId: retained.sessionId,
+              messageId: retained.id,
+              versionId: retained.versionId
+            })).citations,
             retained.citations
           );
         }).pipe(Effect.provide(handlers()))

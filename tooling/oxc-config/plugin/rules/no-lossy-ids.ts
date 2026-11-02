@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { memberName as property, binding } from '../lexical-bindings.ts';
+import { webFile } from '../web-files.ts';
 import { production } from './synchronous-transactions.ts';
 
 function conversion(context: any, callee: any): boolean {
@@ -20,7 +21,7 @@ function conversion(context: any, callee: any): boolean {
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
-    if (!production(context.filename)) return {};
+    if (!production(context.filename) && !webFile(context.filename)) return {};
 
     return {
       CallExpression(node) {

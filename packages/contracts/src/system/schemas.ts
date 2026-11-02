@@ -22,6 +22,13 @@ export const searchKindSchema = Schema.Literals([
   'question'
 ]);
 
+const materialSearchTargetSchema = Schema.Struct({
+  type: Schema.Literal('material'),
+  materialId: materialIdSchema,
+  versionId: materialVersionIdSchema,
+  materialKind: materialKindSchema
+});
+
 export const searchHitSchema = Schema.Struct({
   kind: Schema.Literals(['project', 'session', 'message', 'source', 'material', 'question']),
   title: Schema.String,
@@ -38,12 +45,7 @@ export const searchHitSchema = Schema.Struct({
       type: Schema.Literal('session'),
       sessionId: sessionIdSchema
     }),
-    Schema.Struct({
-      type: Schema.Literal('material'),
-      materialId: materialIdSchema,
-      versionId: materialVersionIdSchema,
-      materialKind: materialKindSchema
-    }),
+    materialSearchTargetSchema,
     Schema.Struct({
       type: Schema.Literal('question'),
       materialId: materialIdSchema,
@@ -56,6 +58,17 @@ export const searchHitSchema = Schema.Struct({
       anchor: Schema.optional(anchorSchema)
     })
   ])
+});
+
+const materialSearchHitSchema = Schema.Struct({
+  ...searchHitSchema.fields,
+  kind: Schema.Literal('material'),
+  target: materialSearchTargetSchema
+});
+
+export const materialSearchResultSchema = Schema.Struct({
+  semantic: Schema.Literal(false),
+  hits: Schema.Array(materialSearchHitSchema)
 });
 
 export const searchResultSchema = Schema.Struct({

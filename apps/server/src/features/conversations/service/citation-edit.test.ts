@@ -86,12 +86,78 @@ test('edits preserve and renumber surviving citation evidence without changing h
           }
         ]
       );
+      const exact = yield* conversations.messageVersionCitations({
+        sessionId: session.id,
+        messageId: original.id,
+        versionId: original.activeVersionId
+      });
+
+      assert.deepEqual(
+        exact.citations.map((c) => c.marker),
+        [1, 2, 3]
+      );
+      assert.ok(exact.citations.every((c) => c.evidence?.availability === 'unavailable'));
+      assert.equal(
+        (yield* conversations.message(original.id)).activeVersionId,
+        edited.activeVersionId
+      );
+      assert.deepEqual(
+        (yield* conversations.messageVersionCitations({
+          sessionId: session.id,
+          messageId: original.id,
+          versionId: edited.activeVersionId!
+        })).citations,
+        edited.citations
+      );
+      const other = yield* conversations.createSession({ title: 'Other' });
+
+      assert.equal(
+        (yield* Effect.flip(
+          conversations.messageVersionCitations({
+            sessionId: other.id,
+            messageId: original.id,
+            versionId: original.activeVersionId
+          })
+        )).kind,
+        'not_found'
+      );
+      const note = yield* conversations.postMessage({ sessionId: session.id, text: 'No evidence' });
+
+      assert.equal(
+        (yield* Effect.flip(
+          conversations.messageVersionCitations({
+            sessionId: session.id,
+            messageId: original.id,
+            versionId: note.activeVersionId!
+          })
+        )).kind,
+        'not_found'
+      );
+      assert.deepEqual(
+        (yield* conversations.messageVersionCitations({
+          sessionId: session.id,
+          messageId: note.id,
+          versionId: note.activeVersionId!
+        })).citations,
+        []
+      );
       const historical = yield* conversations.setActiveVersion({
         messageId: original.id,
         versionId: original.activeVersionId
       });
 
       assert.equal(historical.citations.length, 3);
+      yield* conversations.deleteMessage(note.id);
+      assert.equal(
+        (yield* Effect.flip(
+          conversations.messageVersionCitations({
+            sessionId: session.id,
+            messageId: note.id,
+            versionId: note.activeVersionId!
+          })
+        )).kind,
+        'not_found'
+      );
       assert.equal(
         historical.versions.find((version) => version.id === historical.activeVersionId)?.text,
         original.versions[0]?.text

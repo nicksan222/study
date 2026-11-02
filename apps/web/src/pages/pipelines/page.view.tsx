@@ -1,3 +1,1 @@
-export function PageView() {
-  return null;
-}
+export { Activity as PageView } from '../../features/activity';

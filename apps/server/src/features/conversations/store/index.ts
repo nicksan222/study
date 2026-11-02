@@ -20,7 +20,7 @@ import {
 import { sessionSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
-import { and, desc, eq, lt, or } from '@study/db';
+import { and, desc, eq, lt, or, sql } from '@study/db';
 import { sessions, projects, project_sessions } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -84,15 +84,22 @@ export const SessionStore = defineStore({
               .select()
               .from(sessions)
               .where(
-                input.before === undefined
-                  ? undefined
-                  : or(
-                      lt(sessions.updated_at, input.before.updatedAt),
-                      and(
-                        eq(sessions.updated_at, input.before.updatedAt),
-                        lt(sessions.id, input.before.id)
+                and(
+                  input.project === undefined
+                    ? undefined
+                    : input.project === null
+                      ? sql`NOT EXISTS (SELECT 1 FROM ${project_sessions} WHERE ${project_sessions.session_id} = ${sessions.id})`
+                      : sql`EXISTS (SELECT 1 FROM ${project_sessions} WHERE ${project_sessions.session_id} = ${sessions.id} AND ${project_sessions.project_id} = ${input.project})`,
+                  input.before === undefined
+                    ? undefined
+                    : or(
+                        lt(sessions.updated_at, input.before.updatedAt),
+                        and(
+                          eq(sessions.updated_at, input.before.updatedAt),
+                          lt(sessions.id, input.before.id)
+                        )
                       )
-                    )
+                )
               )
               .orderBy(desc(sessions.updated_at), desc(sessions.id))
               .limit(input.limit)

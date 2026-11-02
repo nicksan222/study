@@ -26,6 +26,7 @@ import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
 import { visionTranscriptionAgent } from '#server/features/sources/agents/vision-transcription';
+import { decoderPath } from '#server/features/sources/decoders/capability';
 import { checkInput, DEFAULT_MAX_BYTES } from '#server/features/sources/decoders/common';
 import { decodeHtml } from '#server/features/sources/decoders/html';
 import { decodeOffice } from '#server/features/sources/decoders/office';
@@ -123,11 +124,7 @@ export const sourceIngestionHandler = ({
           }
 
           function isHtml() {
-            return (
-              input.kind === 'web' ||
-              (input.mime === 'text/html' &&
-                (input.kind === 'text' || input.kind === 'code' || input.kind === 'note'))
-            );
+            return decoderPath(input) === 'html';
           }
 
           if (isHtml())
@@ -144,12 +141,7 @@ export const sourceIngestionHandler = ({
             });
 
           function isText() {
-            return (
-              input.kind === 'text' ||
-              input.kind === 'code' ||
-              input.kind === 'note' ||
-              (input.kind === 'spreadsheet' && input.mime.startsWith('text/'))
-            );
+            return decoderPath(input) === 'text';
           }
 
           if (isText())
@@ -166,14 +158,7 @@ export const sourceIngestionHandler = ({
             });
 
           function isOffice() {
-            return (
-              (input.kind === 'document' &&
-                input.mime ===
-                  'application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
-              (input.kind === 'slides' &&
-                input.mime ===
-                  'application/vnd.openxmlformats-officedocument.presentationml.presentation')
-            );
+            return decoderPath(input) === 'office';
           }
 
           if (isOffice()) {
@@ -193,11 +178,7 @@ export const sourceIngestionHandler = ({
           }
 
           function isVision() {
-            return (
-              (input.kind === 'pdf' && input.mime === 'application/pdf') ||
-              (input.kind === 'image' &&
-                ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(input.mime))
-            );
+            return decoderPath(input) === 'vision';
           }
 
           if (!isVision())

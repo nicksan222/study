@@ -2,6 +2,7 @@ import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
+import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from '@study/ui/menu';
@@ -135,9 +136,15 @@ function SidebarSessions({
     <SidebarUI.Items id="study-sidebar-sessions" aria-label={t('Sessions')}>
       {sessionState === 'loading' && <Loading layout="sidebar" label={t('LoadingSessions')} />}
       {sessionState === 'error' && (
-        <Button variant="ghost-muted" onClick={() => reloadSessions()}>
-          {t('SessionsLoadError')}
-        </Button>
+        <ErrorState
+          layout="sidebar"
+          title={t('SessionsLoadError')}
+          action={
+            <Button variant="ghost-muted" onClick={() => reloadSessions()}>
+              {t('SessionsLoadError')}
+            </Button>
+          }
+        />
       )}
       {sessionState === 'ready' &&
         !invalidSubject &&
@@ -416,8 +423,8 @@ function SidebarToolbar({
         size="icon"
         variant="ghost-muted"
         aria-label={t('NewSession')}
-        title={t(project ? 'NewSession' : 'ChooseProject')}
-        disabled={!project || creating}
+        title={t('NewSession')}
+        disabled={creating}
         onClick={() => void createSession()}
       >
         <SidebarCreateSessionIcon creating={creating} />
@@ -437,9 +444,15 @@ function SidebarContent(model: SidebarModel & { library: ReactNode }) {
         <SidebarUI.Message role="status">{t('SubjectNotFound')}</SidebarUI.Message>
       )}
       {subjectState === 'error' && !pickerOpen && (
-        <Button variant="ghost-muted" onClick={() => reloadSubjects()}>
-          {t('SubjectsLoadError')}
-        </Button>
+        <ErrorState
+          layout="sidebar"
+          title={t('SubjectsLoadError')}
+          action={
+            <Button variant="ghost-muted" onClick={() => reloadSubjects()}>
+              {t('SubjectsLoadError')}
+            </Button>
+          }
+        />
       )}
       {actionError && !newSubjectOpen && (
         <SidebarUI.Message role="alert">{t('ActionError')}</SidebarUI.Message>
@@ -565,9 +578,15 @@ function SidebarProjectStatus({
       {subjectState === 'loading' ? (
         <Loading layout="sidebar" label={t('LoadingSubjects')} />
       ) : subjectState === 'error' ? (
-        <Button variant="ghost-muted" layout="navigation" onClick={() => reloadSubjects()}>
-          {t('SubjectsLoadError')}
-        </Button>
+        <ErrorState
+          layout="sidebar"
+          title={t('SubjectsLoadError')}
+          action={
+            <Button variant="ghost-muted" layout="navigation" onClick={() => reloadSubjects()}>
+              {t('SubjectsLoadError')}
+            </Button>
+          }
+        />
       ) : null}
     </>
   );

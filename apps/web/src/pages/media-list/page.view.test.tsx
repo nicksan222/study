@@ -1,12 +1,17 @@
-import { render } from '@testing-library/react';
+import { catalogs } from '@study/localization';
+import { screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vite-plus/test';
 
-import { PageView } from './page.view';
+import { renderPage } from '../../test/render-page';
 
-it('keeps the empty page presentation independent of application services', () => {
+it('serves the production library at the former media list path while retaining its subject', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch');
-  const { container } = render(<PageView />);
+  const { router } = renderPage('/media-list?project=9007199254740993', 'english');
 
-  expect(container).toBeEmptyDOMElement();
+  expect(
+    await screen.findByRole('heading', { name: catalogs.english.SidebarLibrary, level: 1 })
+  ).toBeInTheDocument();
+  await waitFor(() => expect(router.state.location.pathname).toBe('/media-list'));
+  expect(router.state.location.search.project).toBe('9007199254740993');
   expect(fetch).not.toHaveBeenCalled();
 });

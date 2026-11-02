@@ -13,7 +13,7 @@
  */
 
 import {
-  captureSessionContextSchema,
+  sessionContextIntentSchema,
   runSelectionContextSchema,
   sessionSelectionInputSchema,
   sessionSelectionSchema,
@@ -44,23 +44,24 @@ const targetsCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSc
 
 const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
 
-const intentCodec = Schema.fromJsonString(Schema.toCodecJson(captureSessionContextSchema));
+const intentCodec = Schema.fromJsonString(Schema.toCodecJson(sessionContextIntentSchema));
 
-const sameIntent = Schema.toEquivalence(captureSessionContextSchema);
+const sameIntent = Schema.toEquivalence(sessionContextIntentSchema);
 
 function assertHistoryBoundary(
   history: typeof runSelectionContextSchema.Type.messages,
-  throughMessageId: typeof captureSessionContextSchema.Type.throughMessageId
+  throughMessageId: typeof sessionContextIntentSchema.Type.throughMessageId
 ) {
   if (throughMessageId !== undefined && history.at(-1)?.messageId !== throughMessageId)
     throw new StudyError('invalid_input', 'Conversation boundary is unavailable in this scope');
 }
 
-function canonicalIntent(input: typeof captureSessionContextSchema.Type) {
+function canonicalIntent(input: typeof sessionContextIntentSchema.Type) {
   return {
     sessionId: input.sessionId,
     threadRoot: input.threadRoot,
-    throughMessageId: input.throughMessageId,
+    throughMessageId: input.askDigest ? undefined : input.throughMessageId,
+    askDigest: input.askDigest,
     intentKey: input.intentKey,
     instruction: input.instruction,
     preferences: {
@@ -223,7 +224,7 @@ export const SessionContextIntentStore = defineStore({
       queries: {
         findSessionContextIntent: storeQuery({
           role: 'optional',
-          input: captureSessionContextSchema,
+          input: sessionContextIntentSchema,
           output: Schema.Option(runSelectionContextSchema),
           run: (input) => {
             if (
@@ -307,7 +308,7 @@ export const SessionContextStore = defineStore({
       mutations: {
         capture: storeMutation({
           input: Schema.Struct({
-            ...captureSessionContextSchema.fields,
+            ...sessionContextIntentSchema.fields,
             requestId: Schema.String,
             inputs: Schema.Array(resolvedSelectionSchema)
           }),
@@ -357,7 +358,8 @@ export const SessionContextStore = defineStore({
               instruction: input.instruction,
               preferences: input.preferences,
               threadRoot: input.threadRoot,
-              throughMessageId: input.throughMessageId
+              throughMessageId: input.throughMessageId,
+              askDigest: input.askDigest
             };
 
             const snapshot = {

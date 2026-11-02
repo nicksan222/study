@@ -13,7 +13,7 @@
  */
 
 import {
-  captureSessionContextSchema,
+  sessionContextIntentSchema,
   runSelectionContextSchema,
   selectionTargetsSchema
 } from '@study/contracts/conversations/context';
@@ -35,7 +35,7 @@ function makeCaptureValidation({ db }: StoreResources) {
   );
 
   const intent = Schema.decodeUnknownSync(
-    Schema.fromJsonString(Schema.toCodecJson(captureSessionContextSchema))
+    Schema.fromJsonString(Schema.toCodecJson(sessionContextIntentSchema))
   );
 
   return (row: typeof s.session_run_contexts.$inferSelect, requireRetired: boolean) => {
@@ -47,6 +47,7 @@ function makeCaptureValidation({ db }: StoreResources) {
       captured.requestId !== row.request_id ||
       captured.sessionId !== row.session_id ||
       captured.intentKey !== row.intent_key ||
+      captured.askDigest !== requested.askDigest ||
       requested.sessionId !== row.session_id ||
       requested.intentKey !== row.intent_key
     )
@@ -62,6 +63,29 @@ function makeCaptureValidation({ db }: StoreResources) {
   };
 }
 
+function makeReplyValidation({ db }: StoreResources) {
+  return (row: typeof s.conversation_reply_requests.$inferSelect) => {
+    const captured = Schema.decodeUnknownSync(
+      Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema))
+    )(row.snapshot);
+    const version = db.orm
+      .select()
+      .from(s.message_versions)
+      .where(eq(s.message_versions.id, row.version_id))
+      .get();
+
+    if (
+      captured.requestId !== row.request_id ||
+      captured.sessionId !== row.session_id ||
+      captured.versionId !== row.version_id ||
+      !version ||
+      version.message_id !== captured.messageId ||
+      (version.generation_request_id !== null && version.generation_request_id !== row.request_id)
+    )
+      throw new StudyError('invalid_input', 'Backup reply provenance is invalid');
+  };
+}
+
 export const ConversationBackupStore = defineStore({
   name: 'study/ConversationBackupStore',
   entity: { singular: 'backupConversation', plural: 'backupConversations' },
@@ -71,6 +95,7 @@ export const ConversationBackupStore = defineStore({
     const discardPending = makeDiscardPending(resources);
 
     const validateCapture = makeCaptureValidation(resources);
+    const validateReply = makeReplyValidation(resources);
 
     return {
       queries: {
@@ -94,12 +119,9 @@ export const ConversationBackupStore = defineStore({
               validateCapture(row, requireRetired);
             }
 
-            const reply = Schema.decodeUnknownSync(
-              Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema))
-            );
-
-            for (const row of db.orm.select().from(s.conversation_reply_requests).all())
-              reply(row.snapshot);
+            for (const row of db.orm.select().from(s.conversation_reply_requests).all()) {
+              validateReply(row);
+            }
 
             for (const row of db.orm.select().from(s.citations).all())
               Schema.decodeUnknownSync(anchorSchema)(JSON.parse(row.anchor));

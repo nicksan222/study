@@ -14,12 +14,14 @@ import { Route as DiagramsRouteImport } from './routes/diagrams'
 import { Route as FlashcardsRouteImport } from './routes/flashcards'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as MediaListRouteImport } from './routes/media-list'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as MaterialsMaterialIdRouteImport } from './routes/materials.$materialId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -44,6 +46,11 @@ const HelpRoute = HelpRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MediaListRoute = MediaListRouteImport.update({
@@ -76,6 +83,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MaterialsMaterialIdRoute = MaterialsMaterialIdRouteImport.update({
+  id: '/materials/$materialId',
+  path: '/materials/$materialId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -83,12 +95,14 @@ export interface FileRoutesByFullPath {
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
+  '/library': typeof LibraryRoute
   '/media-list': typeof MediaListRoute
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
+  '/materials/$materialId': typeof MaterialsMaterialIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -96,12 +110,14 @@ export interface FileRoutesByTo {
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
+  '/library': typeof LibraryRoute
   '/media-list': typeof MediaListRoute
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
+  '/materials/$materialId': typeof MaterialsMaterialIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -110,12 +126,14 @@ export interface FileRoutesById {
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
+  '/library': typeof LibraryRoute
   '/media-list': typeof MediaListRoute
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
+  '/materials/$materialId': typeof MaterialsMaterialIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -125,12 +143,14 @@ export interface FileRouteTypes {
     | '/flashcards'
     | '/help'
     | '/home'
+    | '/library'
     | '/media-list'
     | '/pipelines'
     | '/practice'
     | '/projects'
     | '/sessions'
     | '/settings'
+    | '/materials/$materialId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -138,12 +158,14 @@ export interface FileRouteTypes {
     | '/flashcards'
     | '/help'
     | '/home'
+    | '/library'
     | '/media-list'
     | '/pipelines'
     | '/practice'
     | '/projects'
     | '/sessions'
     | '/settings'
+    | '/materials/$materialId'
   id:
     | '__root__'
     | '/'
@@ -151,12 +173,14 @@ export interface FileRouteTypes {
     | '/flashcards'
     | '/help'
     | '/home'
+    | '/library'
     | '/media-list'
     | '/pipelines'
     | '/practice'
     | '/projects'
     | '/sessions'
     | '/settings'
+    | '/materials/$materialId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,12 +189,14 @@ export interface RootRouteChildren {
   FlashcardsRoute: typeof FlashcardsRoute
   HelpRoute: typeof HelpRoute
   HomeRoute: typeof HomeRoute
+  LibraryRoute: typeof LibraryRoute
   MediaListRoute: typeof MediaListRoute
   PipelinesRoute: typeof PipelinesRoute
   PracticeRoute: typeof PracticeRoute
   ProjectsRoute: typeof ProjectsRoute
   SessionsRoute: typeof SessionsRoute
   SettingsRoute: typeof SettingsRoute
+  MaterialsMaterialIdRoute: typeof MaterialsMaterialIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -208,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/media-list': {
@@ -252,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/materials/$materialId': {
+      id: '/materials/$materialId'
+      path: '/materials/$materialId'
+      fullPath: '/materials/$materialId'
+      preLoaderRoute: typeof MaterialsMaterialIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -261,12 +301,14 @@ const rootRouteChildren: RootRouteChildren = {
   FlashcardsRoute: FlashcardsRoute,
   HelpRoute: HelpRoute,
   HomeRoute: HomeRoute,
+  LibraryRoute: LibraryRoute,
   MediaListRoute: MediaListRoute,
   PipelinesRoute: PipelinesRoute,
   PracticeRoute: PracticeRoute,
   ProjectsRoute: ProjectsRoute,
   SessionsRoute: SessionsRoute,
   SettingsRoute: SettingsRoute,
+  MaterialsMaterialIdRoute: MaterialsMaterialIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

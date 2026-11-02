@@ -23,7 +23,7 @@
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "gen:routes": "vp run --fail-if-no-match --filter @study/web gen:routes",
-    "dev": "node tooling/development/dev.ts",
+    "dev": "node --watch --watch-preserve-output tooling/development/dev.ts",
     "architecture:check": "node tooling/oxc-config/check-architecture.ts",
     "fallow:check": "fallow --config tooling/fallow.jsonc --fail-on-issues"
   },

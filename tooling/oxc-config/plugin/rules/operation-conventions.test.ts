@@ -175,3 +175,59 @@ test('history status, preview, publication and source impact keep canonical sing
     Array(2).fill('apps/server/src/features/materials/store/unsafe-history.ts')
   );
 });
+
+test('exact readers and reply provenance bind required queries to separate singular entities', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/reader.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({entity:{singular:'materialVersionDocument',plural:'materialVersionDocuments'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'})},mutations:{}})});
+        defineStore({entity:{singular:'materialVersionImage',plural:'materialVersionImages'},make:()=>({queries:{materialVersionImage:storeQuery({role:'required'})},mutations:{}})});
+        defineStore({entity:{singular:'importedMaterial',plural:'importedMaterials'},make:()=>({queries:{importedMaterial:storeQuery({role:'required'})},mutations:{}})});
+      `,
+      'apps/server/src/features/conversations/store/reply.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({entity:{singular:'replyVersion',plural:'replyVersions'},make:()=>({queries:{replyVersion:storeQuery({role:'required'})},mutations:{}})});
+        defineStore({entity:{singular:'replyRequest',plural:'replyRequests'},make:()=>({queries:{findReplyRequest:storeQuery({role:'optional'})},mutations:{}})});
+      `,
+      'apps/server/src/features/materials/store/combined.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({entity:{singular:'materialReader',plural:'materialReaders'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'}),materialVersionImage:storeQuery({role:'required'}),importedMaterial:storeQuery({role:'required'})},mutations:{}})});
+      `,
+      'apps/server/src/features/conversations/store/combined.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({entity:{singular:'replyRequest',plural:'replyRequests'},make:()=>({queries:{findReplyRequest:storeQuery({role:'optional'}),replyVersion:storeQuery({role:'required'})},mutations:{}})});
+      `
+    }),
+    [
+      'apps/server/src/features/conversations/store/combined.ts',
+      ...Array(3).fill('apps/server/src/features/materials/store/combined.ts')
+    ]
+  );
+});
+
+test('export aggregates use required singular descriptors while collections still require limits', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/export.ts': `
+        import { Schema } from 'effect';
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({entity:{singular:'exportInputGraph',plural:'exportInputGraphs'},make:()=>({queries:{exportInputGraph:storeQuery({role:'required',input:Schema.Struct({id:Schema.BigInt}),output:Schema.Struct({ids:Schema.Array(Schema.BigInt)})})},mutations:{}})});
+        defineStore({entity:{singular:'exportCitationSnapshot',plural:'exportCitationSnapshots'},make:()=>({queries:{exportCitationSnapshot:storeQuery({role:'required',input:Schema.Struct({id:Schema.BigInt,budget:Schema.Int}),output:Schema.Struct({citations:Schema.Array(Schema.Unknown)})})},mutations:{}})});
+      `,
+      'apps/server/src/features/materials/store/unbounded-export.ts': `
+        import { Schema } from 'effect';
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({entity:{singular:'exportCitation',plural:'exportCitations'},make:()=>({queries:{exportCitations:storeQuery({role:'collection',input:Schema.Struct({id:Schema.BigInt,budget:Schema.Int})})},mutations:{}})});
+      `,
+      'apps/server/src/features/materials/store/export-alias.ts': `
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({entity:{singular:'exportInputGraph',plural:'exportInputGraphs'},make:()=>({queries:{exportInputs:storeQuery({role:'required'})},mutations:{}})});
+      `
+    }),
+    [
+      'apps/server/src/features/materials/store/export-alias.ts',
+      'apps/server/src/features/materials/store/unbounded-export.ts'
+    ]
+  );
+});

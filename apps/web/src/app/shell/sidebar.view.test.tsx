@@ -27,10 +27,17 @@ it('renders invalid subjects and invokes retry callbacks without fetching data',
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it('shows an empty session list and blocks creation without a selected project', async () => {
-  renderInRouter(<SidebarView {...sidebarModel()} library={null} />);
+it('allows creating an unfiled session from an empty session list', async () => {
+  const user = userEvent.setup();
+  const createSession = vi.fn();
+
+  renderInRouter(<SidebarView {...sidebarModel()} createSession={createSession} library={null} />);
   expect(await screen.findByText(catalogs.english.DashboardNoSessions)).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: catalogs.english.NewSession })).toBeDisabled();
+  const create = screen.getByRole('button', { name: catalogs.english.NewSession });
+
+  expect(create).toBeEnabled();
+  await user.click(create);
+  expect(createSession).toHaveBeenCalledOnce();
 });
 
 it('announces session loading once through the shared indicator', async () => {

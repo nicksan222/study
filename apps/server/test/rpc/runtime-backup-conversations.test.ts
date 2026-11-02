@@ -23,7 +23,7 @@ import { Conversations } from '#server/features/conversations/index';
 import { serve } from '#server/runtime/index';
 import { acceptance, backupFixture } from '#testing/managed-backups';
 
-for (const operation of ['answer', 'rewrite'] as const)
+for (const operation of ['answer', 'rewrite', 'ask'] as const)
   test(`restored pending ${operation} retires its shell, preserves completed history and permits fresh intent`, async () => {
     const source = await backupFixture();
 
@@ -54,16 +54,23 @@ for (const operation of ['answer', 'rewrite'] as const)
             const before = yield* client['conversations.message']({ id: message.id });
 
             const request =
-              operation === 'answer'
-                ? yield* client['conversations.requestReply']({
+              operation === 'ask'
+                ? yield* client['conversations.ask']({
                     sessionId: session.id,
-                    intentKey: 'consumed-answer'
+                    intentKey: 'consumed-ask',
+                    expectedSelectionRevision: 0n,
+                    text: 'Atomic backup note'
                   })
-                : yield* client['conversations.rewriteMessage']({
-                    messageId: message.id,
-                    origin: 'instruction',
-                    instruction: 'Private unfinished instruction'
-                  });
+                : operation === 'answer'
+                  ? yield* client['conversations.requestReply']({
+                      sessionId: session.id,
+                      intentKey: 'consumed-answer'
+                    })
+                  : yield* client['conversations.rewriteMessage']({
+                      messageId: message.id,
+                      origin: 'instruction',
+                      instruction: 'Private unfinished instruction'
+                    });
 
             return { session, message, before, request };
           })
@@ -123,7 +130,7 @@ for (const operation of ['answer', 'rewrite'] as const)
         false
       );
 
-      if (operation === 'answer')
+      if (operation === 'answer' || operation === 'ask')
         assert.equal(
           app.store.db.orm
             .select()
@@ -154,6 +161,24 @@ for (const operation of ['answer', 'rewrite'] as const)
           .pipe(Effect.asVoid)
       ])
         assert.equal((await app.nativeRuntime.runPromise(Effect.flip(action))).kind, 'not_found');
+
+      if (operation === 'ask') {
+        assert.equal(
+          (
+            await app.nativeRuntime.runPromise(
+              Effect.flip(
+                conversations.ask({
+                  sessionId: captured.session.id,
+                  intentKey: 'consumed-ask',
+                  expectedSelectionRevision: 0n,
+                  text: 'Atomic backup note'
+                })
+              )
+            )
+          ).kind,
+          'not_found'
+        );
+      }
 
       await app.workers.start();
       await app.workers.stop();
@@ -271,10 +296,10 @@ test('a completed native answer survives a pending rewrite and late reply public
 
         const session = yield* c.createUntitledSession({});
 
-        yield* c.postMessage({ sessionId: session.id, text: 'A completed native answer' });
-
-        const request = yield* c.requestReply({
+        const request = yield* c.ask({
           sessionId: session.id,
+          text: 'A completed native answer',
+          expectedSelectionRevision: 0n,
           intentKey: 'completed-answer'
         });
 
@@ -340,6 +365,31 @@ test('a completed native answer survives a pending rewrite and late reply public
     assert.deepEqual(
       await app.nativeRuntime.runPromise(c.message(requested.request.messageId)),
       before
+    );
+    assert.deepEqual(
+      await app.nativeRuntime.runPromise(
+        c.replyVersion({
+          sessionId: requested.session.id,
+          messageId: requested.request.messageId,
+          versionId: requested.request.versionId
+        })
+      ),
+      { state: 'retired', requestId: requested.request.requestId }
+    );
+    assert.equal(
+      (
+        await app.nativeRuntime.runPromise(
+          Effect.flip(
+            c.ask({
+              sessionId: requested.session.id,
+              text: 'A completed native answer',
+              expectedSelectionRevision: 0n,
+              intentKey: 'completed-answer'
+            })
+          )
+        )
+      ).kind,
+      'not_found'
     );
     assert.deepEqual(
       await app.nativeRuntime.runPromise(

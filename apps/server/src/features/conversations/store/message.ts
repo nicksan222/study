@@ -13,12 +13,17 @@
  */
 
 import {
+  messageVersionCitationsSchema,
   editMessageInputSchema,
   postMessageInputSchema,
   setActiveVersionInputSchema,
   threadInputSchema
 } from '@study/contracts/conversations/rpc';
-import { anchorSchema, chatMessageSchema } from '@study/contracts/conversations/schemas';
+import {
+  replyVersionInputSchema,
+  anchorSchema,
+  chatMessageSchema
+} from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { messageIdSchema } from '@study/contracts/ids';
 import type { MessageId, SessionId } from '@study/contracts/ids';
@@ -56,6 +61,37 @@ function textOf(value: string, allowEmpty = false) {
 
 function makeHelpers({ db, clock }: StoreResources) {
   const { assertThreadRoot } = makeThread({ db, clock });
+
+  function readCitations(versionId: typeof message_versions.$inferSelect.id) {
+    return db.orm
+      .select()
+      .from(citations)
+      .where(eq(citations.version_id, versionId))
+      .orderBy(asc(citations.marker))
+      .all()
+      .map((c) => ({
+        origin: 'agent' as const,
+        precision:
+          c.material_version_id !== null &&
+          c.document_id !== null &&
+          c.block_id !== null &&
+          c.range_start !== null &&
+          c.range_end !== null
+            ? ('exact' as const)
+            : ('approximate' as const),
+        support: { state: 'unassessed' as const },
+        marker: Number(c.marker),
+        sourceId: c.source_id,
+        materialVersionId: c.material_version_id,
+        documentId: c.document_id,
+        blockId: c.block_id,
+        rangeStart: c.range_start === null ? null : Number(c.range_start),
+        rangeEnd: c.range_end === null ? null : Number(c.range_end),
+        sourceName: c.source_name,
+        anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(c.anchor)),
+        quote: c.quote
+      }));
+  }
 
   function read(id: MessageId) {
     const m = db.orm.select().from(messages).where(eq(messages.id, id)).get();
@@ -101,37 +137,7 @@ function makeHelpers({ db, clock }: StoreResources) {
           sourceName: p.source_name,
           sourceKind: p.source_kind
         })),
-      citations:
-        m.active_version_id === null
-          ? []
-          : db.orm
-              .select()
-              .from(citations)
-              .where(eq(citations.version_id, m.active_version_id))
-              .orderBy(asc(citations.marker))
-              .all()
-              .map((c) => ({
-                origin: 'agent' as const,
-                precision:
-                  c.material_version_id !== null &&
-                  c.document_id !== null &&
-                  c.block_id !== null &&
-                  c.range_start !== null &&
-                  c.range_end !== null
-                    ? ('exact' as const)
-                    : ('approximate' as const),
-                support: { state: 'unassessed' as const },
-                marker: Number(c.marker),
-                sourceId: c.source_id,
-                materialVersionId: c.material_version_id,
-                documentId: c.document_id,
-                blockId: c.block_id,
-                rangeStart: c.range_start === null ? null : Number(c.range_start),
-                rangeEnd: c.range_end === null ? null : Number(c.range_end),
-                sourceName: c.source_name,
-                anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(c.anchor)),
-                quote: c.quote
-              }))
+      citations: m.active_version_id === null ? [] : readCitations(m.active_version_id)
     };
   }
 
@@ -154,7 +160,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       .run();
   }
 
-  return { read, required, touch, assertThreadRoot };
+  return { read, required, touch, assertThreadRoot, readCitations };
 }
 
 export const MessageStore = defineStore({
@@ -362,4 +368,38 @@ export const MessageStore = defineStore({
       }
     };
   }
+});
+
+export const MessageVersionCitationsStore = defineStore({
+  name: 'study/MessageVersionCitationsStore',
+  entity: { singular: 'messageVersionCitations', plural: 'messageVersionCitationsPages' },
+  make: (resources) => ({
+    queries: {
+      messageVersionCitations: storeQuery({
+        role: 'required',
+        input: replyVersionInputSchema,
+        output: messageVersionCitationsSchema,
+        run: (input) => {
+          const helpers = makeHelpers(resources);
+          const version = resources.db.orm
+            .select({ id: message_versions.id })
+            .from(message_versions)
+            .innerJoin(messages, eq(messages.id, message_versions.message_id))
+            .where(
+              and(
+                eq(messages.session_id, input.sessionId),
+                eq(messages.id, input.messageId),
+                eq(message_versions.id, input.versionId)
+              )
+            )
+            .get();
+
+          if (!version) throw new StudyError('not_found', 'Message version not found');
+
+          return { ...input, citations: helpers.readCitations(input.versionId) };
+        }
+      })
+    },
+    mutations: {}
+  })
 });

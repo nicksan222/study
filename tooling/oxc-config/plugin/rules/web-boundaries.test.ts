@@ -80,3 +80,31 @@ test('permits Query while keeping raw RPC in the transport adapter', () => {
     []
   );
 });
+
+test('Material routes compose the feature entrypoint while internals stay feature-owned', () => {
+  assert.equal(
+    lintRule(
+      'web-boundaries',
+      {
+        'apps/web/src/routes/library.tsx': `import {LibraryPage} from '../features/material-library/library-page';`,
+        'apps/web/src/routes/materials.$materialId.tsx': `import {ReaderPage} from '../features/material-library/reader-page';`
+      },
+      true
+    ).length,
+    2
+  );
+  assert.deepEqual(
+    lintRule(
+      'web-boundaries',
+      {
+        'apps/web/src/routes/library.tsx': `import {LibraryPage, materialsOptions} from '../features/material-library';`,
+        'apps/web/src/routes/materials.$materialId.tsx': `import {ReaderPage, materialId} from '../features/material-library';`,
+        'apps/web/src/features/material-library/index.ts': `export {LibraryPage} from './library-page';`,
+        'apps/web/src/features/material-library/import-operation.ts': `import {importMutationOptions} from './material-library.queries';`,
+        'apps/web/src/app/shell/shell.tsx': `import './shell.css';`
+      },
+      true
+    ),
+    []
+  );
+});

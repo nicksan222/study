@@ -3,6 +3,7 @@ import type { ESTree } from 'vite-plus/lint/plugins';
 
 import { effectBindings, propertyName } from '../effect-bindings.ts';
 import { webFile } from '../web-files.ts';
+import { children, stateComparison } from './jsx-state.ts';
 
 const loadingFlag =
   /^(?:is)?(?:loading|pending|fetching|searching|submitting|saving|creating|uploading|processing)$/i;
@@ -12,19 +13,6 @@ const loadingStatus = new Set(['idle', 'loading', 'pending', 'fetching']);
 const loadingAnimation = /(?:^|[\s:])(?:visible-)?animate-(?:spin|pulse)(?=\s|$)/;
 
 const functions = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
-
-function children(node: ESTree.Node): ESTree.Node[] {
-  return Object.entries(node).flatMap(([key, value]) => {
-    if (key === 'parent') return [];
-
-    const values = Array.isArray(value) ? value : [value];
-
-    return values.filter(
-      (item): item is ESTree.Node =>
-        item !== null && typeof item === 'object' && typeof item.type === 'string'
-    );
-  });
-}
 
 function loadingMember(node: ESTree.MemberExpression): boolean {
   return (
@@ -37,16 +25,7 @@ function loadingComparison(
   node: Extract<ESTree.Node, { type: 'BinaryExpression' }>,
   truth: boolean
 ): boolean {
-  if (!['===', '==', '!==', '!='].includes(node.operator)) return false;
-
-  const value = node.left.type === 'Literal' ? node.left : node.right;
-
-  return (
-    value.type === 'Literal' &&
-    typeof value.value === 'string' &&
-    loadingStatus.has(value.value) &&
-    truth === (node.operator === '===' || node.operator === '==')
-  );
+  return stateComparison(node, truth, loadingStatus);
 }
 
 function loadingLogical(node: ESTree.LogicalExpression, truth: boolean): boolean {

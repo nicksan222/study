@@ -45,6 +45,8 @@ export const message_versions = sqliteTable(
         onDelete: 'no action'
       }),
     instruction: text(),
+    /** Content-free provenance survives private capture scrubbing. */
+    generation_request_id: text().unique(),
     status: text({ enum: codes_message_status.code.enumValues })
       .notNull()
       .references((): AnySQLiteColumn => codes_message_status.code, {

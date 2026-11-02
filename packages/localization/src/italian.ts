@@ -1,6 +1,505 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  DataStatusError:
+    'Non è stato possibile aggiornare lo stato del ripristino. Riprova con Aggiorna prima di modificare i backup. Puoi comunque scaricare le copie già note.',
+  DataListError:
+    'Non è stato possibile aggiornare l’elenco delle copie. Puoi comunque scaricare le copie già note e usare i controlli di recupero quando lo stato del ripristino lo consente.',
+  SessionRunProposal: 'Proposta pronta per la revisione',
+  SessionRunAwaitingOutput: 'Nessun risultato pubblicato per ora',
+  'workspace.failure.auth':
+    'Controlla il collegamento al tuo account nelle Impostazioni, poi torna alla sessione o al materiale di origine per riprovare.',
+  'workspace.failure.cancelled':
+    'Questa attività è stata annullata. Torna alla sessione o al materiale di origine se vuoi ricominciare.',
+  'workspace.failure.config':
+    'Controlla la configurazione richiesta nelle Impostazioni, poi torna alla sessione o al materiale di origine.',
+  'workspace.failure.internal':
+    'Non è stato possibile completare questa attività. Controlla la sessione o il materiale di origine prima di avviare un altro tentativo.',
+  'workspace.failure.invalid_input':
+    'Controlla il contenuto e le opzioni inviati nella sessione o nel materiale di origine prima di riprovare.',
+  'workspace.failure.model_unavailable':
+    'Il modello richiesto non è disponibile. Controlla le opzioni dei modelli nelle Impostazioni prima di riprovare.',
+  'workspace.failure.not_enough':
+    'Il contenuto utilizzabile non era sufficiente. Aggiungi o seleziona altro materiale nella sessione di origine prima di riprovare.',
+  'workspace.failure.not_found':
+    'Il contenuto necessario non è più disponibile. Controlla la sessione o il materiale di origine e scegli contenuti disponibili.',
+  'workspace.failure.rate_limited':
+    'Il servizio ha limitato questa richiesta. Attendi prima di riprovare dalla sessione o dal materiale di origine.',
+  'workspace.failure.transient':
+    'Un problema temporaneo ha interrotto questa attività. Controllane lo stato prima di riprovare dalla sessione o dal materiale di origine.',
+  'workspace.failure.unsupported':
+    'Questa operazione o questo formato non è supportato. Scegli un contenuto o un’azione supportati nella sessione o nel materiale di origine.',
+  SessionActionErrorTitle: 'Il tuo lavoro è ancora qui.',
+  SessionReadErrorTitle: 'Non è stato possibile aprire il quaderno.',
+  ErrorStateTitle: 'Qualcosa non ha funzionato.',
+  PageErrorTitle: 'Non è stato possibile caricare la pagina.',
+  SessionStartTitle: 'Un posto per i tuoi appunti.',
+  SessionStartHelp:
+    'Raccogli appunti, file e idee ancora da chiarire. Una sessione è il tuo quaderno mentre studi.',
+  SessionStartPlaceholder: 'Annota qualcosa, anche alla rinfusa…',
+  SessionStartDraftHelp:
+    'La bozza si apre nella nuova sessione, pronta da salvare. Da lì puoi aggiungere i file.',
+  SessionStarting: 'Apertura del quaderno…',
+  SessionNotebookHint: 'Salva gli appunti mentre studi. Chiedi a Study quando vuoi una risposta.',
+  SessionAttach: 'Allega',
+  SessionCanvasStart: 'Inizia da ciò che vuoi',
+  SessionCanvasStartHelp:
+    'Raccogli qui appunti delle lezioni, file e idee ancora da chiarire. Aggiungine altri mentre studi.',
+  SessionAttemptUnavailable:
+    'Il contesto salvato per questo tentativo non è più disponibile. Controlla la sessione prima di ricominciare.',
+  SessionReviewUnavailableAttempt: 'Controlla sessione e selezione attuale',
+  SessionAbandonAttempt: 'Mantieni la bozza e avvia un nuovo tentativo',
+  SessionAbandonAttemptHelp:
+    'Una domanda o un risultato precedente potrebbe già esistere. Ricominciare crea una richiesta distinta.',
+  DocumentRetryProposal: 'Recupera l’azione inviata sulla proposta',
+  DataSettingsTitle: 'Dati e backup',
+  DataSettingsDescription:
+    'Fino a 8 snapshot gestiti su questo dispositivo. Le copie scaricate sono separate. I backup richiedono lo stesso schema del database e non sono portabili tra versioni incompatibili.',
+  DataCreate: 'Crea snapshot',
+  DataImport: 'Importa file di backup',
+  DataDownload: 'Scarica',
+  DataDelete: 'Elimina snapshot',
+  DataPreview: 'Esamina ripristino',
+  DataEmpty: 'Nessuno snapshot gestito. Creane uno o importa un file .studybackup compatibile.',
+  DataReadError:
+    'Impossibile leggere i dati dei backup. Aggiorna per verificare lo stato prima di continuare.',
+  DataFileError:
+    'Scegli un backup Study valido: massimo 64 MiB di dati più 16 KiB di involucro. Il server verifica integrità e compatibilità dello schema.',
+  DataRefresh: 'Aggiorna stato',
+  DataPending: 'Operazione di backup in corso. Puoi chiudere Impostazioni: il risultato resta qui.',
+  DataUncertain:
+    'L’operazione inviata potrebbe essere completata. Non ripeterla automaticamente. Aggiorna ed esamina elenco e stato del ripristino; questa API non identifica univocamente i risultati di creazione e importazione.',
+  DataAcknowledge: 'Ho verificato il risultato; consenti una nuova operazione',
+  DataReceipt: 'Operazione completata; ricevuta conservata.',
+  DataRestoreWarning:
+    'Il ripristino sostituisce tutti i contenuti dell’app. Le credenziali sono escluse e il lavoro nativo è dismesso. Sono necessari riavvio e accesso. I backup conservano contenuti eliminati e cronologia: il ripristino può recuperarli. Questa schermata non riavvia l’app.',
+  DataBlocked:
+    'Il ripristino è bloccato dalle attuali barriere di eliminazione o cronologia. Questa schermata non può aggirarle.',
+  DataRecoveryBlocked:
+    'Elimina deliberatamente la copia di recupero conservata prima di accettare un altro ripristino.',
+  DataConfirmRestore:
+    'Accetto di sostituire tutti i contenuti con questo preciso snapshot esaminato.',
+  DataAccept: 'Prepara ripristino al prossimo riavvio',
+  DataCurrent: 'Attuale',
+  DataBackup: 'Backup',
+  DataScope: 'Ambito dei contenuti',
+  DataToken: 'Token anteprima',
+  DataDigest: 'Digest backup',
+  DataTarget: 'Digest destinazione attuale',
+  DataStatus: 'Stato ripristino',
+  DataRecovery: 'Una copia privata di recupero è conservata fino all’eliminazione esplicita.',
+  DataDiscard: 'Elimina recupero e registro ripristino',
+  DataDeleteWarning:
+    'Eliminare solo questo snapshot gestito? Le copie scaricate non vengono eliminate.',
+  DataDiscardWarning:
+    'Eliminare definitivamente la copia privata di recupero, eventuali dati preparati e il registro? Questa azione rimuove la copia di sicurezza per il recupero.',
+  DataDeliberate: 'Comprendo e confermo questa eliminazione.',
+  DataStateidle: 'Nessun ripristino preparato',
+  'DataStaterestart-required': 'Ripristino preparato; riavvio necessario',
+  DataStateapplied: 'Ripristino applicato; accedi nuovamente',
+  'DataStatetarget-changed': 'Destinazione modificata; ripristino non attivato',
+  'DataStateactivation-failed': 'Attivazione del ripristino non riuscita',
+  DataScopematerials: 'Materiali',
+  DataScopeversions: 'Versioni',
+  DataScopedocuments: 'Documenti',
+  DataScopesources: 'Fonti',
+  DataScopecollections: 'Raccolte',
+  DataScopesessions: 'Sessioni',
+  DataScopeannotations: 'Annotazioni',
+  DataScopequizAttempts: 'Tentativi quiz',
+  DataScopecardReviews: 'Ripassi schede',
+  DataScopepracticeSlots: 'Spazi di esercizio',
+  DataScopetombstones: 'Barriere di eliminazione',
+  DataScopehistoryPrunes: 'Rimozioni cronologia',
+  DataScopeprunedVersions: 'Versioni rimosse',
+  DataSubmitted: 'Operazione inviata',
+  DataSchema: 'Schema database richiesto',
+  DataCreated: 'Snapshot creato',
+  DataBytes: 'Byte del database',
+  DataFormat: 'Formato e versione backup',
+  SessionAttachFiles: 'Allega file o trascinali qui',
+  SessionUploading: 'Caricamento…',
+  SessionFileAccepted: 'File accettato · stato dell’estrazione nella Libreria',
+  SessionFileRejected: 'File rifiutato',
+  SessionUploadUncertain:
+    'Caricamento non confermato. Controlla la Libreria prima di allegare di nuovo questo file.',
+  SessionUploadAcknowledge: 'Ho controllato la Libreria · rimuovi dalla bozza',
+  SessionRemoveAttachment: 'Rimuovi dalla bozza',
+  SessionRuns: 'Elaborazioni',
+  SessionRunDetails: 'Dettagli e contesto acquisito',
+  SessionRunRetired: 'Questa elaborazione è stata ritirata. Il contenuto non è più disponibile.',
+  SessionItemActions: 'Azioni sul messaggio',
+  SessionEditNote: 'Modifica nota',
+  SessionReanswer: 'Rispondi di nuovo',
+  SessionImprove: 'Migliora',
+  SessionSummarize: 'Riassumi',
+  SessionCustomTransform: 'Riscrittura personalizzata',
+  SessionUseVersion: 'Rendi attiva',
+  SessionItemAskScope:
+    'Fai una domanda sulla nota citata usando la cronologia della sessione e i materiali selezionati. Domanda e risposta appariranno in questo spazio.',
+  SessionItemTransformScope:
+    'Agisce sulla versione attiva di questo messaggio. Le riscritture usano il contesto fino a questo messaggio e i materiali selezionati. Controlla il testo qui sotto prima di continuare.',
+  SessionApplyAction: 'Continua',
+  SessionItemActionUncertain:
+    'L’azione potrebbe essere stata accettata. Aggiorna e controlla la cronologia del messaggio prima di avviare un’altra azione.',
+  SessionGenerationPreferences: 'Preferenze della risposta',
+  SessionAnswerDetail: 'Livello di dettaglio',
+  SessionDetailBrief: 'Breve',
+  SessionDetailBalanced: 'Equilibrata',
+  SessionDetailDetailed: 'Dettagliata',
+  SessionItemReanswerScope:
+    'Crea una nuova versione della risposta usando la cronologia fino alla sua domanda e la selezione attuale dei materiali.',
+  DocumentCreationSubmitted: 'Documento inviato',
+  DocumentCreationReviewAll:
+    'Controlla tutti i materiali qui sotto, indipendentemente dal filtro della raccolta. Apri le possibili corrispondenze prima di consentire una nuova creazione.',
+  DocumentCreationReviewEmpty: 'Questo aggiornamento non ha restituito materiali.',
+  'collections.creating': 'Creazione della raccolta…',
+  'collections.created': 'Raccolta creata.',
+  'collections.emptyCatalog':
+    'Crea una raccolta qui sopra per riunire materiale e sessioni correlati.',
+  'collections.emptyPicker':
+    'Non c’è ancora nulla da aggiungere. Importa materiale nella Libreria o avvia una sessione.',
+  'collections.emptyMembers':
+    'Questa raccolta è vuota. Scegli gli elementi da aggiungere dalla libreria o dalle sessioni.',
+  'workspace.workflow': 'Tipo di attività',
+  'workspace.task.other': 'Attività in background',
+  'workspace.task.source-ingestion': 'Importa materiale',
+  'workspace.task.source-correction': 'Correggi contenuto importato',
+  'workspace.task.source-material-projection': 'Salva materiale importato',
+  'workspace.task.material-generation': 'Crea materiale di studio',
+  'workspace.task.conversation-reply': 'Genera risposta',
+  'workspace.task.conversation-title': 'Assegna un nome alla sessione',
+  'workspace.task.conversation-attachment-wake': 'Prepara allegati',
+  'workspace.task.recording-post': 'Salva registrazione',
+  'workspace.task.quiz-grading': 'Valuta risposta',
+  'workspace.task.practice-slot': 'Prepara domanda di esercitazione',
+  'workspace.task.practice-failure': 'Recupera esercitazione',
+  'workspace.task.practice-publication': 'Salva domanda di esercitazione',
+  'workspace.task.material-history-prune': 'Rimuovi cronologia selezionata',
+  'workspace.task.session-deletion': 'Elimina sessione',
+  'workspace.task.material-deletion': 'Elimina materiale',
+  ReaderActions: 'Azioni',
+  'workspace.start': 'Riprendi il tuo lavoro',
+  'workspace.startHelp':
+    'Scrivi appunti in una sessione, leggi la libreria o riunisci il lavoro correlato.',
+  'workspace.sessionsHelp': 'Scrivi appunti e lavora con i tuoi file.',
+  'workspace.libraryHelp': 'Leggi e modifica il materiale salvato.',
+  'workspace.collectionsHelp': 'Organizza sessioni e materiali per argomento.',
+  'workspace.activityHelp': 'Attività in background · aggiornamenti ogni 5 secondi',
+  'workspace.dateUnavailable': 'Data non disponibile',
+  'workspace.activityImport': 'Aggiungi i tuoi file',
+  'workspace.activityImportHelp': 'Documenti, registrazioni e link',
+  'workspace.activityProcess': 'Study li legge',
+  'workspace.activityProcessHelp': 'I contenuti vengono elaborati in background',
+  'workspace.activityReady': 'Studia a modo tuo',
+  'workspace.activityReadyHelp': 'Appunti, risposte e materiale di studio',
+  'workspace.activityOpenSessions': 'Apri sessioni',
+  'workspace.activityTitle': 'Attività in background',
+  'workspace.activityEmptyTitle': 'Nessuna attività per ora',
+  'workspace.activityEmpty': 'Le importazioni e le trasformazioni compariranno qui.',
+  'workspace.details': 'Dettagli',
+  'workspace.execution': 'Esecuzione',
+  'workspace.context': 'Contesto correlato',
+  'workspace.cancelError':
+    'Impossibile confermare l’annullamento. Aggiorna per vedere lo stato attuale.',
+  'workspace.state.running': 'In corso',
+  'workspace.state.suspended': 'In attesa',
+  'workspace.state.completed': 'Completata',
+  'workspace.state.cancelled': 'Annullata',
+  'workspace.state.cancelling': 'Annullamento in corso',
+  'workspace.state.failure': 'Non riuscita',
+  AnnotationStoredRevision: 'Revisione salvata dell’annotazione',
+  AnnotationSubmittedCreate: 'Creazione in attesa di conferma',
+  AnnotationPossibleMatches:
+    'Possibili corrispondenze nelle annotazioni controllate (identità non confermata):',
+  AnnotationCreationReviewed:
+    'Ho controllato tutte le pagine e le possibili corrispondenze; consenti una nuova creazione',
+  AnnotationLocationUnavailable:
+    'Per questo riferimento approssimativo non è stata conservata una posizione navigabile nella fonte.',
+  AnnotationPage: 'Pagina',
+  AnnotationSlide: 'Indice diapositiva',
+  AnnotationParagraph: 'Indice paragrafo',
+  AnnotationTime: 'Intervallo temporale',
+  AnnotationMilliseconds: 'ms',
+  AnnotationLines: 'Righe nella fonte',
+  AnnotationAddress: 'Indirizzo della fonte',
+  AnnotationKind: 'Tipo di annotazione',
+  AnnotationNote: 'Nota',
+  AnnotationHighlight: 'Evidenziazione',
+  AnnotationReanchor: 'Sposta annotazione su un passaggio esatto',
+  AnnotationPreview: 'Anteprima del passaggio selezionato',
+  AnnotationCommitTarget: 'Conferma il nuovo passaggio',
+  AnnotationChooseBlock: 'Scegli un blocco',
+  AnnotationOpenTarget: 'Apri il passaggio conservato',
+  AnnotationInvalid:
+    'I dati dell’annotazione sono stati rifiutati. Aggiorna la revisione prima di correggere e salvare. Le modifiche sono conservate.',
+  AnnotationReconcile:
+    'La scrittura potrebbe essere completata. Aggiorna e controlla la revisione salvata prima di salvare di nuovo. Le modifiche sono conservate.',
+  AnnotationRefreshRevision: 'Aggiorna la revisione salvata e mantieni le mie modifiche',
+  AnnotationCreated: 'Creata',
+  AnnotationUpdated: 'Aggiornata',
+  AnnotationReanchored: 'Passaggio modificato',
+
+  'collections.invalidName': 'Usa da 1 a 100 caratteri per il nome della raccolta.',
+  'collections.missing': 'Questa raccolta non esiste più.',
+  'collections.nameLimit': 'I nomi possono contenere fino a 100 caratteri.',
+  'collections.name': 'Nome della raccolta',
+  'collections.create': 'Crea raccolta',
+  'collections.uncertain':
+    'La creazione potrebbe essere riuscita. Aggiorna e controlla tutte le pagine delle raccolte prima di riprovare.',
+  'collections.reviewed': 'Ho controllato l’elenco delle raccolte',
+  'collections.accepted': 'Raccolta creata:',
+  'collections.mutationError':
+    'Impossibile confermare la modifica. La bozza è conservata. Aggiorna l’elenco per controllare lo stato attuale.',
+  'collections.more': 'Carica altri',
+  'collections.loading': 'Caricamento…',
+  'collections.readError': 'Impossibile caricare questo elenco.',
+  'collections.retry': 'Aggiorna elenco',
+  'collections.empty': 'Nessun elemento in questo elenco.',
+  'collections.library': 'Libreria',
+  'collections.sessions': 'Sessioni',
+  'collections.rename': 'Rinomina',
+  'collections.delete': 'Elimina raccolta',
+  'collections.deleteHelp':
+    'Eliminare questa raccolta e le sue associazioni? I materiali e le sessioni indipendenti vengono conservati. L’operazione è irreversibile.',
+  'collections.confirmName': 'Digita il nome della raccolta per confermare',
+  'collections.cancel': 'Annulla',
+  'collections.detachHelp':
+    'La rimozione scollega soltanto l’elemento dalla raccolta, senza eliminarne il contenuto.',
+  'collections.members': 'Mostra elementi della raccolta',
+  'collections.picker': 'Aggiungi elementi esistenti',
+  'collections.add': 'Aggiungi alla raccolta',
+  'collections.detach': 'Rimuovi dalla raccolta',
+
+  AnnotationDelete: 'Elimina annotazione',
+  AnnotationDeleteConfirm: 'Eliminare questa annotazione? Le revisioni restano nella cronologia.',
+  AnnotationUseRevision: 'Mantieni le mie modifiche e usa questa revisione al prossimo salvataggio',
+  AnnotationHistory: 'Revisioni annotazione',
+  AnnotationDeleted: 'Eliminata',
+
+  SessionReadError:
+    'Impossibile caricare queste informazioni della sessione. Riprova per aggiornarle.',
+  SessionReadUnavailable: 'Queste informazioni della sessione non sono più disponibili.',
+  SessionCreationReviewed: 'Ho controllato le sessioni; consenti una nuova sessione',
+  SessionCancelledTransform:
+    'Questa trasformazione è stata annullata. Scegli Nuova trasformazione per avviare una richiesta separata.',
+
+  DocumentInitialText: 'Scrivi o incolla i tuoi appunti',
+  DocumentCreateRejected:
+    'Il documento non è stato creato. Controlla il titolo e il contenuto, poi riprova.',
+  DocumentCreationReviewed: 'Ho controllato la libreria; consenti una nuova creazione',
+  DocumentUndone: 'Questo salvataggio è stato annullato.',
+  DocumentUndoConflict:
+    'Il documento è cambiato prima dell’annullamento. La versione salvata è conservata.',
+  DocumentPruneNext: 'Anteprima di un altro gruppo',
+  DocumentSupports: 'Valutazione: sostiene l’affermazione',
+  DocumentContradicts: 'Valutazione: contraddice l’affermazione',
+  DocumentUncertain: 'Valutazione: incerta',
+  ReaderRetryImage: 'Riprova questa immagine',
+
+  LibraryGlobalSearch: 'Cerca in tutti i materiali',
+  LibrarySearchAction: 'Cerca',
+  LibrarySearchBounded:
+    'I primi 30 risultati nei materiali pubblicati della Libreria. La ricerca lessicale esclude bozze e materiali archiviati.',
+  DocumentText: 'Frammento di testo',
+  DocumentCell: 'Cella',
+  DocumentCode: 'Codice',
+  DocumentMath: 'Espressione',
+  DocumentImageAlt: 'Descrizione dell’immagine',
+  DocumentStructurePreserved:
+    'Modifica ogni frammento di testo mantenendo formattazione, collegamenti e struttura. I riferimenti alle immagini e le identità dei blocchi restano associati.',
+  DocumentBlock: 'Blocco',
+  DocumentMoveUp: 'Sposta in alto',
+  DocumentRemoveBlock: 'Rimuovi blocco',
+  DocumentAddParagraph: 'Aggiungi paragrafo',
+  DocumentStructuralOnly:
+    'Il confronto mostra le modifiche strutturali. Non verifica l’accuratezza dei contenuti.',
+  DocumentBefore: 'Prima',
+  DocumentSubmitted: 'Versione inviata',
+  DocumentNew: 'Nuovo documento',
+  DocumentTitle: 'Titolo del documento',
+  DocumentCreate: 'Crea documento',
+  DocumentCreateUncertain:
+    'Impossibile confermare la creazione. Aggiorna la Libreria prima di creare un altro documento.',
+  DocumentEditing: 'Modifica del documento',
+  DocumentEdit: 'Modifica documento',
+  DocumentEditCopy: 'Modifica una copia',
+  DocumentCopyTitle: 'Copia modificabile',
+  DocumentSave: 'Salva documento',
+  DocumentCloseDraft: 'Chiudi bozza',
+  DocumentConflict:
+    'Il materiale è cambiato. La versione inviata è conservata: confrontala con quella attuale prima di decidere cosa mantenere.',
+  DocumentSaved: 'Documento salvato.',
+  DocumentCompare: 'Confronta versioni',
+  DocumentUndo: 'Annulla questo salvataggio',
+  DocumentOpenCopy: 'Apri copia modificabile',
+  DocumentActionFailed:
+    'Impossibile confermare l’azione. La bozza è conservata. Riprova la stessa azione per recuperarne il risultato.',
+  DocumentPrune: 'Riduci cronologia delle versioni',
+  DocumentDelete: 'Elimina materiale',
+  DocumentDeleteExplanation:
+    'Elimina definitivamente questo materiale e le sue versioni esatte. È diverso dalla rimozione da una raccolta. I materiali collegati non sono selezionati per l’eliminazione.',
+  DocumentPruneExplanation:
+    'Rimuovi definitivamente le versioni precedenti selezionate conservando il materiale. Le prove esatte delle versioni rimosse non saranno più disponibili.',
+  DocumentKeepLatest: 'Versioni più recenti da conservare',
+  DocumentPreview: 'Aggiorna anteprima dell’impatto',
+  DocumentDeleteImpact: 'Versioni selezionate per l’eliminazione definitiva:',
+  DocumentRetainedCopies:
+    'Gli altri materiali e i messaggi pubblicati, incluse le registrazioni, sono conservati. Questa azione non cancella le loro copie.',
+  DocumentDependentReferences: 'Riferimenti dipendenti:',
+  DocumentRetainedCitations: 'Citazioni nei messaggi conservate:',
+  DocumentConfirmDelete: 'Elimina definitivamente questo materiale',
+  DocumentPruneImpact: 'Versioni selezionate per la rimozione definitiva dalla cronologia:',
+  DocumentProtectedVersions: 'Versioni protette:',
+  DocumentPruneMore:
+    'Questa anteprima contiene un gruppo di versioni. Per le altre versioni precedenti serve una nuova anteprima dopo il completamento.',
+  DocumentConfirmPrune: 'Rimuovi definitivamente queste versioni',
+  DocumentCleanupCompleted: 'Pulizia completata.',
+  DocumentCleanupFailed: 'Pulizia non riuscita. Riprova l’operazione accettata.',
+  DocumentCleanupPending:
+    'Pulizia accettata e in attesa. Aggiorna per verificarne il completamento.',
+  DocumentRetryCleanup: 'Riprova pulizia',
+  DocumentPreviewFailed:
+    'Impossibile confermare l’azione. Aggiorna lo stato dell’operazione oppure l’anteprima dell’impatto prima di confermare di nuovo.',
+  DocumentEvidence: 'Prove e annotazioni',
+  DocumentEvidenceExplanation:
+    'L’identità esatta del passaggio e il supporto fattuale sono distinti. Le valutazioni dell’utente non sono verifiche indipendenti. Le prove non disponibili non vengono sostituite con contenuti attuali.',
+  DocumentCitation: 'Citazione',
+  DocumentExact: 'Passaggio esatto',
+  DocumentApproximate: 'Posizione approssimativa',
+  DocumentSupport: 'Supporto:',
+  DocumentUserAssessed: 'Valutato dall’utente',
+  DocumentStale: 'Valutazione non aggiornata',
+  DocumentUnassessed: 'Non valutato',
+  DocumentEvidenceFailed: 'Impossibile caricare le prove. Riprova per aggiornarle.',
+  DocumentAnnotate: 'Annota un passaggio',
+  DocumentSelectPassage:
+    'Seleziona il testo in un blocco qui sotto, poi salva un’evidenziazione o aggiungi una nota. La selezione usa questa esatta versione visualizzata.',
+  DocumentAnnotationNote: 'Nota (facoltativa)',
+  DocumentSaveAnnotation: 'Salva annotazione del passaggio',
+  DocumentAnnotationSaved: 'Annotazione salvata sul passaggio esatto.',
+  DocumentAnnotationConflict:
+    'Impossibile salvare l’annotazione su questo passaggio esatto. Aggiorna le prove prima di riprovare.',
+  DocumentAnnotationUncertain:
+    'Il risultato dell’annotazione è sconosciuto. Aggiorna le annotazioni prima di inviare di nuovo per evitare duplicati.',
+  DocumentProposal: 'Proposta per il documento',
+  DocumentApply: 'Applica al documento attuale',
+  DocumentKeepNew: 'Conserva come nuovo materiale',
+  DocumentProposalSaved: 'Proposta salvata.',
+  DocumentKeepDraftCopy: 'Conserva bozza come nuovo materiale',
+  SessionRecent: 'Sessioni recenti',
+  SessionNew: 'Nuova sessione',
+  SessionListHelp:
+    'Inizia una sessione senza scegliere un progetto. Appunti e materiale selezionato restano insieme.',
+  SessionListEmpty: 'Nessuna sessione in questa vista. Caricane altre o inizia una nuova sessione.',
+  SessionUntitled: 'Sessione senza titolo',
+  SessionOpenCreated: 'Apri la sessione creata',
+  SessionCreationUncertain:
+    'La sessione potrebbe essere stata creata. Aggiorna l’elenco e aprila prima di crearne un’altra.',
+  SessionBack: 'Torna alle sessioni',
+  SessionSelection: 'Selezione attuale',
+  SessionSelectionHelp:
+    'Scegli versioni, blocchi o passaggi precisi. Salva la selezione prima di fare una domanda o trasformare. Rimuovere una selezione conserva il materiale nella libreria.',
+  SessionWhole: 'Documento intero',
+  SessionBlocks: 'Blocchi selezionati',
+  SessionRanges: 'Passaggio selezionato',
+  SessionRemove: 'Rimuovi dalla selezione',
+  SessionNoSelection:
+    'Nessun materiale selezionato. La domanda userà solo la conversazione salvata.',
+  SessionSaveSelection: 'Salva selezione',
+  SessionReloadSelection: 'Scarta le modifiche alla selezione e ricarica',
+  SessionSelectionUnsaved:
+    'Le modifiche alla selezione non sono salvate. Salvale o scartale per continuare.',
+  SessionUseWhole: 'Usa il documento intero',
+  SessionUseBlock: 'Seleziona o rimuovi questo blocco',
+  SessionUseRange: 'Usa il passaggio evidenziato',
+  SessionPassage: 'Seleziona un passaggio in questo blocco',
+  SessionRangeUnavailable:
+    'L’identità esatta del passaggio non è disponibile. Puoi selezionare esplicitamente blocchi interi o il documento.',
+  SessionNotebook: 'Quaderno',
+  SessionNotebookEmpty: 'Scrivi un appunto per iniziare. Salvalo da solo o chiedi una risposta.',
+  SessionEarlier: 'Carica gli appunti precedenti',
+  SessionNote: 'Il tuo appunto',
+  SessionReply: 'Risposta',
+  SessionVersions: 'Versioni precedenti',
+  SessionCitations: 'Citazioni',
+  SessionExactEvidence: 'Riferimento esatto',
+  SessionApproximateEvidence: 'Riferimento approssimativo',
+  SessionEvidenceUnavailable: 'Riferimento esatto non disponibile',
+  SessionContextUsed: 'Contesto utilizzato',
+  SessionCapturedHelp:
+    'Questi sono gli input salvati per questa versione esatta. Le modifiche successive alla selezione non li cambiano.',
+  SessionRevision: 'Revisione della selezione',
+  SessionCapturedNotes: 'Conversazione salvata utilizzata',
+  SessionExcludedNotes: 'Appunti precedenti fuori dal contesto acquisito:',
+  SessionManualVersion:
+    'Questa versione è stata scritta manualmente e non ha un contesto generato.',
+  SessionContextUnavailable:
+    'Il contesto esatto acquisito non è più disponibile. Il materiale attuale non lo sostituisce.',
+  SessionCompose: 'Scrivi un appunto',
+  SessionComposeHint: 'Aggiungi appunti, idee o una domanda per dopo…',
+  SessionDraftHelp:
+    'Il testo non inviato resta qui mentre navighi nell’app. Salva appunto lo conserva nella sessione; Chiedi salva l’appunto e richiede una risposta.',
+  SessionSaveNote: 'Salva appunto',
+  SessionAsk: 'Chiedi a Study',
+  SessionSaving: 'Salvataggio della richiesta…',
+  SessionRetryAsk: 'Recupera la domanda inviata',
+  SessionAskRetryHelp:
+    'Il nuovo tentativo usa l’appunto inviato e la stessa revisione della selezione. La bozza più recente resta separata.',
+  SessionReviewConflict: 'Conserva la bozza e rivedi la selezione',
+  SessionNoteUncertain:
+    'L’appunto potrebbe essere già salvato. Controlla il quaderno prima di inviarlo di nuovo. Non è stato ritentato automaticamente.',
+  SessionReviewedHistory: 'Ho controllato il quaderno; conserva la bozza',
+  SessionAuthError:
+    'Accedi a ChatGPT nelle impostazioni, poi ritenta la richiesta. La bozza è conservata.',
+  SessionConflict:
+    'La richiesta non corrisponde più allo stato salvato. Le modifiche sono conservate; controlla la selezione prima di inviare di nuovo.',
+  SessionRequestError:
+    'Non è stato possibile confermare la richiesta. La bozza è conservata. Ritenta solo la stessa richiesta inviata o aggiornane lo stato.',
+  SessionPending: 'Richiesta accettata; in attesa del risultato.',
+  SessionWaiting:
+    'Il lavoro è in attesa. Se non prosegue, controlla l’accesso a ChatGPT nelle impostazioni.',
+  SessionCompleted: 'Lavoro completato',
+  SessionCancelled: 'Lavoro annullato',
+  SessionCancelling: 'Annullamento richiesto',
+  SessionTransform: 'Trasforma in un documento',
+  SessionTransformHelp:
+    'Descrivi il risultato che vuoi. Crea un documento separato dagli appunti e dalla selezione salvati. Prima salva gli appunti non inviati. Il materiale originale resta invariato.',
+  SessionOutputTitle: 'Titolo del documento',
+  SessionInstructions: 'Cosa vuoi cambiare?',
+  SessionInstructionHint:
+    'Per esempio: unisci questi appunti in una spiegazione chiara ed evidenzia i punti in disaccordo.',
+  SessionOperations: 'Modifiche da applicare',
+  SessionOpClarity: 'Chiarezza',
+  SessionOpGrammar: 'Grammatica',
+  SessionOpStructure: 'Struttura',
+  SessionOpCombine: 'Unisci',
+  SessionOpDeduplicate: 'Rimuovi ripetizioni',
+  SessionOpSummarize: 'Riassumi',
+  SessionOpExplain: 'Spiega',
+  SessionOpExpand: 'Approfondisci',
+  SessionOpTranslate: 'Traduci',
+  SessionOpCorrect: 'Proponi correzioni dei fatti',
+  SessionCreateDocument: 'Crea documento',
+  SessionTransformRetryHelp:
+    'Il recupero della richiesta usa le istruzioni e il contesto originali, anche se modifichi il modulo.',
+  SessionNewTransform: 'Prepara un’altra trasformazione',
+  SessionCancel: 'Annulla questo lavoro',
+  SessionOpenOutput: 'Apri il documento risultante',
+  SessionDelete: 'Elimina sessione…',
+  SessionDeleteHelp:
+    'Elimina questa sessione e la conversazione. Il materiale nella libreria viene conservato. L’eliminazione non salva il testo non inviato.',
+  SessionConfirmDelete: 'Elimina questa sessione',
+  SessionDeleting: 'Eliminazione della sessione…',
+  SessionRetryDelete: 'Ritenta la pulizia della sessione',
+  SessionDeleted: 'Sessione eliminata. Il materiale della libreria è conservato.',
+  SessionSearchMaterial: 'Cerca nel materiale pubblicato',
+  LibraryStartAnother: 'Importa un altro materiale',
+  LibraryRevealPrompt:
+    'Aggiorna Tutti i materiali per trovare l’importazione accettata. Questa azione rimuove i filtri per raccolta.',
+  LibraryImportRejected:
+    'Importazione rifiutata. Scegli un file leggibile o un link HTTP(S) senza credenziali, poi riprova.',
+  LibraryImportAcknowledged: 'Ho controllato la libreria; avvia una nuova importazione',
   BackupScope:
     'I backup includono contenuti della libreria, raccolte, sessioni, annotazioni, esercizi e cronologia conservata. Le credenziali dell’account sono escluse.',
   BackupRetention:
@@ -19,6 +518,61 @@ export const italian = Object.freeze({
     'Una copia privata di recupero viene conservata finché non la elimini esplicitamente.',
   BackupFormatBounds:
     'Il formato 1 richiede esattamente lo schema supportato. Ogni istantanea è limitata a 64 MiB; vengono conservati fino a 8 backup gestiti.',
+  ReaderDownloading: 'Scaricamento dell’originale esatto…',
+  LibraryImport: 'Importa',
+  LibraryCollection: 'Raccolta',
+  LibraryAll: 'Tutti i materiali',
+  LibraryOpenAccepted: 'Apri il materiale importato',
+  LibraryAccepted:
+    'Importazione accettata. L’originale è salvato; la lettura potrebbe essere ancora in elaborazione.',
+  LibraryRevealAll:
+    'Mostriamo la prima pagina aggiornata di Tutti i materiali, senza filtri per raccolta.',
+  LibraryAcceptedUnresolved:
+    'Il materiale accettato non è ancora su questa pagina. Aggiorna Tutti i materiali per verificare; non caricarlo di nuovo.',
+  LibraryRefresh: 'Aggiorna',
+  LibraryRefreshFailed:
+    'L’importazione resta accettata. Non è stato possibile aggiornare l’elenco; riprova ad aggiornarlo.',
+  LibraryLoadFailed: 'Impossibile caricare i materiali. Aggiorna per riprovare.',
+  LibraryEmpty: 'La libreria è vuota. Importa un file o un link per iniziare a leggere.',
+  LibraryPending: 'Lettura in attesa',
+  LibraryProcessingFailed: 'Lettura non riuscita; l’originale è conservato',
+  LibraryReady: 'Pronto',
+  LibraryMore: 'Carica altri',
+  LibraryFile: 'Scegli un file',
+  LibraryLink: 'Oppure inserisci un link web',
+  LibraryClearFile: 'Rimuovi il file scelto',
+  LibraryImportFailed:
+    'Impossibile confermare l’importazione. Chiudi e aggiorna Tutti i materiali prima di riprovare: potrebbe essere stata accettata.',
+  LibraryImporting: 'Importazione dell’originale…',
+  ReaderBack: 'Torna alla libreria',
+  ReaderUnavailable: 'Questa versione non è disponibile',
+  ReaderVersion: 'Versione',
+  ReaderCurrent: 'Attuale',
+  ReaderHistorical: 'Versione precedente',
+  ReaderOriginal: 'Scarica l’originale esatto',
+  ReaderOriginalUnavailable:
+    'Impossibile recuperare l’originale di questa versione esatta. Riprova; non è stato sostituito con un originale più recente.',
+  ReaderRetryProcessing: 'Riprova la lettura',
+  ReaderRetryFailed:
+    'Impossibile richiedere la lettura. Aggiorna per verificare la revisione attuale prima di riprovare.',
+  ReaderNoExtraction:
+    'Il testo leggibile non è disponibile per questa versione. Puoi comunque provare a scaricare l’originale esatto.',
+  ReaderDiagramSource: 'Sorgente del diagramma (sola lettura)',
+  ReaderCorrectAnswer: 'Risposta corretta',
+  ReaderHistory: 'Cronologia delle versioni',
+  ReaderImageUnavailable: 'I dati dell’immagine per questa revisione esatta non sono disponibili.',
+  ReaderTable: 'Tabella scorrevole',
+  ReaderOmissions: 'Questa estrazione segnala omissioni:',
+  ReaderNoText: 'Questa versione non contiene blocchi leggibili.',
+  ReaderOmitFormatting: 'Formattazione',
+  ReaderOmitNestedTable: 'Tabelle annidate',
+  ReaderOmitMedia: 'Contenuti multimediali incorporati',
+  ReaderOmitLayout: 'Impaginazione',
+  ReaderOmitProvider: 'Struttura del fornitore',
+  ReaderOmitStructure: 'Struttura del documento',
+  ReaderOmitMarkup: 'Markup non supportato',
+  LibraryPrevious: 'Torna alla vista precedente',
+
   AiSettingsAccount: 'Account ChatGPT',
   AiSettingsChatGpt: 'ChatGPT',
   AiSettingsPlanDescription:

@@ -61,9 +61,12 @@ function citationChanged(
   );
 }
 
-export function makeSupport(resources: StoreResources) {
+export function makeSupport(
+  resources: StoreResources,
+  readDocument?: ReturnType<typeof makeReads>['readCanonicalDocument']
+) {
   const { db } = resources;
-  const resolver = makeEvidence(resources);
+  const resolver = makeEvidence(resources, readDocument);
   const { versionRow } = makeReads(resources);
 
   function citationAt(

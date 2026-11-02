@@ -30,3 +30,27 @@ test('allows loaded routes, redirects, and pages without data requirements', () 
     []
   );
 });
+
+test('canonical Material browse and read routes retain loader requirements', () => {
+  const diagnostics = lintRule(
+    'web-router-loaders',
+    {
+      'apps/web/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, component: LibraryPage});`,
+      'apps/web/src/routes/materials.$materialId.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/materials/$materialId')({staticData: {section: 'library'}, beforeLoad: validate, loader: load, component: ReaderPage});`
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.deepEqual(
+    lintRule(
+      'web-router-loaders',
+      {
+        'apps/web/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, loaderDeps: ({search}) => ({project: search.project}), loader: load, component: LibraryPage});`,
+        'apps/web/src/routes/materials.$materialId.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/materials/$materialId')({staticData: {section: 'library'}, loaderDeps: deps, beforeLoad: validate, loader: load, component: ReaderPage});`
+      },
+      true
+    ),
+    []
+  );
+});

@@ -1,6 +1,7 @@
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
+import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
@@ -41,9 +42,15 @@ export function LibraryListView({
 
   if (state.status === 'error')
     return (
-      <Button variant="ghost-muted" onClick={reload}>
-        {t('StudyLoadError')}
-      </Button>
+      <ErrorState
+        layout="sidebar"
+        title={t('ErrorStateTitle')}
+        action={
+          <Button variant="ghost-muted" onClick={reload}>
+            {t('StudyLoadError')}
+          </Button>
+        }
+      />
     );
 
   if (state.status === 'pending') return <Loading layout="sidebar" label={t('LoadingStudy')} />;

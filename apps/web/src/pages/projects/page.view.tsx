@@ -1,3 +1,5 @@
+import { CollectionsPage } from '../../features/collections';
+
 export function PageView() {
-  return null;
+  return <CollectionsPage />;
 }

@@ -82,3 +82,17 @@ narrower browser views preserve navigation and move header actions into the shar
 All copy comes from `study-localization`. Browser tests use isolated real RPC servers.
 Assess every page in both themes and at narrow sizes, including important pending, empty
 and version-history states, and fix independent UX/UI review findings before finishing.
+
+## Session entry and errors
+
+The existing sidebar owns the session rail and keeps its current navigation and geometry.
+The main Sessions entry is a centered notebook starter: a short explanation, a quiet
+composer and New session. A starter draft follows the user into the created notebook;
+starting a session does not request a reply. Notes remain an unboxed chronological
+notebook. Save note is primary, Cmd/Ctrl+Enter saves, and Ask Study is explicit.
+
+`@study/ui/composer` owns the shared input surface and footer. It adapts the restrained
+composer structure from T3 Code and coss UI using Study's semantic tokens. Shared
+`@study/ui/error-state` owns page and inline failure presentation: a neutral icon,
+localized title and explanation, and the relevant recovery action. Page failures replace
+the page body; operation failures stay compact beside the work they affect.

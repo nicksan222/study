@@ -366,6 +366,21 @@ for (const scenario of [
         .where(eq(s.document_proposals.request_id, setup.request.id))
         .get()!;
 
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const page = yield* (yield* Conversations).sessionGenerations({
+            sessionId: setup.session.id,
+            limit: 10
+          });
+          const discovered = page.items.find((item) => item.requestId === setup.request.id);
+
+          assert.ok(discovered);
+          assert.equal(discovered.contextRequestId, setup.context.requestId);
+          assert.equal(discovered.resultVersionId, proposalId);
+          assert.equal(discovered.proposedVersionId, proposalId);
+          assert.equal(discovered.baseVersionId, setup.target.version.id);
+        }).pipe(Effect.provide(f.domain()))
+      );
       assert.equal(receipt.result_version_id, proposalId);
 
       assert.match(receipt.result_hash!, /^[0-9a-f]{64}$/);

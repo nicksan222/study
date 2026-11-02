@@ -35,6 +35,7 @@ import preserveErrorCause from './rules/preserve-error-cause.ts';
 import serverFileDescription from './rules/server-file-description.ts';
 import serverNoMocks from './rules/server-no-mocks.ts';
 import serviceDefinition from './rules/service-definition.ts';
+import sharedErrorState from './rules/shared-error-state.ts';
 import sharedLoading from './rules/shared-loading.ts';
 import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
@@ -52,6 +53,7 @@ export default definePlugin({
   meta: { name: 'study' },
   rules: {
     'shared-loading': sharedLoading,
+    'shared-error-state': sharedErrorState,
     'feature-orchestration': featureOrchestration,
     'native-clock': nativeClock,
     'metric-cardinality': metricCardinality,

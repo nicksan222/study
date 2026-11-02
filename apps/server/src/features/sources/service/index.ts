@@ -17,6 +17,10 @@ import { randomUUID } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import type { SourcePublicationRequested } from '@study/contracts/events';
 import type { ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type {
+  importCapabilityInputSchema,
+  importCapabilitySchema
+} from '@study/contracts/sources/capabilities';
 import type { Document } from '@study/contracts/sources/document';
 import type {
   sourcePageInputSchema,
@@ -27,6 +31,7 @@ import { sniff } from '@study/contracts/sources/sniff';
 import { Effect, Option } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
+import { decoderPath } from '#server/features/sources/decoders/capability';
 import { SourceBackupStore } from '#server/features/sources/store/backup';
 import {
   SourceStore,
@@ -38,6 +43,8 @@ import {
   SourceFailureNoticeStore
 } from '#server/features/sources/store/index';
 import { RecordingImportStore } from '#server/features/sources/store/recording';
+import type { AuthManager } from '#server/platform/ai/auth/index';
+import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import {
@@ -96,6 +103,34 @@ export const Sources = defineService(
     };
 
     return {
+      importCapability: (input: typeof importCapabilityInputSchema.Type) =>
+        Effect.gen(function* () {
+          const session = yield* Effect.serviceOption(ChatGptSession);
+          const path = decoderPath(input);
+          const authentication = (() => {
+            if (Option.isNone(session)) return 'unavailable' as const;
+
+            const auth: AuthManager = session.value.manager;
+
+            return auth.sessionConfigured
+              ? ('session_configured' as const)
+              : ('signed_out' as const);
+          })();
+
+          return {
+            kind: input.kind,
+            recognized: input.kind !== 'other',
+            status: path !== 'none' && path !== 'vision' ? 'supported' : 'unavailable',
+            path,
+            reason:
+              path === 'none'
+                ? 'no_decoder'
+                : path === 'vision'
+                  ? 'provider_unverified'
+                  : 'local_decoder',
+            provider: { authentication, capability: 'unverified' }
+          } satisfies typeof importCapabilitySchema.Type;
+        }),
       source: sources.source,
       sourceExport: exports.sourceExport,
       findSource: sources.findSource,

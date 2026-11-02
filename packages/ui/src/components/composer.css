@@ -1,0 +1,53 @@
+.ui-composer {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ui-surface-border);
+  border-radius: 1rem;
+  background: var(--card);
+}
+
+.ui-composer:has(.ui-composer-input:focus-visible) {
+  border-color: var(--ring);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.ui-composer-input {
+  display: block;
+  field-sizing: content;
+  width: 100%;
+  min-width: 0;
+  min-height: 5.5rem;
+  max-height: 35dvh;
+  padding: 0.5rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  line-height: 1.7;
+  resize: none;
+  overflow-wrap: anywhere;
+}
+
+.ui-composer-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.ui-composer-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ui-composer-hint {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
