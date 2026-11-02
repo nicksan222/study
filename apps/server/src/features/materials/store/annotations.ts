@@ -38,26 +38,24 @@ function makeAnnotations(resources: StoreResources) {
     );
   }
 
+  function retainedRevision() {
+    return sql`NOT EXISTS (
+      SELECT 1 FROM ${s.material_history_members}
+      WHERE ${s.material_history_members.version_id} = ${s.material_annotation_revisions.version_id}
+    )`;
+  }
+
   function read(id: MaterialAnnotationId) {
     const row = db.orm
       .select({ payload: s.material_annotation_revisions.payload })
       .from(s.material_annotations)
       .innerJoin(s.material_annotation_revisions, currentRevision())
-      .where(eq(s.material_annotations.id, id))
+      .where(and(eq(s.material_annotations.id, id), retainedRevision()))
       .get();
 
     if (!row) return null;
 
     const value = decode(row.payload);
-
-    if (
-      db.orm
-        .select()
-        .from(s.material_history_members)
-        .where(eq(s.material_history_members.version_id, value.target.range.versionId))
-        .get()
-    )
-      return null;
 
     if (
       db.orm
@@ -172,6 +170,7 @@ function makeAnnotations(resources: StoreResources) {
       .where(
         and(
           sql`json_extract(${s.material_annotation_revisions.payload}, '$.deleted') = 0`,
+          retainedRevision(),
           eq(s.material_annotations.material_id, value.materialId),
           value.cursor === undefined ? undefined : gt(s.material_annotations.id, value.cursor)
         )
@@ -196,6 +195,7 @@ function makeAnnotations(resources: StoreResources) {
       .where(
         and(
           eq(s.material_annotation_revisions.annotation_id, value.id),
+          retainedRevision(),
           value.cursor === undefined
             ? undefined
             : gt(s.material_annotation_revisions.revision, value.cursor)
