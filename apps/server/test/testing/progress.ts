@@ -15,8 +15,8 @@ import { tap } from 'node:test/reporters';
 import type { TestEvent } from 'node:test/reporters';
 
 /** Preserve TAP while exposing execution events across both concurrent test files. */
-export default function progress(source: AsyncIterable<TestEvent>) {
-  return tap(observe(source));
+export default async function* progress(source: AsyncIterable<TestEvent>) {
+  yield* tap(observe(source));
 }
 
 async function* observe(source: AsyncIterable<TestEvent>) {

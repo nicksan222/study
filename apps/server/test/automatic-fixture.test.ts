@@ -25,6 +25,8 @@ import { promisify } from 'node:util';
 
 const preload = fileURLToPath(new URL('./testing/preload.ts', import.meta.url));
 
+const reporter = fileURLToPath(new URL('./testing/progress.ts', import.meta.url));
+
 const scenario = fileURLToPath(new URL('./testing/automatic-fixture-scenario.ts', import.meta.url));
 
 for (const mode of [
@@ -42,10 +44,14 @@ for (const mode of [
     const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: mode };
 
     delete env.NODE_TEST_CONTEXT;
-    const child = spawnSync(process.execPath, ['--import', preload, '--test', scenario], {
-      encoding: 'utf8',
-      env
-    });
+    const child = spawnSync(
+      process.execPath,
+      ['--import', preload, '--test', `--test-reporter=${reporter}`, scenario],
+      {
+        encoding: 'utf8',
+        env
+      }
+    );
 
     assert.equal(
       child.status,
@@ -92,7 +98,7 @@ test('concurrent test files use separate databases and remove them', async () =>
   const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
 
   delete env.NODE_TEST_CONTEXT;
-  const args = ['--import', preload, '--test', scenario];
+  const args = ['--import', preload, '--test', `--test-reporter=${reporter}`, scenario];
   const results = await Promise.all([
     exec(process.execPath, args, { env }),
     exec(process.execPath, args, { env })
