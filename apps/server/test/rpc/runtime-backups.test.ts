@@ -310,7 +310,7 @@ test('Materials, Documents, managed BLOBs, collections, sessions and annotations
       sql`INSERT INTO learning_practice_controls(project_id,epoch,enabled) VALUES(1,'captured-epoch',1)`
     );
     db.run(
-      sql`INSERT INTO learning_practice_slots(id,project_id,epoch,ordinal,kind,status,input_version_ids) VALUES('pending-slot',1,'captured-epoch',0,'open','pending','[]')`
+      sql`INSERT INTO learning_practice_slots(id,project_id,epoch,ordinal,kind,status,input_version_ids) VALUES('pending-slot',1,'captured-epoch',0,'choice','pending',${JSON.stringify([String(saved.version.id)])})`
     );
     const documentId = db
       .select()

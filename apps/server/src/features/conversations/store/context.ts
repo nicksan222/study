@@ -121,7 +121,7 @@ function makeContextReads({ db, clock }: StoreResources) {
   const assertContextAvailable = makeAssertContextAvailable({ db, clock });
 
   function requiredContext(requestId: string, available: boolean) {
-    assertContextAvailable(requestId, 'Captured context is unavailable');
+    assertContextAvailable(requestId, 'Captured context is unavailable', available);
 
     const row = retainedContext(requestId);
 
@@ -215,7 +215,7 @@ export const SessionContextIntentStore = defineStore({
   entity: { singular: 'sessionContextIntent', plural: 'sessionContextIntents' },
   make: (resources) => {
     const { db } = resources;
-    const { decodeContext } = makeContextReads(resources);
+    const { decodeContext, assertContextAvailable } = makeContextReads(resources);
 
     return {
       queries: {
@@ -250,6 +250,8 @@ export const SessionContextIntentStore = defineStore({
               .get();
 
             if (!row) return Option.none();
+
+            assertContextAvailable(row.request_id, 'Captured reply is unavailable');
 
             if (
               !sameIntent(

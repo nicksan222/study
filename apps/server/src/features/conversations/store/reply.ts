@@ -353,8 +353,8 @@ function makeHelpers({ db, clock }: StoreResources) {
       .get();
   }
 
-  function replyContext(requestId: string) {
-    assertContextAvailable(requestId, 'Reply context is unavailable');
+  function replyContext(requestId: string, actionable = true) {
+    assertContextAvailable(requestId, 'Reply context is unavailable', actionable);
 
     const row = db.orm
       .select()
@@ -520,7 +520,7 @@ export const RetainedReplySnapshotStore = defineStore({
           role: 'required',
           input: replySnapshotInputSchema,
           output: replySnapshotSchema,
-          run: ({ requestId }) => replyContext(requestId).result
+          run: ({ requestId }) => replyContext(requestId, false).result
         })
       },
       mutations: {}

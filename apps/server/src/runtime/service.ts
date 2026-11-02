@@ -20,6 +20,7 @@ import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';
 import { ManagedBackups } from '#server/platform/database/backups';
 import { ServerContext } from '#server/platform/database/context';
+import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 
 import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';
@@ -60,13 +61,20 @@ export class App {
     hostId?: string;
     fetch?: typeof fetch;
   }): Promise<App> {
-    await ManagedBackups.activate(options.path, backupPolicy);
+    const ownership = await acquireDatabaseOwnership(options.path);
+    options = { ...options, path: ownership.path };
+
     const issuer = options.issuer ?? 'https://auth.openai.com';
 
     function* openScope(
       restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
     ) {
       const scope = yield* Scope.make();
+
+      yield* Scope.addFinalizer(
+        scope,
+        Effect.tryPromise({ try: ownership.release, catch: (cause) => cause }).pipe(Effect.orDie)
+      );
 
       function* acquireApplication() {
         let runtime: ReturnType<typeof createNativeRuntime> | undefined;
@@ -191,7 +199,17 @@ export class App {
       return result.value;
     }
 
-    return runNative(Effect.uninterruptibleMask((restore) => Effect.gen(() => openScope(restore))));
+    try {
+      await ManagedBackups.activate(options.path, backupPolicy);
+
+      return await runNative(
+        Effect.uninterruptibleMask((restore) => Effect.gen(() => openScope(restore)))
+      );
+    } catch (cause) {
+      await ownership.release();
+
+      throw cause;
+    }
   }
 
   // fallow-ignore-next-line unused-class-member -- Runtime lifecycle and RPC tests close the inferred App instance.

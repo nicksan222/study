@@ -43,6 +43,7 @@ export const backupPolicy: SnapshotPolicy = {
         Materials.validateBackup(tx);
         Sources.validateBackup(tx);
         Conversations.validateBackup(tx);
+        Conversations.prepareBackup(tx);
         Auth.sanitizeBackup(tx);
         Workflows.prepareBackup(tx);
       })

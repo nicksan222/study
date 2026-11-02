@@ -11,13 +11,32 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import { eq } from '@study/db';
-import { material_history_requests, material_deletion_requests } from '@study/db/schema';
+import { and, eq } from '@study/db';
+import {
+  material_history_requests,
+  material_deletion_requests,
+  workflow_retired_correlations
+} from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeAssertContextAvailable({ db }: StoreResources) {
-  return (requestId: string, deletionMessage: string) => {
+  return (requestId: string, deletionMessage: string, actionable = true) => {
+    if (
+      actionable &&
+      db.orm
+        .select({ id: workflow_retired_correlations.correlation_id })
+        .from(workflow_retired_correlations)
+        .where(
+          and(
+            eq(workflow_retired_correlations.correlation_id, requestId),
+            eq(workflow_retired_correlations.event_type, 'ConversationGenerationRequested')
+          )
+        )
+        .get()
+    )
+      throw new StudyError('not_found', 'Captured reply has been retired');
+
     if (
       db.orm
         .select({ id: material_history_requests.request_id })

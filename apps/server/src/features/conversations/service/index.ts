@@ -491,6 +491,7 @@ export const Conversations = defineService(
     };
   }),
   {
+    prepareBackup: (tx: Transaction) => tx.store(ConversationBackupStore).prepare(undefined),
     validateBackup: (tx: Transaction) =>
       tx.store(ConversationBackupStore).backupConversation(undefined),
     prepareMaterialHistory,
