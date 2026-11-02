@@ -77,10 +77,13 @@ for (const action of ['apply', 'keep'] as const)
         }).pipe(Effect.provide(source.domain()))
       );
 
-      source.replies.push({
-        kind: 'output',
-        output: validDocumentTransformOutput('Completed proposal')
-      });
+      source.replies.push(
+        { kind: 'sources', query: 'Target body' },
+        {
+          kind: 'output',
+          output: validDocumentTransformOutput('Completed proposal [1]')
+        }
+      );
 
       const proposed = await source.execute(
         source.event(saved.request.id),

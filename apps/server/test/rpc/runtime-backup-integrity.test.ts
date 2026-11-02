@@ -42,7 +42,7 @@ test('rechecksummed theme, asset revision, migration receipt and virtual schema 
       )
     );
 
-    await f.app.nativeRuntime.runPromise(
+    const document = await f.app.nativeRuntime.runPromise(
       Effect.flatMap(Materials, (materials) =>
         materials.createManualDocument({
           title: 'Image root',
@@ -60,6 +60,12 @@ test('rechecksummed theme, asset revision, migration receipt and virtual schema 
         const c = yield* Conversations;
 
         const session = yield* c.createUntitledSession({});
+
+        yield* c.updateSessionSelection({
+          sessionId: session.id,
+          expectedRevision: 0n,
+          targets: [{ versionId: document.version.id, scope: { kind: 'document' } }]
+        });
 
         yield* c.captureSessionContext({
           sessionId: session.id,
