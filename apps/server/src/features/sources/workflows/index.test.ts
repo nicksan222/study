@@ -101,6 +101,7 @@ test('native ingestion publishes an anchored text document through Sources', asy
             .all()
             .map((row) => decodeEvent(row.payload))
             .find((item) => item.type === 'SourceIndexed' && item.documentId === id);
+
           assert.ok(indexed?.type === 'SourceIndexed');
           yield* projects.deleteProject({ id: collection.id });
           yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
@@ -112,6 +113,7 @@ test('native ingestion publishes an anchored text document through Sources', asy
             executionId: 'projection-replay',
             payload: { event: indexed }
           });
+
           assert.equal(projected.extracted.version.id, replayed.extracted.version.id);
           assert.equal(
             (yield* materials.material({ id: projected.extracted.id })).importProcessing?.status,
