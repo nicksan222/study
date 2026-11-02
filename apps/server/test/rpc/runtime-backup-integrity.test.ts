@@ -55,6 +55,7 @@ test('rechecksummed theme, asset revision, migration receipt and virtual schema 
         })
       )
     );
+
     await f.app.nativeRuntime.runPromise(
       Effect.gen(function* () {
         const c = yield* Conversations;
