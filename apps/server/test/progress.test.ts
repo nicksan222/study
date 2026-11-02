@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Checks that lifecycle diagnostics preserve the standard TAP output stream.          │
+ * │ @file Checks that lifecycle diagnostics preserve the standard TAP output stream.         │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps test stdout and the TAP plan available alongside execution diagnostics.           │
+ * │ - Keeps test stdout and the TAP plan available alongside execution diagnostics.          │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Uses public Node reporter events; CLI loading is covered by automatic fixture tests.     │
