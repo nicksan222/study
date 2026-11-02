@@ -35,43 +35,77 @@ export function makeSetCitationsAction(resources: StoreResources) {
   const { db: store } = resources;
   const { readCitations } = makeCitations(resources);
   const { versionRow, versionDocumentId, readCanonicalDocument } = makeReads(resources);
+
+  function assertInheritedCitations(input: Input, inheritedFrom: MaterialVersionId) {
+    const destination = versionRow(input.id, true);
+    const db = store.orm;
+    const inherited = versionRow(inheritedFrom);
+
+    if (
+      inherited.status !== 'published' ||
+      inherited.material_id !== destination.material_id ||
+      destination.kind !== 'document' ||
+      destination.creator !== 'user' ||
+      destination.operation !== 'edit' ||
+      destination.generation_request_id !== null ||
+      !db
+        .select()
+        .from(s.material_version_parents)
+        .where(
+          and(
+            eq(s.material_version_parents.version_id, input.id),
+            eq(s.material_version_parents.parent_version_id, inherited.id)
+          )
+        )
+        .get()
+    )
+      throw new StudyError(
+        'invalid_input',
+        'Citation inheritance requires retained published history'
+      );
+
+    const previous = readCitations(inherited.id);
+
+    if (!Schema.toEquivalence(setCitationsInputSchema.fields.citations)(previous, input.citations))
+      throw new StudyError(
+        'invalid_input',
+        'Inherited citations must match exact retained references'
+      );
+  }
+
+  function assertLiveCitation(citation: Input['citations'][number]) {
+    versionRow(citation.inputVersionId);
+
+    if (citation.target) {
+      const documentId = versionDocumentId(citation.inputVersionId);
+
+      if (documentId === null)
+        throw new StudyError('invalid_input', 'Citation Document is unavailable');
+
+      const document = readCanonicalDocument(documentId);
+      const target = citation.target;
+      const block = document.blocks.find((item) => item.id === target.blockId);
+
+      if (
+        !validDocumentTextRange(
+          document,
+          { versionId: citation.inputVersionId, documentId },
+          target
+        ) ||
+        !block?.text.slice(target.start, target.end).includes(citation.quote)
+      )
+        throw new StudyError('invalid_input', 'Citation target does not match input evidence');
+    }
+  }
+
   const setCitations = (input: Input, inheritedFrom?: MaterialVersionId) =>
     materialIntegrity(() => {
-      const destination = versionRow(input.id, true);
+      versionRow(input.id, true);
+
       const db = store.orm;
-      const inherited = inheritedFrom === undefined ? undefined : versionRow(inheritedFrom);
-      if (
-        inherited &&
-        (inherited.status !== 'published' ||
-          inherited.material_id !== destination.material_id ||
-          destination.kind !== 'document' ||
-          destination.creator !== 'user' ||
-          destination.operation !== 'edit' ||
-          destination.generation_request_id !== null ||
-          !db
-            .select()
-            .from(s.material_version_parents)
-            .where(
-              and(
-                eq(s.material_version_parents.version_id, input.id),
-                eq(s.material_version_parents.parent_version_id, inherited.id)
-              )
-            )
-            .get())
-      )
-        throw new StudyError(
-          'invalid_input',
-          'Citation inheritance requires retained published history'
-        );
-      const previous = inherited === undefined ? undefined : readCitations(inherited.id);
-      if (
-        previous !== undefined &&
-        !Schema.toEquivalence(setCitationsInputSchema.fields.citations)(previous, input.citations)
-      )
-        throw new StudyError(
-          'invalid_input',
-          'Inherited citations must match exact retained references'
-        );
+      const inherited = inheritedFrom !== undefined;
+
+      if (inherited) assertInheritedCitations(input, inheritedFrom);
 
       const inputs = db
         .select()
@@ -96,28 +130,7 @@ export function makeSetCitationsAction(resources: StoreResources) {
         .run();
 
       for (const citation of input.citations) {
-        if (inherited === undefined) versionRow(citation.inputVersionId);
-
-        if (inherited === undefined && citation.target) {
-          const documentId = versionDocumentId(citation.inputVersionId);
-
-          if (documentId === null)
-            throw new StudyError('invalid_input', 'Citation Document is unavailable');
-
-          const document = readCanonicalDocument(documentId);
-          const target = citation.target;
-          const block = document.blocks.find((item) => item.id === target.blockId);
-
-          if (
-            !validDocumentTextRange(
-              document,
-              { versionId: citation.inputVersionId, documentId },
-              target
-            ) ||
-            !block?.text.slice(target.start, target.end).includes(citation.quote)
-          )
-            throw new StudyError('invalid_input', 'Citation target does not match input evidence');
-        }
+        if (!inherited) assertLiveCitation(citation);
 
         db.insert(s.material_version_citations)
           .values({

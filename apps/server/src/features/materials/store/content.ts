@@ -198,6 +198,7 @@ export function makeContent(resources: StoreResources) {
         )
       )
       .get();
+
     if (!image || image.kind !== 'image' || !image.mime.toLowerCase().startsWith('image/'))
       throw new StudyError('invalid_input', 'Managed image revision is unavailable');
   }
@@ -212,6 +213,7 @@ export function makeContent(resources: StoreResources) {
       )
       .where(eq(s.material_document_versions.version_id, version.id))
       .all();
+
     for (const asset of assets) assertImageRevision(version, asset.sourceId, asset.revision);
   }
 

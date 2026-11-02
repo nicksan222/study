@@ -74,7 +74,11 @@ async function pendingReply(f: MaterialDeletionFixture, rewrite: boolean) {
 
       const selected = snapshot.context?.inputs[0];
 
-      assert.ok(selected);
+      assert.ok(selected?.documentId);
+
+      const excerpt = selected.excerpts[0];
+
+      assert.ok(excerpt);
 
       const publication = {
         requestId: completed.requestId,
@@ -86,6 +90,13 @@ async function pendingReply(f: MaterialDeletionFixture, rewrite: boolean) {
             materialVersionId: library.version.id,
             documentId: selected.documentId,
             blockOrdinal: 0,
+            selectedRange: {
+              versionId: selected.versionId,
+              documentId: selected.documentId,
+              blockId: excerpt.blockId,
+              start: excerpt.start,
+              end: excerpt.end
+            },
             quote: 'Published exact evidence'
           }
         ]

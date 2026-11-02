@@ -3,10 +3,10 @@
  * │ @file Exercises managed-image acquisition across accepted Material deletion.             │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Rejects new owners and late publication while retaining previously published copies.  │
+ * │ - Rejects new owners while retaining previously published image copies.                  │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Public RPC, migrated SQLite and native cleanup own behavior; fixtures own lifetime.       │
+ * │ Public RPC and native cleanup use migrated SQLite; fixtures own resource lifetime.       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -35,6 +35,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
   test(`deleted image rejects new acquisitions with ${owner} pre-existing owner`, async () => {
     const f = await documentTransformFixture();
     const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+
     try {
       const setup = await Effect.runPromise(
         Effect.gen(function* () {
@@ -47,6 +48,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
             archived: false,
             limit: 20
           })).items.find((item) => item.importProcessing?.sourceId === source.id)!;
+
           assert.ok(original);
           const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
           const document = () => ({
@@ -68,15 +70,18 @@ for (const owner of ['none', 'draft', 'published'] as const)
                   content: { kind: 'document', ...document() },
                   publish: owner === 'published'
                 });
+
           return { source, original, copy, document };
         }).pipe(Effect.scoped, Effect.provide(handlers()))
       );
+
       await acceptMaterialDeletion(f, setup.original.id);
       const assertBlocked = () =>
         Effect.runPromise(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
             const count = f.context.db.orm.select().from(s.document_assets).all().length;
+
             assert.equal(
               (yield* Effect.flip(
                 rpc('materials.createManualDocument', {
@@ -97,6 +102,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
               'invalid_input'
             );
             assert.equal(f.context.db.orm.select().from(s.document_assets).all().length, count);
+
             if (owner === 'draft' && setup.copy) {
               assert.equal(
                 (yield* Effect.flip(rpc('materials.publishVersion', { id: setup.copy.version.id })))
@@ -109,6 +115,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 )
               );
             }
+
             assert.equal(
               (yield* Effect.flip(
                 rpc('materials.materialVersionExport', { id: setup.original.version.id })
@@ -117,6 +124,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
             );
           }).pipe(Effect.scoped, Effect.provide(handlers()))
         );
+
       await assertBlocked();
       f.context.db.orm.run(
         sql`CREATE TRIGGER fail_image_cleanup BEFORE DELETE ON source_blobs BEGIN SELECT RAISE(ABORT,'injected'); END`
@@ -133,7 +141,9 @@ for (const owner of ['none', 'draft', 'published'] as const)
       await cleanupMaterial(f, setup.original.id);
       f.reopen();
       await assertBlocked();
+
       if (owner === 'none') assertSourceGone(f, setup.source.id);
+
       if (owner === 'published' && setup.copy) {
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -144,6 +154,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
               saveKey: 'retained-image',
               document: setup.document()
             });
+
             assert.equal(saved.outcome, 'saved');
             assert.equal(
               (yield* rpc('materials.materialVersion', { id: saved.submittedVersionId })).content
@@ -169,6 +180,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
 test('retained image draft replacements validate submitted ownership before writing content', async () => {
   const f = await documentTransformFixture();
   const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+
   try {
     const setup = await Effect.runPromise(
       Effect.gen(function* () {
@@ -181,6 +193,7 @@ test('retained image draft replacements validate submitted ownership before writ
           archived: false,
           limit: 20
         })).items.find((item) => item.importProcessing?.sourceId === source.id)!;
+
         assert.ok(original);
         const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
         const image = () =>
@@ -200,15 +213,19 @@ test('retained image draft replacements validate submitted ownership before writ
           inputs: [owner.version.id],
           publish: false
         });
+
         return { source, original, owner, unrelated, draft, body };
       }).pipe(Effect.scoped, Effect.provide(handlers()))
     );
+
     await acceptMaterialDeletion(f, setup.original.id);
+
     for (const phase of ['accepted', 'cleaned'] as const) {
       if (phase === 'cleaned') {
         await cleanupMaterial(f, setup.original.id);
         f.reopen();
       }
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
@@ -218,12 +235,15 @@ test('retained image draft replacements validate submitted ownership before writ
             content,
             inputs: [setup.owner.version.id]
           });
+
           assert.equal(replacement.content.kind, 'document');
           assert.deepEqual(replacement.inputs, [setup.owner.version.id]);
+
           for (const inputs of [[], [setup.unrelated.version.id], [setup.original.version.id]]) {
             const rejected = yield* Effect.flip(
               rpc('materials.replaceDraft', { id: setup.draft.version.id, content, inputs })
             );
+
             assert.equal(
               rejected.kind,
               inputs[0] === setup.original.version.id ? 'not_found' : 'invalid_input'
@@ -234,22 +254,26 @@ test('retained image draft replacements validate submitted ownership before writ
             );
           }
           // Source-owned Documents remain fenced; source-less creation and replacement above are admitted.
+
           assert.throws(() =>
             f.context.db.orm.run(
               sql`INSERT INTO documents(source_id,extractor,extractor_version,meta,created_at) VALUES(${setup.source.id},'text',1,'{}',1)`
             )
           );
+
           if (phase === 'accepted')
             assert.throws(() =>
               f.context.db.orm.run(
                 sql`UPDATE source_processing SET revision=revision+1 WHERE source_id=${setup.source.id}`
               )
             );
+
           if (phase === 'cleaned') {
             yield* rpc('materials.publishVersion', { id: setup.draft.version.id });
             const retained = yield* rpc('materials.materialVersion', {
               id: setup.draft.version.id
             });
+
             assert.equal(retained.status, 'published');
             assert.equal(
               f.context.db.orm

@@ -211,8 +211,11 @@ function makeDocumentEditing(resources: StoreResources) {
         )
         .where(eq(s.material_versions.id, id))
         .get();
+
       if (retiredMaterial) return true;
+
       const input = required(reads.readVersion(id));
+
       return input.material_id === base.material_id || head(input.material_id).id === id;
     });
   }

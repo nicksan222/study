@@ -34,6 +34,7 @@ import {
 test('deletion acceptance hides claim-owned assessments while retaining unrelated judgments', async () => {
   const f = await documentTransformFixture();
   const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+
   try {
     const saved = await Effect.runPromise(
       Effect.gen(function* () {
@@ -55,6 +56,7 @@ test('deletion acceptance hides claim-owned assessments while retaining unrelate
           end: 8
         };
         const claims = [];
+
         for (const note of ['PRIVATE_CLAIM_NOTE', 'Retained judgment']) {
           const claimBody = deletionDocument('Claim [1]');
           const claim = yield* rpc('materials.create', {
@@ -63,6 +65,7 @@ test('deletion acceptance hides claim-owned assessments while retaining unrelate
             inputs: [evidence.version.id],
             publish: false
           });
+
           yield* rpc('materials.setCitations', {
             id: claim.version.id,
             citations: [
@@ -98,7 +101,9 @@ test('deletion acceptance hides claim-owned assessments while retaining unrelate
           });
           claims.push(claim);
         }
+
         const removed = claims[0]!;
+
         return { removed, kept: claims[1]! };
       }).pipe(Effect.scoped, Effect.provide(handlers()))
     );
@@ -106,6 +111,7 @@ test('deletion acceptance hides claim-owned assessments while retaining unrelate
       Effect.runPromise(
         Effect.gen(function* () {
           const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+
           assert.equal(
             (yield* Effect.flip(
               rpc('materials.citationSupport', { versionId: saved.removed.version.id, marker: 1n })
@@ -116,12 +122,15 @@ test('deletion acceptance hides claim-owned assessments while retaining unrelate
             versionId: saved.kept.version.id,
             marker: 1n
           });
+
           assert.equal(kept.state, 'assessed');
           assert.equal(kept.assessment.note, 'Retained judgment');
         }).pipe(Effect.scoped, Effect.provide(handlers()))
       );
+
     await acceptMaterialDeletion(f, saved.removed.id);
     const cleanup = () => cleanupMaterial(f, saved.removed.id);
+
     await assertHidden();
     f.context.db.orm.run(
       sql`CREATE TRIGGER reject_assessment_cleanup BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT, 'injected'); END`

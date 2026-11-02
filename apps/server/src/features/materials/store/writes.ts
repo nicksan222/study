@@ -88,7 +88,9 @@ export function makeWrites(resources: StoreResources) {
     inputId: MaterialVersionId
   ) {
     const source = versionRow(sourceId);
+
     materialRow(source.material_id, true);
+
     if (
       version.kind !== 'document' ||
       version.creator !== 'user' ||
@@ -123,6 +125,30 @@ export function makeWrites(resources: StoreResources) {
       );
   }
 
+  function writeLink(
+    version: typeof s.material_versions.$inferSelect,
+    id: MaterialVersionId,
+    parent: boolean
+  ) {
+    if (parent)
+      store.orm
+        .insert(s.material_version_parents)
+        .values({
+          version_id: version.id,
+          parent_version_id: id,
+          material_id: version.material_id
+        })
+        .run();
+    else
+      store.orm
+        .insert(s.material_version_inputs)
+        .values({
+          version_id: version.id,
+          input_version_id: id
+        })
+        .run();
+  }
+
   function insertLinks(
     version: typeof s.material_versions.$inferSelect,
     links: { inputs?: readonly MaterialVersionId[]; parents?: readonly MaterialVersionId[] },
@@ -140,23 +166,7 @@ export function makeWrites(resources: StoreResources) {
         if (parent || inheritedFrom === undefined) assertLinkTarget(version, id, parent, imported);
         else assertInheritedInput(version, inheritedFrom, id);
 
-        if (parent)
-          store.orm
-            .insert(s.material_version_parents)
-            .values({
-              version_id: version.id,
-              parent_version_id: id,
-              material_id: version.material_id
-            })
-            .run();
-        else
-          store.orm
-            .insert(s.material_version_inputs)
-            .values({
-              version_id: version.id,
-              input_version_id: id
-            })
-            .run();
+        writeLink(version, id, parent);
       }
     }
   }

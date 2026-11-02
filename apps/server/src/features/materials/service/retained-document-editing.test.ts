@@ -30,6 +30,7 @@ import {
 test(`deletion preserves guarded editing and exact unavailable provenance of kept Documents`, async () => {
   const f = await documentTransformFixture();
   const handlers = () => MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()));
+
   try {
     const setup = await Effect.runPromise(
       Effect.gen(function* () {
@@ -57,6 +58,7 @@ test(`deletion preserves guarded editing and exact unavailable provenance of kep
           inputs: [evidence.version.id],
           publish: false
         });
+
         yield* rpc('materials.setCitations', {
           id: claim.version.id,
           citations: [
@@ -70,16 +72,20 @@ test(`deletion preserves guarded editing and exact unavailable provenance of kep
           ]
         });
         yield* rpc('materials.publishVersion', { id: claim.version.id });
+
         return { evidence, claim, target };
       }).pipe(Effect.scoped, Effect.provide(handlers()))
     );
+
     await acceptMaterialDeletion(f, setup.evidence.id);
     let currentId = setup.claim.version.id;
+
     for (const phase of ['accepted', 'cleaned'] as const) {
       if (phase === 'cleaned') {
         await cleanupMaterial(f, setup.evidence.id);
         f.reopen();
       }
+
       currentId = await Effect.runPromise(
         Effect.gen(function* () {
           const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
@@ -90,6 +96,7 @@ test(`deletion preserves guarded editing and exact unavailable provenance of kep
             document: deletionDocument(`Edited ${phase} [1]`)
           };
           const saved = yield* rpc('materials.saveDocument', input);
+
           assert.equal(saved.outcome, 'saved');
           assert.deepEqual(yield* rpc('materials.saveDocument', input), {
             ...saved,
@@ -99,6 +106,7 @@ test(`deletion preserves guarded editing and exact unavailable provenance of kep
             ...input,
             saveKey: `conflict-${phase}`
           });
+
           assert.equal(conflict.outcome, 'conflict');
           const undo = yield* rpc('materials.undoDocument', {
             materialId: setup.claim.id,
@@ -106,21 +114,26 @@ test(`deletion preserves guarded editing and exact unavailable provenance of kep
             restoreVersionId: setup.claim.version.id,
             undoKey: `undo-${phase}`
           });
+
           assert.equal(undo.outcome, 'saved');
+
           for (const id of [
             saved.submittedVersionId,
             undo.submittedVersionId,
             conflict.submittedVersionId
           ]) {
             const version = yield* rpc('materials.materialVersion', { id });
+
             assert.deepEqual(version.inputs, [setup.evidence.version.id]);
-            const citations = yield* rpc('materials.citations', { id });
+            const { items: citations } = yield* rpc('materials.citations', { id, limit: 10 });
+
             assert.equal(citations.length, 1);
             assert.deepEqual(citations[0]!.target, setup.target);
             assert.equal(citations[0]!.inputVersionId, setup.evidence.version.id);
             assert.equal(citations[0]!.quote, 'Evidence');
             assert.equal(citations[0]!.evidence?.availability, 'unavailable');
           }
+
           assert.equal(
             (yield* Effect.flip(
               rpc('materials.materialVersion', { id: setup.evidence.version.id })
@@ -138,6 +151,7 @@ test(`deletion preserves guarded editing and exact unavailable provenance of kep
             )).kind,
             'not_found'
           );
+
           return undo.submittedVersionId;
         }).pipe(Effect.scoped, Effect.provide(handlers()))
       );
