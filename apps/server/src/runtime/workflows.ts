@@ -16,6 +16,7 @@
 
 import { Layer } from 'effect';
 
+import { sessionDeletionRegistration } from '#server/features/conversations/workflows/deletion';
 import {
   conversationReplyRegistration,
   conversationAttachmentWakeRegistration
@@ -35,6 +36,7 @@ import { sourceIngestionRegistration } from '#server/features/sources/workflows/
 
 /** Each workflow is registered once with its durable event subscriptions. */
 const entries = [
+  sessionDeletionRegistration,
   practiceFailureRegistration,
   conversationAttachmentWakeRegistration,
   recordingPostRegistration,

@@ -161,11 +161,6 @@ export const SessionStore = defineStore({
 
             return present(updated);
           }
-        }),
-        deleteSession: storeMutation({
-          input: sessionIdSchema,
-          output: Schema.Boolean,
-          run: (id) => db.orm.delete(sessions).where(eq(sessions.id, id)).run().changes !== 0n
         })
       }
     };

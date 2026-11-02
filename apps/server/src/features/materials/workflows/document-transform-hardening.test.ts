@@ -25,6 +25,7 @@ import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
 import { workflowStore } from '#server/platform/workflows/store';
 import { documentTransformFixture } from '#testing/document-transform';
+import { withTestPublication } from '#testing/publication';
 
 import { materialGenerationHandler, materialGenerationWorkflow } from './generation.ts';
 
@@ -152,7 +153,13 @@ test('actual provider JSON images persist as canonical bigint assets and survive
           (yield* materials.materialVersion({ id: setup.original.version.id })).content,
           setup.original.version.content
         );
-        yield* (yield* Conversations).deleteSession(setup.session.id);
+        const chats = yield* Conversations;
+
+        yield* chats.deleteSession(setup.session.id);
+        yield* withTestPublication(
+          fixture.context,
+          chats.finishSessionDeletion(setup.session.id).pipe(Effect.asVoid)
+        );
         const retained = yield* materials.materialVersion({ id: result });
 
         assert.deepEqual(retained.content, read.content);
@@ -162,7 +169,7 @@ test('actual provider JSON images persist as canonical bigint assets and survive
         );
       }).pipe(Effect.provide(fixture.domain()))
     );
-    assert.equal(await fixture.execute(event, 'image-after-session-delete'), result);
+    await assert.rejects(fixture.execute(event, 'image-after-session-delete'));
     assert.equal(fixture.bodies.length, 2);
     assert.equal(
       fixture.context.db.orm.all(

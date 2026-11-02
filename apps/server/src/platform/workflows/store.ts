@@ -14,12 +14,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import { and, eq, getTableColumns, gt, inArray, isNull, lte, or, sql } from '@study/db';
 import {
   workflow_activities,
   workflow_clocks,
   workflow_deferreds,
-  workflow_executions
+  workflow_executions,
+  workflow_retired_correlations,
+  workflow_retired_executions
 } from '@study/db/schema';
 
 import type { ServerContext } from '#server/platform/database/context';
@@ -33,9 +36,16 @@ const recoveryBatchSize = 1000;
 /** Synchronous durable checkpoints. The owner token fences stale execution fibers. */
 export function workflowStore(context: ServerContext) {
   const db = context.db.orm;
+  const executionRetired = (id: string) =>
+    !!db
+      .select()
+      .from(workflow_retired_executions)
+      .where(eq(workflow_retired_executions.execution_id, id))
+      .get();
   const now = () => BigInt(context.clock.currentTimeMillisUnsafe());
 
   return {
+    retired: (id: string) => executionRetired(id),
     execution: (id: string) =>
       db.select().from(workflow_executions).where(eq(workflow_executions.execution_id, id)).get(),
     start(id: string, tag: string, payload: string, parent: string | undefined) {
@@ -47,11 +57,24 @@ export function workflowStore(context: ServerContext) {
           .get();
 
         if (row) {
+          if (executionRetired(id)) return row;
+
           if (row.workflow_tag !== tag || row.payload !== payload)
             throw new Error('Workflow execution identity collision');
 
           return row;
         }
+
+        if (
+          db
+            .select()
+            .from(workflow_retired_correlations)
+            .where(
+              sql`${workflow_retired_correlations.correlation_id} = json_extract(${payload}, '$.event.correlationId') AND ${workflow_retired_correlations.event_type} = json_extract(${payload}, '$.event.type')`
+            )
+            .get()
+        )
+          throw new StudyError('cancelled', 'Workflow correlation has been retired');
 
         db.insert(workflow_executions)
           .values({
@@ -102,6 +125,8 @@ export function workflowStore(context: ServerContext) {
       return undefined;
     },
     claim(id: string, owner: string) {
+      if (executionRetired(id)) return false;
+
       const time = now();
 
       return (
@@ -160,6 +185,8 @@ export function workflowStore(context: ServerContext) {
       result: string,
       status: 'completed' | 'suspended' | 'cancelled'
     ) {
+      if (executionRetired(id)) return;
+
       const changed = db
         .update(workflow_executions)
         .set({ result, status, owner_token: null, updated_at: now() })
@@ -211,6 +238,8 @@ export function workflowStore(context: ServerContext) {
         .get()?.result;
     },
     assertOwner(id: string, owner: string) {
+      if (executionRetired(id)) throw new Error('Workflow owner was retired');
+
       const row = db
         .select({ id: workflow_executions.execution_id })
         .from(workflow_executions)
@@ -227,6 +256,8 @@ export function workflowStore(context: ServerContext) {
     },
     saveDeferred(id: string, name: string, result: string, source?: { id: string; owner: string }) {
       return context.transaction(() => {
+        if (executionRetired(id)) return false;
+
         if (source) this.assertOwner(source.id, source.owner);
 
         return (
@@ -247,6 +278,7 @@ export function workflowStore(context: ServerContext) {
         .where(
           and(
             eq(workflow_executions.status, 'running'),
+            sql`NOT EXISTS (SELECT 1 FROM workflow_retired_executions r WHERE r.execution_id = ${workflow_executions.execution_id})`,
             inArray(workflow_executions.workflow_tag, [...tags]),
             or(
               isNull(workflow_executions.owner_token),

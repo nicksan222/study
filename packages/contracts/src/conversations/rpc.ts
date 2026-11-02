@@ -17,6 +17,7 @@ import {
   captureSessionContextSchema,
   runSelectionContextSchema
 } from './context.ts';
+import { sessionDeletionSchema } from './deletion.ts';
 import {
   replySnapshotInputSchema,
   replySnapshotSchema,
@@ -200,9 +201,19 @@ export const ConversationsRpc = RpcGroup.make(
     success: sessionSchema,
     error: failureSchema
   }),
+  Rpc.make('sessionDeletion', {
+    payload: sessionIdInputSchema,
+    success: sessionDeletionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('retrySessionDeletion', {
+    payload: sessionIdInputSchema,
+    success: sessionDeletionSchema,
+    error: failureSchema
+  }),
   Rpc.make('deleteSession', {
     payload: sessionIdInputSchema,
-    success: Schema.Boolean,
+    success: sessionDeletionSchema,
     error: failureSchema
   })
 ).prefix('conversations.');

@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { WorkflowEvent } from '@study/contracts/events';
 import type {
   executionSchema,
   cancelExecutionInputSchema,
@@ -26,6 +27,7 @@ import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import { useStore } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
+import { WorkflowRetirementStore } from '#server/platform/workflows/retirement';
 
 function* makeWorkflows() {
   const changes = yield* databaseChanges;
@@ -78,7 +80,14 @@ function* makeWorkflows() {
 }
 
 export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflows), {
-  correlatedExecutions
+  correlatedExecutions,
+  retireCorrelations: (
+    tx: Transaction,
+    ids: readonly string[],
+    eventTypes: readonly WorkflowEvent['type'][]
+  ) => tx.store(WorkflowRetirementStore).fence({ ids, eventTypes }),
+  scrubRetiredCorrelations: (tx: Transaction, ids: readonly string[]) =>
+    tx.store(WorkflowRetirementStore).scrub(ids)
 });
 
 /** Inspect native runs in a caller transaction without transferring execution ownership. */

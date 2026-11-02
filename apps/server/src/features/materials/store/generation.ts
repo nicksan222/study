@@ -177,6 +177,15 @@ export function makeGeneration(resources: StoreResources) {
 
     if (!row) return null;
 
+    if (
+      db.orm
+        .select()
+        .from(s.session_generation_retirements)
+        .where(eq(s.session_generation_retirements.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Session generation has been retired');
+
     const inputs = db.orm
       .select({
         versionId: s.material_generation_inputs.version_id,

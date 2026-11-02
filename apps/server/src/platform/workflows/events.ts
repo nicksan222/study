@@ -14,9 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import { workflowEventSchema } from '@study/contracts/events';
 import type { WorkflowEvent } from '@study/contracts/events';
-import { workflowEvents } from '@study/db/schema';
+import { and, eq } from '@study/db';
+import { workflowEvents, workflow_retired_correlations } from '@study/db/schema';
 import { Schema } from 'effect';
 
 import type { ServerContext } from '#server/platform/database/context';
@@ -33,6 +35,20 @@ const validateEvent = Schema.decodeUnknownSync(workflowEventSchema);
 export function emitEvent(context: ServerContext, event: WorkflowEvent, createdAt: number): void {
   context.assertTransactionActive();
   const validated = validateEvent(event);
+
+  if (
+    context.db.orm
+      .select()
+      .from(workflow_retired_correlations)
+      .where(
+        and(
+          eq(workflow_retired_correlations.correlation_id, validated.correlationId),
+          eq(workflow_retired_correlations.event_type, validated.type)
+        )
+      )
+      .get()
+  )
+    throw new StudyError('cancelled', 'Workflow correlation has been retired');
 
   context.db.orm
     .insert(workflowEvents)

@@ -83,3 +83,18 @@ export const workflow_clocks = sqliteTable(
     index('workflow_clocks_due_idx').on(t.due_at)
   ]
 );
+
+/** Content-free fences survive payload scrubbing and duplicate event delivery. */
+export const workflow_retired_correlations = sqliteTable(
+  'workflow_retired_correlations',
+  {
+    correlation_id: text().notNull(),
+    event_type: text().notNull()
+  },
+  (t) => [primaryKey({ columns: [t.correlation_id, t.event_type] })]
+);
+
+export const workflow_retired_executions = sqliteTable('workflow_retired_executions', {
+  execution_id: text().primaryKey(),
+  correlation_id: text().notNull()
+});

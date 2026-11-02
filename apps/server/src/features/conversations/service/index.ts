@@ -20,6 +20,7 @@ import type {
   captureSessionContextSchema,
   updateSessionSelectionSchema
 } from '@study/contracts/conversations/context';
+import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import type {
   createSessionInputSchema,
   editMessageInputSchema,
@@ -37,6 +38,7 @@ import type {
   reanswerInputSchema,
   rewriteMessageInputSchema
 } from '@study/contracts/conversations/schemas';
+import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
 import type * as editing from '@study/contracts/materials/editing';
@@ -52,6 +54,7 @@ import {
   RetainedSessionContextStore,
   SessionContextIntentStore
 } from '#server/features/conversations/store/context';
+import { SessionDeletionStore } from '#server/features/conversations/store/deletion';
 import { SessionStore } from '#server/features/conversations/store/index';
 import { MessageStore } from '#server/features/conversations/store/message';
 import { RecordingPostStore } from '#server/features/conversations/store/recording';
@@ -65,6 +68,7 @@ import {
 import { TitleStore } from '#server/features/conversations/store/title';
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
+import { Workflows } from '#server/features/workflows/index';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import {
@@ -400,8 +404,66 @@ export const Conversations = defineService(
         transaction((tx) =>
           tx.store(SessionStore).createSession({ ...input, titleSource: 'user' })
         ),
+      sessionDeletionExecutions: (id: SessionId) =>
+        transaction((tx) =>
+          Workflows.retireCorrelations(tx, deletionCorrelations(tx, id), deletionEventTypes)
+        ),
+      sessionDeletion: (id: SessionId) =>
+        transaction((tx) => tx.store(SessionDeletionStore).sessionDeletion(id)),
+      retrySessionDeletion: (id: SessionId) =>
+        transaction((tx) => {
+          const previous = tx.store(SessionDeletionStore).sessionDeletion(id);
+          const result = tx.store(SessionDeletionStore).retry(id);
+
+          if (previous.status === 'failed') emitDeletion(tx, result);
+
+          return result;
+        }),
+      finishSessionDeletion: (id: SessionId) =>
+        publicationTransaction((tx) => {
+          Materials.scrubSessionRetirement(tx, id);
+          const status = tx.store(SessionDeletionStore).sessionDeletion(id);
+
+          Workflows.scrubRetiredCorrelations(tx, deletionCorrelations(tx, id));
+
+          return tx
+            .store(SessionDeletionStore)
+            .settle({ sessionId: status.sessionId, errorKind: null });
+        }),
+      failSessionDeletion: (value: {
+        sessionId: SessionId;
+        errorKind: ErrorKind;
+        attempt: number;
+      }) => transaction((tx) => tx.store(SessionDeletionStore).settle(value)),
       deleteSession: (id: SessionId) =>
-        transaction((tx) => tx.store(SessionStore).deleteSession(id))
+        transaction((tx) => {
+          const existing = tx.store(SessionDeletionStore).findSessionDeletion(id);
+
+          if (Option.isSome(existing)) return existing.value;
+
+          const owned = tx.store(SessionDeletionStore).deletionOwnership(id);
+          const status = tx
+            .store(SessionDeletionStore)
+            .accept({ sessionId: id, operationId: randomUUID() });
+          const generations = Materials.prepareSessionRetirement(tx, {
+            sessionId: id,
+            contextIds: owned.contextIds
+          });
+
+          tx.store(SessionDeletionStore).retainCorrelations({
+            sessionId: id,
+            correlations: [...owned.correlations, ...generations]
+          });
+          Workflows.retireCorrelations(
+            tx,
+            [...owned.correlations, ...generations],
+            deletionEventTypes
+          );
+          tx.store(SessionDeletionStore).removeConversation(id);
+          emitDeletion(tx, status);
+
+          return status;
+        })
     };
   })
 );
@@ -547,3 +609,29 @@ function proposalContext(tx: Transaction, value: typeof editing.proposalKeySchem
 
   return context;
 }
+
+function deletionCorrelations(tx: Transaction, id: SessionId) {
+  return tx.store(SessionDeletionStore).deletionCorrelations(id);
+}
+
+function emitDeletion(tx: Transaction, value: typeof sessionDeletionSchema.Type) {
+  tx.emit({
+    type: 'SessionDeletionRequested',
+    eventId: `${value.operationId}/${value.attempt}`,
+    causationId: null,
+    correlationId: value.operationId,
+    inputVersion: 1,
+    depth: 0,
+    sessionId: value.sessionId,
+    attempt: value.attempt
+  });
+}
+
+/** Source extraction and MaterialPublished notifications have independent library ownership. */
+const deletionEventTypes = [
+  'ConversationGenerationRequested',
+  'ConversationTitleRequested',
+  'RecordingPostRequested',
+  'MaterialGenerationRequested',
+  'MaterialGenerationFailed'
+] as const;
