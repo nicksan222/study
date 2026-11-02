@@ -120,6 +120,7 @@ for (const [name, text] of [
                 }
               })
             );
+
             retainedDocumentId = published.documentId;
             yield* sources.correctBlock({
               id: source.id,
@@ -153,6 +154,7 @@ for (const [name, text] of [
               retainedDocumentId
             );
           }
+
           assert.equal(
             context.db.orm.select().from(tables.documents).all().length,
             retainedDocumentId === null ? 0 : 1
@@ -169,6 +171,7 @@ for (const [name, text] of [
             (yield* materials.materialVersionExport({ id: original.version.id })).bytes,
             new Uint8Array(bytes)
           );
+
           if (retainedDocumentId !== null)
             assert.equal(
               (yield* sources.document({

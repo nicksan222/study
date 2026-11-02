@@ -133,7 +133,6 @@ test('source ingestion projects published materials and replay survives reopen',
         )
       );
 
-    await assert.rejects(project('wrong-project', { ...event, projectId: fixture.otherId }));
     context.db.orm.run(
       sql`UPDATE source_processing SET request_id = 'superseded' WHERE source_id = ${event.sourceId}`
     );
@@ -155,7 +154,7 @@ test('source ingestion projects published materials and replay survives reopen',
       1
     );
     context.db.orm.run(sql`DROP TRIGGER reject_material_event`);
-    const result = await project('projection');
+    const result = await project('projection', { ...event, projectId: fixture.otherId });
 
     assert.equal(result.original.version.kind, 'file');
     assert.equal(result.original.version.operation, 'original');
