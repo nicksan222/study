@@ -100,7 +100,11 @@ export const MaterialDeletionGenerationStore = defineStore({
           output: Schema.Array(Schema.String),
           run: prepare
         }),
-        scrub: retirement.deletionScrub
+        scrub: storeMutation({
+          input: materialIdSchema,
+          output: Schema.Void,
+          run: retirement.scrubDeletion
+        })
       }
     };
   }

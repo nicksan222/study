@@ -12,14 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { materialIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId, MaterialId } from '@study/contracts/ids';
 import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { eq, inArray, and, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
-import { storeMutation } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeProposalRetirement } from './session-retirement.ts';
@@ -169,15 +167,7 @@ export function makeGenerationRetirement(resources: StoreResources) {
     isScrubbed,
     retainRequest,
     scrubRequest,
-    deletionScrub: storeMutation({
-      input: materialIdSchema,
-      output: Schema.Void,
-      run: (id) => scrubOwnedRequests({ kind: 'deletion', id })
-    }),
-    historyScrub: storeMutation({
-      input: Schema.String,
-      output: Schema.Void,
-      run: (id) => scrubOwnedRequests({ kind: 'history', id })
-    })
+    scrubDeletion: (id: MaterialId) => scrubOwnedRequests({ kind: 'deletion', id }),
+    scrubHistory: (id: string) => scrubOwnedRequests({ kind: 'history', id })
   };
 }

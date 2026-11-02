@@ -81,7 +81,11 @@ export const MaterialHistoryGenerationStore = defineStore({
           output: Schema.Array(Schema.String),
           run: prepare
         }),
-        scrub: retirement.historyScrub
+        scrub: storeMutation({
+          input: Schema.String,
+          output: Schema.Void,
+          run: retirement.scrubHistory
+        })
       }
     };
   }
