@@ -13,6 +13,7 @@ export const source_history_documents = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.operation_id, t.document_id] })]
 );
+
 export const source_history_revisions = sqliteTable(
   'source_history_revisions',
   {

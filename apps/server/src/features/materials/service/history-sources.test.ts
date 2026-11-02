@@ -337,7 +337,45 @@ for (const managed of [false, true]) {
 
         assert.equal(version.content.kind, 'document');
 
-        assert.deepEqual(sourceBytes(f, saved.source.id), saved.bytes);
+        assert.deepEqual(version, roots.copy.version);
+
+        assert.equal(
+          f.context.db.orm
+            .select()
+            .from(s.source_blobs)
+            .where(eq(s.source_blobs.source_id, saved.source.id))
+            .get(),
+          undefined
+        );
+
+        const asset = f.context.db.orm
+          .select()
+          .from(s.document_assets)
+          .where(eq(s.document_assets.source_id, saved.source.id))
+          .get();
+
+        assert.ok(asset);
+
+        assert.equal(asset.revision, 1n);
+
+        assert.equal(
+          f.context.db.orm
+            .select()
+            .from(s.material_document_versions)
+            .where(eq(s.material_document_versions.version_id, roots.copy.version.id))
+            .get()?.document_id,
+          asset.document_id
+        );
+
+        const snapshot = f.context.db.orm
+          .select()
+          .from(s.source_snapshots)
+          .where(eq(s.source_snapshots.source_id, saved.source.id))
+          .get();
+
+        assert.equal(snapshot?.revision, asset.revision);
+
+        assert.deepEqual(new Uint8Array(snapshot!.bytes), saved.bytes);
 
         await acceptMaterialDeletion(f, roots.copy.id);
 

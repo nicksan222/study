@@ -258,6 +258,7 @@ export const MaterialDeletionStore = defineStore({
                 .get()
             )
               throw new StudyError('invalid_input', 'Material history cleanup is pending');
+
             const current = preview(input.materialId);
 
             if (current.token !== input.token)

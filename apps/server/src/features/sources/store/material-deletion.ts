@@ -23,6 +23,8 @@ import { Schema } from 'effect';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
+import { makeDocumentRetirement } from './document-retirement.ts';
+
 function makeDeletionScope({ db }: StoreResources) {
   return (id: typeof materialIdSchema.Type) => {
     const members = db.orm
@@ -42,7 +44,10 @@ function makeDeletionScope({ db }: StoreResources) {
   };
 }
 
-function makeScrubUnretainedDocuments({ db }: StoreResources) {
+function makeScrubUnretainedDocuments(resources: StoreResources) {
+  const { db } = resources;
+  const retirement = makeDocumentRetirement(resources);
+
   return (sourceId: typeof sourceIdSchema.Type) => {
     const documents = db.orm
       .select()
@@ -51,23 +56,9 @@ function makeScrubUnretainedDocuments({ db }: StoreResources) {
       .all();
 
     for (const doc of documents) {
-      if (
-        db.orm
-          .select()
-          .from(s.material_source_snapshots)
-          .where(eq(s.material_source_snapshots.document_id, doc.id))
-          .get() ||
-        db.orm
-          .select()
-          .from(s.material_document_versions)
-          .where(eq(s.material_document_versions.document_id, doc.id))
-          .get()
-      )
-        continue;
+      if (retirement.hasVersionPin(doc.id)) continue;
 
-      db.orm.delete(s.blocks).where(eq(s.blocks.document_id, doc.id)).run();
-
-      db.orm.delete(s.documents).where(eq(s.documents.id, doc.id)).run();
+      retirement.removeDocument(doc.id);
     }
   };
 }

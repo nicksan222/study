@@ -111,6 +111,53 @@ function assertRetired(f: MaterialDeletionFixture, id: string) {
   );
 }
 
+function queueHistoricalOutput(
+  f: Awaited<ReturnType<typeof documentTransformFixture>>,
+  transform: boolean
+) {
+  f.replies.push(
+    { kind: 'sources', query: 'generation evidence' },
+    {
+      kind: 'output',
+      output: transform
+        ? validDocumentTransformOutput('GENERATED_HISTORICAL_BODY [1]')
+        : {
+            kind: 'flashcards',
+            cards: [{ front: 'GENERATED_HISTORICAL_BODY [1]', back: 'Shared generation evidence' }]
+          }
+    }
+  );
+}
+
+function assertNativeRetired(f: Awaited<ReturnType<typeof documentTransformFixture>>) {
+  const native = workflowStore(f.context).execution('history-generated');
+
+  assert.ok(native);
+
+  assert.equal(native.payload, '{}');
+
+  assert.equal(native.result, null);
+
+  assert.equal(native.owner_token, null);
+
+  assert.deepEqual(
+    f.context.db.orm
+      .select()
+      .from(s.workflow_activities)
+      .where(eq(s.workflow_activities.execution_id, 'history-generated'))
+      .all(),
+    []
+  );
+
+  assert.ok(
+    f.context.db.orm
+      .select()
+      .from(s.workflow_retired_executions)
+      .where(eq(s.workflow_retired_executions.execution_id, 'history-generated'))
+      .get()
+  );
+}
+
 for (const transform of [false, true]) {
   for (const retireInputFirst of [false, true]) {
     test(`${transform ? 'no-target Document' : 'generated aid'} history preserves generation ownership when input retirement is ${retireInputFirst ? 'completed first' : 'not involved'}`, async () => {
@@ -121,20 +168,7 @@ for (const transform of [false, true]) {
 
         const event = f.event(saved.request.id);
 
-        f.replies.push(
-          { kind: 'sources', query: 'generation evidence' },
-          {
-            kind: 'output',
-            output: transform
-              ? validDocumentTransformOutput('GENERATED_HISTORICAL_BODY [1]')
-              : {
-                  kind: 'flashcards',
-                  cards: [
-                    { front: 'GENERATED_HISTORICAL_BODY [1]', back: 'Shared generation evidence' }
-                  ]
-                }
-          }
-        );
+        queueHistoricalOutput(f, transform);
 
         await f.execute(event, 'history-generated');
 
@@ -262,32 +296,7 @@ for (const transform of [false, true]) {
 
         if (!transform || retireInputFirst) assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
 
-        const native = workflowStore(f.context).execution('history-generated');
-
-        assert.ok(native);
-
-        assert.equal(native.payload, '{}');
-
-        assert.equal(native.result, null);
-
-        assert.equal(native.owner_token, null);
-
-        assert.deepEqual(
-          f.context.db.orm
-            .select()
-            .from(s.workflow_activities)
-            .where(eq(s.workflow_activities.execution_id, 'history-generated'))
-            .all(),
-          []
-        );
-
-        assert.ok(
-          f.context.db.orm
-            .select()
-            .from(s.workflow_retired_executions)
-            .where(eq(s.workflow_retired_executions.execution_id, 'history-generated'))
-            .get()
-        );
+        assertNativeRetired(f);
 
         await Effect.runPromise(
           Effect.gen(function* () {

@@ -15,7 +15,7 @@
 
 import { StudyError } from '@study/contracts/errors';
 import { materialIdSchema } from '@study/contracts/ids';
-import { eq, inArray, and } from '@study/db';
+import { eq, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -62,7 +62,8 @@ export const MaterialDeletionGenerationStore = defineStore({
         .select()
         .from(s.material_versions)
         .where(inArray(s.material_versions.material_id, members))
-        .all();
+        .all()
+        .map((version) => version.id);
 
       const ids = retirement.affectedRequests(versions, contextIds).map((request) => request.id);
 
@@ -70,7 +71,10 @@ export const MaterialDeletionGenerationStore = defineStore({
 
       for (const id of ids) {
         const owner = db.orm
-          .select()
+          .select({
+            deletion_id: s.material_deletion_requests.deletion_id,
+            kind: s.material_deletion_requests.kind
+          })
           .from(s.material_deletion_requests)
           .where(eq(s.material_deletion_requests.request_id, id))
           .get();
@@ -102,22 +106,7 @@ export const MaterialDeletionGenerationStore = defineStore({
         scrub: storeMutation({
           input: materialIdSchema,
           output: Schema.Void,
-          run: (id) => {
-            const requests = db.orm
-              .select({ request_id: s.material_deletion_requests.request_id })
-              .from(s.material_deletion_requests)
-              .where(
-                and(
-                  eq(s.material_deletion_requests.deletion_id, id),
-                  eq(s.material_deletion_requests.kind, 'generation')
-                )
-              )
-              .all();
-
-            for (const r of requests) {
-              retirement.scrubRequest(r.request_id);
-            }
-          }
+          run: (id) => retirement.scrubOwnedRequests({ kind: 'deletion', id })
         })
       }
     };

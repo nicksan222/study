@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { eq, sql } from '@study/db';
+import { DrizzleQueryError, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Effect, Exit } from 'effect';
 import { DurableDeferred, WorkflowEngine } from 'effect/workflow';
@@ -421,6 +421,28 @@ for (const checkpoint of [false, true]) {
           .run()
       );
 
+      const freshMessage = f.context.db.orm
+        .insert(s.messages)
+        .values({
+          session_id: saved.unrelated.sessionId,
+          role: 'assistant',
+          created_at: 1n
+        })
+        .returning()
+        .get();
+
+      const freshVersion = f.context.db.orm
+        .insert(s.message_versions)
+        .values({
+          message_id: freshMessage.id,
+          number: 1n,
+          origin: 'answer',
+          status: 'pending',
+          created_at: 1n
+        })
+        .returning()
+        .get();
+
       assert.throws(
         () =>
           f.context.db.orm
@@ -428,15 +450,56 @@ for (const checkpoint of [false, true]) {
             .values({
               request_id: 'fresh-pruned-attachment',
               session_id: saved.unrelated.sessionId,
-              version_id: saved.unrelated.versionId,
+              version_id: freshVersion.id,
               snapshot: JSON.stringify(
                 { ...saved.snapshot, requestId: 'fresh-pruned-attachment' },
                 (_, value) => (typeof value === 'bigint' ? String(value) : value)
               )
             })
             .run(),
-        (error: unknown) => error instanceof Error && 'errcode' in error && error.errcode === 1811
+        (error: unknown) => {
+          assert.ok(error instanceof DrizzleQueryError);
+          assert.ok(error.cause instanceof Error);
+          assert.ok('errcode' in error.cause);
+          assert.equal(error.cause.errcode, 1811);
+          assert.ok('code' in error.cause);
+          assert.equal(error.cause.code, 'ERR_SQLITE_ERROR');
+
+          return true;
+        }
       );
+
+      // The same fresh request/version succeeds when only the historical Document is replaced.
+      // This excludes uniqueness, FK and pending-message failures from the rejected insertion.
+      const currentSnapshot = {
+        ...saved.snapshot,
+        requestId: 'fresh-pruned-attachment',
+        messages: saved.snapshot.messages.map((message) => ({
+          ...message,
+          attachments: message.attachments.map((attachment) =>
+            attachment.sourceId === source.id && attachment.documentId === old.documentId
+              ? { ...attachment, documentId: current.documentId }
+              : attachment
+          )
+        }))
+      };
+
+      f.context.db.orm
+        .insert(s.conversation_reply_requests)
+        .values({
+          request_id: 'fresh-pruned-attachment',
+          session_id: saved.unrelated.sessionId,
+          version_id: freshVersion.id,
+          snapshot: JSON.stringify(currentSnapshot, (_, value) =>
+            typeof value === 'bigint' ? String(value) : value
+          )
+        })
+        .run();
+
+      f.context.db.orm
+        .delete(s.conversation_reply_requests)
+        .where(eq(s.conversation_reply_requests.request_id, 'fresh-pruned-attachment'))
+        .run();
 
       await Effect.runPromise(
         Effect.gen(function* () {

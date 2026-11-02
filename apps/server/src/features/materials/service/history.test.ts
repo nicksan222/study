@@ -37,6 +37,7 @@ test('retention policy and explicit candidate scope have positive finite bounds'
   assert.deepEqual(policy({ keepLatest: 1000 }), { keepLatest: 1000 });
 
   for (const keepLatest of [0, -1, 1001, 1.5]) assert.throws(() => policy({ keepLatest }));
+
   const ids = Schema.decodeUnknownSync(historyVersionIdsSchema);
 
   assert.throws(() => ids([1n, 1n]));
@@ -73,7 +74,7 @@ test('native RPC previews referenced exact history, prunes it and preserves the 
 
         const current = yield* m.material({ id: root.id });
 
-        const client = yield* RpcTest.makeClient(MaterialsRpc).pipe(
+        const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true }).pipe(
           Effect.provide(MaterialsRpcLive),
           Effect.provide(Layer.succeed(Materials, m))
         );
@@ -119,7 +120,7 @@ test('native RPC previews referenced exact history, prunes it and preserves the 
           assert.equal(evidence.reason, 'version_pruned');
 
         return { root, kept, current, derivative, input };
-      }).pipe(Effect.provide(f.domain()))
+      }).pipe(Effect.provide(f.domain()), Effect.scoped)
     );
 
     await cleanup(f, saved.input.operationId);
@@ -216,7 +217,8 @@ test('preview invalidates on new content, scope cannot expand, drafts are protec
 
         const draft = yield* m.createVersion({
           materialId: root.id,
-          content: { kind: 'document', ...deletionDocument('draft') }
+          content: { kind: 'document', ...deletionDocument('draft') },
+          publish: false
         });
 
         const latest = yield* m.createVersion({
@@ -238,6 +240,10 @@ test('preview invalidates on new content, scope cannot expand, drafts are protec
         );
 
         const preview = yield* m.previewHistoryPrune(scope);
+
+        assert.equal(draft.status, 'draft');
+
+        assert.ok(!preview.candidateIds.includes(draft.id));
 
         assert.ok(preview.protected.some((p) => p.versionId === draft.id && p.reason === 'draft'));
 

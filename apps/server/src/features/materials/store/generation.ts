@@ -177,6 +177,7 @@ export function makeGeneration(resources: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Generation input history is unavailable');
+
     if (
       db.orm
         .select()

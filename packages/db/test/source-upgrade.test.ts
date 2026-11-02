@@ -247,7 +247,11 @@ test('history guards upgrade populated publications without counting a newer tom
     const old = new DatabaseSync(path, { readBigInts: true });
 
     try {
+      old.exec('PRAGMA foreign_keys=OFF');
+
       migrate(drizzle({ client: old }), { migrationsFolder: oldMigrations });
+
+      old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
       old.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','Upgrade history',1,1);
         INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1),(2,1,'diagram',2,1),(3,1,'diagram',3,1);
         INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','old'),(2,'mermaid','middle'),(3,'mermaid','current');

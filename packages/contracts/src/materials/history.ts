@@ -12,17 +12,21 @@ import {
 export const historyPolicySchema = Schema.Struct({
   keepLatest: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 }))
 });
+
 export const historyScopeSchema = Schema.Struct({
   materialId: materialIdSchema,
   policy: historyPolicySchema
 });
+
 export const historyOperationKeySchema = Schema.Struct({
   operationId: Schema.String.check(Schema.isBetweenLength(1, 200))
 });
+
 export const historyVersionIdsSchema = Schema.Array(materialVersionIdSchema).check(
   Schema.isMaxLength(100),
   Schema.makeFilter((ids: readonly bigint[]) => new Set(ids).size === ids.length)
 );
+
 export const historyPreviewSchema = Schema.Struct({
   ...historyScopeSchema.fields,
   token: Schema.String,
@@ -60,12 +64,14 @@ export const historyPreviewSchema = Schema.Struct({
   missingEvidence: Schema.Literal('exact_pruned_versions'),
   retainedCopies: Schema.Literal('other_versions_and_published_messages')
 });
+
 export const requestHistoryPruneSchema = Schema.Struct({
   ...historyScopeSchema.fields,
   ...historyOperationKeySchema.fields,
   token: Schema.String.check(Schema.isBetweenLength(64, 64)),
   candidateIds: historyVersionIdsSchema
 });
+
 export const historyPruneSchema = Schema.Struct({
   ...historyOperationKeySchema.fields,
   materialId: materialIdSchema,

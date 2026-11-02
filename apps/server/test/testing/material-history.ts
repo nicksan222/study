@@ -99,7 +99,7 @@ export function acceptHistory(
 }
 
 export function processSource(f: MaterialDeletionFixture, correction = false) {
-  const event = f.context.db.orm
+  const row = f.context.db.orm
     .select()
     .from(s.workflowEvents)
     .where(
@@ -109,8 +109,9 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
       )
     )
     .all()
-    .map((row) => decodeEvent(row.payload))
     .at(-1);
+
+  const event = row === undefined ? undefined : decodeEvent(row.payload);
 
   assert.ok(
     event?.type === 'SourceProcessingRequested' || event?.type === 'SourceCorrectionRequested'
@@ -143,6 +144,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
           .from(s.workflowEvents)
           .where(eq(s.workflowEvents.type, 'SourceIndexed'))
           .all()
+          .filter((row) => row.payload !== '{}')
           .map((row) => decodeEvent(row.payload))
           .findLast((e) => e.type === 'SourceIndexed' && e.documentId === documentId);
 

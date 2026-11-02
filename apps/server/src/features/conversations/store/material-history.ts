@@ -12,12 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
-import {
-  runSelectionContextSchema,
-  selectionTargetsSchema
-} from '@study/contracts/conversations/context';
+import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { replySnapshotSchema } from '@study/contracts/conversations/schemas';
 import {
   historyOperationKeySchema,
@@ -28,14 +23,13 @@ import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
+import { impactToken } from '#server/platform/definitions/impact-token';
 
-import { makeDiscardPending } from './pending.ts';
+import { makeMaterialRetirement } from './material-retirement.ts';
 
 const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
 
 const replyCodec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
-
-const selectionCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
 
 const impactSchema = Schema.Struct({
   token: Schema.String,
@@ -49,32 +43,32 @@ export const ConversationMaterialHistoryStore = defineStore({
   make: (resources) => {
     const { db } = resources;
 
-    const discardPending = makeDiscardPending(resources);
+    const retirement = makeMaterialRetirement(resources);
 
     function rows(ids: typeof historyVersionIdsSchema.Type) {
       const documentIds = [
         ...db.orm
-          .select()
+          .select({ documentId: s.material_source_snapshots.document_id })
           .from(s.material_source_snapshots)
           .where(inArray(s.material_source_snapshots.version_id, [...ids]))
           .all()
-          .flatMap((pin) => (pin.document_id === null ? [] : [pin.document_id])),
+          .flatMap((pin) => (pin.documentId === null ? [] : [pin.documentId])),
         ...db.orm
-          .select()
+          .select({ documentId: s.material_document_versions.document_id })
           .from(s.material_document_versions)
           .where(inArray(s.material_document_versions.version_id, [...ids]))
           .all()
-          .map((pin) => pin.document_id)
+          .map((pin) => pin.documentId)
       ];
 
       const documents = db.orm
-        .select()
+        .select({ sourceId: s.documents.source_id, id: s.documents.id })
         .from(s.documents)
         .where(inArray(s.documents.id, documentIds))
         .all();
 
       const attachmentRoots = new Set(
-        documents.map((document) => `${document.source_id}/${document.id}`)
+        documents.map((document) => `${document.sourceId}/${document.id}`)
       );
 
       const replies = db.orm
@@ -109,20 +103,16 @@ export const ConversationMaterialHistoryStore = defineStore({
         );
 
       const citations = db.orm
-        .select()
+        .select({
+          messageVersionId: s.citations.version_id,
+          marker: s.citations.marker,
+          materialVersionId: s.citations.material_version_id
+        })
         .from(s.citations)
         .where(inArray(s.citations.material_version_id, [...ids]))
         .all();
 
-      const sessions = db.orm
-        .select()
-        .from(s.sessions)
-        .all()
-        .filter((r) =>
-          Schema.decodeUnknownSync(selectionCodec)(r.selection).some((t) =>
-            ids.includes(t.versionId)
-          )
-        );
+      const sessions = retirement.selectedSessions(ids);
 
       return { contexts, replies, citations, sessions };
     }
@@ -137,9 +127,7 @@ export const ConversationMaterialHistoryStore = defineStore({
             const value = rows(ids);
 
             return {
-              token: createHash('sha256')
-                .update(JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? String(v) : v)))
-                .digest('hex'),
+              token: impactToken(value),
               requestIds: [
                 ...new Set([...value.contexts, ...value.replies].map((r) => r.request_id))
               ],
@@ -166,19 +154,7 @@ export const ConversationMaterialHistoryStore = defineStore({
                 .onConflictDoNothing()
                 .run();
 
-            for (const session of value.sessions)
-              db.orm
-                .update(s.sessions)
-                .set({
-                  selection: Schema.encodeSync(selectionCodec)(
-                    Schema.decodeUnknownSync(selectionCodec)(session.selection).filter(
-                      (t) => !ids.includes(t.versionId)
-                    )
-                  ),
-                  selection_revision: session.selection_revision + 1n
-                })
-                .where(eq(s.sessions.id, session.id))
-                .run();
+            retirement.removeSelections(ids);
 
             return [...new Set([...value.contexts, ...value.replies].map((r) => r.request_id))];
           }
@@ -194,29 +170,7 @@ export const ConversationMaterialHistoryStore = defineStore({
               .all();
 
             for (const r of requests) {
-              const reply = db.orm
-                .select({ message: s.messages, version: s.message_versions })
-                .from(s.conversation_reply_requests)
-                .innerJoin(
-                  s.message_versions,
-                  eq(s.message_versions.id, s.conversation_reply_requests.version_id)
-                )
-                .innerJoin(s.messages, eq(s.messages.id, s.message_versions.message_id))
-                .where(eq(s.conversation_reply_requests.request_id, r.request_id))
-                .get();
-
-              if (reply && reply.version.status !== 'complete')
-                discardPending(reply.message, reply.version);
-
-              db.orm
-                .delete(s.conversation_reply_requests)
-                .where(eq(s.conversation_reply_requests.request_id, r.request_id))
-                .run();
-
-              db.orm
-                .delete(s.session_run_contexts)
-                .where(eq(s.session_run_contexts.request_id, r.request_id))
-                .run();
+              retirement.scrubRequest(r.request_id);
             }
           }
         })

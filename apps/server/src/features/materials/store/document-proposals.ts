@@ -143,6 +143,7 @@ function makeDocumentProposals(resources: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Proposal input history is unavailable');
+
     const previous = db.orm
       .select()
       .from(s.document_proposal_receipts)

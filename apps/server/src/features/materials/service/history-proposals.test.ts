@@ -150,12 +150,26 @@ for (const apply of [false, true]) {
 
           const copy = yield* m.materialVersion({ id: keep.resultVersionId });
 
+          const appliedVersion = applied?.resultVersionId
+            ? yield* m.materialVersion({ id: applied.resultVersionId })
+            : null;
+
+          if (appliedVersion) {
+            const proposed = yield* m.materialVersion({ id: request.resultVersionId });
+
+            // Applying preserves the proposal's block identities; keeping makes an independent copy.
+            assert.deepEqual(appliedVersion.content, proposed.content);
+
+            assert.notEqual(appliedVersion.id, copy.id);
+          }
+
           return {
             keepInput,
             applyInput,
             keep,
             applied,
             copy,
+            appliedVersion,
             proposedId: request.resultVersionId
           };
         }).pipe(Effect.provide(f.domain()))
@@ -211,7 +225,9 @@ for (const apply of [false, true]) {
           if (retained.applied?.resultVersionId) {
             const applied = yield* m.materialVersion({ id: retained.applied.resultVersionId });
 
-            assert.deepEqual(applied.content, retained.copy.content);
+            assert.deepEqual(applied, retained.appliedVersion);
+
+            assert.notEqual(applied.id, retained.copy.id);
           }
 
           assert.equal(

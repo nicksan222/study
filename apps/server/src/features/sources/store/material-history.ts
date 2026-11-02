@@ -25,13 +25,22 @@ import { Schema } from 'effect';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { decodeEvent } from '#server/platform/workflows/events';
 
+import { makeDocumentRetirement } from './document-retirement.ts';
+
 export const SourceMaterialHistoryStore = defineStore({
   name: 'study/SourceMaterialHistoryStore',
   entity: { singular: 'sourceMaterialHistory', plural: 'sourceMaterialHistories' },
-  make: ({ db }) => {
+  make: (resources) => {
+    const { db } = resources;
+    const retirement = makeDocumentRetirement(resources);
+
     function roots(ids: typeof historyVersionIdsSchema.Type) {
       const pins = db.orm
-        .select()
+        .select({
+          source_id: s.material_source_snapshots.source_id,
+          revision: s.material_source_snapshots.revision,
+          document_id: s.material_source_snapshots.document_id
+        })
         .from(s.material_source_snapshots)
         .where(inArray(s.material_source_snapshots.version_id, [...ids]))
         .all();
@@ -40,11 +49,11 @@ export const SourceMaterialHistoryStore = defineStore({
         ...new Set([
           ...pins.flatMap((p) => (p.document_id === null ? [] : [p.document_id])),
           ...db.orm
-            .select()
+            .select({ documentId: s.material_document_versions.document_id })
             .from(s.material_document_versions)
             .where(inArray(s.material_document_versions.version_id, [...ids]))
             .all()
-            .map((d) => d.document_id)
+            .map((d) => d.documentId)
         ])
       ];
 
@@ -263,16 +272,7 @@ export const SourceMaterialHistoryStore = defineStore({
               .where(eq(s.source_history_documents.operation_id, operationId))
               .all()) {
               if (
-                db.orm
-                  .select()
-                  .from(s.material_source_snapshots)
-                  .where(eq(s.material_source_snapshots.document_id, r.document_id))
-                  .get() ||
-                db.orm
-                  .select()
-                  .from(s.material_document_versions)
-                  .where(eq(s.material_document_versions.document_id, r.document_id))
-                  .get() ||
+                retirement.hasVersionPin(r.document_id) ||
                 db.orm
                   .select()
                   .from(s.source_processing)
@@ -281,9 +281,7 @@ export const SourceMaterialHistoryStore = defineStore({
               )
                 continue;
 
-              db.orm.delete(s.blocks).where(eq(s.blocks.document_id, r.document_id)).run();
-
-              db.orm.delete(s.documents).where(eq(s.documents.id, r.document_id)).run();
+              retirement.removeDocument(r.document_id);
             }
 
             for (const r of db.orm

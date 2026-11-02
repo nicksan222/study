@@ -27,7 +27,7 @@ import { unixSeconds } from '#server/platform/time/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeContent } from './content.ts';
-import { historyBodyBytes } from './history-bytes.ts';
+import { makeHistoryBodyBytes } from './history-bytes.ts';
 import { makeReads, required } from './reads.ts';
 
 export function historyHash(value: unknown) {
@@ -55,6 +55,7 @@ function makeHistory(resources: StoreResources) {
   const { db, clock } = resources;
 
   const reads = makeReads(resources);
+  const historyBodyBytes = makeHistoryBodyBytes(resources);
 
   const { removeContent } = makeContent(resources);
 
@@ -252,7 +253,7 @@ function makeHistory(resources: StoreResources) {
 
     const bodies = candidateIds.map((id) => reads.readVersion(id));
 
-    const removedBodyBytes = historyBodyBytes(resources, candidateIds);
+    const removedBodyBytes = historyBodyBytes(candidateIds);
 
     const value = {
       ...input,

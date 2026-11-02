@@ -49,6 +49,7 @@ function makeAnnotations(resources: StoreResources) {
     if (!row) return null;
 
     const value = decode(row.payload);
+
     if (
       db.orm
         .select()

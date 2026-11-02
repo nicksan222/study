@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { MaterialVersionId, MaterialId } from '@study/contracts/ids';
 import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { eq, inArray, and, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -29,9 +30,18 @@ export function makeGenerationRetirement(resources: StoreResources) {
   const retireProposal = makeProposalRetirement(resources);
 
   function affectedRequests(
-    versions: readonly (typeof s.material_versions.$inferSelect)[],
+    versionIds: readonly MaterialVersionId[],
     contextIds: readonly string[]
   ) {
+    const versions = db.orm
+      .select({
+        id: s.material_versions.id,
+        generation_request_id: s.material_versions.generation_request_id
+      })
+      .from(s.material_versions)
+      .where(inArray(s.material_versions.id, [...versionIds]))
+      .all();
+
     const inputs = db.orm
       .select()
       .from(s.material_generation_inputs)
@@ -120,5 +130,23 @@ export function makeGenerationRetirement(resources: StoreResources) {
       .run();
   }
 
-  return { affectedRequests, isScrubbed, scrubRequest };
+  function scrubOwnedRequests(
+    scope: { kind: 'deletion'; id: MaterialId } | { kind: 'history'; id: string }
+  ) {
+    const owners =
+      scope.kind === 'deletion' ? s.material_deletion_requests : s.material_history_requests;
+    const predicate =
+      scope.kind === 'deletion'
+        ? eq(s.material_deletion_requests.deletion_id, scope.id)
+        : eq(s.material_history_requests.operation_id, scope.id);
+    const requests = db.orm
+      .select({ requestId: owners.request_id })
+      .from(owners)
+      .where(and(predicate, eq(owners.kind, 'generation')))
+      .all();
+
+    for (const request of requests) scrubRequest(request.requestId);
+  }
+
+  return { affectedRequests, isScrubbed, scrubRequest, scrubOwnedRequests };
 }

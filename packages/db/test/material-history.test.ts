@@ -158,11 +158,23 @@ test('exact attachment Source and Document proofs reject forged context ownershi
       INSERT INTO material_file_versions(version_id,source_id) VALUES(1,1),(2,1),(3,1);
 
       INSERT INTO material_source_snapshots(version_id,source_id,revision,document_id,metadata)
-      SELECT v.id,1,1,CASE v.id WHEN 2 THEN 1 WHEN 3 THEN 2 ELSE NULL END,
+      SELECT v.id,1,1,NULL,
         json_object('id','1','projectId',NULL,'projectName',NULL,'name','source.txt','kind','text','mime','text/plain','origin','attachment','sizeBytes','1','sha256',lower(hex(zeroblob(32))),'uri',NULL,'createdAt','1')
       FROM material_versions v;
 
-      UPDATE material_versions SET status='published',published_at=2;
+      UPDATE material_versions SET status='published',published_at=2 WHERE id=1;
+
+      INSERT INTO material_imports(material_id,source_id) VALUES(1,1);
+
+      UPDATE material_source_snapshots SET document_id=CASE version_id WHEN 2 THEN 1 ELSE 2 END WHERE version_id IN(2,3);
+
+      INSERT INTO blocks(document_id,ordinal,editing_id,kind,content,text,anchor)
+      VALUES(1,0,'old-block','paragraph','{"type":"paragraph","inlines":[{"type":"text","text":"Old","marks":[]}]}','Old','{"type":"paragraph","index":0}'),
+        (2,0,'current-block','paragraph','{"type":"paragraph","inlines":[{"type":"text","text":"Current","marks":[]}]}','Current','{"type":"paragraph","index":0}');
+
+      UPDATE documents SET meta='{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false,"omissions":[]}';
+
+      UPDATE material_versions SET status='published',published_at=2 WHERE id IN(2,3);
 
       INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
 

@@ -13,7 +13,7 @@
 
 import { StudyError } from '@study/contracts/errors';
 import { materialVersionIdSchema } from '@study/contracts/ids';
-import { eq, inArray, and } from '@study/db';
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -36,33 +36,28 @@ export const MaterialHistoryGenerationStore = defineStore({
     const retirement = makeGenerationRetirement(resources);
 
     function prepare({ operationId, versionIds, contextIds }: typeof prepareSchema.Type) {
-      const versions = db.orm
-        .select()
-        .from(s.material_versions)
-        .where(inArray(s.material_versions.id, [...versionIds]))
-        .all();
-
-      const ids = retirement.affectedRequests(versions, contextIds).map((request) => request.id);
+      const ids = retirement.affectedRequests(versionIds, contextIds).map((request) => request.id);
 
       const ownedIds: string[] = [];
 
       for (const id of ids) {
         const owner = db.orm
-          .select()
+          .select({
+            kind: s.material_history_requests.kind,
+            status: s.material_history_prunes.status
+          })
           .from(s.material_history_requests)
+          .innerJoin(
+            s.material_history_prunes,
+            eq(s.material_history_prunes.operation_id, s.material_history_requests.operation_id)
+          )
           .where(eq(s.material_history_requests.request_id, id))
           .get();
 
         if (owner) {
-          const prior = db.orm
-            .select()
-            .from(s.material_history_prunes)
-            .where(eq(s.material_history_prunes.operation_id, owner.operation_id))
-            .get();
-
           if (
             owner.kind === 'generation' &&
-            prior?.status === 'completed' &&
+            owner.status === 'completed' &&
             retirement.isScrubbed(id)
           )
             continue;
@@ -92,22 +87,7 @@ export const MaterialHistoryGenerationStore = defineStore({
         scrub: storeMutation({
           input: Schema.String,
           output: Schema.Void,
-          run: (id) => {
-            const requests = db.orm
-              .select({ request_id: s.material_history_requests.request_id })
-              .from(s.material_history_requests)
-              .where(
-                and(
-                  eq(s.material_history_requests.operation_id, id),
-                  eq(s.material_history_requests.kind, 'generation')
-                )
-              )
-              .all();
-
-            for (const r of requests) {
-              retirement.scrubRequest(r.request_id);
-            }
-          }
+          run: (id) => retirement.scrubOwnedRequests({ kind: 'history', id })
         })
       }
     };
