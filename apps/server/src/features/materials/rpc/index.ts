@@ -27,6 +27,10 @@ export const MaterialsRpcLive = defineRpc(
     const conversations = yield* Effect.serviceOption(Conversations);
 
     return {
+      'materials.previewHistoryPrune': (value) => materials.previewHistoryPrune(value),
+      'materials.requestHistoryPrune': (value) => materials.requestHistoryPrune(value),
+      'materials.historyPrune': (value) => materials.historyPrune(value),
+      'materials.retryHistoryPrune': (value) => materials.retryHistoryPrune(value),
       'materials.previewDeletion': (value) => materials.previewDeletion(value),
       'materials.requestDeletion': (value) => materials.requestDeletion(value),
       'materials.deletion': (value) => materials.deletion(value),

@@ -47,6 +47,12 @@ import {
 import { pageById } from '#server/platform/definitions/page-by-id';
 import { validateLink } from '#server/platform/http/index';
 
+import {
+  prepareMaterialHistory,
+  scrubMaterialHistory,
+  inspectMaterialHistory
+} from './material-history.ts';
+
 type SourcePageInput = typeof sourcePageInputSchema.Type;
 
 import {
@@ -322,5 +328,12 @@ export const Sources = defineService(
         })
     };
   }),
-  { prepareMaterialDeletion, scrubMaterialDeletion, inspectMaterialDeletion }
+  {
+    prepareMaterialHistory,
+    scrubMaterialHistory,
+    inspectMaterialHistory,
+    prepareMaterialDeletion,
+    scrubMaterialDeletion,
+    inspectMaterialDeletion
+  }
 );

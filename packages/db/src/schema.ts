@@ -26,3 +26,5 @@ export * from './schema/document-edits.ts';
 
 export * from './schema/material-annotations.ts';
 export * from './schema/material-deletions.ts';
+export * from './schema/material-history.ts';
+export * from './schema/source-history.ts';

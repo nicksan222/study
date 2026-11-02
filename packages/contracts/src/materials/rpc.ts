@@ -28,6 +28,7 @@ import {
   documentComparisonSchema
 } from './editing.ts';
 import * as evidence from './evidence.ts';
+import * as history from './history.ts';
 import {
   documentTransformSchema,
   materialGenerationSnapshotSchema,
@@ -159,6 +160,26 @@ const retryGenerationSchema = Schema.Struct({
 });
 
 export const MaterialsRpc = RpcGroup.make(
+  Rpc.make('previewHistoryPrune', {
+    payload: history.historyScopeSchema,
+    success: history.historyPreviewSchema,
+    error: failureSchema
+  }),
+  Rpc.make('requestHistoryPrune', {
+    payload: history.requestHistoryPruneSchema,
+    success: history.historyPruneSchema,
+    error: failureSchema
+  }),
+  Rpc.make('historyPrune', {
+    payload: history.historyOperationKeySchema,
+    success: history.historyPruneSchema,
+    error: failureSchema
+  }),
+  Rpc.make('retryHistoryPrune', {
+    payload: history.historyOperationKeySchema,
+    success: history.historyPruneSchema,
+    error: failureSchema
+  }),
   Rpc.make('previewDeletion', {
     payload: materialDeletionKeySchema,
     success: materialDeletionPreviewSchema,

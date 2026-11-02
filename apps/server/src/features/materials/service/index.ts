@@ -71,6 +71,7 @@ import {
   assertDocumentContext
 } from './document-transform.ts';
 import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
+import { materialHistoryOperations } from './history.ts';
 
 function published(tx: Transaction, version: MaterialVersionDetailDto) {
   if (version.status !== 'published') return;
@@ -145,6 +146,7 @@ function* makeMaterials() {
 
   return {
     ...materialDeletionOperations(),
+    ...materialHistoryOperations(),
     citationSupport: support.citationSupport,
     assessCitation: (value: typeof evidence.assessCitationSchema.Type) =>
       transaction((tx) => tx.store(CitationSupportStore).assessCitation(value)),

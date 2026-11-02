@@ -140,7 +140,14 @@ export function makeEvidence(resources: StoreResources) {
       .where(eq(s.material_versions.id, id))
       .get();
 
-    if (versionDeleted(version))
+    if (
+      versionDeleted(version) ||
+      db.orm
+        .select()
+        .from(s.material_history_members)
+        .where(eq(s.material_history_members.version_id, id))
+        .get()
+    )
       return {
         inputVersionId: id,
         currentVersionId: null,
@@ -187,6 +194,15 @@ export function makeEvidence(resources: StoreResources) {
         .get()
     )
       return unavailable(reference, 'version_missing');
+
+    if (
+      db.orm
+        .select()
+        .from(s.material_history_members)
+        .where(eq(s.material_history_members.version_id, id))
+        .get()
+    )
+      return unavailable(reference, 'version_pruned');
 
     const base = {
       availability: 'available' as const,

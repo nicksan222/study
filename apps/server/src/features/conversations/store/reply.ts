@@ -42,6 +42,7 @@ import {
   sources,
   workflowEvents,
   workflowReceipts,
+  material_history_requests,
   material_deletion_requests
 } from '@study/db/schema';
 import { Option, Schema } from 'effect';
@@ -353,6 +354,14 @@ function makeHelpers({ db, clock }: StoreResources) {
   }
 
   function replyContext(requestId: string) {
+    if (
+      db.orm
+        .select()
+        .from(material_history_requests)
+        .where(eq(material_history_requests.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Captured input history is unavailable');
     if (
       db.orm
         .select()

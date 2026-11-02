@@ -25,11 +25,18 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeListVersionsAction(resources: StoreResources) {
   const { db: store } = resources;
-  const { materialRow, versionRow } = makeReads(resources);
+  const { materialRow } = makeReads(resources);
   const listVersions = (input: Input) => {
     materialRow(input.materialId);
 
-    if (input.cursor !== undefined && versionRow(input.cursor).material_id !== input.materialId)
+    if (
+      input.cursor !== undefined &&
+      store.orm
+        .select()
+        .from(s.material_versions)
+        .where(eq(s.material_versions.id, input.cursor))
+        .get()?.material_id !== input.materialId
+    )
       throw new StudyError('invalid_input', 'Invalid version cursor');
 
     const rows = store.orm
@@ -47,7 +54,15 @@ export function makeListVersionsAction(resources: StoreResources) {
       page = rows.slice(0, input.limit);
 
     return {
-      items: page,
+      items: page.map((v) =>
+        store.orm
+          .select()
+          .from(s.material_history_members)
+          .where(eq(s.material_history_members.version_id, v.id))
+          .get()
+          ? { ...v, instruction: null, language: null, availability: 'unavailable' as const }
+          : v
+      ),
       nextCursor: rows.length > input.limit ? page.at(-1)!.id : null
     };
   };

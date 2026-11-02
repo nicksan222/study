@@ -83,6 +83,12 @@ test('retirement upgrades populated canonical state, references, sequences and s
         )
       );
 
+      assert.ok(
+        db.get(
+          sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='history_reply_publication'`
+        )
+      );
+
       for (const table of [
         'jobs',
         'job_deps',

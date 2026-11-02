@@ -70,7 +70,19 @@ export function makeReads({ db: store }: StoreResources) {
     return row;
   }
 
+  function assertVersionAvailable(id: MaterialVersionId) {
+    if (
+      store.orm
+        .select()
+        .from(s.material_history_members)
+        .where(eq(s.material_history_members.version_id, id))
+        .get()
+    )
+      throw new StudyError('not_found', 'Material version has been pruned');
+  }
+
   function versionRow(id: MaterialVersionId, draft = false) {
+    assertVersionAvailable(id);
     const row = required(
       store.orm.select().from(s.material_versions).where(eq(s.material_versions.id, id)).get()
     );
@@ -183,6 +195,7 @@ export function makeReads({ db: store }: StoreResources) {
   }
 
   function readVersion(id: MaterialVersionId): MaterialVersionDetailDto | null {
+    assertVersionAvailable(id);
     const row = store.orm
       .select()
       .from(s.material_versions)

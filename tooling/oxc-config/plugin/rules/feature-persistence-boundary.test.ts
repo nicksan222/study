@@ -330,3 +330,30 @@ test('Material deletion proofs stay with Materials and exact source cleanup cand
     ].sort()
   );
 });
+
+test('history intent, exact version barriers and source cleanup roots have one owning feature', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/materials/store/history.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.material_history_prunes); db.insert(s.material_history_members); db.insert(s.material_history_requests);
+      db.insert(s.source_history_documents); db.insert(s.conversation_history_intents);
+    `,
+    'src/features/sources/store/history.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.source_history_documents); db.insert(s.source_history_revisions); db.update(s.material_history_members);
+    `,
+    'src/features/conversations/store/history.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.conversation_history_intents); db.insert(s.material_history_requests);
+    `
+  });
+  assert.deepEqual(
+    diagnostics.map(({ message }) => message).sort(),
+    [
+      'Feature materials may not write source_history_documents.',
+      'Feature materials may not write conversation_history_intents.',
+      'Feature sources may not write material_history_members.',
+      'Feature conversations may not write material_history_requests.'
+    ].sort()
+  );
+});

@@ -17,11 +17,12 @@ import { randomUUID, createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
-import type { MaterialId, SourceId, SessionId } from '@study/contracts/ids';
+import type { MaterialVersionId, MaterialId, SourceId, SessionId } from '@study/contracts/ids';
 import type {
   requestMaterialDeletionSchema,
   materialDeletionSchema
 } from '@study/contracts/materials/deletion';
+import type { historyPreviewSchema } from '@study/contracts/materials/history';
 import { Context, Effect, Layer, Option } from 'effect';
 
 import {
@@ -38,8 +39,18 @@ type Scope = { materialIds: readonly MaterialId[]; sourceIds: readonly SourceId[
 
 type Inspect = { token: string; requestIds: readonly string[] };
 
-type ParticipantSet = {
+export type ParticipantSet = {
   Conversations: {
+    inspectMaterialHistory: (
+      tx: Transaction,
+      ids: readonly MaterialVersionId[]
+    ) => { token: string; requestIds: readonly string[]; messageCitationCount: number };
+    prepareMaterialHistory: (
+      tx: Transaction,
+      input: { operationId: string; versionIds: readonly MaterialVersionId[] }
+    ) => readonly string[];
+    scrubMaterialHistory: (tx: Transaction, operationId: string) => void;
+
     inspectMaterialDeletion: (
       tx: Transaction,
       scope: Scope
@@ -54,6 +65,20 @@ type ParticipantSet = {
     scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
   };
   Sources: {
+    inspectMaterialHistory: (
+      tx: Transaction,
+      ids: readonly MaterialVersionId[]
+    ) => {
+      token: string;
+      sourceRevisions: typeof historyPreviewSchema.Type.sourceRevisions;
+      requestIds: readonly string[];
+    };
+    prepareMaterialHistory: (
+      tx: Transaction,
+      input: { operationId: string; versionIds: readonly MaterialVersionId[] }
+    ) => void;
+    scrubMaterialHistory: (tx: Transaction, operationId: string) => void;
+
     inspectMaterialDeletion: (tx: Transaction, ids: readonly SourceId[]) => string;
     prepareMaterialDeletion: (tx: Transaction, id: MaterialId) => readonly string[];
     scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
@@ -63,12 +88,21 @@ type ParticipantSet = {
     scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
   };
   Learning: {
+    inspectMaterialHistory: (tx: Transaction, ids: readonly MaterialVersionId[]) => Inspect;
+    prepareMaterialHistory: (
+      tx: Transaction,
+      ids: readonly MaterialVersionId[]
+    ) => readonly string[];
+    scrubMaterialHistory: (tx: Transaction, ids: readonly MaterialVersionId[]) => void;
+
     prepareMaterialDeletion: (tx: Transaction, ids: readonly MaterialId[]) => readonly string[];
     scrubMaterialDeletion: (tx: Transaction, ids: readonly MaterialId[]) => void;
   };
 };
 
-const DeletionParticipants = Context.Service<ParticipantSet>('study/MaterialDeletionParticipants');
+export const DeletionParticipants = Context.Service<ParticipantSet>(
+  'study/MaterialDeletionParticipants'
+);
 
 /** Runtime supplies public synchronous participants without reversing feature dependencies. */
 export function deletionParticipantsLayer(participants: ParticipantSet) {

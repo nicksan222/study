@@ -58,6 +58,11 @@ import {
 } from '#server/platform/definitions/define-store';
 
 import { prepareMaterialDeletion, scrubMaterialDeletion } from './material-deletion.ts';
+import {
+  prepareMaterialHistory,
+  scrubMaterialHistory,
+  inspectMaterialHistory
+} from './material-history.ts';
 
 export const Learning = defineService(
   'study/Learning',
@@ -254,5 +259,11 @@ export const Learning = defineService(
         })
     };
   }),
-  { prepareMaterialDeletion, scrubMaterialDeletion }
+  {
+    prepareMaterialHistory,
+    scrubMaterialHistory,
+    inspectMaterialHistory,
+    prepareMaterialDeletion,
+    scrubMaterialDeletion
+  }
 );

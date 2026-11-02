@@ -49,6 +49,14 @@ function makeAnnotations(resources: StoreResources) {
     if (!row) return null;
 
     const value = decode(row.payload);
+    if (
+      db.orm
+        .select()
+        .from(s.material_history_members)
+        .where(eq(s.material_history_members.version_id, value.target.range.versionId))
+        .get()
+    )
+      return null;
 
     if (
       db.orm

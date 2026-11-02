@@ -30,6 +30,8 @@ import {
   messages,
   message_parts,
   message_versions,
+  conversation_history_intents,
+  material_history_requests,
   material_deletion_requests
 } from '@study/db/schema';
 import { Schema, Option } from 'effect';
@@ -118,6 +120,14 @@ function makeContextReads({ db }: StoreResources) {
   }
 
   function assertContextAvailable(requestId: string) {
+    if (
+      db.orm
+        .select()
+        .from(material_history_requests)
+        .where(eq(material_history_requests.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Captured input history is unavailable');
     if (
       db.orm
         .select()
@@ -232,6 +242,19 @@ export const SessionContextIntentStore = defineStore({
           input: captureSessionContextSchema,
           output: Schema.Option(runSelectionContextSchema),
           run: (input) => {
+            if (
+              db.orm
+                .select()
+                .from(conversation_history_intents)
+                .where(
+                  and(
+                    eq(conversation_history_intents.session_id, input.sessionId),
+                    eq(conversation_history_intents.intent_key, input.intentKey)
+                  )
+                )
+                .get()
+            )
+              throw new StudyError('not_found', 'Captured input history is unavailable');
             const row = db.orm
               .select()
               .from(session_run_contexts)

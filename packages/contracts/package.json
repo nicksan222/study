@@ -52,6 +52,7 @@
     "./system/rpc": "./src/system/rpc.ts",
     "./conversations/rpc": "./src/conversations/rpc.ts",
     "./materials/evidence": "./src/materials/evidence.ts",
+    "./materials/history": "./src/materials/history.ts",
     "./materials/deletion": "./src/materials/deletion.ts",
     "./materials/editing": "./src/materials/editing.ts",
     "./materials/rpc": "./src/materials/rpc.ts",

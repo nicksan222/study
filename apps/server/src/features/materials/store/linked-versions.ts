@@ -54,6 +54,11 @@ export function makeLinkedVersions(resources: StoreResources) {
       items: page.map((row) =>
         store.orm
           .select()
+          .from(s.material_history_members)
+          .where(eq(s.material_history_members.version_id, row.version.id))
+          .get() ||
+        store.orm
+          .select()
           .from(s.material_deletion_members)
           .where(eq(s.material_deletion_members.material_id, row.version.material_id))
           .get()

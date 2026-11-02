@@ -48,6 +48,7 @@ export const evidenceResolutionSchema = Schema.Union([
     reference: evidenceReferenceSchema,
     reason: Schema.Literals([
       'version_missing',
+      'version_pruned',
       'material_mismatch',
       'document_missing',
       'document_mismatch',
