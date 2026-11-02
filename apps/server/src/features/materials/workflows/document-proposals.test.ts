@@ -679,6 +679,7 @@ for (const scenario of [
             (yield* materials.materialVersion({ id: outcomes.independentId })).status,
             'published'
           );
+
           if (outcomes.resultVersionId !== null)
             assert.equal(
               (yield* materials.citationSupport({

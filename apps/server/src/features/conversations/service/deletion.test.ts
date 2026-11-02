@@ -38,7 +38,9 @@ import {
   cleanup,
   assertScrubbed,
   annotateLibrary,
-  libraryState
+  libraryState,
+  awaitNativeStatus,
+  validDocumentTransformOutput
 } from '#testing/session-deletion';
 
 test('native deletion RPC commits an idempotent unavailable barrier and scrubs queued captures after reopen', async () => {
@@ -47,6 +49,11 @@ test('native deletion RPC commits an idempotent unavailable barrier and scrubs q
 
   try {
     const saved = await setup(fixture, marker);
+    const otherThread = await Effect.runPromise(
+      Effect.flatMap(Conversations, (chats) =>
+        chats.thread({ sessionId: saved.other.id, limit: 10 })
+      ).pipe(Effect.provide(fixture.domain()))
+    );
     const handlers = ConversationsRpcLive.pipe(Layer.provideMerge(fixture.domain()));
     const accepted = await Effect.runPromise(
       Effect.scoped(
@@ -117,6 +124,7 @@ test('native deletion RPC commits an idempotent unavailable barrier and scrubs q
       )
     );
     // The original generation event is still queued, but may never start after acceptance.
+
     assert.equal(
       dispatchPending(
         fixture.context,
@@ -149,8 +157,16 @@ test('native deletion RPC commits an idempotent unavailable barrier and scrubs q
           (yield* (yield* Materials).materialVersion({ id: saved.library.version.id })).status,
           'published'
         );
+        const retainedThread = yield* chats.thread({ sessionId: saved.other.id, limit: 10 });
+        const otherMessage = retainedThread.items[0];
+
+        assert.deepEqual(retainedThread, otherThread);
+
+        assert.ok(otherMessage);
+        assert.equal(otherMessage.sessionId, saved.other.id);
         assert.equal(
-          (yield* chats.thread({ sessionId: saved.other.id, limit: 10 })).items[0]?.text,
+          otherMessage.versions.find((version) => version.id === otherMessage.activeVersionId)
+            ?.text,
           'Other conversation'
         );
 
@@ -356,15 +372,7 @@ test('completed library publication wins deletion while native payload copies ar
       { kind: 'sources', query: 'independent' },
       {
         kind: 'output',
-        output: {
-          blocks: [
-            {
-              type: 'paragraph',
-              inlines: [{ type: 'text', text: 'INTENTIONAL_PUBLISHED_COPY_8 [1]', marks: [] }]
-            }
-          ],
-          notes: []
-        }
+        output: validDocumentTransformOutput('INTENTIONAL_PUBLISHED_COPY_8 [1]')
       }
     );
     await fixture.execute(fixture.event(saved.request.id), 'completed-before-delete');
@@ -496,15 +504,7 @@ test('late provider response after acceptance cannot publish or repopulate nativ
       { kind: 'sources', query: 'independent' },
       {
         kind: 'output',
-        output: {
-          blocks: [
-            {
-              type: 'paragraph',
-              inlines: [{ type: 'text', text: 'Late unpublished response [1]', marks: [] }]
-            }
-          ],
-          notes: []
-        }
+        output: validDocumentTransformOutput('Late unpublished response [1]')
       }
     );
     fixture.beforeOutput(() =>
@@ -515,7 +515,8 @@ test('late provider response after acceptance cannot publish or repopulate nativ
         )
       )
     );
-    await fixture.execute(event, 'late-provider-delete').catch(() => undefined);
+    await assert.rejects(fixture.execute(event, 'late-provider-delete'));
+    assert.equal(fixture.bodies.length, 2);
     await cleanup(fixture, saved.session.id);
     const request = fixture.context.db.orm
       .select()
@@ -563,18 +564,18 @@ test('native suspended Activity state is retired without cancelling an independe
           const engine = yield* WorkflowEngine.WorkflowEngine;
           const chats = yield* Conversations;
 
-          yield* engine.register(materialGenerationWorkflow, () =>
-            Effect.gen(function* () {
-              yield* Activity.make({
-                name: 'session-partial',
-                success: Schema.String,
-                execute: Effect.succeed(marker)
-              });
-              yield* DurableDeferred.await(gate);
+          const suspendedGeneration = Effect.gen(function* () {
+            yield* Activity.make({
+              name: 'session-partial',
+              success: Schema.String,
+              execute: Effect.succeed(marker)
+            });
+            yield* DurableDeferred.await(gate);
 
-              return saved.library.version.id;
-            })
-          );
+            return saved.library.version.id;
+          });
+
+          yield* engine.register(materialGenerationWorkflow, () => suspendedGeneration);
           yield* engine.register(independent, () =>
             DurableDeferred.await(independentGate).pipe(Effect.as('independent survived'))
           );
@@ -590,21 +591,9 @@ test('native suspended Activity state is retired without cancelling an independe
             discard: true
           });
 
-          for (let attempt = 0; attempt < 100; attempt++) {
-            if (
-              workflowStore(fixture.context).execution('suspended-session-run')?.status ===
-                'suspended' &&
-              workflowStore(fixture.context).execution('independent-run')?.status === 'suspended'
-            )
-              break;
+          yield* awaitNativeStatus(fixture, 'suspended-session-run', 'suspended');
+          yield* awaitNativeStatus(fixture, 'independent-run', 'suspended');
 
-            yield* Effect.sleep('5 millis');
-          }
-
-          assert.equal(
-            workflowStore(fixture.context).execution('suspended-session-run')?.status,
-            'suspended'
-          );
           yield* chats.deleteSession(saved.session.id);
           const deletion = deletionEvent(fixture, saved.session.id);
 
@@ -638,17 +627,8 @@ test('native suspended Activity state is retired without cancelling an independe
             exit: Exit.void
           });
 
-          for (let attempt = 0; attempt < 100; attempt++) {
-            if (workflowStore(fixture.context).execution('independent-run')?.status === 'completed')
-              break;
+          yield* awaitNativeStatus(fixture, 'independent-run', 'completed');
 
-            yield* Effect.sleep('5 millis');
-          }
-
-          assert.equal(
-            workflowStore(fixture.context).execution('independent-run')?.status,
-            'completed'
-          );
           assertScrubbed(fixture, marker);
         }).pipe(Effect.provide(fixture.services()))
       )
@@ -671,15 +651,7 @@ test('kept and applied library results survive removal of their proposal draft a
       { kind: 'sources', query: 'independent' },
       {
         kind: 'output',
-        output: {
-          blocks: [
-            {
-              type: 'paragraph',
-              inlines: [{ type: 'text', text: 'Retained edited result [1]', marks: [] }]
-            }
-          ],
-          notes: []
-        }
+        output: validDocumentTransformOutput('Retained edited result [1]')
       }
     );
     await fixture.execute(fixture.event(saved.request.id), 'proposal-before-delete');

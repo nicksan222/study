@@ -174,15 +174,15 @@ test('only the selected duplicate range can publish; target identity is hashed, 
       }).pipe(Effect.provide(f.services()))
     );
 
+    const publicationEffect = (publication: typeof materialGenerationPublicationSchema.Type) =>
+      Effect.gen(function* () {
+        yield* withTestPublication(
+          f.context,
+          (yield* Conversations).publishDocumentTransform(publication).pipe(Effect.asVoid)
+        );
+      }).pipe(Effect.provide(f.services()));
     const publish = (publication: typeof materialGenerationPublicationSchema.Type) =>
-      Effect.runPromise(
-        Effect.gen(function* () {
-          yield* withTestPublication(
-            f.context,
-            (yield* Conversations).publishDocumentTransform(publication).pipe(Effect.asVoid)
-          );
-        }).pipe(Effect.provide(f.services()))
-      );
+      Effect.runPromise(publicationEffect(publication));
 
     const citation = setup.publication.citations[0]!;
 
@@ -285,7 +285,26 @@ test('only the selected duplicate range can publish; target identity is hashed, 
 
     f.reopen();
 
-    await publish(setup.publication);
+    const retired = f.output();
+
+    assert.equal(
+      (await Effect.runPromise(Effect.flip(publicationEffect(setup.publication)))).kind,
+      'not_found'
+    );
+    assert.deepEqual(f.output(), retired);
+
+    for (const key of [
+      'materials',
+      'versions',
+      'documentRows',
+      'documents',
+      'blocks',
+      'assets',
+      'inputs',
+      'citations',
+      'published'
+    ] as const)
+      assert.deepEqual(retired[key], after[key]);
 
     await Effect.runPromise(
       Effect.gen(function* () {

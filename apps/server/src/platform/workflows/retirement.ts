@@ -41,6 +41,7 @@ export const WorkflowRetirementStore = defineStore({
                   .values({ correlation_id: id, event_type: type })
                   .onConflictDoNothing()
                   .run();
+
               const runs = db.orm
                 .select()
                 .from(s.workflow_executions)

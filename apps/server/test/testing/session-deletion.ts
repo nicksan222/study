@@ -14,6 +14,7 @@
 
 import assert from 'node:assert/strict';
 
+import type { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import type { MaterialVersionId, SessionId } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
@@ -251,4 +252,19 @@ export function awaitNativeStatus(
 
     assert.equal(workflowStore(fixture.context).execution(id)?.status, status);
   });
+}
+
+export function validDocumentTransformOutput(
+  text: string
+): typeof documentTransformOutputSchema.Type {
+  return {
+    blocks: [{ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] }],
+    notes: [
+      {
+        kind: 'limit',
+        explanation: 'Uses only the selected independent evidence',
+        blockOrdinals: [0]
+      }
+    ]
+  };
 }

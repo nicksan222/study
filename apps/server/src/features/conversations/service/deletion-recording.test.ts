@@ -102,50 +102,56 @@ test('deleting an in-flight recording fences late attachment and checkpoints whi
 
           // Real snapshot/import Activities establish the publication boundary before the
           // recording handler attaches a message. This native fixture owns the timing gate.
-          yield* engine.register(recordingPostWorkflow, (payload) =>
-            Effect.gen(function* () {
-              const snapshot = yield* Activity.make({
-                name: 'captured-recording',
-                success: recordingPostSnapshotSchema,
-                error: failureSchema,
-                execute: recordings.recordingPostSnapshot({ requestId: payload.event.requestId })
-              });
+          const heldRecordingHandler = Effect.fn(function* (
+            payload: Parameters<typeof recordingPostHandler>[0]
+          ) {
+            const snapshot = yield* Activity.make({
+              name: 'captured-recording',
+              success: recordingPostSnapshotSchema,
+              error: failureSchema,
+              execute: recordings.recordingPostSnapshot({ requestId: payload.event.requestId })
+            });
 
-              yield* Activity.make({
-                name: 'import-recording',
-                success: sourceIdSchema,
-                error: failureSchema,
-                execute: withPublicationGuard(
-                  fixture.context,
-                  sources.importRecording({
-                    requestId: payload.event.requestId,
-                    sessionId: snapshot.sessionId,
-                    projectId: snapshot.projectId,
-                    name: snapshot.name,
-                    bytes: snapshot.bytes,
-                    durationMs: snapshot.durationMs
-                  })
-                ).pipe(Effect.map((source) => source.id))
-              });
+            yield* Activity.make({
+              name: 'import-recording',
+              success: sourceIdSchema,
+              error: failureSchema,
+              execute: withPublicationGuard(
+                fixture.context,
+                sources.importRecording({
+                  requestId: payload.event.requestId,
+                  sessionId: snapshot.sessionId,
+                  projectId: snapshot.projectId,
+                  name: snapshot.name,
+                  bytes: snapshot.bytes,
+                  durationMs: snapshot.durationMs
+                })
+              ).pipe(Effect.map(importedSourceId))
+            });
 
-              yield* DurableDeferred.await(recordingGate);
+            yield* DurableDeferred.await(recordingGate);
 
-              return yield* recordingPostHandler(payload);
-            })
-          );
+            return yield* recordingPostHandler(payload);
+          });
 
-          yield* engine.register(sourceReader, ({ event: value }) =>
-            Effect.gen(function* () {
-              const snapshot = yield* sources.sourceSnapshot({
-                id: value.sourceId,
-                revision: value.inputVersion
-              });
+          yield* engine.register(recordingPostWorkflow, heldRecordingHandler);
 
-              yield* DurableDeferred.await(sourceGate);
+          const heldSourceHandler = Effect.fn(function* ({
+            event: value
+          }: {
+            event: typeof sourceProcessingRequestedSchema.Type;
+          }) {
+            const snapshot = yield* sources.sourceSnapshot({
+              id: value.sourceId,
+              revision: value.inputVersion
+            });
 
-              return snapshot.bytes;
-            })
-          );
+            yield* DurableDeferred.await(sourceGate);
+
+            return snapshot.bytes;
+          });
+
+          yield* engine.register(sourceReader, heldSourceHandler);
 
           yield* engine.register(sessionDeletionWorkflow, sessionDeletionHandler);
 
@@ -228,23 +234,22 @@ test('deleting an in-flight recording fences late attachment and checkpoints whi
             undefined
           );
 
-          yield* withTestPublication(
-            fixture.context,
-            Effect.gen(function* () {
-              assert.equal(
-                (yield* Effect.flip(
-                  chats.postRecordingMessage({
-                    requestId: event.requestId,
-                    sessionId: saved.session.id,
-                    projectId: null,
-                    sourceId: imported.source_id,
-                    durationMs: 0
-                  })
-                )).kind,
-                'invalid_input'
-              );
-            })
+          const rejected = yield* Effect.flip(
+            withTestPublication(
+              fixture.context,
+              chats
+                .postRecordingMessage({
+                  requestId: event.requestId,
+                  sessionId: saved.session.id,
+                  projectId: null,
+                  sourceId: imported.source_id,
+                  durationMs: 0
+                })
+                .pipe(Effect.asVoid)
+            )
           );
+
+          assert.equal(rejected.kind, 'invalid_input');
 
           yield* engine.deferredDone(sourceGate, {
             workflowName: sourceReader._tag,
@@ -340,3 +345,7 @@ test('deleting an in-flight recording fences late attachment and checkpoints whi
     await fixture.close();
   }
 });
+
+function importedSourceId(source: { readonly id: typeof sourceIdSchema.Type }) {
+  return source.id;
+}

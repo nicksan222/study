@@ -143,21 +143,25 @@ for (const state of ['running', 'suspended'] as const) {
 
             yield* Effect.addFinalizer(() => Deferred.succeed(release, undefined));
 
-            yield* engine.register(probe, ({ event: value }) =>
-              Effect.gen(function* () {
-                if (
-                  value.eventId !== event.eventId ||
-                  value.correlationId !== event.correlationId ||
-                  currentRuns++ === 0
-                )
-                  return;
+            const probeHandler = Effect.fn(function* ({
+              event: value
+            }: {
+              event: typeof sessionDeletionRequestedSchema.Type;
+            }) {
+              if (
+                value.eventId !== event.eventId ||
+                value.correlationId !== event.correlationId ||
+                currentRuns++ === 0
+              )
+                return;
 
-                yield* Deferred.succeed(entered, undefined);
+              yield* Deferred.succeed(entered, undefined);
 
-                if (state === 'running') yield* Deferred.await(release);
-                else yield* DurableDeferred.await(durable);
-              })
-            );
+              if (state === 'running') yield* Deferred.await(release);
+              else yield* DurableDeferred.await(durable);
+            });
+
+            yield* engine.register(probe, probeHandler);
 
             yield* engine.register(sessionDeletionWorkflow, sessionDeletionHandler);
             // A terminal run from another event in this operation does not prove dispatch of attempt 1.

@@ -264,6 +264,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
             .items.length,
           1
         );
+
         for (const status of ['running', 'cancelled'] as const) {
           context.db.orm
             .insert(s.workflow_executions)

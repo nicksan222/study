@@ -21,6 +21,7 @@ import { Effect, Schema } from 'effect';
 import { Conversations } from '#server/features/conversations/index';
 import { documentTransformFixture } from '#testing/document-transform';
 import {
+  validDocumentTransformOutput,
   setup,
   cleanup,
   assertScrubbed,
@@ -40,15 +41,7 @@ test('exact content-free apply and keep receipts reject substituted identities a
       { kind: 'sources', query: 'independent' },
       {
         kind: 'output',
-        output: {
-          blocks: [
-            {
-              type: 'paragraph',
-              inlines: [{ type: 'text', text: 'Independent proposal publication [1]', marks: [] }]
-            }
-          ],
-          notes: []
-        }
+        output: validDocumentTransformOutput('Independent proposal publication [1]')
       }
     );
 

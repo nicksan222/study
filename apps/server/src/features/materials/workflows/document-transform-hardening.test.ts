@@ -13,6 +13,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { StudyError } from '@study/contracts/errors';
 import { createBlock } from '@study/contracts/sources/document';
 import type { Block } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
@@ -26,6 +27,7 @@ import { Sources } from '#server/features/sources/index';
 import { workflowStore } from '#server/platform/workflows/store';
 import { documentTransformFixture } from '#testing/document-transform';
 import { withTestPublication } from '#testing/publication';
+import { libraryState } from '#testing/session-deletion';
 
 import { materialGenerationHandler, materialGenerationWorkflow } from './generation.ts';
 
@@ -659,6 +661,8 @@ test('provider markers preserve distinct duplicate-quote ranges in one block aft
     );
     const event = fixture.event(setup.request.id);
     const result = await fixture.execute(event, 'duplicate-ranges');
+    const retained = await libraryState(fixture, [result]);
+    const outputCount = fixture.context.db.orm.select().from(s.material_versions).all().length;
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -688,7 +692,15 @@ test('provider markers preserve distinct duplicate-quote ranges in one block aft
         );
       }).pipe(Effect.provide(fixture.domain()))
     );
-    assert.equal(await fixture.execute(event, 'duplicate-ranges-replay'), result);
+    await assert.rejects(
+      fixture.execute(event, 'duplicate-ranges-replay'),
+      (error: unknown) => error instanceof StudyError && error.kind === 'cancelled'
+    );
+    assert.deepEqual(await libraryState(fixture, [result]), retained);
+    assert.equal(
+      fixture.context.db.orm.select().from(s.material_versions).all().length,
+      outputCount
+    );
     assert.equal(fixture.bodies.length, 2);
   } finally {
     await fixture.close();
