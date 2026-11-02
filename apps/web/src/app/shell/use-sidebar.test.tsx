@@ -193,7 +193,9 @@ it('ignores a subject list fetched before a new subject was created', async () =
     })
   );
   await user.click(screen.getByLabelText('Biology'));
+  await waitFor(() => expect(screen.getByLabelText(en.FindSubject)).toHaveFocus());
   await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByLabelText(en.FindSubject)).not.toBeInTheDocument());
   api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
   await user.click(screen.getByRole('button', { name: en.NewProject }));
   await user.type(screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
