@@ -19,4 +19,11 @@ import type { TestContext } from 'node:test';
 import { cleanupTestFile, registerTest } from './automatic.ts';
 
 beforeEach((t) => registerTest(t as TestContext));
-after(cleanupTestFile);
+after(
+  (t) => {
+    t.log('study-test-phase:file-database-cleanup:start');
+    cleanupTestFile();
+    t.log('study-test-phase:file-database-cleanup:complete');
+  },
+  { timeout: 30000 }
+);

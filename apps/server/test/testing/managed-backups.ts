@@ -14,6 +14,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { TestContext } from 'node:test';
 
 import { createBlock } from '@study/contracts/sources/document';
 import { backupManifestSchema } from '@study/contracts/system/backups';
@@ -25,6 +26,8 @@ import { Effect, Schema } from 'effect';
 import { Materials } from '#server/features/materials/index';
 import { System } from '#server/features/system/index';
 import { App } from '#server/runtime/index';
+
+import { inTestPhase } from './progress.ts';
 
 export const meta = {
   extractor: null,
@@ -51,7 +54,7 @@ export const acceptance = (preview: RestorePreview) => ({
   acknowledgeReplacement: true as const
 });
 
-export async function backupFixture() {
+export async function backupFixture(t?: TestContext) {
   const location = createTestDatabase();
 
   const requests: string[] = [];
@@ -69,7 +72,7 @@ export async function backupFixture() {
   let app: App;
 
   try {
-    app = await open();
+    app = await inTestPhase(t, 'fixture-open', open);
   } catch (cause) {
     location.cleanup();
 
@@ -84,15 +87,15 @@ export async function backupFixture() {
     },
     api: () => app.nativeRuntime.runPromise(System),
     async suspend() {
-      await app.close();
+      await inTestPhase(t, 'fixture-app-close', () => app.close());
     },
     async reopen() {
-      await app.close();
-      app = await open();
+      await inTestPhase(t, 'fixture-app-close', () => app.close());
+      app = await inTestPhase(t, 'fixture-open', open);
     },
     async close() {
-      await app.close();
-      location.cleanup();
+      await inTestPhase(t, 'fixture-app-close', () => app.close());
+      await inTestPhase(t, 'fixture-files-cleanup', () => location.cleanup());
     }
   };
 }

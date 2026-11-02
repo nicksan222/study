@@ -42,6 +42,7 @@ import {
   packet,
   repack
 } from '#testing/managed-backups';
+import { inTestPhase } from '#testing/progress';
 
 test('System native API inventory includes the managed backup lifecycle', async () => {
   const { SystemRpc } = await import('@study/contracts/system/rpc');
@@ -560,92 +561,115 @@ test('staged corruption reports activation failure, preserves old target and per
   }
 });
 
-test('crash after replacement reconciles to new state before workers start; captured native work never resumes', async () => {
-  const f = await backupFixture();
+test(
+  'crash after replacement reconciles to new state before workers start; captured native work never resumes',
+  { timeout: 60000 },
+  async (t) => {
+    const f = await backupFixture(t);
 
-  try {
-    const source = await f.app.nativeRuntime.runPromise(
-      Effect.flatMap(Sources, (sources) =>
-        sources.createSource({
-          name: 'work.txt',
-          bytes: Buffer.from('Native work input'),
-          projectId: null
-        })
-      )
-    );
+    try {
+      const source = await inTestPhase(t, 'source-create', () =>
+        f.app.nativeRuntime.runPromise(
+          Effect.flatMap(Sources, (sources) =>
+            sources.createSource({
+              name: 'work.txt',
+              bytes: Buffer.from('Native work input'),
+              projectId: null
+            })
+          )
+        )
+      );
 
-    const db = f.app.store.db.orm;
+      const db = f.app.store.db.orm;
 
-    const event = db.select().from(s.workflowEvents).get()!;
+      const event = db.select().from(s.workflowEvents).get()!;
 
-    db.run(
-      sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,owner_token,created_at,updated_at) VALUES('captured','study/test',1,${JSON.stringify({ event: JSON.parse(event.payload) })},'suspended','old-owner',1,1)`
-    );
-    db.run(
-      sql`INSERT INTO workflow_configuration_waits(execution_id,deferred_name,observed_revision) VALUES('captured','config','old-revision')`
-    );
-    db.run(
-      sql`INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('captured','checkpoint',0,'{}')`
-    );
+      db.run(
+        sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,owner_token,created_at,updated_at) VALUES('captured','study/test',1,${JSON.stringify({ event: JSON.parse(event.payload) })},'suspended','old-owner',1,1)`
+      );
+      db.run(
+        sql`INSERT INTO workflow_configuration_waits(execution_id,deferred_name,observed_revision) VALUES('captured','config','old-revision')`
+      );
+      db.run(
+        sql`INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('captured','checkpoint',0,'{}')`
+      );
 
-    const api = await f.api();
+      const api = await inTestPhase(t, 'system-service', () => f.api());
 
-    const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+      const backup = await inTestPhase(t, 'backup-create', () =>
+        f.app.nativeRuntime.runPromise(api.createBackup())
+      );
 
-    // Live captured work remains owned and unchanged by backup preparation.
-    assert.equal(db.select().from(s.workflow_executions).get()!.status, 'suspended');
+      // Live captured work remains owned and unchanged by backup preparation.
+      assert.equal(db.select().from(s.workflow_executions).get()!.status, 'suspended');
 
-    const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+      const preview = await inTestPhase(t, 'restore-preview', () =>
+        f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }))
+      );
 
-    await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
-    await f.app.close();
-    // Simulate process loss after atomic rename, before journal settlement.
+      await inTestPhase(t, 'restore-accept', () =>
+        f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
+      );
+      await inTestPhase(t, 'app-close-before-replacement', () => f.app.close());
+      // Simulate process loss after atomic rename, before journal settlement.
 
-    const old = Db.openSnapshot(f.location.path);
+      const old = Db.openSnapshot(f.location.path);
 
-    await old.snapshot(f.location.path + '.backups/previous.sqlite');
-    old.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;');
-    old.close();
-    renameSync(f.location.path + '.backups/restore.sqlite', f.location.path);
-    await f.reopen();
+      await inTestPhase(t, 'previous-snapshot', () =>
+        old.snapshot(f.location.path + '.backups/previous.sqlite')
+      );
+      t.log('study-test-phase:replacement-sync:start');
+      old.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;');
+      old.close();
+      renameSync(f.location.path + '.backups/restore.sqlite', f.location.path);
+      t.log('study-test-phase:replacement-sync:complete');
+      await inTestPhase(t, 'reopen-after-replacement', () => f.reopen());
 
-    const restored = f.app.store.db.orm;
+      t.log('study-test-phase:retirement-assertions:start');
 
-    assert.equal(restored.select().from(s.workflow_executions).get()!.status, 'cancelled');
-    assert.equal(restored.select().from(s.workflow_executions).get()!.owner_token, null);
-    assert.equal(restored.select().from(s.workflow_activities).all().length, 0);
-    assert.equal(restored.select().from(s.workflow_configuration_waits).all().length, 0);
-    assert.equal(
-      restored.select().from(s.workflow_retired_executions).get()!.execution_id,
-      'captured'
-    );
+      const restored = f.app.store.db.orm;
 
-    const nativeStore = workflowStore(f.app.store);
+      assert.equal(restored.select().from(s.workflow_executions).get()!.status, 'cancelled');
+      assert.equal(restored.select().from(s.workflow_executions).get()!.owner_token, null);
+      assert.equal(restored.select().from(s.workflow_activities).all().length, 0);
+      assert.equal(restored.select().from(s.workflow_configuration_waits).all().length, 0);
+      assert.equal(
+        restored.select().from(s.workflow_retired_executions).get()!.execution_id,
+        'captured'
+      );
 
-    const terminal = nativeStore.execution('captured');
+      const nativeStore = workflowStore(f.app.store);
 
-    nativeStore.checkpoint('captured', 'old-owner', 'late result', 'completed');
-    assert.throws(() =>
-      nativeStore.saveActivity('captured', 'old-owner', 'late', 0, 'private checkpoint')
-    );
-    assert.equal(nativeStore.saveDeferred('captured', 'late', 'private completion'), false);
-    assert.deepEqual(nativeStore.execution('captured'), terminal);
-    await f.app.workers.start();
-    await f.app.workers.stop();
-    assert.deepEqual(f.requests, []);
-    assert.equal(restored.select().from(s.workflow_executions).all().length, 1);
-    assert.equal(
-      restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name,
-      'work.txt'
-    );
-    assert.equal(
-      (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
-      'applied'
-    );
-  } finally {
-    await f.close();
+      const terminal = nativeStore.execution('captured');
+
+      nativeStore.checkpoint('captured', 'old-owner', 'late result', 'completed');
+      assert.throws(() =>
+        nativeStore.saveActivity('captured', 'old-owner', 'late', 0, 'private checkpoint')
+      );
+      assert.equal(nativeStore.saveDeferred('captured', 'late', 'private completion'), false);
+      assert.deepEqual(nativeStore.execution('captured'), terminal);
+      t.log('study-test-phase:retirement-assertions:complete');
+      await inTestPhase(t, 'workers-start', () => f.app.workers.start());
+      await inTestPhase(t, 'workers-stop', () => f.app.workers.stop());
+      assert.deepEqual(f.requests, []);
+      assert.equal(restored.select().from(s.workflow_executions).all().length, 1);
+      assert.equal(
+        restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name,
+        'work.txt'
+      );
+      assert.equal(
+        (
+          await inTestPhase(t, 'restore-status', async () =>
+            f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())
+          )
+        ).state,
+        'applied'
+      );
+    } finally {
+      await inTestPhase(t, 'test-finally', () => f.close());
+    }
   }
-});
+);
 
 test('artifact deletion is bounded to an opaque managed identity and never removes live or external files', async () => {
   const f = await backupFixture();
