@@ -1067,6 +1067,14 @@ test('published recording messages keep owned PCM while private WAV captures and
 
     await acceptMaterialDeletion(f, saved.root.id);
 
+    assert.throws(() =>
+      f.context.db.orm
+        .update(s.recording_posts)
+        .set({ name: 'unrelated mutation during cleanup' })
+        .where(eq(s.recording_posts.request_id, prepared.post.requestId))
+        .run()
+    );
+
     // Import and recording publication deliberately share this correlation. The first
     // provenance must stay immutable while both feature owners clean their own rows.
     const owner = f.context.db.orm

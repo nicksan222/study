@@ -124,11 +124,6 @@ export const MaterialDeletionGenerationStore = defineStore({
 
               if (owner?.kind === 'generation' && alreadyScrubbed(id, owner.deletion_id)) continue;
 
-              if (owner?.deletion_id === deletionId) {
-                ownedIds.push(id);
-                continue;
-              }
-
               if (owner)
                 throw new StudyError(
                   'invalid_input',
@@ -154,7 +149,8 @@ export const MaterialDeletionGenerationStore = defineStore({
               .select()
               .from(s.material_deletion_requests)
               .where(eq(s.material_deletion_requests.deletion_id, id))
-              .all();
+              .all()
+              .filter((x) => x.kind === 'generation');
 
             for (const r of requests) {
               retireProposal(r.request_id);
