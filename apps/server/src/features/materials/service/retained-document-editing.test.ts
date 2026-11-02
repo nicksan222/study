@@ -90,13 +90,13 @@ for (const kind of ['delete', 'prune'] as const)
       if (kind === 'delete') await acceptMaterialDeletion(f, setup.evidence.id);
       else await acceptHistory(f, setup.evidence.id, operationId);
 
+      const cleanup = () =>
+        kind === 'delete' ? cleanupMaterial(f, setup.evidence.id) : cleanupHistory(f, operationId);
       let currentId = setup.claim.version.id;
 
       for (const phase of ['accepted', 'cleaned'] as const) {
         if (phase === 'cleaned') {
-          if (kind === 'delete') await cleanupMaterial(f, setup.evidence.id);
-          else await cleanupHistory(f, operationId);
-
+          await cleanup();
           f.reopen();
         }
 
