@@ -510,7 +510,7 @@ export const PracticeStore = defineStore({
           input: Schema.Void,
           output: Schema.Void,
           run: () => {
-            db.orm.update(controls).set({ enabled: false }).run();
+            db.orm.update(controls).set({ enabled: false }).where(eq(controls.enabled, true)).run();
             db.orm
               .update(slots)
               .set({ status: 'cancelled' })

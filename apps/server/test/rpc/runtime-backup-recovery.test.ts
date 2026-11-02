@@ -195,7 +195,7 @@ test('startup cleans interrupted private scratch and known writing files without
     await f.reopen();
     assert.deepEqual(readdirSync(root), [backup.id + '.studybackup']);
     assert.equal(
-      (await f.app.nativeRuntime.runPromise((await f.api()).listBackups()))[0]?.id,
+      (await f.app.nativeRuntime.runPromise((await f.api()).backups()))[0]?.id,
       backup.id
     );
   } finally {

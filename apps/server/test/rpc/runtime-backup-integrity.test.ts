@@ -137,7 +137,7 @@ test('rechecksummed theme, asset revision, migration receipt and virtual schema 
     }
 
     assert.deepEqual(
-      (await f.app.nativeRuntime.runPromise(api.listBackups())).map((b) => b.id),
+      (await f.app.nativeRuntime.runPromise(api.backups())).map((b) => b.id),
       [backup.id]
     );
   } finally {
@@ -173,16 +173,13 @@ test('manifest and byte bounds reject malformed transport without allocating man
     ])
       await assert.rejects(f.app.nativeRuntime.runPromise(api.importBackup({ bytes })));
 
-    assert.equal((await f.app.nativeRuntime.runPromise(api.listBackups())).length, 1);
+    assert.equal((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
 
     for (let index = 1; index < MAX_MANAGED_BACKUPS; index++)
       await f.app.nativeRuntime.runPromise(api.createBackup());
 
     await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
-    assert.equal(
-      (await f.app.nativeRuntime.runPromise(api.listBackups())).length,
-      MAX_MANAGED_BACKUPS
-    );
+    assert.equal((await f.app.nativeRuntime.runPromise(api.backups())).length, MAX_MANAGED_BACKUPS);
     assert.equal(
       readdirSync(f.location.path + '.backups').some(
         (name) => name.endsWith('.writing') || name.startsWith('scratch.sqlite')

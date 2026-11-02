@@ -173,7 +173,7 @@ for (const failPersistence of [false, true])
         assert.ok(Option.isSome(retained));
         assert.equal(decodeAccount(retained.value).refreshToken, 'original');
         // A retryable auth close still owns the path: no second startup cleanup may run.
-        await assert.rejects(App.open(options));
+        await assert.rejects(resources.openApp(options));
         app.store.db.orm.run(sql`DROP TRIGGER fail_credential_save`);
         await app.close();
       } else await closing;

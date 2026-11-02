@@ -15,6 +15,7 @@
 
 import { backupScopeSchema } from '@study/contracts/system/backups';
 import { sql } from '@study/db';
+import type { SQL } from '@study/db';
 import { Schema } from 'effect';
 
 import { requireRow } from '#server/platform/database/rows';
@@ -30,25 +31,24 @@ export const BackupScopeStore = defineStore({
         input: Schema.Void,
         output: backupScopeSchema,
         run: () => {
-          const count = (query: string) =>
-            Number(requireRow(db.orm.get<{ n: bigint }>(sql.raw(query))).n);
+          const count = (query: SQL) => Number(requireRow(db.orm.get<{ n: bigint }>(query)).n);
 
           return {
-            materials: count('SELECT count(*) n FROM materials'),
-            versions: count('SELECT count(*) n FROM material_versions'),
-            documents: count('SELECT count(*) n FROM documents'),
-            sources: count('SELECT count(*) n FROM sources'),
-            collections: count('SELECT count(*) n FROM projects'),
-            sessions: count('SELECT count(*) n FROM sessions'),
-            annotations: count('SELECT count(*) n FROM material_annotations'),
-            quizAttempts: count('SELECT count(*) n FROM material_quiz_attempts'),
-            cardReviews: count('SELECT count(*) n FROM material_card_reviews'),
-            practiceSlots: count('SELECT count(*) n FROM learning_practice_slots'),
+            materials: count(sql`SELECT count(*) n FROM materials`),
+            versions: count(sql`SELECT count(*) n FROM material_versions`),
+            documents: count(sql`SELECT count(*) n FROM documents`),
+            sources: count(sql`SELECT count(*) n FROM sources`),
+            collections: count(sql`SELECT count(*) n FROM projects`),
+            sessions: count(sql`SELECT count(*) n FROM sessions`),
+            annotations: count(sql`SELECT count(*) n FROM material_annotations`),
+            quizAttempts: count(sql`SELECT count(*) n FROM material_quiz_attempts`),
+            cardReviews: count(sql`SELECT count(*) n FROM material_card_reviews`),
+            practiceSlots: count(sql`SELECT count(*) n FROM learning_practice_slots`),
             tombstones: count(
-              'SELECT (SELECT count(*) FROM material_deletions) + (SELECT count(*) FROM session_deletions) n'
+              sql`SELECT (SELECT count(*) FROM material_deletions) + (SELECT count(*) FROM session_deletions) n`
             ),
-            historyPrunes: count('SELECT count(*) n FROM material_history_prunes'),
-            prunedVersions: count('SELECT count(*) n FROM material_history_members')
+            historyPrunes: count(sql`SELECT count(*) n FROM material_history_prunes`),
+            prunedVersions: count(sql`SELECT count(*) n FROM material_history_members`)
           };
         }
       })

@@ -37,12 +37,11 @@ import {
   backupIdSchema,
   backupManifestSchema,
   restoreTokenSchema,
-  restoreStatusSchema,
   backupDigestSchema,
   acceptRestoreSchema
 } from '@study/contracts/system/backups';
 import type { BackupId, BackupManifest, RestorePreview } from '@study/contracts/system/backups';
-import type { backupScopeSchema } from '@study/contracts/system/backups';
+import type { backupScopeSchema, restoreStatusSchema } from '@study/contracts/system/backups';
 import { Db } from '@study/db';
 import type { Clock } from 'effect';
 import { Context, Schema } from 'effect';
@@ -184,6 +183,26 @@ function cleanInterrupted(root: string) {
     rmSync(join(root, name), { force: true });
 }
 
+function pendingActivation(root: string): Journal | undefined {
+  cleanInterrupted(root);
+
+  const journal = readJournal(root);
+
+  if (!journal || journal.state !== 'restart-required') {
+    removeDatabase(join(root, 'restore.sqlite'));
+
+    return undefined;
+  }
+
+  return journal;
+}
+
+function validateStagedDigest(staged: string, journal: Journal) {
+  const bytes = boundedRead(staged, MAX_BACKUP_BYTES);
+
+  if (digest(bytes) !== journal.sha256) throw invalid();
+}
+
 /** One owner per App; all public operations share its overlap fence. */
 
 export class ManagedBackups {
@@ -193,11 +212,14 @@ export class ManagedBackups {
   private active: Promise<void> | undefined;
   private preview: RestorePreview | undefined;
 
-  constructor(
-    private readonly db: Db,
-    private readonly policy: SnapshotPolicy,
-    private readonly clock: Clock.Clock = liveClock()
-  ) {
+  private readonly db: Db;
+  private readonly policy: SnapshotPolicy;
+  private readonly clock: Clock.Clock;
+
+  constructor(db: Db, policy: SnapshotPolicy, clock: Clock.Clock = liveClock()) {
+    this.db = db;
+    this.policy = policy;
+    this.clock = clock;
     this.root = db.path + '.backups';
   }
 
@@ -472,36 +494,45 @@ export class ManagedBackups {
     );
   }
 
+  private acceptedInput(input: typeof acceptRestoreSchema.Type): boolean {
+    const accepted = this.journal();
+
+    if (
+      accepted &&
+      accepted.token === input.token &&
+      accepted.backupId === input.backupId &&
+      accepted.target === input.target &&
+      accepted.sha256 === input.sha256
+    )
+      return true;
+
+    return false;
+  }
+
+  private assertPreview(input: typeof acceptRestoreSchema.Type) {
+    const preview = this.preview;
+
+    if (
+      !input.acknowledgeReplacement ||
+      !preview ||
+      preview.token !== input.token ||
+      preview.backup.id !== input.backupId ||
+      preview.backup.sha256 !== input.sha256 ||
+      preview.target !== input.target ||
+      preview.blockedByCurrentBarriers
+    )
+      throw conflict();
+  }
+
   accept(input: typeof acceptRestoreSchema.Type): Promise<typeof restoreStatusSchema.Type> {
     return this.exclusive(() =>
       this.scratch(async (path) => {
         input = Schema.decodeUnknownSync(acceptRestoreSchema)(input);
 
-        const accepted = this.journal();
-
-        if (
-          accepted &&
-          accepted.token === input.token &&
-          accepted.backupId === input.backupId &&
-          accepted.target === input.target &&
-          accepted.sha256 === input.sha256
-        )
-          return this.statusUnsafe();
+        if (this.acceptedInput(input)) return this.statusUnsafe();
 
         this.assertMutable();
-
-        const preview = this.preview;
-
-        if (
-          !input.acknowledgeReplacement ||
-          !preview ||
-          preview.token !== input.token ||
-          preview.backup.id !== input.backupId ||
-          preview.backup.sha256 !== input.sha256 ||
-          preview.target !== input.target ||
-          preview.blockedByCurrentBarriers
-        )
-          throw conflict();
+        this.assertPreview(input);
 
         const artifact = await this.validatedArtifact(input.backupId, path);
 
@@ -552,27 +583,30 @@ export class ManagedBackups {
     });
   }
 
+  private activationState(journal: Journal, staged: string, previous: string) {
+    const identity = this.db.contentIdentity();
+
+    if (identity === journal.restored && existsSync(previous)) return 'replaced';
+
+    if (identity !== journal.target) {
+      this.writeJournal({ ...journal, state: 'target-changed' });
+      removeDatabase(staged);
+
+      return 'changed';
+    }
+
+    return 'pending';
+  }
+
   /** Runs before any App connection/auth/worker is acquired. Never replaces an open connection. */
   static async activate(path: string, policy: SnapshotPolicy): Promise<void> {
     if (path === ':memory:' || !existsSync(path + '.backups')) return;
 
     const root = path + '.backups';
 
-    cleanInterrupted(root);
+    const journal = pendingActivation(root);
 
-    const journal = readJournal(root);
-
-    if (!journal) {
-      removeDatabase(join(root, 'restore.sqlite'));
-
-      return;
-    }
-
-    if (journal.state !== 'restart-required') {
-      removeDatabase(join(path + '.backups', 'restore.sqlite'));
-
-      return;
-    }
+    if (!journal) return;
 
     // Opening the current supported file performs SQLite's normal WAL recovery, not migrations.
 
@@ -596,13 +630,13 @@ export class ManagedBackups {
     try {
       owner.initialize();
 
-      const identity = current.contentIdentity();
-
       const staged = join(owner.root, 'restore.sqlite');
 
       const previous = join(owner.root, 'previous.sqlite');
 
-      if (identity === journal.restored && existsSync(previous)) {
+      const state = owner.activationState(journal, staged, previous);
+
+      if (state === 'replaced') {
         // Crash after atomic replacement and before recording activation.
         await policy.validate(current);
         owner.writeJournal({ ...journal, state: 'applied' });
@@ -610,16 +644,9 @@ export class ManagedBackups {
         return;
       }
 
-      if (identity !== journal.target) {
-        owner.writeJournal({ ...journal, state: 'target-changed' });
-        removeDatabase(staged);
+      if (state === 'changed') return;
 
-        return;
-      }
-
-      const bytes = boundedRead(staged, MAX_BACKUP_BYTES);
-
-      if (digest(bytes) !== journal.sha256) throw invalid();
+      validateStagedDigest(staged, journal);
 
       const detail = await owner.validateFile(staged);
 

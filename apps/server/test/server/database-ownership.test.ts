@@ -172,6 +172,7 @@ for (const termination of ['close', 'SIGKILL'] as const)
 
         if (termination === 'close') owner.child.send('close');
         else owner.child.kill(termination);
+
         await owner.exited;
 
         const app = await App.open({ path: location.path });

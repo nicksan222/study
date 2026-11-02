@@ -64,6 +64,7 @@ for (const kind of ['file', 'image'] as const)
               ).pipe(Effect.provide(source.domain()))
             )
           : null;
+
       await acceptMaterialDeletion(source, saved.original.id);
 
       await cleanupMaterial(source, saved.original.id);

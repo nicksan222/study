@@ -397,7 +397,7 @@ test('corrupt checksum, unsupported schema, missing original BLOB and malformed 
       assert.equal(f.app.store.db.contentIdentity(), target);
     }
 
-    assert.equal((await f.app.nativeRuntime.runPromise(api.listBackups())).length, 1);
+    assert.equal((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
   } finally {
     await f.close();
   }
@@ -665,7 +665,7 @@ test('artifact deletion is bounded to an opaque managed identity and never remov
     await f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }));
     assert.equal(readFileSync(external, 'utf8'), 'External copy');
     assert.equal(f.app.store.db.contentIdentity(), before);
-    assert.equal((await f.app.nativeRuntime.runPromise(api.listBackups())).length, 0);
+    assert.equal((await f.app.nativeRuntime.runPromise(api.backups())).length, 0);
   } finally {
     await f.close();
   }

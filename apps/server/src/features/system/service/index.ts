@@ -22,6 +22,7 @@ import { Effect } from 'effect';
 
 import { BackupScopeStore } from '#server/features/system/store/backup';
 import { HealthStore, SystemStore } from '#server/features/system/store/index';
+import type { ManagedBackups } from '#server/platform/database/backups';
 import { BackupStorage } from '#server/platform/database/backups';
 import { defineService } from '#server/platform/definitions/define-service';
 import { useStore } from '#server/platform/definitions/define-store';
@@ -36,7 +37,9 @@ export const System = defineService(
   Effect.gen(function* () {
     const workers = yield* WorkerLifecycle;
 
-    const { owner: backups } = yield* BackupStorage;
+    const storage = yield* BackupStorage;
+
+    const backups: ManagedBackups = storage.owner;
 
     const backupOperation = <A>(tryOperation: () => Promise<A>) =>
       Effect.tryPromise({ try: tryOperation, catch: normalizeError });
@@ -47,7 +50,7 @@ export const System = defineService(
 
     return {
       createBackup: () => backupOperation(() => backups.create()),
-      listBackups: () => backupOperation(() => backups.list()),
+      backups: () => backupOperation(() => backups.list()),
       readBackup: (input: { id: BackupId }) => backupOperation(() => backups.read(input.id)),
       importBackup: (input: { bytes: string }) =>
         backupOperation(() => backups.import(input.bytes)),

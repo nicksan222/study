@@ -142,14 +142,16 @@ for (const operation of ['answer', 'rewrite'] as const)
       );
 
       for (const action of [
-        conversations.sessionContext({ requestId: captured.request.requestId }),
-        conversations.replySnapshot({ requestId: captured.request.requestId }),
-        conversations.requestReply({
-          sessionId: captured.session.id,
-          intentKey: context.intentKey,
-          instruction: context.instruction,
-          preferences: context.preferences
-        })
+        conversations.sessionContext({ requestId: captured.request.requestId }).pipe(Effect.asVoid),
+        conversations.replySnapshot({ requestId: captured.request.requestId }).pipe(Effect.asVoid),
+        conversations
+          .requestReply({
+            sessionId: captured.session.id,
+            intentKey: context.intentKey,
+            instruction: context.instruction,
+            preferences: context.preferences
+          })
+          .pipe(Effect.asVoid)
       ])
         assert.equal((await app.nativeRuntime.runPromise(Effect.flip(action))).kind, 'not_found');
 
@@ -290,6 +292,7 @@ test('a completed native answer survives a pending rewrite and late reply public
           event.type === 'ConversationGenerationRequested' &&
           event.requestId === requested.request.requestId
       );
+
     assert.ok(event?.type === 'ConversationGenerationRequested');
 
     source.replies.push({ kind: 'output', output: 'Exact native answer' });

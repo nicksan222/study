@@ -14,8 +14,6 @@ export type BackupId = typeof backupIdSchema.Type;
 
 export const restoreTokenSchema = uuid.pipe(Schema.brand('RestoreToken'));
 
-export type RestoreToken = typeof restoreTokenSchema.Type;
-
 export const backupDigestSchema = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/));
 
 export const backupScopeSchema = Schema.Struct({

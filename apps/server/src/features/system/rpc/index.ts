@@ -26,7 +26,7 @@ export const SystemRpcLive = defineRpc(
 
     return {
       'system.createBackup': () => system.createBackup(),
-      'system.listBackups': () => system.listBackups(),
+      'system.listBackups': () => system.backups(),
       'system.readBackup': (input) => system.readBackup(input),
       'system.importBackup': (input) => system.importBackup(input),
       'system.deleteBackup': (input) => system.deleteBackup(input),
