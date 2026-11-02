@@ -81,3 +81,14 @@ test('deletion and retired receipt identities remain lossless while attempt coun
 
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
+
+test('Material cleanup members, original sources and retained candidate identities stay lossless', () => {
+  const diagnostics = lintRule('no-lossy-ids', {
+    'src/features/sources/store/material-deletion.ts': `
+      Number(candidate.source_id); parseInt(member.materialId, 10); Number(owner.deletion_id);
+      Number(candidate.revision); Number(status.attempt); String(candidate.source_id); String(owner.deletion_id);
+    `
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});

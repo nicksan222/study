@@ -169,6 +169,15 @@ export function makeGeneration(resources: StoreResources) {
   }
 
   function readGeneration(requestId: string) {
+    if (
+      db.orm
+        .select()
+        .from(s.material_deletion_requests)
+        .where(eq(s.material_deletion_requests.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Material generation has been retired');
+
     const row = db.orm
       .select()
       .from(s.material_generation_requests)

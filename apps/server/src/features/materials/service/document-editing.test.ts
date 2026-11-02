@@ -23,10 +23,10 @@ import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { makeMaterialOutput } from '#testing/material-output';
+import { materialRpcHandlers } from '#testing/material-rpc';
 
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
@@ -51,7 +51,7 @@ test('native saves race on one expected revision, retain both rich alternatives 
   const services = () =>
     Materials.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
-  const handlers = () => MaterialsRpcLive.pipe(Layer.provide(services()));
+  const handlers = () => materialRpcHandlers.pipe(Layer.provide(services()));
 
   const call = <A, E>(
     action: Effect.Effect<A, E, Database | Context.Service.Identifier<typeof Materials>>

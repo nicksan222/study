@@ -119,3 +119,22 @@ test('run metadata derives from schemas instead of unchecked preference or paral
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('Material deletion scope and status derive from canonical schemas rather than parallel unchecked payloads', () => {
+  const diagnostics = lintRule(
+    'contract-schema',
+    {
+      'packages/contracts/src/materials/deletion.ts': `
+      import { Schema } from 'effect';
+      import { materialIdSchema, materialVersionIdSchema } from '../ids';
+      export const scope = Schema.Struct({ materialId: materialIdSchema, descendantIds: Schema.Array(materialIdSchema), versionIds: Schema.Array(materialVersionIdSchema) });
+      export type Scope = typeof scope.Type;
+      export interface ParallelScope { materialId: number; descendantIds: number[] }
+      export const unchecked = Schema.Struct({ selection: Schema.Unknown });
+    `
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+});

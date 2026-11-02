@@ -34,7 +34,7 @@ import { unixSeconds as now } from '#server/platform/time/index';
 
 export function makeWrites(resources: StoreResources) {
   const { db: store, clock } = resources;
-  const { insertContent } = makeContent(resources);
+  const { insertContent, assertDocumentImages } = makeContent(resources);
   const { materialRow, versionRow, readVersion } = makeReads(resources);
 
   function assertProject(id: ProjectId) {
@@ -81,38 +81,92 @@ export function makeWrites(resources: StoreResources) {
       throw new StudyError('invalid_input', 'Invalid material version link');
   }
 
+  // A manual revision retains a published parent's identities without reopening retired evidence.
+  function assertInheritedInput(
+    version: typeof s.material_versions.$inferSelect,
+    sourceId: MaterialVersionId,
+    inputId: MaterialVersionId
+  ) {
+    const source = versionRow(sourceId);
+
+    materialRow(source.material_id, true);
+
+    if (
+      version.kind !== 'document' ||
+      version.creator !== 'user' ||
+      version.operation !== 'edit' ||
+      version.generation_request_id !== null ||
+      source.status !== 'published' ||
+      source.material_id !== version.material_id ||
+      !store.orm
+        .select()
+        .from(s.material_version_parents)
+        .where(
+          and(
+            eq(s.material_version_parents.version_id, version.id),
+            eq(s.material_version_parents.parent_version_id, sourceId)
+          )
+        )
+        .get() ||
+      !store.orm
+        .select()
+        .from(s.material_version_inputs)
+        .where(
+          and(
+            eq(s.material_version_inputs.version_id, sourceId),
+            eq(s.material_version_inputs.input_version_id, inputId)
+          )
+        )
+        .get()
+    )
+      throw new StudyError(
+        'invalid_input',
+        'Revision provenance must match retained published history'
+      );
+  }
+
+  function writeLink(
+    version: typeof s.material_versions.$inferSelect,
+    id: MaterialVersionId,
+    parent: boolean
+  ) {
+    if (parent)
+      store.orm
+        .insert(s.material_version_parents)
+        .values({
+          version_id: version.id,
+          parent_version_id: id,
+          material_id: version.material_id
+        })
+        .run();
+    else
+      store.orm
+        .insert(s.material_version_inputs)
+        .values({
+          version_id: version.id,
+          input_version_id: id
+        })
+        .run();
+  }
+
   function insertLinks(
     version: typeof s.material_versions.$inferSelect,
     links: { inputs?: readonly MaterialVersionId[]; parents?: readonly MaterialVersionId[] },
-    imported = false
+    imported = false,
+    inheritedFrom?: MaterialVersionId
   ) {
     for (const [ids, parent] of [
-      [links.inputs ?? [], false],
-      [links.parents ?? [], true]
+      [links.parents ?? [], true],
+      [links.inputs ?? [], false]
     ] as const) {
       if (new Set(ids).size !== ids.length)
         throw new StudyError('invalid_input', 'Duplicate version links');
 
       for (const id of ids) {
-        assertLinkTarget(version, id, parent, imported);
+        if (parent || inheritedFrom === undefined) assertLinkTarget(version, id, parent, imported);
+        else assertInheritedInput(version, inheritedFrom, id);
 
-        if (parent)
-          store.orm
-            .insert(s.material_version_parents)
-            .values({
-              version_id: version.id,
-              parent_version_id: id,
-              material_id: version.material_id
-            })
-            .run();
-        else
-          store.orm
-            .insert(s.material_version_inputs)
-            .values({
-              version_id: version.id,
-              input_version_id: id
-            })
-            .run();
+        writeLink(version, id, parent);
       }
     }
   }
@@ -120,7 +174,8 @@ export function makeWrites(resources: StoreResources) {
   function insertVersion(
     materialId: MaterialId,
     input: typeof createMaterialVersionInputSchema.Type,
-    imported?: { documentId: DocumentId | null }
+    imported?: { documentId: DocumentId | null },
+    inheritedFrom?: MaterialVersionId
   ) {
     const material = materialRow(materialId, imported === undefined);
 
@@ -148,9 +203,9 @@ export function makeWrites(resources: StoreResources) {
       .returning()
       .get();
 
-    insertContent(version, input.content, imported?.documentId);
+    insertLinks(version, input, imported !== undefined, inheritedFrom);
 
-    insertLinks(version, input, imported !== undefined);
+    insertContent(version, input.content, imported?.documentId);
 
     if (input.publish !== false) publish(version.id, imported !== undefined);
 
@@ -163,7 +218,7 @@ export function makeWrites(resources: StoreResources) {
     return version.id;
   }
 
-  function publish(id: MaterialVersionId, imported = false) {
+  function publish(id: MaterialVersionId, imported = false, inheritedFrom?: MaterialVersionId) {
     const version = versionRow(id, !imported);
 
     if (version.status !== 'draft')
@@ -171,6 +226,7 @@ export function makeWrites(resources: StoreResources) {
 
     // Decode the canonical content again so a draft cannot publish a stale projection.
     readVersion(id);
+    assertDocumentImages(version);
 
     // Recheck ownership and archive state at publication even for an older draft.
     const inputs = store.orm
@@ -184,10 +240,13 @@ export function makeWrites(resources: StoreResources) {
       .where(eq(s.material_version_parents.version_id, id))
       .all();
 
-    for (const targetId of [
-      ...inputs.map((i) => i.input_version_id),
-      ...parents.map((p) => p.parent_version_id)
-    ]) {
+    for (const input of inputs) {
+      if (inheritedFrom === undefined)
+        assertLinkTarget(version, input.input_version_id, false, imported);
+      else assertInheritedInput(version, inheritedFrom, input.input_version_id);
+    }
+
+    for (const targetId of parents.map((p) => p.parent_version_id)) {
       const target = versionRow(targetId);
 
       materialRow(target.material_id, !imported);

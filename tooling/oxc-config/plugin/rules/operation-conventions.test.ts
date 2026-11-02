@@ -128,3 +128,25 @@ test('deletion aggregates require their own canonical descriptors beside status'
     Array(2).fill('apps/server/src/features/conversations/store/bypass.ts')
   );
 });
+
+test('Material deletion status, preview and participants bind their own canonical store query names', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/deletion.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'materialDeletion',plural:'materialDeletions'},make:()=>({queries:{materialDeletion:storeQuery({role:'required'}),findMaterialDeletion:storeQuery({role:'optional'})},mutations:{}})});
+      defineStore({entity:{singular:'materialDeletionPreview',plural:'materialDeletionPreviews'},make:()=>({queries:{materialDeletionPreview:storeQuery({role:'required'})},mutations:{}})});
+      defineStore({entity:{singular:'materialDeletionOwnership',plural:'materialDeletionOwnerships'},make:()=>({queries:{materialDeletionOwnership:storeQuery({role:'required'})},mutations:{}})});
+    `,
+      'apps/server/src/features/sources/store/material-deletion.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'sourceMaterialImpact',plural:'sourceMaterialImpacts'},make:()=>({queries:{sourceMaterialImpact:storeQuery({role:'required'})},mutations:{}})});
+    `,
+      'apps/server/src/features/materials/store/bypass.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'materialDeletion',plural:'materialDeletions'},make:()=>({queries:{readStatus:storeQuery({role:'required'}),previewDeletion:storeQuery({role:'optional'})},mutations:{}})});
+    `
+    }),
+    Array(2).fill('apps/server/src/features/materials/store/bypass.ts')
+  );
+});

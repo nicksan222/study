@@ -11,10 +11,10 @@
  */
 
 import { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
-import { failureSchema, StudyError } from '@study/contracts/errors';
+import { failureSchema } from '@study/contracts/errors';
 import { sessionDeletionRequestedSchema } from '@study/contracts/events';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import { Cause, Effect, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/index';
@@ -23,7 +23,7 @@ import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
+import { retryResumableActivity, settleWorkflowFailure } from '#server/platform/workflows/retry';
 
 export const sessionDeletionWorkflow = defineWorkflow({
   name: 'session-deletion',
@@ -69,24 +69,15 @@ export const sessionDeletionHandler = ({
         })
       })
     ).pipe(
-      Effect.catchCause((cause) => {
-        const failure = Cause.squash(cause);
-        const kind =
-          failure instanceof StudyError
-            ? failure.kind
-            : Cause.hasInterrupts(cause)
-              ? 'cancelled'
-              : 'internal';
-        const error = new StudyError(kind, 'Session cleanup failed');
-
-        return conversations
-          .failSessionDeletion({
+      Effect.catchCause((cause) =>
+        settleWorkflowFailure(cause, 'Session cleanup failed', (kind) =>
+          conversations.failSessionDeletion({
             sessionId: event.sessionId,
             errorKind: kind,
             attempt: event.attempt
           })
-          .pipe(Effect.uninterruptible, Effect.andThen(Effect.fail(error)));
-      })
+        )
+      )
     );
   });
 

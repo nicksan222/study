@@ -283,3 +283,29 @@ test('deletion coordinators compose public Materials and Workflows retirement pa
 
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
 });
+
+test('Material cleanup composes public synchronous participants and cannot expose or import private retirement stores', () => {
+  const diagnostics = lintRule('server-layer-boundary', {
+    'src/features/materials/service/deletion.ts': `
+      import { Sources } from '#server/features/sources/index';
+      import { Conversations } from '#server/features/conversations/index';
+      import { Recordings } from '#server/features/recordings/index';
+      import { Learning } from '#server/features/learning/index';
+      import { Workflows } from '#server/features/workflows/index';
+      import { publicationTransaction } from '#server/platform/definitions/define-store';
+      export const finish = id => publicationTransaction(tx => {
+        Conversations.scrubMaterialDeletion(tx, id); Sources.scrubMaterialDeletion(tx, id);
+        Recordings.scrubMaterialDeletion(tx, id); Learning.scrubMaterialDeletion(tx, [id]);
+        Workflows.scrubRetiredCorrelations(tx, [id]);
+      });
+    `,
+    'src/features/materials/service/private.ts': `
+      import { SourceMaterialDeletionStore } from '#server/features/sources/store/material-deletion';
+      import { ConversationMaterialDeletionStore } from '#server/features/conversations/store/material-deletion';
+    `,
+    'src/features/sources/index.ts': `export { SourceMaterialDeletionStore } from './store/material-deletion';`
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/deletion.ts')));
+});

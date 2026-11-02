@@ -113,17 +113,48 @@ export function makeEvidence(resources: StoreResources) {
     return missing ? ('unavailable' as const) : changed ? ('stale' as const) : ('current' as const);
   }
 
+  function versionDeleted(version: typeof s.material_versions.$inferSelect | undefined) {
+    return (
+      version &&
+      db.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.material_id, version.material_id))
+        .get()
+    );
+  }
+
+  function revisionUnavailable(
+    version: typeof s.material_versions.$inferSelect | undefined,
+    current: typeof s.material_versions.$inferSelect | undefined,
+    inputDocumentId: typeof s.documents.$inferSelect.id | null,
+    sourceMissing: boolean
+  ) {
+    return !version || !current || documentMissing(inputDocumentId) || sourceMissing;
+  }
+
   function revision(id: MaterialVersionId): typeof contract.evidenceRevisionSchema.Type {
     const version = db.orm
       .select()
       .from(s.material_versions)
       .where(eq(s.material_versions.id, id))
       .get();
+
+    if (versionDeleted(version))
+      return {
+        inputVersionId: id,
+        currentVersionId: null,
+        inputDocumentId: null,
+        currentDocumentId: null,
+        source: null,
+        state: 'unavailable' as const
+      };
+
     const current = currentVersion(version);
     const inputDocumentId = version ? reads.versionDocumentId(id) : null;
     const currentDocumentId = current ? reads.versionDocumentId(current.id) : null;
     const source = sourceRevision(id);
-    const missing = !version || !current || documentMissing(inputDocumentId) || source.missing;
+    const missing = revisionUnavailable(version, current, inputDocumentId, source.missing);
     const changed = current?.id !== id || source.changed;
 
     return {
@@ -146,7 +177,15 @@ export function makeEvidence(resources: StoreResources) {
       .where(eq(s.material_versions.id, id))
       .get();
 
-    if (!version || version.status !== 'published')
+    if (
+      !version ||
+      version.status !== 'published' ||
+      db.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.material_id, version.material_id))
+        .get()
+    )
       return unavailable(reference, 'version_missing');
 
     const base = {

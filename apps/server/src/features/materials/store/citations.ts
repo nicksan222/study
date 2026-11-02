@@ -17,7 +17,7 @@ import type { MaterialVersionId } from '@study/contracts/ids';
 import { asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
-import { makeReads } from '#server/features/materials/store/reads';
+import { makeReads, required } from '#server/features/materials/store/reads';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { readCitation } from './citation-row.ts';
@@ -44,7 +44,13 @@ export function makeCitations(resources: StoreResources) {
         : {
             kind: 'range' as const,
             target: {
-              materialId: versionRow(citation.inputVersionId).material_id,
+              materialId: required(
+                db.orm
+                  .select({ materialId: s.material_versions.material_id })
+                  .from(s.material_versions)
+                  .where(eq(s.material_versions.id, citation.inputVersionId))
+                  .get()
+              ).materialId,
               range: citation.target
             }
           };

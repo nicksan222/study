@@ -16,9 +16,9 @@
  */
 
 import { failureSchema, isRetryable, needsSetup, StudyError } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
+import type { ErrorKind, Failure } from '@study/contracts/errors';
 import { workflow_configuration_waits } from '@study/db/schema';
-import { Effect, Result, Schema } from 'effect';
+import { Cause, Effect, Result, Schema } from 'effect';
 import { Activity, DurableClock, DurableDeferred } from 'effect/workflow';
 
 import { Database } from '#server/platform/database/database';
@@ -26,6 +26,28 @@ import { recordConfigurationWait } from '#server/platform/observability/index';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { currentWorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { workflowStore } from '#server/platform/workflows/store';
+
+/** Persist failure state without allowing settlement failure to hide the original kind. */
+export function settleWorkflowFailure<E, R>(
+  cause: Cause.Cause<unknown>,
+  message: string,
+  settle: (kind: ErrorKind) => Effect.Effect<unknown, E, R>
+) {
+  const failure = Cause.squash(cause);
+  const kind =
+    failure instanceof StudyError
+      ? failure.kind
+      : Cause.hasInterrupts(cause)
+        ? 'cancelled'
+        : 'internal';
+  const error = new StudyError(kind, message);
+
+  return settle(kind).pipe(
+    Effect.uninterruptible,
+    Effect.catchCause(() => Effect.fail(error)),
+    Effect.andThen(Effect.fail(error))
+  );
+}
 
 /** Classify a typed failure without relying on provider error text. */
 export function retryDisposition(

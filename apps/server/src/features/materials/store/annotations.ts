@@ -50,6 +50,15 @@ function makeAnnotations(resources: StoreResources) {
 
     const value = decode(row.payload);
 
+    if (
+      db.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.material_id, value.target.materialId))
+        .get()
+    )
+      return null;
+
     return { ...value, evidence: evidence.resolve({ kind: 'range', target: value.target }) };
   }
 
@@ -138,6 +147,15 @@ function makeAnnotations(resources: StoreResources) {
   }
 
   function list(value: typeof contract.annotationPageInputSchema.Type) {
+    if (
+      db.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.material_id, value.materialId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Material is unavailable');
+
     const rows = db.orm
       .select({ id: s.material_annotations.id })
       .from(s.material_annotations)
@@ -161,6 +179,8 @@ function makeAnnotations(resources: StoreResources) {
   }
 
   function history(value: typeof contract.annotationHistoryInputSchema.Type) {
+    if (!read(value.id)) throw new StudyError('not_found', 'Annotation is unavailable');
+
     const rows = db.orm
       .select()
       .from(s.material_annotation_revisions)

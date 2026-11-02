@@ -28,7 +28,7 @@ import {
 } from '@study/contracts/sources/rpc';
 import { documentSchema, hasTextualContent, sourceSchema } from '@study/contracts/sources/schemas';
 import { MAX_SOURCE_BYTES, sourceKindSchema } from '@study/contracts/sources/sniff';
-import { isNull, and, desc, eq, getTableColumns, lt } from '@study/db';
+import { isNull, and, desc, eq, getTableColumns, lt, sql } from '@study/db';
 import * as tables from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -102,13 +102,31 @@ function makeHelpers({ db }: StoreResources) {
     };
   }
 
+  function unavailable(id: SourceId) {
+    return (
+      db.orm
+        .select()
+        .from(tables.material_imports)
+        .innerJoin(
+          tables.material_deletion_members,
+          eq(tables.material_imports.material_id, tables.material_deletion_members.material_id)
+        )
+        .where(eq(tables.material_imports.source_id, id))
+        .get() !== undefined
+    );
+  }
+
   function find(id: SourceId) {
+    if (unavailable(id)) throw new StudyError('not_found', 'Source is unavailable');
+
     const row = selectSources().where(eq(tables.sources.id, id)).get();
 
     return row ? sourceRow(row) : null;
   }
 
   function state(id: SourceId) {
+    if (unavailable(id)) throw new StudyError('not_found', 'Source is unavailable');
+
     const row = db.orm
       .select()
       .from(tables.source_processing)
@@ -232,7 +250,12 @@ export const SourceStore = defineStore({
           output: Schema.Array(sourceSchema),
           run: (input) =>
             selectSources()
-              .where(input.before === undefined ? undefined : lt(tables.sources.id, input.before))
+              .where(
+                and(
+                  sql`NOT EXISTS (SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=${tables.sources.id})`,
+                  input.before === undefined ? undefined : lt(tables.sources.id, input.before)
+                )
+              )
               .orderBy(desc(tables.sources.id))
               .limit(input.limit)
               .all()
@@ -630,6 +653,29 @@ export const SourceSnapshotStore = defineStore({
         input: snapshotKey,
         output: snapshotSchema,
         run: (input) => {
+          const deleted = db.orm
+            .select()
+            .from(tables.material_imports)
+            .innerJoin(
+              tables.material_deletion_members,
+              eq(tables.material_imports.material_id, tables.material_deletion_members.material_id)
+            )
+            .where(eq(tables.material_imports.source_id, input.id))
+            .get();
+          const retained = db.orm
+            .select()
+            .from(tables.document_assets)
+            .where(
+              and(
+                eq(tables.document_assets.source_id, input.id),
+                eq(tables.document_assets.revision, BigInt(input.revision))
+              )
+            )
+            .get();
+
+          if (deleted && !retained)
+            throw new StudyError('not_found', 'Source revision is unavailable');
+
           const row = db.orm
             .select()
             .from(tables.source_snapshots)
@@ -661,7 +707,7 @@ export const SourceDocumentStore = defineStore({
   name: 'study/SourceDocumentStore',
   entity: { singular: 'sourceDocument', plural: 'sourceDocuments' },
   make: ({ db, clock }) => {
-    const { readDocument } = makeHelpers({ db, clock });
+    const { readDocument, find } = makeHelpers({ db, clock });
 
     return {
       queries: {
@@ -670,6 +716,7 @@ export const SourceDocumentStore = defineStore({
           input: sourceIdSchema,
           output: Schema.Struct({ id: documentIdSchema, document: documentSchema }),
           run: (sourceId) => {
+            find(sourceId);
             const row = db.orm
               .select({ id: tables.documents.id, meta: tables.documents.meta })
               .from(tables.source_processing)
@@ -695,7 +742,7 @@ export const HistoricalDocumentStore = defineStore({
   name: 'study/SourceHistoricalDocumentStore',
   entity: { singular: 'document', plural: 'documents' },
   make: ({ db, clock }) => {
-    const { readDocument } = makeHelpers({ db, clock });
+    const { readDocument, find } = makeHelpers({ db, clock });
 
     return {
       queries: {
@@ -708,6 +755,7 @@ export const HistoricalDocumentStore = defineStore({
           }),
           output: Schema.Struct({ id: documentIdSchema, document: documentSchema }),
           run: (input) => {
+            find(input.sourceId);
             const row = db.orm
               .select({ id: tables.documents.id, meta: tables.documents.meta })
               .from(tables.documents)

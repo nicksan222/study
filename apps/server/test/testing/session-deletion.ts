@@ -95,14 +95,14 @@ export function setup(fixture: DeletionFixture, marker: string, target = false) 
         ...(target ? { editTargetVersionId: library.version.id } : {})
       });
 
-      yield* chats.requestReply({
+      const pending = yield* chats.requestReply({
         sessionId: session.id,
         intentKey: 'private-reply-capture',
         instruction: marker + '-reply',
         preferences: {}
       });
 
-      return { session, other, library, capture, request };
+      return { session, other, library, capture, request, pending };
     }).pipe(Effect.provide(fixture.domain()))
   );
 }
@@ -241,7 +241,7 @@ export function libraryState(fixture: DeletionFixture, ids: readonly MaterialVer
 export function awaitNativeStatus(
   fixture: Awaited<ReturnType<typeof documentTransformFixture>>,
   id: string,
-  status: 'running' | 'suspended' | 'completed'
+  status: 'running' | 'suspended' | 'completed' | 'cancelled'
 ) {
   return Effect.gen(function* () {
     for (let attempt = 0; attempt < 100; attempt++) {

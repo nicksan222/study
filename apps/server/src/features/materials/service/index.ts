@@ -63,6 +63,7 @@ import {
 } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
+import { materialDeletionOperations, deletionParticipantsLayer } from './deletion.ts';
 import {
   requestDocumentTransform,
   publishDocumentTransform,
@@ -143,6 +144,7 @@ function* makeMaterials() {
     });
 
   return {
+    ...materialDeletionOperations(),
     citationSupport: support.citationSupport,
     assessCitation: (value: typeof evidence.assessCitationSchema.Type) =>
       transaction((tx) => tx.store(CitationSupportStore).assessCitation(value)),
@@ -499,6 +501,7 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
   publishDocumentTransform,
   retryDocumentTransform,
   assertDocumentContext,
+  deletionParticipantsLayer,
   registerImportedSource,
   assignImportedSourceProject,
   documentProposal,

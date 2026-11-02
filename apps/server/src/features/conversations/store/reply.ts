@@ -41,7 +41,8 @@ import {
   source_processing,
   sources,
   workflowEvents,
-  workflowReceipts
+  workflowReceipts,
+  material_deletion_requests
 } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -51,6 +52,7 @@ import { unixSeconds } from '#server/platform/time/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeHistory } from './history.ts';
+import { makeDiscardPending } from './pending.ts';
 import { makePersistence } from './persistence.ts';
 import { makeThread } from './thread.ts';
 
@@ -69,6 +71,7 @@ const requestInput = Schema.Struct({
 });
 
 function makeHelpers({ db, clock }: StoreResources) {
+  const discardPending = makeDiscardPending({ db, clock });
   const { insertSelectedVersion } = makePersistence({ db, clock });
   const { conversationHistory, conversationRoot } = makeHistory({ db, clock });
   const { assertThreadRoot } = makeThread({ db, clock });
@@ -350,6 +353,15 @@ function makeHelpers({ db, clock }: StoreResources) {
   }
 
   function replyContext(requestId: string) {
+    if (
+      db.orm
+        .select()
+        .from(material_deletion_requests)
+        .where(eq(material_deletion_requests.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Reply context is unavailable');
+
     const row = db.orm
       .select()
       .from(conversation_reply_requests)
@@ -432,45 +444,6 @@ function makeHelpers({ db, clock }: StoreResources) {
       )
         throw new StudyError('invalid_input', 'captured attachment processing is unavailable');
     }
-  }
-
-  function discardPending(
-    message: typeof messages.$inferSelect,
-    version: typeof message_versions.$inferSelect
-  ) {
-    const completed =
-      (version.based_on === null
-        ? undefined
-        : db.orm
-            .select()
-            .from(message_versions)
-            .where(
-              and(
-                eq(message_versions.id, version.based_on),
-                eq(message_versions.message_id, message.id),
-                eq(message_versions.status, 'complete')
-              )
-            )
-            .get()) ??
-      db.orm
-        .select()
-        .from(message_versions)
-        .where(
-          and(eq(message_versions.message_id, message.id), eq(message_versions.status, 'complete'))
-        )
-        .orderBy(desc(message_versions.number))
-        .get();
-
-    if (completed) {
-      if (message.active_version_id === version.id)
-        db.orm
-          .update(messages)
-          .set({ active_version_id: completed.id })
-          .where(eq(messages.id, message.id))
-          .run();
-
-      db.orm.delete(message_versions).where(eq(message_versions.id, version.id)).run();
-    } else db.orm.delete(messages).where(eq(messages.id, message.id)).run();
   }
 
   function retirePending(message: typeof messages.$inferSelect) {

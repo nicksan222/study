@@ -50,8 +50,8 @@ export function makeReplaceDraftAction(resources: StoreResources) {
         .where(eq(s.material_version_parents.version_id, version.id))
         .run();
       removeContent(version.id);
-      insertContent(version, input.content);
       insertLinks(version, input);
+      insertContent(version, input.content);
       db.update(s.material_versions)
         .set({
           operation: input.operation ?? version.operation,

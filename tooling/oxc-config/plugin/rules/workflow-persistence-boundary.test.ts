@@ -150,3 +150,25 @@ test('retirement may write its fences but checkpoint and event mutations retain 
     ]
   );
 });
+
+test('Material cleanup cannot acquire native execution, checkpoint, event or fence writer authority', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/deletion.ts': `
+      import * as s from '@study/db/schema';
+      import { sql } from '@study/db';
+      db.select().from(s.workflow_executions);
+      db.update(s.workflow_executions); db.delete(s.workflow_activities);
+      db.delete(s.workflow_deferreds); db.delete(s.workflow_clocks);
+      db.update(s.workflowEvents); db.delete(s.workflow_configuration_waits);
+      db.insert(s.workflow_retired_correlations);
+      sql\`DELETE FROM workflow_retired_executions WHERE correlation_id=\${id}\`;
+    `,
+      'apps/server/src/platform/workflows/retirement.ts': `
+      import * as s from '@study/db/schema';
+      db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
+    `
+    }),
+    Array(8).fill('apps/server/src/features/materials/store/deletion.ts')
+  );
+});

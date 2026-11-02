@@ -10,6 +10,12 @@ import {
 } from '../ids.ts';
 import { sourceExportSchema } from '../sources/rpc.ts';
 import {
+  materialDeletionKeySchema,
+  materialDeletionPreviewSchema,
+  requestMaterialDeletionSchema,
+  materialDeletionSchema
+} from './deletion.ts';
+import {
   createManualDocumentSchema,
   applyDocumentProposalSchema,
   keepDocumentProposalSchema,
@@ -153,6 +159,26 @@ const retryGenerationSchema = Schema.Struct({
 });
 
 export const MaterialsRpc = RpcGroup.make(
+  Rpc.make('previewDeletion', {
+    payload: materialDeletionKeySchema,
+    success: materialDeletionPreviewSchema,
+    error: failureSchema
+  }),
+  Rpc.make('requestDeletion', {
+    payload: requestMaterialDeletionSchema,
+    success: materialDeletionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('deletion', {
+    payload: materialDeletionKeySchema,
+    success: materialDeletionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('retryDeletion', {
+    payload: materialDeletionKeySchema,
+    success: materialDeletionSchema,
+    error: failureSchema
+  }),
   Rpc.make('assessCitation', {
     payload: evidence.assessCitationSchema,
     success: evidence.citationSupportSchema,

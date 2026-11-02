@@ -25,11 +25,11 @@ import { RpcTest } from 'effect/rpc';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { materialRpcHandlers } from '#testing/material-rpc';
 import { withTestPublication } from '#testing/publication';
 
 const meta = {
@@ -56,7 +56,7 @@ test('quick-session RPC captures exact ranges and publishes one independent deri
     Settings.layer,
     Projects.layer
   ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
-  const handlers = MaterialsRpcLive.pipe(Layer.provide(domain));
+  const handlers = materialRpcHandlers.pipe(Layer.provide(domain));
 
   try {
     const setup = await Effect.runPromise(

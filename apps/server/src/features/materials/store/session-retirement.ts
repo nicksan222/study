@@ -21,7 +21,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeContent } from './content.ts';
 
-function makeRetirement(resources: StoreResources) {
+export function makeProposalRetirement(resources: StoreResources) {
   const { db } = resources;
   const { removeContent } = makeContent(resources);
 
@@ -104,6 +104,13 @@ function makeRetirement(resources: StoreResources) {
       .where(eq(s.material_versions.id, proposal.proposed_version_id))
       .run();
   }
+
+  return retireProposal;
+}
+
+function makeRetirement(resources: StoreResources) {
+  const { db } = resources;
+  const retireProposal = makeProposalRetirement(resources);
 
   return {
     prepare: storeMutation({

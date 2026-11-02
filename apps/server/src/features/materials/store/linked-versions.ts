@@ -16,11 +16,10 @@ import type { inputsInputSchema } from '@study/contracts/materials/rpc';
 import { and, asc, eq, gt } from '@study/db';
 import * as s from '@study/db/schema';
 
+import { makeReads } from '#server/features/materials/store/reads';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Input = typeof inputsInputSchema.Type;
-
-import { makeReads } from '#server/features/materials/store/reads';
 
 export function makeLinkedVersions(resources: StoreResources) {
   const { db: store } = resources;
@@ -52,7 +51,20 @@ export function makeLinkedVersions(resources: StoreResources) {
       page = rows.slice(0, input.limit);
 
     return {
-      items: page.map((row) => row.version),
+      items: page.map((row) =>
+        store.orm
+          .select()
+          .from(s.material_deletion_members)
+          .where(eq(s.material_deletion_members.material_id, row.version.material_id))
+          .get()
+          ? {
+              ...row.version,
+              instruction: null,
+              language: null,
+              availability: 'unavailable' as const
+            }
+          : row.version
+      ),
       nextCursor: rows.length > input.limit ? page.at(-1)!.version.id : null
     };
   };

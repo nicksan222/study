@@ -26,12 +26,12 @@ import { Effect, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
   kind: 'document' as const,
@@ -225,7 +225,7 @@ test('native materials RPC uses the service and maps canonical failures', async 
   const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
-  const handlers = MaterialsRpcLive.pipe(Layer.provide(services));
+  const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
   try {
     await Effect.runPromise(
@@ -265,7 +265,7 @@ test('published image retains its source revision through replacement and draft 
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
-  const handlers = MaterialsRpcLive.pipe(Layer.provide(services));
+  const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
   try {
     await Effect.runPromise(
@@ -405,7 +405,7 @@ test('generation validation, rollback, RPC, and persistent snapshots', async () 
 
   try {
     const services = makeServices();
-    const handlers = MaterialsRpcLive.pipe(Layer.provide(services));
+    const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
     function* verifyGenerationSnapshots() {
       const projects = yield* Projects;

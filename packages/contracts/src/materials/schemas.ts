@@ -428,6 +428,7 @@ export const materialContentDetailSchema = Schema.Union([
 ]);
 
 export const materialVersionSummarySchema = Schema.Struct({
+  availability: Schema.optional(Schema.Literals(['available', 'unavailable'])),
   id: materialVersionIdSchema,
   material_id: materialIdSchema,
   kind: materialKindSchema,

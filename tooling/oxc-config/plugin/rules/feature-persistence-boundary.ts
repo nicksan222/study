@@ -8,6 +8,7 @@ const groups: Record<string, string[]> = {
   'projects,materials': ['project_materials'],
   'projects,conversations': ['project_sessions'],
   sources: [
+    'source_material_deletion_assets',
     'sources',
     'source_blobs',
     'source_processing',
@@ -29,6 +30,9 @@ const groups: Record<string, string[]> = {
   ],
   recordings: ['recordings', 'recording_chunks', 'recording_posts'],
   materials: [
+    'material_deletions',
+    'material_deletion_members',
+    'material_deletion_requests',
     'materials',
     'session_materials',
     'material_versions',

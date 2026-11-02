@@ -57,6 +57,8 @@ import {
   publicationTransaction
 } from '#server/platform/definitions/define-store';
 
+import { prepareMaterialDeletion, scrubMaterialDeletion } from './material-deletion.ts';
+
 export const Learning = defineService(
   'study/Learning',
   Effect.gen(function* () {
@@ -251,5 +253,6 @@ export const Learning = defineService(
           return { items, nextCursor: more.length && last ? last.review.id : null };
         })
     };
-  })
+  }),
+  { prepareMaterialDeletion, scrubMaterialDeletion }
 );

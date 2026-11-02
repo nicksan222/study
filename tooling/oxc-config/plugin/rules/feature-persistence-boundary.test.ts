@@ -290,3 +290,43 @@ test('deletion barriers are Conversations-owned and proposal retirement proofs a
     'Feature materials may not write session_deletions.'
   ]);
 });
+
+test('Material deletion proofs stay with Materials and exact source cleanup candidates stay with Sources', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/materials/store/deletion.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.material_deletions); db.insert(s.material_deletion_members); db.insert(s.material_deletion_requests);
+      db.select().from(s.source_material_deletion_assets); db.delete(s.source_material_deletion_assets);
+    `,
+    'src/features/sources/store/material-deletion.ts': `
+      import * as s from '@study/db/schema'; import { sql } from '@study/db';
+      import type { Db } from '@study/db'; declare const db: Db;
+      const { source_material_deletion_assets: candidates } = s;
+      db.insert(candidates); db.delete(s.source_blobs); db.delete(s.source_snapshots);
+      db.select().from(s.material_deletion_members); db.insert(s.material_deletion_members);
+      sql\`UPDATE material_deletions SET status='completed'\`;
+      db.delete(s.material_deletion_requests);
+    `,
+    'src/features/conversations/store/material-deletion.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.delete(s.message_versions); db.delete(s.conversation_reply_requests); db.delete(s.session_run_contexts);
+      db.update(s.material_deletion_requests);
+    `,
+    'src/features/learning/store/material-deletion.ts': `
+      import { source_material_deletion_assets as candidates } from '@study/db/schema';
+      import type { Db } from '@study/db'; declare const db: Db; db.insert(candidates);
+    `
+  });
+
+  assert.deepEqual(
+    diagnostics.map(({ message }) => message).sort(),
+    [
+      'Feature materials may not write source_material_deletion_assets.',
+      'Feature sources may not write material_deletion_members.',
+      'Feature sources may not write material_deletions.',
+      'Feature sources may not write material_deletion_requests.',
+      'Feature conversations may not write material_deletion_requests.',
+      'Feature learning may not write source_material_deletion_assets.'
+    ].sort()
+  );
+});

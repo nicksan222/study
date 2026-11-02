@@ -72,9 +72,15 @@ test('retirement upgrades populated canonical state, references, sequences and s
       assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
       assert.deepEqual(
         db.all(
-          sql`SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') ORDER BY name`
+          sql`SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') AND name LIKE 'message_fts_%' ORDER BY name`
         ),
         triggerSql
+      );
+
+      assert.ok(
+        db.get(
+          sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='material_deletion_reply_publication'`
+        )
       );
 
       for (const table of [
