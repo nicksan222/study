@@ -17,8 +17,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { ProjectId } from '@study/contracts/ids';
-import * as tables from '@study/db/schema';
 import { plainBlock } from '@study/contracts/sources/document';
+import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
