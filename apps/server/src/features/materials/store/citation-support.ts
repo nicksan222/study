@@ -21,6 +21,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { readCitation } from './citation-row.ts';
 import { makeEvidence } from './evidence.ts';
+import { makeReads } from './reads.ts';
 
 const codec = Schema.fromJsonString(Schema.toCodecJson(contract.citationAssessmentSchema));
 
@@ -63,6 +64,7 @@ function citationChanged(
 export function makeSupport(resources: StoreResources) {
   const { db } = resources;
   const resolver = makeEvidence(resources);
+  const { versionRow } = makeReads(resources);
 
   function citationAt(
     versionId: typeof contract.citationSupportInputSchema.Type.versionId,
@@ -85,6 +87,8 @@ export function makeSupport(resources: StoreResources) {
   function support(
     value: typeof contract.citationSupportInputSchema.Type
   ): typeof contract.citationSupportSchema.Type {
+    versionRow(value.versionId);
+
     const row = db.orm
       .select()
       .from(s.material_citation_assessments)
