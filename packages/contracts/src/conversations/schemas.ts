@@ -142,6 +142,37 @@ export const replyRequestSchema = Schema.Struct({
   versionId: versionIdSchema
 });
 
+export const askInputSchema = Schema.Struct({
+  sessionId: sessionIdSchema,
+  threadRoot: Schema.optional(partIdSchema),
+  intentKey: Schema.String.check(Schema.isBetweenLength(1, 200)),
+  expectedSelectionRevision: Schema.BigInt,
+  text: Schema.String,
+  sourceIds: Schema.optional(Schema.Array(sourceIdSchema)),
+  instruction: Schema.optional(Schema.String.check(Schema.isMaxLength(100000))),
+  preferences: Schema.optional(runPreferencesSchema)
+});
+
+export const askResultSchema = Schema.Struct({
+  ...replyRequestSchema.fields,
+  userMessageId: messageIdSchema,
+  userVersionId: versionIdSchema
+});
+
+export const replyVersionInputSchema = Schema.Struct({
+  sessionId: sessionIdSchema,
+  messageId: messageIdSchema,
+  versionId: versionIdSchema
+});
+
+/** Exact provenance only; private input remains behind inspectSessionContext. */
+export const replyVersionSchema = Schema.Union([
+  Schema.Struct({ state: Schema.Literal('manual') }),
+  Schema.Struct({ state: Schema.Literal('unavailable'), requestId: Schema.NullOr(Schema.String) }),
+  Schema.Struct({ state: Schema.Literal('retired'), requestId: Schema.String }),
+  Schema.Struct({ state: Schema.Literal('available'), requestId: Schema.String })
+]);
+
 export const replySnapshotInputSchema = Schema.Struct({ requestId: Schema.String });
 
 export const pendingReplyAttachmentSchema = Schema.Struct({

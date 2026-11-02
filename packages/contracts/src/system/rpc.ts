@@ -11,7 +11,7 @@ import {
   restoreStatusSchema,
   acceptRestoreSchema
 } from './backups.ts';
-import { searchKindSchema, searchResultSchema } from './schemas.ts';
+import { searchKindSchema, searchResultSchema, materialSearchResultSchema } from './schemas.ts';
 
 export const searchInputSchema = Schema.Struct({
   query: Schema.String,
@@ -20,6 +20,12 @@ export const searchInputSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(30))
   ),
   project: Schema.optional(Schema.NullOr(projectIdSchema))
+});
+
+export const materialSearchInputSchema = Schema.Struct({
+  query: Schema.Trim.check(Schema.isBetweenLength(1, 1000)),
+  limit: searchInputSchema.fields.limit,
+  project: searchInputSchema.fields.project
 });
 
 export const healthSchema = Schema.Struct({
@@ -75,6 +81,11 @@ export const SystemRpc = RpcGroup.make(
     error: failureSchema
   }),
   Rpc.make('health', { payload: Schema.Struct({}), success: healthSchema, error: failureSchema }),
+  Rpc.make('materialSearch', {
+    payload: materialSearchInputSchema,
+    success: materialSearchResultSchema,
+    error: failureSchema
+  }),
   Rpc.make('search', {
     payload: searchInputSchema,
     success: searchResultSchema,

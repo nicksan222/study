@@ -74,6 +74,13 @@ export const captureSessionContextSchema = Schema.Struct({
   preferences: runPreferencesSchema
 });
 
+/** Persisted owner intent, not a client-supplied capture option. */
+export const sessionContextIntentSchema = Schema.Struct({
+  ...captureSessionContextSchema.fields,
+  /** Digest of the complete normalized atomic Ask input. */
+  askDigest: Schema.optional(Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)))
+});
+
 export const resolvedSelectionSchema = Schema.Struct({
   ...sessionSelectionTargetSchema.fields,
   documentId: documentIdSchema,
@@ -95,7 +102,7 @@ export const resolvedSelectionSchema = Schema.Struct({
 
 export const runSelectionContextSchema = Schema.Struct({
   requestId: Schema.String,
-  ...captureSessionContextSchema.fields,
+  ...sessionContextIntentSchema.fields,
   selectionRevision: Schema.BigInt,
   inputs: Schema.Array(resolvedSelectionSchema),
   messages: Schema.Array(conversationMessageSnapshotSchema),

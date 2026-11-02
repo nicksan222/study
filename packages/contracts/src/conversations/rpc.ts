@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
+  materialVersionIdSchema,
   messageIdSchema,
   partIdSchema,
   projectIdSchema,
@@ -27,13 +28,44 @@ import {
   replyRequestSchema,
   reanswerInputSchema,
   rewriteMessageInputSchema,
+  askInputSchema,
+  askResultSchema,
+  replyVersionInputSchema,
+  replyVersionSchema,
   titleRequestSchema
 } from './schemas.ts';
+
+export const sessionGenerationPageInputSchema = Schema.Struct({
+  sessionId: sessionIdSchema,
+  limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
+  before: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(256)))
+});
+
+export const sessionGenerationSchema = Schema.Struct({
+  requestId: Schema.String,
+  contextRequestId: Schema.NullOr(Schema.String),
+  state: Schema.Literals(['available', 'retired', 'unavailable']),
+  cancelled: Schema.Boolean,
+  resultVersionId: Schema.NullOr(materialVersionIdSchema),
+  proposedVersionId: Schema.NullOr(materialVersionIdSchema),
+  baseVersionId: Schema.NullOr(materialVersionIdSchema)
+});
+export const sessionGenerationPageSchema = Schema.Struct({
+  items: Schema.Array(sessionGenerationSchema),
+  next: Schema.NullOr(Schema.String)
+});
+export const messageVersionCitationsSchema = Schema.Struct({
+  sessionId: sessionIdSchema,
+  messageId: messageIdSchema,
+  versionId: versionIdSchema,
+  citations: chatMessageSchema.fields.citations
+});
 
 const sessionCursorSchema = Schema.Struct({ updatedAt: Schema.BigInt, id: sessionIdSchema });
 
 export const sessionPageInputSchema = Schema.Struct({
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
+  project: Schema.optional(Schema.NullOr(projectIdSchema)),
   before: Schema.optional(sessionCursorSchema)
 });
 
@@ -91,6 +123,12 @@ export const renameSessionInputSchema = Schema.Struct({
 });
 
 export const ConversationsRpc = RpcGroup.make(
+  Rpc.make('ask', { payload: askInputSchema, success: askResultSchema, error: failureSchema }),
+  Rpc.make('replyVersion', {
+    payload: replyVersionInputSchema,
+    success: replyVersionSchema,
+    error: failureSchema
+  }),
   Rpc.make('sessionSelection', {
     payload: sessionSelectionInputSchema,
     success: sessionSelectionSchema,
@@ -189,6 +227,16 @@ export const ConversationsRpc = RpcGroup.make(
   Rpc.make('findSession', {
     payload: sessionIdInputSchema,
     success: Schema.Option(sessionSchema),
+    error: failureSchema
+  }),
+  Rpc.make('sessionGenerations', {
+    payload: sessionGenerationPageInputSchema,
+    success: sessionGenerationPageSchema,
+    error: failureSchema
+  }),
+  Rpc.make('messageVersionCitations', {
+    payload: replyVersionInputSchema,
+    success: messageVersionCitationsSchema,
     error: failureSchema
   }),
   Rpc.make('sessions', {

@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import { documentIdSchema, projectIdSchema, sourceIdSchema } from '../ids.ts';
+import { importCapabilityInputSchema, importCapabilitySchema } from './capabilities.ts';
 import { sourceSchema } from './schemas.ts';
 
 export const sourceExportSchema = Schema.Struct({ source: sourceSchema, bytes: Schema.Uint8Array });
@@ -41,6 +42,11 @@ const sourcePageSchema = Schema.Struct({
 });
 
 export const SourcesRpc = RpcGroup.make(
+  Rpc.make('importCapability', {
+    payload: importCapabilityInputSchema,
+    success: importCapabilitySchema,
+    error: failureSchema
+  }),
   Rpc.make('source', {
     payload: { id: sourceIdSchema },
     success: sourceSchema,

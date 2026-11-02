@@ -3,12 +3,15 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
+  documentIdSchema,
+  sourceIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
   projectIdSchema,
   sessionIdSchema
 } from '../ids.ts';
-import { sourceExportSchema } from '../sources/rpc.ts';
+import { sourceExportSchema, sourceRevisionSchema } from '../sources/rpc.ts';
+import { blockIdSchema, documentSchema } from '../sources/schemas.ts';
 import {
   materialDeletionKeySchema,
   materialDeletionPreviewSchema,
@@ -28,6 +31,7 @@ import {
   documentComparisonSchema
 } from './editing.ts';
 import * as evidence from './evidence.ts';
+import { exportMaterialVersionInputSchema, materialVersionFileSchema } from './export.ts';
 import * as history from './history.ts';
 import {
   documentTransformSchema,
@@ -63,6 +67,27 @@ export const createVersionInputSchema = Schema.Struct({
 export const materialInputSchema = materialKey;
 
 export const materialVersionInputSchema = versionKey;
+
+/** Exact retained Document block ownership; no current Source lookup is implied. */
+export const materialVersionImageInputSchema = Schema.Struct({
+  id: materialVersionIdSchema,
+  documentId: documentIdSchema,
+  blockId: blockIdSchema
+});
+
+export const materialVersionDocumentSchema = Schema.Struct({
+  id: documentIdSchema,
+  document: documentSchema
+});
+
+export const materialVersionImageSchema = Schema.Struct({
+  sourceId: sourceIdSchema,
+  revision: sourceRevisionSchema,
+  mime: Schema.String,
+  bytes: Schema.Uint8Array
+});
+
+export const importedMaterialInputSchema = Schema.Struct({ sourceId: sourceIdSchema });
 
 export const archiveInputSchema = materialKey;
 
@@ -160,6 +185,26 @@ const retryGenerationSchema = Schema.Struct({
 });
 
 export const MaterialsRpc = RpcGroup.make(
+  Rpc.make('exportMaterialVersion', {
+    payload: exportMaterialVersionInputSchema,
+    success: materialVersionFileSchema,
+    error: failureSchema
+  }),
+  Rpc.make('materialVersionDocument', {
+    payload: materialVersionInputSchema,
+    success: materialVersionDocumentSchema,
+    error: failureSchema
+  }),
+  Rpc.make('materialVersionImage', {
+    payload: materialVersionImageInputSchema,
+    success: materialVersionImageSchema,
+    error: failureSchema
+  }),
+  Rpc.make('importedMaterial', {
+    payload: importedMaterialInputSchema,
+    success: materialSummarySchema,
+    error: failureSchema
+  }),
   Rpc.make('previewHistoryPrune', {
     payload: history.historyScopeSchema,
     success: history.historyPreviewSchema,
