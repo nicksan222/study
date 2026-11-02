@@ -23,11 +23,47 @@ import { readCitation } from './citation-row.ts';
 import { makeEvidence } from './evidence.ts';
 
 const codec = Schema.fromJsonString(Schema.toCodecJson(contract.citationAssessmentSchema));
+
 const citationEqual = Schema.toEquivalence(contract.citationAssessmentSchema.fields.citation);
+
+type Support = Exclude<typeof contract.citationSupportSchema.Type, { state: 'unassessed' }>;
+
+function targetReasons(
+  claim: Support['claim'],
+  evidence: Support['evidence']
+): Support['reasons'][number][] {
+  const reasons: Support['reasons'][number][] = [];
+
+  if (claim.availability === 'unavailable' || evidence.availability === 'unavailable')
+    reasons.push('target_unavailable');
+
+  if (claim.availability === 'available' && claim.revision.state !== 'current')
+    reasons.push('claim_changed');
+
+  if (evidence.availability === 'available' && evidence.revision.state !== 'current')
+    reasons.push('evidence_changed');
+
+  return reasons;
+}
+
+function citationChanged(
+  citation: ReturnType<typeof readCitation> | null,
+  assessment: Support['assessment']
+) {
+  return (
+    !citation?.target ||
+    citation.inputVersionId !== assessment.evidence.range.versionId ||
+    !citationEqual(
+      { anchor: citation.anchor, quote: citation.quote, target: citation.target },
+      assessment.citation
+    )
+  );
+}
 
 export function makeSupport(resources: StoreResources) {
   const { db } = resources;
   const resolver = makeEvidence(resources);
+
   function citationAt(
     versionId: typeof contract.citationSupportInputSchema.Type.versionId,
     marker: bigint
@@ -66,27 +102,10 @@ export function makeSupport(resources: StoreResources) {
     const assessment = Schema.decodeUnknownSync(codec)(row.payload);
     const claim = resolver.resolve({ kind: 'range', target: assessment.claim });
     const evidence = resolver.resolve({ kind: 'range', target: assessment.evidence });
-    const reasons: Extract<
-      typeof contract.citationSupportSchema.Type,
-      { assessment: unknown }
-    >['reasons'][number][] = [];
+    const reasons = targetReasons(claim, evidence);
     const citation = citationAt(value.versionId, value.marker);
 
-    if (claim.availability === 'unavailable' || evidence.availability === 'unavailable')
-      reasons.push('target_unavailable');
-    if (claim.availability === 'available' && claim.revision.state !== 'current')
-      reasons.push('claim_changed');
-    if (evidence.availability === 'available' && evidence.revision.state !== 'current')
-      reasons.push('evidence_changed');
-    if (
-      !citation?.target ||
-      citation.inputVersionId !== assessment.evidence.range.versionId ||
-      !citationEqual(
-        { anchor: citation.anchor, quote: citation.quote, target: citation.target },
-        assessment.citation
-      )
-    )
-      reasons.push('citation_changed');
+    if (citationChanged(citation, assessment)) reasons.push('citation_changed');
 
     return {
       state: reasons.includes('target_unavailable')

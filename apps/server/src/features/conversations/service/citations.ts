@@ -3,7 +3,7 @@
  * │ @file Composes historic Material evidence into conversation citation reads.              │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Preserves stored citation coordinates while resolving their current availability.     │
+ * │ - Preserves stored citation coordinates while resolving their current availability.      │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Uses the public Materials participant; conversation persistence stays private.           │
@@ -16,6 +16,7 @@ import { Materials } from '#server/features/materials/index';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
 type Message = typeof chatMessageSchema.Type;
+
 type Citation = Message['citations'][number];
 
 function resolveCitation(tx: Transaction, citation: Citation): NonNullable<Citation['evidence']> {

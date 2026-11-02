@@ -378,7 +378,32 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
 
         const full = yield* materials.setCitations({ id: draft.version.id, citations: [valid] });
 
-        assert.deepEqual(full, [valid]);
+        const expected = {
+          ...valid,
+          precision: 'exact',
+          support: { state: 'unassessed' },
+          evidence: {
+            availability: 'available',
+            reference: { kind: 'range', target: { materialId: source.id, range: target } },
+            materialId: source.id,
+            origin: 'user',
+            precision: 'exact',
+            location: { type: 'authored' },
+            locationPrecision: 'unavailable',
+            block,
+            excerpt: 'echo',
+            revision: {
+              inputVersionId: source.version.id,
+              currentVersionId: source.version.id,
+              inputDocumentId: target.documentId,
+              currentDocumentId: target.documentId,
+              source: null,
+              state: 'current'
+            }
+          }
+        };
+
+        assert.deepEqual(full, [expected]);
 
         assert.deepEqual(
           (yield* materials.citations({ id: draft.version.id, limit: 1 })).items,
@@ -415,7 +440,7 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
           assert.equal(error.kind, 'invalid_input');
 
           assert.deepEqual((yield* materials.citations({ id: draft.version.id, limit: 1 })).items, [
-            valid
+            expected
           ]);
         }
 
@@ -424,7 +449,7 @@ test('canonical citation targets reject fabricated identities and UTF16 splits w
         yield* chats.deleteSession(session.id);
 
         assert.deepEqual((yield* materials.citations({ id: draft.version.id, limit: 10 })).items, [
-          valid
+          expected
         ]);
       }).pipe(Effect.provide(f.services()))
     );

@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Resolves retained evidence without substituting current content for historic targets. │
+ * │ @file Resolves retained evidence without substituting current content for history.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Separates exact editor targets from original locations and current revision state.     │
@@ -22,29 +22,37 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeReads } from './reads.ts';
 
+function unavailable(
+  reference: typeof contract.evidenceReferenceSchema.Type,
+  reason: Extract<
+    typeof contract.evidenceResolutionSchema.Type,
+    { availability: 'unavailable' }
+  >['reason']
+) {
+  return {
+    availability: 'unavailable' as const,
+    precision: 'unavailable' as const,
+    reference,
+    reason
+  };
+}
+
+function sourceChanged(
+  snapshot: typeof s.material_source_snapshots.$inferSelect | undefined,
+  processing: typeof s.source_processing.$inferSelect | undefined
+) {
+  return (
+    snapshot !== undefined &&
+    (snapshot.revision !== processing?.revision ||
+      (snapshot.document_id !== null && snapshot.document_id !== processing?.document_id))
+  );
+}
+
 export function makeEvidence(resources: StoreResources) {
   const { db } = resources;
   const reads = makeReads(resources);
 
-  function revision(id: MaterialVersionId): typeof contract.evidenceRevisionSchema.Type {
-    const version = db.orm
-      .select()
-      .from(s.material_versions)
-      .where(eq(s.material_versions.id, id))
-      .get();
-    const current =
-      version &&
-      db.orm
-        .select()
-        .from(s.material_versions)
-        .where(
-          and(
-            eq(s.material_versions.material_id, version.material_id),
-            eq(s.material_versions.status, 'published')
-          )
-        )
-        .orderBy(desc(s.material_versions.number))
-        .get();
+  function sourceRevision(id: MaterialVersionId) {
     const snapshot = db.orm
       .select()
       .from(s.material_source_snapshots)
@@ -57,28 +65,8 @@ export function makeEvidence(resources: StoreResources) {
         .from(s.source_processing)
         .where(eq(s.source_processing.source_id, snapshot.source_id))
         .get();
-    const inputDocumentId = version ? reads.versionDocumentId(id) : null;
-    const currentDocumentId = current ? reads.versionDocumentId(current.id) : null;
-    const documentMissing =
-      inputDocumentId !== null &&
-      !db.orm
-        .select({ id: s.documents.id })
-        .from(s.documents)
-        .where(eq(s.documents.id, inputDocumentId))
-        .get();
-    const missing =
-      !version || !current || documentMissing || (snapshot !== undefined && !processing);
-    const changed =
-      current?.id !== id ||
-      (snapshot !== undefined &&
-        (snapshot.revision !== processing?.revision ||
-          (snapshot.document_id !== null && snapshot.document_id !== processing?.document_id)));
 
     return {
-      inputVersionId: id,
-      currentVersionId: current?.id ?? null,
-      inputDocumentId,
-      currentDocumentId,
       source: snapshot
         ? {
             sourceId: snapshot.source_id,
@@ -88,7 +76,63 @@ export function makeEvidence(resources: StoreResources) {
             currentDocumentId: processing?.document_id ?? null
           }
         : null,
-      state: missing ? 'unavailable' : changed ? 'stale' : 'current'
+      missing: snapshot !== undefined && !processing,
+      changed: sourceChanged(snapshot, processing)
+    };
+  }
+
+  function documentMissing(documentId: typeof s.documents.$inferSelect.id | null) {
+    return (
+      documentId !== null &&
+      !db.orm
+        .select({ id: s.documents.id })
+        .from(s.documents)
+        .where(eq(s.documents.id, documentId))
+        .get()
+    );
+  }
+
+  function currentVersion(version: typeof s.material_versions.$inferSelect | undefined) {
+    return (
+      version &&
+      db.orm
+        .select()
+        .from(s.material_versions)
+        .where(
+          and(
+            eq(s.material_versions.material_id, version.material_id),
+            eq(s.material_versions.status, 'published')
+          )
+        )
+        .orderBy(desc(s.material_versions.number))
+        .get()
+    );
+  }
+
+  function revisionState(missing: boolean, changed: boolean) {
+    return missing ? ('unavailable' as const) : changed ? ('stale' as const) : ('current' as const);
+  }
+
+  function revision(id: MaterialVersionId): typeof contract.evidenceRevisionSchema.Type {
+    const version = db.orm
+      .select()
+      .from(s.material_versions)
+      .where(eq(s.material_versions.id, id))
+      .get();
+    const current = currentVersion(version);
+    const inputDocumentId = version ? reads.versionDocumentId(id) : null;
+    const currentDocumentId = current ? reads.versionDocumentId(current.id) : null;
+    const source = sourceRevision(id);
+    const missing = !version || !current || documentMissing(inputDocumentId) || source.missing;
+    const changed = current?.id !== id || source.changed;
+
+    return {
+      inputVersionId: id,
+      currentVersionId: current?.id ?? null,
+      inputDocumentId,
+      currentDocumentId,
+      source: source.source,
+      state: revisionState(missing, changed)
     };
   }
 
@@ -101,19 +145,9 @@ export function makeEvidence(resources: StoreResources) {
       .from(s.material_versions)
       .where(eq(s.material_versions.id, id))
       .get();
-    const unavailable = (
-      reason: Extract<
-        typeof contract.evidenceResolutionSchema.Type,
-        { availability: 'unavailable' }
-      >['reason']
-    ) => ({
-      availability: 'unavailable' as const,
-      precision: 'unavailable' as const,
-      reference,
-      reason
-    });
 
-    if (!version || version.status !== 'published') return unavailable('version_missing');
+    if (!version || version.status !== 'published')
+      return unavailable(reference, 'version_missing');
 
     const base = {
       availability: 'available' as const,
@@ -133,14 +167,26 @@ export function makeEvidence(resources: StoreResources) {
         excerpt: null
       };
 
-    if (version.material_id !== reference.target.materialId)
-      return unavailable('material_mismatch');
+    return resolveRange(reference, base);
+  }
+
+  function resolveRange(
+    reference: Extract<typeof contract.evidenceReferenceSchema.Type, { kind: 'range' }>,
+    base: Pick<
+      Extract<typeof contract.evidenceResolutionSchema.Type, { availability: 'available' }>,
+      'availability' | 'reference' | 'materialId' | 'origin' | 'revision'
+    >
+  ): typeof contract.evidenceResolutionSchema.Type {
+    if (base.materialId !== reference.target.materialId)
+      return unavailable(reference, 'material_mismatch');
 
     const range = reference.target.range;
-    const documentId = reads.versionDocumentId(id);
+    const documentId = reads.versionDocumentId(reference.target.range.versionId);
 
-    if (documentId === null) return unavailable('document_missing');
-    if (documentId !== range.documentId) return unavailable('document_mismatch');
+    if (documentId === null) return unavailable(reference, 'document_missing');
+
+    if (documentId !== range.documentId) return unavailable(reference, 'document_mismatch');
+
     if (
       !db.orm
         .select({ id: s.documents.id })
@@ -148,17 +194,22 @@ export function makeEvidence(resources: StoreResources) {
         .where(eq(s.documents.id, documentId))
         .get()
     )
-      return unavailable('document_missing');
+      return unavailable(reference, 'document_missing');
 
     const document = reads.readCanonicalDocument(documentId);
     const block = document.blocks.find((item) => item.id === range.blockId);
 
-    if (!block) return unavailable('block_missing');
+    if (!block) return unavailable(reference, 'block_missing');
+
     if (
-      !validDocumentTextRange(document, { versionId: id, documentId }, range) ||
+      !validDocumentTextRange(
+        document,
+        { versionId: reference.target.range.versionId, documentId },
+        range
+      ) ||
       range.start === range.end
     )
-      return unavailable('range_invalid');
+      return unavailable(reference, 'range_invalid');
 
     return {
       ...base,

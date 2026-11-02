@@ -78,6 +78,7 @@ export const assessCitationSchema = Schema.Struct({
   judgment: Schema.Literals(['supports', 'contradicts', 'uncertain']),
   note: Schema.String.check(Schema.isMaxLength(100000))
 });
+
 export const citationAssessmentSchema = Schema.Struct({
   ...assessCitationSchema.fields,
   suppliedBy: Schema.Literal('user'),
@@ -88,10 +89,12 @@ export const citationAssessmentSchema = Schema.Struct({
     target: documentTextRangeSchema
   })
 });
+
 export const citationSupportInputSchema = Schema.Struct({
   versionId: materialVersionIdSchema,
   marker: assessCitationSchema.fields.marker
 });
+
 export const citationSupportSchema = Schema.Union([
   Schema.Struct({ state: Schema.Literal('unassessed') }),
   Schema.Struct({
@@ -113,15 +116,19 @@ export const citationSupportSchema = Schema.Union([
 const revision = Schema.BigInt.check(
   Schema.isBetweenBigInt({ minimum: 1n, maximum: 9223372036854775807n })
 );
+
 export const annotationKeySchema = Schema.Struct({ id: materialAnnotationIdSchema });
-export const annotationContentSchema = Schema.Struct({
+
+const annotationContentSchema = Schema.Struct({
   kind: Schema.Literals(['highlight', 'note']),
   note: Schema.String.check(Schema.isMaxLength(100000))
 });
+
 export const createAnnotationSchema = Schema.Struct({
   target: evidenceTargetSchema,
   ...annotationContentSchema.fields
 });
+
 export const annotationRevisionSchema = Schema.Struct({
   id: materialAnnotationIdSchema,
   revision,
@@ -130,22 +137,27 @@ export const annotationRevisionSchema = Schema.Struct({
   deleted: Schema.Boolean,
   operation: Schema.Literals(['create', 'update', 'reanchor', 'delete'])
 });
+
 export const annotationSchema = Schema.Struct({
   ...annotationRevisionSchema.fields,
   evidence: evidenceResolutionSchema
 });
+
 export const annotationMutationSchema = Schema.Struct({
   ...annotationKeySchema.fields,
   expectedRevision: revision
 });
+
 export const updateAnnotationSchema = Schema.Struct({
   ...annotationMutationSchema.fields,
   ...annotationContentSchema.fields
 });
+
 export const reanchorAnnotationSchema = Schema.Struct({
   ...annotationMutationSchema.fields,
   target: evidenceTargetSchema
 });
+
 export const annotationOutcomeSchema = Schema.Union([
   Schema.Struct({ outcome: Schema.Literal('saved'), annotation: annotationSchema }),
   Schema.Struct({
@@ -163,24 +175,29 @@ export const annotationOutcomeSchema = Schema.Union([
     evidence: Schema.NullOr(evidenceResolutionSchema)
   })
 ]);
+
 export const annotationPageInputSchema = Schema.Struct({
   materialId: materialIdSchema,
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   cursor: Schema.optional(materialAnnotationIdSchema)
 });
+
 export const annotationPageSchema = Schema.Struct({
   items: Schema.Array(annotationSchema),
   nextCursor: Schema.NullOr(materialAnnotationIdSchema)
 });
+
 export const annotationHistoryInputSchema = Schema.Struct({
   ...annotationKeySchema.fields,
   limit: annotationPageInputSchema.fields.limit,
   cursor: Schema.optional(revision)
 });
+
 export const annotationHistorySchema = Schema.Struct({
   items: Schema.Array(annotationRevisionSchema),
   nextCursor: Schema.NullOr(revision)
 });
+
 export const dependencyPageSchema = Schema.Struct({
   items: Schema.Array(
     Schema.Struct({ dependentVersionId: materialVersionIdSchema, ...evidenceRevisionSchema.fields })

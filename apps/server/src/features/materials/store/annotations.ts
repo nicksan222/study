@@ -31,17 +31,18 @@ function makeAnnotations(resources: StoreResources) {
   const decode = Schema.decodeUnknownSync(codec);
   const encode = Schema.encodeSync(codec);
 
+  function currentRevision() {
+    return and(
+      eq(s.material_annotation_revisions.annotation_id, s.material_annotations.id),
+      eq(s.material_annotation_revisions.revision, s.material_annotations.revision)
+    );
+  }
+
   function read(id: MaterialAnnotationId) {
     const row = db.orm
       .select({ payload: s.material_annotation_revisions.payload })
       .from(s.material_annotations)
-      .innerJoin(
-        s.material_annotation_revisions,
-        and(
-          eq(s.material_annotation_revisions.annotation_id, s.material_annotations.id),
-          eq(s.material_annotation_revisions.revision, s.material_annotations.revision)
-        )
-      )
+      .innerJoin(s.material_annotation_revisions, currentRevision())
       .where(eq(s.material_annotations.id, id))
       .get();
 
@@ -63,6 +64,7 @@ function makeAnnotations(resources: StoreResources) {
         payload: encode(value)
       })
       .run();
+
     if (value.revision > 1n)
       db.orm
         .update(s.material_annotations)
@@ -106,14 +108,17 @@ function makeAnnotations(resources: StoreResources) {
     const current = read(value.id);
 
     if (!current) return { outcome: 'unavailable', current: null, evidence: null };
+
     if (current.revision !== value.expectedRevision)
       return { outcome: 'conflict', current, submitted: value };
+
     if (current.deleted) return { outcome: 'unavailable', current, evidence: current.evidence };
 
     const target = 'target' in value ? value.target : current.target;
 
     if (target.materialId !== current.target.materialId)
       throw new StudyError('invalid_input', 'Reanchor must retain Material identity');
+
     if (operation === 'reanchor') {
       const resolved = evidence.resolve({ kind: 'range', target });
 
@@ -136,13 +141,7 @@ function makeAnnotations(resources: StoreResources) {
     const rows = db.orm
       .select({ id: s.material_annotations.id })
       .from(s.material_annotations)
-      .innerJoin(
-        s.material_annotation_revisions,
-        and(
-          eq(s.material_annotation_revisions.annotation_id, s.material_annotations.id),
-          eq(s.material_annotation_revisions.revision, s.material_annotations.revision)
-        )
-      )
+      .innerJoin(s.material_annotation_revisions, currentRevision())
       .where(
         and(
           sql`json_extract(${s.material_annotation_revisions.payload}, '$.deleted') = 0`,

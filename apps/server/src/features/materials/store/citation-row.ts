@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Decodes exact persisted citation references independently from support assessment state. │
+ * │ @file Decodes persisted citation references independently from support assessments.      │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Validates canonical anchors and editor ranges from retained citation rows.             │

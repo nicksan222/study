@@ -102,7 +102,7 @@ export const materialPublishedSchema = Schema.Struct({
   materialVersionId: materialVersionIdSchema
 });
 
-export const materialAnnotationChangedSchema = Schema.Struct({
+const materialAnnotationChangedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('MaterialAnnotationChanged'),
   annotationId: materialAnnotationIdSchema,

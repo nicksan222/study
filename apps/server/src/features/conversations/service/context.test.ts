@@ -15,7 +15,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
-import type { DocumentId } from '@study/contracts/ids';
+import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
+import type { DocumentId, MaterialVersionId, SourceId } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -307,6 +308,7 @@ test('native selection guards exact historic ranges, captures once and survives 
           const evidence = answer.citations[0]!.evidence;
 
           assert.equal(evidence?.availability, 'available');
+
           if (evidence?.availability === 'available') {
             assert.equal(evidence.precision, 'exact');
             assert.equal(evidence.excerpt, 'selected');
@@ -315,6 +317,7 @@ test('native selection guards exact historic ranges, captures once and survives 
             assert.equal(evidence.revision.state, 'stale');
             assert.notEqual(evidence.revision.currentVersionId, material.version.id);
           }
+
           const thread = yield* client('conversations.thread', { sessionId: first.id, limit: 20 });
 
           assert.deepEqual(
@@ -729,12 +732,78 @@ test('selected image blocks retain exact asset revisions while ranges expose onl
   }
 });
 
+function assertUnavailableCitationTargets(
+  mismatch: (typeof chatMessageSchema.Type.citations)[number],
+  unpublished: (typeof chatMessageSchema.Type.citations)[number],
+  draftVersionId: MaterialVersionId
+) {
+  assert.equal(mismatch!.precision, 'unavailable');
+  assert.equal(mismatch!.evidence?.availability, 'unavailable');
+
+  if (mismatch!.evidence?.availability !== 'unavailable')
+    throw new Error('Expected mismatched identity');
+
+  assert.equal(mismatch!.evidence.reason, 'document_mismatch');
+  assert.equal(unpublished!.precision, 'unavailable');
+  assert.equal(unpublished!.evidence?.availability, 'unavailable');
+
+  if (unpublished!.evidence?.availability !== 'unavailable')
+    throw new Error('Expected unpublished identity');
+
+  assert.equal(unpublished!.evidence.reason, 'version_missing');
+  assert.equal(unpublished!.materialVersionId, draftVersionId);
+}
+
+function assertRetainedCitationShapes(
+  read: typeof chatMessageSchema.Type,
+  anchor: Extract<(typeof chatMessageSchema.Type.citations)[number]['anchor'], { type: 'text' }>,
+  materialVersionId: MaterialVersionId,
+  latestVersionId: MaterialVersionId,
+  draftVersionId: MaterialVersionId,
+  sourceId: SourceId
+) {
+  const [legacy, mismatch, unpublished, attachment] = read.citations;
+
+  assert.equal(legacy!.precision, 'approximate');
+  assert.equal(legacy!.evidence?.availability, 'available');
+
+  if (legacy!.evidence?.availability !== 'available') throw new Error('Expected retained anchor');
+
+  assert.equal(legacy!.evidence.precision, 'approximate');
+  assert.equal(legacy!.evidence.excerpt, null);
+  assert.equal(legacy!.evidence.block, null);
+  assert.deepEqual(legacy!.evidence.location, anchor);
+  assert.equal(legacy!.evidence.revision.inputVersionId, materialVersionId);
+  assert.equal(legacy!.evidence.revision.currentVersionId, latestVersionId);
+  assert.equal(legacy!.evidence.revision.state, 'stale');
+  assert.equal(legacy!.documentId, null);
+  assert.equal(legacy!.rangeStart, null);
+  assertUnavailableCitationTargets(mismatch!, unpublished!, draftVersionId);
+
+  assert.equal(attachment!.precision, 'approximate');
+  assert.deepEqual(attachment!.evidence, {
+    availability: 'unavailable',
+    precision: 'approximate',
+    reason: 'attachment_target_unresolved',
+    sourceId,
+    anchor,
+    quote: 'Retained attachment'
+  });
+
+  for (const citation of read.citations) {
+    assert.deepEqual(citation.support, { state: 'unassessed' });
+    assert.equal(citation.rangeStart === null || typeof citation.rangeStart === 'number', true);
+  }
+}
+
 test('retained legacy and attachment citations keep bounded precision; wrong exact identities never use latest content', async () => {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const handlers = () =>
     ConversationsRpcLive.pipe(
-      Layer.provideMerge(Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer)),
+      Layer.provideMerge(
+        Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer, Settings.layer)
+      ),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -827,48 +896,16 @@ test('retained legacy and attachment citations keep bounded precision; wrong exa
             .run();
           const rows = context.db.orm.select().from(s.citations).all();
           const read = yield* rpc('conversations.message', { id: message.id });
-          const [legacy, mismatch, unpublished, attachment] = read.citations;
 
-          assert.equal(legacy!.precision, 'approximate');
-          assert.equal(legacy!.evidence?.availability, 'available');
-          if (legacy!.evidence?.availability !== 'available')
-            throw new Error('Expected retained anchor');
-          assert.equal(legacy!.evidence.precision, 'approximate');
-          assert.equal(legacy!.evidence.excerpt, null);
-          assert.equal(legacy!.evidence.block, null);
-          assert.deepEqual(legacy!.evidence.location, anchor);
-          assert.equal(legacy!.evidence.revision.inputVersionId, material.version.id);
-          assert.equal(legacy!.evidence.revision.currentVersionId, latest.id);
-          assert.equal(legacy!.evidence.revision.state, 'stale');
-          assert.equal(legacy!.documentId, null);
-          assert.equal(legacy!.rangeStart, null);
-          assert.equal(mismatch!.precision, 'unavailable');
-          assert.equal(mismatch!.evidence?.availability, 'unavailable');
-          if (mismatch!.evidence?.availability !== 'unavailable')
-            throw new Error('Expected mismatched identity');
-          assert.equal(mismatch!.evidence.reason, 'document_mismatch');
-          assert.equal(unpublished!.precision, 'unavailable');
-          assert.equal(unpublished!.evidence?.availability, 'unavailable');
-          if (unpublished!.evidence?.availability !== 'unavailable')
-            throw new Error('Expected unpublished identity');
-          assert.equal(unpublished!.evidence.reason, 'version_missing');
-          assert.equal(unpublished!.materialVersionId, draft.id);
-          assert.equal(attachment!.precision, 'approximate');
-          assert.deepEqual(attachment!.evidence, {
-            availability: 'unavailable',
-            precision: 'approximate',
-            reason: 'attachment_target_unresolved',
-            sourceId: source.id,
+          assertRetainedCitationShapes(
+            read,
             anchor,
-            quote: 'Retained attachment'
-          });
-          for (const citation of read.citations) {
-            assert.deepEqual(citation.support, { state: 'unassessed' });
-            assert.equal(
-              citation.rangeStart === null || typeof citation.rangeStart === 'number',
-              true
-            );
-          }
+            material.version.id,
+            latest.id,
+            draft.id,
+            source.id
+          );
+
           assert.deepEqual(
             (yield* rpc('conversations.thread', { sessionId: session.id, limit: 10 })).items[0]!
               .citations,
@@ -895,6 +932,7 @@ test('retained legacy and attachment citations keep bounded precision; wrong exa
               .all(),
             rows
           );
+
           return { id: message.id, citations: read.citations };
         }).pipe(Effect.provide(handlers()))
       )
