@@ -65,10 +65,7 @@ export const MaterialHistoryGenerationStore = defineStore({
           throw new StudyError('invalid_input', 'History overlaps generation cleanup');
         }
 
-        db.orm
-          .insert(s.material_history_requests)
-          .values({ request_id: id, operation_id: operationId, kind: 'generation' })
-          .run();
+        retirement.retainRequest({ kind: 'history', id: operationId }, id);
 
         ownedIds.push(id);
       }
@@ -84,11 +81,7 @@ export const MaterialHistoryGenerationStore = defineStore({
           output: Schema.Array(Schema.String),
           run: prepare
         }),
-        scrub: storeMutation({
-          input: Schema.String,
-          output: Schema.Void,
-          run: (id) => retirement.scrubOwnedRequests({ kind: 'history', id })
-        })
+        scrub: retirement.historyScrub
       }
     };
   }

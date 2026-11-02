@@ -84,10 +84,7 @@ export const MaterialDeletionGenerationStore = defineStore({
         if (owner)
           throw new StudyError('invalid_input', 'Deletion overlaps generation cleanup ownership');
 
-        db.orm
-          .insert(s.material_deletion_requests)
-          .values({ request_id: id, deletion_id: deletionId, kind: 'generation' })
-          .run();
+        retirement.retainRequest({ kind: 'deletion', id: deletionId }, id);
 
         ownedIds.push(id);
       }
@@ -103,11 +100,7 @@ export const MaterialDeletionGenerationStore = defineStore({
           output: Schema.Array(Schema.String),
           run: prepare
         }),
-        scrub: storeMutation({
-          input: materialIdSchema,
-          output: Schema.Void,
-          run: (id) => retirement.scrubOwnedRequests({ kind: 'deletion', id })
-        })
+        scrub: retirement.deletionScrub
       }
     };
   }

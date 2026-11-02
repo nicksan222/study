@@ -12,17 +12,21 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { materialIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId, MaterialId } from '@study/contracts/ids';
 import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { eq, inArray, and, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
+import { storeMutation } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeProposalRetirement } from './session-retirement.ts';
 
 const payloadCodec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema));
+
+type RetirementScope = { kind: 'deletion'; id: MaterialId } | { kind: 'history'; id: string };
 
 export function makeGenerationRetirement(resources: StoreResources) {
   const { db } = resources;
@@ -130,9 +134,21 @@ export function makeGenerationRetirement(resources: StoreResources) {
       .run();
   }
 
-  function scrubOwnedRequests(
-    scope: { kind: 'deletion'; id: MaterialId } | { kind: 'history'; id: string }
-  ) {
+  function retainRequest(scope: RetirementScope, requestId: string) {
+    if (scope.kind === 'deletion') {
+      db.orm
+        .insert(s.material_deletion_requests)
+        .values({ request_id: requestId, deletion_id: scope.id, kind: 'generation' })
+        .run();
+    } else {
+      db.orm
+        .insert(s.material_history_requests)
+        .values({ request_id: requestId, operation_id: scope.id, kind: 'generation' })
+        .run();
+    }
+  }
+
+  function scrubOwnedRequests(scope: RetirementScope) {
     const owners =
       scope.kind === 'deletion' ? s.material_deletion_requests : s.material_history_requests;
     const predicate =
@@ -148,5 +164,20 @@ export function makeGenerationRetirement(resources: StoreResources) {
     for (const request of requests) scrubRequest(request.requestId);
   }
 
-  return { affectedRequests, isScrubbed, scrubRequest, scrubOwnedRequests };
+  return {
+    affectedRequests,
+    isScrubbed,
+    retainRequest,
+    scrubRequest,
+    deletionScrub: storeMutation({
+      input: materialIdSchema,
+      output: Schema.Void,
+      run: (id) => scrubOwnedRequests({ kind: 'deletion', id })
+    }),
+    historyScrub: storeMutation({
+      input: Schema.String,
+      output: Schema.Void,
+      run: (id) => scrubOwnedRequests({ kind: 'history', id })
+    })
+  };
 }

@@ -18,7 +18,7 @@ import {
   historyOperationKeySchema,
   historyVersionIdsSchema
 } from '@study/contracts/materials/history';
-import { eq, inArray } from '@study/db';
+import { eq, inArray, or } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -46,25 +46,27 @@ export const ConversationMaterialHistoryStore = defineStore({
     const retirement = makeMaterialRetirement(resources);
 
     function rows(ids: typeof historyVersionIdsSchema.Type) {
-      const documentIds = [
-        ...db.orm
-          .select({ documentId: s.material_source_snapshots.document_id })
-          .from(s.material_source_snapshots)
-          .where(inArray(s.material_source_snapshots.version_id, [...ids]))
-          .all()
-          .flatMap((pin) => (pin.documentId === null ? [] : [pin.documentId])),
-        ...db.orm
-          .select({ documentId: s.material_document_versions.document_id })
-          .from(s.material_document_versions)
-          .where(inArray(s.material_document_versions.version_id, [...ids]))
-          .all()
-          .map((pin) => pin.documentId)
-      ];
-
       const documents = db.orm
         .select({ sourceId: s.documents.source_id, id: s.documents.id })
         .from(s.documents)
-        .where(inArray(s.documents.id, documentIds))
+        .where(
+          or(
+            inArray(
+              s.documents.id,
+              db.orm
+                .select({ id: s.material_source_snapshots.document_id })
+                .from(s.material_source_snapshots)
+                .where(inArray(s.material_source_snapshots.version_id, [...ids]))
+            ),
+            inArray(
+              s.documents.id,
+              db.orm
+                .select({ id: s.material_document_versions.document_id })
+                .from(s.material_document_versions)
+                .where(inArray(s.material_document_versions.version_id, [...ids]))
+            )
+          )
+        )
         .all();
 
       const attachmentRoots = new Set(

@@ -2,6 +2,7 @@ import type { MaterialId, MaterialVersionId, SessionId } from '@study/contracts/
 import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, check, primaryKey } from 'drizzle-orm/sqlite-core';
 
+import { cleanupAttemptColumns } from './column-types.ts';
 import { materials, material_versions } from './material-versions.ts';
 
 /** Durable explicit intent; stores identities and policy only, never a payload audit copy. */
@@ -17,10 +18,7 @@ export const material_history_prunes = sqliteTable(
     token: text().notNull(),
     selection: text().notNull(),
     status: text({ enum: ['pending', 'failed', 'completed'] }).notNull(),
-    attempt: integer().notNull().default(1),
-    error_kind: text(),
-    created_at: integer().$type<bigint>().notNull(),
-    completed_at: integer().$type<bigint>()
+    ...cleanupAttemptColumns()
   },
   (t) => [
     check(

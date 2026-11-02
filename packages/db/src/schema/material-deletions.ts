@@ -2,6 +2,8 @@ import type { MaterialId, SourceId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, check, primaryKey } from 'drizzle-orm/sqlite-core';
 
+import { cleanupAttemptColumns } from './column-types.ts';
+
 /** Content-free barrier and exact cleanup attempt; independent of content lifetimes. */
 export const material_deletions = sqliteTable(
   'material_deletions',
@@ -13,10 +15,7 @@ export const material_deletions = sqliteTable(
     phase: text({ enum: ['accepted', 'retired', 'completed'] })
       .notNull()
       .default('accepted'),
-    attempt: integer().notNull().default(1),
-    error_kind: text(),
-    created_at: integer().$type<bigint>().notNull(),
-    completed_at: integer().$type<bigint>()
+    ...cleanupAttemptColumns()
   },
   (t) => [
     check(
