@@ -33,7 +33,6 @@ import { RpcTest } from 'effect/rpc';
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { MaterialsStore } from '#server/features/materials/store/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
@@ -41,6 +40,7 @@ import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { materialRpcHandlers } from '#testing/material-rpc';
 import { withTestPublication } from '#testing/publication';
 
 const meta = {
@@ -137,7 +137,7 @@ test('standalone annotation CRUD preserves exact rich Unicode history, conflicts
   let context = new ServerContext(location.open());
 
   function handlers() {
-    return MaterialsRpcLive.pipe(
+    return materialRpcHandlers.pipe(
       Layer.provideMerge(Layer.mergeAll(Materials.layer, Sources.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -562,7 +562,7 @@ test('user support is pinned to both rich ranges; claim edit, citation copy and 
   const context = new ServerContext(location.open());
 
   function handlers() {
-    return MaterialsRpcLive.pipe(
+    return materialRpcHandlers.pipe(
       Layer.provideMerge(Layer.mergeAll(Materials.layer, Sources.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -1214,7 +1214,7 @@ test('source correction and replacement preserve exact historic navigation and e
           );
         }).pipe(
           Effect.provide(
-            Layer.mergeAll(MaterialsRpcLive, ConversationsRpcLive).pipe(
+            Layer.mergeAll(materialRpcHandlers, ConversationsRpcLive).pipe(
               Layer.provideMerge(
                 Layer.mergeAll(Materials.layer, Sources.layer, Conversations.layer, Settings.layer)
               ),

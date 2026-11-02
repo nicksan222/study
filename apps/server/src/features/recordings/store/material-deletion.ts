@@ -71,21 +71,18 @@ export const RecordingMaterialDeletionStore = defineStore({
         input: materialIdSchema,
         output: Schema.Void,
         run: (id) => {
-          const ids = db.orm
-            .select()
-            .from(s.material_deletion_requests)
+          const posts = db.orm
+            .select({ post: s.recording_posts })
+            .from(s.recording_posts)
+            .innerJoin(
+              s.material_deletion_requests,
+              eq(s.material_deletion_requests.request_id, s.recording_posts.request_id)
+            )
             .where(eq(s.material_deletion_requests.deletion_id, id))
-            .all()
-            .map((r) => r.request_id);
+            .all();
 
-          for (const requestId of ids) {
-            const post = db.orm
-              .select()
-              .from(s.recording_posts)
-              .where(eq(s.recording_posts.request_id, requestId))
-              .get();
-
-            if (post?.message_id === null)
+          for (const { post } of posts) {
+            if (post.message_id === null)
               db.orm
                 .delete(s.recording_chunks)
                 .where(eq(s.recording_chunks.recording_id, post.recording_id))
@@ -94,7 +91,7 @@ export const RecordingMaterialDeletionStore = defineStore({
             db.orm
               .update(s.recording_posts)
               .set({ name: '-', wav: Buffer.alloc(46), duration_ms: 0n })
-              .where(eq(s.recording_posts.request_id, requestId))
+              .where(eq(s.recording_posts.request_id, post.request_id))
               .run();
           }
         }

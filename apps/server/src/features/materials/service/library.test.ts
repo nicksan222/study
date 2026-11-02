@@ -28,12 +28,12 @@ import { RpcTest } from 'effect/rpc';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Conversations } from '#server/features/conversations/service/index';
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
   kind: 'document',
@@ -55,7 +55,7 @@ test('native RPC creates an uncollected material shared by quick sessions and pr
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const handlers = () =>
-    Layer.mergeAll(MaterialsRpcLive, ConversationsRpcLive).pipe(
+    Layer.mergeAll(materialRpcHandlers, ConversationsRpcLive).pipe(
       Layer.provide(Layer.mergeAll(Materials.layer, Conversations.layer, Settings.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );

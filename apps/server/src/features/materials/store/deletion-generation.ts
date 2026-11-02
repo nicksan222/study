@@ -24,6 +24,11 @@ import { defineStore, storeMutation } from '#server/platform/definitions/define-
 
 import { makeProposalRetirement } from './session-retirement.ts';
 
+const prepareSchema = Schema.Struct({
+  deletionId: materialIdSchema,
+  contextIds: Schema.Array(Schema.String)
+});
+
 export const MaterialDeletionGenerationStore = defineStore({
   name: 'study/MaterialDeletionGenerationStore',
   entity: { singular: 'materialDeletionGeneration', plural: 'materialDeletionGenerations' },
@@ -63,83 +68,79 @@ export const MaterialDeletionGenerationStore = defineStore({
       );
     }
 
+    function prepare({ deletionId, contextIds }: typeof prepareSchema.Type) {
+      const members = db.orm
+        .select()
+        .from(s.material_deletion_members)
+        .where(eq(s.material_deletion_members.deletion_id, deletionId))
+        .all()
+        .map((x) => x.material_id);
+
+      const versions = db.orm
+        .select()
+        .from(s.material_versions)
+        .where(inArray(s.material_versions.material_id, members))
+        .all();
+
+      const inputs = db.orm
+        .select()
+        .from(s.material_generation_inputs)
+        .where(
+          inArray(
+            s.material_generation_inputs.version_id,
+            versions.map((v) => v.id)
+          )
+        )
+        .all();
+
+      const requests = db.orm.select().from(s.material_generation_requests).all();
+
+      const ids = requests
+        .filter(
+          (r) =>
+            inputs.some((i) => i.request_id === r.id) ||
+            versions.some((v) => v.generation_request_id === r.id) ||
+            (r.payload !== '{}' &&
+              contextIds.includes(
+                Schema.decodeUnknownSync(
+                  Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
+                )(r.payload).documentTransform?.contextRequestId ?? ''
+              ))
+        )
+        .map((r) => r.id);
+
+      const ownedIds: string[] = [];
+
+      for (const id of ids) {
+        const owner = db.orm
+          .select()
+          .from(s.material_deletion_requests)
+          .where(eq(s.material_deletion_requests.request_id, id))
+          .get();
+
+        if (owner?.kind === 'generation' && alreadyScrubbed(id, owner.deletion_id)) continue;
+
+        if (owner)
+          throw new StudyError('invalid_input', 'Deletion overlaps generation cleanup ownership');
+
+        db.orm
+          .insert(s.material_deletion_requests)
+          .values({ request_id: id, deletion_id: deletionId, kind: 'generation' })
+          .run();
+
+        ownedIds.push(id);
+      }
+
+      return ownedIds;
+    }
+
     return {
       queries: {},
       mutations: {
         prepare: storeMutation({
-          input: Schema.Struct({
-            deletionId: materialIdSchema,
-            contextIds: Schema.Array(Schema.String)
-          }),
+          input: prepareSchema,
           output: Schema.Array(Schema.String),
-          run: ({ deletionId, contextIds }) => {
-            const members = db.orm
-              .select()
-              .from(s.material_deletion_members)
-              .where(eq(s.material_deletion_members.deletion_id, deletionId))
-              .all()
-              .map((x) => x.material_id);
-
-            const versions = db.orm
-              .select()
-              .from(s.material_versions)
-              .where(inArray(s.material_versions.material_id, members))
-              .all();
-
-            const inputs = db.orm
-              .select()
-              .from(s.material_generation_inputs)
-              .where(
-                inArray(
-                  s.material_generation_inputs.version_id,
-                  versions.map((v) => v.id)
-                )
-              )
-              .all();
-
-            const requests = db.orm.select().from(s.material_generation_requests).all();
-
-            const ids = requests
-              .filter(
-                (r) =>
-                  inputs.some((i) => i.request_id === r.id) ||
-                  versions.some((v) => v.generation_request_id === r.id) ||
-                  (r.payload !== '{}' &&
-                    contextIds.includes(
-                      Schema.decodeUnknownSync(
-                        Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
-                      )(r.payload).documentTransform?.contextRequestId ?? ''
-                    ))
-              )
-              .map((r) => r.id);
-
-            const ownedIds: string[] = [];
-
-            for (const id of ids) {
-              const owner = db.orm
-                .select()
-                .from(s.material_deletion_requests)
-                .where(eq(s.material_deletion_requests.request_id, id))
-                .get();
-
-              if (owner?.kind === 'generation' && alreadyScrubbed(id, owner.deletion_id)) continue;
-
-              if (owner)
-                throw new StudyError(
-                  'invalid_input',
-                  'Deletion overlaps generation cleanup ownership'
-                );
-
-              db.orm
-                .insert(s.material_deletion_requests)
-                .values({ request_id: id, deletion_id: deletionId, kind: 'generation' })
-                .run();
-
-              ownedIds.push(id);
-            }
-
-            return ownedIds;
-          }
+          run: prepare
         }),
         scrub: storeMutation({
           input: materialIdSchema,

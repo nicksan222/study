@@ -27,12 +27,12 @@ import { RpcTest } from 'effect/rpc';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Conversations } from '#server/features/conversations/service/index';
 import { Materials } from '#server/features/materials/index';
-import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { materialRpcHandlers } from '#testing/material-rpc';
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
@@ -48,7 +48,7 @@ test('rich Documents round-trip native RPC and reopen with exact identities, ass
       Settings.layer
     ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const handlers = () =>
-    Layer.mergeAll(MaterialsRpcLive, ConversationsRpcLive).pipe(Layer.provide(services()));
+    Layer.mergeAll(materialRpcHandlers, ConversationsRpcLive).pipe(Layer.provide(services()));
 
   try {
     const setup = await Effect.runPromise(

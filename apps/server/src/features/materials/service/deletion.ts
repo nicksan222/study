@@ -35,7 +35,9 @@ import { transaction, publicationTransaction } from '#server/platform/definition
 import type { Transaction } from '#server/platform/definitions/define-store';
 
 type Scope = { materialIds: readonly MaterialId[]; sourceIds: readonly SourceId[] };
+
 type Inspect = { token: string; requestIds: readonly string[] };
+
 type ParticipantSet = {
   Conversations: {
     inspectMaterialDeletion: (

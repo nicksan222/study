@@ -226,6 +226,15 @@ test('preview rejects unrelated and duplicate scope, new descendants and newly c
     const saved = await setup(f, 'PRIVATE_PREVIEW_MARKER');
 
     await Effect.runPromise(
+      withTestPublication(
+        f.context,
+        Effect.flatMap(Conversations, (conversations) =>
+          conversations.abandonReply(saved.pending)
+        ).pipe(Effect.asVoid, Effect.provide(f.domain()))
+      )
+    );
+
+    await Effect.runPromise(
       Effect.gen(function* () {
         const m = yield* Materials;
 
@@ -244,8 +253,6 @@ test('preview rejects unrelated and duplicate scope, new descendants and newly c
             )).kind,
             'invalid_input'
           );
-
-        yield* (yield* Conversations).abandonReply(saved.pending);
 
         const p2 = yield* m.previewDeletion({ materialId: saved.library.id });
 
@@ -935,6 +942,15 @@ test('distinct Materials sharing one private capture reject overlapping retireme
   try {
     const saved = await setup(f, 'OVERLAP_CAPTURE_RETAINED_MESSAGE');
 
+    await Effect.runPromise(
+      withTestPublication(
+        f.context,
+        Effect.flatMap(Conversations, (conversations) =>
+          conversations.abandonReply(saved.pending)
+        ).pipe(Effect.asVoid, Effect.provide(f.domain()))
+      )
+    );
+
     const other = await Effect.runPromise(
       Effect.gen(function* () {
         const m = yield* Materials;
@@ -946,8 +962,6 @@ test('distinct Materials sharing one private capture reject overlapping retireme
         });
 
         const c = yield* Conversations;
-
-        yield* c.abandonReply(saved.pending);
 
         yield* c.updateSessionSelection({
           sessionId: saved.session.id,
