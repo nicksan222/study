@@ -488,7 +488,7 @@ export function makeGeneration(resources: StoreResources) {
       .update(s.material_versions)
       .set({
         creator: 'agent',
-        instruction: request.instruction ?? null,
+        instruction: request.documentTransform ? null : (request.instruction ?? null),
         generation_request_id: request.id
       })
       .where(eq(s.material_versions.id, material.version.id))

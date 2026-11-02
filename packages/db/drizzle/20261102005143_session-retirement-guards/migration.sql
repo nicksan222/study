@@ -102,6 +102,8 @@ CREATE TRIGGER retired_proposal_receipt_valid BEFORE INSERT ON retired_document_
 WHEN NOT EXISTS(SELECT 1 FROM document_proposal_receipts r JOIN document_proposals p ON p.request_id=r.request_id
  JOIN session_generation_retirements x ON x.request_id=p.request_id
  WHERE r.key=NEW.key AND r.request_id=NEW.request_id AND r.operation=NEW.operation AND r.outcome=NEW.outcome
+ AND NEW.intent=r.intent AND json_type(NEW.intent)='object'
+ AND NOT EXISTS(SELECT 1 FROM json_each(NEW.intent) WHERE key NOT IN ('key','requestId','projectId','expectedVersionId','baseVersionId'))
  AND r.result_version_id=NEW.result_version_id AND r.current_version_id=NEW.current_version_id AND p.base_version_id=NEW.base_version_id AND p.proposed_version_id=NEW.proposed_version_id)
 BEGIN SELECT RAISE(ABORT, 'retired receipt requires completed exact proposal ownership'); END;
 --> statement-breakpoint
@@ -143,3 +145,78 @@ CREATE TRIGGER retired_event_payload BEFORE UPDATE ON workflow_events
 WHEN OLD.payload='{}' AND EXISTS(SELECT 1 FROM workflow_retired_correlations WHERE correlation_id=OLD.correlation_id AND event_type=OLD.type)
  AND NEW.payload!='{}'
 BEGIN SELECT RAISE(ABORT, 'retired event cannot restore content'); END;
+
+--> statement-breakpoint
+-- Only the automatically copied session instruction can retire; sealed library content is unchanged.
+DROP TRIGGER material_versions_frozen;
+--> statement-breakpoint
+CREATE TRIGGER material_versions_frozen BEFORE UPDATE ON material_versions
+WHEN (OLD.status='published' AND NOT (
+ OLD.instruction IS NOT NULL AND NEW.instruction IS NULL AND NEW.id IS OLD.id AND NEW.material_id IS OLD.material_id AND NEW.kind IS OLD.kind AND NEW.number IS OLD.number AND NEW.status IS OLD.status AND NEW.operation IS OLD.operation AND NEW.creator IS OLD.creator AND NEW.generation_request_id IS OLD.generation_request_id AND NEW.language IS OLD.language AND NEW.created_at IS OLD.created_at AND NEW.published_at IS OLD.published_at
+ AND EXISTS(SELECT 1 FROM session_generation_retirements x
+ JOIN material_generation_requests r ON r.id=x.request_id
+ JOIN session_deletions d ON d.session_id=x.session_id
+ WHERE x.request_id=OLD.generation_request_id AND d.status IN ('pending','failed')
+ AND OLD.instruction IS json_extract(r.payload,'$.instruction')
+ AND json_extract(r.payload,'$.documentTransform.contextRequestId') IS NOT NULL)
+)) OR new.id IS NOT old.id OR new.material_id IS NOT old.material_id OR new.kind IS NOT old.kind OR new.number IS NOT old.number OR new.created_at IS NOT old.created_at
+BEGIN SELECT RAISE(ABORT, 'published versions and version identities are immutable'); END;
+
+--> statement-breakpoint
+DROP TRIGGER material_generation_publish;
+--> statement-breakpoint
+CREATE TRIGGER material_generation_publish BEFORE UPDATE OF status ON material_versions
+WHEN NEW.status='published' AND NEW.creator='agent' AND NEW.operation='generate' AND NOT EXISTS(
+ SELECT 1 FROM material_generation_requests r JOIN materials m ON m.id=NEW.material_id
+ WHERE r.id=NEW.generation_request_id AND (json_extract(r.payload,'$.kind')='document' OR EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=NEW.material_id AND pm.project_id=r.project_id)) AND json_extract(r.payload,'$.kind')=NEW.kind AND json_extract(r.payload,'$.title')=m.title AND (CASE WHEN json_extract(r.payload,'$.documentTransform.contextRequestId') IS NOT NULL THEN NULL ELSE json_extract(r.payload,'$.instruction') END) IS NEW.instruction
+ AND (SELECT COUNT(*) FROM material_generation_inputs WHERE request_id=r.id)=json_array_length(r.payload,'$.inputVersionIds')
+ AND NOT EXISTS(SELECT 1 FROM material_generation_inputs i JOIN material_versions iv ON iv.id=i.version_id WHERE i.request_id=r.id AND json_extract(r.payload,'$.kind')!='document' AND NOT EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=iv.material_id AND pm.project_id=r.project_id))
+ AND NOT EXISTS(SELECT version_id FROM material_generation_inputs WHERE request_id=r.id EXCEPT SELECT input_version_id FROM material_version_inputs WHERE version_id=NEW.id)
+ AND NOT EXISTS(SELECT input_version_id FROM material_version_inputs WHERE version_id=NEW.id EXCEPT SELECT version_id FROM material_generation_inputs WHERE request_id=r.id)
+)
+BEGIN SELECT RAISE(ABORT, 'generated publication does not match its request'); END;
+
+--> statement-breakpoint
+DROP TRIGGER material_generation_receipt_valid;
+--> statement-breakpoint
+CREATE TRIGGER material_generation_receipt_valid BEFORE UPDATE OF result_version_id,result_hash ON material_generation_requests
+WHEN OLD.result_version_id IS NULL AND NEW.result_version_id IS NOT NULL AND (length(NEW.result_hash)!=64 OR NEW.result_hash GLOB '*[^0-9a-f]*' OR NOT EXISTS(
+ SELECT 1 FROM material_versions v JOIN materials m ON m.id=v.material_id WHERE v.id=NEW.result_version_id AND (json_extract(NEW.payload,'$.kind')='document' OR EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=v.material_id AND pm.project_id=NEW.project_id)) AND v.generation_request_id=NEW.id AND (
+   (v.status='published' AND json_extract(NEW.payload,'$.documentTransform.editTargetVersionId') IS NULL)
+   OR (v.status='draft' AND NEW.cancelled=0 AND NEW.project_id IS NULL
+    AND json_extract(NEW.payload,'$.kind')='document'
+    AND json_extract(NEW.payload,'$.scopeId') IS NULL
+    AND EXISTS (
+     SELECT 1 FROM document_proposals p
+     JOIN material_versions base ON base.id=p.base_version_id AND base.material_id=v.material_id
+     JOIN material_document_versions proposed_doc ON proposed_doc.version_id=v.id
+     JOIN material_document_versions base_doc ON base_doc.version_id=base.id
+     JOIN session_run_contexts c ON c.request_id=json_extract(NEW.payload,'$.documentTransform.contextRequestId') AND c.session_id=p.session_id
+     JOIN sessions se ON se.id=c.session_id
+     WHERE p.request_id=NEW.id AND p.proposed_version_id=v.id
+      AND NEW.id='document/' || c.request_id
+      AND json_extract(c.snapshot,'$.requestId')=c.request_id
+      AND json_extract(c.snapshot,'$.sessionId')=CAST(c.session_id AS TEXT)
+      AND CAST(base.id AS TEXT)=json_extract(NEW.payload,'$.documentTransform.editTargetVersionId')
+      AND base.kind='document' AND base.status='published' AND base.creator!='import'
+      AND proposed_doc.document_id!=base_doc.document_id
+      AND EXISTS(SELECT 1 FROM blocks WHERE document_id=proposed_doc.document_id)
+      AND (SELECT COUNT(*) FROM material_version_parents WHERE version_id=v.id)=1
+      AND EXISTS(SELECT 1 FROM material_version_parents WHERE version_id=v.id AND parent_version_id=base.id AND material_id=base.material_id)
+      AND json_array_length(c.snapshot,'$.inputs')=json_array_length(NEW.payload,'$.inputVersionIds')
+      AND NOT EXISTS(SELECT 1 FROM json_each(c.snapshot,'$.inputs') i WHERE
+       json_extract(NEW.payload,'$.inputVersionIds[' || i.key || ']') IS NOT json_extract(i.value,'$.versionId'))
+      AND EXISTS(SELECT 1 FROM json_each(c.snapshot,'$.inputs') i WHERE
+       json_extract(i.value,'$.versionId')=CAST(base.id AS TEXT)
+       AND json_extract(i.value,'$.materialId')=CAST(base.material_id AS TEXT)
+       AND json_extract(i.value,'$.documentId')=CAST(base_doc.document_id AS TEXT)
+       AND json_extract(i.value,'$.scope.kind')='document')
+    )
+   )
+  ) AND v.creator='agent' AND v.operation='generate' AND v.kind=json_extract(NEW.payload,'$.kind') AND v.instruction IS (CASE WHEN json_extract(NEW.payload,'$.documentTransform.contextRequestId') IS NOT NULL THEN NULL ELSE json_extract(NEW.payload,'$.instruction') END)
+ AND (SELECT COUNT(*) FROM material_generation_inputs WHERE request_id=NEW.id)=json_array_length(NEW.payload,'$.inputVersionIds')
+ AND NOT EXISTS(SELECT 1 FROM material_generation_inputs i JOIN material_versions iv ON iv.id=i.version_id WHERE i.request_id=NEW.id AND json_extract(NEW.payload,'$.kind')!='document' AND NOT EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=iv.material_id AND pm.project_id=NEW.project_id))
+ AND NOT EXISTS(SELECT version_id FROM material_generation_inputs WHERE request_id=NEW.id EXCEPT SELECT input_version_id FROM material_version_inputs WHERE version_id=v.id)
+ AND NOT EXISTS(SELECT input_version_id FROM material_version_inputs WHERE version_id=v.id EXCEPT SELECT version_id FROM material_generation_inputs WHERE request_id=NEW.id)
+))
+BEGIN SELECT RAISE(ABORT, 'generation receipt does not identify its retained output'); END;

@@ -1,10 +1,10 @@
 {
+  "id": "9513d82e-92ec-4abd-b81f-ace706df54b1",
+  "prevIds": [
+    "6a293fc5-ca27-48fa-94e6-59bf5799fb56"
+  ],
   "version": "7",
   "dialect": "sqlite",
-  "id": "7e0c1a82-25b5-466e-ac9e-798323e62d73",
-  "prevIds": [
-    "ec1aedb8-d79e-4339-b6bd-6759a6b1d927"
-  ],
   "ddl": [
     {
       "name": "preferences",
@@ -4184,7 +4184,7 @@
     },
     {
       "table": "retired_document_proposal_receipts",
-      "name": "intent_hash",
+      "name": "intent",
       "type": "text",
       "notNull": true,
       "autoincrement": false,

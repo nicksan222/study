@@ -48,18 +48,6 @@ export const SessionDeletionStore = defineStore({
 
     return {
       queries: {
-        deletionCorrelations: storeQuery({
-          role: 'required',
-          input: sessionIdSchema,
-          output: Schema.Array(Schema.String),
-          run: (id) =>
-            db.orm
-              .select()
-              .from(s.session_deletion_correlations)
-              .where(eq(s.session_deletion_correlations.session_id, id))
-              .all()
-              .map((row) => row.correlation_id)
-        }),
         sessionDeletion: storeQuery({
           role: 'required',
           input: sessionIdSchema,
@@ -71,32 +59,6 @@ export const SessionDeletionStore = defineStore({
           input: sessionIdSchema,
           output: Schema.Option(sessionDeletionSchema),
           run: (id) => Option.fromNullishOr(read(id))
-        }),
-        deletionOwnership: storeQuery({
-          role: 'required',
-          input: sessionIdSchema,
-          output: Schema.Struct({
-            contextIds: Schema.Array(Schema.String),
-            correlations: Schema.Array(Schema.String)
-          }),
-          run: (id) => {
-            const contextIds = db.orm
-              .select()
-              .from(s.session_run_contexts)
-              .where(eq(s.session_run_contexts.session_id, id))
-              .all()
-              .map((row) => row.request_id);
-            const events = db.orm
-              .select()
-              .from(s.workflowEvents)
-              .where(sql`json_extract(${s.workflowEvents.payload}, '$.sessionId') = ${String(id)}`)
-              .all();
-
-            return {
-              contextIds,
-              correlations: [...new Set([...contextIds, ...events.map((row) => row.correlationId)])]
-            };
-          }
         })
       },
       mutations: {
@@ -143,14 +105,14 @@ export const SessionDeletionStore = defineStore({
           }
         }),
         retry: storeMutation({
-          input: sessionIdSchema,
+          input: Schema.Struct({ sessionId: sessionIdSchema, pendingTerminal: Schema.Boolean }),
           output: sessionDeletionSchema,
-          run: (id) => {
+          run: ({ sessionId: id, pendingTerminal }) => {
             const previous = read(id);
 
             if (!previous) throw new StudyError('not_found', 'Deletion is unavailable');
 
-            if (previous.status === 'failed')
+            if (previous.status === 'failed' || (previous.status === 'pending' && pendingTerminal))
               db.orm
                 .update(s.session_deletions)
                 .set({ status: 'pending', error_kind: null, attempt: previous.attempt + 1 })
@@ -194,4 +156,65 @@ export const SessionDeletionStore = defineStore({
       }
     };
   }
+});
+
+/** Aggregate owned request identities, separate from deletion status queries. */
+export const SessionDeletionOwnershipStore = defineStore({
+  name: 'study/SessionDeletionOwnershipStore',
+  entity: { singular: 'deletionOwnership', plural: 'deletionOwnerships' },
+  make: ({ db }) => ({
+    queries: {
+      deletionOwnership: storeQuery({
+        role: 'required',
+        input: sessionIdSchema,
+        output: Schema.Struct({
+          contextIds: Schema.Array(Schema.String),
+          correlations: Schema.Array(Schema.String)
+        }),
+        run: (id) => {
+          const contextIds = db.orm
+            .select()
+            .from(s.session_run_contexts)
+            .where(eq(s.session_run_contexts.session_id, id))
+            .all()
+            .map((row) => row.request_id);
+          const events = db.orm
+            .select()
+            .from(s.workflowEvents)
+            .where(sql`json_extract(${s.workflowEvents.payload}, '$.sessionId') = ${String(id)}`)
+            .all();
+
+          return {
+            contextIds,
+            correlations: [...new Set([...contextIds, ...events.map((row) => row.correlationId)])]
+          };
+        }
+      })
+    },
+    mutations: {}
+  })
+});
+
+/** Read the retained correlation set as one aggregate, not an unbounded page. */
+export const SessionDeletionCorrelationStore = defineStore({
+  name: 'study/SessionDeletionCorrelationStore',
+  entity: { singular: 'deletionCorrelation', plural: 'deletionCorrelations' },
+  make: ({ db }) => ({
+    queries: {
+      deletionCorrelation: storeQuery({
+        role: 'required',
+        input: sessionIdSchema,
+        output: Schema.Struct({ correlations: Schema.Array(Schema.String) }),
+        run: (id) => ({
+          correlations: db.orm
+            .select()
+            .from(s.session_deletion_correlations)
+            .where(eq(s.session_deletion_correlations.session_id, id))
+            .all()
+            .map((row) => row.correlation_id)
+        })
+      })
+    },
+    mutations: {}
+  })
 });

@@ -54,7 +54,11 @@ import {
   RetainedSessionContextStore,
   SessionContextIntentStore
 } from '#server/features/conversations/store/context';
-import { SessionDeletionStore } from '#server/features/conversations/store/deletion';
+import {
+  SessionDeletionStore,
+  SessionDeletionOwnershipStore,
+  SessionDeletionCorrelationStore
+} from '#server/features/conversations/store/deletion';
 import { SessionStore } from '#server/features/conversations/store/index';
 import { MessageStore } from '#server/features/conversations/store/message';
 import { RecordingPostStore } from '#server/features/conversations/store/recording';
@@ -413,9 +417,17 @@ export const Conversations = defineService(
       retrySessionDeletion: (id: SessionId) =>
         transaction((tx) => {
           const previous = tx.store(SessionDeletionStore).sessionDeletion(id);
-          const result = tx.store(SessionDeletionStore).retry(id);
+          const runs = Workflows.correlatedExecutions(
+            tx,
+            previous.operationId,
+            `${previous.operationId}/${previous.attempt}`
+          );
+          const pendingTerminal =
+            runs.length > 0 &&
+            runs.every((run) => run.status === 'completed' || run.status === 'cancelled');
+          const result = tx.store(SessionDeletionStore).retry({ sessionId: id, pendingTerminal });
 
-          if (previous.status === 'failed') emitDeletion(tx, result);
+          if (result.attempt !== previous.attempt) emitDeletion(tx, result);
 
           return result;
         }),
@@ -441,7 +453,7 @@ export const Conversations = defineService(
 
           if (Option.isSome(existing)) return existing.value;
 
-          const owned = tx.store(SessionDeletionStore).deletionOwnership(id);
+          const owned = tx.store(SessionDeletionOwnershipStore).deletionOwnership(id);
           const status = tx
             .store(SessionDeletionStore)
             .accept({ sessionId: id, operationId: randomUUID() });
@@ -611,7 +623,7 @@ function proposalContext(tx: Transaction, value: typeof editing.proposalKeySchem
 }
 
 function deletionCorrelations(tx: Transaction, id: SessionId) {
-  return tx.store(SessionDeletionStore).deletionCorrelations(id);
+  return tx.store(SessionDeletionCorrelationStore).deletionCorrelation(id).correlations;
 }
 
 function emitDeletion(tx: Transaction, value: typeof sessionDeletionSchema.Type) {

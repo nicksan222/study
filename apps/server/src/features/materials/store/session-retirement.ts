@@ -10,10 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
+import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
-import { eq, inArray, sql } from '@study/db';
+import { and, eq, inArray, isNotNull, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -42,22 +41,38 @@ function makeRetirement(resources: StoreResources) {
       .all();
 
     for (const receipt of receipts) {
-      if (receipt.result_version_id !== null && receipt.outcome !== 'conflict')
-        db.orm
-          .insert(s.retired_document_proposal_receipts)
-          .values({
-            key: receipt.key,
-            intent_hash: createHash('sha256').update(receipt.intent).digest('hex'),
-            current_version_id: receipt.current_version_id,
-            proposed_version_id: proposal.proposed_version_id,
-            request_id: requestId,
-            operation: receipt.operation,
-            outcome: receipt.outcome,
-            base_version_id: proposal.base_version_id,
-            result_version_id: receipt.result_version_id
-          })
-          .onConflictDoNothing()
-          .run();
+      if (receipt.result_version_id === null || receipt.outcome === 'conflict') continue;
+
+      const value = {
+        key: receipt.key,
+        intent: receipt.intent,
+        current_version_id: receipt.current_version_id,
+        proposed_version_id: proposal.proposed_version_id,
+        request_id: requestId,
+        operation: receipt.operation,
+        outcome: receipt.outcome,
+        base_version_id: proposal.base_version_id,
+        result_version_id: receipt.result_version_id
+      };
+      const previous = db.orm
+        .select()
+        .from(s.retired_document_proposal_receipts)
+        .where(eq(s.retired_document_proposal_receipts.key, receipt.key))
+        .get();
+
+      if (previous) {
+        if (
+          Object.keys(value).some(
+            (key) => previous[key as keyof typeof value] !== value[key as keyof typeof value]
+          )
+        )
+          throw new StudyError(
+            'invalid_input',
+            'Retired proposal receipt differs from its original'
+          );
+      } else {
+        db.orm.insert(s.retired_document_proposal_receipts).values(value).run();
+      }
     }
 
     db.orm
@@ -128,6 +143,21 @@ function makeRetirement(resources: StoreResources) {
 
         for (const request of requests) {
           retireProposal(request.request_id);
+          // Only retire private instruction metadata proven to originate in this session request.
+          db.orm
+            .update(s.material_versions)
+            .set({ instruction: null })
+            .where(
+              and(
+                eq(s.material_versions.generation_request_id, request.request_id),
+                isNotNull(s.material_versions.instruction),
+                eq(
+                  s.material_versions.instruction,
+                  sql<string>`(SELECT json_extract(payload, '$.instruction') FROM material_generation_requests WHERE id = ${request.request_id})`
+                )
+              )
+            )
+            .run();
           db.orm
             .update(s.material_generation_requests)
             .set({ payload: '{}', result_metadata: null, cancelled: true })

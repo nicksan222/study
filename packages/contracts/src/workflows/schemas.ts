@@ -30,7 +30,8 @@ const executionCursorSchema = Schema.Struct({
 export const executionsInputSchema = Schema.Struct({
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(executionCursorSchema),
-  correlationId: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 256)))
+  correlationId: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 256))),
+  eventId: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 256)))
 });
 
 export const executionsPageSchema = Schema.Struct({

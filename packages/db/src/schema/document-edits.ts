@@ -133,7 +133,7 @@ export const retired_document_proposal_receipts = sqliteTable(
   'retired_document_proposal_receipts',
   {
     key: text().primaryKey(),
-    intent_hash: text().notNull(),
+    intent: text().notNull(),
     current_version_id: integer().$type<MaterialVersionId>().notNull(),
     proposed_version_id: integer().$type<MaterialVersionId>().notNull(),
     request_id: text().notNull(),

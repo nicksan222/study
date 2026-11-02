@@ -91,12 +91,14 @@ export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflo
 });
 
 /** Inspect native runs in a caller transaction without transferring execution ownership. */
-function correlatedExecutions(tx: Transaction, correlationId: string) {
+function correlatedExecutions(tx: Transaction, correlationId: string, eventId?: string) {
   const rows: (typeof executionSchema.Type)[] = [];
   let before: typeof executionsInputSchema.Type.before;
 
   for (;;) {
-    const page = tx.store(ExecutionStore).executions({ correlationId, limit: 100, before });
+    const page = tx
+      .store(ExecutionStore)
+      .executions({ correlationId, eventId, limit: 100, before });
 
     rows.push(...page);
     const last = page.at(-1);

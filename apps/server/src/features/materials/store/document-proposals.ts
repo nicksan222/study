@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import { materialVersionIdSchema, sessionIdSchema } from '@study/contracts/ids';
@@ -155,8 +153,7 @@ function makeDocumentProposals(resources: StoreResources) {
       if (
         retired.request_id !== value.requestId ||
         retired.operation !== operation ||
-        retired.intent_hash !==
-          createHash('sha256').update(proposalIntent(value, operation)).digest('hex')
+        retired.intent !== proposalIntent(value, operation)
       )
         throw new StudyError('invalid_input', 'Application key already has a different intent');
 

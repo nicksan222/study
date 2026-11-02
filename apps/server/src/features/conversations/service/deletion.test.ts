@@ -154,6 +154,7 @@ function assertScrubbed(fixture: Fixture, marker: string) {
     s.workflow_activities,
     s.workflow_deferreds,
     s.workflow_configuration_waits,
+    s.material_versions,
     s.material_generation_requests,
     s.document_proposals,
     s.document_proposal_receipts,
@@ -391,6 +392,62 @@ test('failed cleanup remains inspectable and retries the same logical deletion a
   }
 });
 
+test('pending deletion can retry its terminal attempt after cleanup and failure settlement both fail', async () => {
+  const fixture = await documentTransformFixture();
+  const marker = 'DOUBLE_FAILURE_SESSION_ONLY_8';
+
+  try {
+    const saved = await setup(fixture, marker);
+    const accepted = await Effect.runPromise(
+      Effect.flatMap(Conversations, (chats) => chats.deleteSession(saved.session.id)).pipe(
+        Effect.provide(fixture.domain())
+      )
+    );
+
+    fixture.context.db.orm.run(
+      sql.raw(
+        `CREATE TRIGGER reject_private_retirement BEFORE UPDATE ON material_generation_requests WHEN NEW.payload='{}' BEGIN SELECT RAISE(ABORT, 'injected cleanup failure'); END`
+      )
+    );
+    fixture.context.db.orm.run(
+      sql.raw(
+        `CREATE TRIGGER reject_failure_settlement BEFORE UPDATE ON session_deletions WHEN NEW.status='failed' BEGIN SELECT RAISE(ABORT, 'injected settlement failure'); END`
+      )
+    );
+    await cleanup(fixture, saved.session.id).catch(() => undefined);
+    assert.equal(
+      workflowStore(fixture.context).execution(`cleanup/${accepted.operationId}/1`)?.status,
+      'completed'
+    );
+    assert.equal(
+      fixture.context.db.orm.select().from(s.session_deletions).get()?.status,
+      'pending'
+    );
+    fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_private_retirement'));
+    fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_failure_settlement'));
+    fixture.reopen();
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const chats = yield* Conversations;
+        const retry = yield* chats.retrySessionDeletion(saved.session.id);
+
+        assert.equal(retry.operationId, accepted.operationId);
+        assert.equal(retry.attempt, 2);
+        assert.equal(retry.status, 'pending');
+        assert.deepEqual(yield* chats.retrySessionDeletion(saved.session.id), retry);
+      }).pipe(Effect.provide(fixture.domain()))
+    );
+    await cleanup(fixture, saved.session.id);
+    assertScrubbed(fixture, marker);
+    assert.equal(
+      fixture.context.db.orm.select().from(s.session_deletions).get()?.status,
+      'completed'
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
 test('completed library publication wins deletion while native payload copies are fenced and scrubbed', async () => {
   const fixture = await documentTransformFixture();
   const marker = 'COMPLETED_SESSION_ONLY_8';
@@ -421,6 +478,14 @@ test('completed library publication wins deletion while native payload copies ar
       .get()!;
 
     assert.ok(receipt.result_version_id);
+    assert.equal(
+      fixture.context.db.orm
+        .select()
+        .from(s.material_versions)
+        .where(eq(s.material_versions.id, receipt.result_version_id))
+        .get()?.instruction,
+      null
+    );
     await Effect.runPromise(
       Effect.flatMap(Conversations, (chats) => chats.deleteSession(saved.session.id)).pipe(
         Effect.provide(fixture.domain())
@@ -727,6 +792,19 @@ test('kept and applied library results survive removal of their proposal draft a
       }).pipe(Effect.provide(fixture.domain()))
     );
 
+    assert.throws(() =>
+      fixture.context.db.orm.run(sql`
+      INSERT INTO retired_document_proposal_receipts
+      (key,intent,current_version_id,proposed_version_id,request_id,operation,outcome,base_version_id,result_version_id)
+      SELECT r.key,json_set(r.intent,'$.projectId','999'),r.current_version_id,p.proposed_version_id,r.request_id,r.operation,r.outcome,p.base_version_id,r.result_version_id
+      FROM document_proposal_receipts r JOIN document_proposals p ON p.request_id=r.request_id
+      WHERE r.key='keep-before-delete'
+    `)
+    );
+    assert.equal(
+      fixture.context.db.orm.select().from(s.retired_document_proposal_receipts).all().length,
+      0
+    );
     await cleanup(fixture, saved.session.id);
     assert.equal(fixture.context.db.orm.select().from(s.document_proposals).all().length, 0);
     assert.equal(

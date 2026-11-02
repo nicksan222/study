@@ -28,7 +28,7 @@ CREATE TABLE `workflow_retired_executions` (
 --> statement-breakpoint
 CREATE TABLE `retired_document_proposal_receipts` (
 	`key` text PRIMARY KEY,
-	`intent_hash` text NOT NULL,
+	`intent` text NOT NULL,
 	`current_version_id` integer NOT NULL,
 	`proposed_version_id` integer NOT NULL,
 	`request_id` text NOT NULL,
