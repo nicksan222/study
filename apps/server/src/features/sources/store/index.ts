@@ -26,7 +26,7 @@ import {
   sourceProcessingSchema,
   sourceRevisionSchema
 } from '@study/contracts/sources/rpc';
-import { documentSchema, sourceSchema } from '@study/contracts/sources/schemas';
+import { documentSchema, hasTextualContent, sourceSchema } from '@study/contracts/sources/schemas';
 import { MAX_SOURCE_BYTES, sourceKindSchema } from '@study/contracts/sources/sniff';
 import { isNull, and, desc, eq, getTableColumns, lt } from '@study/db';
 import * as tables from '@study/db/schema';
@@ -480,7 +480,7 @@ export const SourceStore = defineStore({
 
             const doc = input.document;
 
-            if (!doc.blocks.some((block) => block.text.trim().length > 0))
+            if (!doc.blocks.some((block) => hasTextualContent(block.content)))
               throw new StudyError(
                 'invalid_input',
                 'Source extraction contains no readable content'

@@ -14,9 +14,11 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 import type { DocumentId } from '@study/contracts/ids';
+import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
@@ -45,7 +47,12 @@ import {
 for (const [name, text] of [
   ['blank.txt', ' \n\t'],
   ['paragraph.html', '<main><p> </p></main>'],
-  ['correction.txt', 'Retain this original']
+  ['list.html', '<main><ul><li><ul><li> </li></ul></li></ul></main>'],
+  ['cell.html', '<main><table><tr><td></td></tr></table></main>'],
+  ['table.html', '<main><table><tr><td></td><td></td></tr></table></main>'],
+  ['correction.txt', 'Retain this original'],
+  ['empty-cell.docx', ''],
+  ['empty-table.docx', '']
 ] as const)
   test(`${name} settles empty extraction as failed and preserves original bytes`, async () => {
     const location = createTestDatabase();
@@ -70,7 +77,11 @@ for (const [name, text] of [
         Effect.gen(function* () {
           const sources = yield* Sources;
           const materials = yield* Materials;
-          const bytes = new TextEncoder().encode(text);
+          const bytes = name.endsWith('.docx')
+            ? yield* Effect.promise(() =>
+                readFile(new URL('../decoders/fixtures/' + name, import.meta.url))
+              )
+            : new TextEncoder().encode(text);
           const source = yield* sources.createSource({
             name,
             bytes,
@@ -106,7 +117,7 @@ for (const [name, text] of [
                 expectedRevision: 1,
                 requestId: state.requestId!,
                 document: {
-                  blocks: [{ kind: 'paragraph', text, anchor: { type: 'paragraph', index: 1 } }],
+                  blocks: [plainBlock('paragraph', text, { type: 'paragraph', index: 1 })],
                   meta: {
                     extractor: null,
                     extractorVersion: 1,
@@ -115,7 +126,8 @@ for (const [name, text] of [
                     pageCount: null,
                     refiners: [],
                     waitingFor: [],
-                    corrected: false
+                    corrected: false,
+                    omissions: []
                   }
                 }
               })
