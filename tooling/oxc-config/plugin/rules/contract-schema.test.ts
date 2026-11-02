@@ -138,3 +138,32 @@ test('Material deletion scope and status derive from canonical schemas rather th
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('history policies, exact candidates and native operations derive from checked schemas', () => {
+  const diagnostics = lintRule(
+    'contract-schema',
+    {
+      'packages/contracts/src/materials/history.ts': `
+      import { Schema } from 'effect';
+      import { materialIdSchema, materialVersionIdSchema } from '../ids';
+      export const scope = Schema.Struct({ materialId: materialIdSchema, candidates: Schema.Array(materialVersionIdSchema) });
+
+      export type Scope = typeof scope.Type;
+
+      export interface UncheckedScope { materialId: number; candidates: number[] }
+      export const unchecked = Schema.Struct({ policy: Schema.Unknown });
+
+    `,
+      'packages/contracts/src/materials/rpc.ts': `
+      import { Rpc } from 'effect/rpc';
+      Rpc.make('previewHistoryPrune', { payload: scope, success: preview, error: failure });
+
+      Rpc.make('requestHistoryPrune', { payload: scope, success: status });
+
+    `
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});

@@ -1,15 +1,14 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Material history pruning owns exact scope, barriers and content retirement; native        │
- * │ Workflow owns execution.                                                                 │
+ * │ @file Finds selected and attachment-only reply dependencies on exact historical          │
+ * │ Documents.                                                                               │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps exact history behavior behind the owning feature boundary.                      │
- * │ - Preserves durable identities without retaining private captured content.               │
+ * │ - Records consumed capture intents before scrubbing private snapshots.                   │
+ * │ - Discards unfinished replies while preserving independently published messages.         │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Native Workflow owns execution; public participants coordinate synchronous feature       │
- * │ transactions.                                                                            │
+ * │ Conversations owns its snapshots; Materials supplies exact accepted version membership.  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -33,8 +32,11 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 import { makeDiscardPending } from './pending.ts';
 
 const contextCodec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
+
 const replyCodec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
+
 const selectionCodec = Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema));
+
 const impactSchema = Schema.Struct({
   token: Schema.String,
   requestIds: Schema.Array(Schema.String),
@@ -46,7 +48,9 @@ export const ConversationMaterialHistoryStore = defineStore({
   entity: { singular: 'conversationMaterialHistory', plural: 'conversationMaterialHistories' },
   make: (resources) => {
     const { db } = resources;
+
     const discardPending = makeDiscardPending(resources);
+
     function rows(ids: typeof historyVersionIdsSchema.Type) {
       const documentIds = [
         ...db.orm
@@ -62,11 +66,17 @@ export const ConversationMaterialHistoryStore = defineStore({
           .all()
           .map((pin) => pin.document_id)
       ];
+
       const documents = db.orm
         .select()
         .from(s.documents)
         .where(inArray(s.documents.id, documentIds))
         .all();
+
+      const attachmentRoots = new Set(
+        documents.map((document) => `${document.source_id}/${document.id}`)
+      );
+
       const replies = db.orm
         .select()
         .from(s.conversation_reply_requests)
@@ -76,18 +86,16 @@ export const ConversationMaterialHistoryStore = defineStore({
 
           return (
             snapshot.context?.inputs.some((input) => ids.includes(input.versionId)) ||
-            snapshot.messages.some((message) =>
-              message.attachments.some((attachment) =>
-                documents.some(
-                  (document) =>
-                    document.id === attachment.documentId &&
-                    document.source_id === attachment.sourceId
-                )
+            snapshot.messages
+              .flatMap((message) => message.attachments)
+              .some((attachment) =>
+                attachmentRoots.has(`${attachment.sourceId}/${attachment.documentId}`)
               )
-            )
           );
         });
+
       const replyIds = new Set(replies.map((reply) => reply.request_id));
+
       const contexts = db.orm
         .select()
         .from(s.session_run_contexts)
@@ -99,11 +107,13 @@ export const ConversationMaterialHistoryStore = defineStore({
               ids.includes(input.versionId)
             )
         );
+
       const citations = db.orm
         .select()
         .from(s.citations)
         .where(inArray(s.citations.material_version_id, [...ids]))
         .all();
+
       const sessions = db.orm
         .select()
         .from(s.sessions)
@@ -113,8 +123,10 @@ export const ConversationMaterialHistoryStore = defineStore({
             ids.includes(t.versionId)
           )
         );
+
       return { contexts, replies, citations, sessions };
     }
+
     return {
       queries: {
         conversationMaterialHistory: storeQuery({
@@ -123,6 +135,7 @@ export const ConversationMaterialHistoryStore = defineStore({
           output: impactSchema,
           run: (ids) => {
             const value = rows(ids);
+
             return {
               token: createHash('sha256')
                 .update(JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? String(v) : v)))
@@ -141,6 +154,7 @@ export const ConversationMaterialHistoryStore = defineStore({
           output: Schema.Array(Schema.String),
           run: (ids) => {
             const value = rows(ids);
+
             for (const context of value.contexts)
               db.orm
                 .insert(s.conversation_history_intents)
@@ -151,6 +165,7 @@ export const ConversationMaterialHistoryStore = defineStore({
                 })
                 .onConflictDoNothing()
                 .run();
+
             for (const session of value.sessions)
               db.orm
                 .update(s.sessions)
@@ -164,6 +179,7 @@ export const ConversationMaterialHistoryStore = defineStore({
                 })
                 .where(eq(s.sessions.id, session.id))
                 .run();
+
             return [...new Set([...value.contexts, ...value.replies].map((r) => r.request_id))];
           }
         }),
@@ -176,6 +192,7 @@ export const ConversationMaterialHistoryStore = defineStore({
               .from(s.material_history_requests)
               .where(eq(s.material_history_requests.operation_id, operationId))
               .all();
+
             for (const r of requests) {
               const reply = db.orm
                 .select({ message: s.messages, version: s.message_versions })
@@ -187,12 +204,15 @@ export const ConversationMaterialHistoryStore = defineStore({
                 .innerJoin(s.messages, eq(s.messages.id, s.message_versions.message_id))
                 .where(eq(s.conversation_reply_requests.request_id, r.request_id))
                 .get();
+
               if (reply && reply.version.status !== 'complete')
                 discardPending(reply.message, reply.version);
+
               db.orm
                 .delete(s.conversation_reply_requests)
                 .where(eq(s.conversation_reply_requests.request_id, r.request_id))
                 .run();
+
               db.orm
                 .delete(s.session_run_contexts)
                 .where(eq(s.session_run_contexts.request_id, r.request_id))

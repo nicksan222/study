@@ -1,15 +1,15 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Material history pruning owns exact scope, barriers and content retirement; native        │
- * │ Workflow owns execution.                                                                 │
+ * │ @file Persists bounded history intents, version barriers and exact publication           │
+ * │ ownership.                                                                               │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps exact history behavior behind the owning feature boundary.                      │
- * │ - Preserves durable identities without retaining private captured content.               │
+ * │ - Selects retained candidates and protects current, source and proposal roots.           │
+ * │ - Removes accepted bodies while retaining immutable version identities.                  │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Native Workflow owns execution; public participants coordinate synchronous feature       │
- * │ transactions.                                                                            │
+ * │ Materials owns its proof tables and content; feature participants own their private      │
+ * │ rows.                                                                                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -36,11 +36,30 @@ export function historyHash(value: unknown) {
     .digest('hex');
 }
 
+function historyPublications(db: StoreResources['db'], ids: typeof h.historyVersionIdsSchema.Type) {
+  return db.orm
+    .select()
+    .from(s.workflowEvents)
+    .where(eq(s.workflowEvents.type, 'MaterialPublished'))
+    .all()
+    .filter((row) => {
+      if (row.payload === '{}') return false;
+
+      const event = decodeEvent(row.payload);
+
+      return event.type === 'MaterialPublished' && ids.includes(event.materialVersionId);
+    });
+}
+
 function makeHistory(resources: StoreResources) {
   const { db, clock } = resources;
+
   const reads = makeReads(resources);
+
   const { removeContent } = makeContent(resources);
+
   const idsCodec = Schema.fromJsonString(Schema.toCodecJson(h.historyVersionIdsSchema));
+
   function status(operationId: string) {
     const row = required(
       db.orm
@@ -49,6 +68,7 @@ function makeHistory(resources: StoreResources) {
         .where(eq(s.material_history_prunes.operation_id, operationId))
         .get()
     );
+
     return {
       operationId,
       materialId: row.material_id,
@@ -61,25 +81,32 @@ function makeHistory(resources: StoreResources) {
       completedAt: row.completed_at
     };
   }
+
   function preview(input: typeof h.historyScopeSchema.Type) {
     reads.materialRow(input.materialId);
+
     const versions = db.orm
       .select()
       .from(s.material_versions)
       .where(eq(s.material_versions.material_id, input.materialId))
       .orderBy(desc(s.material_versions.number), desc(s.material_versions.id))
       .all();
+
     const pruned = db.orm
       .select()
       .from(s.material_history_members)
       .all()
       .map((v) => v.version_id);
+
     const retained = versions.filter((v) => !pruned.includes(v.id));
+
     const latest = retained
       .filter((v) => v.status === 'published')
       .slice(0, input.policy.keepLatest)
       .map((v) => v.id);
+
     const proposalReceipts = db.orm.select().from(s.document_proposal_receipts).all();
+
     const proposals = db.orm
       .select()
       .from(s.document_proposals)
@@ -90,6 +117,7 @@ function makeHistory(resources: StoreResources) {
             (r) => r.request_id === p.request_id && r.result_version_id !== null
           )
       );
+
     const proposalInputs = db.orm
       .select()
       .from(s.material_generation_inputs)
@@ -100,11 +128,16 @@ function makeHistory(resources: StoreResources) {
         )
       )
       .all();
+
     const snapshots = db.orm.select().from(s.material_source_snapshots).all();
+
     const processing = db.orm.select().from(s.source_processing).all();
+
     const protectedVersions: (typeof h.historyPreviewSchema.Type)['protected'][number][] = [];
+
     const eligible = retained.filter((v) => {
       const pin = snapshots.find((p) => p.version_id === v.id);
+
       const reason =
         v.status === 'draft'
           ? 'draft'
@@ -123,14 +156,18 @@ function makeHistory(resources: StoreResources) {
                     ))
                 ? 'source_root'
                 : null;
+
       if (reason !== null) protectedVersions.push({ versionId: v.id, reason });
+
       return reason === null;
     });
+
     // Oldest first; another explicit preview is required for each bounded batch.
     const candidateIds = eligible
       .toReversed()
       .slice(0, 100)
       .map((v) => v.id);
+
     const references: (typeof h.historyPreviewSchema.Type)['references'][number][] = db.orm
       .select()
       .from(s.material_version_inputs)
@@ -141,6 +178,7 @@ function makeHistory(resources: StoreResources) {
         dependentVersionId: r.version_id,
         relationship: 'input' as const
       }));
+
     references.push(
       ...db.orm
         .select()
@@ -153,14 +191,17 @@ function makeHistory(resources: StoreResources) {
           relationship: 'parent' as const
         }))
     );
+
     const generation = db.orm
       .select()
       .from(s.material_generation_inputs)
       .where(inArray(s.material_generation_inputs.version_id, candidateIds))
       .all();
+
     const outputs = versions
       .filter((v) => candidateIds.includes(v.id) && v.generation_request_id !== null)
       .map((v) => v.generation_request_id!);
+
     const requests = db.orm
       .select()
       .from(s.material_generation_requests)
@@ -171,21 +212,15 @@ function makeHistory(resources: StoreResources) {
         ])
       )
       .all();
-    const publications = db.orm
-      .select()
-      .from(s.workflowEvents)
-      .where(inArray(s.workflowEvents.type, ['MaterialPublished']))
-      .all()
-      .filter(
-        (e) =>
-          e.payload !== '{}' &&
-          candidateIds.some((id) => JSON.parse(e.payload).materialVersionId === String(id))
-      );
+
+    const publications = historyPublications(db, candidateIds);
+
     const annotationRevisions = db.orm
       .select()
       .from(s.material_annotation_revisions)
       .where(inArray(s.material_annotation_revisions.version_id, candidateIds))
       .all();
+
     const assessments = db.orm
       .select()
       .from(s.material_citation_assessments)
@@ -196,6 +231,7 @@ function makeHistory(resources: StoreResources) {
         )
       )
       .all();
+
     const edits = db.orm
       .select()
       .from(s.document_edit_receipts)
@@ -207,13 +243,17 @@ function makeHistory(resources: StoreResources) {
         )
       )
       .all();
+
     const citations = db.orm
       .select()
       .from(s.material_version_citations)
       .where(inArray(s.material_version_citations.version_id, candidateIds))
       .all();
+
     const bodies = candidateIds.map((id) => reads.readVersion(id));
+
     const removedBodyBytes = historyBodyBytes(resources, candidateIds);
+
     const value = {
       ...input,
       candidateIds,
@@ -234,6 +274,7 @@ function makeHistory(resources: StoreResources) {
       missingEvidence: 'exact_pruned_versions' as const,
       retainedCopies: 'other_versions_and_published_messages' as const
     };
+
     return {
       ...value,
       token: historyHash({
@@ -255,8 +296,10 @@ function makeHistory(resources: StoreResources) {
       })
     };
   }
+
   function scrub(operationId: string) {
     const ids = status(operationId).candidateIds;
+
     db.orm
       .delete(s.material_citation_assessments)
       .where(
@@ -266,10 +309,12 @@ function makeHistory(resources: StoreResources) {
         )
       )
       .run();
+
     db.orm
       .delete(s.material_annotation_revisions)
       .where(inArray(s.material_annotation_revisions.version_id, [...ids]))
       .run();
+
     db.orm
       .delete(s.document_edit_receipts)
       .where(
@@ -280,12 +325,15 @@ function makeHistory(resources: StoreResources) {
         )
       )
       .run();
+
     for (const id of ids) {
       db.orm
         .delete(s.material_version_citations)
         .where(eq(s.material_version_citations.version_id, id))
         .run();
+
       removeContent(id);
+
       db.orm
         .update(s.material_versions)
         .set({ instruction: null, language: null })
@@ -293,6 +341,7 @@ function makeHistory(resources: StoreResources) {
         .run();
     }
   }
+
   return { db, clock, idsCodec, status, preview, scrub };
 }
 
@@ -301,6 +350,7 @@ export const MaterialHistoryStore = defineStore({
   entity: { singular: 'materialHistory', plural: 'materialHistories' },
   make: (resources) => {
     const { db, clock, idsCodec, status, scrub } = makeHistory(resources);
+
     return {
       queries: {
         materialHistory: storeQuery({
@@ -333,6 +383,7 @@ export const MaterialHistoryStore = defineStore({
               .from(s.material_history_prunes)
               .where(eq(s.material_history_prunes.operation_id, input.operationId))
               .get();
+
             if (previous) {
               if (
                 previous.token !== input.token ||
@@ -341,9 +392,12 @@ export const MaterialHistoryStore = defineStore({
                 previous.selection !== Schema.encodeSync(idsCodec)(input.candidateIds)
               )
                 throw new StudyError('invalid_input', 'History operation scope changed');
+
               return status(input.operationId);
             }
+
             makeReads(resources).materialRow(input.materialId);
+
             db.orm
               .insert(s.material_history_prunes)
               .values({
@@ -356,11 +410,13 @@ export const MaterialHistoryStore = defineStore({
                 created_at: unixSeconds(clock)
               })
               .run();
+
             for (const versionId of input.candidateIds)
               db.orm
                 .insert(s.material_history_members)
                 .values({ version_id: versionId, operation_id: input.operationId })
                 .run();
+
             return status(input.operationId);
           }
         }),
@@ -378,14 +434,17 @@ export const MaterialHistoryStore = defineStore({
                 .from(s.material_history_requests)
                 .where(eq(s.material_history_requests.request_id, requestId))
                 .get();
+
               if (old && old.operation_id !== operationId) {
                 if (status(old.operation_id).status !== 'completed')
                   throw new StudyError(
                     'invalid_input',
                     'History cleanup overlaps an active operation'
                   );
+
                 continue;
               }
+
               db.orm
                 .insert(s.material_history_requests)
                 .values({ operation_id: operationId, request_id: requestId, kind })
@@ -407,12 +466,14 @@ export const MaterialHistoryStore = defineStore({
           output: h.historyPruneSchema,
           run: ({ operationId, pendingTerminal }) => {
             const old = status(operationId);
+
             if (old.status === 'failed' || (old.status === 'pending' && pendingTerminal))
               db.orm
                 .update(s.material_history_prunes)
                 .set({ status: 'pending', error_kind: null, attempt: old.attempt + 1 })
                 .where(eq(s.material_history_prunes.operation_id, operationId))
                 .run();
+
             return status(operationId);
           }
         }),
@@ -425,7 +486,9 @@ export const MaterialHistoryStore = defineStore({
           output: h.historyPruneSchema,
           run: ({ operationId, attempt, errorKind }) => {
             const old = status(operationId);
+
             if (old.status === 'completed' || old.attempt !== attempt) return old;
+
             db.orm
               .update(s.material_history_prunes)
               .set({
@@ -440,6 +503,7 @@ export const MaterialHistoryStore = defineStore({
                 )
               )
               .run();
+
             return status(operationId);
           }
         })
@@ -463,6 +527,7 @@ export const MaterialHistoryPreviewStore = defineStore({
     mutations: {}
   })
 });
+
 export const MaterialHistoryOwnershipStore = defineStore({
   name: 'study/MaterialHistoryOwnershipStore',
   entity: { singular: 'materialHistoryOwnership', plural: 'materialHistoryOwnerships' },
@@ -494,21 +559,7 @@ export const MaterialHistoryPublicationStore = defineStore({
         role: 'required',
         input: h.historyVersionIdsSchema,
         output: Schema.Array(Schema.String),
-        run: (ids) =>
-          db.orm
-            .select()
-            .from(s.workflowEvents)
-            .where(eq(s.workflowEvents.type, 'MaterialPublished'))
-            .all()
-            .flatMap((row) => {
-              if (row.payload === '{}') return [];
-
-              const event = decodeEvent(row.payload);
-
-              return event.type === 'MaterialPublished' && ids.includes(event.materialVersionId)
-                ? [row.correlationId]
-                : [];
-            })
+        run: (ids) => historyPublications(db, ids).map((row) => row.correlationId)
       })
     },
     mutations: {}

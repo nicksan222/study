@@ -92,3 +92,16 @@ test('Material cleanup members, original sources and retained candidate identiti
 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
+
+test('history candidates and exact attachment roots remain lossless across preview and SQL proofs', () => {
+  const diagnostics = lintRule('no-lossy-ids', {
+    'src/features/conversations/store/material-history.ts': `
+      Number(attachment.documentId); parseInt(attachment.sourceId, 10); Number(member.version_id);
+
+      String(attachment.documentId); String(attachment.sourceId); Number(policy.keepLatest); Number(state.attempt);
+
+    `
+  });
+
+  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});

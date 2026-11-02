@@ -172,3 +172,33 @@ test('Material cleanup cannot acquire native execution, checkpoint, event or fen
     Array(8).fill('apps/server/src/features/materials/store/deletion.ts')
   );
 });
+
+test('history participants cannot mutate native payloads, checkpoints, deferreds or fences', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/history-generation.ts': `
+      import * as schema from '@study/db/schema';
+      const { workflow_activities: checkpoints, workflow_retired_executions: retired } = schema;
+
+      db.delete(checkpoints); db.insert(retired); db.update(schema.workflow_executions);
+
+    `,
+      'apps/server/src/features/conversations/store/material-history.ts': `
+      import * as s from '@study/db/schema'; import { sql } from '@study/db';
+      db.select().from(s.workflow_deferreds);
+
+      db.delete(s.workflow_deferreds); db.delete(s.workflow_configuration_waits);
+
+      sql\`DELETE FROM workflow_events WHERE correlation_id=\${requestId}\`;
+
+    `,
+      'apps/server/src/platform/workflows/retirement.ts': `
+      import * as s from '@study/db/schema'; db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
+    `
+    }),
+    [
+      ...Array(3).fill('apps/server/src/features/conversations/store/material-history.ts'),
+      ...Array(3).fill('apps/server/src/features/materials/store/history-generation.ts')
+    ]
+  );
+});

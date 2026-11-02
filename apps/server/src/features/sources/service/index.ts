@@ -48,6 +48,11 @@ import { pageById } from '#server/platform/definitions/page-by-id';
 import { validateLink } from '#server/platform/http/index';
 
 import {
+  prepareMaterialDeletion,
+  scrubMaterialDeletion,
+  inspectMaterialDeletion
+} from './material-deletion.ts';
+import {
   prepareMaterialHistory,
   scrubMaterialHistory,
   inspectMaterialHistory
@@ -55,21 +60,21 @@ import {
 
 type SourcePageInput = typeof sourcePageInputSchema.Type;
 
-import {
-  prepareMaterialDeletion,
-  scrubMaterialDeletion,
-  inspectMaterialDeletion
-} from './material-deletion.ts';
-
 export const Sources = defineService(
   'study/Sources',
   Effect.gen(function* () {
     const sources = yield* useStore(SourceStore);
+
     const exports = yield* useStore(SourceExportStore);
+
     const processing = yield* useStore(SourceProcessingStore);
+
     const snapshots = yield* useStore(SourceSnapshotStore);
+
     const documents = yield* useStore(SourceDocumentStore);
+
     const historical = yield* useStore(HistoricalDocumentStore);
+
     const requested = (
       tx: Transaction,
       sourceId: SourceId,
@@ -101,12 +106,15 @@ export const Sources = defineService(
       createSource: (input: { name: string; bytes: Uint8Array; projectId: ProjectId | null }) =>
         transaction((tx) => {
           const requestId = randomUUID();
+
           const detected = sniff(input.name, input.bytes);
+
           const source = tx
             .store(SourceStore)
             .createSource({ ...input, ...detected, origin: 'attachment', uri: null, requestId });
 
           Materials.registerImportedSource(tx, source.id);
+
           requested(tx, source.id, 1, requestId);
 
           return source;
@@ -114,7 +122,9 @@ export const Sources = defineService(
       addLink: (input: { url: string; projectId: ProjectId | null; name?: string }) =>
         transaction((tx) => {
           const uri = validateLink(input.url);
+
           const requestId = randomUUID();
+
           const source = tx.store(SourceStore).createSource({
             name: input.name ?? uri,
             bytes: new TextEncoder().encode(uri),
@@ -127,21 +137,29 @@ export const Sources = defineService(
           });
 
           Materials.registerImportedSource(tx, source.id);
+
           requested(tx, source.id, 1, requestId);
 
           return source;
         }),
       importRecording: (input: {
         requestId: string;
+
         projectId: ProjectId | null;
+
         sessionId: SessionId;
+
         name: string;
+
         bytes: Uint8Array;
+
         durationMs: number;
       }) =>
         publicationTransaction((tx) => {
           const imports = tx.store(RecordingImportStore);
+
           const hash = imports.validateRecordingImport(input);
+
           const receipt = imports.findRecordingImport(input.requestId);
 
           if (Option.isSome(receipt)) {
@@ -165,25 +183,33 @@ export const Sources = defineService(
           });
 
           Materials.registerImportedSource(tx, source.id);
+
           imports.saveRecordingImport({ ...input, sourceId: source.id, hash });
+
           requested(tx, source.id, 1, input.requestId, input.requestId);
 
           return source;
         }),
       replaceSource: (input: {
         id: SourceId;
+
         expectedRevision: number;
+
         name: string;
+
         bytes: Uint8Array;
       }) =>
         transaction((tx) => {
           const requestId = randomUUID();
+
           const detected = sniff(input.name.trim(), input.bytes);
+
           const result = tx
             .store(SourceStore)
             .replaceSourceInput({ ...input, ...detected, requestId });
 
           Materials.registerImportedSource(tx, input.id);
+
           requested(tx, input.id, result.revision, requestId);
 
           return result;
@@ -211,6 +237,7 @@ export const Sources = defineService(
       requestSourceProcessing: (input: { id: SourceId; expectedRevision: number }) =>
         transaction((tx) => {
           const requestId = randomUUID();
+
           const result = tx.store(SourceStore).requestSourceProcessing({ ...input, requestId });
 
           requested(tx, input.id, result.revision, requestId);
@@ -220,8 +247,11 @@ export const Sources = defineService(
       setSourceProject: (input: typeof setSourceProjectInputSchema.Type) =>
         transaction((tx) => {
           const store = tx.store(SourceStore);
+
           const before = store.source(input.id);
+
           const source = store.setSourceProject(input);
+
           const state = tx.store(SourceProcessingStore).sourceProcessing(input.id);
 
           if (before.projectId !== input.projectId) {
@@ -261,6 +291,7 @@ export const Sources = defineService(
       correctBlock: (input: typeof correctBlockInputSchema.Type) =>
         transaction((tx) => {
           const requestId = randomUUID();
+
           const result = tx.store(SourceStore).requestCorrection({ ...input, requestId });
 
           tx.emit({
@@ -304,6 +335,7 @@ export const Sources = defineService(
       publishSourceDocument: (input: { event: SourcePublicationRequested; document: Document }) =>
         publicationTransaction((tx) => {
           const source = tx.store(SourceStore).source(input.event.sourceId);
+
           const { documentId, published } = tx.store(SourceStore).publishSourceDocument({
             id: input.event.sourceId,
             expectedRevision: input.event.inputVersion,

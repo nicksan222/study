@@ -1,14 +1,14 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Learning retires only slots and grading attempts owned by accepted exact version scope. │
+ * │ @file Retires practice slots and answers tied to exact historical Material versions.     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps exact history behavior behind the owning feature boundary.                      │
- * │ - Preserves durable identities without retaining private captured content.               │
+ * │ - Includes pending input dependencies and completed version-specific attempts.           │
+ * │ - Keeps unrelated schedules and stable card identities outside version cleanup.          │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Native Workflow owns execution; public participants coordinate synchronous feature       │
- * │ transactions.                                                                            │
+ * │ Learning owns practice persistence; native retirement handles correlated private         │
+ * │ payloads.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -47,7 +47,7 @@ export const LearningMaterialHistoryStore = defineStore({
             (p.version_id !== null && versions.includes(p.version_id)) ||
             (p.status === 'pending' &&
               Schema.decodeUnknownSync(inputIdsCodec)(p.input_version_ids).some((v) =>
-                versions.some((id) => id === v)
+                versions.includes(v)
               ))
         );
 
@@ -69,6 +69,7 @@ export const LearningMaterialHistoryStore = defineStore({
         requestIds: [...new Set([...slots.map((p) => p.id), ...events.map((e) => e.correlationId)])]
       };
     }
+
     return {
       queries: {
         learningMaterialHistory: storeQuery({
@@ -77,6 +78,7 @@ export const LearningMaterialHistoryStore = defineStore({
           output: Schema.Struct({ token: Schema.String, requestIds: Schema.Array(Schema.String) }),
           run: (ids) => {
             const value = inspect(ids);
+
             return {
               token: createHash('sha256')
                 .update(JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? String(v) : v)))
@@ -94,6 +96,7 @@ export const LearningMaterialHistoryStore = defineStore({
             const versions = ids;
 
             const { slots, requestIds } = inspect(versions);
+
             for (const p of slots) {
               const ownsOutput = p.version_id !== null && versions.includes(p.version_id);
 

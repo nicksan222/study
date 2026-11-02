@@ -1,15 +1,13 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Material history pruning owns exact scope, barriers and content retirement; native        │
- * │ Workflow owns execution.                                                                 │
+ * │ @file Tracks exact historical Document and source-revision cleanup ownership.            │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps exact history behavior behind the owning feature boundary.                      │
- * │ - Preserves durable identities without retaining private captured content.               │
+ * │ - Reports independent version, Document asset and current source roots.                  │
+ * │ - Removes obsolete Documents and only source bytes with no surviving owner.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Native Workflow owns execution; public participants coordinate synchronous feature       │
- * │ transactions.                                                                            │
+ * │ Sources owns its content and proof rows; Materials supplies accepted version identities. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -25,6 +23,7 @@ import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
+import { decodeEvent } from '#server/platform/workflows/events';
 
 export const SourceMaterialHistoryStore = defineStore({
   name: 'study/SourceMaterialHistoryStore',
@@ -36,6 +35,7 @@ export const SourceMaterialHistoryStore = defineStore({
         .from(s.material_source_snapshots)
         .where(inArray(s.material_source_snapshots.version_id, [...ids]))
         .all();
+
       const docs = [
         ...new Set([
           ...pins.flatMap((p) => (p.document_id === null ? [] : [p.document_id])),
@@ -47,11 +47,13 @@ export const SourceMaterialHistoryStore = defineStore({
             .map((d) => d.document_id)
         ])
       ];
+
       const assets = db.orm
         .select()
         .from(s.document_assets)
         .where(inArray(s.document_assets.document_id, docs))
         .all();
+
       const revisions = [
         ...new Map(
           [...pins, ...assets].map((p) => [
@@ -60,8 +62,10 @@ export const SourceMaterialHistoryStore = defineStore({
           ])
         ).values()
       ];
+
       return { docs, revisions };
     }
+
     function requestIds(docs: readonly (typeof s.documents.$inferSelect.id)[]) {
       return [
         ...new Set(
@@ -70,15 +74,21 @@ export const SourceMaterialHistoryStore = defineStore({
             .from(s.workflowEvents)
             .where(inArray(s.workflowEvents.type, ['SourceIndexed', 'SourceCorrectionRequested']))
             .all()
-            .filter(
-              (e) =>
-                e.payload !== '{}' &&
-                docs.some((id) => JSON.parse(e.payload).documentId === String(id))
-            )
+            .filter((row) => {
+              if (row.payload === '{}') return false;
+
+              const event = decodeEvent(row.payload);
+
+              return (
+                (event.type === 'SourceIndexed' || event.type === 'SourceCorrectionRequested') &&
+                docs.includes(event.documentId)
+              );
+            })
             .map((e) => e.correlationId)
         )
       ];
     }
+
     function retained(
       sourceId: typeof s.sources.$inferSelect.id,
       revision: bigint,
@@ -117,6 +127,96 @@ export const SourceMaterialHistoryStore = defineStore({
           .get() !== undefined
       );
     }
+
+    function inspect(ids: typeof historyVersionIdsSchema.Type) {
+      const { docs, revisions } = roots(ids);
+
+      const sourceRevisions = revisions.map((r) => {
+        const snapshot = db.orm
+          .select()
+          .from(s.source_snapshots)
+          .where(
+            and(
+              eq(s.source_snapshots.source_id, r.sourceId),
+              eq(s.source_snapshots.revision, r.revision)
+            )
+          )
+          .get();
+
+        const retainedVersionIds = db.orm
+          .select()
+          .from(s.material_source_snapshots)
+          .where(
+            and(
+              eq(s.material_source_snapshots.source_id, r.sourceId),
+              eq(s.material_source_snapshots.revision, r.revision)
+            )
+          )
+          .all()
+          .filter((p) => !ids.includes(p.version_id))
+          .map((p) => p.version_id);
+
+        const retainedDocumentIds = [
+          ...new Set(
+            db.orm
+              .select()
+              .from(s.document_assets)
+              .where(
+                and(
+                  eq(s.document_assets.source_id, r.sourceId),
+                  eq(s.document_assets.revision, r.revision)
+                )
+              )
+              .all()
+              .filter((a) => !docs.includes(a.document_id))
+              .map((a) => a.document_id)
+          )
+        ];
+
+        const currentSourceRevision =
+          db.orm
+            .select()
+            .from(s.source_processing)
+            .where(
+              and(
+                eq(s.source_processing.source_id, r.sourceId),
+                eq(s.source_processing.revision, r.revision)
+              )
+            )
+            .get() !== undefined;
+
+        return {
+          ...r,
+          bytes: BigInt(snapshot?.bytes.length ?? 0),
+          retained:
+            retainedVersionIds.length > 0 ||
+            retainedDocumentIds.length > 0 ||
+            currentSourceRevision,
+          retainedVersionIds,
+          retainedDocumentIds,
+          currentSourceRevision
+        };
+      });
+
+      const docRows = db.orm.select().from(s.documents).where(inArray(s.documents.id, docs)).all();
+
+      const processing = db.orm.select().from(s.source_processing).all();
+
+      const requests = requestIds(docs);
+
+      return {
+        sourceRevisions,
+        requestIds: requests,
+        token: createHash('sha256')
+          .update(
+            JSON.stringify({ sourceRevisions, docRows, processing, requests }, (_, v) =>
+              typeof v === 'bigint' ? String(v) : v
+            )
+          )
+          .digest('hex')
+      };
+    }
+
     return {
       queries: {
         sourceMaterialHistory: storeQuery({
@@ -127,86 +227,7 @@ export const SourceMaterialHistoryStore = defineStore({
             sourceRevisions: historyPreviewSchema.fields.sourceRevisions,
             requestIds: Schema.Array(Schema.String)
           }),
-          run: (ids) => {
-            const { docs, revisions } = roots(ids);
-            const sourceRevisions = revisions.map((r) => {
-              const snapshot = db.orm
-                .select()
-                .from(s.source_snapshots)
-                .where(
-                  and(
-                    eq(s.source_snapshots.source_id, r.sourceId),
-                    eq(s.source_snapshots.revision, r.revision)
-                  )
-                )
-                .get();
-              const retainedVersionIds = db.orm
-                .select()
-                .from(s.material_source_snapshots)
-                .where(
-                  and(
-                    eq(s.material_source_snapshots.source_id, r.sourceId),
-                    eq(s.material_source_snapshots.revision, r.revision)
-                  )
-                )
-                .all()
-                .filter((p) => !ids.includes(p.version_id))
-                .map((p) => p.version_id);
-              const retainedDocumentIds = [
-                ...new Set(
-                  db.orm
-                    .select()
-                    .from(s.document_assets)
-                    .where(
-                      and(
-                        eq(s.document_assets.source_id, r.sourceId),
-                        eq(s.document_assets.revision, r.revision)
-                      )
-                    )
-                    .all()
-                    .filter((a) => !docs.includes(a.document_id))
-                    .map((a) => a.document_id)
-                )
-              ];
-              const currentSourceRevision =
-                db.orm
-                  .select()
-                  .from(s.source_processing)
-                  .where(
-                    and(
-                      eq(s.source_processing.source_id, r.sourceId),
-                      eq(s.source_processing.revision, r.revision)
-                    )
-                  )
-                  .get() !== undefined;
-              return {
-                ...r,
-                bytes: BigInt(snapshot?.bytes.length ?? 0),
-                retained: retained(r.sourceId, r.revision, docs, ids),
-                retainedVersionIds,
-                retainedDocumentIds,
-                currentSourceRevision
-              };
-            });
-            const docRows = db.orm
-              .select()
-              .from(s.documents)
-              .where(inArray(s.documents.id, docs))
-              .all();
-            const processing = db.orm.select().from(s.source_processing).all();
-            return {
-              sourceRevisions,
-              requestIds: requestIds(docs),
-              token: createHash('sha256')
-                .update(
-                  JSON.stringify(
-                    { sourceRevisions, docRows, processing, requests: requestIds(docs) },
-                    (_, v) => (typeof v === 'bigint' ? String(v) : v)
-                  )
-                )
-                .digest('hex')
-            };
-          }
+          run: inspect
         })
       },
       mutations: {
@@ -218,11 +239,13 @@ export const SourceMaterialHistoryStore = defineStore({
           output: Schema.Void,
           run: ({ operationId, versionIds }) => {
             const { docs, revisions } = roots(versionIds);
+
             for (const documentId of docs)
               db.orm
                 .insert(s.source_history_documents)
                 .values({ operation_id: operationId, document_id: documentId })
                 .run();
+
             for (const r of revisions)
               db.orm
                 .insert(s.source_history_revisions)
@@ -257,15 +280,19 @@ export const SourceMaterialHistoryStore = defineStore({
                   .get()
               )
                 continue;
+
               db.orm.delete(s.blocks).where(eq(s.blocks.document_id, r.document_id)).run();
+
               db.orm.delete(s.documents).where(eq(s.documents.id, r.document_id)).run();
             }
+
             for (const r of db.orm
               .select()
               .from(s.source_history_revisions)
               .where(eq(s.source_history_revisions.operation_id, operationId))
               .all()) {
               if (retained(r.source_id, r.revision, [], [])) continue;
+
               db.orm
                 .delete(s.source_snapshots)
                 .where(

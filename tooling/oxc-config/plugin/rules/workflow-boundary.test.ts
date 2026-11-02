@@ -124,3 +124,26 @@ test('Material cleanup uses native Activities and cannot forge publication or ex
     Array(2).fill('apps/server/src/features/materials/service/deletion.ts')
   );
 });
+
+test('history cleanup retains native Activity publication ownership and cannot mint guards', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/workflows/history.ts': `
+      import { Activity } from 'effect/workflow';
+      import { withPublicationGuard } from '#server/platform/workflows/publication';
+      export const cleanup = () => Activity.make({execute:withPublicationGuard(context,finishMaterialHistory(input))});
+
+    `,
+      'apps/server/src/features/materials/service/history.ts': `
+      import { Effect, Layer } from 'effect';
+      import { PublicationGuard } from '#server/platform/workflows/publication';
+      import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
+      Effect.provideService(finishMaterialHistory(input), PublicationGuard, forged);
+
+      Layer.succeed(WorkflowActivityOwner, forged);
+
+    `
+    }),
+    Array(2).fill('apps/server/src/features/materials/service/history.ts')
+  );
+});

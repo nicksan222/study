@@ -347,6 +347,7 @@ test('history intent, exact version barriers and source cleanup roots have one o
       db.insert(s.conversation_history_intents); db.insert(s.material_history_requests);
     `
   });
+
   assert.deepEqual(
     diagnostics.map(({ message }) => message).sort(),
     [
@@ -356,4 +357,42 @@ test('history intent, exact version barriers and source cleanup roots have one o
       'Feature conversations may not write material_history_requests.'
     ].sort()
   );
+});
+
+test('history proof ownership survives table aliases and raw SQL across all synchronous participants', () => {
+  const diagnostics = lintRule('feature-persistence-boundary', {
+    'src/features/learning/store/material-history.ts': `
+      import * as schema from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import { sql } from '@study/db';
+      const { material_history_requests: owners } = schema;
+
+      db.select().from(owners); db.update(owners);
+
+      db.delete(schema.material_history_members); db.insert(schema.material_history_prunes);
+
+      db.insert(schema.source_history_documents); db.update(schema.source_history_revisions);
+
+      sql\`DELETE FROM conversation_history_intents WHERE request_id=\${requestId}\`;
+
+    `,
+    'src/features/sources/store/material-history.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.source_history_documents); db.insert(s.source_history_revisions);
+
+    `,
+    'src/features/conversations/store/material-history.ts': `
+      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      db.insert(s.conversation_history_intents);
+
+    `
+  });
+
+  assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    'Feature learning may not write conversation_history_intents.',
+    'Feature learning may not write material_history_members.',
+    'Feature learning may not write material_history_prunes.',
+    'Feature learning may not write material_history_requests.',
+    'Feature learning may not write source_history_documents.',
+    'Feature learning may not write source_history_revisions.'
+  ]);
 });

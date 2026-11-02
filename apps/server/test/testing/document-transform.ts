@@ -29,11 +29,16 @@ import {
   materialGenerationWorkflow,
   materialGenerationHandler
 } from '#server/features/materials/workflows/generation';
+import { sourceIndexedWorkflow } from '#server/features/materials/workflows/index';
 import { Projects } from '#server/features/projects/index';
 import { Recordings } from '#server/features/recordings/index';
 import { recordingPostWorkflow } from '#server/features/recordings/workflows/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
+import {
+  sourceIngestionWorkflow,
+  sourceCorrectionWorkflow
+} from '#server/features/sources/workflows/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
@@ -49,6 +54,7 @@ type Reply =
   | {
       kind: 'output';
       output:
+        | string
         | typeof documentTransformOutputSchema.Type
         | typeof materialFlashcardsContentInputSchema.Type;
     }
@@ -84,7 +90,7 @@ function responseEvents(reply: Exclude<Reply, { kind: 'transient' }>, ordinal: n
     {
       type: 'response.output_text.delta',
       item_id: `message${ordinal}`,
-      delta: JSON.stringify(reply.output)
+      delta: typeof reply.output === 'string' ? reply.output : JSON.stringify(reply.output)
     },
     { type: 'response.completed', response: {} }
   ];
@@ -196,7 +202,14 @@ export async function documentTransformFixture() {
           cancel: (input: Parameters<typeof cancelExecution>[2]) =>
             cancelExecution(
               context,
-              [materialGenerationWorkflow, recordingPostWorkflow, conversationReplyWorkflow],
+              [
+                materialGenerationWorkflow,
+                recordingPostWorkflow,
+                conversationReplyWorkflow,
+                sourceIngestionWorkflow,
+                sourceCorrectionWorkflow,
+                sourceIndexedWorkflow
+              ],
               input
             ).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine))
         }))

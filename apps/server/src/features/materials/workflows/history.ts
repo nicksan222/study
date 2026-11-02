@@ -1,12 +1,13 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Runs retryable Material cleanup using native cancellation and guarded Activity.    │
+ * │ @file Executes durable history cleanup with cancellation and guarded native Activities.  │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Retains durable ownership and content-free retirement state.                           │
+ * │ - Cancels exactly retired executions before synchronous content cleanup.                 │
+ * │ - Settles failures and rejects stale attempts through the Material service.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Feature policy uses public participants; native Workflow owns execution.                 │
+ * │ Native Workflow owns execution lifetime; Materials owns transactional cleanup policy.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -39,8 +40,11 @@ export const materialHistoryHandler = ({
 }: typeof materialHistoryWorkflow.payloadSchema.Type) =>
   Effect.gen(function* () {
     const materials = yield* Materials;
+
     const control = yield* WorkflowControl;
+
     const { store } = yield* Database;
+
     const previous = yield* materials.historyPrune({ operationId: event.operationId });
 
     if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
