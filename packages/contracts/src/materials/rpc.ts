@@ -10,6 +10,18 @@ import {
 } from '../ids.ts';
 import { sourceExportSchema } from '../sources/rpc.ts';
 import {
+  createManualDocumentSchema,
+  applyDocumentProposalSchema,
+  keepDocumentProposalSchema,
+  documentProposalOutcomeSchema,
+  proposalKeySchema,
+  saveDocumentInputSchema,
+  undoDocumentInputSchema,
+  documentEditOutcomeSchema,
+  compareDocumentInputSchema,
+  documentComparisonSchema
+} from './editing.ts';
+import {
   documentTransformSchema,
   materialGenerationSnapshotSchema,
   materialGenerationInputSchema,
@@ -140,6 +152,41 @@ const retryGenerationSchema = Schema.Struct({
 });
 
 export const MaterialsRpc = RpcGroup.make(
+  Rpc.make('createManualDocument', {
+    payload: createManualDocumentSchema,
+    success: materialDetailSchema,
+    error: failureSchema
+  }),
+  Rpc.make('applyDocumentProposal', {
+    payload: applyDocumentProposalSchema,
+    success: documentProposalOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('keepDocumentProposal', {
+    payload: keepDocumentProposalSchema,
+    success: documentProposalOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('compareDocumentProposal', {
+    payload: proposalKeySchema,
+    success: documentComparisonSchema,
+    error: failureSchema
+  }),
+  Rpc.make('saveDocument', {
+    payload: saveDocumentInputSchema,
+    success: documentEditOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('undoDocument', {
+    payload: undoDocumentInputSchema,
+    success: documentEditOutcomeSchema,
+    error: failureSchema
+  }),
+  Rpc.make('compareDocument', {
+    payload: compareDocumentInputSchema,
+    success: documentComparisonSchema,
+    error: failureSchema
+  }),
   Rpc.make('requestDocumentTransform', {
     payload: requestDocumentTransformInputSchema,
     success: materialGenerationSchema,

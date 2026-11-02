@@ -21,3 +21,5 @@ export * from './schema/learning-practice.ts';
 export * from './schema/material-generation-scopes.ts';
 
 export * from './schema/project-memberships.ts';
+
+export * from './schema/document-edits.ts';

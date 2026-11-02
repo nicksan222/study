@@ -6,12 +6,14 @@
  * │ - Rejects fabricated provenance, unauthorized assets and citations.                      │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ This feature validator reads typed captures without accessing persistence or providers.  │
+ * │ This feature validator reads typed captures without accessing persistence or             │
+ * │ providers.                                                                               │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
 import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { StudyError } from '@study/contracts/errors';
+import type { MaterialVersionId } from '@study/contracts/ids';
 import type { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
 import { materialContentInputSchema } from '@study/contracts/materials/schemas';
 import { hasTextualContent } from '@study/contracts/sources/schemas';
@@ -22,7 +24,8 @@ type Blocks = typeof documentSchema.Type.blocks;
 
 export function validateDocumentTransform(
   context: typeof runSelectionContextSchema.Type,
-  publication: typeof materialGenerationPublicationSchema.Type
+  publication: typeof materialGenerationPublicationSchema.Type,
+  editTargetVersionId?: MaterialVersionId
 ) {
   const content = Schema.decodeUnknownSync(materialContentInputSchema)(publication.content);
 
@@ -42,14 +45,15 @@ export function validateDocumentTransform(
 
   if (!publication.report) throw new StudyError('invalid_input', 'Transform report is required');
 
-  validateBlockAuthorization(context, content.blocks);
+  validateBlockAuthorization(context, content.blocks, editTargetVersionId);
   validateReportTargets(content.blocks, publication.report);
   validateCitationScope(context, publication, content.blocks);
 }
 
 function validateBlockAuthorization(
   context: typeof runSelectionContextSchema.Type,
-  blocks: Blocks
+  blocks: Blocks,
+  editTargetVersionId?: MaterialVersionId
 ) {
   const originalIds = new Set(
     context.inputs.flatMap((input) => [
@@ -57,12 +61,20 @@ function validateBlockAuthorization(
       ...(input.document?.blocks.map((block) => block.id) ?? [])
     ])
   );
+  const editingIds = new Set(
+    context.inputs
+      .find((input) => input.versionId === editTargetVersionId)
+      ?.document?.blocks.map((block) => block.id) ?? []
+  );
   const assets = new Set(
     authorizedTransformAssets(context).map((asset) => `${asset.sourceId}:${asset.revision}`)
   );
 
   for (const block of blocks) {
-    if (originalIds.has(block.id) || block.anchor.type !== 'authored')
+    if (
+      (originalIds.has(block.id) && !editingIds.has(block.id)) ||
+      block.anchor.type !== 'authored'
+    )
       throw new StudyError('invalid_input', 'Derivative blocks require fresh authored identities');
 
     if (

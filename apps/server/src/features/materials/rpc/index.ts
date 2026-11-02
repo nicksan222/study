@@ -7,8 +7,8 @@
  * │ - Preserves the public contract while delegating domain behavior to the service.         │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ RPC schemas come from @study/contracts; domain decisions and persistence remain owned by │
- * │ the materials service.                                                                   │
+ * │ RPC schemas come from @study/contracts; domain decisions and persistence                 │
+ * │ remain owned by the materials service.                                                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -27,6 +27,18 @@ export const MaterialsRpcLive = defineRpc(
     const conversations = yield* Effect.serviceOption(Conversations);
 
     return {
+      'materials.applyDocumentProposal': (value) =>
+        Option.isSome(conversations)
+          ? conversations.value.applyDocumentProposal(value)
+          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
+      'materials.keepDocumentProposal': (value) =>
+        Option.isSome(conversations)
+          ? conversations.value.keepDocumentProposal(value)
+          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
+      'materials.compareDocumentProposal': (value) =>
+        Option.isSome(conversations)
+          ? conversations.value.compareDocumentProposal(value)
+          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
       'materials.requestDocumentTransform': (value) =>
         Option.isSome(conversations)
           ? conversations.value.requestDocumentTransform(value)
@@ -47,6 +59,10 @@ export const MaterialsRpcLive = defineRpc(
             )
           ),
       'materials.requestMaterialGeneration': (value) => materials.requestMaterialGeneration(value),
+      'materials.createManualDocument': (value) => materials.createManualDocument(value),
+      'materials.saveDocument': (value) => materials.saveDocument(value),
+      'materials.undoDocument': (value) => materials.undoDocument(value),
+      'materials.compareDocument': (value) => materials.compareDocument(value),
       'materials.material': (value) => materials.material(value),
       'materials.materials': (value) => materials.materials(value),
       'materials.materialVersion': (value) => materials.materialVersion(value),

@@ -6,9 +6,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
+import type { Db } from '../src/index.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
 const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
@@ -397,5 +399,343 @@ test('publication cannot replace a captured revision with another revision of th
     assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
   } finally {
     close();
+  }
+});
+
+function proposalFixture(
+  captureMutation?: { path: string; value: string },
+  targetId: string | null = '1',
+  outputMaterialId: 1 | 3 = 1,
+  outputRequestId: 'document/capture' | 'request' = 'document/capture'
+) {
+  const f = fixture();
+
+  try {
+    f.db.exec(
+      "INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Proposal','user',1,1),(2,'Other','user',1,1)"
+    );
+
+    const capture = JSON.stringify({
+      requestId: 'capture',
+      sessionId: '1',
+      inputs: [{ versionId: '1', materialId: '1', documentId: '1', scope: { kind: 'document' } }]
+    });
+
+    const snapshot =
+      captureMutation === undefined
+        ? sql`${capture}`
+        : sql`json_set(${capture},${captureMutation.path},${captureMutation.value})`;
+
+    f.db.orm
+      .run(sql`INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot)
+      VALUES('capture',1,'proposal','{}',${snapshot})`);
+
+    const payload = JSON.stringify({
+      title: 'Proposal',
+      kind: 'document',
+      inputVersionIds: ['1'],
+      documentTransform: {
+        contextRequestId: 'capture',
+        operations: ['clarity'],
+        ...(targetId === null ? {} : { editTargetVersionId: targetId })
+      }
+    });
+
+    f.db.orm.run(
+      sql`INSERT INTO material_generation_requests(id,payload,created_at) VALUES('document/capture',${payload},1)`
+    );
+
+    if (outputMaterialId === 3)
+      f.db.exec(
+        "INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(3,'document','Wrong target',1,1)"
+      );
+
+    f.db.orm
+      .run(sql`INSERT INTO material_versions(id,material_id,kind,number,creator,operation,generation_request_id,created_at)
+      VALUES(4,${outputMaterialId},'document',3,'agent','generate',${outputRequestId},1)`);
+
+    f.db.exec(`
+      INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('document/capture',1,0);
+      INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM documents WHERE id=1;
+      INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content)
+      SELECT 3,ordinal,kind,text,anchor,lower(hex(randomblob(16))),content FROM blocks WHERE document_id=1;
+      INSERT INTO material_document_versions(version_id,document_id) VALUES(4,3);
+      INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(4,1);
+    `);
+
+    if (outputMaterialId === 1)
+      f.db.exec(
+        'INSERT INTO material_version_parents(version_id,parent_version_id,material_id) VALUES(4,1,1)'
+      );
+
+    return f;
+  } catch (error) {
+    f.close();
+
+    throw error;
+  }
+}
+
+function retainProposal(db: Db) {
+  db.exec(`INSERT INTO document_proposals(request_id,session_id,base_version_id,proposed_version_id)
+    VALUES('document/capture',1,1,4)`);
+}
+
+function recordProposalReceipt(db: Db, hash = '0'.repeat(64)) {
+  db.orm.run(sql`UPDATE material_generation_requests
+    SET result_version_id=4,result_hash=${hash},result_metadata=${'{"notes":[{"kind":"limit","explanation":"Structural only","blockIds":[]}]}'}
+    WHERE id='document/capture'`);
+}
+
+function triggerConstraint(error: unknown) {
+  const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
+
+  return cause instanceof Error && 'errcode' in cause && cause.errcode === 1811;
+}
+
+// Each fixture is a migrated file. Mutate before retention so failures exercise
+// first-receipt validation rather than the immutable retained-output guards.
+const invalidDraftReceipts = [
+  ['unretained output', '', false],
+  ['wrong base revision', "INSERT INTO document_proposals VALUES('document/capture',1,3,4)", false],
+  ['wrong session', "INSERT INTO document_proposals VALUES('document/capture',2,1,4)", false],
+  ['wrong request', '', true, 'request'],
+  ['missing captured input', 'DELETE FROM material_version_inputs WHERE version_id=4', true],
+  [
+    'substituted input revision',
+    'UPDATE material_version_inputs SET input_version_id=3 WHERE version_id=4',
+    true
+  ],
+  ['extra input revision', 'INSERT INTO material_version_inputs VALUES(4,3)', true],
+  [
+    'wrong parent revision',
+    'UPDATE material_version_parents SET parent_version_id=3 WHERE version_id=4',
+    true
+  ],
+  ['missing parent', 'DELETE FROM material_version_parents WHERE version_id=4', true],
+  ['forged creator', "UPDATE material_versions SET creator='user' WHERE id=4", true],
+  ['wrong operation', "UPDATE material_versions SET operation='edit' WHERE id=4", true],
+  ['wrong instruction', "UPDATE material_versions SET instruction='Different' WHERE id=4", true]
+] as const;
+
+for (const [name, mutation, retain, outputRequestId] of invalidDraftReceipts) {
+  test(`draft generation receipt rejects ${name}`, () => {
+    // Bind at insertion: changing an existing request binding is independently forbidden.
+    const { db, close } = proposalFixture(undefined, '1', 1, outputRequestId);
+
+    try {
+      if (mutation) db.exec(mutation);
+
+      if (retain) retainProposal(db);
+
+      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
+
+      assert.equal(
+        db.orm.get(
+          "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
+        )?.result_version_id,
+        null
+      );
+
+      assert.equal(db.orm.get('SELECT status FROM material_versions WHERE id=4')?.status, 'draft');
+
+      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+    } finally {
+      close();
+    }
+  });
+}
+
+test('a receipt cannot retain a draft from a different target Material', () => {
+  const { db, close } = proposalFixture(undefined, '1', 3);
+
+  try {
+    retainProposal(db);
+
+    assert.throws(() => recordProposalReceipt(db), triggerConstraint);
+
+    assert.equal(
+      db.orm.get('SELECT material_id FROM material_versions WHERE id=4')?.material_id,
+      3n
+    );
+
+    assert.equal(
+      db.orm.get(
+        "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
+      )?.result_version_id,
+      null
+    );
+
+    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+  } finally {
+    close();
+  }
+});
+
+for (const [name, path, value] of [
+  ['partial target scope', '$.inputs[0].scope.kind', 'blocks'],
+  ['wrong captured Material', '$.inputs[0].materialId', '2'],
+  ['wrong captured Document', '$.inputs[0].documentId', '2'],
+  ['wrong capture identity', '$.requestId', 'other'],
+  ['wrong captured session', '$.sessionId', '2']
+] as const) {
+  test(`draft generation receipt rejects ${name}`, () => {
+    const { db, close } = proposalFixture({ path, value });
+
+    try {
+      retainProposal(db);
+
+      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
+
+      assert.equal(
+        db.orm.get(
+          "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
+        )?.result_version_id,
+        null
+      );
+    } finally {
+      close();
+    }
+  });
+}
+
+for (const barrier of [
+  "UPDATE material_generation_requests SET cancelled=1 WHERE id='document/capture'",
+  'DELETE FROM sessions WHERE id=1'
+]) {
+  test(`retained draft receipt preserves the publication barrier: ${barrier}`, () => {
+    const { db, close } = proposalFixture();
+
+    try {
+      retainProposal(db);
+
+      db.exec(barrier);
+
+      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
+    } finally {
+      close();
+    }
+  });
+}
+
+test('an exact retained proposal can commit a draft receipt without publishing or weakening immutability', () => {
+  const { db, close } = proposalFixture();
+
+  try {
+    retainProposal(db);
+
+    assert.throws(() => recordProposalReceipt(db, 'g'.repeat(64)), triggerConstraint);
+
+    recordProposalReceipt(db);
+
+    assert.equal(db.orm.get('SELECT status FROM material_versions WHERE id=4')?.status, 'draft');
+
+    assert.equal(
+      db.orm.get(
+        "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
+      )?.result_version_id,
+      4n
+    );
+
+    for (const mutation of [
+      "UPDATE material_versions SET published_at=2,status='published' WHERE id=4",
+      "UPDATE blocks SET text='Forged' WHERE document_id=3",
+      'DELETE FROM material_document_versions WHERE version_id=4',
+      'DELETE FROM material_version_inputs WHERE version_id=4',
+      'DELETE FROM material_version_parents WHERE version_id=4',
+      'DELETE FROM document_proposals',
+      "UPDATE material_generation_requests SET result_hash='" +
+        '1'.repeat(64) +
+        "' WHERE id='document/capture'",
+      "UPDATE material_generation_requests SET result_metadata='{}' WHERE id='document/capture'"
+    ])
+      assert.throws(() => db.exec(mutation), triggerConstraint);
+
+    db.exec('DELETE FROM sessions WHERE id=1');
+
+    assert.doesNotThrow(() => recordProposalReceipt(db));
+
+    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+  } finally {
+    close();
+  }
+});
+
+for (const targetId of [null, '3']) {
+  test(`a retained draft cannot bypass the exact request target ${targetId}`, () => {
+    const { db, close } = proposalFixture(undefined, targetId);
+
+    try {
+      retainProposal(db);
+
+      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
+    } finally {
+      close();
+    }
+  });
+}
+
+test('the proposal guard upgrade preserves an earlier published receipt and its renamed Material', () => {
+  const location = createTestDatabase();
+
+  const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
+
+  const previous = join(location.dir, 'before-proposal-receipts');
+
+  try {
+    for (const entry of readdirSync(migrations)) {
+      if (entry < '20261101225305_guard-document-proposal-receipts')
+        cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
+    }
+
+    const sqlite = new DatabaseSync(location.path);
+
+    try {
+      sqlite.exec('PRAGMA foreign_keys=OFF');
+
+      migrate(drizzle({ client: sqlite }), { migrationsFolder: previous });
+
+      sqlite.exec(seed);
+
+      sqlite.exec(`INSERT INTO material_version_inputs VALUES(2,1);
+        UPDATE material_versions SET generation_request_id='request' WHERE id=2;
+        UPDATE material_versions SET status='published',published_at=2 WHERE id=2;
+        UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request';
+        UPDATE materials SET title='Renamed after receipt' WHERE id=2;`);
+    } finally {
+      sqlite.close();
+    }
+
+    const db = location.open();
+
+    try {
+      const receipt = db.orm.get(
+        "SELECT result_version_id,result_hash FROM material_generation_requests WHERE id='request'"
+      );
+
+      assert.equal(receipt?.result_version_id, 2n);
+
+      assert.equal(receipt?.result_hash, '0'.repeat(64));
+
+      assert.doesNotThrow(() =>
+        db.exec(
+          `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request'`
+        )
+      );
+
+      assert.throws(
+        () =>
+          db.exec(
+            "UPDATE material_generation_requests SET result_version_id=NULL,result_hash=NULL WHERE id='request'"
+          ),
+        triggerConstraint
+      );
+
+      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+    } finally {
+      db.close();
+    }
+  } finally {
+    location.cleanup();
   }
 });

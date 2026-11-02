@@ -6,8 +6,8 @@
  * │ - Binds the current database once and reads every durable output participant.            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Test-only snapshots observe real persistence and never alter publication or workflow     │
- * │ state.                                                                                   │
+ * │ Test-only snapshots observe real persistence and never alter publication or              │
+ * │ workflow state.                                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -19,6 +19,12 @@ export function makeMaterialOutput({ db }: StoreResources) {
   return () => ({
     materials: db.orm.select().from(s.materials).all(),
     versions: db.orm.select().from(s.material_versions).all(),
+    documentRows: db.orm.select().from(s.documents).all(),
+    parents: db.orm.select().from(s.material_version_parents).all(),
+    editReceipts: db.orm.select().from(s.document_edit_receipts).all(),
+    proposals: db.orm.select().from(s.document_proposals).all(),
+    proposalReceipts: db.orm.select().from(s.document_proposal_receipts).all(),
+    projectMemberships: db.orm.select().from(s.project_materials).all(),
     documents: db.orm.select().from(s.material_document_versions).all(),
     blocks: db.orm.select().from(s.blocks).all(),
     assets: db.orm.select().from(s.document_assets).all(),

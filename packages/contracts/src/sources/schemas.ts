@@ -196,7 +196,7 @@ export function hasTextualContent(content: BlockContent): boolean {
   return canonicalText(content).trim().length > 0;
 }
 
-const blockSchema = Schema.Struct({
+export const blockSchema = Schema.Struct({
   id: blockIdSchema,
   kind: Schema.Literals(blockKinds),
   content: blockContentSchema,

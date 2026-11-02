@@ -20,6 +20,7 @@ import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SourceIndexed } from '@study/contracts/events';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
+import type * as editing from '@study/contracts/materials/editing';
 import type * as input from '@study/contracts/materials/rpc';
 import type {
   MaterialVersionDetailDto,
@@ -28,6 +29,11 @@ import type {
 } from '@study/contracts/materials/schemas';
 import { Effect, Option } from 'effect';
 
+import { DocumentEditingStore } from '#server/features/materials/store/document-editing';
+import {
+  DocumentProposalStore,
+  DocumentProposalReceiptStore
+} from '#server/features/materials/store/document-proposals';
 import {
   MaterialSelectionStore,
   MaterialGenerationStore,
@@ -57,6 +63,23 @@ import {
 } from './document-transform.ts';
 import { assertGenerationActive, emitGenerationPublication } from './generation.ts';
 
+function published(tx: Transaction, version: MaterialVersionDetailDto) {
+  if (version.status !== 'published') return;
+
+  const eventId = randomUUID();
+
+  tx.emit({
+    type: 'MaterialPublished',
+    eventId,
+    causationId: null,
+    correlationId: eventId,
+    inputVersion: 1,
+    depth: 0,
+    materialId: version.material_id,
+    materialVersionId: version.id
+  });
+}
+
 function* makeMaterials() {
   const materials = yield* useStore(MaterialsStore),
     versions = yield* useStore(MaterialVersionsStore),
@@ -64,24 +87,37 @@ function* makeMaterials() {
     inputs = yield* useStore(MaterialInputsStore),
     dependents = yield* useStore(MaterialDependentsStore),
     citations = yield* useStore(MaterialCitationsStore);
-  const published = (tx: Transaction, version: MaterialVersionDetailDto) => {
-    if (version.status !== 'published') return;
 
-    const eventId = randomUUID();
+  const editDocument = (
+    mutate: (tx: Transaction) => typeof editing.documentEditOutcomeSchema.Type
+  ) =>
+    transaction((tx) => {
+      const result = mutate(tx);
 
-    tx.emit({
-      type: 'MaterialPublished',
-      eventId,
-      causationId: null,
-      correlationId: eventId,
-      inputVersion: 1,
-      depth: 0,
-      materialId: version.material_id,
-      materialVersionId: version.id
+      if (result.outcome === 'saved' && !result.replayed)
+        published(
+          tx,
+          tx.store(MaterialVersionsStore).materialVersion({ id: result.submittedVersionId })
+        );
+
+      return result;
     });
-  };
 
   return {
+    createManualDocument: (value: typeof editing.createManualDocumentSchema.Type) =>
+      transaction((tx) => {
+        const result = tx.store(DocumentEditingStore).createManualDocument(value);
+
+        published(tx, result.version);
+
+        return result;
+      }),
+    saveDocument: (value: typeof editing.saveDocumentInputSchema.Type) =>
+      editDocument((tx) => tx.store(DocumentEditingStore).saveDocument(value)),
+    undoDocument: (value: typeof editing.undoDocumentInputSchema.Type) =>
+      editDocument((tx) => tx.store(DocumentEditingStore).undoDocument(value)),
+    compareDocument: (value: typeof editing.compareDocumentInputSchema.Type) =>
+      transaction((tx) => tx.store(DocumentEditingStore).documentComparison(value)),
     projectSource: (event: SourceIndexed) =>
       publicationTransaction((tx) => {
         const result = tx.store(MaterialsStore).projectSource(event);
@@ -112,6 +148,7 @@ function* makeMaterials() {
     materialGeneration: (value: { requestId: string; eventId?: string; verifyOnly?: boolean }) =>
       transaction((tx) => {
         const request = tx.store(MaterialGenerationStore).materialGeneration(value);
+
         const cancelled =
           request.resultVersionId === null &&
           (request.cancelled ||
@@ -233,6 +270,7 @@ function* makeMaterials() {
     requestMaterialGeneration: (value: typeof input.requestMaterialGenerationInputSchema.Type) =>
       transaction((tx) => {
         const requestId = randomUUID();
+
         const result = tx.store(MaterialGenerationStore).request({ requestId, request: value });
 
         tx.emit({
@@ -256,6 +294,7 @@ function* makeMaterials() {
     }) =>
       transaction((tx) => {
         const initial = tx.store(MaterialGenerationStore).requestOnce(value);
+
         const prepared =
           initial.created || value.generationEventId === value.requestId
             ? { request: initial.request, created: initial.created }
@@ -399,27 +438,19 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
   retryDocumentTransform,
   assertDocumentContext,
   registerImportedSource,
-  assignImportedSourceProject
+  assignImportedSourceProject,
+  documentProposal,
+  applyDocumentProposal,
+  keepDocumentProposal,
+  compareDocumentProposal,
+  findDocumentProposalReceipt
 });
 
 /** Register acquisition in its caller's synchronous transaction, including the outbox event. */
 function registerImportedSource(tx: Transaction, sourceId: SourceId) {
   const result = tx.store(MaterialsStore).registerSource(sourceId);
 
-  if (result.originalCreated) {
-    const eventId = randomUUID();
-
-    tx.emit({
-      type: 'MaterialPublished',
-      eventId,
-      causationId: null,
-      correlationId: eventId,
-      inputVersion: 1,
-      depth: 0,
-      materialId: result.original.id,
-      materialVersionId: result.original.version.id
-    });
-  }
+  if (result.originalCreated) published(tx, result.original.version);
 
   return result.original;
 }
@@ -444,4 +475,77 @@ function readGeneration(tx: Transaction, value: { requestId: string; verifyOnly?
   if (!value.verifyOnly && request.resultVersionId === null) assertGenerationActive(tx, request.id);
 
   return request;
+}
+
+/** Proposal participants run in Conversations' availability checked transaction. */
+function documentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
+  return tx.store(DocumentProposalStore).documentProposal(value);
+}
+
+function applyDocumentProposal(
+  tx: Transaction,
+  value: typeof editing.applyDocumentProposalSchema.Type,
+  relevantValid: boolean
+) {
+  const result = tx.store(DocumentProposalStore).applyDocumentProposal({ ...value, relevantValid });
+
+  emitProposalPublication(tx, result);
+
+  return result;
+}
+
+function keepDocumentProposal(
+  tx: Transaction,
+  value: typeof editing.keepDocumentProposalSchema.Type
+) {
+  const result = tx.store(DocumentProposalStore).keepDocumentProposal(value);
+
+  emitProposalPublication(tx, result);
+
+  return result;
+}
+
+function compareDocumentProposal(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
+  const proposal = documentProposal(tx, value);
+
+  const base = tx.store(MaterialVersionsStore).materialVersion({ id: proposal.baseVersionId });
+
+  const material = tx.store(MaterialsStore).material({ id: base.material_id });
+
+  return tx.store(DocumentEditingStore).documentComparison({
+    beforeVersionId: proposal.baseVersionId,
+    proposedVersionId: proposal.proposedVersionId,
+    currentVersionId: material.latestPublishedVersion!.id
+  });
+}
+
+function emitProposalPublication(
+  tx: Transaction,
+  result: typeof editing.documentProposalOutcomeSchema.Type
+) {
+  if (result.replayed || result.resultVersionId === null) return;
+
+  published(tx, tx.store(MaterialVersionsStore).materialVersion({ id: result.resultVersionId }));
+}
+
+/** Receipt replay performs no new publication and survives session disappearance. */
+function findDocumentProposalReceipt(
+  tx: Transaction,
+  value:
+    | typeof editing.applyDocumentProposalSchema.Type
+    | typeof editing.keepDocumentProposalSchema.Type,
+  operation: 'apply' | 'keep'
+) {
+  if (operation === 'apply') {
+    if (!('baseVersionId' in value))
+      throw new StudyError('invalid_input', 'Application requires exact captured identities');
+
+    return tx
+      .store(DocumentProposalReceiptStore)
+      .findDocumentProposalReceipt({ ...value, operation: 'apply' });
+  }
+
+  return tx
+    .store(DocumentProposalReceiptStore)
+    .findDocumentProposalReceipt({ ...value, operation: 'keep' });
 }

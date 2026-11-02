@@ -18,7 +18,7 @@ import {
 } from '@study/contracts/conversations/context';
 import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import { sourceIndexedSchema, materialGenerationRequestedSchema } from '@study/contracts/events';
-import { sourceIdSchema, projectIdSchema } from '@study/contracts/ids';
+import { sourceIdSchema, projectIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import * as input from '@study/contracts/materials/rpc';
 import {
   materialGenerationSchema,
@@ -66,19 +66,33 @@ export const MaterialsStore = defineStore({
   entity: { singular: 'material', plural: 'materials' },
   make: (resources) => {
     const { archive } = makeArchiveAction(resources);
+
     const { attach } = makeAttachAction(resources);
+
     const { create } = makeCreateAction(resources);
+
     const { createVersion } = makeCreateVersionAction(resources);
+
     const { deleteDraft } = makeDeleteDraftAction(resources);
+
     const { detach } = makeDetachAction(resources);
+
     const { get } = makeGetAction(resources);
+
     const { list } = makeListAction(resources);
+
     const { publishVersion } = makePublishVersionAction(resources);
+
     const { rename } = makeRenameAction(resources);
+
     const { reorder } = makeReorderAction(resources);
+
     const { replaceDraft } = makeReplaceDraftAction(resources);
+
     const { setCitations } = makeSetCitationsAction(resources);
+
     const { unarchive } = makeUnarchiveAction(resources);
+
     const { projectSource, registerSource, assignSourceProject } = makeProjectSource(resources);
 
     return {
@@ -233,6 +247,7 @@ export const MaterialSelectionStore = defineStore({
           output: resolvedSelectionSchema,
           run: (target) => {
             const version = reads.versionRow(target.versionId);
+
             const documentId = reads.versionDocumentId(version.id);
 
             if (version.status !== 'published' || documentId === null)
@@ -242,11 +257,15 @@ export const MaterialSelectionStore = defineStore({
               throw new StudyError('invalid_input', 'Selected document does not match version');
 
             const document = reads.readCanonicalDocument(documentId);
+
             const material = reads.materialRow(version.material_id);
+
             const scope = target.scope;
+
             const spans = selectionSpans(document, target, version.id, documentId);
 
             const seen = new Set<string>();
+
             const excerpts = spans.map((range) => {
               const key = `${range.blockId}:${range.start}:${range.end}`;
 
@@ -262,7 +281,9 @@ export const MaterialSelectionStore = defineStore({
                 throw new StudyError('invalid_input', 'Invalid selected range');
 
               seen.add(key);
+
               const blockOrdinal = document.blocks.findIndex((block) => block.id === range.blockId);
+
               const block = document.blocks[blockOrdinal]!;
 
               return {
@@ -300,6 +321,7 @@ export const MaterialVersionsStore = defineStore({
   entity: { singular: 'materialVersion', plural: 'materialVersions' },
   make: (resources) => {
     const { getVersion } = makeGetVersionAction(resources);
+
     const { listVersions } = makeListVersionsAction(resources);
 
     return {
@@ -413,6 +435,7 @@ export const MaterialCitationsStore = defineStore({
   entity: { singular: 'citation', plural: 'citations' },
   make: (resources) => {
     const { db } = resources;
+
     const { versionRow } = makeReads(resources);
 
     return {
@@ -423,6 +446,7 @@ export const MaterialCitationsStore = defineStore({
           output: input.citationPageSchema,
           run: (value) => {
             versionRow(value.id);
+
             const rows = db.orm
               .select()
               .from(tables.material_version_citations)
@@ -437,6 +461,7 @@ export const MaterialCitationsStore = defineStore({
               .orderBy(asc(tables.material_version_citations.marker))
               .limit(value.limit + 1)
               .all();
+
             const items = rows.slice(0, value.limit).map(readCitation);
 
             return { items, nextCursor: rows.length > value.limit ? items.at(-1)!.marker : null };
@@ -532,7 +557,10 @@ export const MaterialGenerationStore = defineStore({
           run: requestGenerationOnce
         }),
         publishGeneration: storeMutation({
-          input: materialGenerationPublicationSchema,
+          input: Schema.Struct({
+            ...materialGenerationPublicationSchema.fields,
+            proposalSessionId: Schema.optional(sessionIdSchema)
+          }),
           output: Schema.Struct({
             versionId: input.materialVersionInputSchema.fields.id,
             event: Schema.NullOr(materialGenerationRequestedSchema),

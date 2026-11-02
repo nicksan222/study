@@ -85,3 +85,28 @@ test('native generation queries retain entity-derived names and canonical requir
     ]
   );
 });
+
+test('proposal, receipt, comparison and context-validity stores use their own canonical descriptors', () => {
+  assert.deepEqual(
+    lint({
+      'apps/server/src/features/materials/store/proposals.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'documentProposal',plural:'documentProposals'},make:()=>({queries:{documentProposal:storeQuery({role:'required'})},mutations:{}})});
+      defineStore({entity:{singular:'documentProposalReceipt',plural:'documentProposalReceipts'},make:()=>({queries:{findDocumentProposalReceipt:storeQuery({role:'optional'})},mutations:{}})});
+      defineStore({entity:{singular:'documentComparison',plural:'documentComparisons'},make:()=>({queries:{documentComparison:storeQuery({role:'required'})},mutations:{}})});
+    `,
+      'apps/server/src/features/conversations/store/validity.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'sessionContextValidity',plural:'sessionContextValidities'},make:()=>({queries:{sessionContextValidity:storeQuery({role:'required'})},mutations:{}})});
+    `,
+      'apps/server/src/features/materials/store/bypass.ts': `
+      import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+      defineStore({entity:{singular:'documentProposal',plural:'documentProposals'},make:()=>({queries:{findDocumentProposalReceipt:storeQuery({role:'optional'}),compare:storeQuery({role:'required'})},mutations:{}})});
+    `
+    }),
+    [
+      'apps/server/src/features/materials/store/bypass.ts',
+      'apps/server/src/features/materials/store/bypass.ts'
+    ]
+  );
+});
