@@ -40,6 +40,7 @@ test('canonical Material browse and read routes retain loader requirements', () 
     },
     true
   );
+
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.deepEqual(
     lintRule(

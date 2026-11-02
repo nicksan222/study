@@ -70,21 +70,60 @@ export default defineRule({
 
         if (!kind) continue;
 
-        const allowed = boundMake(node, kind, name);
+        const allowed = boundMake(node, param, kind, name);
 
         if (!allowed)
           report(param, 'Bind store resources once in a make* factory accepting StoreResources.');
       }
     }
 
-    function boundMake(node: any, kind: string, name: string | undefined): boolean {
+    function boundMake(node: any, param: any, kind: string, name: string | undefined): boolean {
       const allowed =
         parts[0] === 'store' &&
         /^make(?:[A-Z].*)?$/.test(name ?? '') &&
-        node.params.length === 1 &&
+        node.params[0] === param &&
+        node.params.slice(1).every(optionalBoundReader) &&
         kind === 'StoreResources';
 
       return allowed;
+    }
+
+    function optionalBoundReader(param: any): boolean {
+      if (param.type !== 'Identifier' || !param.optional) return false;
+
+      const query = boundReaderQuery(param.typeAnnotation?.typeAnnotation);
+
+      if (!query) return false;
+
+      const definition = binding(context, query.exprName)?.defs[0]?.node;
+
+      return canonicalReadsImport(definition);
+    }
+
+    function boundReaderQuery(type: any): any {
+      if (
+        type?.type !== 'TSIndexedAccessType' ||
+        type.indexType?.literal?.value !== 'readCanonicalDocument'
+      )
+        return;
+
+      return returnTypeQuery(type.objectType);
+    }
+
+    function returnTypeQuery(object: any): any {
+      if (object.type !== 'TSTypeReference' || object.typeName?.name !== 'ReturnType') return;
+
+      const args = object.typeArguments?.params ?? object.typeParameters?.params ?? [];
+
+      return args.length === 1 && args[0].type === 'TSTypeQuery' ? args[0] : undefined;
+    }
+
+    function canonicalReadsImport(definition: any): boolean {
+      return (
+        definition?.type === 'ImportSpecifier' &&
+        (definition.imported.name ?? definition.imported.value) === 'makeReads' &&
+        /(?:^|\/)reads(?:\.ts)?$/.test(definition.parent.source.value)
+      );
     }
 
     function checkStore(node: any) {

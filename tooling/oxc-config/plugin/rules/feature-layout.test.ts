@@ -115,3 +115,32 @@ test('current ServerContext aliases retain resource and persistence ownership', 
     }
   }
 });
+
+test('allows an optional typed bound canonical reader after the one resource parameter', () => {
+  const diagnostics = lintRule('feature-layout', {
+    'src/features/materials/store/citations.ts': `
+      import type { StoreResources } from '#server/platform/definitions/define-store';
+      import { makeReads } from './reads';
+      function makeCitations(resources: StoreResources, readDocument?: ReturnType<typeof makeReads>['readCanonicalDocument']) {}
+    `
+  });
+
+  assert.deepEqual(diagnostics, []);
+});
+
+test('rejects required dependencies, untyped optional arguments and extra resource parameters', () => {
+  const diagnostics = lintRule('feature-layout', {
+    'src/features/materials/store/citations.ts': `
+      import type { StoreResources } from '#server/platform/definitions/define-store';
+      import type { Db } from '@study/db';
+      import { makeReads } from './reads';
+      function makeRequired(resources: StoreResources, reader: ReturnType<typeof makeReads>['readCanonicalDocument']) {}
+      function makeUntyped(resources: StoreResources, reader?) {}
+      function makeResources(resources: StoreResources, second?: StoreResources) {}
+      function makeDatabase(resources: StoreResources, database?: Db) {}
+      function makeOpaque(resources: StoreResources, reader?: string) {}
+    `
+  });
+
+  assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
+});

@@ -13,6 +13,7 @@ test('rejects custom alert prose and retry controls', () => {
       return <div role="alert"><p>Could not load</p><button>Retry</button></div>;
     }
   `);
+
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
@@ -26,6 +27,7 @@ test('checks boolean error branches, early returns, and status comparisons', () 
       </>;
     }
   `);
+
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
@@ -38,6 +40,7 @@ test('handles negation, compound guards, and error branches passed as props', ()
       </>;
     }
   `);
+
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
@@ -65,6 +68,7 @@ test('does not trust a same-named local implementation or a shadowed import', ()
       return <>{error && <ErrorState role="alert" />}</>;
     }
   `);
+
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
@@ -75,6 +79,7 @@ test('does not let the success branch supply the canonical error presentation', 
       return error ? <p>Failed</p> : <ErrorState title="Failed" />;
     }
   `);
+
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
@@ -100,6 +105,7 @@ test('checks aliases of custom error markup and skips null recovery branches', (
     const failure = <p>Failed</p>;
     export function View({ error }) { return error ? failure : null; }
   `);
+
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.deepEqual(
     lint(`export function View({ error }) { if (error) return null; return <Content />; }`),
@@ -114,6 +120,7 @@ test('checks custom component alerts but accepts the canonical component itself'
       return <><Notice role={'alert'}>Failed</Notice><ErrorState role="alert" title="Failed" /></>;
     }
   `);
+
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
@@ -137,6 +144,7 @@ test('checks shared button aliases used as a whole error presentation', () => {
     import { Button as RetryButton } from '@study/ui/button';
     export function View({ error }) { return error && <RetryButton>{t('Retry')}</RetryButton>; }
   `);
+
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
@@ -153,6 +161,7 @@ test('retains canonical Sidebar.Message alerts without allowing raw sidebar impl
     import { Sidebar } from '@study/ui/sidebar';
     export function View({ error, Sidebar }) { return <>{error && <Sidebar.Message role="alert">Failed</Sidebar.Message>}<p role="alert">Failed</p></>; }
   `);
+
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
@@ -162,5 +171,10 @@ test('checks named error presenters even when they omit alert semantics', () => 
     const RouteError = () => <section>{t('Failure')}</section>;
     const SessionError = () => { return <div>Failed</div>; };
   `);
+
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+});
+
+test('declared error presenters without function bodies do not crash traversal', () => {
+  assert.deepEqual(lint('declare function SessionError(): JSX.Element;'), []);
 });

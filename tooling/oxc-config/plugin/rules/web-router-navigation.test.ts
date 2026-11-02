@@ -87,6 +87,7 @@ test('Home project links and collection destinations use router search rather th
     },
     true
   );
+
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/unsafe.tsx')));
 });
@@ -119,5 +120,6 @@ test('proposal result and captured input links use typed route search for exact 
     },
     true
   );
+
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });

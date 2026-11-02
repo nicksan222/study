@@ -126,6 +126,7 @@ test('creation recovery consumes shared infinite query options without moving pa
     },
     true
   );
+
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
@@ -162,5 +163,6 @@ test('unavailable session reconciliation consumes shared selection, thread and g
     },
     true
   );
+
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

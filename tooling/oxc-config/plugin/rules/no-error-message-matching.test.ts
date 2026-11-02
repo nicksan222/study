@@ -29,10 +29,15 @@ test('no-error-message-matching handles aliases and avoids unrelated bindings', 
 });
 
 test('collection ambiguity and missing receipts branch on typed kinds', () => {
-  const diagnostics = lintRule('no-error-message-matching', {
-    'apps/web/src/features/collections/unsafe.ts': `try { await create(); } catch (error) { if (error.message === 'invalid_input') release(); if (error.message.includes('not found')) close(); }`,
-    'apps/web/src/features/collections/safe.ts': `try { await create(); } catch (error) { const kind = toStudyError(error).kind; if (kind === 'invalid_input') release(); if (kind === 'not_found') close(); }`
-  });
+  const diagnostics = lintRule(
+    'no-error-message-matching',
+    {
+      'apps/web/src/features/collections/unsafe.ts': `try { await create(); } catch (error) { if (error.message === 'invalid_input') release(); if (error.message.includes('not found')) close(); }`,
+      'apps/web/src/features/collections/safe.ts': `try { await create(); } catch (error) { const kind = toStudyError(error).kind; if (kind === 'invalid_input') release(); if (kind === 'not_found') close(); }`
+    },
+    true
+  );
+
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/unsafe.ts')));
 });
