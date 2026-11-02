@@ -47,6 +47,7 @@ import type { materialGenerationPublicationSchema } from '@study/contracts/mater
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
+import { ConversationBackupStore } from '#server/features/conversations/store/backup';
 import {
   SessionContextStore,
   SessionContextValidityStore,
@@ -490,6 +491,8 @@ export const Conversations = defineService(
     };
   }),
   {
+    validateBackup: (tx: Transaction) =>
+      tx.store(ConversationBackupStore).backupConversation(undefined),
     prepareMaterialHistory,
     scrubMaterialHistory,
     inspectMaterialHistory,

@@ -25,6 +25,15 @@ export const SystemRpcLive = defineRpc(
     const system = yield* System;
 
     return {
+      'system.createBackup': () => system.createBackup(),
+      'system.listBackups': () => system.listBackups(),
+      'system.readBackup': (input) => system.readBackup(input),
+      'system.importBackup': (input) => system.importBackup(input),
+      'system.deleteBackup': (input) => system.deleteBackup(input),
+      'system.previewRestore': (input) => system.previewRestore(input),
+      'system.acceptRestore': (input) => system.acceptRestore(input),
+      'system.restoreStatus': () => system.restoreStatus(),
+      'system.discardRestoreRecovery': () => system.discardRestoreRecovery(),
       'system.health': () => system.health(),
       'system.search': (input) => system.search(input),
       'system.startWorkers': () => system.startWorkers(),

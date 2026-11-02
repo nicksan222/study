@@ -12,12 +12,21 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type {
+  BackupId,
+  acceptRestoreSchema,
+  backupScopeSchema
+} from '@study/contracts/system/backups';
 import type { searchInputSchema } from '@study/contracts/system/rpc';
 import { Effect } from 'effect';
 
+import { BackupScopeStore } from '#server/features/system/store/backup';
 import { HealthStore, SystemStore } from '#server/features/system/store/index';
+import { BackupStorage } from '#server/platform/database/backups';
 import { defineService } from '#server/platform/definitions/define-service';
 import { useStore } from '#server/platform/definitions/define-store';
+import type { Transaction } from '#server/platform/definitions/define-store';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkerLifecycle } from '#server/platform/workflows/lifecycle';
 
 import { healthData } from './health.ts';
@@ -26,10 +35,25 @@ export const System = defineService(
   'study/System',
   Effect.gen(function* () {
     const workers = yield* WorkerLifecycle;
+    const { owner: backups } = yield* BackupStorage;
+    const backupOperation = <A>(tryOperation: () => Promise<A>) =>
+      Effect.tryPromise({ try: tryOperation, catch: normalizeError });
     const store = yield* useStore(SystemStore);
     const health = yield* useStore(HealthStore);
 
     return {
+      createBackup: () => backupOperation(() => backups.create()),
+      listBackups: () => backupOperation(() => backups.list()),
+      readBackup: (input: { id: BackupId }) => backupOperation(() => backups.read(input.id)),
+      importBackup: (input: { bytes: string }) =>
+        backupOperation(() => backups.import(input.bytes)),
+      deleteBackup: (input: { id: BackupId }) => backupOperation(() => backups.delete(input.id)),
+      previewRestore: (input: { id: BackupId }) =>
+        backupOperation(() => backups.previewRestore(input.id)),
+      acceptRestore: (input: typeof acceptRestoreSchema.Type) =>
+        backupOperation(() => backups.accept(input)),
+      restoreStatus: () => backupOperation(() => backups.status()),
+      discardRestoreRecovery: () => backupOperation(() => backups.discardRecovery()),
       health: () =>
         health.health(undefined).pipe(
           Effect.flatMap(() => workers.started),
@@ -40,5 +64,10 @@ export const System = defineService(
       startWorkers: () => workers.start,
       stopWorkers: () => workers.stop
     };
-  })
+  }),
+  {
+    backupScope: (tx: Transaction) => tx.store(BackupScopeStore).backupScope(undefined),
+    backupRestoreBlocked: (scope: typeof backupScopeSchema.Type) =>
+      scope.tombstones > 0 || scope.historyPrunes > 0
+  }
 );

@@ -1,6 +1,24 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  BackupScope:
+    'I backup includono contenuti della libreria, raccolte, sessioni, annotazioni, esercizi e cronologia conservata. Le credenziali dell’account sono escluse.',
+  BackupRetention:
+    'Un backup conserva la propria istantanea anche dopo l’eliminazione dei contenuti da Study.',
+  BackupRestoreWarning:
+    'Il ripristino sostituisce tutti i contenuti attuali dopo il riavvio e richiede un nuovo accesso. Le attività in background acquisite non riprenderanno.',
+  BackupRestoreBarriers:
+    'Questo database contiene barriere di eliminazione o potatura della cronologia. Ripristina in un nuovo database vuoto per conservarne le protezioni.',
+  BackupRestartRequired:
+    'Ripristino accettato. Riavvia Study per attivarlo. Ulteriori modifiche invalideranno questo ripristino.',
+  BackupActivationFailed:
+    'Impossibile attivare il ripristino. I contenuti attuali sono conservati. Elimina lo stato di recupero e verifica una nuova anteprima per riprovare.',
+  BackupTargetChanged:
+    'Il database è cambiato dopo l’accettazione. Esamina una nuova anteprima di ripristino.',
+  BackupRecoveryCopy:
+    'Una copia privata di recupero viene conservata finché non la elimini esplicitamente.',
+  BackupFormatBounds:
+    'Il formato 1 richiede esattamente lo schema supportato. Ogni istantanea è limitata a 64 MiB; vengono conservati fino a 8 backup gestiti.',
   AiSettingsAccount: 'Account ChatGPT',
   AiSettingsChatGpt: 'ChatGPT',
   AiSettingsPlanDescription:

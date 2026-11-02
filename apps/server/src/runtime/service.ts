@@ -18,8 +18,10 @@ import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';
+import { ManagedBackups } from '#server/platform/database/backups';
 import { ServerContext } from '#server/platform/database/context';
 
+import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';
 import { nativeLayers } from './native.ts';
 import { Workers } from './workers.ts';
@@ -52,12 +54,13 @@ export class App {
     this.scope = scope;
   }
 
-  static open(options: {
+  static async open(options: {
     path: string;
     issuer?: string;
     hostId?: string;
     fetch?: typeof fetch;
   }): Promise<App> {
+    await ManagedBackups.activate(options.path, backupPolicy);
     const issuer = options.issuer ?? 'https://auth.openai.com';
 
     function* openScope(
@@ -209,6 +212,7 @@ export class App {
 
   private async release(stopped: Promise<void>) {
     const errors: unknown[] = [];
+    await this.native.backups.close();
 
     try {
       await stopped;

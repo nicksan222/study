@@ -186,11 +186,20 @@ export function makeReads({ db: store }: StoreResources) {
       )
       .get();
 
+    const retired = store.orm
+      .select()
+      .from(s.workflow_retired_correlations)
+      .where(eq(s.workflow_retired_correlations.correlation_id, state.request_id))
+      .get();
     return {
       sourceId: state.source_id,
       revision: Number(state.revision),
       requestId: state.request_id,
-      status: ready ? ('ready' as const) : failed ? ('failed' as const) : ('pending' as const)
+      status: ready
+        ? ('ready' as const)
+        : failed || retired
+          ? ('failed' as const)
+          : ('pending' as const)
     };
   }
 

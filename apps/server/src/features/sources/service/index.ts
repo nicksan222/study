@@ -27,6 +27,7 @@ import { sniff } from '@study/contracts/sources/sniff';
 import { Effect, Option } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
+import { SourceBackupStore } from '#server/features/sources/store/backup';
 import {
   SourceStore,
   SourceExportStore,
@@ -361,6 +362,7 @@ export const Sources = defineService(
     };
   }),
   {
+    validateBackup: (tx: Transaction) => tx.store(SourceBackupStore).backupAsset(undefined),
     prepareMaterialHistory,
     scrubMaterialHistory,
     inspectMaterialHistory,

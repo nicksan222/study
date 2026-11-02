@@ -34,6 +34,10 @@ import {
   AnnotationsStore,
   AnnotationHistoryStore
 } from '#server/features/materials/store/annotations';
+import {
+  MaterialBackupStore,
+  MaterialPendingBackupStore
+} from '#server/features/materials/store/backup';
 import { CitationSupportStore } from '#server/features/materials/store/citation-support';
 import { DocumentEditingStore } from '#server/features/materials/store/document-editing';
 import {
@@ -490,6 +494,11 @@ function* makeMaterials() {
 }
 
 export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
+  prepareBackup: (tx: Transaction) => {
+    for (const requestId of tx.store(MaterialPendingBackupStore).pendingGenerations(undefined))
+      tx.store(MaterialGenerationStore).cancelGeneration({ requestId });
+  },
+  validateBackup: (tx: Transaction) => tx.store(MaterialBackupStore).backupValidation(undefined),
   prepareSessionRetirement: (
     tx: Transaction,
     value: { sessionId: SessionId; contextIds: readonly string[] }

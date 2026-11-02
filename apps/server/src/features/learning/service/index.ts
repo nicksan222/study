@@ -44,6 +44,7 @@ import {
 } from '#server/features/learning/store/index';
 import {
   PracticeStore,
+  PracticeBackupStore,
   PracticeSlotStore,
   PracticeControlStore
 } from '#server/features/learning/store/practice';
@@ -260,6 +261,8 @@ export const Learning = defineService(
     };
   }),
   {
+    prepareBackup: (tx: Transaction) => tx.store(PracticeStore).prepareBackup(undefined),
+    validateBackup: (tx: Transaction) => tx.store(PracticeBackupStore).backupQuiescent(undefined),
     prepareMaterialHistory,
     scrubMaterialHistory,
     inspectMaterialHistory,

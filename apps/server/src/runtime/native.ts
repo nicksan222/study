@@ -51,6 +51,7 @@ import { Agents } from '#server/platform/ai/agents';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
+import { BackupStorage, ManagedBackups } from '#server/platform/database/backups';
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
@@ -58,6 +59,7 @@ import { WorkflowControl } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { WorkerLifecycle } from '#server/platform/workflows/lifecycle';
 
+import { backupPolicy } from './backups.ts';
 import { workflowHandlers } from './workflows.ts';
 
 export function nativeLayers(
@@ -71,6 +73,8 @@ export function nativeLayers(
 ) {
   const admission = admissionLayer(makeAdmission());
   const database = Layer.succeed(Database, { store });
+  const backupOwner = new ManagedBackups(store.db, backupPolicy);
+  const backups = Layer.succeed(BackupStorage, { owner: backupOwner });
   const lifecycleLayer = Layer.succeed(WorkerLifecycle, lifecycle);
   const services = Layer.mergeAll(
     Sources.layer,
@@ -86,7 +90,7 @@ export function nativeLayers(
     System.layer
   ).pipe(
     Layer.provideMerge(
-      Layer.mergeAll(database, lifecycleLayer, Layer.succeed(WorkflowControl, control))
+      Layer.mergeAll(database, backups, lifecycleLayer, Layer.succeed(WorkflowControl, control))
     )
   );
   const session = Layer.succeed(ChatGptSession, { manager, issuer, hostId, request });
@@ -151,5 +155,5 @@ export function nativeLayers(
   );
   const workflows = workflowHandlers.pipe(Layer.provideMerge(workflowEngineLayer(store)));
 
-  return { handlers, services: shared, workflows };
+  return { handlers, services: shared, workflows, backups: backupOwner };
 }

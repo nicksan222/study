@@ -18,11 +18,12 @@ import { randomUUID } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import { Effect, Exit, Option, Scope } from 'effect';
 
-import { AuthGenerationStore, AuthStore } from '#server/features/auth/store/index';
+import { AuthBackupStore, AuthGenerationStore, AuthStore } from '#server/features/auth/store/index';
 import { acquireSignIn, decodeAccount, encodeAccount } from '#server/platform/ai/auth/index';
 import type { Account, SignIn } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { defineService } from '#server/platform/definitions/define-service';
+import type { Transaction } from '#server/platform/definitions/define-store';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { classifyError } from '#server/platform/errors/classify-error';
 
@@ -293,4 +294,7 @@ function* makeAuth() {
 
 const make = Effect.gen(makeAuth);
 
-export const Auth = defineService('study/Auth', make);
+export const Auth = defineService('study/Auth', make, {
+  validateBackup: (tx: Transaction) => tx.store(AuthBackupStore).backupSanitized(undefined),
+  sanitizeBackup: (tx: Transaction) => tx.store(AuthStore).sanitizeBackup(undefined)
+});

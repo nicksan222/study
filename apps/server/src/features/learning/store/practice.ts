@@ -495,6 +495,18 @@ export const PracticeStore = defineStore({
         })
       },
       mutations: {
+        prepareBackup: storeMutation({
+          input: Schema.Void,
+          output: Schema.Void,
+          run: () => {
+            db.orm.update(controls).set({ enabled: false }).run();
+            db.orm
+              .update(slots)
+              .set({ status: 'cancelled' })
+              .where(eq(slots.status, 'pending'))
+              .run();
+          }
+        }),
         start: storeMutation({
           input: startPracticeInputSchema,
           output: Schema.Array(Schema.String),
@@ -695,3 +707,27 @@ function sameAnswer(
         previous.choiceIds.every((id) => answer.type === 'choice' && answer.choiceIds.includes(id))
       : false;
 }
+
+export const PracticeBackupStore = defineStore({
+  name: 'study/PracticeBackupStore',
+  entity: { singular: 'backupQuiescent', plural: 'backupPractices' },
+  make: ({ db }) => ({
+    queries: {
+      backupQuiescent: storeQuery({
+        role: 'required',
+        input: Schema.Void,
+        output: Schema.Boolean,
+        run: () => {
+          const ids = Schema.decodeUnknownSync(
+            Schema.fromJsonString(Schema.toCodecJson(Schema.Array(materialVersionIdSchema)))
+          );
+          for (const row of db.orm.select().from(slots).all()) ids(row.input_version_ids);
+          return !db.orm.get(
+            sql`SELECT 1 FROM learning_practice_controls WHERE enabled=1 UNION ALL SELECT 1 FROM learning_practice_slots WHERE status='pending' LIMIT 1`
+          );
+        }
+      })
+    },
+    mutations: {}
+  })
+});
