@@ -5,6 +5,7 @@ import { Settings } from '@study/ui/settings';
 import { useI18n } from '../../lib/i18n';
 import type { AppearanceModel } from './use-page';
 
+/** Edits appearance, language and zoom through persisted preference actions. */
 export function InterfaceSettings({ model }: { model: AppearanceModel }) {
   const { t } = useI18n();
   const preferences = model.data!.preferences ?? defaultAppearancePreferences;

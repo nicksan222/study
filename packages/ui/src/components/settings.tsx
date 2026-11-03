@@ -150,6 +150,7 @@ function SearchResults<Id extends string>({
   );
 }
 
+/** Groups related settings under a heading with optional section actions. */
 function Section({
   title,
   actions,
@@ -380,6 +381,7 @@ function Empty({
   );
 }
 
+/** Presents a settings status with an optional recovery action. */
 function Status({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div role="alert" className="mb-6 flex items-center justify-between gap-4 text-sm">

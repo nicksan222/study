@@ -86,6 +86,7 @@ const popupClasses = {
   'workspace-context': 'session-context-dialog'
 } as const;
 
+/** Composes the portal surface with the chosen size, backdrop and dismissal control. */
 function DialogPopup({
   className,
   viewportClassName,

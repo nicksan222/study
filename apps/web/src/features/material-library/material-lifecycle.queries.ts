@@ -28,6 +28,7 @@ type Confirmation =
   | { kind: 'delete'; input: Parameters<StudyClient['materials.requestDeletion']>[0] }
   | { kind: 'prune'; input: typeof requestHistoryPruneSchema.Type };
 
+/** Coordinates material cleanup previews, confirmed mutations and recovery against the selected material. */
 export function useMaterialLifecycle(id: MaterialId) {
   const { t } = useI18n();
   const [confirmation, setConfirmation] = useState<Confirmation>();

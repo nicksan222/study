@@ -129,6 +129,7 @@ function useSessionStart() {
 
 type StartView = ReturnType<typeof useSessionStart>;
 
+/** Presents session creation with quick notes, attachments and recoverable submission state. */
 export function SessionStart() {
   const { t } = useI18n();
   const view = useSessionStart();

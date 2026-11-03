@@ -30,6 +30,7 @@ function targetKey(target: NonNullable<AnnotationDraft['target']>) {
   return [target.materialId, r.versionId, r.documentId, r.blockId, r.start, r.end].join(':');
 }
 
+/** Edits an annotation while respecting blocked targets and in-flight mutations. */
 function AnnotationForm({ view }: { view: AnnotationView }) {
   const { t, annotation, draft, setDeleting, reanchor, setReanchor, edit, mutate, blocked } = view;
 

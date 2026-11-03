@@ -19,6 +19,7 @@ import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
 const frameClasses = { default: '', 'session-entry': 'study-shell-session-entry' } as const;
 
+/** Owns persisted sidebar resizing within the content and sidebar width constraints. */
 function Frame({
   collapsed,
   variant = 'default',
@@ -292,6 +293,7 @@ function Topbar({
   );
 }
 
+/** Exposes sidebar expansion with optional placement for hidden session navigation. */
 function Toggle({
   label,
   expanded,
@@ -523,6 +525,7 @@ function PickerOption<T>({
   );
 }
 
+/** Labels a nonempty picker group and announces its item count. */
 function PickerHeading({ count, label }: { count: number; label?: ReactNode }) {
   if (!count || !label) return null;
 
@@ -534,6 +537,7 @@ function PickerHeading({ count, label }: { count: number; label?: ReactNode }) {
   );
 }
 
+/** Provides searchable identity selection with controlled opening and optional management actions. */
 function Picker<T>({
   items,
   value,

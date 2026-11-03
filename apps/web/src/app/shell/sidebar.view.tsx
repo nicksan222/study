@@ -44,6 +44,7 @@ export function SidebarView(model: SidebarModel & { library: ReactNode }) {
         section={model.section}
         settings={model.metadata.title === 'Settings'}
         project={model.requestedProject}
+        workspaceProject={model.project}
         onNavigate={model.clearSearch}
       />
       <NewProjectDialog {...model} />
@@ -115,6 +116,7 @@ function SidebarSearchResults({
   );
 }
 
+/** Lists scoped sessions with an independent deletion action for each row. */
 function SidebarSessions({
   project,
   selectedSession,
@@ -220,6 +222,7 @@ function SidebarHeader({
   clearSearch,
   selectSubject,
   reloadSubjects,
+  project,
   settingsProject,
   setSettingsProject
 }: Pick<
@@ -237,6 +240,7 @@ function SidebarHeader({
   | 'clearSearch'
   | 'selectSubject'
   | 'reloadSubjects'
+  | 'project'
   | 'settingsProject'
   | 'setSettingsProject'
 >) {
@@ -300,6 +304,7 @@ function SidebarHeader({
         <SettingsPage
           initialSection="projects"
           initialProject={settingsProject}
+          workspaceProject={project}
           onClose={() => setSettingsProject(undefined)}
         />
       )}
@@ -382,6 +387,7 @@ function SidebarPickerActions({
   );
 }
 
+/** Closes the picker before navigating to the overview or help destination. */
 function SidebarPickerShortcuts({
   requestedProject,
   setPickerOpen,
@@ -766,6 +772,7 @@ function SidebarSearchControl({
   );
 }
 
+/** Disables quick session creation until subject ownership is ready. */
 function SidebarCreateSessionIcon({ creating }: Pick<SidebarModel, 'creating'>) {
   const { t } = useI18n();
 

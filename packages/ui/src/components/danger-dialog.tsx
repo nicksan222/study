@@ -21,6 +21,7 @@ export type DangerDialogProps = {
   children?: ReactNode;
 };
 
+/** Requires target-specific typed confirmation and prevents dismissal while the destructive action is pending. */
 export function DangerDialog({
   open,
   onOpenChange,
@@ -102,6 +103,7 @@ export function DangerDialog({
   );
 }
 
+/** Resets typed confirmation whenever dialog visibility or target identity changes. */
 function useConfirmation(open: boolean, confirmation: DangerDialogProps['confirmation']) {
   const [draft, setDraft] = useState({
     open,

@@ -33,6 +33,7 @@ type Preview =
   | { kind: 'attachment'; name: string; sourceId: SourceId | null }
   | { kind: 'document'; name: string; versionId: MaterialVersionId };
 
+/** Shows session changes or a starter hint inside the shared context surface. */
 export function WorkspaceContext({ id, children }: { id?: SessionId; children?: ReactNode }) {
   const { t } = useI18n();
 
@@ -55,6 +56,7 @@ export function WorkspaceContext({ id, children }: { id?: SessionId; children?: 
   );
 }
 
+/** Combines paginated messages and unique generation runs with typed preview selection. */
 function SessionChanges({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const thread = useInfiniteQuery(threadOptions(id));
@@ -113,6 +115,7 @@ function SessionChanges({ id }: { id: SessionId }) {
   );
 }
 
+/** Presents the selected change in a dismissible preview dialog. */
 function ChangePreview({
   preview,
   onClose
@@ -149,6 +152,7 @@ function ChangePreview({
   );
 }
 
+/** Lists a message revision and its source attachments as separate preview targets. */
 function MessageChange({
   message,
   onPreview
@@ -208,6 +212,7 @@ function MessageChange({
   );
 }
 
+/** Shows the current message version alongside its predecessor when one exists. */
 function MessagePreview({ message }: { message: ChangeMessage }) {
   const { t } = useI18n();
   const { current, previous } = changeVersions(message);
@@ -249,6 +254,7 @@ function MessagePreview({ message }: { message: ChangeMessage }) {
   );
 }
 
+/** Loads the source-pinned document version and exposes read recovery before previewing it. */
 function AttachmentPreview({ sourceId }: { sourceId: SourceId | null }) {
   const { t } = useI18n();
   const state = useQuery(attachmentPreviewOptions(sourceId));
@@ -265,6 +271,7 @@ function AttachmentPreview({ sourceId }: { sourceId: SourceId | null }) {
   );
 }
 
+/** Enables document previews only for available generation outputs with an exact version. */
 function GenerationChange({
   run,
   onPreview
@@ -301,6 +308,7 @@ function GenerationChange({
   );
 }
 
+/** Prioritizes retirement, availability and cancellation before labeling a generation result. */
 function generationStatus(run: typeof sessionGenerationSchema.Type) {
   if (run.state === 'retired') return 'SessionRunRetired';
 
@@ -315,6 +323,7 @@ function generationStatus(run: typeof sessionGenerationSchema.Type) {
   return 'SessionRunAwaitingOutput';
 }
 
+/** Dispatches each typed preview to its message, source or exact-version reader. */
 function PreviewContent({ preview }: { preview: Preview | undefined }) {
   if (!preview) return null;
 

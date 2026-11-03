@@ -14,6 +14,7 @@ import type { ReactElement } from 'react';
 import { SessionDeleteDialog } from '../../features/session-workspace';
 import { useI18n } from '../../lib/i18n';
 
+/** Opens deletion for the selected session without activating its navigation link. */
 export function SidebarSessionActions({
   id,
   project,

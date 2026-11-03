@@ -5,6 +5,7 @@ import { studyClient } from './client';
 import type { StudyClient } from './client';
 import { toStudyError } from './errors';
 
+/** Runs a scoped native RPC request with cancellation and canonical application errors. */
 export function request<A, E>(
   invoke: (client: StudyClient) => Effect.Effect<A, E>,
   signal?: AbortSignal

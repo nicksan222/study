@@ -13,6 +13,7 @@ import { useI18n } from '../../lib/i18n';
 import { ThemeEditor } from './theme-editor';
 import type { AppearanceModel } from './use-page';
 
+/** Switches between system, light and dark appearance preferences. */
 export function ColorScheme({ model }: { model: AppearanceModel }) {
   const { t } = useI18n();
   const data = model.data!;
@@ -51,6 +52,7 @@ function downloadTheme(theme: ThemeFile) {
   downloadFile(`${theme.id}.json`, new Blob([serializeTheme(theme)], { type: 'application/json' }));
 }
 
+/** Lists built-in and custom themes with selection, import and editing actions. */
 export function ThemeLibrary({ model, search = '' }: { model: AppearanceModel; search?: string }) {
   const { t } = useI18n();
   const [editor, setEditor] = useState<Editor | null>(null);

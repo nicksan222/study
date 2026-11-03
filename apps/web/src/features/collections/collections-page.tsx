@@ -41,6 +41,7 @@ export function CollectionsPage() {
   );
 }
 
+/** Renders collection loading and read failures before exposing collection content. */
 function ReadState({
   pending,
   error,

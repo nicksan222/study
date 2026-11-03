@@ -33,6 +33,7 @@ function Provider({ children }: { children: ReactNode }) {
   );
 }
 
+/** Toggles the workspace context panel using its shared visibility state. */
 function Toggle({ label }: { label: string }) {
   const context = useContext(CardContext);
 
@@ -55,6 +56,7 @@ function Toggle({ label }: { label: string }) {
   );
 }
 
+/** Applies the welcome or session canvas layout through the shared workspace surface. */
 function Root({
   className,
   variant,
@@ -85,6 +87,7 @@ function Dock({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('ui-workspace-dock', className)} {...props} />;
 }
 
+/** Styles a workspace context card with the optional changes presentation. */
 function Card({ className, variant, ...props }: ComponentProps<'aside'> & { variant?: 'changes' }) {
   const context = useContext(CardContext);
 

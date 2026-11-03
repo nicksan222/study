@@ -17,6 +17,7 @@ type BackupDeletion = { id: BackupId } | 'recovery';
 
 type BackupState = ReturnType<ReturnType<typeof useDataSettings>['owner']['snapshot']>;
 
+/** Accepts only a new, certain receipt for the exact submitted deletion or recovery discard. */
 function deletionConfirmed(
   target: BackupDeletion,
   before: BackupState['receipt'],

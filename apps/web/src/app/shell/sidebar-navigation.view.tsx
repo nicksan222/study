@@ -1,3 +1,4 @@
+import type { ProjectId } from '@study/contracts/ids';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
 import { MessagesSquare, Library, GraduationCap, Activity } from 'lucide-react';
@@ -13,15 +14,18 @@ const sections = [
   ['/pipelines', 'pipelines', Activity, 'Pipelines']
 ] as const;
 
+/** Preserves subject scope in section links and passes resolved workspace ownership into settings. */
 export function SidebarNavigation({
   section,
   settings,
   project,
+  workspaceProject,
   onNavigate
 }: {
   section: Section;
   settings: boolean;
   project: string | null;
+  workspaceProject?: ProjectId;
   onNavigate: () => void;
 }) {
   const { t } = useI18n();
@@ -47,7 +51,7 @@ export function SidebarNavigation({
         ))}
       </Sidebar.Navigation>
       <Sidebar.Footer aria-label={t('Settings')}>
-        <SettingsMenu active={settings} onOpen={onNavigate} />
+        <SettingsMenu active={settings} onOpen={onNavigate} workspaceProject={workspaceProject} />
       </Sidebar.Footer>
     </>
   );

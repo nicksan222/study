@@ -171,6 +171,7 @@ function SettingsNavigation({
   );
 }
 
+/** Groups matching settings entries and exposes an empty state when none match. */
 function SearchContent({
   search,
   model,

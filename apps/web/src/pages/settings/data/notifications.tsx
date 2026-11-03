@@ -29,6 +29,7 @@ const feedback = [
   { key: backupMutationKeys.discard, label: 'DataRecoveryDiscarded', committed: deletionCommitted }
 ] as const;
 
+/** Announces backup outcomes once while preserving operation-specific recovery actions. */
 export function BackupNotifications() {
   const client = useQueryClient();
   const { t } = useI18n();

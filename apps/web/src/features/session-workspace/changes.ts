@@ -14,6 +14,7 @@ export function sessionChanges(id: SessionId, messages: readonly ChangeMessage[]
   );
 }
 
+/** Selects current and preceding message versions for the session change preview. */
 export function changeVersions(message: ChangeMessage) {
   const current = message.versions.find((version) => version.id === message.activeVersionId);
   const previous =

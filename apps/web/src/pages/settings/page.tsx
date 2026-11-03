@@ -8,11 +8,19 @@ import { usePage } from './use-page';
 export function Page({
   onClose,
   initialSection,
-  initialProject
+  initialProject,
+  workspaceProject
 }: {
   onClose?: () => void;
   initialSection?: SettingsSectionId;
   initialProject?: ProjectId;
+  workspaceProject?: ProjectId;
 }) {
-  return <PageView open {...usePage(onClose, initialSection)} initialProject={initialProject} />;
+  return (
+    <PageView
+      open
+      {...usePage(onClose, initialSection, workspaceProject)}
+      initialProject={initialProject}
+    />
+  );
 }

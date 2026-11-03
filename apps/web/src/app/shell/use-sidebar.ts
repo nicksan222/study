@@ -26,6 +26,7 @@ export type SidebarProps = {
   onToggle: () => void;
 };
 
+/** Combines resolved session ownership, subject lists, search and sidebar actions. */
 export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   const { selectedSession, requestedProject, sessionReady, ownershipStatus, reloadOwner } =
     useSidebarOwnership(metadata);
@@ -124,6 +125,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   };
 }
 
+/** Uses session membership as the authority, preferring the requested subject only when it belongs to that session. */
 function useSidebarOwnership(metadata: PageMetadata) {
   const search = useSearch({ from: '__root__' });
   const params = useParams({ strict: false });

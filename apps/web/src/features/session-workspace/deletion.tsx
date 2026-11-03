@@ -20,6 +20,7 @@ import {
 } from './session-workspace.queries';
 import { SessionError, SessionReadError } from './status';
 
+/** Shares deletion receipts through the query cache while keeping success announcements owned by the initiating observer. */
 function useSessionDeletion(id: SessionId, enabled = true) {
   const { t } = useI18n();
   const cache = useQueryClient();
@@ -81,6 +82,7 @@ function useSessionDeletion(id: SessionId, enabled = true) {
 
 type DeletionFlow = ReturnType<typeof useSessionDeletion>;
 
+/** Exposes mutation and receipt read failures with the recovery each operation permits. */
 function DeleteErrors({ flow }: { flow: DeletionFlow }) {
   const { state, mutation, retry, pending } = flow;
 
@@ -98,6 +100,7 @@ function DeleteErrors({ flow }: { flow: DeletionFlow }) {
   );
 }
 
+/** Reports loading, deletion progress and committed completion from the shared receipt. */
 function DeleteStatus({ flow }: { flow: DeletionFlow }) {
   const { t } = useI18n();
   const { state, pending } = flow;
@@ -120,6 +123,7 @@ function DeleteFeedback({ flow }: { flow: DeletionFlow }) {
   );
 }
 
+/** Shows recovery for an interrupted session deletion without restoring deleted session content. */
 export function SessionDeletion({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const flow = useSessionDeletion(id);
@@ -143,6 +147,7 @@ export function SessionDeletion({ id }: { id: SessionId }) {
   );
 }
 
+/** Confirms deletion once per attempt and closes only after its owned operation completes. */
 export function SessionDeleteDialog({
   id,
   open,

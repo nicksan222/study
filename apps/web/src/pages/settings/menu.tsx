@@ -1,3 +1,4 @@
+import type { ProjectId } from '@study/contracts/ids';
 import { Sidebar } from '@study/ui/sidebar';
 import { Settings } from 'lucide-react';
 import { useState } from 'react';
@@ -5,7 +6,16 @@ import { useState } from 'react';
 import { useI18n } from '../../lib/i18n';
 import { Page } from './page';
 
-export function SettingsMenu({ active, onOpen }: { active: boolean; onOpen: () => void }) {
+/** Opens settings without leaving the workspace and preserves its resolved subject ownership. */
+export function SettingsMenu({
+  active,
+  onOpen,
+  workspaceProject
+}: {
+  active: boolean;
+  onOpen: () => void;
+  workspaceProject?: ProjectId;
+}) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
@@ -23,7 +33,7 @@ export function SettingsMenu({ active, onOpen }: { active: boolean; onOpen: () =
       >
         <Settings aria-hidden="true" />
       </Sidebar.NavigationItem>
-      {open && <Page onClose={() => setOpen(false)} />}
+      {open && <Page workspaceProject={workspaceProject} onClose={() => setOpen(false)} />}
     </>
   );
 }

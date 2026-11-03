@@ -130,6 +130,8 @@ test('permits bound TanStack index route IDs while retaining strict actual navig
     {
       'apps/web/src/routes/sessions.index.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';
         export const Route = fileRoute('/sessions/')({component: Page});`,
+      'apps/web/src/routes/sessions.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/sessions/')({});`,
+      'apps/web/src/routes/sessions/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/sessions/')({});`,
       'apps/web/src/routes/unsafe.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';
         fileRoute('/Sessions/')({});
         function shadow(fileRoute) { return fileRoute('/sessions/')({}); }
@@ -140,6 +142,6 @@ test('permits bound TanStack index route IDs while retaining strict actual navig
     true
   );
 
-  assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
+  assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/sessions.index.tsx')));
 });

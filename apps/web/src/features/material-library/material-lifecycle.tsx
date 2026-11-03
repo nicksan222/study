@@ -194,6 +194,7 @@ function PruneNext({ c }: { c: LifecycleController }) {
   );
 }
 
+/** Shows retention controls and recoverable cleanup operations for a material. */
 export function MaterialLifecycle({ id }: { id: MaterialId }) {
   const { t } = useI18n();
   const c = useMaterialLifecycle(id);

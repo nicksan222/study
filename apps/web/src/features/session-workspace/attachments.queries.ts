@@ -15,6 +15,7 @@ export type Attachment = {
 
 export const attachmentKey = (id: SessionId) => ['session-drafts', String(id), 'attachments'];
 
+/** Claims a draft upload before awaiting transport and records rejection separately from an uncertain result. */
 async function uploadAttachment(cache: QueryClient, id: SessionId, entry: Attachment) {
   const update = (f: (items: Attachment[]) => Attachment[]) =>
     cache.setQueryData<Attachment[]>(attachmentKey(id), (items) => f(items ?? []));
@@ -50,6 +51,7 @@ async function uploadAttachment(cache: QueryClient, id: SessionId, entry: Attach
   }
 }
 
+/** Adds session-owned draft entries before starting their independent uploads. */
 export function addAttachments(cache: QueryClient, id: SessionId, files: File[]) {
   const entries: Attachment[] = files.map((file) => ({
     key: crypto.randomUUID(),

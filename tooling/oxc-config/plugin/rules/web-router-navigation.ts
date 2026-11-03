@@ -126,7 +126,7 @@ function fileRouteIndexId(node: any, bindings: ReturnType<typeof effectBindings>
   const call = node.parent;
 
   if (
-    !current.startsWith('routes/') ||
+    !/^routes\/(?:.*[/.])?index\.tsx?$/.test(current) ||
     node.value === '/' ||
     !node.value.endsWith('/') ||
     node.value.includes('?') ||

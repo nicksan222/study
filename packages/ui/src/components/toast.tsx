@@ -25,6 +25,7 @@ export function ToastProvider({
   );
 }
 
+/** Renders managed notifications with accessible dismissal and optional actions. */
 function Toaster({ closeLabel, viewportLabel }: { closeLabel: string; viewportLabel: string }) {
   const { toasts } = useToastManager();
 

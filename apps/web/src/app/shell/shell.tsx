@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../lib/i18n';
 import { Sidebar } from './sidebar';
 
+/** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
 function useShellNavigation(sessions: boolean) {
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
@@ -41,6 +42,7 @@ function useShellNavigation(sessions: boolean) {
   };
 }
 
+/** Keeps a page heading accessible when the session layout hides its visual top bar. */
 function ShellHeader({
   sessions,
   visible,
@@ -71,6 +73,7 @@ function ShellHeader({
   );
 }
 
+/** Selects the session layout from route metadata and composes the shared application shell. */
 export function Shell() {
   const { t } = useI18n();
   const matches = useMatches();

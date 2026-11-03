@@ -92,6 +92,7 @@ export function ThemeEditor({
   );
 }
 
+/** Confirms removal of the selected custom theme and exposes mutation failures. */
 function DeleteTheme({
   theme,
   model,

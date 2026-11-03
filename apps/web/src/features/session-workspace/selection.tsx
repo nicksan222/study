@@ -91,6 +91,7 @@ function useSelection(id: SessionId) {
   };
 }
 
+/** Composes exact document, block and excerpt selection for the active session. */
 export function SelectionPanel({ id }: { id: SessionId }) {
   const {
     t,

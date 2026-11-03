@@ -25,6 +25,7 @@ export interface AppearanceModel {
   deleteTheme: (id: string) => Promise<unknown>;
 }
 
+/** Loads persisted appearance data and refreshes it after preference or theme mutations. */
 export function useAppearance(): AppearanceModel {
   const client = useQueryClient();
   const query = useQuery(appearanceQueryOptions());
@@ -59,7 +60,11 @@ export function useAppearance(): AppearanceModel {
 }
 
 /** Keeps section navigation local and clears search when opening a different settings section. */
-export function usePage(onClose?: () => void, initialSection: SettingsSectionId = 'appearance') {
+export function usePage(
+  onClose?: () => void,
+  initialSection: SettingsSectionId = 'appearance',
+  workspaceProject?: ProjectId
+) {
   const navigate = useNavigate();
   const scope = useSearch({ from: '__root__' });
   const model = useAppearance();
@@ -68,7 +73,7 @@ export function usePage(onClose?: () => void, initialSection: SettingsSectionId 
 
   return {
     onProjectDeleted: (id: ProjectId) => {
-      if (scope.project === String(id))
+      if (scope.project === String(id) || workspaceProject === id)
         void navigate({ to: '/sessions', search: {}, replace: true });
     },
     search,

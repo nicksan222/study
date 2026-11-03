@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useI18n } from '../../lib/i18n';
 import { SubjectIdentity } from '../subjects';
 
+/** Shows session identity and controls while keeping subject scope in navigation. */
 export function WorkspaceHeader({
   owner,
   title,

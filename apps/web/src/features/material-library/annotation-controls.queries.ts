@@ -8,6 +8,7 @@ import { request } from '../../lib/study-client/request';
 import { savedDraft, retainAnnotations } from './annotation-state';
 import type { Annotation, AnnotationDraft } from './annotation-state';
 
+/** Coordinates exact-version annotation mutations with confirmation and reconciliation state. */
 export function useAnnotationControls({ annotation }: { annotation: Annotation }) {
   const { t } = useI18n();
   const client = useQueryClient();

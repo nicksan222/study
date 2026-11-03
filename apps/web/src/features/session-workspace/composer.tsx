@@ -15,6 +15,7 @@ import { UnavailableAttempt } from './unavailable-attempt';
 
 type ComposerModel = ReturnType<typeof useComposer>;
 
+/** Combines quick capture, attachments and request recovery for the active session. */
 export function Composer({ id }: { id: SessionId }) {
   const model = useComposer(id);
   const { t, draft, files, blocked, setDraft, submitNote } = model;
@@ -110,6 +111,7 @@ function ComposerPreferences({ model }: { model: ComposerModel }) {
   );
 }
 
+/** Chooses note and question actions from the current draft and request availability. */
 function ComposerActions({ model }: { model: ComposerModel }) {
   const {
     t,
