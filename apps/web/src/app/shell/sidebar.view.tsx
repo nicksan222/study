@@ -18,6 +18,7 @@ import {
   Search,
   ListFilter,
   FolderPlus,
+  Palette,
   SquarePen,
   Check
 } from 'lucide-react';
@@ -364,7 +365,7 @@ function SidebarPickerActions({
             onChangeIcon();
           }}
         >
-          <SubjectIdentity name={subject.name} icon={subject.icon} />
+          <Palette aria-hidden="true" />
           {t('SubjectIconChange')}
         </Button>
       )}
