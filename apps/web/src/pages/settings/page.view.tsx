@@ -2,18 +2,7 @@ import type { ProjectId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
-import {
-  Palette,
-  Settings2,
-  Bot,
-  GraduationCap,
-  Gauge,
-  Database,
-  Folder,
-  PenLine,
-  MessagesSquare,
-  BookOpen
-} from 'lucide-react';
+import { Palette, Settings2, Bot, GraduationCap, Database, Folder, PenLine } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { ProjectSettings } from '../../features/collections';
@@ -36,13 +25,10 @@ import {
 
 export type SettingsSectionId =
   | 'writing'
-  | 'sessions'
-  | 'reading'
   | 'general'
   | 'appearance'
   | 'ai'
   | 'study'
-  | 'performance'
   | 'data'
   | 'projects';
 
@@ -51,7 +37,14 @@ const sections = [
     id: 'general',
     label: 'GeneralSettingsTitle',
     Icon: Settings2,
-    keywords: ['GeneralSettingsLanguage']
+    keywords: [
+      'GeneralSettingsLanguage',
+      'WorkspaceSidebarTitle',
+      'WorkspaceDensity',
+      'WorkspaceTimeFormat',
+      'WorkspaceDocumentCounts',
+      'SidebarSettledThreshold'
+    ]
   },
   {
     id: 'appearance',
@@ -72,27 +65,16 @@ const sections = [
     ]
   },
   {
-    id: 'sessions',
-    label: 'WorkspaceSidebarTitle',
-    Icon: MessagesSquare,
-    keywords: [
-      'WorkspaceDensity',
-      'WorkspaceTimeFormat',
-      'WorkspaceDocumentCounts',
-      'SidebarSettledThreshold'
-    ]
-  },
-  {
-    id: 'reading',
-    label: 'WorkspaceReadingTitle',
-    Icon: BookOpen,
-    keywords: ['WorkspaceReaderFont', 'WorkspaceExportFormat']
-  },
-  {
     id: 'study',
     label: 'StudySettingsNavigation',
     Icon: GraduationCap,
-    keywords: ['StudySettingsTitle', 'StudySettingsNewCards']
+    keywords: [
+      'StudySettingsTitle',
+      'StudySettingsNewCards',
+      'WorkspaceReadingTitle',
+      'WorkspaceReaderFont',
+      'WorkspaceExportFormat'
+    ]
   },
   {
     id: 'ai',
@@ -103,14 +85,11 @@ const sections = [
       'AiSettingsModels',
       'AiSettingsSignIn',
       'WorkspaceAiDetail',
-      'WorkspaceAutoTitles'
+      'WorkspaceAutoTitles',
+      'PerformanceSettingsTitle',
+      'PerformanceSettingsParallel',
+      'PerformanceSettingsQueue'
     ]
-  },
-  {
-    id: 'performance',
-    label: 'PerformanceSettingsTitle',
-    Icon: Gauge,
-    keywords: ['PerformanceSettingsParallel', 'PerformanceSettingsQueue']
   },
   {
     id: 'projects',
@@ -272,23 +251,27 @@ function SectionContent({
     projects: <ProjectSettings initialProject={initialProject} onDeleted={onProjectDeleted} />,
     data: <DataSettings />,
     appearance: <AppearanceContent model={model} search={search} />,
-    general: <GeneralSettings />,
-    writing: <WritingSettings />,
-    sessions: (
+    general: (
       <>
+        <GeneralSettings />
         <SessionDisplaySettings />
         <SidebarSettings />
       </>
     ),
-    reading: <ReadingSettings />,
+    writing: <WritingSettings />,
     ai: (
       <>
         <AiSettings />
         <AiWritingSettings />
+        <PerformanceSettings />
       </>
     ),
-    performance: <PerformanceSettings />,
-    study: <StudySettings />
+    study: (
+      <>
+        <StudySettings />
+        <ReadingSettings />
+      </>
+    )
   } satisfies Record<SettingsSectionId, ReactNode>;
 
   return content[section];

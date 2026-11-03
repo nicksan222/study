@@ -152,15 +152,9 @@ it('orders a single settings list and shows relevant cross-section search result
     .getAllByRole('button')
     .map((button) => button.getAttribute('aria-label'));
 
-  expect(labels.slice(0, 5)).toEqual([
-    'General',
-    'Appearance',
-    'Writing',
-    'Sessions',
-    'Reading & exports'
-  ]);
+  expect(labels.slice(0, 5)).toEqual(['General', 'Appearance', 'Writing', 'Study', 'AI']);
   expect(within(navigation).queryByRole('heading')).not.toBeInTheDocument();
-  expect(labels).toHaveLength(10);
+  expect(labels).toHaveLength(7);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'
@@ -188,4 +182,26 @@ it('orders a single settings list and shows relevant cross-section search result
   );
   expect(screen.getByRole('button', { name: 'Ocean' })).toBeInTheDocument();
   expect(screen.queryByText('Nothing matches.')).not.toBeInTheDocument();
+});
+
+it.each([
+  ['Concurrent', 'AI', 'ai'],
+  ['Sidebar spacing', 'General', 'general'],
+  ['export', 'Study', 'study']
+] as const)('finds %s under its consolidated %s section', (search, label, section) => {
+  const onSectionChange = vi.fn();
+
+  render(
+    <PageView
+      open
+      onClose={vi.fn()}
+      model={appearanceModel()}
+      search={search}
+      onSectionChange={onSectionChange}
+    />
+  );
+  const matches = screen.getByRole('region', { name: 'Settings matches' });
+
+  fireEvent.click(within(matches).getByRole('button', { name: label }));
+  expect(onSectionChange).toHaveBeenCalledWith(section);
 });
