@@ -3,7 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import { projectIdSchema, materialIdSchema, sessionIdSchema } from '../ids.ts';
-import { projectSchema } from './schemas.ts';
+import { projectSchema, projectIconSchema } from './schemas.ts';
 
 export const projectPageInputSchema = Schema.Struct({
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
@@ -20,6 +20,11 @@ export const createProjectInputSchema = Schema.Struct({ name: Schema.String });
 export const projectIdInputSchema = Schema.Struct({ id: projectIdSchema });
 
 export const renameProjectInputSchema = Schema.Struct({ id: projectIdSchema, name: Schema.String });
+
+export const setProjectIconInputSchema = Schema.Struct({
+  id: projectIdSchema,
+  icon: Schema.NullOr(projectIconSchema)
+});
 
 export const setExamInputSchema = Schema.Struct({
   id: projectIdSchema,
@@ -85,6 +90,11 @@ export const ProjectsRpc = RpcGroup.make(
   Rpc.make('deleteProject', {
     payload: projectIdInputSchema,
     success: Schema.Boolean,
+    error: failureSchema
+  }),
+  Rpc.make('setIcon', {
+    payload: setProjectIconInputSchema,
+    success: projectSchema,
     error: failureSchema
   }),
   Rpc.make('setExam', {

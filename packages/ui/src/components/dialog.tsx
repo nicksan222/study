@@ -45,6 +45,7 @@ function Dialog<Payload>(props: DialogPrimitive.Root.Props<Payload>) {
 const DialogPortal = DialogPrimitive.Portal;
 
 const DialogClose = DialogPrimitive.Close;
+const DialogTrigger = DialogPrimitive.Trigger;
 
 function DialogBackdrop({
   className,
@@ -82,6 +83,7 @@ function DialogPopup({
   viewportClassName,
   children,
   showCloseButton = true,
+  keepMounted = false,
   closeLabel,
   bottomStickOnMobile = true,
   variant = 'default',
@@ -89,12 +91,13 @@ function DialogPopup({
 }: DialogPrimitive.Popup.Props & {
   viewportClassName?: string;
   showCloseButton?: boolean;
+  keepMounted?: boolean;
   closeLabel: string;
   bottomStickOnMobile?: boolean;
   variant?: 'default' | 'media';
 }) {
   return (
-    <DialogPortal>
+    <DialogPortal keepMounted={keepMounted}>
       {/* Media opens from inside other overlays (a composer chip, a popover), so it sits above them. */}
       <DialogBackdrop className={variant === 'media' ? 'z-[60]' : undefined} variant={variant} />
       <DialogViewport
@@ -177,4 +180,23 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   );
 }
 
-export { Dialog, DialogPopup, DialogHeader, DialogFooter, DialogTitle, DialogClose };
+function DialogDescription({ className, ...props }: DialogPrimitive.Description.Props) {
+  return (
+    <DialogPrimitive.Description
+      className={cn('text-sm leading-relaxed text-muted-foreground', className)}
+      data-slot="dialog-description"
+      {...props}
+    />
+  );
+}
+
+export {
+  Dialog,
+  DialogPopup,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+  DialogTrigger
+};

@@ -35,6 +35,7 @@ export const ProjectsRpcLive = defineRpc(
       'projects.createProject': (input) => projects.createProject(input),
       'projects.renameProject': (input) => projects.renameProject(input),
       'projects.deleteProject': (input) => projects.deleteProject(input),
+      'projects.setIcon': (input) => projects.setIcon(input),
       'projects.setExam': (input) => projects.setExam(input)
     };
   })

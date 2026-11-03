@@ -1,0 +1,17 @@
+.data-settings-intro {
+  margin: 0 0 1.25rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.data-restore-idle {
+  color: var(--contrast-muted-foreground);
+}
+
+.data-backup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 0.375rem;
+}

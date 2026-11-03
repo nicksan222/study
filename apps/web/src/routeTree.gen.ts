@@ -22,6 +22,8 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MaterialsMaterialIdRouteImport } from './routes/materials.$materialId'
+import { Route as SessionsIndexRouteImport } from './routes/sessions.index'
+import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -88,6 +90,16 @@ const MaterialsMaterialIdRoute = MaterialsMaterialIdRouteImport.update({
   path: '/materials/$materialId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionsIndexRoute = SessionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SessionsRoute,
+} as any)
+const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => SessionsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -100,9 +112,11 @@ export interface FileRoutesByFullPath {
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
-  '/sessions': typeof SessionsRoute
+  '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -115,9 +129,10 @@ export interface FileRoutesByTo {
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
-  '/sessions': typeof SessionsRoute
   '/settings': typeof SettingsRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/sessions': typeof SessionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -131,9 +146,11 @@ export interface FileRoutesById {
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
-  '/sessions': typeof SessionsRoute
+  '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +168,8 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/materials/$materialId'
+    | '/sessions/$sessionId'
+    | '/sessions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -163,9 +182,10 @@ export interface FileRouteTypes {
     | '/pipelines'
     | '/practice'
     | '/projects'
-    | '/sessions'
     | '/settings'
     | '/materials/$materialId'
+    | '/sessions/$sessionId'
+    | '/sessions'
   id:
     | '__root__'
     | '/'
@@ -181,6 +201,8 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/materials/$materialId'
+    | '/sessions/$sessionId'
+    | '/sessions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -194,7 +216,7 @@ export interface RootRouteChildren {
   PipelinesRoute: typeof PipelinesRoute
   PracticeRoute: typeof PracticeRoute
   ProjectsRoute: typeof ProjectsRoute
-  SessionsRoute: typeof SessionsRoute
+  SessionsRoute: typeof SessionsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   MaterialsMaterialIdRoute: typeof MaterialsMaterialIdRoute
 }
@@ -292,8 +314,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MaterialsMaterialIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sessions/': {
+      id: '/sessions/'
+      path: '/'
+      fullPath: '/sessions/'
+      preLoaderRoute: typeof SessionsIndexRouteImport
+      parentRoute: typeof SessionsRoute
+    }
+    '/sessions/$sessionId': {
+      id: '/sessions/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/sessions/$sessionId'
+      preLoaderRoute: typeof SessionsSessionIdRouteImport
+      parentRoute: typeof SessionsRoute
+    }
   }
 }
+
+interface SessionsRouteChildren {
+  SessionsSessionIdRoute: typeof SessionsSessionIdRoute
+  SessionsIndexRoute: typeof SessionsIndexRoute
+}
+
+const SessionsRouteChildren: SessionsRouteChildren = {
+  SessionsSessionIdRoute: SessionsSessionIdRoute,
+  SessionsIndexRoute: SessionsIndexRoute,
+}
+
+const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
+  SessionsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -306,7 +356,7 @@ const rootRouteChildren: RootRouteChildren = {
   PipelinesRoute: PipelinesRoute,
   PracticeRoute: PracticeRoute,
   ProjectsRoute: ProjectsRoute,
-  SessionsRoute: SessionsRoute,
+  SessionsRoute: SessionsRouteWithChildren,
   SettingsRoute: SettingsRoute,
   MaterialsMaterialIdRoute: MaterialsMaterialIdRoute,
 }

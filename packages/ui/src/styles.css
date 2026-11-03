@@ -5,12 +5,16 @@
 @import './theme.css';
 @import './components/shell.css';
 @import './components/composer.css';
+@import './components/workspace.css';
 @import './components/error-state.css';
 @import './components/sidebar.css';
+@import './components/identity.css';
 @import './components/list.css';
 @import './components/loading.css';
 @import './components/menu.css';
 @import './components/settings.css';
+@import './components/danger-dialog.css';
+@import './components/toast.css';
 @source "./";
 @source "../../../apps/web/src";
 

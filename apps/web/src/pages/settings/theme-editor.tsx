@@ -1,6 +1,8 @@
-import { JsonEditor, ConfirmDialog } from '@study/ui/json-editor';
+import { DangerDialog } from '@study/ui/danger-dialog';
+import { JsonEditor } from '@study/ui/json-editor';
 import { parseTheme, serializeTheme } from '@study/ui/theme';
 import type { ThemeFile } from '@study/ui/theme';
+import { toastManager } from '@study/ui/toast';
 import { useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
@@ -102,21 +104,38 @@ function DeleteTheme({
   const [failed, setFailed] = useState(false);
 
   return (
-    <ConfirmDialog
-      labels={{
-        title: t('DeleteTheme'),
-        description: `${theme.name} — ${t('DeleteThemeHint')}`,
-        close: t('Close'),
-        cancel: t('Cancel'),
-        confirm: t('DeleteTheme')
+    <DangerDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
       }}
+      title={t('DeleteTheme')}
+      confirmation={{
+        value: t('DeleteConfirmationWord'),
+        label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
+        identity: theme.id
+      }}
+      description={`${theme.name} — ${t('DeleteThemeHint')}`}
+      confirmLabel={t('DeleteTheme')}
+      cancelLabel={t('Cancel')}
       pending={model.pending}
-      error={failed ? t('AppearanceFailed') : undefined}
-      onClose={onClose}
-      onConfirm={() => {
-        void model.deleteTheme(theme.id).then(onClose, () => setFailed(true));
+      onConfirm={async () => {
+        setFailed(false);
+        try {
+          await model.deleteTheme(theme.id);
+          toastManager.add({ title: t('ThemeDeleted'), type: 'success' });
+          onClose();
+        } catch {
+          setFailed(true);
+        }
       }}
-    />
+    >
+      {failed && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('AppearanceFailed')}
+        </p>
+      )}
+    </DangerDialog>
   );
 }
 

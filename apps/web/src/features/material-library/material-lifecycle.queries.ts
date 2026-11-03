@@ -8,9 +8,12 @@ import type {
   historyPruneSchema,
   requestHistoryPruneSchema
 } from '@study/contracts/materials/history';
+import { toastManager } from '@study/ui/toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 
+import { useI18n } from '../../lib/i18n';
+import type { StudyClient } from '../../lib/study-client/client';
 import { request } from '../../lib/study-client/request';
 
 type DeletePreview = typeof materialDeletionPreviewSchema.Type;
@@ -21,7 +24,13 @@ type PrunePreview = typeof historyPreviewSchema.Type;
 
 type PruneOperation = typeof historyPruneSchema.Type;
 
+type Confirmation =
+  | { kind: 'delete'; input: Parameters<StudyClient['materials.requestDeletion']>[0] }
+  | { kind: 'prune'; input: typeof requestHistoryPruneSchema.Type };
+
 export function useMaterialLifecycle(id: MaterialId) {
+  const { t } = useI18n();
+  const [confirmation, setConfirmation] = useState<Confirmation>();
   const client = useQueryClient();
   const [mode, setMode] = useState<'delete' | 'prune'>();
   const [deletion, setDeletion] = useState<DeletePreview>();
@@ -90,36 +99,52 @@ export function useMaterialLifecycle(id: MaterialId) {
   }
 
   function confirmDeletion() {
-    if (!deletion) return;
-
-    return run(async () => {
-      setDeleteOperation(
-        await request((rpc) =>
-          rpc['materials.requestDeletion']({
-            materialId: id,
-            token: deletion.token,
-            descendantIds: []
-          })
-        )
-      );
-    });
+    if (deletion)
+      setConfirmation({
+        kind: 'delete',
+        input: { materialId: id, token: deletion.token, descendantIds: [] }
+      });
   }
 
   function confirmPrune() {
-    if (!prune) return;
+    if (prune)
+      setConfirmation({
+        kind: 'prune',
+        input: pruneInput ?? {
+          materialId: id,
+          policy: prune.policy,
+          token: prune.token,
+          candidateIds: prune.candidateIds,
+          operationId: operationId.current
+        }
+      });
+  }
 
+  function confirmCleanup() {
+    const submitted = confirmation;
+    if (!submitted || busy) return;
     return run(async () => {
-      const input = pruneInput ?? {
-        materialId: id,
-        policy: prune.policy,
-        token: prune.token,
-        candidateIds: prune.candidateIds,
-        operationId: operationId.current
-      };
-
-      setPruneInput(input);
-      client.setQueryData([...pruneKey, 'input'], input);
-      setPruneOperation(await request((rpc) => rpc['materials.requestHistoryPrune'](input)));
+      let result: DeleteOperation | PruneOperation;
+      if (submitted.kind === 'delete') {
+        result = await request((rpc) => rpc['materials.requestDeletion'](submitted.input));
+        setDeleteOperation(result);
+      } else {
+        setPruneInput(submitted.input);
+        client.setQueryData([...pruneKey, 'input'], submitted.input);
+        result = await request((rpc) => rpc['materials.requestHistoryPrune'](submitted.input));
+        setPruneOperation(result);
+      }
+      if (result.status === 'failed') {
+        toastManager.add({ title: t('DocumentCleanupFailed'), type: 'error' });
+        return;
+      }
+      toastManager.add({
+        title: t(
+          result.status === 'completed' ? 'DocumentCleanupCompleted' : 'DocumentCleanupPending'
+        ),
+        type: result.status === 'completed' ? 'success' : 'info'
+      });
+      setConfirmation(undefined);
     });
   }
 
@@ -171,6 +196,9 @@ export function useMaterialLifecycle(id: MaterialId) {
   const operation = mode === 'delete' ? deleteOperation : pruneOperation;
 
   return {
+    confirmation,
+    setConfirmation,
+    confirmCleanup,
     mode,
     setMode,
     deletion,

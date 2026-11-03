@@ -39,7 +39,7 @@ export function InterfaceSettings({ model }: { model: AppearanceModel }) {
   ] as const;
 
   return (
-    <Settings.Section title={t('InterfaceSettings')}>
+    <Settings.Section className="settings-interface" title={t('InterfaceSettings')}>
       <Settings.Group>
         {controls.map((control) => (
           <Settings.Row

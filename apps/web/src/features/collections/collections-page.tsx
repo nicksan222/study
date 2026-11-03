@@ -4,9 +4,11 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { Project } from '@study/contracts/projects/schemas';
 import { Button } from '@study/ui/button';
 import { CollectionPanel } from '@study/ui/collection-panel';
+import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
+import { toastManager } from '@study/ui/toast';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -16,6 +18,8 @@ import { toStudyError } from '../../lib/study-client/errors';
 import { request } from '../../lib/study-client/request';
 import { materialsOptions } from '../material-library';
 import { sessionPagesOptions } from '../session-workspace';
+import { SubjectIconEditor } from '../subjects/subject-icon-editor';
+import { SubjectIdentity } from '../subjects/subject-identity';
 import { useCollectionState, validCollectionName } from './collection-state';
 import { materialMembership, sessionMembership } from './collections.queries';
 import { useCollectionsView } from './collections.queries';
@@ -86,11 +90,14 @@ function Collection({
   const entry = state.names[String(project.id)];
   const name = entry?.text ?? project.name;
   const [deleting, setDeleting] = useState(false);
-  const [confirmation, confirm] = useState('');
 
   return (
     <CollectionPanel.Collection aria-label={project.name}>
-      <CollectionPanel.Title>{project.name}</CollectionPanel.Title>
+      <div className="flex items-center gap-3">
+        <SubjectIdentity name={project.name} icon={project.icon} size="large" />
+        <CollectionPanel.Title>{project.name}</CollectionPanel.Title>
+        <SubjectIconEditor project={project} disabled={busy} />
+      </div>
       <CollectionPanel.Navigation>
         <Link to="/library" search={{ project: String(project.id) }}>
           <CollectionPanel.LinkText>{t('collections.library')}</CollectionPanel.LinkText>
@@ -155,32 +162,31 @@ function Collection({
       <Button variant="destructive-outline" disabled={busy} onClick={() => setDeleting(true)}>
         {t('collections.delete')}
       </Button>
-      {deleting ? (
-        <CollectionPanel.Delete role="group" aria-label={t('collections.delete')}>
-          <p>{t('collections.deleteHelp')}</p>
-          <label>
-            {t('collections.confirmName')}
-            <Input value={confirmation} onChange={(e) => confirm(e.target.value)} />
-          </label>
-          <CollectionPanel.DeleteActions>
-            <Button
-              variant="destructive"
-              disabled={busy || confirmation !== project.name}
-              onClick={() =>
-                void mutate(async () => {
-                  await request((c) => c['projects.deleteProject']({ id: project.id }));
-                  close(project.id);
-                })
-              }
-            >
-              {t('collections.delete')}
-            </Button>
-            <Button disabled={busy} onClick={() => setDeleting(false)}>
-              {t('collections.cancel')}
-            </Button>
-          </CollectionPanel.DeleteActions>
-        </CollectionPanel.Delete>
-      ) : null}
+      <DangerDialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={t('collections.delete')}
+        confirmation={{
+          value: project.name,
+          label: `${t('collections.confirmName')}: ${project.name}`,
+          identity: String(project.id)
+        }}
+        description={t('collections.deleteHelp')}
+        confirmLabel={t('collections.delete')}
+        cancelLabel={t('collections.cancel')}
+        pending={busy}
+        onConfirm={() => {
+          if (busy) return;
+          return mutate(async () => {
+            const deleted = await request((c) => c['projects.deleteProject']({ id: project.id }));
+            if (!deleted) throw new StudyError('not_found', 'Subject no longer exists');
+            toastManager.add({ title: t('SubjectDeleted'), type: 'success' });
+            close(project.id);
+          });
+        }}
+      >
+        {state.error && <p role="alert">{t('collections.mutationError')}</p>}
+      </DangerDialog>
     </CollectionPanel.Collection>
   );
 }
@@ -356,6 +362,7 @@ function CollectionCatalog({ view }: { view: CollectionsView }) {
                 onClick={() => update((value) => ({ ...value, selected: project.id }))}
                 aria-pressed={draft.selected === project.id}
               >
+                <SubjectIdentity name={project.name} icon={project.icon} />
                 {project.name}
               </CollectionPanel.SelectCollection>
               <CollectionPanel.ExamDate>{project.examOn}</CollectionPanel.ExamDate>

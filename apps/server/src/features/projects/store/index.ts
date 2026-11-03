@@ -19,6 +19,7 @@ import {
   projectIdInputSchema as deleteInput,
   renameProjectInputSchema as renameInput,
   setExamInputSchema as examInput,
+  setProjectIconInputSchema,
   projectPageInputSchema,
   projectMaterialInputSchema,
   projectSessionInputSchema
@@ -41,6 +42,7 @@ import { unixSeconds } from '#server/platform/time/index';
 const row = (value: typeof projects.$inferSelect) => ({
   id: value.id,
   name: value.name,
+  icon: value.icon,
   examOn: value.exam_on,
   createdAt: value.created_at,
   updatedAt: value.updated_at
@@ -177,6 +179,7 @@ export const ProjectsStore = defineStore({
             return {
               id: Schema.decodeUnknownSync(projectIdSchema)(BigInt(result.lastInsertRowid)),
               name: input.name,
+              icon: null,
               examOn: null,
               createdAt: timestamp,
               updatedAt: timestamp
@@ -198,6 +201,19 @@ export const ProjectsStore = defineStore({
           output: Schema.Boolean,
           run: (input) =>
             db.orm.delete(projects).where(eq(projects.id, input.id)).run().changes !== 0n
+        }),
+        setIcon: storeMutation({
+          input: setProjectIconInputSchema,
+          output: projectSchema,
+          run: (input) => {
+            if (!find(input.id)) throw new StudyError('not_found', 'Subject not found');
+            db.orm
+              .update(projects)
+              .set({ icon: input.icon, updated_at: unixSeconds(clock) })
+              .where(eq(projects.id, input.id))
+              .run();
+            return find(input.id)!;
+          }
         }),
         setExam: storeMutation({
           input: examInput,

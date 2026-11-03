@@ -1,5 +1,6 @@
 import type { MaterialId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
+import { DangerDialog } from '@study/ui/danger-dialog';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
@@ -87,7 +88,7 @@ function DeletionPreview({ c }: { c: LifecycleController }) {
             {t('DocumentDependentReferences')} {deletion.references.length} ·{' '}
             {t('DocumentRetainedCitations')} {deletion.retainedMessageCitationCount}
           </p>
-          <Button disabled={busy} onClick={c.confirmDeletion}>
+          <Button variant="destructive-outline" disabled={busy} onClick={c.confirmDeletion}>
             {t('DocumentConfirmDelete')}
           </Button>
         </>
@@ -120,7 +121,11 @@ function PrunePreview({ c }: { c: LifecycleController }) {
             {t('DocumentProtectedVersions')} {prune.protected.length}
           </p>
           {prune.hasMore && <p>{t('DocumentPruneMore')}</p>}
-          <Button disabled={busy || prune.candidateIds.length === 0} onClick={c.confirmPrune}>
+          <Button
+            variant="destructive-outline"
+            disabled={busy || prune.candidateIds.length === 0}
+            onClick={c.confirmPrune}
+          >
             {t('DocumentConfirmPrune')}
           </Button>
         </>
@@ -192,7 +197,7 @@ function PruneNext({ c }: { c: LifecycleController }) {
 export function MaterialLifecycle({ id }: { id: MaterialId }) {
   const { t } = useI18n();
   const c = useMaterialLifecycle(id);
-  const { mode, setMode, busy, failed } = c;
+  const { mode, setMode, busy, failed, confirmation, setConfirmation, operation } = c;
 
   return (
     <MaterialLibrary.HistorySection>
@@ -235,6 +240,33 @@ export function MaterialLifecycle({ id }: { id: MaterialId }) {
           </MaterialLibrary.Import>
         </DialogPopup>
       </Dialog>
+      <DangerDialog
+        open={confirmation !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setConfirmation(undefined);
+        }}
+        title={t(confirmation?.kind === 'delete' ? 'DocumentDelete' : 'DocumentPrune')}
+        confirmation={{
+          value: t('DeleteConfirmationWord'),
+          label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
+          identity: confirmation
+            ? `${confirmation.kind}:${confirmation.input.materialId}:${confirmation.input.token}${confirmation.kind === 'prune' ? ':' + confirmation.input.operationId : ''}`
+            : ''
+        }}
+        description={t(
+          confirmation?.kind === 'delete' ? 'DocumentDeleteExplanation' : 'DocumentPruneExplanation'
+        )}
+        confirmLabel={t(
+          confirmation?.kind === 'delete' ? 'DocumentConfirmDelete' : 'DocumentConfirmPrune'
+        )}
+        cancelLabel={t('Cancel')}
+        pending={busy}
+        disabled={operation !== undefined}
+        onConfirm={c.confirmCleanup}
+      >
+        {failed && <p role="alert">{t('DocumentPreviewFailed')}</p>}
+        {operation?.status === 'failed' && <p role="alert">{t('DocumentCleanupFailed')}</p>}
+      </DangerDialog>
     </MaterialLibrary.HistorySection>
   );
 }

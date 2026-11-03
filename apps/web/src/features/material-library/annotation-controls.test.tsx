@@ -1,7 +1,7 @@
 import { StudyError } from '@study/contracts/errors';
 import { annotationSchema } from '@study/contracts/materials/evidence';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
@@ -181,8 +181,13 @@ it('deletes only after confirmation and keeps paginated deleted revisions access
 
   mount();
   expect(rpc['materials.deleteAnnotation']).not.toHaveBeenCalled();
-  await user.click(screen.getByText('AnnotationDelete', { selector: 'summary' }));
-  await user.click(screen.getByText('AnnotationDelete', { selector: 'button' }));
+  await user.click(screen.getByRole('button', { name: 'AnnotationDelete' }));
+  const dialog = await screen.findByRole('alertdialog');
+  const confirm = within(dialog).getByRole('button', { name: 'AnnotationDelete' });
+  expect(confirm).toBeDisabled();
+  expect(rpc['materials.deleteAnnotation']).not.toHaveBeenCalled();
+  await user.type(within(dialog).getByRole('textbox'), 'DeleteConfirmationWord');
+  await user.click(confirm);
   await waitFor(() =>
     expect(rpc['materials.deleteAnnotation']).toHaveBeenCalledWith({
       id: annotation.id,

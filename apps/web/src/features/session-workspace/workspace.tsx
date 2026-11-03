@@ -1,303 +1,105 @@
-import { sessionIdSchema } from '@study/contracts/ids';
 import type { SessionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
-import { ComposerSurface } from '@study/ui/composer';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/session-workspace';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearch } from '@tanstack/react-router';
-import { Schema } from 'effect';
-import { ArrowRight, NotebookPen } from 'lucide-react';
+import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
+import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
+import { projectsQueryOptions } from '../../lib/study-client/study.queries';
 import { useAttachments } from './attachments';
 import { Composer } from './composer';
+import { SessionContextActions } from './context-actions';
+import { SessionDeletion, SessionDeleteDialog } from './deletion';
 import type { Draft } from './draft';
 import { History } from './history';
-import { SelectionPanel } from './selection';
-import { deletionOptions, sessionOptions } from './session-workspace.queries';
-import { SessionError, SessionReadError } from './status';
-import { Transformation } from './transformation';
-import { useSessionStart, useDeletion } from './workspace-state.queries';
+import {
+  deletionOptions,
+  deletionAttemptOptions,
+  sessionKey,
+  sessionOptions
+} from './session-workspace.queries';
+import { SessionStart } from './start';
+import { SessionReadError } from './status';
+import { WorkspaceContext } from './workspace-context';
+import { WorkspaceFooter } from './workspace-footer';
+import { WorkspaceHeader } from './workspace-header';
 
-export function SessionWorkspace() {
-  const search = useSearch({ from: '__root__' });
-  const id = search.id ? Schema.decodeUnknownSync(sessionIdSchema)(BigInt(search.id)) : undefined;
-
+export function SessionWorkspace({ id }: { id?: SessionId } = {}) {
   return (
-    <Notebook.Workspace>
-      {id ? <SessionBody key={String(id)} id={id} /> : <SessionStart />}
-    </Notebook.Workspace>
-  );
-}
-
-type SessionStartModel = ReturnType<typeof useSessionStart>;
-
-function SessionStart() {
-  const model = useSessionStart();
-  const { t, state, flow, draft, cache, draftKey, blocked, beginSession } = model;
-
-  if (state.isError && !flow.data.uncertain && !flow.data.id) {
-    return (
-      <SessionReadError error={state.error} retry={() => void state.refetch()} layout="page" />
-    );
-  }
-
-  return (
-    <Notebook.Start>
-      <Notebook.StartContent>
-        <Notebook.StartHeading>
-          <h1>{t('SessionStartTitle')}</h1>
-          <p>{t('SessionStartHelp')}</p>
-        </Notebook.StartHeading>
-        <ComposerSurface.Root aria-label={t('SessionCompose')}>
-          <ComposerSurface.Input
-            aria-label={t('SessionCompose')}
-            aria-describedby="session-start-hint"
-            placeholder={t('SessionStartPlaceholder')}
-            value={draft.data}
-            onChange={(event) => cache.setQueryData(draftKey, event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                (event.metaKey || event.ctrlKey) &&
-                event.key === 'Enter' &&
-                !event.nativeEvent.isComposing
-              ) {
-                event.preventDefault();
-
-                if (!blocked) beginSession();
-              }
-            }}
-          />
-          <ComposerSurface.Footer>
-            <Notebook.StartKind>
-              <NotebookPen size={16} aria-hidden="true" />
-              {t('SessionNotebook')}
-            </Notebook.StartKind>
-            <Button disabled={blocked} onClick={beginSession}>
-              {t('SessionNew')}
-              <ArrowRight size={16} aria-hidden="true" />
-            </Button>
-          </ComposerSurface.Footer>
-        </ComposerSurface.Root>
-        <ComposerSurface.Hint id="session-start-hint">
-          {t('SessionStartDraftHelp')}
-        </ComposerSurface.Hint>
-        <SessionCreationStatus model={model} />
-        <SessionCreationRecovery model={model} />
-      </Notebook.StartContent>
-    </Notebook.Start>
+    <WorkspaceCard.Provider>
+      <div className="session-workspace">
+        {id ? <SessionBody key={String(id)} id={id} /> : <SessionStart />}
+      </div>
+    </WorkspaceCard.Provider>
   );
 }
 
 function SessionBody({ id }: { id: SessionId }) {
   const { t } = useI18n();
-  const search = useSearch({ from: '__root__' });
   const state = useQuery(sessionOptions(id));
+  const search = useSearch({ from: '__root__' });
+  const subjects = useQuery(projectsQueryOptions());
+  const project =
+    state.data?.projectIds.find((id) => String(id) === search.project) ?? state.data?.projectIds[0];
+  const owner = subjects.data?.find((subject) => subject.id === project);
   const cache = useQueryClient();
-  const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const deletePending =
+    useIsMutating({ mutationKey: [...sessionKey(id), 'delete'], exact: true }) > 0;
   const files = useAttachments(id);
   const deletion = useQuery(deletionOptions(id, true));
-  const live = deletion.isError && toStudyError(deletion.error).kind === 'not_found';
-  const available = sessionAvailable(state, live);
-
+  const deleteAttempt = useQuery(deletionAttemptOptions(id));
+  const live = deletion.isSuccess && deletion.data === null;
+  const editable = !!state.data && !state.isError && live && !deletePending && !deleteAttempt.data;
   useEffect(() => {
     if (state.isSuccess) {
       const created = cache.getQueryData<{ id?: SessionId }>(['session-workspace', 'creation']);
-
       if (created?.id === id) cache.setQueryData(['session-workspace', 'creation'], {});
     }
   }, [cache, id, state.isSuccess]);
-
   return (
-    <Notebook.Canvas
+    <WorkspaceSurface.Root
+      variant="session"
+      className="session-canvas"
       onDragOver={(event) => {
-        if (live && !deleting) event.preventDefault();
+        if (live && !deletePending) event.preventDefault();
       }}
       onDrop={(event) => {
         event.preventDefault();
         const draft = cache.getQueryData<Draft>(['session-drafts', String(id), 'note']);
-
-        if (available && !deleting && attachableDraft(draft))
-          files.add(Array.from(event.dataTransfer.files));
+        if (editable && canAttachDraft(draft)) files.add(Array.from(event.dataTransfer.files));
       }}
     >
-      <Notebook.CanvasToolbar>
-        <Button
-          variant="ghost"
-          render={
-            <Link to="/sessions" search={search.project ? { project: search.project } : {}} />
-          }
-        >
-          {t('SessionBack')}
-        </Button>
-        {available && state.data && <h2>{state.data.title || t('SessionUntitled')}</h2>}
-        <Deletion id={id} allowDelete={available} onDeleting={setDeleting} />
-      </Notebook.CanvasToolbar>
-      {state.isPending && <Loading label={t('LoadingStudy')} />}
+      {live && (
+        <WorkspaceContext id={id}>
+          {editable && <SessionContextActions id={id} onDelete={() => setDeleteDialogOpen(true)} />}
+        </WorkspaceContext>
+      )}
+      <WorkspaceHeader owner={owner} title={state.data?.title}>
+        {live && <WorkspaceCard.Toggle label={t('SessionContextPanel')} />}
+      </WorkspaceHeader>
+      {deletion.data && <SessionDeletion id={id} />}
+      <SessionDeleteDialog id={id} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
+      {(state.isPending || deletion.isPending) && <p role="status">{t('LoadingStudy')}</p>}
+      {deletion.error && (
+        <SessionReadError error={deletion.error} retry={() => void deletion.refetch()} />
+      )}
       {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
-      {available && (
+      {editable && (
         <>
-          {!deleting && (
-            <>
-              <SelectionPanel id={id} />
-              <History id={id} />
-              <Transformation id={id} />
-              <Composer id={id} />
-            </>
-          )}
+          <WorkspaceSurface.Body>
+            <History id={id} />
+          </WorkspaceSurface.Body>
+          <WorkspaceSurface.Dock>
+            <Composer id={id} />
+            <WorkspaceFooter />
+          </WorkspaceSurface.Dock>
         </>
       )}
-    </Notebook.Canvas>
+    </WorkspaceSurface.Root>
   );
 }
 
-type DeletionModel = ReturnType<typeof useDeletion>;
-
-function Deletion(props: Parameters<typeof useDeletion>[0]) {
-  const model = useDeletion(props);
-  const { t, confirm, setConfirm, state, started, mutation, allowDelete } = model;
-
-  return (
-    <Notebook.Delete
-      open={confirm || !!state.data || started}
-      onToggle={(event) => setConfirm(event.currentTarget.open)}
-    >
-      <summary>{t('SessionDelete')}</summary>
-      <p>{t('SessionDeleteHelp')}</p>
-      {allowDelete && !started && !state.data && (
-        <Button
-          variant="destructive-outline"
-          disabled={mutation.isPending}
-          onClick={() => mutation.mutate()}
-        >
-          {t('SessionConfirmDelete')}
-        </Button>
-      )}
-      <DeletionStatus model={model} />
-    </Notebook.Delete>
-  );
-}
-
-function SessionCreationStatus({ model }: { model: SessionStartModel }) {
-  const { t, flow, navigationError, select, create } = model;
-
-  return (
-    <>
-      {flow.data.pending && <Loading label={t('SessionStarting')} />}
-      {flow.data.id && (
-        <Button variant="outline" onClick={() => void select(flow.data.id!)}>
-          {t('SessionOpenCreated')}
-        </Button>
-      )}
-      {!!navigationError && (
-        <SessionError
-          error={navigationError}
-          retry={flow.data.id ? () => void select(flow.data.id!) : undefined}
-        />
-      )}
-      {create.error && <SessionError error={create.error} />}
-    </>
-  );
-}
-
-function SessionCreationRecovery({ model }: { model: SessionStartModel }) {
-  const { t, date, cache, search, state, flow, reviewed, setReviewed, create, items } = model;
-
-  return (
-    <>
-      {flow.data.uncertain && !flow.data.pending && (
-        <Notebook.StartRecovery aria-label={t('SessionRecent')}>
-          <p role="status">{t('SessionCreationUncertain')}</p>
-          <Notebook.Actions>
-            <Button
-              variant="outline"
-              disabled={state.isFetching}
-              onClick={async () => {
-                const result = await state.refetch();
-
-                setReviewed(!result.isError);
-              }}
-            >
-              {t('LibraryRefresh')}
-            </Button>
-            {reviewed && (
-              <Button
-                onClick={() => {
-                  cache.setQueryData(['session-workspace', 'creation'], {});
-                  create.reset();
-                  setReviewed(false);
-                }}
-              >
-                {t('SessionCreationReviewed')}
-              </Button>
-            )}
-          </Notebook.Actions>
-          {state.isPending && <Loading label={t('LoadingStudy')} />}
-          {state.error && (
-            <SessionReadError error={state.error} retry={() => void state.refetch()} />
-          )}
-          {state.isSuccess && items.length === 0 && <p>{t('SessionListEmpty')}</p>}
-          <Notebook.List>
-            {items.map((item) => (
-              <li key={String(item.id)}>
-                <Link to="/sessions" search={{ ...search, id: String(item.id) }}>
-                  <span>{item.title || t('SessionUntitled')}</span>
-                  <time>{date(item.updatedAt)}</time>
-                </Link>
-              </li>
-            ))}
-          </Notebook.List>
-          {state.hasNextPage && (
-            <Button
-              variant="ghost"
-              disabled={state.isFetchingNextPage}
-              onClick={() => void state.fetchNextPage()}
-            >
-              {t('LibraryMore')}
-            </Button>
-          )}
-        </Notebook.StartRecovery>
-      )}
-    </>
-  );
-}
-
-function attachableDraft(draft: Draft | undefined) {
+function canAttachDraft(draft: Draft | undefined) {
   return !draft?.pending && !draft?.askAttempt && draft?.noteAttempt === undefined;
-}
-
-function DeletionStatus({ model }: { model: DeletionModel }) {
-  const { t, mutation, state, retry } = model;
-
-  const status = state.data?.status;
-
-  return (
-    <>
-      {mutation.error && <SessionError error={mutation.error} retry={() => mutation.mutate()} />}
-      {state.error && toStudyError(state.error).kind !== 'not_found' && (
-        <SessionReadError error={state.error} retry={() => void state.refetch()} />
-      )}
-      {status === 'pending' && <Loading label={t('SessionDeleting')} />}
-      {status === 'failed' && (
-        <ErrorState
-          title={t('workspace.state.failure')}
-          action={
-            <Button disabled={retry.isPending} onClick={() => retry.mutate()}>
-              {t('SessionRetryDelete')}
-            </Button>
-          }
-        />
-      )}
-      {retry.error && <SessionError error={retry.error} />}
-      {status === 'completed' && <p role="status">{t('SessionDeleted')}</p>}
-    </>
-  );
-}
-
-function sessionAvailable(state: { data: unknown; isError: boolean }, live: boolean) {
-  return !!state.data && !state.isError && live;
 }

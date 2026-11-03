@@ -1,224 +1,208 @@
-import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
-import type { BackupId } from '@study/contracts/system/backups';
+import { MAX_MANAGED_BACKUPS, restoreStatusSchema } from '@study/contracts/system/backups';
+import type { BackupId, RestorePreview } from '@study/contracts/system/backups';
+import { mediaSize } from '@study/localization';
 import { Button } from '@study/ui/button';
-import { DataManagement } from '@study/ui/data-management';
-import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
-import { ErrorState } from '@study/ui/error-state';
+import { DangerDialog, DangerDialogContext } from '@study/ui/danger-dialog';
 import { Settings } from '@study/ui/settings';
-import { useState } from 'react';
+import { Schema } from 'effect';
+import { Archive, CheckCircle2, Download, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 import { useI18n } from '../../../lib/i18n';
 import { useDataSettings } from './use-data';
 
-function useDataView() {
-  const { t, number, date } = useI18n();
-  const { state, owner } = useDataSettings();
-  const [deletion, setDeletion] = useState<{ id: BackupId } | 'recovery'>();
-  const [confirmed, setConfirmed] = useState(false);
-  const [confirmedToken, setConfirmedToken] = useState<string>();
-  const busy = state.busy || !!state.uncertain;
-  const disabled = busy || !state.statusReady || !state.listReady || !!state.error;
-  const canDiscard = recoveryDiscardAllowed(state, busy);
-  const mutable = !disabled && state.status?.state !== 'restart-required';
-  const preview = state.preview;
+import './data.css';
 
-  return {
-    t,
-    number,
-    date,
-    state,
-    owner,
-    deletion,
-    setDeletion,
-    confirmed,
-    setConfirmed,
-    confirmedToken,
-    setConfirmedToken,
-    busy,
-    canDiscard,
-    mutable,
-    preview
-  };
+type BackupDeletion = { id: BackupId } | 'recovery';
+type BackupState = ReturnType<ReturnType<typeof useDataSettings>['owner']['snapshot']>;
+
+function deletionConfirmed(
+  target: BackupDeletion,
+  before: BackupState['receipt'],
+  state: BackupState
+) {
+  if (!state.receipt || state.receipt === before || state.uncertain) return false;
+  if (target === 'recovery') return state.submitted?.kind === 'discard';
+  return state.submitted?.kind === 'delete' && state.submitted.id === target.id;
 }
-
-type DataView = ReturnType<typeof useDataView>;
 
 export function DataSettings() {
-  const view = useDataView();
-  const { t, state, owner, setConfirmedToken } = view;
-
-  return (
-    <Settings.Section
-      title={t('DataSettingsTitle')}
-      actions={
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={state.busy}
-          onClick={() => {
-            setConfirmedToken(undefined);
-            void owner.refresh();
-          }}
-        >
-          {t('DataRefresh')}
-        </Button>
-      }
-    >
-      <DataNotices view={view} />
-      <BackupCatalog view={view} />
-      <RecoveryStatus view={view} />
-      <PreviewDialog view={view} />
-      <DeletionDialog view={view} />
-    </Settings.Section>
-  );
-}
-
-function DataNotices({ view }: { view: DataView }) {
-  const { t, state, owner } = view;
-
+  const { t, number, date, locale } = useI18n();
+  const { state, owner } = useDataSettings();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [restoreAttempt, setRestoreAttempt] = useState<RestorePreview>();
+  const [deletion, setDeletion] = useState<BackupDeletion>();
+  const busy = state.busy || !!state.uncertain;
+  const disabled = busy || !state.statusReady || !state.listReady || !!state.error;
+  const canDiscard =
+    !busy &&
+    state.statusReady &&
+    !!state.status &&
+    state.status.state !== 'restart-required' &&
+    (state.status.recoveryCopy || state.status.state !== 'idle');
+  const mutable = !disabled && state.status?.state !== 'restart-required';
+  const preview = restoreAttempt ?? state.preview;
   return (
     <>
-      <DataManagement.Description>{t('DataSettingsDescription')}</DataManagement.Description>
-      {state.busy && <p role="status">{t('DataPending')}</p>}
-      {state.error && (
-        <Settings.Status>
-          {t(
-            state.error === 'file'
-              ? 'DataFileError'
-              : !state.statusReady
-                ? 'DataStatusError'
-                : !state.listReady
-                  ? 'DataListError'
-                  : 'DataReadError'
-          )}
-        </Settings.Status>
-      )}
-      {state.uncertain && (
-        <Settings.Status
-          action={
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={state.busy || !state.reconciled}
-              onClick={owner.acknowledgeUncertain}
-            >
-              {t('DataAcknowledge')}
-            </Button>
-          }
-        >
-          {t('DataUncertain')} <span>{state.uncertain.id ?? state.uncertain.fileName}</span>
-        </Settings.Status>
-      )}
-      <DataReceipts view={view} />
-    </>
-  );
-}
-
-function BackupCatalog({ view }: { view: DataView }) {
-  const {
-    t,
-    number,
-    date,
-    state,
-    owner,
-    setDeletion,
-    setConfirmed,
-    setConfirmedToken,
-    busy,
-    mutable
-  } = view;
-
-  return (
-    <>
-      <Settings.Group>
-        <Settings.Row
-          title={t('DataCreate')}
-          description={`${number(state.backups.length)} / ${number(MAX_MANAGED_BACKUPS)}`}
-        >
+      <Settings.Section
+        title={t('DataSettingsTitle')}
+        actions={
           <Button
             size="sm"
             variant="outline"
-            disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
-            onClick={() => void owner.create()}
-          >
-            {t('DataCreate')}
-          </Button>
-        </Settings.Row>
-        <Settings.Row title={t('DataImport')} description={t('DataFileError')}>
-          <DataManagement.File
-            type="file"
-            accept=".studybackup"
-            aria-label={t('DataImport')}
-            disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
-
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-
-              event.currentTarget.value = '';
-
-              if (file) void owner.importFile(file);
+            disabled={state.busy}
+            onClick={() => {
+              void owner.refresh();
             }}
-          />
-        </Settings.Row>
-        {state.backups.map((backup) => (
-          <Settings.Row
-            key={backup.id}
-            title={date(backup.createdAtMs / 1000)}
-            description={`${number(backup.bytes)} B`}
           >
-            <DataManagement.Actions>
+            <RefreshCw size={14} aria-hidden="true" />
+            {t('DataRefresh')}
+          </Button>
+        }
+      >
+        <p className="data-settings-intro">{t('DataSettingsDescription')}</p>
+        {state.busy && <p role="status">{t('DataPending')}</p>}
+        {state.error && (
+          <Settings.Status>
+            {t(
+              state.error === 'file'
+                ? 'DataFileError'
+                : !state.statusReady
+                  ? 'DataStatusError'
+                  : !state.listReady
+                    ? 'DataListError'
+                    : 'DataReadError'
+            )}
+          </Settings.Status>
+        )}
+        {state.uncertain && (
+          <Settings.Status
+            action={
               <Button
                 size="sm"
                 variant="outline"
-                disabled={busy}
-                onClick={() => void owner.download(backup.id)}
+                disabled={state.busy || !state.reconciled}
+                onClick={owner.acknowledgeUncertain}
               >
-                {t('DataDownload')}
+                {t('DataAcknowledge')}
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!mutable}
-                onClick={() => {
-                  setConfirmedToken(undefined);
-                  void owner.preview(backup.id);
-                }}
-              >
-                {t('DataPreview')}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!mutable}
-                onClick={() => {
-                  setConfirmed(false);
-                  setDeletion({ id: backup.id });
-                }}
-              >
-                {t('DataDelete')}
-              </Button>
-            </DataManagement.Actions>
+            }
+          >
+            {t('DataUncertain')}
+          </Settings.Status>
+        )}
+        <Settings.Group>
+          <Settings.Row
+            title={t('DataLocalBackups')}
+            description={t('DataBackupCapacity', {
+              count: number(state.backups.length),
+              limit: number(MAX_MANAGED_BACKUPS)
+            })}
+          >
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
+              onClick={() => void owner.create()}
+            >
+              {t('DataCreate')}
+            </Button>
           </Settings.Row>
-        ))}
-      </Settings.Group>
-      {state.loaded && !state.backups.length && <Settings.Empty>{t('DataEmpty')}</Settings.Empty>}
-    </>
-  );
-}
-
-function RecoveryStatus({ view }: { view: DataView }) {
-  const { t, state, setDeletion, setConfirmed, canDiscard } = view;
-
-  return (
-    <>
+          <Settings.Row title={t('DataImport')} description={t('DataImportHelp')}>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".studybackup"
+              aria-label={t('DataImport')}
+              disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = '';
+                if (file) void owner.importFile(file);
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
+              onClick={() => fileInput.current?.click()}
+            >
+              <Upload size={14} aria-hidden="true" />
+              {t('DataChooseFile')}
+            </Button>
+          </Settings.Row>
+        </Settings.Group>
+      </Settings.Section>
+      <Settings.Section title={t('DataSavedBackups')}>
+        <Settings.Group>
+          {state.loaded && !state.backups.length && (
+            <Settings.Empty title={t('DataEmptyTitle')} icon={<Archive aria-hidden="true" />}>
+              {t('DataEmpty')}
+            </Settings.Empty>
+          )}
+          {state.backups.map((backup) => (
+            <Settings.Row
+              key={backup.id}
+              title={date(backup.createdAtMs / 1000)}
+              description={mediaSize(locale, backup.bytes)}
+            >
+              <div className="data-backup-actions">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void owner.download(backup.id)}
+                >
+                  <Download size={14} aria-hidden="true" />
+                  {t('DataDownload')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!mutable}
+                  onClick={() => {
+                    void owner.preview(backup.id);
+                  }}
+                >
+                  {t('DataPreview')}
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost-destructive"
+                  aria-label={t('DataDelete')}
+                  title={t('DataDelete')}
+                  disabled={!mutable}
+                  onClick={() => {
+                    setDeletion({ id: backup.id });
+                  }}
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                </Button>
+              </div>
+            </Settings.Row>
+          ))}
+        </Settings.Group>
+      </Settings.Section>
       {state.status && (
         <Settings.Section title={t('DataStatus')}>
           <Settings.Group>
             <Settings.Row
               title={t(`DataState${state.status.state}`)}
-              description={state.status.backupId ?? ''}
+              description={
+                state.status.state === 'idle'
+                  ? t('DataRestoreIdleHelp')
+                  : state.status.state === 'restart-required'
+                    ? t('DataRestoreRestartHelp')
+                    : state.status.state === 'applied'
+                      ? t('DataRestoreAppliedHelp')
+                      : t('DataRestoreFailedHelp')
+              }
             >
-              {null}
+              {state.status.state === 'idle' ? (
+                <CheckCircle2 size={17} aria-hidden="true" className="data-restore-idle" />
+              ) : null}
             </Settings.Row>
             {state.status.recoveryCopy && (
               <Settings.Row title={t('DataRecovery')} description="">
@@ -232,7 +216,6 @@ function RecoveryStatus({ view }: { view: DataView }) {
                   variant="outline"
                   disabled={!canDiscard}
                   onClick={() => {
-                    setConfirmed(false);
                     setDeletion('recovery');
                   }}
                 >
@@ -243,226 +226,132 @@ function RecoveryStatus({ view }: { view: DataView }) {
           </Settings.Group>
         </Settings.Section>
       )}
-    </>
-  );
-}
-
-function PreviewDialog({ view }: { view: DataView }) {
-  const { t, number, date, state, owner, confirmedToken, setConfirmedToken, preview } = view;
-  const blocked = restoreBlocked(view);
-
-  return (
-    <>
-      <Dialog
+      <DangerDialog
         open={!!preview}
         onOpenChange={(open) => {
           if (!open) {
             owner.clearPreview();
-            setConfirmedToken(undefined);
+            setRestoreAttempt(undefined);
+          }
+        }}
+        title={t('DataPreview')}
+        description={t('DataRestoreWarning')}
+        confirmLabel={t('DataAccept')}
+        cancelLabel={t('Cancel')}
+        pending={state.busy}
+        disabled={
+          !mutable || !preview || preview.blockedByCurrentBarriers || !!state.status?.recoveryCopy
+        }
+        confirmation={{
+          identity: preview?.token ?? 'no-restore',
+          value: t('DataRestoreConfirmationWord'),
+          label: t('DataRestoreConfirmationInstruction', { word: t('DataRestoreConfirmationWord') })
+        }}
+        onConfirm={async () => {
+          if (!preview) return;
+          const reviewed = preview;
+          const before = owner.snapshot().receipt;
+          setRestoreAttempt(reviewed);
+          await owner.accept(reviewed);
+          const outcome = owner.snapshot();
+          if (
+            outcome.receipt !== before &&
+            !outcome.uncertain &&
+            Schema.is(restoreStatusSchema)(outcome.receipt) &&
+            outcome.receipt.state === 'restart-required' &&
+            outcome.receipt.backupId === reviewed.backup.id
+          ) {
+            setRestoreAttempt(undefined);
+            owner.clearPreview();
           }
         }}
       >
-        <DataManagement.PreviewPopup closeLabel={t('Close')}>
-          <DialogHeader>
-            <DialogTitle>{t('DataPreview')}</DialogTitle>
-          </DialogHeader>
-          {preview && (
-            <DataManagement.DialogContent>
-              <p>{t('DataRestoreWarning')}</p>
-              <details>
-                <DataManagement.DetailsToggle>
-                  {t('workspace.details')}
-                </DataManagement.DetailsToggle>
-                <DataManagement.Details>
-                  <dt>{t('DataBackup')}</dt>
-                  <dd>{preview.backup.id}</dd>
-                  <dt>{t('DataCreated')}</dt>
-                  <dd>{date(preview.backup.createdAtMs / 1000)}</dd>
-                  <dt>{t('DataBytes')}</dt>
-                  <dd>{number(preview.backup.bytes)}</dd>
-                  <dt>{t('DataFormat')}</dt>
-                  <dd>
-                    {preview.backup.format} / {number(preview.backup.version)}
-                  </dd>
-                  <dt>{t('DataSchema')}</dt>
-                  <dd>{preview.backup.schema}</dd>
-                  <dt>{t('DataToken')}</dt>
-                  <dd>{preview.token}</dd>
-                  <dt>{t('DataDigest')}</dt>
-                  <dd>{preview.backup.sha256}</dd>
-                  <dt>{t('DataTarget')}</dt>
-                  <dd>{preview.target}</dd>
-                </DataManagement.Details>
-              </details>
-              <DataManagement.Scope>
-                <DataManagement.ScopeCaption>{t('DataScope')}</DataManagement.ScopeCaption>
-                <thead>
-                  <tr>
-                    <th scope="col">{t('DataScope')}</th>
-                    <th scope="col">{t('DataCurrent')}</th>
-                    <th scope="col">{t('DataBackup')}</th>
+        {preview && (
+          <div className="space-y-4 text-sm">
+            <DangerDialogContext>
+              <Archive aria-hidden="true" />
+              <span>{date(preview.backup.createdAtMs / 1000)}</span>
+              <span>{mediaSize(locale, preview.backup.bytes)}</span>
+            </DangerDialogContext>
+            <table className="w-full text-start tabular-nums [&_th]:py-2 [&_td]:py-2 [&_td]:text-end [&_tr]:border-b [&_tr]:border-border">
+              <caption className="text-start">{t('DataScope')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('DataScope')}</th>
+                  <th scope="col">{t('DataCurrent')}</th>
+                  <th scope="col">{t('DataBackup')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Object.keys(preview.current) as (keyof typeof preview.current)[]).map((key) => (
+                  <tr key={key}>
+                    <th scope="row" className="text-start font-normal">
+                      {t(`DataScope${key}`)}
+                    </th>
+                    <td>{number(preview.current[key])}</td>
+                    <td>{number(preview.backup.scope[key])}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {(Object.keys(preview.current) as (keyof typeof preview.current)[]).map((key) => (
-                    <tr key={key}>
-                      <DataManagement.ScopeLabel scope="row">
-                        {t(`DataScope${key}`)}
-                      </DataManagement.ScopeLabel>
-                      <td>{number(preview.current[key])}</td>
-                      <td>{number(preview.backup.scope[key])}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataManagement.Scope>
-              {preview.blockedByCurrentBarriers && (
-                <ErrorState title={t('ErrorStateTitle')} description={t('DataBlocked')} />
-              )}
-              {state.status?.recoveryCopy && (
-                <ErrorState title={t('ErrorStateTitle')} description={t('DataRecoveryBlocked')} />
-              )}
-              <DataManagement.Consent>
-                <input
-                  type="checkbox"
-                  checked={confirmedToken === preview.token}
-                  disabled={blocked}
-                  onChange={(event) =>
-                    setConfirmedToken(event.target.checked ? preview.token : undefined)
-                  }
-                />
-                {t('DataConfirmRestore')}
-              </DataManagement.Consent>
-              <Button
-                disabled={blocked || confirmedToken !== preview.token}
-                onClick={() => {
-                  if (confirmedToken === preview.token) void owner.accept(preview);
-                }}
-              >
-                {t('DataAccept')}
-              </Button>
-            </DataManagement.DialogContent>
-          )}
-        </DataManagement.PreviewPopup>
-      </Dialog>
-    </>
-  );
-}
-
-function DeletionDialog({ view }: { view: DataView }) {
-  const { t, owner, deletion, setDeletion, confirmed, setConfirmed, canDiscard, mutable } = view;
-
-  return (
-    <>
-      <Dialog
+                ))}
+              </tbody>
+            </table>
+            {preview.blockedByCurrentBarriers && <p role="alert">{t('DataBlocked')}</p>}
+            {state.status?.recoveryCopy && <p role="alert">{t('DataRecoveryBlocked')}</p>}
+            {state.uncertain && <p role="alert">{t('DataUncertain')}</p>}
+            {state.error && <p role="alert">{t('DataReadError')}</p>}
+          </div>
+        )}
+      </DangerDialog>
+      <DangerDialog
         open={!!deletion}
         onOpenChange={(open) => {
           if (!open) setDeletion(undefined);
         }}
+        title={t(deletion === 'recovery' ? 'DataDiscard' : 'DataDelete')}
+        description={t(deletion === 'recovery' ? 'DataDiscardWarning' : 'DataDeleteWarning')}
+        confirmLabel={t(deletion === 'recovery' ? 'DataDiscard' : 'DataDelete')}
+        cancelLabel={t('Cancel')}
+        pending={state.busy}
+        disabled={deletion === 'recovery' ? !canDiscard : !mutable}
+        confirmation={{
+          identity:
+            deletion === 'recovery'
+              ? `recovery:${state.status?.backupId ?? ''}:${state.status?.state ?? ''}:${state.status?.recoveryCopy}`
+              : (deletion?.id ?? 'no-backup'),
+          value: t('DeleteConfirmationWord'),
+          label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') })
+        }}
+        onConfirm={async () => {
+          if (!deletion || (deletion === 'recovery' ? !canDiscard : !mutable)) return;
+          const target = deletion;
+          const before = owner.snapshot().receipt;
+          if (target === 'recovery') await owner.discard();
+          else await owner.delete(target.id);
+          if (deletionConfirmed(target, before, owner.snapshot())) setDeletion(undefined);
+        }}
       >
-        <DialogPopup closeLabel={t('Close')}>
-          <DialogHeader>
-            <DialogTitle>{t(deletion === 'recovery' ? 'DataDiscard' : 'DataDelete')}</DialogTitle>
-          </DialogHeader>
-          <DataManagement.DialogContent>
-            <p>{t(deletion === 'recovery' ? 'DataDiscardWarning' : 'DataDeleteWarning')}</p>
-            {deletion && deletion !== 'recovery' && (
-              <DataManagement.Identity>{deletion.id}</DataManagement.Identity>
-            )}
-            <DataManagement.Consent>
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(event) => setConfirmed(event.target.checked)}
-              />
-              {t('DataDeliberate')}
-            </DataManagement.Consent>
-          </DataManagement.DialogContent>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletion(undefined)}>
-              {t('Cancel')}
-            </Button>
-            <Button
-              disabled={!confirmed || (deletion === 'recovery' ? !canDiscard : !mutable)}
-              onClick={() => {
-                if (!confirmed || !deletion || (deletion === 'recovery' ? !canDiscard : !mutable))
-                  return;
+        {deletion &&
+          deletion !== 'recovery' &&
+          state.backups
+            .filter((backup) => backup.id === deletion.id)
+            .map((backup) => (
+              <DangerDialogContext key={backup.id}>
+                <Archive aria-hidden="true" />
+                <span>{date(backup.createdAtMs / 1000)}</span>
+                <span>{mediaSize(locale, backup.bytes)}</span>
+              </DangerDialogContext>
+            ))}
 
-                if (deletion === 'recovery') void owner.discard();
-                else void owner.delete(deletion.id);
-
-                setDeletion(undefined);
-              }}
-            >
-              {t(deletion === 'recovery' ? 'DataDiscard' : 'DataDelete')}
-            </Button>
-          </DialogFooter>
-        </DialogPopup>
-      </Dialog>
-    </>
-  );
-}
-
-function recoveryDiscardAllowed(state: ReturnType<typeof useDataSettings>['state'], busy: boolean) {
-  return (
-    !busy &&
-    state.statusReady &&
-    !!state.status &&
-    state.status.state !== 'restart-required' &&
-    (state.status.recoveryCopy || state.status.state !== 'idle')
-  );
-}
-
-function restoreBlocked(view: DataView) {
-  return (
-    !view.mutable || !!view.preview?.blockedByCurrentBarriers || !!view.state.status?.recoveryCopy
-  );
-}
-
-function DataReceipts({ view }: { view: DataView }) {
-  const { t, state } = view;
-
-  return (
-    <>
-      {state.submitted && (
-        <DataManagement.Submitted>
-          <DataManagement.DetailsToggle>{t('workspace.details')}</DataManagement.DetailsToggle>
-          <p>
-            {t('DataSubmitted')}:{' '}
-            {t(
-              (
-                {
-                  create: 'DataCreate',
-                  import: 'DataImport',
-                  delete: 'DataDelete',
-                  accept: 'DataAccept',
-                  discard: 'DataDiscard'
-                } as const
-              )[state.submitted.kind]
-            )}
+        {state.uncertain && (
+          <p role="alert" className="mt-3">
+            {t('DataUncertain')}
           </p>
-          <p>{state.submitted.id ?? state.submitted.fileName}</p>
-          {state.submitted.acceptance && (
-            <dl>
-              <dt>{t('DataToken')}</dt>
-              <dd>{state.submitted.acceptance.token}</dd>
-              <dt>{t('DataDigest')}</dt>
-              <dd>{state.submitted.acceptance.sha256}</dd>
-              <dt>{t('DataTarget')}</dt>
-              <dd>{state.submitted.acceptance.target}</dd>
-            </dl>
-          )}
-        </DataManagement.Submitted>
-      )}
-      {state.receipt && (
-        <DataManagement.Receipt role="status">
-          {t('DataReceipt')}{' '}
-          {'id' in state.receipt
-            ? state.receipt.id
-            : 'state' in state.receipt
-              ? t(`DataState${state.receipt.state}`)
-              : null}
-        </DataManagement.Receipt>
-      )}
+        )}
+        {state.error && (
+          <p role="alert" className="mt-3">
+            {t('DataReadError')}
+          </p>
+        )}
+      </DangerDialog>
     </>
   );
 }

@@ -3,9 +3,9 @@ import type { SessionId, VersionId, MaterialVersionId } from '@study/contracts/i
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
+import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { NotebookPen } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
@@ -46,11 +46,10 @@ export function History({ id }: { id: SessionId }) {
         </Button>
       )}
       {state.isSuccess && messages.length === 0 && (
-        <Notebook.EmptyCanvas>
-          <NotebookPen size={26} strokeWidth={1.5} aria-hidden="true" />
-          <h3>{t('SessionCanvasStart')}</h3>
-          <p>{t('SessionCanvasStartHelp')}</p>
-        </Notebook.EmptyCanvas>
+        <WorkspaceSurface.Heading>
+          <h3>{t('SessionStartTitle')}</h3>
+          <p>{t('SessionStartHelp')}</p>
+        </WorkspaceSurface.Heading>
       )}
       {messages.map((message) => (
         <MessageEntry key={String(message.id)} message={message} />

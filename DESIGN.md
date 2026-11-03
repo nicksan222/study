@@ -58,7 +58,7 @@ metrics, remote fonts or saturated alternative palettes.
 
 ## Subject workspace
 
-The current subject picker owns the top of the sidebar, with search directly below it.
+The current subject picker owns the top of the sidebar, with search directly below it. Subject identities use one quiet letter badge throughout the picker, lists and notebook breadcrumb. Automatic initials follow the title; a saved custom one-to-three-letter monogram can replace them. The icon editor previews both modes and confirms successful saves with a toast.
 Overview, Sessions, Sources, Flashcards, Diagram, Practice and Activity all belong to that
 subject. Changing subjects keeps the section and clears the old selected item. An item's
 own subject is authoritative for deep links; unresolved or missing subjects never expose
@@ -85,14 +85,57 @@ and version-history states, and fix independent UX/UI review findings before fin
 
 ## Session entry and errors
 
-The existing sidebar owns the session rail and keeps its current navigation and geometry.
-The main Sessions entry is a centered notebook starter: a short explanation, a quiet
-composer and New session. A starter draft follows the user into the created notebook;
-starting a session does not request a reply. Notes remain an unboxed chronological
-notebook. Save note is primary, Cmd/Ctrl+Enter saves, and Ask Study is explicit.
+The Sessions starter lives at `/sessions`; an active notebook uses `/sessions/:sessionId`.
+Both use `WorkspaceSurface` from `@study/ui/workspace`, with explicit welcome and session
+variants, the same restrained typography and a bottom composer dock. The content column
+stops at 48rem on wide screens; the interface does not enlarge to fill the monitor.
+The active notebook header is one compact subject/session breadcrumb. The sidebar owns
+its collapse control while open, and the content shows one reveal control while hidden.
+Cmd/Ctrl+K reveals navigation and focuses search. Session actions use the row's context
+menu without permanent overflow buttons.
 
-`@study/ui/composer` owns the shared input surface and footer. It adapts the restrained
-composer structure from T3 Code and coss UI using Study's semantic tokens. Shared
-`@study/ui/error-state` owns page and inline failure presentation: a neutral icon,
+`WorkspaceCard` owns one compact right context panel, controlled by the square menu icon
+in the session header. It combines current-session notes, attachments, revisions and
+generated material with selection, document transformation and session deletion actions.
+Selection and transformation open shared dialogs with readable 14px form text and one
+scrolling body. Closing either dialog returns focus to its card action; closing the panel
+keeps drafts and operation ownership mounted. Previews are read-only and retain exact
+version identities; a revision compares its actual parent with its current version. The
+starter uses the same panel toggle without inventing activity or totals. Narrow layouts
+move the card into the page flow and keep controls reachable.
+
+`@study/ui/composer` owns the shared input surface and footer, with starter and notebook
+variants using the same geometry. Draft text and files follow the user into a confirmed
+session; starting a session does not request a reply. Notes remain an unboxed chronological
+notebook. Save note is primary, Cmd/Ctrl+Enter saves, and Ask Study is explicit. Destructive
+session actions use the shared confirmation dialog and preserve pending and uncertain
+operation fences.
+
+Shared `@study/ui/error-state` owns page and inline failure presentation: a neutral icon,
 localized title and explanation, and the relevant recovery action. Page failures replace
 the page body; operation failures stay compact beside the work they affect.
+
+## Settings
+
+Settings use the shared `@study/ui/settings` surface, with an 85rem (1360px) maximum dialog width,
+a 13rem navigation column and compact labels and controls. Sections use shared groups
+and rows; descriptions stay with their labels, and controls align at the trailing edge.
+The Data and backups view separates local backup actions, saved backups and restore
+status. File selection uses the shared Button, empty states explain the next action,
+and destructive confirmations preserve their existing safeguards. Narrow screens reduce
+navigation to icons and use the available viewport without clipping controls.
+
+Appearance uses matching three-column color-scheme and theme cards on wide screens,
+with a shared 120px height. Scheme previews show a miniature workspace; themes retain
+their circular color palettes. Narrow screens reduce the columns. Interface sliders
+use neutral tracks and thumbs, plain tabular values and visible keyboard focus.
+
+Shared `@study/ui/danger-dialog` owns destructive confirmations. The user types the
+localized action phrase or the entity's exact name; opening another confirmation resets
+that intent. Pending operations retain their identity, disable dismissal and preserve
+reviewed-version and uncertain-operation safeguards. Long confirmations scroll their
+body while keeping the title and actions visible.
+
+Shared `@study/ui/toast` provides localized operation feedback. Notifications follow
+new committed outcomes rather than replaying cached receipts. Backup rows show useful
+dates and sizes; operation identifiers and diagnostic receipts stay out of normal UI.

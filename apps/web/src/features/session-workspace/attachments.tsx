@@ -6,7 +6,7 @@ import { Paperclip } from 'lucide-react';
 import { useI18n } from '../../lib/i18n';
 import { useAttachments } from './attachments.queries';
 import { SessionError } from './status';
-export { useAttachments, attachmentKey } from './attachments.queries';
+export { useAttachments, attachmentKey, addAttachments } from './attachments.queries';
 
 export function Attachments({ id, blocked }: { id: SessionId; blocked: boolean }) {
   const { t } = useI18n();

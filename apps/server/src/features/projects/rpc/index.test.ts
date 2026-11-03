@@ -51,7 +51,19 @@ test('native RPC handlers return projects and typed failures', async () => {
           );
           const created = yield* client('projects.createProject', { name: 'Test' });
 
-          assert.equal((yield* client('projects.project', { id: created.id })).name, 'Test');
+          assert.equal(created.icon, null);
+          const custom = yield* client('projects.setIcon', { id: created.id, icon: 'BIO' });
+          assert.equal(custom.icon, 'BIO');
+          assert.equal((yield* client('projects.project', { id: created.id })).icon, 'BIO');
+          yield* client('projects.renameProject', { id: created.id, name: 'Cell Biology' });
+          assert.equal((yield* client('projects.project', { id: created.id })).icon, 'BIO');
+          const automatic = yield* client('projects.setIcon', { id: created.id, icon: null });
+          assert.equal(automatic.icon, null);
+          assert.equal(automatic.name, 'Cell Biology');
+          assert.equal(
+            (yield* Effect.flip(client('projects.setIcon', { id, icon: 'A' }))).kind,
+            'not_found'
+          );
         }).pipe(Effect.provide(handlers))
       )
     );

@@ -1,9 +1,10 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import type { ItemFilter } from '../../features/library';
+import { sessionOptions } from '../../features/session-workspace/session-workspace.queries';
 import type { PageMetadata } from '../../lib/navigation/route-contract';
 import type { Sessions, Subjects } from '../../lib/study-client/operations';
 import {
@@ -26,27 +27,31 @@ export type SidebarProps = {
 };
 
 export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
-  const search = useSearch({ from: '__root__' });
-  const requestedProject = search.project ?? null;
-  const selectedSession = metadata.title === 'Sessions' ? (search.id ?? null) : null;
+  const { selectedSession, requestedProject, sessionReady, ownershipStatus, reloadOwner } =
+    useSidebarOwnership(metadata);
   const global = metadata.scope === 'global';
   const section = metadata.section;
   const projects = useQuery(projectsQueryOptions());
   const sessionList = useQuery(sessionsQueryOptions());
   const subjects = projects.data ?? noSubjects;
   const sessions = sessionList.data ?? noSessions;
-  const subjectState = loadingState(projects.status);
+  const subjectState = loadingState(
+    selectedSession && !sessionReady ? ownershipStatus : projects.status
+  );
   const sessionState = loadingState(sessionList.status);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ItemFilter>('all');
-  const { subject, project, invalidSubject, canSearch } = sidebarScope(
-    subjects,
-    requestedProject,
-    global,
-    subjectState
-  );
+  const {
+    subject,
+    project,
+    invalidSubject,
+    canSearch: scopeCanSearch
+  } = sidebarScope(subjects, requestedProject, global, subjectState);
+  const canSearch = sessionReady && scopeCanSearch;
   const { result, hits } = useSidebarSearch({ query, global, project, canSearch, section, filter });
-  const visibleSessions = sidebarSessions(sessions, invalidSubject, requestedProject, project);
+  const visibleSessions = sessionReady
+    ? sidebarSessions(sessions, invalidSubject, requestedProject, project)
+    : noSessions;
 
   const { searchRef, openSearch } = useSidebarSearchInput(collapsed, onToggle);
 
@@ -107,10 +112,39 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     createSession,
     createSubject,
     reloadSubjects: () => {
+      reloadOwner();
       void projects.refetch();
     },
     reloadSessions: () => {
       void sessionList.refetch();
+    }
+  };
+}
+
+function useSidebarOwnership(metadata: PageMetadata) {
+  const search = useSearch({ from: '__root__' });
+  const params = useParams({ strict: false });
+  const selectedSession =
+    metadata.title === 'Sessions' && params.sessionId ? String(params.sessionId) : null;
+  const selectedDetail = useQuery({
+    ...sessionOptions(params.sessionId!),
+    enabled: selectedSession !== null
+  });
+  const sessionReady = !selectedSession || selectedDetail.isSuccess;
+  const requestedProject = selectedSession
+    ? String(
+        selectedDetail.data?.projectIds.find((id) => String(id) === search.project) ??
+          selectedDetail.data?.projectIds[0] ??
+          ''
+      ) || null
+    : (search.project ?? null);
+  return {
+    selectedSession,
+    requestedProject,
+    sessionReady,
+    ownershipStatus: selectedDetail.status,
+    reloadOwner: () => {
+      if (selectedSession) void selectedDetail.refetch();
     }
   };
 }
@@ -243,6 +277,7 @@ function useSidebarActions(
   clearSearch: () => void
 ) {
   const navigate = useNavigate();
+  const params = useParams({ strict: false });
   const queryClient = useQueryClient();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [newSubjectOpen, setNewSubjectOpen] = useState(false);
@@ -257,6 +292,8 @@ function useSidebarActions(
 
     if (global) {
       void navigate({ to: '/library', search: { project: String(id) } });
+    } else if (params.sessionId) {
+      void navigate({ to: '/sessions', search: { project: String(id) } });
     } else {
       void navigate({ to: '.', search: { project: String(id) } });
     }
@@ -270,8 +307,9 @@ function useSidebarActions(
       onSuccess: (created) => {
         clearSearch();
         void navigate({
-          to: '/sessions',
-          search: { ...(project ? { project: String(project) } : {}), id: String(created.id) }
+          to: '/sessions/$sessionId',
+          params: { sessionId: created.id },
+          search: project ? { project: String(project) } : {}
         });
       }
     });

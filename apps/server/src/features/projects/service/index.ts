@@ -19,6 +19,7 @@ import type {
   projectIdInputSchema,
   renameProjectInputSchema,
   setExamInputSchema,
+  setProjectIconInputSchema,
   projectMaterialInputSchema,
   projectSessionInputSchema
 } from '@study/contracts/projects/rpc';
@@ -82,6 +83,8 @@ export const Projects = defineService(
         ),
       deleteProject: (input: typeof projectIdInputSchema.Type) =>
         transaction((tx) => tx.store(ProjectsStore).deleteProject(input)),
+      setIcon: (input: typeof setProjectIconInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).setIcon(input)),
       setExam: (input: typeof setExamInputSchema.Type) =>
         transaction((tx) =>
           tx.store(ProjectsStore).setExam({ ...input, examOn: examOf(input.examOn) })

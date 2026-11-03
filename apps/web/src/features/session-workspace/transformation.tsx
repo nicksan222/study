@@ -100,14 +100,13 @@ export function Transformation({ id }: { id: SessionId }) {
 
   return (
     <>
-      <Notebook.Section>
-        <summary>{t('SessionTransform')}</summary>
+      <div className="session-section">
         <Notebook.Muted>{t('SessionTransformHelp')}</Notebook.Muted>
         <TransformFields model={model} />
         <TransformFailure model={model} />
         <TransformRecovery model={model} />
         <TransformReceipt model={model} />
-      </Notebook.Section>
+      </div>
       <SessionRuns id={id} />
     </>
   );

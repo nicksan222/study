@@ -255,6 +255,11 @@ it('opens deletion through reader Actions and recovers accepted cleanup after th
   // Accepted deletion retires content before invalidation refetches the reader.
   rpc['materials.material'].mockReturnValue(Effect.fail(new StudyError('not_found', 'Retired')));
   await user.click(dialog.getByRole('button', { name: catalogs.english.DocumentConfirmDelete }));
+  const confirmation = within(await screen.findByRole('alertdialog'));
+  await user.type(confirmation.getByRole('textbox'), catalogs.english.DeleteConfirmationWord);
+  await user.click(
+    confirmation.getByRole('button', { name: catalogs.english.DocumentConfirmDelete })
+  );
   const recovery = within(
     await screen.findByRole('region', { name: catalogs.english.DocumentDelete })
   );

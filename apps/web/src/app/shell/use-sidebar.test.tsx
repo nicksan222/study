@@ -5,9 +5,12 @@ import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { App } from '../app';
 
+vi.mock('../../features/session-workspace/workspace', () => ({ SessionWorkspace: () => null }));
+
 const api = vi.hoisted(() => ({
   projects: vi.fn(),
   sessions: vi.fn(),
+  session: vi.fn(),
   sources: vi.fn(),
   materials: vi.fn(),
   search: vi.fn(),
@@ -61,6 +64,7 @@ vi.mock('../../lib/study-client/client', async () => {
       }),
     'system.search': call(api.search),
     'conversations.sessions': call(api.sessions),
+    'conversations.session': call(api.session),
     'conversations.createUntitledSession': call(api.createSession)
   };
 
@@ -71,13 +75,22 @@ vi.mock('../../lib/study-client/client', async () => {
 
 const en = catalogs.english;
 
+async function renderWithNavigation() {
+  render(<App />);
+  const toggle = await screen.findByRole('button', { name: en.ToggleSidebar });
+  if (toggle.getAttribute('aria-expanded') === 'false') {
+    await userEvent.setup().click(toggle);
+  }
+}
+
 const subjects = [
   { id: 1n, name: 'Biology', examOn: null, createdAt: 0n, updatedAt: 0n },
   { id: 2n, name: 'History', examOn: null, createdAt: 0n, updatedAt: 0n }
 ];
 
 beforeEach(() => {
-  history.replaceState(null, '', '/sessions?project=1&id=42');
+  history.replaceState(null, '', '/sessions/42?project=1');
+  api.session.mockReset().mockResolvedValue({ id: 42n, projectIds: [1n] });
   api.projects.mockResolvedValue({ items: subjects });
   api.sources.mockReset().mockResolvedValue({ items: [] });
   api.materials.mockReset().mockResolvedValue({ items: [], nextCursor: null });
@@ -108,11 +121,11 @@ beforeEach(() => {
 it('switches subjects while keeping the section and clearing the selected item', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await user.click(await screen.findByLabelText('Biology'));
   await user.click(await screen.findByRole('option', { name: 'History' }));
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=2'));
-  expect(screen.getByLabelText('History')).toBeInTheDocument();
+  expect(await screen.findByLabelText('History')).toBeInTheDocument();
 });
 
 it('searches within the selected subject and opens a result', async () => {
@@ -129,7 +142,7 @@ it('searches within the selected subject and opens a result', async () => {
   });
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.type(screen.getByRole('searchbox'), 'cell');
   await user.click(await screen.findByRole('link', { name: /Cell division/ }));
@@ -139,26 +152,26 @@ it('searches within the selected subject and opens a result', async () => {
     limit: 30,
     kinds: ['session', 'message']
   });
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=1&id=9'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/9?project=1'));
 });
 
 it('creates a real session in the selected subject', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(
     within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
   );
   expect(api.createSession).toHaveBeenCalledWith({ project: 1n });
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=1&id=7'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/7?project=1'));
 });
 
 it('does not search another subject when the URL subject is missing', async () => {
   history.replaceState(null, '', '/sessions?project=99');
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByText(en.SubjectNotFound);
   await user.type(screen.getByRole('searchbox'), 'cell');
   expect(api.search).not.toHaveBeenCalled();
@@ -166,13 +179,13 @@ it('does not search another subject when the URL subject is missing', async () =
     within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
   );
   expect(api.createSession).toHaveBeenCalledWith({});
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?id=7'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/7'));
 });
 
 it('opens search from the collapsed rail with the keyboard shortcut', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('button', { name: en.ToggleSidebar }));
   await user.keyboard('{Control>}k{/Control}');
@@ -183,7 +196,7 @@ it('creates a subject from the toolbar and selects it', async () => {
   api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('button', { name: en.NewProject }));
   await user.type(screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
@@ -196,7 +209,7 @@ it('searches globally on Help while retaining the subject for navigation', async
   history.replaceState(null, '', '/help?project=1');
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.type(screen.getByRole('searchbox'), 'cell');
   await waitFor(() =>
@@ -207,7 +220,7 @@ it('searches globally on Help while retaining the subject for navigation', async
 it('lets the keyboard search and dismiss the subject picker', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   const picker = await screen.findByLabelText('Biology');
 
   picker.focus();
@@ -225,7 +238,7 @@ it('lets the keyboard search and dismiss the subject picker', async () => {
 it('ignores a subject list fetched before a new subject was created', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   let finish: (result: { items: typeof subjects }) => void = () => {};
 
@@ -256,7 +269,7 @@ it('ignores a subject list fetched before a new subject was created', async () =
 it('requests session kinds from the server before limiting search hits', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('button', { name: en.SearchFilter }));
   await user.click(await screen.findByRole('menuitem', { name: en.Sessions }));
@@ -274,7 +287,7 @@ it('requests session kinds from the server before limiting search hits', async (
 it('uses the body for sessions and a labeled navigation block above settings', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   const session = await screen.findByRole('link', { name: 'Cell division' });
 
@@ -293,9 +306,7 @@ it('uses the body for sessions and a labeled navigation block above settings', a
   await waitFor(() => expect(location.pathname + location.search).toBe('/practice?project=1'));
   await user.click(screen.getByRole('link', { name: en.Sessions }));
   await user.click(await screen.findByRole('link', { name: 'Cell division' }));
-  await waitFor(() =>
-    expect(location.pathname + location.search).toBe('/sessions?project=1&id=42')
-  );
+  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/42?project=1'));
 });
 
 it('mixes sources and diagrams in Library while keeping Sessions separate', async () => {
@@ -314,7 +325,7 @@ it('mixes sources and diagrams in Library while keeping Sessions separate', asyn
   });
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   await screen.findByRole('link', { name: 'Cell slides.pdf' });
@@ -350,7 +361,7 @@ it('lists flashcards and quizzes together and follows material pagination', asyn
   );
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.Practice }));
   await screen.findByRole('link', { name: 'Cell cards' });
@@ -393,7 +404,7 @@ it('loads later project and session pages', async () => {
         : { items: [], next: { id: 42n, updatedAt: 1n } }
     )
   );
-  render(<App />);
+  await renderWithNavigation();
   expect(await screen.findByRole('link', { name: 'Later session' })).toBeInTheDocument();
   const user = userEvent.setup();
 
@@ -411,7 +422,7 @@ it('loads later source pages in the library', async () => {
   );
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   expect(await screen.findByRole('link', { name: 'Later file' })).toBeInTheDocument();
@@ -436,7 +447,7 @@ it.each([
   });
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.type(screen.getByRole('searchbox'), 'cell');
   await user.click(await screen.findByRole('link', { name: /Cell study/ }));
@@ -461,7 +472,7 @@ it('preserves projects loaded while project creation is in flight', async () => 
   );
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await user.click(await screen.findByRole('button', { name: en.NewProject }));
   await user.type(screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
   await user.click(screen.getByRole('button', { name: en.CreateProject }));
@@ -481,7 +492,7 @@ it('keeps session lists and subject search available on Pipelines', async () => 
   history.replaceState(null, '', '/pipelines?project=1');
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByRole('link', { name: 'Cell division' });
   await user.type(screen.getByRole('searchbox'), 'cell');
   await waitFor(() =>
@@ -497,7 +508,7 @@ it('keeps session lists and subject search available on Pipelines', async () => 
 it('reuses library data when navigating between material pages', async () => {
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   await waitFor(() => expect(api.sources).toHaveBeenCalledOnce());
@@ -512,7 +523,7 @@ it('retries route loading after a library request fails', async () => {
   api.materials.mockRejectedValue(new Error('offline'));
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   const main = screen.getByRole('main');
@@ -541,7 +552,7 @@ it('reloads library data from the selected project search dependency', async () 
   );
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   await screen.findByRole('link', { name: 'Biology map' });
@@ -561,7 +572,7 @@ it('refreshes an initial session request after a session is created', async () =
   );
   const user = userEvent.setup();
 
-  render(<App />);
+  await renderWithNavigation();
   await screen.findByLabelText('Biology');
   api.sessions.mockResolvedValue({
     items: [
@@ -582,4 +593,49 @@ it('refreshes an initial session request after a session is created', async () =
     finish({ items: [] });
   });
   expect(await screen.findByRole('link', { name: 'Created session' })).toBeInTheDocument();
+});
+
+it.each(['/sessions/42', '/sessions/42?project=2'])(
+  'uses the actual session owner for direct and mismatched links: %s',
+  async (url) => {
+    history.replaceState(null, '', url);
+    await renderWithNavigation();
+    expect(await screen.findByLabelText('Biology')).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Cell division' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
+    await userEvent.setup().type(screen.getByRole('searchbox'), 'cell');
+    await waitFor(() =>
+      expect(api.search).toHaveBeenLastCalledWith({
+        query: 'cell',
+        project: 1n,
+        limit: 30,
+        kinds: ['session', 'message']
+      })
+    );
+  }
+);
+it('does not reveal a foreign subject while session ownership is loading', async () => {
+  history.replaceState(null, '', '/sessions/42?project=2');
+  api.session.mockReturnValue(new Promise(() => {}));
+  await renderWithNavigation();
+  expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
+  await userEvent.setup().type(screen.getByRole('searchbox'), 'rome');
+  expect(api.search).not.toHaveBeenCalled();
+});
+it('keeps projectless sessions independent of a foreign query parameter', async () => {
+  history.replaceState(null, '', '/sessions/42?project=2');
+  api.session.mockResolvedValue({ id: 42n, projectIds: [] });
+  await renderWithNavigation();
+  await waitFor(() => expect(api.session).toHaveBeenCalled());
+  expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
+});
+
+it('retries a failed session owner read from the subject picker error', async () => {
+  api.session.mockRejectedValue(new Error('offline'));
+  await renderWithNavigation();
+  const retry = await screen.findByRole('button', { name: en.SubjectsLoadError });
+  api.session.mockResolvedValue({ id: 42n, projectIds: [1n] });
+  await userEvent.setup().click(retry);
+  expect(await screen.findByLabelText('Biology')).toBeVisible();
 });

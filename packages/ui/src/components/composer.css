@@ -4,9 +4,9 @@
   width: 100%;
   min-width: 0;
   gap: 0.5rem;
-  padding: 0.75rem;
-  border: 1px solid var(--ui-surface-border);
-  border-radius: 1rem;
+  padding: var(--composer-padding, 0.75rem);
+  border: 1px solid var(--composer-border, var(--ui-surface-border));
+  border-radius: var(--composer-radius, 1rem);
   background: var(--card);
 }
 
@@ -21,26 +21,27 @@
   field-sizing: content;
   width: 100%;
   min-width: 0;
-  min-height: 5.5rem;
+  min-height: var(--composer-input-height, 5.5rem);
   max-height: 35dvh;
-  padding: 0.5rem;
+  padding: var(--composer-input-padding, 0.5rem);
   border: 0;
   outline: none;
   background: transparent;
   color: var(--foreground);
+  caret-color: var(--foreground);
   font: inherit;
-  line-height: 1.7;
+  line-height: var(--composer-line-height, 1.7);
   resize: none;
   overflow-wrap: anywhere;
 }
 
 .ui-composer-input::placeholder {
-  color: var(--muted-foreground);
+  color: var(--composer-placeholder, var(--muted-foreground));
 }
 
 .ui-composer-footer {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: var(--composer-footer-wrap, wrap);
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
@@ -50,4 +51,27 @@
   color: var(--muted-foreground);
   font-size: 0.75rem;
   line-height: 1.6;
+}
+
+.ui-composer:is([data-variant='starter'], [data-variant='notebook']) {
+  --composer-padding: 0.625rem;
+  --composer-border: transparent;
+  --composer-radius: 1.125rem;
+  --composer-input-height: 5rem;
+  --composer-input-padding: 0.375rem 0.5rem;
+  --composer-line-height: 1.6;
+  --composer-footer-wrap: nowrap;
+  --composer-placeholder: color-mix(in srgb, var(--foreground) 65%, var(--card));
+}
+
+.ui-composer-submit {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ui-composer-submit > svg {
+  width: 1.125rem;
+  height: 1.125rem;
 }

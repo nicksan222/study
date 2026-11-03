@@ -21,10 +21,14 @@ import {
   SquarePen,
   Check
 } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { SubjectIconDialog } from '../../features/subjects/subject-icon-editor';
+import { SubjectIdentity } from '../../features/subjects/subject-identity';
 import { useI18n } from '../../lib/i18n';
 import { SidebarNavigation } from './sidebar-navigation.view';
+import { SidebarSessionActions } from './sidebar-session-actions';
 import { resultLocation } from './sidebar.locations';
 import type { SidebarModel } from './use-sidebar';
 
@@ -156,38 +160,42 @@ function SidebarSessions({
           );
 
           return (
-            <SidebarUI.Item
+            <SidebarSessionActions
               key={String(session.id)}
-              label={session.title}
-              icon={
-                owner ? (
-                  <SidebarUI.Identity label={owner.name} />
-                ) : (
-                  <MessagesSquare aria-hidden="true" />
-                )
-              }
-              context={owner?.name ?? t('Sessions')}
-              timestamp={
-                <time
-                  dateTime={new Date(Number(session.updatedAt) * 1000).toISOString()}
-                  title={date(session.updatedAt)}
-                >
-                  {age(locale, now - Number(session.updatedAt))}
-                </time>
-              }
-              aria-label={session.title}
-              aria-current={selectedSession === String(session.id) ? 'page' : undefined}
-              title={session.title}
-              render={
-                <Link
-                  to="/sessions"
-                  search={{
-                    ...(project ? { project: String(project) } : {}),
-                    id: String(session.id)
-                  }}
-                />
-              }
-            />
+              id={session.id}
+              project={project ? String(project) : undefined}
+            >
+              <SidebarUI.Item
+                layout="compact"
+                label={session.title}
+                icon={
+                  owner ? (
+                    <SubjectIdentity name={owner.name} icon={owner.icon} />
+                  ) : (
+                    <MessagesSquare aria-hidden="true" />
+                  )
+                }
+                context={owner?.name ?? t('Sessions')}
+                timestamp={
+                  <time
+                    dateTime={new Date(Number(session.updatedAt) * 1000).toISOString()}
+                    title={date(session.updatedAt)}
+                  >
+                    {age(locale, now - Number(session.updatedAt))}
+                  </time>
+                }
+                aria-label={session.title}
+                aria-current={selectedSession === String(session.id) ? 'page' : undefined}
+                title={session.title}
+                render={
+                  <Link
+                    to="/sessions/$sessionId"
+                    params={{ sessionId: session.id }}
+                    search={project ? { project: String(project) } : {}}
+                  />
+                }
+              />
+            </SidebarSessionActions>
           );
         })}
       {sessionState === 'ready' && !invalidSubject && sessions.length === 0 && (
@@ -228,6 +236,7 @@ function SidebarHeader({
   | 'reloadSubjects'
 >) {
   const { t, date } = useI18n();
+  const [iconEditorOpen, setIconEditorOpen] = useState(false);
 
   return (
     <SidebarUI.Header>
@@ -245,6 +254,7 @@ function SidebarHeader({
         value={subject ?? null}
         getLabel={(item) => item.name}
         getValue={(item) => String(item.id)}
+        getIcon={(item) => <SubjectIdentity name={item.name} icon={item.icon} />}
         getDescription={(item) =>
           item.examOn
             ? t('SidebarPolishExam', {
@@ -253,7 +263,7 @@ function SidebarHeader({
                   timeZone: 'UTC'
                 })
               })
-            : t('SidebarPolishUpdated', { date: date(item.updatedAt, { dateStyle: 'medium' }) })
+            : undefined
         }
         listLabel={t('SidebarPolishSubjects')}
         onValueChange={(item) => selectSubject(item.id)}
@@ -272,73 +282,144 @@ function SidebarHeader({
           <SidebarProjectStatus subjectState={subjectState} reloadSubjects={reloadSubjects} />
         }
       >
+        <SidebarPickerActions
+          subject={subject}
+          requestedProject={requestedProject}
+          setPickerOpen={setPickerOpen}
+          setNewSubjectOpen={setNewSubjectOpen}
+          setActionError={setActionError}
+          clearSearch={clearSearch}
+          onChangeIcon={() => setIconEditorOpen(true)}
+        />
+      </SidebarUI.Picker>
+      {subject && iconEditorOpen && (
+        <SubjectIconDialog
+          key={String(subject.id)}
+          project={subject}
+          open
+          onOpenChange={setIconEditorOpen}
+        />
+      )}
+    </SidebarUI.Header>
+  );
+}
+
+function SidebarPickerActions({
+  subject,
+  requestedProject,
+  setPickerOpen,
+  setNewSubjectOpen,
+  setActionError,
+  clearSearch,
+  onChangeIcon
+}: Pick<
+  SidebarModel,
+  | 'subject'
+  | 'requestedProject'
+  | 'setPickerOpen'
+  | 'setNewSubjectOpen'
+  | 'setActionError'
+  | 'clearSearch'
+> & {
+  onChangeIcon: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <>
+      <Button
+        variant="ghost-muted"
+        layout="navigation"
+        onClick={() => {
+          setPickerOpen(false);
+          setNewSubjectOpen(true);
+          setActionError(false);
+        }}
+      >
+        <FolderPlus aria-hidden="true" />
+        {t('NewProject')}
+      </Button>
+      <Button
+        variant="ghost-muted"
+        layout="navigation"
+        render={
+          <Link
+            to="/projects"
+            search={{}}
+            onClick={() => {
+              setPickerOpen(false);
+              clearSearch();
+            }}
+          />
+        }
+      >
+        <Folder aria-hidden="true" />
+        {t('Projects')}
+      </Button>
+      {subject && (
         <Button
           variant="ghost-muted"
           layout="navigation"
           onClick={() => {
             setPickerOpen(false);
-            setNewSubjectOpen(true);
-            setActionError(false);
+            onChangeIcon();
           }}
         >
-          <FolderPlus aria-hidden="true" />
-          {t('NewProject')}
+          <SubjectIdentity name={subject.name} icon={subject.icon} />
+          {t('SubjectIconChange')}
         </Button>
-        <Button
-          variant="ghost-muted"
-          layout="navigation"
-          render={
-            <Link
-              to="/projects"
-              search={{}}
-              onClick={() => {
-                setPickerOpen(false);
-                clearSearch();
-              }}
-            />
-          }
-        >
-          <Folder aria-hidden="true" />
-          {t('Projects')}
-        </Button>
-        <SidebarUI.PickerShortcuts>
-          <Button
-            variant="ghost-muted"
-            layout="navigation"
-            render={
-              <Link
-                to="/home"
-                search={requestedProject ? { project: requestedProject } : {}}
-                onClick={() => {
-                  setPickerOpen(false);
-                  clearSearch();
-                }}
-              />
-            }
-          >
-            <Home aria-hidden="true" />
-            {t('Home')}
-          </Button>
-          <Button
-            variant="ghost-muted"
-            layout="navigation"
-            render={
-              <Link
-                to="/help"
-                search={requestedProject ? { project: requestedProject } : {}}
-                onClick={() => {
-                  setPickerOpen(false);
-                  clearSearch();
-                }}
-              />
-            }
-          >
-            <CircleHelp aria-hidden="true" />
-            {t('Help')}
-          </Button>
-        </SidebarUI.PickerShortcuts>
-      </SidebarUI.Picker>
-    </SidebarUI.Header>
+      )}
+      <SidebarPickerShortcuts
+        requestedProject={requestedProject}
+        setPickerOpen={setPickerOpen}
+        clearSearch={clearSearch}
+      />
+    </>
+  );
+}
+
+function SidebarPickerShortcuts({
+  requestedProject,
+  setPickerOpen,
+  clearSearch
+}: Pick<SidebarModel, 'requestedProject' | 'setPickerOpen' | 'clearSearch'>) {
+  const { t } = useI18n();
+  return (
+    <SidebarUI.PickerShortcuts>
+      <Button
+        variant="ghost-muted"
+        layout="navigation"
+        render={
+          <Link
+            to="/home"
+            search={requestedProject ? { project: requestedProject } : {}}
+            onClick={() => {
+              setPickerOpen(false);
+              clearSearch();
+            }}
+          />
+        }
+      >
+        <Home aria-hidden="true" />
+        {t('Home')}
+      </Button>
+      <Button
+        variant="ghost-muted"
+        layout="navigation"
+        render={
+          <Link
+            to="/help"
+            search={requestedProject ? { project: requestedProject } : {}}
+            onClick={() => {
+              setPickerOpen(false);
+              clearSearch();
+            }}
+          />
+        }
+      >
+        <CircleHelp aria-hidden="true" />
+        {t('Help')}
+      </Button>
+    </SidebarUI.PickerShortcuts>
   );
 }
 

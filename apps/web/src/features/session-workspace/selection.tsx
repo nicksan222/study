@@ -108,8 +108,7 @@ export function SelectionPanel({ id }: { id: SessionId }) {
   } = useSelection(id);
 
   return (
-    <Notebook.Section>
-      <summary>{t('SessionSelection')}</summary>
+    <div className="session-section">
       <Notebook.Muted>{t('SessionSelectionHelp')}</Notebook.Muted>
       {selected.isPending && <Loading label={t('LoadingStudy')} />}
       {selected.error && (
@@ -130,6 +129,7 @@ export function SelectionPanel({ id }: { id: SessionId }) {
       {draft.data && <p role="status">{t('SessionSelectionUnsaved')}</p>}
       <Input
         aria-label={t('SessionSearchMaterial')}
+        placeholder={t('SessionSearchMaterial')}
         maxLength={1000}
         value={search}
         onChange={(event) => setSearch(event.target.value)}
@@ -173,7 +173,7 @@ export function SelectionPanel({ id }: { id: SessionId }) {
           {t('LibraryMore')}
         </Button>
       )}
-    </Notebook.Section>
+    </div>
   );
 }
 

@@ -1,3 +1,4 @@
+import { toastManager } from '@study/ui/toast';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useMemo } from 'react';
 
@@ -35,6 +36,7 @@ export function useAnnotationControls({ annotation }: { annotation: Annotation }
   });
   const draft = state.data;
   const { result, error } = draft;
+  const [deleting, setDeleting] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [reanchor, setReanchor] = useState(false);
   const latest = useQuery({
@@ -127,6 +129,10 @@ export function useAnnotationControls({ annotation }: { annotation: Annotation }
                 review: outcome.outcome === 'conflict' ? outcome.current : undefined
               })
       );
+      if (operation === 'delete' && outcome.outcome === 'saved') {
+        toastManager.add({ title: t('AnnotationDeleted'), type: 'success' });
+        setDeleting(false);
+      }
       await Promise.allSettled([
         client.invalidateQueries({ queryKey: ['materials', 'annotations'] }),
         client.invalidateQueries({ queryKey: ['materials', 'annotationHistory', key] }),
@@ -151,6 +157,8 @@ export function useAnnotationControls({ annotation }: { annotation: Annotation }
     draft,
     result,
     error,
+    deleting,
+    setDeleting,
     historyOpen,
     setHistoryOpen,
     reanchor,

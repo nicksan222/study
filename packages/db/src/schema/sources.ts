@@ -18,6 +18,7 @@ export const projects = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<ProjectId>(),
     name: text().notNull(),
+    icon: text(),
     exam_on: text(),
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()

@@ -17,12 +17,17 @@ export function SettingsRow({
   const id = useId();
 
   return (
-    <div className="settings-row" role="group" aria-labelledby={id}>
+    <div
+      className="settings-row"
+      data-has-control={children != null}
+      role="group"
+      aria-labelledby={id}
+    >
       <div className="settings-row-copy">
         <h4 id={id}>{title}</h4>
-        <p>{description}</p>
+        {description && <p>{description}</p>}
       </div>
-      <div className="settings-row-control">{children}</div>
+      {children != null && <div className="settings-row-control">{children}</div>}
     </div>
   );
 }

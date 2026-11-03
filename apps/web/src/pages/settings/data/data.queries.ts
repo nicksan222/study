@@ -3,6 +3,14 @@ import { mutationOptions, queryOptions } from '@tanstack/react-query';
 
 import { request } from '../../../lib/study-client/request';
 
+export const backupMutationKeys = {
+  create: ['settings-data', 'backup', 'create'],
+  import: ['settings-data', 'backup', 'import'],
+  delete: ['settings-data', 'backup', 'delete'],
+  accept: ['settings-data', 'backup', 'accept'],
+  discard: ['settings-data', 'backup', 'discard']
+} as const;
+
 export const restoreStatusQueryOptions = () =>
   queryOptions({
     queryKey: ['settings-data', 'restore-status'],
@@ -21,6 +29,7 @@ export const backupsQueryOptions = () =>
 
 export const createBackupOptions = () =>
   mutationOptions({
+    mutationKey: backupMutationKeys.create,
     gcTime: 0,
     retry: false,
     mutationFn: () => request((c) => c['system.createBackup']({}))
@@ -28,6 +37,7 @@ export const createBackupOptions = () =>
 
 export const importBackupOptions = () =>
   mutationOptions({
+    mutationKey: backupMutationKeys.import,
     gcTime: 0,
     retry: false,
     mutationFn: (bytes: string) => request((c) => c['system.importBackup']({ bytes }))
@@ -35,6 +45,7 @@ export const importBackupOptions = () =>
 
 export const deleteBackupOptions = () =>
   mutationOptions({
+    mutationKey: backupMutationKeys.delete,
     gcTime: 0,
     retry: false,
     mutationFn: (id: BackupId) => request((c) => c['system.deleteBackup']({ id }))
@@ -58,6 +69,7 @@ export const previewRestoreOptions = (id: BackupId) =>
 
 export const acceptRestoreOptions = () =>
   mutationOptions({
+    mutationKey: backupMutationKeys.accept,
     gcTime: 0,
     retry: false,
     mutationFn: (input: typeof acceptRestoreSchema.Type) =>
@@ -66,6 +78,7 @@ export const acceptRestoreOptions = () =>
 
 export const discardRecoveryOptions = () =>
   mutationOptions({
+    mutationKey: backupMutationKeys.discard,
     gcTime: 0,
     retry: false,
     mutationFn: () => request((c) => c['system.discardRestoreRecovery']({}))

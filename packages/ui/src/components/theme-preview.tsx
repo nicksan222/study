@@ -21,6 +21,7 @@ function paletteStyle(theme: ThemeDefinition, appearance: 'light' | 'dark'): CSS
     '--preview-accent': previewColor(colors, ['accent'], 'var(--accent)'),
     '--preview-message': previewColor(colors, ['message-surface', 'muted'], 'var(--muted)'),
     '--preview-action': previewColor(colors, ['message-action', 'primary'], 'var(--primary)'),
+    '--preview-foreground': previewColor(colors, ['foreground'], 'var(--foreground)'),
     '--preview-border': previewColor(colors, ['border'], 'var(--border)')
   } as CSSProperties;
 }
@@ -76,6 +77,10 @@ export function ThemeWireframe({
           style={paletteStyle(theme, mode)}
         >
           <span className="theme-wireframe-sidebar" />
+          <span className="theme-wireframe-header">
+            <span />
+            <span />
+          </span>
           <span className="theme-wireframe-search" />
           <span className="theme-wireframe-nav-active" />
           <span className="theme-wireframe-nav-row" />
@@ -86,14 +91,6 @@ export function ThemeWireframe({
           <span className="theme-wireframe-composer">
             <span />
             <span />
-          </span>
-          <span className="theme-wireframe-menu">
-            {[0, 1, 2].map((row) => (
-              <span key={row}>
-                <i />
-                <i />
-              </span>
-            ))}
           </span>
         </span>
       ))}

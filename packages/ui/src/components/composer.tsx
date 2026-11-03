@@ -8,10 +8,11 @@ function Root({
   className,
   variant = 'default',
   ...props
-}: ComponentProps<'section'> & { variant?: 'default' | 'notebook' }) {
+}: ComponentProps<'section'> & { variant?: 'default' | 'starter' | 'notebook' }) {
   return (
     <section
       className={cn('ui-composer', variant === 'notebook' && 'session-composer', className)}
+      data-variant={variant}
       {...props}
     />
   );
@@ -25,7 +26,7 @@ function Footer({
   className,
   variant = 'default',
   ...props
-}: ComponentProps<'div'> & { variant?: 'default' | 'notebook' }) {
+}: ComponentProps<'div'> & { variant?: 'default' | 'starter' | 'notebook' }) {
   return (
     <div
       className={cn(

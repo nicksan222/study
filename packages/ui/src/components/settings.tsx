@@ -153,14 +153,16 @@ function SearchResults<Id extends string>({
 function Section({
   title,
   actions,
-  children
+  children,
+  className
 }: {
   title: string;
   actions?: ReactNode;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="settings-section">
+    <section className={cn('settings-section', className)}>
       <div className="settings-section-header">
         <h3>{title}</h3>
         {actions && <div className="settings-actions">{actions}</div>}
@@ -328,11 +330,23 @@ function Search({
   );
 }
 
-function Empty({ children }: { children: ReactNode }) {
+function Empty({
+  children,
+  title,
+  icon
+}: {
+  children: ReactNode;
+  title?: string;
+  icon?: ReactNode;
+}) {
   return (
-    <p role="status" className="px-4 py-8 text-center text-sm text-muted-foreground">
-      {children}
-    </p>
+    <div role="status" className="settings-empty">
+      {icon}
+      <div>
+        {title && <strong>{title}</strong>}
+        <p>{children}</p>
+      </div>
+    </div>
   );
 }
 

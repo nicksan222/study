@@ -170,8 +170,6 @@ it('retains transform pending ownership and immutable retry inputs across remoun
     .mockRejectedValueOnce(new StudyError('not_found', 'Retired capture'));
   vi.mocked(transformDocument).mockRejectedValueOnce(new StudyError('transient', 'Lost receipt'));
   const first = mount(<Transformation id={id} />);
-
-  fireEvent.click(screen.getByText('SessionTransform', { selector: 'summary' }));
   fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
     target: { value: 'Original title' }
   });
@@ -187,8 +185,6 @@ it('retains transform pending ownership and immutable retry inputs across remoun
 
   first.unmount();
   const second = mount(<Transformation id={id} />, first.client);
-
-  fireEvent.click(screen.getByText('SessionTransform', { selector: 'summary' }));
   expect(screen.getByRole('button', { name: 'SessionCreateDocument' })).toBeDisabled();
   expect(captureContext).toHaveBeenCalledTimes(1);
   fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
@@ -212,15 +208,12 @@ it('retains transform pending ownership and immutable retry inputs across remoun
   });
   second.unmount();
   const third = mount(<Transformation id={id} />, first.client);
-
-  fireEvent.click(screen.getByText('SessionTransform', { selector: 'summary' }));
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   await screen.findByRole('button', { name: 'SessionReviewUnavailableAttempt' });
   expect(vi.mocked(captureContext).mock.calls[1]![0]).toEqual(submitted);
   expect(transformDocument).toHaveBeenCalledTimes(1);
   third.unmount();
   mount(<Transformation id={id} />, first.client);
-  fireEvent.click(screen.getByText('SessionTransform', { selector: 'summary' }));
   fireEvent.click(screen.getByRole('button', { name: 'SessionReviewUnavailableAttempt' }));
   fireEvent.click(await screen.findByRole('button', { name: 'SessionAbandonAttempt' }));
   expect(screen.getByLabelText('SessionOutputTitle')).toHaveValue('Later title');

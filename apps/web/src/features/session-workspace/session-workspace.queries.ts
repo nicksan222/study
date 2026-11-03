@@ -21,6 +21,7 @@ import type {
 import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
+import { toStudyError } from '../../lib/study-client/errors';
 import { request } from '../../lib/study-client/request';
 
 export type Selection = typeof sessionSelectionSchema.Type;
@@ -117,18 +118,29 @@ export const executionOptions = (requestId: string, eventId?: string) =>
     refetchInterval: 3000
   });
 
+export const deletionAttemptOptions = (id: SessionId) =>
+  queryOptions({
+    queryKey: [...sessionKey(id), 'deletion-attempt'],
+    queryFn: () => false,
+    initialData: false,
+    staleTime: Infinity,
+    gcTime: Infinity
+  });
+
 export const deletionOptions = (id: SessionId, enabled: boolean) =>
   queryOptions({
     queryKey: [...sessionKey(id), 'deletion'],
-    queryFn: ({ signal }) =>
-      request((client) => client['conversations.sessionDeletion']({ id }), signal),
+    queryFn: async ({ signal }) => {
+      try {
+        return await request((client) => client['conversations.sessionDeletion']({ id }), signal);
+      } catch (error) {
+        if (toStudyError(error).kind === 'not_found') return null;
+        throw error;
+      }
+    },
     enabled,
     refetchInterval: (query) => (query.state.data?.status === 'pending' ? 3000 : false)
   });
-
-export const createSession = () =>
-  request((client) => client['conversations.createUntitledSession']({}));
-
 export const ask = (input: AskInput) => request((client) => client['conversations.ask'](input));
 
 export const saveNote = (sessionId: SessionId, text: string, sourceIds?: readonly SourceId[]) =>

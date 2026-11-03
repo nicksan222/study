@@ -47,7 +47,9 @@ it.each(pages)(
     const title = page === 'MediaList' ? catalogs.english.SidebarLibrary : catalogs.english[page];
 
     expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveTextContent(catalogs.english.AppName);
+    expect(screen.getByRole('main')).toHaveTextContent(
+      page === 'Sessions' ? catalogs.english.SessionStartHelp : catalogs.english.AppName
+    );
 
     if (page === 'MediaList') expect(location.pathname).toBe('/media-list');
 
@@ -58,15 +60,16 @@ it.each(pages)(
 it('opens settings over the current page and restores focus without changing the URL', async () => {
   const user = userEvent.setup();
 
-  history.replaceState(null, '', '/sessions?project=1&id=42');
+  history.replaceState(null, '', '/sessions/42?project=1');
   render(<App />);
+  await user.click(await screen.findByRole('button', { name: catalogs.english.ToggleSidebar }));
   const trigger = await screen.findByRole('button', { name: catalogs.english.Settings });
 
   await user.click(trigger);
   expect(
     await screen.findByRole('dialog', { name: catalogs.english.Settings })
   ).toBeInTheDocument();
-  expect(location.pathname + location.search).toBe('/sessions?project=1&id=42');
+  expect(location.pathname + location.search).toBe('/sessions/42?project=1');
   await user.keyboard('{Escape}');
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   await waitFor(() => expect(trigger).toHaveFocus());

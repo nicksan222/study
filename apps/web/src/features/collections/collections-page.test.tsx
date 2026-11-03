@@ -3,6 +3,7 @@ import { StudyError } from '@study/contracts/errors';
 import { materialSummarySchema } from '@study/contracts/materials/schemas';
 import { projectSchema } from '@study/contracts/projects/schemas';
 import { catalogs } from '@study/localization';
+import { toastManager } from '@study/ui/toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -14,6 +15,7 @@ import {
   RouterProvider
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
@@ -21,10 +23,13 @@ import { LanguageProvider } from '../../lib/i18n';
 import type { StudyClient } from '../../lib/study-client/client';
 import { CollectionsPage } from './collections-page';
 
+vi.mock('@study/ui/toast', () => ({ toastManager: { add: vi.fn() } }));
+
 const rpc = vi.hoisted(() => ({
   'projects.projects': vi.fn<StudyClient['projects.projects']>(),
   'projects.project': vi.fn<StudyClient['projects.project']>(),
   'projects.createProject': vi.fn<StudyClient['projects.createProject']>(),
+  'projects.deleteProject': vi.fn<StudyClient['projects.deleteProject']>(),
   'projects.renameProject': vi.fn<StudyClient['projects.renameProject']>(),
   'projects.addMaterial': vi.fn<StudyClient['projects.addMaterial']>(),
   'projects.removeMaterial': vi.fn<StudyClient['projects.removeMaterial']>(),
@@ -524,4 +529,51 @@ it('uses complete projectIds in the picker and reconciles a lost add response wi
   expect(rpc['projects.removeSession']).not.toHaveBeenCalled();
 
   for (const key of sidebarKeys) expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+});
+
+it('requires the exact subject name and fences dismissal while its native deletion is pending', async () => {
+  const response = deferred<boolean>();
+  rpc['projects.deleteProject'].mockReturnValue(Effect.promise(() => response.promise));
+  mount();
+  await selectProject();
+  fireEvent.click(detail().getByRole('button', { name: t['collections.delete'] }));
+  const dialog = await screen.findByRole('alertdialog');
+  const confirm = within(dialog).getByRole('button', { name: t['collections.delete'] });
+  const field = within(dialog).getByRole('textbox');
+  expect(confirm).toBeDisabled();
+  fireEvent.change(field, { target: { value: 'delete' } });
+  expect(confirm).toBeDisabled();
+  expect(rpc['projects.deleteProject']).not.toHaveBeenCalled();
+  fireEvent.change(field, { target: { value: project.name } });
+  fireEvent.click(confirm);
+  await waitFor(() =>
+    expect(rpc['projects.deleteProject']).toHaveBeenCalledExactlyOnceWith({
+      id: project.id
+    })
+  );
+  expect(within(dialog).getByRole('button', { name: t['collections.cancel'] })).toBeDisabled();
+  await userEvent.setup().keyboard('{Escape}');
+  expect(screen.getByRole('alertdialog')).toBe(dialog);
+  await act(async () => response.resolve(true));
+  await waitFor(() =>
+    expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
+      title: t.SubjectDeleted,
+      type: 'success'
+    })
+  );
+});
+
+it('does not announce a missing subject as deleted when the native receipt is false', async () => {
+  rpc['projects.deleteProject'].mockReturnValue(Effect.succeed(false));
+  mount();
+  await selectProject();
+  fireEvent.click(detail().getByRole('button', { name: t['collections.delete'] }));
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: project.name } });
+  fireEvent.click(within(dialog).getByRole('button', { name: t['collections.delete'] }));
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    t['collections.mutationError']
+  );
+  expect(toastManager.add).not.toHaveBeenCalled();
+  expect(rpc['projects.deleteProject']).toHaveBeenCalledExactlyOnceWith({ id: project.id });
 });

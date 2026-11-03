@@ -4,7 +4,7 @@ import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
-import { Sparkles, SlidersHorizontal, Plus } from 'lucide-react';
+import { Sparkles, SlidersHorizontal, ArrowUp } from 'lucide-react';
 
 import { Attachments } from './attachments';
 import { useComposer } from './composer.queries';
@@ -60,7 +60,7 @@ export function Composer({ id }: { id: SessionId }) {
         <ComposerPreferences model={model} />
         <ComposerActions model={model} />
       </ComposerSurface.Footer>
-      <ComposerSurface.Hint id={`session-draft-help-${id}`}>
+      <ComposerSurface.Hint className="sr-only" id={`session-draft-help-${id}`}>
         {t('SessionNotebookHint')}
       </ComposerSurface.Hint>
       <AskRecovery model={model} />
@@ -127,14 +127,6 @@ function ComposerActions({ model }: { model: ComposerModel }) {
       <Notebook.Actions>
         <Button
           size="sm"
-          disabled={blocked || filesBlocked || (!draft.text.trim() && !sourceIds.length)}
-          onClick={submitNote}
-        >
-          <Plus size={15} aria-hidden="true" />
-          {t('SessionSaveNote')}
-        </Button>
-        <Button
-          size="sm"
           variant="ghost-muted"
           disabled={
             blocked ||
@@ -147,6 +139,16 @@ function ComposerActions({ model }: { model: ComposerModel }) {
         >
           {t('SessionAsk')}
           <Sparkles size={15} aria-hidden="true" />
+        </Button>
+        <Button
+          size="icon"
+          className="ui-composer-submit"
+          aria-label={t('SessionSaveNote')}
+          title={t('SessionSaveNote')}
+          disabled={blocked || filesBlocked || (!draft.text.trim() && !sourceIds.length)}
+          onClick={submitNote}
+        >
+          <ArrowUp size={18} aria-hidden="true" />
         </Button>
       </Notebook.Actions>
     </>

@@ -1,4 +1,5 @@
 import { Button } from '@study/ui/button';
+import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
@@ -30,7 +31,19 @@ function targetKey(target: NonNullable<AnnotationDraft['target']>) {
 }
 
 function AnnotationForm({ view }: { view: AnnotationView }) {
-  const { t, annotation, draft, reanchor, setReanchor, edit, mutate, blocked } = view;
+  const {
+    t,
+    annotation,
+    draft,
+    result,
+    deleting,
+    setDeleting,
+    reanchor,
+    setReanchor,
+    edit,
+    mutate,
+    blocked
+  } = view;
 
   return (
     <>
@@ -81,13 +94,31 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
           </>
         )}
       </details>
-      <details>
-        <summary>{t('AnnotationDelete')}</summary>
-        <p>{t('AnnotationDeleteConfirm')}</p>
-        <Button disabled={blocked} onClick={() => void mutate('delete')}>
-          {t('AnnotationDelete')}
-        </Button>
-      </details>
+      <Button variant="ghost-destructive" disabled={blocked} onClick={() => setDeleting(true)}>
+        {t('AnnotationDelete')}
+      </Button>
+      <DangerDialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={t('AnnotationDelete')}
+        confirmation={{
+          value: t('DeleteConfirmationWord'),
+          label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
+          identity: `${annotation.id}:${draft.current.revision}`
+        }}
+        description={t('AnnotationDeleteConfirm')}
+        confirmLabel={t('AnnotationDelete')}
+        cancelLabel={t('Cancel')}
+        pending={draft.pending}
+        disabled={blocked}
+        onConfirm={() => {
+          if (!blocked) return mutate('delete');
+        }}
+      >
+        {draft.uncertain && <p role="alert">{t('AnnotationReconcile')}</p>}
+        {result?.outcome === 'conflict' && <p role="alert">{t('DocumentAnnotationConflict')}</p>}
+        {result?.outcome === 'unavailable' && <p role="alert">{t('ReaderUnavailable')}</p>}
+      </DangerDialog>
     </>
   );
 }

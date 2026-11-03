@@ -10,11 +10,9 @@ export function resultLocation(hit: SearchResults['hits'][number], project?: Pro
       return { to: '/home', search: { project: String(hit.target.id) } } as const;
     case 'session':
       return {
-        to: '/sessions',
-        search: {
-          ...projectSearch,
-          id: String(hit.target.sessionId)
-        }
+        to: '/sessions/$sessionId',
+        params: { sessionId: hit.target.sessionId },
+        search: projectSearch
       } as const;
     case 'material':
       return {

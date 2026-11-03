@@ -1,6 +1,17 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  SubjectIconSaveFailed: 'Impossibile aggiornare l’icona',
+  SubjectIconSaveRetry: 'La tua scelta è ancora qui. Prova a salvarla di nuovo.',
+  SubjectIconTitle: 'Icona della materia',
+  SubjectIconHelp: 'Usa le iniziali del titolo o scegli le tue lettere.',
+  SubjectIconChange: 'Cambia icona',
+  SubjectIconMode: 'Stile dell’icona',
+  SubjectIconAutomatic: 'Automatica',
+  SubjectIconCustom: 'Lettere personalizzate',
+  SubjectIconLetters: 'Lettere',
+  SubjectIconLettersHelp: 'Usa da una a tre lettere o numeri.',
+  SubjectIconSaved: 'Icona della materia aggiornata',
   DataStatusError:
     'Non è stato possibile aggiornare lo stato del ripristino. Riprova con Aggiorna prima di modificare i backup. Puoi comunque scaricare le copie già note.',
   DataListError:
@@ -33,10 +44,24 @@ export const italian = Object.freeze({
   SessionReadErrorTitle: 'Non è stato possibile aprire il quaderno.',
   ErrorStateTitle: 'Qualcosa non ha funzionato.',
   PageErrorTitle: 'Non è stato possibile caricare la pagina.',
-  SessionStartTitle: 'Un posto per i tuoi appunti.',
-  SessionStartHelp:
-    'Raccogli appunti, file e idee ancora da chiarire. Una sessione è il tuo quaderno mentre studi.',
-  SessionStartPlaceholder: 'Annota qualcosa, anche alla rinfusa…',
+  SessionActions: 'Azioni della sessione',
+  SessionContextPanel: 'Contesto della sessione',
+  SessionStartShortcut: '⌘ / Ctrl + Enter',
+  SessionChanges: 'Modifiche della sessione',
+  SessionChangesStart: 'Qui appariranno appunti, allegati e materiali generati mentre studi.',
+  SessionChangesEmpty: 'Nessuna modifica. Salva un appunto o allega un file per iniziare.',
+  SessionChangesRevised: 'Modificato',
+  SessionChangesAttachment: 'Allegato',
+  SessionChangesMore: 'Mostra modifiche precedenti',
+  SessionChangesPreview: 'Anteprima in sola lettura · sessione attuale',
+  SessionChangesBefore: 'Precedente',
+  SessionChangesCurrent: 'Attuale',
+  SessionChangesPreparing: 'Preparazione dell’anteprima dell’allegato…',
+  SessionChangesGenerated: 'Materiale generato',
+  SessionWorkspaceContext: 'Il tuo spazio di studio',
+  SessionStartTitle: 'Cosa vuoi studiare?',
+  SessionStartHelp: 'Inizia con un appunto, una domanda o un file',
+  SessionStartPlaceholder: 'Scrivi un appunto o una domanda su ciò che studi…',
   SessionStartDraftHelp:
     'La bozza si apre nella nuova sessione, pronta da salvare. Da lì puoi aggiungere i file.',
   SessionStarting: 'Apertura del quaderno…',
@@ -52,24 +77,46 @@ export const italian = Object.freeze({
   SessionAbandonAttemptHelp:
     'Una domanda o un risultato precedente potrebbe già esistere. Ricominciare crea una richiesta distinta.',
   DocumentRetryProposal: 'Recupera l’azione inviata sulla proposta',
+  DataLocalBackups: 'Backup su questo dispositivo',
+  DataBackupCapacity: '{count} di {limit} spazi di backup utilizzati',
+  DataImportHelp:
+    'Scegli un file .studybackup. Study ne verifica integrità e compatibilità prima di importarlo.',
+  DataChooseFile: 'Scegli file',
+  DataSavedBackups: 'Backup salvati',
+  DataEmptyTitle: 'Nessun backup',
+  DataRestoreIdleHelp: 'Nessun ripristino è in attesa del prossimo riavvio.',
+  DataBackupCreated: 'Backup creato.',
+  DataBackupImported: 'Backup importato.',
+  DataBackupDeleted: 'Backup eliminato.',
+  DataRestoreStaged: 'Ripristino pronto. Riavvia Study per applicarlo.',
+  DataRecoveryDiscarded: 'Copia di recupero rimossa.',
+  DataOperationComplete: 'Fatto.',
+  DataRestoreRestartHelp: 'Chiudi e riapri Study per applicare il backup, poi accedi di nuovo.',
+  DataRestoreAppliedHelp: 'Il backup è ora in uso. Accedi di nuovo per continuare.',
+  DataRestoreFailedHelp:
+    'Il ripristino non è stato completato. Verifica lo stato prima di riprovare.',
+  NotificationsLabel: 'Notifiche',
+  DataRestoreConfirmationWord: 'ripristina',
+  DataRestoreConfirmationInstruction:
+    'Digita {word} per sostituire tutto il materiale con questo backup.',
   DataSettingsTitle: 'Dati e backup',
   DataSettingsDescription:
-    'Fino a 8 snapshot gestiti su questo dispositivo. Le copie scaricate sono separate. I backup richiedono lo stesso schema del database e non sono portabili tra versioni incompatibili.',
-  DataCreate: 'Crea snapshot',
+    'Conserva un backup locale del materiale di studio. Scarica una copia e tienila in un posto sicuro.',
+  DataCreate: 'Crea backup',
   DataImport: 'Importa file di backup',
   DataDownload: 'Scarica',
-  DataDelete: 'Elimina snapshot',
+  DataDelete: 'Elimina backup',
   DataPreview: 'Esamina ripristino',
-  DataEmpty: 'Nessuno snapshot gestito. Creane uno o importa un file .studybackup compatibile.',
+  DataEmpty: 'Crea o importa il tuo primo backup.',
   DataReadError:
     'Impossibile leggere i dati dei backup. Aggiorna per verificare lo stato prima di continuare.',
   DataFileError:
     'Scegli un backup Study valido: massimo 64 MiB di dati più 16 KiB di involucro. Il server verifica integrità e compatibilità dello schema.',
   DataRefresh: 'Aggiorna stato',
-  DataPending: 'Operazione di backup in corso. Puoi chiudere Impostazioni: il risultato resta qui.',
+  DataPending: 'Operazione sul backup in corso… Puoi chiudere Impostazioni e tornare più tardi.',
   DataUncertain:
-    'L’operazione inviata potrebbe essere completata. Non ripeterla automaticamente. Aggiorna ed esamina elenco e stato del ripristino; questa API non identifica univocamente i risultati di creazione e importazione.',
-  DataAcknowledge: 'Ho verificato il risultato; consenti una nuova operazione',
+    'Il risultato non è ancora confermato. Aggiorna per controllare i backup e lo stato del ripristino prima di continuare.',
+  DataAcknowledge: 'Ho verificato il risultato',
   DataReceipt: 'Operazione completata; ricevuta conservata.',
   DataRestoreWarning:
     'Il ripristino sostituisce tutti i contenuti dell’app. Le credenziali sono escluse e il lavoro nativo è dismesso. Sono necessari riavvio e accesso. I backup conservano contenuti eliminati e cronologia: il ripristino può recuperarli. Questa schermata non riavvia l’app.',
@@ -77,9 +124,8 @@ export const italian = Object.freeze({
     'Il ripristino è bloccato dalle attuali barriere di eliminazione o cronologia. Questa schermata non può aggirarle.',
   DataRecoveryBlocked:
     'Elimina deliberatamente la copia di recupero conservata prima di accettare un altro ripristino.',
-  DataConfirmRestore:
-    'Accetto di sostituire tutti i contenuti con questo preciso snapshot esaminato.',
-  DataAccept: 'Prepara ripristino al prossimo riavvio',
+  DataConfirmRestore: 'Sostituisci tutto il materiale di studio con questo backup.',
+  DataAccept: 'Ripristina al prossimo riavvio',
   DataCurrent: 'Attuale',
   DataBackup: 'Backup',
   DataScope: 'Ambito dei contenuti',
@@ -90,10 +136,10 @@ export const italian = Object.freeze({
   DataRecovery: 'Una copia privata di recupero è conservata fino all’eliminazione esplicita.',
   DataDiscard: 'Elimina recupero e registro ripristino',
   DataDeleteWarning:
-    'Eliminare solo questo snapshot gestito? Le copie scaricate non vengono eliminate.',
+    'Questo backup sarà eliminato definitivamente. Le copie scaricate restano disponibili.',
   DataDiscardWarning:
     'Eliminare definitivamente la copia privata di recupero, eventuali dati preparati e il registro? Questa azione rimuove la copia di sicurezza per il recupero.',
-  DataDeliberate: 'Comprendo e confermo questa eliminazione.',
+  DataDeliberate: 'Confermo l’eliminazione definitiva.',
   DataStateidle: 'Nessun ripristino preparato',
   'DataStaterestart-required': 'Ripristino preparato; riavvio necessario',
   DataStateapplied: 'Ripristino applicato; accedi nuovamente',
@@ -114,7 +160,7 @@ export const italian = Object.freeze({
   DataScopeprunedVersions: 'Versioni rimosse',
   DataSubmitted: 'Operazione inviata',
   DataSchema: 'Schema database richiesto',
-  DataCreated: 'Snapshot creato',
+  DataCreated: 'Backup creato',
   DataBytes: 'Byte del database',
   DataFormat: 'Formato e versione backup',
   SessionAttachFiles: 'Allega file o trascinali qui',
@@ -662,6 +708,7 @@ export const italian = Object.freeze({
   SubjectDueCards: '{count} flashcard da ripassare',
   SubjectReviewDescription: 'Ripassa ciò che hai imparato.',
   SubjectContinue: 'Riprendi una sessione',
+  SubjectDeleted: 'Materia eliminata.',
   SubjectNotFound:
     'Questa materia o questo elemento non è più disponibile. Scegli un’altra materia.',
   SubjectChooseDescription: 'Scegli una materia per aprire sessioni, fonti e materiale di studio.',
@@ -1189,6 +1236,9 @@ export const italian = Object.freeze({
   DuplicateTheme: 'Duplica tema',
   ExportTheme: 'Esporta tema',
   EditTheme: 'Modifica tema',
+  DeleteConfirmationWord: 'elimina',
+  DeleteConfirmationInstruction: 'Scrivi {word} per confermare.',
+  ThemeDeleted: 'Tema eliminato.',
   DeleteTheme: 'Elimina tema',
   DeleteThemeHint:
     'Vuoi rimuovere questo tema personalizzato? Se è selezionato, Study userà il tema predefinito.',

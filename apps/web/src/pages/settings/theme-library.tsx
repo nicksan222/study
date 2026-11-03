@@ -25,7 +25,7 @@ export function ColorScheme({ model }: { model: AppearanceModel }) {
   const theme = data.themes.find((item) => item.id === (data.selected ?? defaultThemeId)) ?? {};
 
   return (
-    <Settings.Section title={t('ColorScheme')}>
+    <Settings.Section className="settings-color-scheme" title={t('ColorScheme')}>
       <Settings.ChoiceGroup label={t('ColorScheme')}>
         {(['system', 'light', 'dark'] as const).map((value) => (
           <Settings.Choice
@@ -90,6 +90,7 @@ export function ThemeLibrary({ model, search = '' }: { model: AppearanceModel; s
 
   return (
     <Settings.Section
+      className="settings-theme-library"
       title={t('Themes')}
       actions={
         <>

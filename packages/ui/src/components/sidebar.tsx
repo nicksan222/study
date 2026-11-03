@@ -359,7 +359,7 @@ function Switcher({
       className={cn('study-subject-switcher', props.className)}
       variant="ghost-muted"
     >
-      <span className="study-subject-mark" aria-hidden="true">
+      <span className="study-subject-switcher-icon" aria-hidden="true">
         {icon}
       </span>
       <span className="study-subject-name">
@@ -391,6 +391,7 @@ function SearchField({
 
 function Item({
   label,
+  layout = 'detailed',
   icon,
   context,
   timestamp,
@@ -400,6 +401,7 @@ function Item({
   ...props
 }: useRender.ComponentProps<'button'> & {
   label: ReactNode;
+  layout?: 'compact' | 'detailed';
   icon: ReactNode;
   context?: ReactNode;
   timestamp?: ReactNode;
@@ -410,19 +412,27 @@ function Item({
     render,
     props: {
       ...props,
+      'data-layout': layout,
       type: render ? undefined : 'button',
       className: cn('study-session-row', className),
-      children: (
-        <>
-          <span className="study-session-meta">
-            {icon}
-            <span>{context}</span>
+      children:
+        layout === 'compact' ? (
+          <>
+            <span className="study-session-row-icon">{icon}</span>
+            <span className="study-session-title">{label}</span>
             {timestamp}
-          </span>
-          <span className="study-session-title">{label}</span>
-          {description && <span className="study-item-kind">{description}</span>}
-        </>
-      )
+          </>
+        ) : (
+          <>
+            <span className="study-session-meta">
+              {icon}
+              <span>{context}</span>
+              {timestamp}
+            </span>
+            <span className="study-session-title">{label}</span>
+            {description && <span className="study-item-kind">{description}</span>}
+          </>
+        )
     }
   });
 }
@@ -432,7 +442,8 @@ type PickerProps<T> = {
   value: T | null;
   getLabel: (item: T) => string;
   getValue: (item: T) => string;
-  getDescription?: (item: T) => string;
+  getDescription?: (item: T) => string | undefined;
+  getIcon?: (item: T) => ReactNode;
   listLabel?: ReactNode;
   onValueChange: (item: T) => void;
   open: boolean;
@@ -450,8 +461,9 @@ function PickerSelection<T>({
   value,
   getLabel,
   label,
-  fallbackIcon
-}: Pick<PickerProps<T>, 'value' | 'getLabel' | 'label' | 'fallbackIcon'>) {
+  fallbackIcon,
+  getIcon
+}: Pick<PickerProps<T>, 'value' | 'getLabel' | 'label' | 'fallbackIcon' | 'getIcon'>) {
   const selectedLabel = value ? getLabel(value) : label;
   const initial = selectedLabel.slice(0, 1).toLocaleUpperCase();
 
@@ -461,7 +473,7 @@ function PickerSelection<T>({
       title={selectedLabel}
       render={
         <Switcher
-          icon={value ? initial : (fallbackIcon ?? initial)}
+          icon={value ? (getIcon?.(value) ?? initial) : (fallbackIcon ?? initial)}
           label={selectedLabel}
           trailing={<ChevronDown className="study-subject-chevron" aria-hidden="true" />}
         />
@@ -473,16 +485,18 @@ function PickerSelection<T>({
 function PickerOption<T>({
   item,
   label,
-  description
+  description,
+  icon
 }: {
   item: T;
   label: string;
   description?: string;
+  icon?: ReactNode;
 }) {
   return (
     <ComboboxItem value={item} aria-description={description} className="study-sidebar-picker-item">
       <span className="study-sidebar-picker-option">
-        <Identity label={label} />
+        {icon ?? <Identity label={label} />}
         <span className="study-sidebar-picker-copy">
           <span className="study-sidebar-picker-name">{label}</span>
           {description && (
@@ -496,12 +510,23 @@ function PickerOption<T>({
   );
 }
 
+function PickerHeading({ count, label }: { count: number; label?: ReactNode }) {
+  if (!count || !label) return null;
+  return (
+    <div className="study-sidebar-picker-heading">
+      <span>{label}</span>
+      <span aria-hidden="true">{count}</span>
+    </div>
+  );
+}
+
 function Picker<T>({
   items,
   value,
   getLabel,
   getValue,
   getDescription,
+  getIcon,
   listLabel,
   onValueChange,
   open,
@@ -532,6 +557,7 @@ function Picker<T>({
         getLabel={getLabel}
         label={label}
         fallbackIcon={fallbackIcon}
+        getIcon={getIcon}
       />
       <ComboboxPopup
         className="study-subject-menu"
@@ -540,12 +566,7 @@ function Picker<T>({
       >
         <ComboboxSearchInput aria-label={searchLabel} placeholder={searchLabel} />
         {status}
-        {items.length > 0 && listLabel && (
-          <div className="study-sidebar-picker-heading">
-            <span>{listLabel}</span>
-            <span aria-hidden="true">{items.length}</span>
-          </div>
-        )}
+        <PickerHeading count={items.length} label={listLabel} />
         <ComboboxEmpty>{empty}</ComboboxEmpty>
         <ComboboxList className="study-sidebar-picker-list">
           {(item: T) => (
@@ -554,6 +575,7 @@ function Picker<T>({
               item={item}
               label={getLabel(item)}
               description={getDescription?.(item)}
+              icon={getIcon?.(item)}
             />
           )}
         </ComboboxList>

@@ -2,11 +2,12 @@ import { StudyError } from '@study/contracts/errors';
 import { materialDeletionSchema } from '@study/contracts/materials/deletion';
 import { historyPreviewSchema, historyPruneSchema } from '@study/contracts/materials/history';
 import { catalogs } from '@study/localization';
+import { toastManager } from '@study/ui/toast';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
-import { expect, it, vi } from 'vite-plus/test';
+import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { runRequest } from '../../lib/effect/runtime';
 import { createStudyQueryClient } from '../../lib/query-client';
@@ -17,7 +18,32 @@ import { materialId, versionId } from './identity';
 import { MaterialLifecycle } from './material-lifecycle';
 import { materialRpc, mountLibraryRoute } from './test/support';
 
+vi.mock('@study/ui/toast', async (load) => {
+  const actual = await load<typeof import('@study/ui/toast')>();
+  return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
+});
+beforeEach(() => vi.mocked(toastManager.add).mockClear());
+
 vi.mock('../../lib/study-client/request', () => ({ request: vi.fn() }));
+
+function prunePreview() {
+  return Schema.decodeUnknownSync(historyPreviewSchema)({
+    materialId: 41n,
+    policy: { keepLatest: 10 },
+    token: 'a'.repeat(64),
+    candidateIds: [101n],
+    hasMore: true,
+    protected: [],
+    references: [],
+    privateRequestIds: [],
+    retainedMessageCitationCount: 0,
+    sourceRevisions: [],
+    removedBodyBytes: 0n,
+    byteSemantics: 'logical_body_columns_and_source_blobs',
+    missingEvidence: 'exact_pruned_versions',
+    retainedCopies: 'other_versions_and_published_messages'
+  });
+}
 
 it('recovers failed durable deletion on a fresh reader whose content is already fenced', async () => {
   const rpc = materialRpc();
@@ -59,22 +85,7 @@ it('recovers failed durable deletion on a fresh reader whose content is already 
 });
 
 it('replays a lost prune acceptance after remount, retains its receipt, and starts a fresh next batch', async () => {
-  const preview = Schema.decodeUnknownSync(historyPreviewSchema)({
-    materialId: 41n,
-    policy: { keepLatest: 10 },
-    token: 'a'.repeat(64),
-    candidateIds: [101n],
-    hasMore: true,
-    protected: [],
-    references: [],
-    privateRequestIds: [],
-    retainedMessageCitationCount: 0,
-    sourceRevisions: [],
-    removedBodyBytes: 0n,
-    byteSemantics: 'logical_body_columns_and_source_blobs',
-    missingEvidence: 'exact_pruned_versions',
-    retainedCopies: 'other_versions_and_published_messages'
-  });
+  const preview = prunePreview();
   const rpc = {
     'materials.previewHistoryPrune': vi
       .fn<StudyClient['materials.previewHistoryPrune']>()
@@ -115,9 +126,21 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
 
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
-  await user.click(
-    await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
-  );
+  {
+    await user.click(
+      await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
+    );
+    const confirmation = await screen.findByRole('alertdialog');
+    const confirm = within(confirmation).getByRole('button', {
+      name: catalogs.english.DocumentConfirmPrune
+    });
+    expect(confirm).toBeDisabled();
+    await user.type(
+      within(confirmation).getByRole('textbox'),
+      catalogs.english.DeleteConfirmationWord
+    );
+    await user.click(confirm);
+  }
   await screen.findByRole('alert');
   expect(screen.queryByRole('button', { name: catalogs.english.DocumentPruneNext })).toBeNull();
   const first = rpc['materials.requestHistoryPrune'].mock.calls[0]![0];
@@ -145,9 +168,21 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
     })
   );
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
-  await user.click(
-    await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
-  );
+  {
+    await user.click(
+      await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
+    );
+    const confirmation = await screen.findByRole('alertdialog');
+    const confirm = within(confirmation).getByRole('button', {
+      name: catalogs.english.DocumentConfirmPrune
+    });
+    expect(confirm).toBeDisabled();
+    await user.type(
+      within(confirmation).getByRole('textbox'),
+      catalogs.english.DeleteConfirmationWord
+    );
+    await user.click(confirm);
+  }
   await screen.findByText(catalogs.english.DocumentCleanupCompleted);
   const next = rpc['materials.requestHistoryPrune'].mock.calls[2]![0];
 
@@ -157,4 +192,63 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
   await act(async () => {
     client.clear();
   });
+});
+
+it('keeps a failed prune receipt in review and never announces it as queued or successful', async () => {
+  const preview = prunePreview();
+  const failed = Schema.decodeUnknownSync(historyPruneSchema)({
+    operationId: 'failed-prune',
+    materialId: preview.materialId,
+    policy: preview.policy,
+    candidateIds: preview.candidateIds,
+    status: 'failed',
+    attempt: 1,
+    errorKind: 'transient',
+    completedAt: null
+  });
+  const rpc = {
+    'materials.previewHistoryPrune': vi
+      .fn<StudyClient['materials.previewHistoryPrune']>()
+      .mockReturnValue(Effect.succeed(preview)),
+    'materials.requestHistoryPrune': vi
+      .fn<StudyClient['materials.requestHistoryPrune']>()
+      .mockReturnValue(Effect.succeed(failed))
+  };
+  vi.mocked(request).mockImplementation((invoke, signal) =>
+    runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
+  );
+  const client = createStudyQueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <MaterialLifecycle id={materialId('41')} />
+    </QueryClientProvider>
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
+  await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
+  await user.click(
+    await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
+  );
+  const dialog = await screen.findByRole('alertdialog');
+  const confirm = within(dialog).getByRole('button', {
+    name: catalogs.english.DocumentConfirmPrune
+  });
+  expect(confirm).toBeDisabled();
+  expect(rpc['materials.requestHistoryPrune']).not.toHaveBeenCalled();
+  await user.type(within(dialog).getByRole('textbox'), catalogs.english.DeleteConfirmationWord);
+  await user.click(confirm);
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    catalogs.english.DocumentCleanupFailed
+  );
+  expect(confirm).toBeDisabled();
+  expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
+    title: catalogs.english.DocumentCleanupFailed,
+    type: 'error'
+  });
+  const submitted = rpc['materials.requestHistoryPrune'].mock.calls[0]![0];
+  expect(submitted.materialId).toBe(preview.materialId);
+  expect(submitted.token).toBe(preview.token);
+  expect(submitted.candidateIds).toEqual(preview.candidateIds);
+  expect(submitted.operationId).toBeTruthy();
+  client.clear();
 });

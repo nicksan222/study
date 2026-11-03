@@ -4,7 +4,9 @@ import { chatMessageSchema, sessionSchema } from '@study/contracts/conversations
 import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
+import { projectSchema } from '@study/contracts/projects/schemas';
 import { executionSchema } from '@study/contracts/workflows/schemas';
+import { toastManager } from '@study/ui/toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -14,6 +16,7 @@ import {
   RouterProvider
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
@@ -25,8 +28,11 @@ import {
   importedVersion,
   summary
 } from '../material-library/test/support';
+import { attachmentKey } from './attachments';
+import { SessionDeleteDialog } from './deletion';
 import { History, CapturedContext } from './history';
 import { SelectionPanel } from './selection';
+import * as workspaceQueries from './session-workspace.queries';
 import {
   executionOptions,
   sessionDocumentOptions,
@@ -41,6 +47,8 @@ import { SessionWorkspace } from './workspace';
 
 const rpc = vi.hoisted(() => ({
   session: vi.fn(),
+  projects: vi.fn(),
+  remove: vi.fn(),
   generations: vi.fn(),
   citations: vi.fn(),
   provenance: vi.fn(),
@@ -72,6 +80,8 @@ vi.mock('../../lib/study-client/client', async () => {
   return {
     studyClient: Effect.succeed({
       'conversations.session': call(rpc.session),
+      'projects.projects': call(rpc.projects),
+      'conversations.deleteSession': call(rpc.remove),
       'conversations.sessionGenerations': call(rpc.generations),
       'conversations.messageVersionCitations': call(rpc.citations),
       'conversations.replyVersion': call(rpc.provenance),
@@ -141,8 +151,7 @@ function cache() {
 
   return client;
 }
-
-function mount(children: ReactNode, client = cache(), search = '') {
+function mount(children: ReactNode, client = cache(), search = '', path = '/') {
   const root = createRootRoute({
     validateSearch: (value) => value as { id?: string; project?: string },
     component: () => <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -151,16 +160,11 @@ function mount(children: ReactNode, client = cache(), search = '') {
     routeTree: root,
     parseSearch: (value) => Object.fromEntries(new URLSearchParams(value)),
     stringifySearch: stringifySearchWith(String),
-    history: createMemoryHistory({ initialEntries: [`/${search}`] })
+    history: createMemoryHistory({ initialEntries: [`${path}${search}`] })
   });
 
   return { client, ...render(<RouterProvider router={router} />) };
 }
-
-async function openSection(name: string) {
-  fireEvent.click(await screen.findByText(name));
-}
-
 function seedTransform(client: QueryClient) {
   rpc.generations.mockResolvedValue({
     items: [
@@ -187,6 +191,7 @@ function seedTransform(client: QueryClient) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  rpc.projects.mockResolvedValue({ items: [], next: null });
   rpc.sessions.mockResolvedValue({ items: [], next: null });
   rpc.generations.mockResolvedValue({ items: [], next: null });
   rpc.citations.mockResolvedValue({ citations: [] });
@@ -210,6 +215,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const client of caches.splice(0)) client.clear();
 });
 
@@ -228,8 +234,7 @@ it.each(['pending', 'failed', 'completed'] as const)(
 
     rpc.deletion.mockResolvedValue(receipt);
     rpc.retryDeletion.mockResolvedValue({ ...receipt, status: 'pending', attempt: 2 });
-    mount(<SessionWorkspace />, cache(), `?id=${id}`);
-
+    mount(<SessionWorkspace id={id} />, cache());
     if (status === 'failed') {
       fireEvent.click(await screen.findByRole('button', { name: 'SessionRetryDelete' }));
       await waitFor(() => expect(rpc.retryDeletion).toHaveBeenCalledWith({ id }));
@@ -296,8 +301,6 @@ it('persists an ambiguous retry key across remounts and waits for its exact exec
 
   seedTransform(client);
   const first = mount(<Transformation id={id} />, client);
-
-  await openSection('SessionTransform');
   fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(screen.getAllByRole('button', { name: 'Retry' }).length).toBe(2));
@@ -305,8 +308,6 @@ it('persists an ambiguous retry key across remounts and waits for its exact exec
 
   first.unmount();
   const second = mount(<Transformation id={id} />, client);
-
-  await openSection('SessionTransform');
   fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(2));
   expect(rpc.retryGeneration.mock.calls[1]![0]).toEqual(original);
@@ -322,7 +323,6 @@ it('persists an ambiguous retry key across remounts and waits for its exact exec
   );
   second.unmount();
   mount(<Transformation id={id} />, client);
-  await openSection('SessionTransform');
   await waitFor(() =>
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
   );
@@ -358,7 +358,6 @@ it('keeps cancelled transforms terminal and offers a fresh transform instead', a
 
   seedTransform(client);
   mount(<Transformation id={id} />, client);
-  await openSection('SessionTransform');
   await screen.findByText('SessionCancelledTransform');
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'SessionCancel' })).not.toBeInTheDocument();
@@ -382,8 +381,6 @@ it('invalidates cached Library and selection search once per committed publicati
   });
   client.setQueryData(searchKey, { hits: [] });
   const first = mount(<Transformation id={id} />, client);
-
-  await openSection('SessionTransform');
   await waitFor(() => expect(rpc.generation).toHaveBeenCalled());
   await waitFor(() =>
     expect(client.isFetching({ queryKey: ['session-generation', 'transform-1'] })).toBe(0)
@@ -404,7 +401,6 @@ it('invalidates cached Library and selection search once per committed publicati
   invalidations.mockClear();
   rpc.generation.mockResolvedValue(generation({ resultVersionId: 51n }));
   mount(<Transformation id={id} />, client);
-  await openSection('SessionTransform');
   await waitFor(() => expect(rpc.generation).toHaveBeenCalledTimes(2));
   expect(invalidations).not.toHaveBeenCalledWith({ queryKey: ['materials'] });
 });
@@ -425,8 +421,6 @@ it.each([false, true])(
 
     client.setQueryData(draftKey, submitted);
     const first = mount(<SelectionPanel id={id} />, client);
-
-    await openSection('SessionSelection');
     fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveSelection' }));
     await waitFor(() =>
       expect(rpc.updateSelection).toHaveBeenCalledWith({
@@ -437,7 +431,6 @@ it.each([false, true])(
     );
     first.unmount();
     mount(<SelectionPanel id={id} />, client);
-    await openSection('SessionSelection');
     expect(await screen.findByRole('button', { name: 'SessionSaveSelection' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'SessionRemove' })).toBeDisabled();
     await waitFor(() => expect(client.isFetching()).toBe(0));
@@ -499,8 +492,6 @@ it('exposes operation toggle state and contextual version groups', async () => {
     </>,
     client
   );
-  await openSection('SessionTransform');
-
   for (const summary of await screen.findAllByText('SessionVersions', { selector: 'summary' }))
     fireEvent.click(summary);
 
@@ -536,7 +527,6 @@ it('exposes exact block selection state and saves canonical native Document targ
   const client = cache();
 
   mount(<SelectionPanel id={id} />, client);
-  await openSection('SessionSelection');
   const choice = await screen.findByText('Material 41 · ReaderVersion 2');
 
   fireEvent.click(choice);
@@ -568,13 +558,10 @@ it('clears only the submitted selection draft after a late receipt across naviga
 
   client.setQueryData(draftKey, submitted);
   const first = mount(<SelectionPanel id={id} />, client);
-
-  await openSection('SessionSelection');
   fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveSelection' }));
   await waitFor(() => expect(rpc.updateSelection).toHaveBeenCalledTimes(1));
   first.unmount();
   mount(<SelectionPanel id={id} />, client);
-  await openSection('SessionSelection');
   expect(await screen.findByRole('button', { name: 'SessionSaveSelection' })).toBeDisabled();
   await act(async () => pending.resolve(selection(9n, submitted.targets)));
   await waitFor(() =>
@@ -708,7 +695,6 @@ it('removes cached exact picker content after a failed refresh and retries the s
   const client = cache();
 
   mount(<SelectionPanel id={id} />, client);
-  await openSection('SessionSelection');
   fireEvent.click(await screen.findByText('Material 41 · ReaderVersion 2'));
   expect(await screen.findByRole('button', { name: 'SessionUseBlock · b0' })).toBeEnabled();
   const versionId = summary().version.id;
@@ -816,7 +802,6 @@ it('suppresses cached picker controls after exact version failure and preserves 
   const client = cache();
 
   mount(<SelectionPanel id={id} />, client);
-  await openSection('SessionSelection');
   fireEvent.click(await screen.findByText('Material 41 · ReaderVersion 2'));
   fireEvent.click(await screen.findByRole('button', { name: 'SessionUseBlock · b0' }));
   const unsaved = client.getQueryData(draftKey);
@@ -915,4 +900,342 @@ it('fences repeated start shortcuts before the creation receipt arrives', async 
   fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
   await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
   expect(screen.getByRole('button', { name: 'SessionNew' })).toBeDisabled();
+});
+
+it('hands starter files to the confirmed session once and creates in the routed subject', async () => {
+  const project = Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n);
+  const creation = deferred<typeof sessionSchema.Type>();
+  rpc.create.mockReturnValue(creation.promise);
+  rpc.session.mockResolvedValue({
+    id,
+    title: 'Notebook',
+    projectIds: [project],
+    createdAt: 1n,
+    updatedAt: 1n
+  });
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  const upload = vi.spyOn(workspaceQueries, 'uploadSource').mockReturnValue(new Promise(() => {}));
+  const view = mount(<SessionWorkspace />, cache(), `?project=${project}`);
+  const file = new File(['Cell cycle'], 'lecture.txt', { type: 'text/plain' });
+  fireEvent.change(await screen.findByLabelText('SessionAttachFiles'), {
+    target: { files: [file] }
+  });
+  expect(await screen.findByText('lecture.txt')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
+  await waitFor(() => expect(rpc.create).toHaveBeenCalledWith({ project }));
+  expect(upload).not.toHaveBeenCalled();
+  await act(async () => creation.resolve({ id } as typeof sessionSchema.Type));
+  await waitFor(() => expect(upload).toHaveBeenCalledExactlyOnceWith(file));
+  expect(view.client.getQueryData(attachmentKey(id))).toMatchObject([{ file, state: 'uploading' }]);
+  expect(view.client.getQueryData(['session-start-draft', String(project), 'files'])).toEqual([]);
+});
+
+it('retains selected files across an uncertain create and starter remount', async () => {
+  rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
+  const first = mount(<SessionWorkspace />);
+  const file = new File(['Retain me'], 'notes.txt', { type: 'text/plain' });
+  fireEvent.change(await screen.findByLabelText('SessionAttachFiles'), {
+    target: { files: [file] }
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
+  await screen.findByText('SessionCreationUncertain');
+  first.unmount();
+  mount(<SessionWorkspace />, first.client);
+  expect(await screen.findByText('notes.txt')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'SessionNew' })).toBeDisabled();
+  expect(rpc.create).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the active composer mounted while a missing deletion receipt is refreshed', async () => {
+  rpc.session.mockResolvedValue({
+    id,
+    title: 'Notebook',
+    projectIds: [],
+    createdAt: 1n,
+    updatedAt: 1n
+  });
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  const view = mount(<SessionWorkspace id={id} />);
+  const input = await screen.findByRole('textbox', { name: 'SessionCompose' });
+  fireEvent.change(input, { target: { value: 'Keep writing during refresh' } });
+  const key = workspaceQueries.deletionOptions(id, true).queryKey;
+  await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
+  expect(view.client.getQueryData(key)).toBeNull();
+
+  const receipt = deferred<void>();
+  rpc.deletion.mockImplementation(async () => {
+    await receipt.promise;
+    throw new StudyError('not_found', 'Still no deletion');
+  });
+  let refresh: Promise<void> = Promise.resolve();
+  await act(async () => {
+    refresh = view.client.refetchQueries({ queryKey: key });
+  });
+  await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(1));
+  expect(screen.getByRole('textbox', { name: 'SessionCompose' })).toBe(input);
+  expect(input).toHaveValue('Keep writing during refresh');
+
+  await act(async () => {
+    receipt.resolve(undefined);
+    await refresh;
+  });
+  expect(view.client.getQueryData(key)).toBeNull();
+  expect(screen.getByRole('textbox', { name: 'SessionCompose' })).toBe(input);
+  expect(input).toHaveValue('Keep writing during refresh');
+  const reads = rpc.deletion.mock.calls.length;
+  await act(async () => {});
+  expect(rpc.deletion).toHaveBeenCalledTimes(reads);
+});
+
+it('blocks editing and file drops after a failed deletion refresh despite a cached missing receipt', async () => {
+  rpc.session.mockResolvedValue({
+    id,
+    title: 'Notebook',
+    projectIds: [],
+    createdAt: 1n,
+    updatedAt: 1n
+  });
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  const upload = vi.spyOn(workspaceQueries, 'uploadSource').mockReturnValue(new Promise(() => {}));
+  const view = mount(<SessionWorkspace id={id} />);
+  const input = await screen.findByRole('textbox', { name: 'SessionCompose' });
+  fireEvent.change(input, { target: { value: 'Retained while status is unknown' } });
+  const key = workspaceQueries.deletionOptions(id, true).queryKey;
+  await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
+  rpc.deletion.mockRejectedValue(new StudyError('transient', 'Receipt read unavailable'));
+  await act(async () => {
+    await view.client.refetchQueries({ queryKey: key });
+  });
+  expect(view.client.getQueryData(key)).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('textbox', { name: 'SessionCompose' })).toBeNull());
+  fireEvent.drop(view.container.querySelector('.session-canvas')!, {
+    dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
+  });
+  expect(upload).not.toHaveBeenCalled();
+  expect(view.client.getQueryData(attachmentKey(id))).toEqual([]);
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  await act(async () => {
+    await view.client.refetchQueries({ queryKey: key });
+  });
+  expect(await screen.findByRole('textbox', { name: 'SessionCompose' })).toHaveValue(
+    'Retained while status is unknown'
+  );
+});
+
+it('withdraws delete confirmation after a failed deletion refresh while keeping it during a pending refresh', async () => {
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  const view = mount(<SessionDeleteDialog id={id} open onOpenChange={() => {}} />);
+  const confirm = await screen.findByRole('button', { name: 'SessionConfirmDelete' });
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'DeleteConfirmationWord' } });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  const key = workspaceQueries.deletionOptions(id, true).queryKey;
+  await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
+  const receipt = deferred<void>();
+  rpc.deletion.mockImplementation(async () => {
+    await receipt.promise;
+    throw new StudyError('transient', 'Read failed');
+  });
+  let refresh = Promise.resolve();
+  await act(async () => {
+    refresh = view.client.refetchQueries({ queryKey: key });
+  });
+  expect(screen.getByRole('button', { name: 'SessionConfirmDelete' })).toBe(confirm);
+  await act(async () => {
+    receipt.resolve(undefined);
+    await refresh;
+  });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionConfirmDelete' })).toBeDisabled()
+  );
+  expect(await screen.findByRole('alert')).toBeVisible();
+  expect(rpc.remove).not.toHaveBeenCalled();
+});
+
+it('fences notebook drops while a shared deletion mutation is pending', async () => {
+  rpc.session.mockResolvedValue({
+    id,
+    title: 'Notebook',
+    projectIds: [],
+    createdAt: 1n,
+    updatedAt: 1n
+  });
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  rpc.remove.mockReturnValue(new Promise(() => {}));
+  const upload = vi.spyOn(workspaceQueries, 'uploadSource').mockReturnValue(new Promise(() => {}));
+  const view = mount(
+    <>
+      <SessionWorkspace id={id} />
+      <SessionDeleteDialog id={id} open onOpenChange={() => {}} />
+    </>
+  );
+  await waitFor(() =>
+    expect(view.container.querySelector('.session-canvas textarea')).not.toBeNull()
+  );
+  const dialog = screen.getByRole('alertdialog');
+  fireEvent.change(within(dialog).getByRole('textbox'), {
+    target: { value: 'DeleteConfirmationWord' }
+  });
+  fireEvent.click(await within(dialog).findByRole('button', { name: 'SessionConfirmDelete' }));
+  await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
+  await waitFor(() => expect(view.container.querySelector('.session-canvas textarea')).toBeNull());
+  fireEvent.drop(view.container.querySelector('.session-canvas')!, {
+    dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
+  });
+  expect(upload).not.toHaveBeenCalled();
+  expect(view.client.getQueryData(attachmentKey(id))).toEqual([]);
+});
+
+it.each(['', '?project=9007199254740997'])(
+  'uses the active session authoritative owner in the direct path breadcrumb %s',
+  async (search) => {
+    const owner = Schema.decodeUnknownSync(projectSchema)({
+      id: 9007199254740995n,
+      name: 'Biology',
+      examOn: null,
+      createdAt: 1n,
+      updatedAt: 1n
+    });
+    const other = Schema.decodeUnknownSync(projectSchema)({
+      id: 9007199254740997n,
+      name: 'History',
+      examOn: null,
+      createdAt: 1n,
+      updatedAt: 1n
+    });
+    rpc.projects.mockResolvedValue({ items: [owner, other], next: null });
+    rpc.session.mockResolvedValue({
+      id,
+      title: 'Cell division',
+      projectIds: [owner.id],
+      createdAt: 1n,
+      updatedAt: 1n
+    });
+    rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+    const view = mount(<SessionWorkspace id={id} />, cache(), search, `/sessions/${id}`);
+    await screen.findByRole('heading', { name: 'Cell division' });
+    const header = view.container.querySelector('.study-workspace-header')!;
+    expect(within(header as HTMLElement).getByText('Biology')).toBeVisible();
+    expect(within(header as HTMLElement).queryByText('History')).toBeNull();
+    const context = await screen.findByRole('complementary', { name: 'SessionContextPanel' });
+    expect(within(context).queryByRole('combobox')).toBeNull();
+    expect(within(context).queryByRole('link', { name: 'SidebarLibrary' })).toBeNull();
+  }
+);
+
+it('keeps all session actions in the single context card through collapse', async () => {
+  rpc.session.mockResolvedValue({
+    id,
+    title: 'Notebook',
+    projectIds: [],
+    createdAt: 1n,
+    updatedAt: 1n
+  });
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  const view = mount(<SessionWorkspace id={id} />);
+  const toggle = await screen.findByRole('button', { name: 'SessionContextPanel' });
+  const panel = screen.getByRole('complementary', { name: 'SessionContextPanel' });
+  expect(screen.getAllByRole('complementary')).toHaveLength(1);
+  expect(within(panel).getByRole('button', { name: 'SessionSelection' })).toBeInTheDocument();
+  expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toBeInTheDocument();
+  expect(within(panel).getByRole('button', { name: 'SessionDelete' })).toBeInTheDocument();
+  expect(view.container.querySelector('.ui-workspace-dock .session-context-actions')).toBeNull();
+  expect(screen.queryByText('SessionTools')).not.toBeInTheDocument();
+  fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
+  const dialog = await screen.findByRole('dialog', { name: 'SessionTransform' });
+  const instruction = within(dialog).getByRole('textbox', { name: 'SessionInstructions' });
+  fireEvent.change(instruction, { target: { value: 'Keep this instruction' } });
+  instruction.focus();
+  await userEvent.setup().keyboard('{Escape}');
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog', { name: 'SessionTransform' })).toBeNull()
+  );
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toHaveFocus();
+  fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
+  await screen.findByRole('dialog', { name: 'SessionTransform' });
+  fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' }).at(-1)!);
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(panel).not.toBeVisible();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.queryByRole('textbox', { name: 'SessionInstructions' })).toBeNull();
+  fireEvent.click(toggle);
+  fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
+  expect(
+    within(await screen.findByRole('dialog', { name: 'SessionTransform' })).getByRole('textbox', {
+      name: 'SessionInstructions'
+    })
+  ).toBe(instruction);
+  expect(instruction).toHaveValue('Keep this instruction');
+  expect(rpc.selection).toHaveBeenCalledWith({ sessionId: id });
+});
+
+it('retains the notebook edit fence after an uncertain deletion request and remount', async () => {
+  rpc.session.mockResolvedValue({
+    id,
+    title: 'Notebook',
+    projectIds: [],
+    createdAt: 1n,
+    updatedAt: 1n
+  });
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  rpc.remove.mockRejectedValue(new StudyError('transient', 'Deletion response lost'));
+  const upload = vi.spyOn(workspaceQueries, 'uploadSource').mockReturnValue(new Promise(() => {}));
+  const view = mount(
+    <>
+      <SessionWorkspace id={id} />
+      <SessionDeleteDialog id={id} open onOpenChange={() => {}} />
+    </>
+  );
+  await waitFor(() =>
+    expect(view.container.querySelector('.session-canvas textarea')).not.toBeNull()
+  );
+  const key = workspaceQueries.deletionOptions(id, true).queryKey;
+  await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
+  rpc.deletion.mockReturnValue(new Promise(() => {}));
+  const dialog = screen.getByRole('alertdialog');
+  fireEvent.change(within(dialog).getByRole('textbox'), {
+    target: { value: 'DeleteConfirmationWord' }
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'SessionConfirmDelete' }));
+  await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
+  await waitFor(() => expect(view.client.isMutating()).toBe(0));
+  expect(view.container.querySelector('.session-canvas textarea')).toBeNull();
+  fireEvent.drop(view.container.querySelector('.session-canvas')!, {
+    dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
+  });
+  expect(upload).not.toHaveBeenCalled();
+  view.unmount();
+  const remounted = mount(<SessionWorkspace id={id} />, view.client);
+  await act(async () => {});
+  expect(remounted.container.querySelector('.session-canvas textarea')).toBeNull();
+  expect(view.client.getQueryData(attachmentKey(id))).toEqual([]);
+});
+
+it('does not replay a deletion success notification when reopening a completed session', async () => {
+  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+  const completion = deferred<typeof sessionDeletionSchema.Type>();
+  rpc.remove.mockReturnValue(completion.promise);
+  const notify = vi.spyOn(toastManager, 'add');
+  const view = mount(<SessionDeleteDialog id={id} open onOpenChange={() => {}} />);
+  const confirm = await screen.findByRole('button', { name: 'SessionConfirmDelete' });
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'DeleteConfirmationWord' } });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  fireEvent.click(confirm);
+  await waitFor(() => expect(rpc.remove).toHaveBeenCalledTimes(1));
+  view.unmount();
+  const receipt = Schema.decodeUnknownSync(sessionDeletionSchema)({
+    operationId: 'unobserved-completion',
+    sessionId: id,
+    status: 'completed',
+    errorKind: null,
+    attempt: 1,
+    completedAt: 2n
+  });
+  await act(async () => completion.resolve(receipt));
+  rpc.deletion.mockResolvedValue(receipt);
+  mount(<SessionDeleteDialog id={id} open onOpenChange={() => {}} />, view.client);
+  await screen.findByText('SessionDeleted');
+  expect(notify).not.toHaveBeenCalled();
 });
