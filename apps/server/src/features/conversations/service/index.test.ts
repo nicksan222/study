@@ -109,13 +109,46 @@ test('messages retain immutable versions and paginate in chronological order', a
         const conversations = yield* Conversations;
         const project = yield* projects.createProject({ name: 'Messages' });
         const session = yield* conversations.createSession({ project: project.id, title: 'Chat' });
-        const first = yield* conversations.postMessage({ sessionId: session.id, text: ' first ' });
+        const pageText = '# Lecture notes\n\n- **Key idea**\n- Next steps\n\n> Remember this';
+        const input = {
+          sessionId: session.id,
+          text: pageText,
+          captureKey: 'page-autosave-identity',
+          requestReply: false
+        };
+        const first = yield* conversations.postMessage(input);
+
+        assert.equal((yield* conversations.postMessage(input)).id, first.id);
         const second = yield* conversations.postMessage({ sessionId: session.id, text: 'second' });
-        const edited = yield* conversations.editMessage({ messageId: first.id, text: 'changed' });
+        const edited = yield* conversations.editMessage({
+          messageId: first.id,
+          text: 'changed',
+          expectedActiveVersionId: first.activeVersionId!
+        });
+
+        assert.equal(
+          (yield* conversations.postMessage(input)).activeVersionId,
+          edited.activeVersionId
+        );
+        assert.equal(
+          (yield* Effect.flip(
+            conversations.editMessage({
+              messageId: first.id,
+              text: 'stale writer',
+              expectedActiveVersionId: first.activeVersionId!
+            })
+          )).kind,
+          'invalid_input'
+        );
+        assert.equal(
+          (yield* Effect.flip(conversations.postMessage({ ...input, text: 'different payload' })))
+            .kind,
+          'invalid_input'
+        );
 
         assert.deepEqual(
           edited.versions.map((v) => v.text),
-          ['first', 'changed']
+          [pageText, 'changed']
         );
         assert.equal(edited.versions[1]?.basedOn, first.activeVersionId);
         assert.equal(

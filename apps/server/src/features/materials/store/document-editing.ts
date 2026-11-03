@@ -10,6 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { createHash } from 'node:crypto';
+
 import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import * as contract from '@study/contracts/materials/editing';
@@ -298,9 +300,37 @@ function makeDocumentEditing(resources: StoreResources) {
     });
   }
 
+  function replayCreation(value: typeof contract.createManualDocumentSchema.Type, intent: string) {
+    if (!value.createKey) return undefined;
+
+    const row = db.orm
+      .select()
+      .from(s.materials)
+      .where(eq(s.materials.create_key, value.createKey))
+      .get();
+
+    if (!row) return undefined;
+
+    if (row.creation_intent !== intent)
+      throw new StudyError('invalid_input', 'Document creation key belongs to another intent');
+
+    return required(reads.readMaterial(row.id));
+  }
+
   return {
     create: (value: typeof contract.createManualDocumentSchema.Type) =>
       materialIntegrity(() => {
+        const encoded = Schema.encodeSync(
+          Schema.fromJsonString(Schema.toCodecJson(contract.createManualDocumentSchema))
+        )(value);
+        // Creation receipts must not retain a second private copy after history pruning.
+        const intent = JSON.stringify(
+          createHash('sha256').update(canonicalJson(encoded)).digest('hex')
+        );
+        const replay = replayCreation(value, intent);
+
+        if (replay) return replay;
+
         const ids = value.document.blocks.map((block) => block.id);
 
         if (
@@ -330,6 +360,13 @@ function makeDocumentEditing(resources: StoreResources) {
         if (input) setCitations({ id: result.version.id, citations: readCitations(input.id) });
 
         publish(result.version.id);
+
+        if (value.createKey)
+          db.orm
+            .update(s.materials)
+            .set({ create_key: value.createKey, creation_intent: intent })
+            .where(eq(s.materials.id, result.id))
+            .run();
 
         return required(reads.readMaterial(result.id));
       }),

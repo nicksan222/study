@@ -544,6 +544,7 @@ export const draftMaterialVersionDetailSchema = materialVersionDetailFor(
 );
 
 export const materialSchema = Schema.Struct({
+  description: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(240)))),
   importProcessing: Schema.optional(
     Schema.Struct({
       sourceId: sourceIdSchema,

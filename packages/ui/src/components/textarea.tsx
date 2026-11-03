@@ -6,8 +6,9 @@ import { CONTROL_SURFACE_CLASS } from './control-styles';
 export function Textarea({
   className,
   font = 'default',
+  size = 'default',
   ...props
-}: ComponentProps<'textarea'> & { font?: 'default' | 'mono' }) {
+}: ComponentProps<'textarea'> & { font?: 'default' | 'mono'; size?: 'default' | 'compact' }) {
   return (
     <span
       className={cn(CONTROL_SURFACE_CLASS, font === 'mono' && 'font-mono tabular-nums')}
@@ -15,7 +16,8 @@ export function Textarea({
     >
       <textarea
         className={cn(
-          'block min-h-44 w-full resize-y rounded-[inherit] bg-transparent p-3 text-sm leading-5 outline-none placeholder:text-placeholder disabled:cursor-not-allowed',
+          'block w-full resize-y rounded-[inherit] bg-transparent p-3 text-sm leading-5 outline-none placeholder:text-placeholder disabled:cursor-not-allowed',
+          size === 'compact' ? 'min-h-24' : 'min-h-44',
           font === 'mono' && 'text-xs',
           className
         )}

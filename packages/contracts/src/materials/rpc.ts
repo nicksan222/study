@@ -135,6 +135,12 @@ export const renameInputSchema = Schema.Struct({
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200))
 });
 
+export const updateDescriptionInputSchema = Schema.Struct({
+  id: materialIdSchema,
+  description: Schema.NullOr(Schema.String.check(Schema.isMaxLength(240))),
+  expectedDescription: Schema.NullOr(Schema.String.check(Schema.isMaxLength(240)))
+});
+
 export const reorderInputSchema = Schema.Struct({
   sessionId: sessionIdSchema,
   materialIds: Schema.mutable(Schema.Array(materialIdSchema)).check(Schema.isMaxLength(10000))
@@ -422,6 +428,11 @@ export const MaterialsRpc = RpcGroup.make(
   }),
   Rpc.make('attach', { payload: attachInputSchema, success: linked, error: failureSchema }),
   Rpc.make('detach', { payload: detachInputSchema, success: linked, error: failureSchema }),
+  Rpc.make('updateDescription', {
+    payload: updateDescriptionInputSchema,
+    success: materialDetailSchema,
+    error: failureSchema
+  }),
   Rpc.make('rename', {
     payload: renameInputSchema,
     success: materialDetailSchema,

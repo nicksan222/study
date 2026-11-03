@@ -501,6 +501,8 @@ function* makeMaterials() {
 
         return result;
       }),
+    updateDescription: (value: typeof input.updateDescriptionInputSchema.Type) =>
+      transaction((tx) => tx.store(MaterialsStore).updateDescription(value)),
     rename: (value: typeof input.renameInputSchema.Type) =>
       transaction((tx) => {
         const result = tx.store(MaterialsStore).rename(value);

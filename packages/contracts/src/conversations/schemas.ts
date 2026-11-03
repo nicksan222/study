@@ -94,7 +94,18 @@ export const messagePartSchema = Schema.Struct({
   sourceKind: sourceKindSchema
 });
 
+export const captureKeySchema = Schema.String.check(Schema.isBetweenLength(1, 200));
+
+export const messageFormats = ['text', 'document'] as const;
+
+export const messageFormatSchema = Schema.Literals(messageFormats);
+
+export const messageDescriptionSchema = Schema.String.check(Schema.isMaxLength(240));
+
 export const chatMessageSchema = Schema.Struct({
+  format: Schema.optional(messageFormatSchema),
+  description: Schema.optional(Schema.NullOr(messageDescriptionSchema)),
+  captureKey: Schema.optional(Schema.NullOr(captureKeySchema)),
   id: messageIdSchema,
   sessionId: sessionIdSchema,
   role: messageRoleSchema,

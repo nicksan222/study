@@ -14,6 +14,7 @@
 
 import {
   messageVersionCitationsSchema,
+  updateMessageDescriptionInputSchema,
   editMessageInputSchema,
   postMessageInputSchema,
   setActiveVersionInputSchema,
@@ -39,6 +40,7 @@ import {
   message_versions,
   messages,
   sessions,
+  session_deletions,
   sources
 } from '@study/db/schema';
 import { Schema } from 'effect';
@@ -108,6 +110,9 @@ function makeHelpers({ db, clock }: StoreResources) {
       recordingId: m.recording_id,
       recordingMs: m.recording_ms,
       recordedIn: m.recorded_in,
+      captureKey: m.capture_key,
+      format: m.format,
+      description: m.description,
       createdAt: m.created_at,
       versions: db.orm
         .select()
@@ -160,7 +165,43 @@ function makeHelpers({ db, clock }: StoreResources) {
       .run();
   }
 
-  return { read, required, touch, assertThreadRoot, readCitations };
+  /** Replays text-only note creation without duplicating a page or generation request. */
+  function capturedNote(input: typeof postMessageInputSchema.Type) {
+    if (!input.captureKey) return null;
+
+    if (input.requestReply !== false || input.sourceIds?.length)
+      throw new StudyError('invalid_input', 'capture keys require a text-only note');
+
+    const row = db.orm
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        and(eq(messages.session_id, input.sessionId), eq(messages.capture_key, input.captureKey))
+      )
+      .get();
+
+    if (!row) return null;
+
+    const message = required(row.id);
+
+    assertCaptureReplay(message, input);
+
+    return message;
+  }
+
+  return { read, required, touch, assertThreadRoot, readCitations, capturedNote };
+}
+
+function assertCaptureReplay(
+  message: typeof chatMessageSchema.Type,
+  input: typeof postMessageInputSchema.Type
+) {
+  if (
+    message.format !== (input.format ?? 'text') ||
+    message.threadRoot !== (input.threadRoot ?? null) ||
+    message.versions[0]?.text !== input.text.trim()
+  )
+    throw new StudyError('invalid_input', 'capture key already belongs to another note');
 }
 
 export const MessageStore = defineStore({
@@ -168,7 +209,7 @@ export const MessageStore = defineStore({
   entity: { singular: 'message', plural: 'messages' },
   make: ({ db, clock }) => {
     const { requiredSession, insertSelectedVersion } = makePersistence({ db, clock });
-    const { read, required, touch, assertThreadRoot } = makeHelpers({ db, clock });
+    const { read, required, touch, assertThreadRoot, capturedNote } = makeHelpers({ db, clock });
 
     return {
       queries: {
@@ -220,6 +261,9 @@ export const MessageStore = defineStore({
           output: chatMessageSchema,
           run: (input) => {
             const session = requiredSession(input.sessionId);
+            const captured = capturedNote(input);
+
+            if (captured) return captured;
 
             if (input.threadRoot !== undefined) assertThreadRoot(session.id, input.threadRoot);
 
@@ -240,6 +284,8 @@ export const MessageStore = defineStore({
               .insert(messages)
               .values({
                 session_id: session.id,
+                capture_key: input.captureKey ?? null,
+                format: input.format ?? 'text',
                 role: 'user',
                 thread_root: input.threadRoot ?? null,
                 created_at: unixSeconds(clock)
@@ -273,11 +319,52 @@ export const MessageStore = defineStore({
             return required(message.id);
           }
         }),
+        updateMessageDescription: storeMutation({
+          input: updateMessageDescriptionInputSchema,
+          output: chatMessageSchema,
+          run: (input) => {
+            const message = required(input.messageId);
+
+            requiredSession(message.sessionId);
+
+            if (message.role !== 'user')
+              throw new StudyError('invalid_input', 'Only user notes have editable descriptions');
+
+            if (
+              db.orm
+                .select()
+                .from(session_deletions)
+                .where(eq(session_deletions.session_id, message.sessionId))
+                .get()
+            )
+              throw new StudyError('invalid_input', 'Session is being deleted');
+
+            const description = input.description?.trim() || null;
+
+            if (
+              message.description !== input.expectedDescription &&
+              message.description !== description
+            )
+              throw new StudyError('invalid_input', 'Message description changed');
+
+            db.orm.update(messages).set({ description }).where(eq(messages.id, message.id)).run();
+            touch(message.sessionId);
+
+            return required(message.id);
+          }
+        }),
         editMessage: storeMutation({
           input: editMessageInputSchema,
           output: chatMessageSchema,
           run: (input) => {
             const message = required(input.messageId);
+
+            if (
+              input.expectedActiveVersionId !== undefined &&
+              message.activeVersionId !== input.expectedActiveVersionId
+            )
+              throw new StudyError('invalid_input', 'active message version changed');
+
             let text = textOf(input.text);
             const markers = citedMarkers(text);
             const kept = message.citations.filter((citation) => markers.includes(citation.marker));

@@ -18,6 +18,8 @@ import { test } from 'node:test';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import type { SessionId } from '@study/contracts/ids';
+import { eq } from '@study/db';
+import { messages, session_deletions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -222,6 +224,184 @@ test('native RPC keeps attachment thread messages isolated', async () => {
               limit: 10
             })).items.map((m) => m.id),
             [child.id]
+          );
+        }).pipe(Effect.provide(handlers))
+      )
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('native description RPC persists optional metadata with optimistic concurrency', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const handlers = ConversationsRpcLive.pipe(
+    Layer.provideMerge(Layer.merge(Conversations.layer, Settings.layer)),
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+          const session = yield* client('conversations.createSession', { title: 'Descriptions' });
+          const message = yield* client('conversations.postMessage', {
+            sessionId: session.id,
+            text: '# Linear algebra',
+            requestReply: false
+          });
+          const input = {
+            messageId: message.id,
+            description: '  Eigenvalues and vectors  ',
+            expectedDescription: null
+          };
+          const saved = yield* client('conversations.updateMessageDescription', input);
+
+          assert.equal(message.description, null);
+          assert.equal(saved.description, 'Eigenvalues and vectors');
+          assert.deepEqual(saved.versions, message.versions);
+          assert.equal(saved.activeVersionId, message.activeVersionId);
+          assert.equal(
+            (yield* client('conversations.message', { id: message.id })).description,
+            saved.description
+          );
+          assert.equal(
+            (yield* client('conversations.thread', { sessionId: session.id, limit: 10 })).items[0]
+              ?.description,
+            saved.description
+          );
+          assert.equal(
+            (yield* client('conversations.updateMessageDescription', input)).description,
+            saved.description
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              client('conversations.updateMessageDescription', {
+                ...input,
+                description: 'Stale overwrite'
+              })
+            )).kind,
+            'invalid_input'
+          );
+          const cleared = yield* client('conversations.updateMessageDescription', {
+            messageId: message.id,
+            description: '  ',
+            expectedDescription: saved.description ?? null
+          });
+
+          assert.equal(cleared.description, null);
+          assert.equal(
+            (yield* client('conversations.message', { id: message.id })).description,
+            null
+          );
+          const conversations = yield* Conversations;
+
+          assert.equal(
+            (yield* Effect.flip(
+              conversations.updateMessageDescription({
+                messageId: message.id,
+                description: 'x'.repeat(241),
+                expectedDescription: null
+              })
+            )).kind,
+            'invalid_input'
+          );
+          context.db.orm
+            .update(messages)
+            .set({ role: 'assistant' })
+            .where(eq(messages.id, message.id))
+            .run();
+          assert.equal(
+            (yield* Effect.flip(client('conversations.updateMessageDescription', input))).kind,
+            'invalid_input'
+          );
+          context.db.orm
+            .update(messages)
+            .set({ role: 'user' })
+            .where(eq(messages.id, message.id))
+            .run();
+          context.db.orm
+            .insert(session_deletions)
+            .values({
+              session_id: session.id,
+              operation_id: 'description-deletion',
+              status: 'pending',
+              attempt: 1,
+              created_at: 1n
+            })
+            .run();
+          assert.equal(
+            (yield* Effect.flip(client('conversations.updateMessageDescription', input))).kind,
+            'invalid_input'
+          );
+        }).pipe(Effect.provide(handlers))
+      )
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('native message RPC preserves explicit document format independently of capture keys', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const handlers = ConversationsRpcLive.pipe(
+    Layer.provideMerge(Layer.merge(Conversations.layer, Settings.layer)),
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+          const session = yield* client('conversations.createSession', { title: 'Formats' });
+          const quick = yield* client('conversations.postMessage', {
+            sessionId: session.id,
+            text: 'Quick capture',
+            requestReply: false,
+            captureKey: 'quick-text-capture'
+          });
+          const documentInput = {
+            sessionId: session.id,
+            text: '# Document',
+            requestReply: false,
+            captureKey: 'document-capture',
+            format: 'document' as const
+          };
+          const document = yield* client('conversations.postMessage', documentInput);
+
+          assert.equal(quick.format, 'text');
+          assert.equal(document.format, 'document');
+          assert.equal(
+            (yield* client('conversations.message', { id: document.id })).format,
+            'document'
+          );
+          assert.equal((yield* client('conversations.postMessage', documentInput)).id, document.id);
+          assert.equal(
+            (yield* Effect.flip(
+              client('conversations.postMessage', {
+                ...documentInput,
+                format: 'text'
+              })
+            )).kind,
+            'invalid_input'
+          );
+          const edited = yield* client('conversations.editMessage', {
+            messageId: document.id,
+            text: '# Revised'
+          });
+
+          assert.equal(edited.format, 'document');
+          assert.deepEqual(
+            (yield* client('conversations.thread', { sessionId: session.id, limit: 10 })).items.map(
+              (item) => item.format
+            ),
+            ['text', 'document']
           );
         }).pipe(Effect.provide(handlers))
       )

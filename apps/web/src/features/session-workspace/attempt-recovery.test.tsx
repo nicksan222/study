@@ -1,4 +1,3 @@
-import { askResultSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,8 +7,15 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { Composer } from './composer';
+import type { Draft } from './draft';
 import type * as SessionQueries from './session-workspace.queries';
-import { ask, captureContext, transformDocument, uploadSource } from './session-workspace.queries';
+import {
+  ask,
+  captureContext,
+  transformDocument,
+  uploadSource,
+  saveNote
+} from './session-workspace.queries';
 import { Transformation } from './transformation';
 import { UnavailableAttempt } from './unavailable-attempt';
 
@@ -22,6 +28,7 @@ vi.mock('./history', () => ({ CapturedContext: () => null }));
 vi.mock('./session-workspace.queries', async (load) => ({
   ...(await load<typeof SessionQueries>()),
   ask: vi.fn(),
+  saveNote: vi.fn(),
   captureContext: vi.fn(),
   transformDocument: vi.fn(),
   uploadSource: vi.fn(),
@@ -50,15 +57,6 @@ function deferred<T>() {
 }
 
 const id = Schema.decodeUnknownSync(sessionIdSchema)(501n);
-
-const receipt = Schema.decodeUnknownSync(askResultSchema)({
-  sessionId: id,
-  requestId: 'ask-1',
-  messageId: 3n,
-  versionId: 4n,
-  userMessageId: 1n,
-  userVersionId: 2n
-});
 
 const clients: QueryClient[] = [];
 
@@ -124,41 +122,46 @@ it.each(['selection', 'thread', 'runs'] as const)(
   }
 );
 
-it('abandons only an unavailable Ask identity after remount, preserving text and accepted attachments', async () => {
+it('abandons a retained unavailable Ask after review and resumes plain capture with its attachments', async () => {
   vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
     ReturnType<typeof uploadSource>
   >);
-  vi.mocked(ask)
-    .mockRejectedValueOnce(new StudyError('not_found', 'Retired context'))
-    .mockResolvedValueOnce(receipt);
+  vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
   const first = mount(<Composer id={id} />);
 
   fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
     target: { files: [new File(['notes'], 'retained.txt')] }
   });
   await screen.findByText('SessionFileAccepted');
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Original question' } });
-  fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
+  act(() =>
+    first.client.setQueryData<Draft>(['session-drafts', String(id), 'note'], {
+      text: 'Later draft',
+      instruction: '',
+      askUnavailable: true,
+      askAttempt: {
+        sessionId: id,
+        intentKey: 'retired-ask',
+        expectedSelectionRevision: 8n,
+        text: 'Original question'
+      }
+    })
+  );
   await screen.findByRole('button', { name: 'SessionReviewUnavailableAttempt' });
-  const submitted = vi.mocked(ask).mock.calls[0]![0];
-
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Later draft' } });
   first.unmount();
   mount(<Composer id={id} />, first.client);
-  expect(screen.getByRole('button', { name: 'SessionAsk' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
   expect(screen.queryByRole('button', { name: 'SessionRetryAsk' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'SessionReviewUnavailableAttempt' }));
   fireEvent.click(await screen.findByRole('button', { name: 'SessionAbandonAttempt' }));
   expect(screen.getByRole('textbox')).toHaveValue('Later draft');
   expect(screen.getByText('retained.txt')).toBeVisible();
-  expect(ask).toHaveBeenCalledTimes(1);
-  await waitFor(() => expect(screen.getByRole('button', { name: 'SessionAsk' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
-  await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
-  const next = vi.mocked(ask).mock.calls[1]![0];
-
-  expect(next).toMatchObject({ text: 'Later draft', sourceIds: [44n] });
-  expect(next.intentKey).not.toBe(submitted.intentKey);
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+  await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Later draft', [44n]));
+  expect(ask).not.toHaveBeenCalled();
   expect(uploadSource).toHaveBeenCalledTimes(1);
 });
 

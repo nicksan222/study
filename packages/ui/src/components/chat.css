@@ -1,0 +1,209 @@
+.session-desk-board-body:has(> .chat-conversation) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.chat-conversation {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.chat-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-width: thin;
+  outline: none;
+}
+.chat-viewport:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ring);
+}
+.chat-content {
+  width: min(100%, 52rem);
+  margin-inline: auto;
+  padding: 1.5rem clamp(1rem, 2cqi, 2rem) 2rem;
+  min-height: 100%;
+}
+.chat-jump {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0.75rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.chat-jump > button {
+  pointer-events: auto;
+  background: var(--popover);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+.chat-message {
+  scroll-margin-block: 2rem;
+  outline: none;
+}
+.chat-message-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.session-desk-board .chat-message > .chat-message-text {
+  width: 100%;
+  max-width: 72ch;
+  margin-inline: 0;
+  padding: 0;
+  background: transparent;
+}
+.session-desk-board .session-history > .session-desk-document {
+  width: min(100%, 40rem);
+  max-width: 100%;
+  align-self: flex-start;
+}
+.session-desk-board .chat-message > .chat-message-actions {
+  margin-inline: 0 auto;
+  justify-content: flex-start;
+}
+.chat-message-actions {
+  transition: opacity 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-message-actions {
+    transition: none;
+  }
+}
+
+/* Timeline cards share the composer measure; the rail sits quietly in its outer gutter. */
+.session-desk-board .session-history {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+.chat-timeline-event {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 0 0 1.75rem;
+}
+.chat-timeline-event::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -0.75rem;
+  width: 1px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+.chat-timeline-event::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 0.375rem;
+  inset-inline-start: -0.9375rem;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+  border: 2px solid var(--canvas, var(--background));
+}
+.chat-timeline-time {
+  display: flex;
+  align-items: center;
+  min-height: 1.25rem;
+  margin-block-end: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  line-height: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.chat-timeline-body {
+  width: 100%;
+  min-width: 0;
+}
+.session-desk-board .chat-timeline-body > .chat-message {
+  width: 100%;
+  margin: 0;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--background);
+}
+.session-desk-board .chat-timeline-body > .chat-message > header {
+  display: none;
+}
+.session-desk-board .chat-timeline-body > .session-desk-document {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.session-desk-board .chat-timeline-body .chat-message-text,
+.session-desk-board .chat-timeline-body .rich-note-content {
+  max-width: 75ch;
+}
+.chat-timeline-event:last-child {
+  padding-block-end: 0.75rem;
+}
+@container (max-width: 600px) {
+  .chat-content {
+    padding: 1rem 1rem 1.5rem;
+  }
+  .chat-timeline-event {
+    padding-block-end: 1.5rem;
+  }
+  .chat-timeline-time {
+    margin-block-end: 0.5rem;
+  }
+}
+
+.session-desk-board .chat-message > .chat-message-actions {
+  order: 10;
+  align-self: flex-end;
+  justify-content: flex-end;
+  margin-block: 1rem 0;
+  margin-inline: auto 0;
+  opacity: 1;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.session-desk-board .chat-message-actions .session-action-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.session-desk-board .chat-message-actions button {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  padding: 0;
+}
+
+/* File previews are already surfaces; only plain writing receives a timeline card. */
+.session-desk-board .chat-timeline-body > .chat-message:has(.session-desk-attachments) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.session-desk-board .chat-message:has(.session-desk-attachments) > .chat-message-text {
+  width: 100%;
+  max-width: none;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--background);
+}
+.session-desk-board .chat-timeline-body > .session-desk-document {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 0;
+}

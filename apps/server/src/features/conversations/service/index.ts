@@ -24,6 +24,7 @@ import type {
 import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import type {
   createSessionInputSchema,
+  updateMessageDescriptionInputSchema,
   editMessageInputSchema,
   postMessageInputSchema,
   setActiveVersionInputSchema,
@@ -548,6 +549,10 @@ export const Conversations = defineService(
 
           return message;
         }),
+      updateMessageDescription: (input: typeof updateMessageDescriptionInputSchema.Type) =>
+        transaction((tx) =>
+          resolveMessageCitations(tx, tx.store(MessageStore).updateMessageDescription(input))
+        ),
       editMessage: (input: typeof editMessageInputSchema.Type) =>
         transaction((tx) => resolveMessageCitations(tx, tx.store(MessageStore).editMessage(input))),
       setActiveVersion: (input: typeof setActiveVersionInputSchema.Type) =>

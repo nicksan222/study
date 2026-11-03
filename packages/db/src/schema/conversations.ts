@@ -1,3 +1,4 @@
+import { messageFormats } from '@study/contracts/conversations/schemas';
 import type {
   DocumentId,
   MaterialVersionId,
@@ -148,6 +149,9 @@ export const messages = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<MessageId>(),
     session_id: sessionReference(),
+    capture_key: text(),
+    format: text({ enum: messageFormats }).notNull().default('text'),
+    description: text(),
     role: text({ enum: codes_message_role.code.enumValues })
       .notNull()
       .references((): AnySQLiteColumn => codes_message_role.code, {
@@ -181,6 +185,7 @@ export const messages = sqliteTable(
     index('messages_thread_idx')
       .on(t.thread_root, t.id)
       .where(sql`thread_root IS NOT NULL`),
+    uniqueIndex('messages_session_capture_key_unique').on(t.session_id, t.capture_key),
     index('messages_session_idx').on(t.session_id, t.id),
     index('messages_recording_idx')
       .on(t.recording_id)
