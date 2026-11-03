@@ -1,5 +1,6 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { sessionIdSchema, materialIdSchema } from '@study/contracts/ids';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
@@ -8,6 +9,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { threadOptions } from './session-workspace.queries';
 import { useWorkbench, workbenchIdentity } from './workbench.queries';
+
+const preferences = vi.hoisted(() => ({ expandDocuments: false }));
+
+vi.mock('../../lib/study-client/workspace-preferences.queries', () => ({
+  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+}));
 
 const api = vi.hoisted(() => ({ thread: vi.fn() }));
 
@@ -176,4 +183,19 @@ it('isolates document tabs by session and restores them when returning to the se
   expect(view.result.current.active).toBe(firstIdentity);
   expect(view.result.current.tabs).toHaveLength(1);
   expect(view.result.current.visible).toBe(true);
+});
+
+it('uses the configured initial width until the user manually changes it', async () => {
+  preferences.expandDocuments = true;
+  const view = mount();
+
+  expect(view.result.current.expanded).toBe(true);
+  act(() => view.result.current.expand());
+  await waitFor(() => expect(view.result.current.expanded).toBe(false));
+  preferences.expandDocuments = false;
+  view.rerender({ sessionId: id });
+  preferences.expandDocuments = true;
+  view.rerender({ sessionId: id });
+  expect(view.result.current.expanded).toBe(false);
+  preferences.expandDocuments = false;
 });

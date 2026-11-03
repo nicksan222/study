@@ -1,5 +1,7 @@
 import { Schema } from 'effect';
 
+import { exportFormatSchema } from '../materials/export.ts';
+
 export const appSettingsSchema = Schema.Struct({
   language: Schema.Literals([1, 2]),
   appearance: Schema.Literals([1, 2, 3]),
@@ -41,4 +43,19 @@ export const concurrencySettingsSchema = Schema.Struct({
 
 export const sidebarSettingsSchema = Schema.Struct({
   settledDocumentThreshold: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
+});
+
+export const workspacePreferencesSchema = Schema.Struct({
+  autosaveIntervalSeconds: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 30 })),
+  spellcheck: Schema.Boolean,
+  submitOnEnter: Schema.Boolean,
+  defaultExportFormat: exportFormatSchema,
+  defaultAiDetail: Schema.Literals(['brief', 'balanced', 'detailed']),
+  autoTitleSessions: Schema.Boolean,
+  sidebarDensity: Schema.Literals(['comfortable', 'compact']),
+  sidebarShowDocumentCounts: Schema.Boolean,
+  sidebarTimeFormat: Schema.Literals(['relative', 'absolute']),
+  editorFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
+  readerFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
+  expandDocuments: Schema.Boolean
 });

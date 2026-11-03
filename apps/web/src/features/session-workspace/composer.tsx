@@ -7,6 +7,7 @@ import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { ArrowUp, FilePenLine } from 'lucide-react';
 
+import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
 import { AttachmentPicker, AttachmentTray } from './attachments';
 import { useComposer } from './composer.queries';
 import { sessionKey } from './session-workspace.queries';
@@ -18,6 +19,7 @@ type ComposerModel = ReturnType<typeof useComposer>;
 /** Combines quick capture, attachments and request recovery for the active session. */
 export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () => void }) {
   const model = useComposer(id);
+  const preferences = useWorkspacePreferences();
   const { t, draft, files, blocked, setDraft, submitNote } = model;
 
   return (
@@ -40,9 +42,12 @@ export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () =>
         id={`session-note-${id}`}
         rows={1}
         value={draft.text}
+        spellCheck={preferences.spellcheck}
         onKeyDown={(event) => {
           if (
-            (event.metaKey || event.ctrlKey) &&
+            (event.metaKey ||
+              event.ctrlKey ||
+              (preferences.submitOnEnter && !event.shiftKey && !event.altKey)) &&
             event.key === 'Enter' &&
             !event.nativeEvent.isComposing
           ) {

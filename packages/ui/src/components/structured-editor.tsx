@@ -140,7 +140,9 @@ export function StructuredEditor({
   placeholder,
   labels,
   toolbarEnd,
-  disabled = false
+  disabled = false,
+  spellcheck = true,
+  fontSize = 16
 }: {
   value: StructuredEditorValue;
   onChange: (value: StructuredEditorValue) => void;
@@ -149,6 +151,8 @@ export function StructuredEditor({
   labels: RichNoteLabels;
   toolbarEnd?: ReactNode;
   disabled?: boolean;
+  spellcheck?: boolean;
+  fontSize?: number;
 }) {
   const editor = useEditor({
     extensions: structuredEditorExtensions,
@@ -160,7 +164,9 @@ export function StructuredEditor({
         role: 'textbox',
         'aria-label': label,
         'aria-multiline': 'true',
-        'data-placeholder': placeholder
+        'data-placeholder': placeholder,
+        spellcheck: String(spellcheck),
+        style: `font-size: ${fontSize}px`
       }
     },
     onUpdate: ({ editor: current }) => {
@@ -184,6 +190,8 @@ export function StructuredEditor({
       labels={labels}
       disabled={disabled}
       toolbarEnd={toolbarEnd}
+      spellcheck={spellcheck}
+      fontSize={fontSize}
       structured
     />
   );

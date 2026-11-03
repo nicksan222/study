@@ -15,6 +15,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { JsonValue } from '@study/contracts/json';
 import {
+  workspacePreferencesSchema,
   sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
@@ -24,6 +25,7 @@ import {
   reviewSettingsSchema
 } from '@study/contracts/settings/schemas';
 import type {
+  WorkspacePreferences,
   AppSettings,
   ConcurrencySettings,
   AppearancePreferences,
@@ -32,6 +34,7 @@ import type {
   ReviewSettings
 } from '@study/contracts/settings/types';
 import {
+  defaultWorkspacePreferences,
   Appearance,
   Language,
   LlmModel,
@@ -76,6 +79,24 @@ const make = Effect.gen(function* () {
   const store = yield* useStore(SettingsStore);
 
   return {
+    workspacePreferences: () =>
+      store.preference('workspace').pipe(
+        Effect.map((v) => {
+          const resolved = { ...defaultWorkspacePreferences, ...v };
+
+          return Schema.is(workspacePreferencesSchema)(resolved)
+            ? resolved
+            : defaultWorkspacePreferences;
+        })
+      ),
+    saveWorkspacePreferences: (input: WorkspacePreferences) =>
+      !Schema.is(workspacePreferencesSchema)(input)
+        ? Effect.fail(new StudyError('invalid_input', 'Invalid workspace preferences'))
+        : transaction((tx) => {
+            tx.store(SettingsStore).saveWorkspacePreferences(input);
+
+            return {};
+          }),
     sidebarSettings: () =>
       store.preference('sidebar').pipe(
         Effect.map((v) => {

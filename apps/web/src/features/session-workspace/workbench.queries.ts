@@ -1,6 +1,7 @@
 import type { SessionId, MaterialId } from '@study/contracts/ids';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
+import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
 import { pageIdentity } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
 import { threadOptions } from './session-workspace.queries';
@@ -17,14 +18,15 @@ type Workbench = {
   tabs: WorkbenchTarget[];
   active?: string;
   visible: boolean;
-  expanded: boolean;
+  expanded?: boolean;
 };
 
 /** Retains document tabs and unsent pages across session navigation without mixing them with chat drafts. */
 export function useWorkbench(id: SessionId) {
   const cache = useQueryClient();
+  const preferences = useWorkspacePreferences();
   const key = ['session-drafts', String(id), 'workbench'];
-  const initial: Workbench = { tabs: [], visible: false, expanded: false };
+  const initial: Workbench = { tabs: [], visible: false };
   const state = useQuery({
     queryKey: key,
     queryFn: () => initial,
@@ -82,11 +84,13 @@ export function useWorkbench(id: SessionId) {
 
   return {
     ...model,
+    expanded: model.expanded ?? preferences.expandDocuments,
     tabs,
     open,
     close,
     select: (active: string) => update((value) => ({ ...value, active, visible: true })),
     hide: () => update((value) => ({ ...value, visible: false })),
-    expand: () => update((value) => ({ ...value, expanded: !value.expanded }))
+    expand: () =>
+      update((value) => ({ ...value, expanded: !(value.expanded ?? preferences.expandDocuments) }))
   };
 }

@@ -71,7 +71,9 @@ export function RichNoteEditor({
   placeholder,
   labels,
   toolbarEnd,
-  disabled = false
+  disabled = false,
+  spellcheck = true,
+  fontSize = 16
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -80,6 +82,8 @@ export function RichNoteEditor({
   labels: RichNoteLabels;
   toolbarEnd?: ReactNode;
   disabled?: boolean;
+  spellcheck?: boolean;
+  fontSize?: number;
 }) {
   const latest = useRef(value);
   const editor = useEditor({
@@ -93,7 +97,9 @@ export function RichNoteEditor({
         role: 'textbox',
         'aria-label': label,
         'aria-multiline': 'true',
-        'data-placeholder': placeholder
+        'data-placeholder': placeholder,
+        spellcheck: String(spellcheck),
+        style: `font-size: ${fontSize}px`
       }
     },
     onUpdate: ({ editor: current }) => {
@@ -115,6 +121,8 @@ export function RichNoteEditor({
       labels={labels}
       disabled={disabled}
       toolbarEnd={toolbarEnd}
+      spellcheck={spellcheck}
+      fontSize={fontSize}
     />
   );
 }
@@ -124,17 +132,33 @@ export function RichNoteEditorSurface({
   labels,
   disabled,
   toolbarEnd,
-  structured = false
+  structured = false,
+  spellcheck = true,
+  fontSize = 16
 }: {
   editor: Editor;
   labels: RichNoteLabels;
   disabled: boolean;
   toolbarEnd?: ReactNode;
   structured?: boolean;
+  spellcheck?: boolean;
+  fontSize?: number;
 }) {
   useEffect(() => {
     editor.setEditable(!disabled, false);
-  }, [disabled, editor]);
+    const attributes = editor.options.editorProps.attributes;
+    const preferences = { spellcheck: String(spellcheck), style: `font-size: ${fontSize}px` };
+
+    editor.setOptions({
+      editorProps: {
+        ...editor.options.editorProps,
+        attributes:
+          typeof attributes === 'function'
+            ? (state) => ({ ...attributes(state), ...preferences })
+            : { ...attributes, ...preferences }
+      }
+    });
+  }, [disabled, editor, spellcheck, fontSize]);
 
   return (
     <div className="rich-note-editor" data-disabled={disabled || undefined}>

@@ -52,3 +52,17 @@ it('serializes formatting into Markdown and accepts external updates without ech
   expect(screen.getByRole('textbox', { name: 'Page' })).toHaveAttribute('contenteditable', 'false');
   expect(onChange).not.toHaveBeenCalled();
 });
+
+it('applies writing preferences to the editable document without changing its text', () => {
+  const onChange = vi.fn();
+  const props = { value: 'A thought', label: 'Page', placeholder: 'Write here', labels, onChange };
+  const view = render(<RichNoteEditor {...props} spellcheck={false} fontSize={22} />);
+  const editor = screen.getByRole('textbox', { name: 'Page' });
+
+  expect(editor).toHaveAttribute('spellcheck', 'false');
+  expect(editor).toHaveStyle({ fontSize: '22px' });
+  view.rerender(<RichNoteEditor {...props} spellcheck fontSize={16} />);
+  expect(editor).toHaveAttribute('spellcheck', 'true');
+  expect(editor).toHaveStyle({ fontSize: '16px' });
+  expect(onChange).not.toHaveBeenCalled();
+});

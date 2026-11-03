@@ -21,6 +21,7 @@ import {
 } from './material-library.queries';
 import { MaterialLifecycle, DeletionRecovery } from './material-lifecycle';
 import { EvidenceDetails } from './reader-evidence';
+import { ReaderExport } from './reader-export';
 import { retrySourceProcessing } from './reader-page.queries';
 
 export function ReaderPage() {
@@ -154,6 +155,7 @@ function SelectedVersion({
             {t('ReaderCurrent')}
           </Button>
         )}
+        <ReaderExport key={String(version.id)} version={version} />
         {imported && (
           <Button
             disabled={download === 'busy'}

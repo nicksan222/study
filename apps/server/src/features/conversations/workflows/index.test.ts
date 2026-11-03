@@ -18,6 +18,7 @@ import { createServer } from 'node:http';
 import { test } from 'node:test';
 
 import type { messageVersionSchema } from '@study/contracts/conversations/schemas';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { createBlock } from '@study/contracts/sources/document';
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
@@ -30,6 +31,7 @@ import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/service/index';
 import { Materials } from '#server/features/materials/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
@@ -188,8 +190,12 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
           c.postMessage({ sessionId: session.id, text: 'Question' })
         )
       );
-    const request = async () => {
-      await run(Effect.flatMap(Conversations, (c) => c.requestReply({ sessionId: session.id })));
+    const request = async (detail?: 'brief' | 'balanced' | 'detailed') => {
+      await run(
+        Effect.flatMap(Conversations, (c) =>
+          c.requestReply({ sessionId: session.id, preferences: { detail } })
+        )
+      );
       const event = decodeEvent(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
@@ -214,6 +220,15 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
           }).pipe(Effect.provide(services()))
         )
       );
+
+    await Effect.runPromise(
+      Effect.flatMap(Settings, (settings) =>
+        settings.saveWorkspacePreferences({
+          ...defaultWorkspacePreferences,
+          defaultAiDetail: 'detailed'
+        })
+      ).pipe(Effect.provide(Settings.layer), Effect.provideService(Database, { store: context }))
+    );
     const first = await post();
     const stale = await request();
 
@@ -234,7 +249,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     };
     await assert.rejects(execute(languageRace, 'language-resolution-race'));
     assert.equal(calls, 0, 'stale context must not reach the provider after language resolution');
-    const current = await request();
+    const current = await request('brief');
 
     await assert.rejects(execute({ ...current, messageId: first.id }, 'wrong-target'));
     await run(
@@ -246,6 +261,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     );
     await assert.rejects(execute(current, 'replay'));
     assert.equal(calls, 1);
+    assert.match(bodies[0]!, /detail.*brief/);
     context.db.orm.run(sql`DROP TRIGGER fail_reply`);
     context.db.orm.run(
       sql`DELETE FROM workflow_activities WHERE execution_id = 'replay' AND name = 'publish-reply'`
@@ -323,6 +339,7 @@ test('reply checkpoints plain output and fences stale context and fabricated cit
     assert.match(bodies.at(-1)!, /Another answer/);
     assert.equal(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
     assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
+    assert.match(bodies.at(-1)!, /detail.*detailed/);
     const userRewrite = await run(
       Effect.flatMap(Conversations, (c) =>
         c.rewriteMessage({ messageId: first.id, origin: 'summarize' })

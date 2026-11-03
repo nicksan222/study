@@ -1107,6 +1107,25 @@ test('posting a message can request a reply explicitly or by assistant mention',
           (yield* conversations.thread({ sessionId: second.id, limit: 10 })).items[1]?.replyTo,
           mention.id
         );
+
+        for (const [text, replies] of [
+          ['@STUDY', true],
+          ['Hello @study, help?', true],
+          ['@study123', false],
+          ['@study_notes', false],
+          ['@studying', false],
+          ['@studyé', false],
+          ['@study中文', false],
+          ['@study\u0301', false],
+          ['mail@study', false]
+        ] as const) {
+          const target = yield* conversations.createSession({ title: 'Mention boundary' });
+
+          yield* conversations.postMessage({ sessionId: target.id, text });
+          const thread = yield* conversations.thread({ sessionId: target.id, limit: 10 });
+
+          assert.equal(thread.items.length, replies ? 2 : 1, text);
+        }
       }).pipe(Effect.provide(layer))
     );
   } finally {

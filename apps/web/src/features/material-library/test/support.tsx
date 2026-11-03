@@ -5,6 +5,7 @@ import {
   materialSummarySchema,
   materialVersionDetailSchema
 } from '@study/contracts/materials/schemas';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sourceSchema } from '@study/contracts/sources/schemas';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { act, render, screen, waitFor } from '@testing-library/react';
@@ -160,6 +161,10 @@ export function materialRpc() {
     'materials.materialVersions': vi
       .fn<StudyClient['materials.materialVersions']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
+    'materials.exportMaterialVersion': vi.fn<StudyClient['materials.exportMaterialVersion']>(),
+    'settings.workspacePreferences': vi
+      .fn<StudyClient['settings.workspacePreferences']>()
+      .mockReturnValue(Effect.succeed(defaultWorkspacePreferences)),
     'materials.materialVersionExport': vi.fn<StudyClient['materials.materialVersionExport']>(),
     'sources.sources': vi
       .fn<StudyClient['sources.sources']>()

@@ -106,6 +106,36 @@ import {
   inspectMaterialHistory
 } from './material-history.ts';
 
+/** Recognizes whole assistant mention tokens without matching identifier suffixes. */
+function mentionsAssistant(text: string) {
+  return [...text.matchAll(/(?:^|\s)(@[\p{L}\p{M}\p{N}_]+)/gu)].some(
+    (match) => match[1]!.toLowerCase() === mentionLabel('assistant')
+  );
+}
+
+function readWorkspacePreferences() {
+  return Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+    Effect.provide(Settings.layer)
+  );
+}
+
+/** Captures at most one automatic title request per provisional session revision. */
+function scheduleAutomaticTitle(tx: Transaction, sessionId: SessionId) {
+  const requestId = randomUUID();
+  const snapshot = tx.store(TitleStore).captureAutomaticTitle({ sessionId, requestId });
+
+  if (Option.isSome(snapshot))
+    tx.emit({
+      type: 'ConversationTitleRequested',
+      eventId: randomUUID(),
+      causationId: null,
+      correlationId: requestId,
+      inputVersion: 1,
+      depth: 0,
+      ...snapshot.value
+    });
+}
+
 function normalizeAsk(input: typeof askInputSchema.Type) {
   return {
     sessionId: input.sessionId,
@@ -282,15 +312,29 @@ export const Conversations = defineService(
           return tx.store(ReplyStore).abandonReply(input);
         }),
       publishReply: (input: typeof publishReplyInputSchema.Type) =>
-        publicationTransaction((tx) => {
-          const context = tx
-            .store(SessionContextStore)
-            .findSessionContext({ requestId: input.requestId });
+        Effect.gen(function* () {
+          const preferences = yield* readWorkspacePreferences();
 
-          if (Option.isSome(context))
-            for (const target of context.value.inputs) assertCapturedTarget(tx, target);
+          return yield* publicationTransaction((tx) => {
+            const context = tx
+              .store(SessionContextStore)
+              .findSessionContext({ requestId: input.requestId });
 
-          return tx.store(ReplyStore).publishReply(input);
+            if (Option.isSome(context))
+              for (const target of context.value.inputs) assertCapturedTarget(tx, target);
+
+            const versionId = tx.store(ReplyStore).publishReply(input);
+
+            if (preferences.autoTitleSessions) {
+              const reply = tx
+                .store(ReplyRequestStore)
+                .findReplyRequest({ requestId: input.requestId });
+
+              if (Option.isSome(reply)) scheduleAutomaticTitle(tx, reply.value.sessionId);
+            }
+
+            return versionId;
+          });
         }),
       messageVersionCitations: (input: typeof replyVersionInputSchema.Type) =>
         transaction((tx) => {
@@ -504,53 +548,57 @@ export const Conversations = defineService(
           return recording.finishRecordingPost({ ...input, messageId: message.id });
         }),
       postMessage: (input: typeof postMessageInputSchema.Type) =>
-        transaction((tx) => {
-          const message = tx.store(MessageStore).postMessage(input);
+        Effect.gen(function* () {
+          const preferences = yield* readWorkspacePreferences();
 
-          const mentioned = [...input.text.matchAll(/(?:^|\s)(@[a-z]+)/giu)].some(
-            (match) => match[1]!.toLowerCase() === mentionLabel('assistant')
-          );
+          return yield* transaction((tx) => {
+            const message = tx.store(MessageStore).postMessage(input);
 
-          if (input.requestReply ?? mentioned) {
-            const requestId = randomUUID();
+            const mentioned = mentionsAssistant(input.text);
 
-            tx.store(ReplyStore).prepareReply({
-              sessionId: input.sessionId,
-              threadRoot: input.threadRoot
-            });
+            if (input.requestReply ?? mentioned) {
+              const requestId = randomUUID();
 
-            const context = captureContext(
-              tx,
-              {
+              tx.store(ReplyStore).prepareReply({
+                sessionId: input.sessionId,
+                threadRoot: input.threadRoot
+              });
+
+              const context = captureContext(
+                tx,
+                {
+                  sessionId: input.sessionId,
+                  threadRoot: input.threadRoot,
+                  intentKey: requestId,
+                  instruction: '',
+                  preferences: {}
+                },
+                requestId
+              );
+
+              const result = tx.store(ReplyStore).requestReply({
                 sessionId: input.sessionId,
                 threadRoot: input.threadRoot,
-                intentKey: requestId,
-                instruction: '',
-                preferences: {}
-              },
-              requestId
-            );
+                requestId,
+                context
+              });
 
-            const result = tx.store(ReplyStore).requestReply({
-              sessionId: input.sessionId,
-              threadRoot: input.threadRoot,
-              requestId,
-              context
-            });
+              tx.emit({
+                type: 'ConversationGenerationRequested',
+                eventId: randomUUID(),
+                causationId: null,
+                correlationId: requestId,
+                inputVersion: 1,
+                depth: 0,
+                ...result,
+                operation: 'reply'
+              });
+            }
 
-            tx.emit({
-              type: 'ConversationGenerationRequested',
-              eventId: randomUUID(),
-              causationId: null,
-              correlationId: requestId,
-              inputVersion: 1,
-              depth: 0,
-              ...result,
-              operation: 'reply'
-            });
-          }
+            if (preferences.autoTitleSessions) scheduleAutomaticTitle(tx, input.sessionId);
 
-          return message;
+            return message;
+          });
         }),
       updateMessageDescription: (input: typeof updateMessageDescriptionInputSchema.Type) =>
         transaction((tx) =>

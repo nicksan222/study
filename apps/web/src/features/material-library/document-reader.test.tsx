@@ -1,13 +1,18 @@
 import { sourceIdSchema } from '@study/contracts/ids';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { blockIdSchema, canonicalText } from '@study/contracts/sources/schemas';
 import type { BlockContent, documentSchema } from '@study/contracts/sources/schemas';
 import { catalogs } from '@study/localization';
 import { render, screen } from '@testing-library/react';
 import { Schema } from 'effect';
-import { expect, it } from 'vite-plus/test';
+import { expect, it, vi } from 'vite-plus/test';
 
 import { LanguageProvider } from '../../lib/i18n';
 import { DocumentReader } from '../document-presentation';
+
+vi.mock('../../lib/study-client/workspace-preferences.queries', () => ({
+  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, readerFontSize: 22 })
+}));
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
@@ -79,6 +84,7 @@ it('preserves heading, inline marks, table paragraphs, code, list nesting and st
     />
   );
 
+  expect(screen.getByRole('article')).toHaveStyle({ fontSize: '22px' });
   expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('A heading');
   expect(container.querySelector('em strong')).toHaveTextContent('Important');
   expect(container.querySelector('th')?.querySelectorAll('p')).toHaveLength(2);

@@ -760,3 +760,5 @@ body {
     transition-duration: 0s;
   }
 }
+
+@import './components/switch-control.css';

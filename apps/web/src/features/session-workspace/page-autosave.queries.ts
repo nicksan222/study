@@ -12,6 +12,7 @@ import { useEffect, useRef } from 'react';
 import { toStudyError } from '../../lib/study-client/errors';
 import { repeatRequest } from '../../lib/study-client/repeat-request';
 import { request } from '../../lib/study-client/request';
+import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
 import { sessionKey } from './session-workspace.queries';
 
 export type PageTarget =
@@ -119,6 +120,7 @@ function prepareWrite(id: SessionId, target: PageTarget, draft: PageDraft): Writ
 
 /** Serializes periodic writes through shared cache ownership, retaining typing and uncertain attempts. */
 export function usePageAutosave(id: SessionId, target: PageTarget) {
+  const { autosaveIntervalSeconds } = useWorkspacePreferences();
   const cache = useQueryClient();
   const identity = pageIdentity(target);
   const key = pageKey(id, identity);
@@ -141,13 +143,13 @@ export function usePageAutosave(id: SessionId, target: PageTarget) {
   const owner = ownerRef.current.target;
 
   useEffect(() => {
-    const stop = repeatRequest(() => persistPage(cache, id, owner), '3 seconds');
+    const stop = repeatRequest(() => persistPage(cache, id, owner), autosaveIntervalSeconds * 1000);
 
     return () => {
       stop();
       void persistPage(cache, id, owner);
     };
-  }, [cache, id, owner]);
+  }, [cache, id, owner, autosaveIntervalSeconds]);
   useEffect(() => {
     if (target.kind !== 'message') return;
 

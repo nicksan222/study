@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -34,6 +35,7 @@ import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { withTestPublication } from '#testing/publication';
 
 import { conversationTitleHandler, conversationTitleWorkflow } from './title.ts';
 
@@ -243,5 +245,227 @@ test('title workflow checkpoints and fences stale and renamed sessions', async (
     context.close();
     location.cleanup();
     await new Promise<void>((resolve) => peer.close(() => resolve()));
+  }
+});
+
+test('automatic session titles are opt-in, durable, replay-safe and respect user titles', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Layer.merge(Conversations.layer, Settings.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const conversations = yield* Conversations;
+        const settings = yield* Settings;
+        const session = yield* conversations.createUntitledSession({});
+
+        yield* conversations.postMessage({ sessionId: session.id, text: 'Cells and tissues' });
+        const titles = () =>
+          context.db.orm
+            .select()
+            .from(s.workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload))
+            .filter((event) => event.type === 'ConversationTitleRequested');
+
+        assert.equal(titles().length, 0);
+        yield* settings.saveWorkspacePreferences({
+          ...defaultWorkspacePreferences,
+          autoTitleSessions: true
+        });
+        const input = {
+          sessionId: session.id,
+          text: 'Mitosis overview',
+          captureKey: 'automatic-title-note',
+          requestReply: false
+        };
+        const note = yield* conversations.postMessage(input);
+
+        assert.equal(titles().length, 1);
+        assert.equal((yield* conversations.postMessage(input)).id, note.id);
+        assert.equal(titles().length, 1);
+        yield* conversations.renameSession({ id: session.id, title: 'My biology notes' });
+        yield* conversations.postMessage({ sessionId: session.id, text: 'More cells' });
+        assert.equal(titles().length, 1);
+        yield* settings.saveWorkspacePreferences(defaultWorkspacePreferences);
+        const manual = yield* conversations.createUntitledSession({});
+
+        yield* conversations.postMessage({ sessionId: manual.id, text: 'Manual title' });
+        yield* conversations.requestTitle({ sessionId: manual.id });
+        assert.equal(titles().length, 2);
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('automatic titles and replies commit together while title snapshots skip pending assistants', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Layer.merge(Conversations.layer, Settings.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const conversations = yield* Conversations;
+        const settings = yield* Settings;
+
+        yield* settings.saveWorkspacePreferences({
+          ...defaultWorkspacePreferences,
+          autoTitleSessions: true
+        });
+        const session = yield* conversations.createUntitledSession({});
+        const note = yield* conversations.postMessage({
+          sessionId: session.id,
+          text: 'Explain cell division',
+          requestReply: true
+        });
+        const events = context.db.orm
+          .select()
+          .from(s.workflowEvents)
+          .all()
+          .map((row) => decodeEvent(row.payload));
+        const title = events.find((event) => event.type === 'ConversationTitleRequested');
+        const reply = events.find((event) => event.type === 'ConversationGenerationRequested');
+
+        assert.ok(title && title.type === 'ConversationTitleRequested');
+        assert.ok(reply && reply.type === 'ConversationGenerationRequested');
+        assert.deepEqual(
+          title.messages.map((message) => message.messageId),
+          [note.id]
+        );
+        assert.deepEqual(
+          (yield* conversations.titleSnapshot({ requestId: title.requestId })).messages,
+          title.messages
+        );
+        const thread = yield* conversations.thread({ sessionId: session.id, limit: 10 });
+
+        assert.equal(thread.items.length, 2);
+        assert.equal(thread.items[1]?.versions[0]?.status, 'pending');
+        const manual = yield* conversations.requestTitle({ sessionId: session.id });
+
+        assert.deepEqual((yield* conversations.titleSnapshot(manual)).messages, title.messages);
+        yield* conversations.editMessage({ messageId: note.id, text: 'New context' });
+        assert.equal(
+          (yield* Effect.flip(conversations.titleSnapshot(manual))).kind,
+          'invalid_input'
+        );
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('reply publication refreshes automatic titles durably and idempotently without replacing user titles', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Layer.merge(Conversations.layer, Settings.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const conversations = yield* Conversations;
+        const settings = yield* Settings;
+
+        yield* settings.saveWorkspacePreferences({
+          ...defaultWorkspacePreferences,
+          autoTitleSessions: true
+        });
+        const session = yield* conversations.createUntitledSession({});
+
+        yield* conversations.postMessage({
+          sessionId: session.id,
+          text: 'How do cells divide?',
+          requestReply: true
+        });
+        const events = () =>
+          context.db.orm
+            .select()
+            .from(s.workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload));
+        const titles = () =>
+          events().filter((event) => event.type === 'ConversationTitleRequested');
+        const reply = events().find((event) => event.type === 'ConversationGenerationRequested');
+        const original = titles()[0];
+
+        assert.ok(reply && reply.type === 'ConversationGenerationRequested');
+        assert.ok(original);
+        const publication = {
+          requestId: reply.requestId,
+          text: 'Cells divide through mitosis.',
+          citations: []
+        };
+
+        yield* withTestPublication(
+          context,
+          conversations.publishReply(publication).pipe(Effect.asVoid)
+        );
+        assert.equal(
+          (yield* Effect.flip(conversations.titleSnapshot({ requestId: original.requestId }))).kind,
+          'invalid_input'
+        );
+        assert.equal(titles().length, 2);
+        const refreshed = titles()[1]!;
+
+        assert.equal(
+          (yield* conversations.titleSnapshot({ requestId: refreshed.requestId })).messages.length,
+          2
+        );
+        yield* withTestPublication(
+          context,
+          conversations.publishReply(publication).pipe(Effect.asVoid)
+        );
+        assert.equal(titles().length, 2);
+        yield* withTestPublication(
+          context,
+          conversations
+            .publishTitle({ requestId: refreshed.requestId, title: 'Cell division' })
+            .pipe(Effect.asVoid)
+        );
+        assert.equal((yield* conversations.session(session.id)).title, 'Cell division');
+        const manual = yield* conversations.createUntitledSession({});
+
+        yield* conversations.postMessage({
+          sessionId: manual.id,
+          text: 'More biology',
+          requestReply: true
+        });
+        const manualReply = events().findLast(
+          (event) => event.type === 'ConversationGenerationRequested'
+        );
+
+        assert.ok(manualReply && manualReply.type === 'ConversationGenerationRequested');
+        yield* conversations.renameSession({ id: manual.id, title: 'My title' });
+        const before = titles().length;
+
+        yield* withTestPublication(
+          context,
+          conversations
+            .publishReply({
+              requestId: manualReply.requestId,
+              text: 'Biology answer',
+              citations: []
+            })
+            .pipe(Effect.asVoid)
+        );
+        assert.equal(titles().length, before);
+        assert.equal((yield* conversations.session(manual.id)).title, 'My title');
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
   }
 });

@@ -216,3 +216,25 @@ it('keeps settled-group disclosure usable in the collapsed rail', async () => {
   await user.click(summary);
   expect(group).not.toHaveAttribute('open');
 });
+
+it('preserves supporting activity and counts in compact session rows', () => {
+  render(
+    <Sidebar.Item
+      layout="compact"
+      label="Session"
+      icon={<span>Icon</span>}
+      timestamp={<time>Now</time>}
+      description={
+        <>
+          <span>Writing</span>
+          <Sidebar.SessionCount>3</Sidebar.SessionCount>
+        </>
+      }
+    />
+  );
+  const row = screen.getByRole('button', { name: /Session/ });
+
+  expect(row).toHaveAttribute('data-layout', 'compact');
+  expect(screen.getByText('Writing')).toBeInTheDocument();
+  expect(screen.getByText('3')).toBeInTheDocument();
+});

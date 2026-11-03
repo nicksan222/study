@@ -35,11 +35,13 @@ export function makeHistory({ db }: StoreResources) {
       );
   }
 
+  /** Captures complete selected versions; title callers may omit a pending assistant reply. */
   function conversationHistory(
     sessionId: SessionId,
     through?: MessageId,
     threadRoot?: PartId,
-    allowEmpty = false
+    allowEmpty = false,
+    policy: { pendingAssistant?: 'omit' } = {}
   ) {
     const rows = selectedMessages()
       .where(
@@ -53,7 +55,15 @@ export function makeHistory({ db }: StoreResources) {
       )
       .orderBy(desc(messages.id))
       .limit(50)
-      .all();
+      .all()
+      .filter(
+        ({ message, version }) =>
+          !(
+            policy.pendingAssistant === 'omit' &&
+            message.role === 'assistant' &&
+            version?.status === 'pending'
+          )
+      );
     let remaining = 200_000;
     const history: Array<typeof conversationMessageSnapshotSchema.Type> = [];
 
@@ -106,5 +116,12 @@ export function makeHistory({ db }: StoreResources) {
     };
   }
 
-  return { conversationHistory, conversationRoot };
+  /** Titles use complete context while an assistant reply is still being generated. */
+  function titleHistory(sessionId: SessionId) {
+    return conversationHistory(sessionId, undefined, undefined, false, {
+      pendingAssistant: 'omit'
+    });
+  }
+
+  return { conversationHistory, conversationRoot, titleHistory };
 }

@@ -484,6 +484,7 @@ function Item({
           <>
             <span className="study-session-row-icon">{icon}</span>
             <span className="study-session-title">{label}</span>
+            {description && <span className="study-item-kind">{description}</span>}
             {timestamp}
           </>
         ) : (

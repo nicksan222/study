@@ -4,6 +4,7 @@ import { Fragment, createElement } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '../../lib/i18n';
+import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
 
 function Inlines({ items }: { items: readonly Inline[] }) {
   return keyed(items).map(({ value: item, key }) => {
@@ -169,9 +170,10 @@ export function DocumentReader({
   renderImage?: (block: (typeof documentSchema.Type.blocks)[number]) => ReactNode;
 }) {
   const { t } = useI18n();
+  const preferences = useWorkspacePreferences();
 
   return (
-    <MaterialLibrary.Prose>
+    <MaterialLibrary.Prose fontSize={preferences.readerFontSize}>
       {document.meta.omissions.length > 0 && (
         <MaterialLibrary.NoticeAside>
           {t('ReaderOmissions')}

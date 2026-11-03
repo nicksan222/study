@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { semanticPart } from './semantic-part';
 
 import './material-library.css';
@@ -7,6 +9,8 @@ export const MaterialLibrary = {
   History: semanticPart('details', 'reader-history'),
   Notice: semanticPart('section', 'reader-notice'),
   Actions: semanticPart('div', 'material-actions'),
+  ExportActions: semanticPart('div', 'reader-export-actions'),
+  ExportStatus: semanticPart('p', 'reader-export-status'),
   Import: semanticPart('div', 'library-import'),
   Root: semanticPart('div', 'material-library'),
   Heading: semanticPart('header', 'material-heading'),
@@ -30,7 +34,15 @@ export const MaterialLibrary = {
   ProseList: semanticPart('ol', 'material-prose'),
   Math: semanticPart('pre', 'reader-math'),
   Table: semanticPart('div', 'reader-table'),
-  Prose: semanticPart('article', 'material-prose'),
+  Prose,
   Search: semanticPart('section', 'library-search'),
   SearchForm: semanticPart('form', 'material-actions')
 };
+
+function Prose({
+  fontSize,
+  style,
+  ...props
+}: Omit<ComponentProps<'article'>, 'className'> & { fontSize?: number }) {
+  return <article {...props} className="material-prose" style={{ ...style, fontSize }} />;
+}
