@@ -12,6 +12,7 @@ import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 /** Owns a SQLite connection and synchronous, nested Drizzle transactions. */
 
 export class Db {
+  private static snapshotSchema: { sql: string; identity: string } | undefined;
   readonly path: string;
   private readonly sqlite: DatabaseSync;
   private readonly database: NodeSQLiteDatabase;
@@ -140,21 +141,39 @@ export class Db {
     );
   }
 
+  /** Migrations are fixed for this process; retain only trusted fingerprints, never a connection. */
+  private static supportedSnapshotSchema() {
+    if (Db.snapshotSchema) return Db.snapshotSchema;
+
+    const reference = Db.open(':memory:');
+
+    try {
+      Db.snapshotSchema = {
+        sql: reference.schemaSqlIdentity(),
+        identity: reference.schemaIdentity()
+      };
+
+      return Db.snapshotSchema;
+    } finally {
+      reference.close();
+    }
+  }
+
   /** Validate untrusted schema before running integrity checks or opening it for writes. */
   static validateSnapshot(path: string): string {
     const sqlite = new DatabaseSync(path, { readOnly: true, readBigInts: true });
 
     const candidate = new Db(sqlite, path);
 
-    const reference = Db.open(':memory:');
-
     try {
+      const reference = Db.supportedSnapshotSchema();
+
       sqlite.exec('PRAGMA trusted_schema = OFF;');
 
-      if (candidate.schemaSqlIdentity() !== reference.schemaSqlIdentity())
+      if (candidate.schemaSqlIdentity() !== reference.sql)
         throw new TypeError('Unsupported snapshot schema');
 
-      const expected = reference.schemaIdentity();
+      const expected = reference.identity;
 
       if (candidate.schemaIdentity() !== expected)
         throw new TypeError('Unsupported snapshot schema');
@@ -172,7 +191,6 @@ export class Db {
 
       return expected;
     } finally {
-      reference.close();
       sqlite.close();
     }
   }
