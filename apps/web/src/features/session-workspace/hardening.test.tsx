@@ -163,7 +163,7 @@ function mount(children: ReactNode, client = cache(), search = '', path = '/') {
     history: createMemoryHistory({ initialEntries: [`${path}${search}`] })
   });
 
-  return { client, ...render(<RouterProvider router={router} />) };
+  return { client, router, ...render(<RouterProvider router={router} />) };
 }
 function seedTransform(client: QueryClient) {
   rpc.generations.mockResolvedValue({
@@ -234,13 +234,19 @@ it.each(['pending', 'failed', 'completed'] as const)(
 
     rpc.deletion.mockResolvedValue(receipt);
     rpc.retryDeletion.mockResolvedValue({ ...receipt, status: 'pending', attempt: 2 });
-    mount(<SessionWorkspace id={id} />, cache());
+    const view = mount(<SessionWorkspace id={id} />, cache(), '?project=42');
     if (status === 'failed') {
       fireEvent.click(await screen.findByRole('button', { name: 'SessionRetryDelete' }));
       await waitFor(() => expect(rpc.retryDeletion).toHaveBeenCalledWith({ id }));
       await screen.findByText('SessionDeleting');
     } else {
-      await screen.findByText(status === 'pending' ? 'SessionDeleting' : 'SessionDeleted');
+      await screen.findByText(status === 'pending' ? 'SessionDeleting' : 'SessionStartTitle');
+      if (status === 'completed') {
+        expect(screen.queryByText('SessionDeleteHelp')).not.toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'SessionNew' })).toBeEnabled();
+        await waitFor(() => expect(view.router.state.location.pathname).toBe('/sessions'));
+        expect(view.router.state.location.search).toEqual({ project: '42' });
+      }
     }
 
     expect(rpc.deletion).toHaveBeenCalledWith({ id });
