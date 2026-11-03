@@ -1,14 +1,23 @@
-import { projectInitials } from '@study/contracts/projects/schemas';
+import { automaticProjectIcon, projectInitials } from '@study/contracts/projects/schemas';
+import type { ProjectIcon } from '@study/contracts/projects/schemas';
 import { Identity } from '@study/ui/identity';
+
+import { subjectSymbols } from './subject-icon-options';
 
 export function SubjectIdentity({
   name,
-  icon,
+  icon = automaticProjectIcon,
   size
 }: {
   name: string;
-  icon?: string | null;
+  icon?: ProjectIcon;
   size?: 'large';
 }) {
-  return <Identity text={icon ?? projectInitials(name)} data-size={size} />;
+  const Symbol = icon.kind === 'symbol' ? subjectSymbols[icon.value].Icon : undefined;
+  const text = icon.kind === 'automatic' ? projectInitials(name) : icon.value;
+  return (
+    <Identity data-size={size} data-color={icon.color} data-kind={icon.kind}>
+      {Symbol ? <Symbol aria-hidden="true" /> : text}
+    </Identity>
+  );
 }

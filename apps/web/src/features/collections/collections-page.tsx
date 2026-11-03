@@ -86,7 +86,7 @@ function Collection({
   close: (id: ProjectId) => void;
 }) {
   const { t } = useI18n();
-  const { state, update } = useCollectionState();
+  const { state, changeName, acceptName } = useCollectionState();
   const entry = state.names[String(project.id)];
   const name = entry?.text ?? project.name;
   const [deleting, setDeleting] = useState(false);
@@ -118,15 +118,7 @@ function Collection({
 
               if (!changed) throw new StudyError('not_found', 'Collection no longer exists');
 
-              update((value) => {
-                if (value.names[String(project.id)]?.revision !== entry?.revision) return value;
-
-                const names = { ...value.names };
-
-                delete names[String(project.id)];
-
-                return { ...value, names };
-              });
+              acceptName(project.id, entry?.revision);
             });
         }}
       >
@@ -135,18 +127,7 @@ function Collection({
           <Input
             value={name}
             onChange={(e) => {
-              const text = e.target.value;
-
-              update((value) => ({
-                ...value,
-                names: {
-                  ...value.names,
-                  [String(project.id)]: {
-                    text,
-                    revision: (value.names[String(project.id)]?.revision ?? 0) + 1
-                  }
-                }
-              }));
+              changeName(project.id, e.target.value);
             }}
           />
         </CollectionPanel.NameField>

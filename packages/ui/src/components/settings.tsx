@@ -1,7 +1,7 @@
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogTitle, DialogClose } from '@study/ui/dialog';
 import { cn } from '@study/ui/utils';
-import { Search as SearchIcon, X } from 'lucide-react';
+import { Search as SearchIcon, X, ChevronRight } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
@@ -169,6 +169,31 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function Item({
+  label,
+  description,
+  icon,
+  onClick
+}: {
+  label: string;
+  description?: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="settings-drilldown-item" aria-label={label} onClick={onClick}>
+      <span className="settings-drilldown-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="settings-drilldown-copy">
+        <span className="settings-drilldown-label">{label}</span>
+        {description && <span className="settings-drilldown-description">{description}</span>}
+      </span>
+      <ChevronRight aria-hidden="true" />
+    </button>
   );
 }
 
@@ -360,6 +385,7 @@ function Status({ children, action }: { children: ReactNode; action?: ReactNode 
 }
 
 export const Settings = {
+  Item,
   Navigation,
   SearchResults,
   Group: SettingsGroup,

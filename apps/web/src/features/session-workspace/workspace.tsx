@@ -1,4 +1,4 @@
-import type { SessionId } from '@study/contracts/ids';
+import type { ProjectId, SessionId } from '@study/contracts/ids';
 import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -34,11 +34,9 @@ export function SessionWorkspace({ id }: { id?: SessionId } = {}) {
   );
 }
 
-function SessionBody({ id }: { id: SessionId }) {
-  const { t } = useI18n();
+function useSessionWorkspace(id: SessionId) {
   const state = useQuery(sessionOptions(id));
   const search = useSearch({ from: '__root__' });
-  const navigate = useNavigate();
   const subjects = useQuery(projectsQueryOptions());
   const project =
     state.data?.projectIds.find((id) => String(id) === search.project) ?? state.data?.projectIds[0];
@@ -51,13 +49,7 @@ function SessionBody({ id }: { id: SessionId }) {
   const deletion = useQuery(deletionOptions(id, true));
   const deleteAttempt = useQuery(deletionAttemptOptions(id));
   const completed = deletion.data?.status === 'completed';
-  useEffect(() => {
-    if (!completed) return;
-    void cache.invalidateQueries({ queryKey: ['sessions'] });
-    void cache.invalidateQueries({ queryKey: ['search'] });
-    const subject = project ? String(project) : search.project;
-    void navigate({ to: '/sessions', search: subject ? { project: subject } : {}, replace: true });
-  }, [completed, cache, navigate, project, search.project]);
+  useCompletedDeletion(completed, project);
   const live = deletion.isSuccess && deletion.data === null;
   const editable = !!state.data && !state.isError && live && !deletePending && !deleteAttempt.data;
   useEffect(() => {
@@ -66,6 +58,36 @@ function SessionBody({ id }: { id: SessionId }) {
       if (created?.id === id) cache.setQueryData(['session-workspace', 'creation'], {});
     }
   }, [cache, id, state.isSuccess]);
+  return {
+    state,
+    owner,
+    cache,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    deletePending,
+    files,
+    deletion,
+    live,
+    editable,
+    completed
+  };
+}
+
+function SessionBody({ id }: { id: SessionId }) {
+  const { t } = useI18n();
+  const {
+    state,
+    owner,
+    cache,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    deletePending,
+    files,
+    deletion,
+    live,
+    editable,
+    completed
+  } = useSessionWorkspace(id);
   if (completed) {
     return (
       <>
@@ -97,11 +119,7 @@ function SessionBody({ id }: { id: SessionId }) {
       </WorkspaceHeader>
       {deletion.data && <SessionDeletion id={id} />}
       <SessionDeleteDialog id={id} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
-      {(state.isPending || deletion.isPending) && <p role="status">{t('LoadingStudy')}</p>}
-      {deletion.error && (
-        <SessionReadError error={deletion.error} retry={() => void deletion.refetch()} />
-      )}
-      {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
+      <SessionFeedback state={state} deletion={deletion} />
       {editable && (
         <>
           <WorkspaceSurface.Body>
@@ -119,4 +137,33 @@ function SessionBody({ id }: { id: SessionId }) {
 
 function canAttachDraft(draft: Draft | undefined) {
   return !draft?.pending && !draft?.askAttempt && draft?.noteAttempt === undefined;
+}
+
+function useCompletedDeletion(completed: boolean, project: ProjectId | undefined) {
+  const cache = useQueryClient();
+  const navigate = useNavigate();
+  const search = useSearch({ from: '__root__' });
+  useEffect(() => {
+    if (!completed) return;
+    void cache.invalidateQueries({ queryKey: ['sessions'] });
+    void cache.invalidateQueries({ queryKey: ['search'] });
+    const subject = project ? String(project) : search.project;
+    void navigate({ to: '/sessions', search: subject ? { project: subject } : {}, replace: true });
+  }, [completed, cache, navigate, project, search.project]);
+}
+
+function SessionFeedback({
+  state,
+  deletion
+}: Pick<ReturnType<typeof useSessionWorkspace>, 'state' | 'deletion'>) {
+  const { t } = useI18n();
+  return (
+    <>
+      {(state.isPending || deletion.isPending) && <p role="status">{t('LoadingStudy')}</p>}
+      {deletion.error && (
+        <SessionReadError error={deletion.error} retry={() => void deletion.refetch()} />
+      )}
+      {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
+    </>
+  );
 }

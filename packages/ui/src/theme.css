@@ -38,6 +38,28 @@
   --surface-grain-size: 256px 256px;
 }
 
+/* Shared identity accents stay legible in compact badges and icon choices. */
+:root {
+  --identity-red: #b7334a;
+  --identity-orange: #a94d15;
+  --identity-amber: #886108;
+  --identity-green: #287044;
+  --identity-teal: #147378;
+  --identity-blue: #315ec0;
+  --identity-violet: #7242b6;
+  --identity-pink: #ac3679;
+}
+:root.dark {
+  --identity-red: #f28c9b;
+  --identity-orange: #f3aa78;
+  --identity-amber: #e0c270;
+  --identity-green: #80c99b;
+  --identity-teal: #76cbd0;
+  --identity-blue: #94b6f7;
+  --identity-violet: #b79bea;
+  --identity-pink: #e895c8;
+}
+
 /* Generated from the T3 Code database theme. */
 :root {
   --search-match-background: #ffde8b;

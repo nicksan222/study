@@ -1,4 +1,5 @@
 import type { ProjectId, SourceId } from '@study/contracts/ids';
+import { projectIconColors } from '@study/contracts/projects/schemas';
 import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, blob, index, check } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -19,6 +20,10 @@ export const projects = sqliteTable(
     id: integer().primaryKey({ autoIncrement: true }).$type<ProjectId>(),
     name: text().notNull(),
     icon: text(),
+    icon_kind: text({ enum: ['monogram', 'symbol', 'emoji'] })
+      .notNull()
+      .default('monogram'),
+    icon_color: text({ enum: projectIconColors }).notNull().default('neutral'),
     exam_on: text(),
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()

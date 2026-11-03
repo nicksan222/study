@@ -12,7 +12,7 @@ const subjects = [
   Schema.decodeUnknownSync(projectSchema)({
     id: 1n,
     name: 'Cell Biology',
-    icon: 'BIO',
+    icon: { kind: 'monogram', value: 'BIO', color: 'neutral' },
     examOn: null,
     createdAt: 1n,
     updatedAt: 1n
@@ -20,7 +20,7 @@ const subjects = [
   Schema.decodeUnknownSync(projectSchema)({
     id: 2n,
     name: 'History of Art',
-    icon: null,
+    icon: { kind: 'automatic', color: 'neutral' },
     examOn: null,
     createdAt: 1n,
     updatedAt: 1n

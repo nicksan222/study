@@ -23,7 +23,7 @@ export const renameProjectInputSchema = Schema.Struct({ id: projectIdSchema, nam
 
 export const setProjectIconInputSchema = Schema.Struct({
   id: projectIdSchema,
-  icon: Schema.NullOr(projectIconSchema)
+  icon: projectIconSchema
 });
 
 export const setExamInputSchema = Schema.Struct({

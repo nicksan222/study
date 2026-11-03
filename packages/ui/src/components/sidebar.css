@@ -763,7 +763,6 @@
 .study-subject-menu .study-sidebar-picker-option .ui-identity {
   width: 1.5rem;
   height: 1.5rem;
-  color: var(--contrast-popover-foreground);
 }
 .study-subject-menu .study-sidebar-picker-copy {
   line-height: 1.25rem;
@@ -777,4 +776,9 @@
 .study-subject-menu .study-sidebar-picker-shortcuts > [data-slot='button'] {
   color: var(--contrast-muted-foreground);
   font-size: 0.75rem;
+}
+
+.study-subject-switcher .ui-identity[data-kind='emoji'],
+.study-sidebar-picker-option .ui-identity[data-kind='emoji'] {
+  font-size: 0.875rem;
 }

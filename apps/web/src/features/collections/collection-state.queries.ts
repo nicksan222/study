@@ -47,6 +47,28 @@ export function useCollectionState() {
     client.setQueryData<CollectionState>(key, (value) => change(value ?? initial));
   }
 
+  function changeName(id: ProjectId, text: string) {
+    update((value) => ({
+      ...value,
+      names: {
+        ...value.names,
+        [String(id)]: {
+          text,
+          revision: (value.names[String(id)]?.revision ?? 0) + 1
+        }
+      }
+    }));
+  }
+
+  function acceptName(id: ProjectId, revision: number | undefined) {
+    update((value) => {
+      if (value.names[String(id)]?.revision !== revision) return value;
+      const names = { ...value.names };
+      delete names[String(id)];
+      return { ...value, names };
+    });
+  }
+
   async function mutate(action: () => Promise<unknown>) {
     if (client.getQueryData<CollectionState>(key)?.pending) return;
 
@@ -67,5 +89,5 @@ export function useCollectionState() {
     }
   }
 
-  return { state: query.data, update, mutate };
+  return { state: query.data, update, mutate, changeName, acceptName };
 }

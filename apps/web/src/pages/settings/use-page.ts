@@ -57,11 +57,11 @@ export function useAppearance(): AppearanceModel {
   };
 }
 
-export function usePage(onClose?: () => void) {
+export function usePage(onClose?: () => void, initialSection: SettingsSectionId = 'appearance') {
   const navigate = useNavigate();
   const model = useAppearance();
   const [search, onSearch] = useState('');
-  const [section, setSection] = useState<SettingsSectionId>('appearance');
+  const [section, setSection] = useState<SettingsSectionId>(initialSection);
 
   return {
     search,

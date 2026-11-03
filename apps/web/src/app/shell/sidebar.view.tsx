@@ -18,16 +18,16 @@ import {
   Search,
   ListFilter,
   FolderPlus,
-  Palette,
+  Settings2,
   SquarePen,
   Check
 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { SubjectIconDialog } from '../../features/subjects/subject-icon-editor';
 import { SubjectIdentity } from '../../features/subjects/subject-identity';
 import { useI18n } from '../../lib/i18n';
+import { Page as SettingsPage } from '../../pages/settings/page';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import { SidebarSessionActions } from './sidebar-session-actions';
 import { resultLocation } from './sidebar.locations';
@@ -237,7 +237,7 @@ function SidebarHeader({
   | 'reloadSubjects'
 >) {
   const { t, date } = useI18n();
-  const [iconEditorOpen, setIconEditorOpen] = useState(false);
+  const [settingsProject, setSettingsProject] = useState<SidebarModel['project']>();
 
   return (
     <SidebarUI.Header>
@@ -290,15 +290,14 @@ function SidebarHeader({
           setNewSubjectOpen={setNewSubjectOpen}
           setActionError={setActionError}
           clearSearch={clearSearch}
-          onChangeIcon={() => setIconEditorOpen(true)}
+          onEditSubject={() => setSettingsProject(subject?.id)}
         />
       </SidebarUI.Picker>
-      {subject && iconEditorOpen && (
-        <SubjectIconDialog
-          key={String(subject.id)}
-          project={subject}
-          open
-          onOpenChange={setIconEditorOpen}
+      {settingsProject && (
+        <SettingsPage
+          initialSection="projects"
+          initialProject={settingsProject}
+          onClose={() => setSettingsProject(undefined)}
         />
       )}
     </SidebarUI.Header>
@@ -312,7 +311,7 @@ function SidebarPickerActions({
   setNewSubjectOpen,
   setActionError,
   clearSearch,
-  onChangeIcon
+  onEditSubject
 }: Pick<
   SidebarModel,
   | 'subject'
@@ -322,7 +321,7 @@ function SidebarPickerActions({
   | 'setActionError'
   | 'clearSearch'
 > & {
-  onChangeIcon: () => void;
+  onEditSubject: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -362,11 +361,11 @@ function SidebarPickerActions({
           layout="navigation"
           onClick={() => {
             setPickerOpen(false);
-            onChangeIcon();
+            onEditSubject();
           }}
         >
-          <Palette aria-hidden="true" />
-          {t('SubjectIconChange')}
+          <Settings2 aria-hidden="true" />
+          {t('SubjectSettings')}
         </Button>
       )}
       <SidebarPickerShortcuts
