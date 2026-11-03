@@ -45,6 +45,7 @@ function SavedLanguage() {
 
 function Notifications({ children }: { children: ReactNode }) {
   const { t } = useI18n();
+
   return (
     <ToastProvider closeLabel={t('Close')} viewportLabel={t('NotificationsLabel')}>
       <BackupNotifications />

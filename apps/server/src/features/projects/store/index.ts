@@ -43,6 +43,7 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
+/** Decodes persisted glyph variants and colors through the canonical icon schema. */
 const row = (value: typeof projects.$inferSelect) => ({
   id: value.id,
   name: value.name,
@@ -56,6 +57,7 @@ const row = (value: typeof projects.$inferSelect) => ({
   updatedAt: value.updated_at
 });
 
+/** Maps stored project rows behind the typed feature boundary for exact-ID reads. */
 function makeHelpers({ db }: StoreResources) {
   const find = (id: typeof projectIdSchema.Type) => {
     const value = db.orm.select().from(projects).where(eq(projects.id, id)).get();
@@ -215,6 +217,7 @@ export const ProjectsStore = defineStore({
           output: projectSchema,
           run: (input) => {
             if (!find(input.id)) throw new StudyError('not_found', 'Subject not found');
+
             db.orm
               .update(projects)
               .set({
@@ -225,6 +228,7 @@ export const ProjectsStore = defineStore({
               })
               .where(eq(projects.id, input.id))
               .run();
+
             return find(input.id)!;
           }
         }),

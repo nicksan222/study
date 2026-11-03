@@ -9,7 +9,7 @@ import {
   DialogClose,
   DialogFooter
 } from '@study/ui/dialog';
-import { WorkspaceCard } from '@study/ui/workspace';
+import { WorkspaceCard, WorkspaceSurface, WorkspaceChanges } from '@study/ui/workspace';
 import { ArrowUpRight, FileInput, WandSparkles, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -27,6 +27,7 @@ function ContextAction({
   children: ReactNode;
 }) {
   const { t } = useI18n();
+
   return (
     <Dialog>
       <DialogTrigger render={<WorkspaceCard.Item />}>
@@ -37,15 +38,15 @@ function ContextAction({
       <DialogPopup
         keepMounted
         closeLabel={t('Close')}
-        className="session-context-dialog"
+        variant="workspace-context"
         bottomStickOnMobile={false}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="session-context-dialog-body">
-          <div className="session-workspace">{children}</div>
-        </div>
+        <WorkspaceSurface.ContextDialogBody>
+          <WorkspaceSurface.Container>{children}</WorkspaceSurface.Container>
+        </WorkspaceSurface.ContextDialogBody>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
         </DialogFooter>
@@ -56,8 +57,9 @@ function ContextAction({
 
 export function SessionContextActions({ id, onDelete }: { id: SessionId; onDelete: () => void }) {
   const { t } = useI18n();
+
   return (
-    <WorkspaceCard.Group className="session-context-actions">
+    <WorkspaceChanges.Actions>
       <ContextAction title={t('SessionSelection')} icon={<FileInput aria-hidden="true" />}>
         <SelectionPanel id={id} />
       </ContextAction>
@@ -68,6 +70,6 @@ export function SessionContextActions({ id, onDelete }: { id: SessionId; onDelet
         <Trash2 aria-hidden="true" />
         <span>{t('SessionDelete')}</span>
       </WorkspaceCard.Item>
-    </WorkspaceCard.Group>
+    </WorkspaceChanges.Actions>
   );
 }

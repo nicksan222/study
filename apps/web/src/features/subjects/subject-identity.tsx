@@ -4,6 +4,7 @@ import { Identity } from '@study/ui/identity';
 
 import { subjectSymbols } from './subject-icon-options';
 
+/** Renders the same canonical symbol, emoji, or initials badge on every subject surface. */
 export function SubjectIdentity({
   name,
   icon = automaticProjectIcon,
@@ -15,6 +16,7 @@ export function SubjectIdentity({
 }) {
   const Symbol = icon.kind === 'symbol' ? subjectSymbols[icon.value].Icon : undefined;
   const text = icon.kind === 'automatic' ? projectInitials(name) : icon.value;
+
   return (
     <Identity data-size={size} data-color={icon.color} data-kind={icon.kind}>
       {Symbol ? <Symbol aria-hidden="true" /> : text}

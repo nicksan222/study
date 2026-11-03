@@ -1,6 +1,7 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  SessionDeleteFailed: 'Impossibile completare l’eliminazione della sessione',
   SubjectIconSymbols: 'Icone',
   SubjectIconEmojis: 'Emoji',
   SubjectIconMonogram: 'Monogramma',

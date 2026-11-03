@@ -18,14 +18,17 @@ export const attachmentKey = (id: SessionId) => ['session-drafts', String(id), '
 async function uploadAttachment(cache: QueryClient, id: SessionId, entry: Attachment) {
   const update = (f: (items: Attachment[]) => Attachment[]) =>
     cache.setQueryData<Attachment[]>(attachmentKey(id), (items) => f(items ?? []));
+
   // Mark ownership before the first asynchronous boundary; another observer cannot replay it.
   update((items) =>
     items.map((item) =>
       item.key === entry.key ? { ...item, state: 'uploading', error: undefined } : item
     )
   );
+
   try {
     const source = await uploadSource(entry.file);
+
     update((items) =>
       items.map((item) =>
         item.key === entry.key ? { ...item, state: 'ready', sourceId: source.id } : item
@@ -53,9 +56,12 @@ export function addAttachments(cache: QueryClient, id: SessionId, files: File[])
     file,
     state: 'uploading'
   }));
+
   cache.setQueryData<Attachment[]>(attachmentKey(id), (items) => [...(items ?? []), ...entries]);
+
   for (const entry of entries) void uploadAttachment(cache, id, entry);
 }
+
 export function useAttachments(id: SessionId) {
   const cache = useQueryClient();
   const key = attachmentKey(id);

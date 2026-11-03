@@ -31,19 +31,7 @@ function targetKey(target: NonNullable<AnnotationDraft['target']>) {
 }
 
 function AnnotationForm({ view }: { view: AnnotationView }) {
-  const {
-    t,
-    annotation,
-    draft,
-    result,
-    deleting,
-    setDeleting,
-    reanchor,
-    setReanchor,
-    edit,
-    mutate,
-    blocked
-  } = view;
+  const { t, annotation, draft, setDeleting, reanchor, setReanchor, edit, mutate, blocked } = view;
 
   return (
     <>
@@ -97,29 +85,44 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
       <Button variant="ghost-destructive" disabled={blocked} onClick={() => setDeleting(true)}>
         {t('AnnotationDelete')}
       </Button>
-      <DangerDialog
-        open={deleting}
-        onOpenChange={setDeleting}
-        title={t('AnnotationDelete')}
-        confirmation={{
-          value: t('DeleteConfirmationWord'),
-          label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
-          identity: `${annotation.id}:${draft.current.revision}`
-        }}
-        description={t('AnnotationDeleteConfirm')}
-        confirmLabel={t('AnnotationDelete')}
-        cancelLabel={t('Cancel')}
-        pending={draft.pending}
-        disabled={blocked}
-        onConfirm={() => {
-          if (!blocked) return mutate('delete');
-        }}
-      >
-        {draft.uncertain && <p role="alert">{t('AnnotationReconcile')}</p>}
-        {result?.outcome === 'conflict' && <p role="alert">{t('DocumentAnnotationConflict')}</p>}
-        {result?.outcome === 'unavailable' && <p role="alert">{t('ReaderUnavailable')}</p>}
-      </DangerDialog>
+      <AnnotationDeletion view={view} />
     </>
+  );
+}
+
+/** Deletion confirms the current stored revision and cannot bypass a blocked draft. */
+function AnnotationDeletion({ view }: { view: AnnotationView }) {
+  const { t, annotation, draft, result, deleting, setDeleting, blocked, mutate } = view;
+
+  return (
+    <DangerDialog
+      open={deleting}
+      onOpenChange={setDeleting}
+      title={t('AnnotationDelete')}
+      confirmation={{
+        value: t('DeleteConfirmationWord'),
+        label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
+        identity: `${annotation.id}:${draft.current.revision}`
+      }}
+      description={t('AnnotationDeleteConfirm')}
+      confirmLabel={t('AnnotationDelete')}
+      cancelLabel={t('Cancel')}
+      pending={draft.pending}
+      disabled={blocked}
+      onConfirm={() => {
+        if (!blocked) return mutate('delete');
+      }}
+    >
+      {draft.uncertain && (
+        <ErrorState title={t('ErrorStateTitle')} description={t('AnnotationReconcile')} />
+      )}
+      {result?.outcome === 'conflict' && (
+        <ErrorState title={t('ErrorStateTitle')} description={t('DocumentAnnotationConflict')} />
+      )}
+      {result?.outcome === 'unavailable' && (
+        <ErrorState title={t('ErrorStateTitle')} description={t('ReaderUnavailable')} />
+      )}
+    </DangerDialog>
   );
 }
 

@@ -25,6 +25,7 @@ test('subject icon variants validate their own values and a closed color palette
     { kind: 'emoji', value: '📚', color: 'blue' }
   ])
     assert.ok(Schema.is(projectIconSchema)(icon));
+
   for (const icon of [
     'BIO',
     null,

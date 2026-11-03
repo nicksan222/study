@@ -76,6 +76,7 @@ const sections = [
   }
 ] as const;
 
+/** Composes settings navigation and passes subject identity and committed deletion outcomes to its section. */
 export function PageView({
   open,
   onClose,
@@ -209,6 +210,7 @@ function SearchContent({
   );
 }
 
+/** Selects the feature-owned settings surface without copying feature state into the shell. */
 function SectionContent({
   section,
   model,

@@ -1,5 +1,6 @@
 import type { KeyboardEvent, ReactNode } from 'react';
 
+/** Provides labelled, roving-focus choices without owning application values or persistence. */
 export function IconChoices<T extends string>({
   label,
   options,
@@ -15,14 +16,18 @@ export function IconChoices<T extends string>({
   disabled?: boolean;
   variant?: 'icons' | 'colors';
 }) {
+  /** Moves focus and selection together within the enabled choices, wrapping at either end. */
   function navigate(event: KeyboardEvent<HTMLDivElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key))
       return;
+
     const buttons = Array.from(
       event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')
     );
     const current = buttons.indexOf(event.target as HTMLButtonElement);
+
     if (current < 0 || !buttons.length) return;
+
     event.preventDefault();
     const previous = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
     const next =
@@ -31,14 +36,18 @@ export function IconChoices<T extends string>({
         : event.key === 'End'
           ? buttons.length - 1
           : (current + (previous ? -1 : 1) + buttons.length) % buttons.length;
+
     buttons[next]?.focus();
     buttons[next]?.click();
   }
+
   const hasSelection = options.some((option) => option.value === value);
+
   return (
     <div
       className="ui-icon-choices"
       data-variant={variant}
+      tabIndex={-1}
       role="radiogroup"
       aria-label={label}
       onKeyDown={navigate}

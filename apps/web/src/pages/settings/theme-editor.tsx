@@ -1,4 +1,5 @@
 import { DangerDialog } from '@study/ui/danger-dialog';
+import { ErrorState } from '@study/ui/error-state';
 import { JsonEditor } from '@study/ui/json-editor';
 import { parseTheme, serializeTheme } from '@study/ui/theme';
 import type { ThemeFile } from '@study/ui/theme';
@@ -121,6 +122,7 @@ function DeleteTheme({
       pending={model.pending}
       onConfirm={async () => {
         setFailed(false);
+
         try {
           await model.deleteTheme(theme.id);
           toastManager.add({ title: t('ThemeDeleted'), type: 'success' });
@@ -130,11 +132,7 @@ function DeleteTheme({
         }
       }}
     >
-      {failed && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('AppearanceFailed')}
-        </p>
-      )}
+      {failed && <ErrorState layout="inline" title={t('AppearanceFailed')} />}
     </DangerDialog>
   );
 }

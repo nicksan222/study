@@ -78,6 +78,7 @@ const en = catalogs.english;
 async function renderWithNavigation() {
   render(<App />);
   const toggle = await screen.findByRole('button', { name: en.ToggleSidebar });
+
   if (toggle.getAttribute('aria-expanded') === 'false') {
     await userEvent.setup().click(toggle);
   }
@@ -614,6 +615,7 @@ it.each(['/sessions/42', '/sessions/42?project=2'])(
     );
   }
 );
+
 it('does not reveal a foreign subject while session ownership is loading', async () => {
   history.replaceState(null, '', '/sessions/42?project=2');
   api.session.mockReturnValue(new Promise(() => {}));
@@ -623,6 +625,7 @@ it('does not reveal a foreign subject while session ownership is loading', async
   await userEvent.setup().type(screen.getByRole('searchbox'), 'rome');
   expect(api.search).not.toHaveBeenCalled();
 });
+
 it('keeps projectless sessions independent of a foreign query parameter', async () => {
   history.replaceState(null, '', '/sessions/42?project=2');
   api.session.mockResolvedValue({ id: 42n, projectIds: [] });
@@ -635,6 +638,7 @@ it('retries a failed session owner read from the subject picker error', async ()
   api.session.mockRejectedValue(new Error('offline'));
   await renderWithNavigation();
   const retry = await screen.findByRole('button', { name: en.SubjectsLoadError });
+
   api.session.mockResolvedValue({ id: 42n, projectIds: [1n] });
   await userEvent.setup().click(retry);
   expect(await screen.findByLabelText('Biology')).toBeVisible();

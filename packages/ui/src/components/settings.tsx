@@ -154,15 +154,19 @@ function Section({
   title,
   actions,
   children,
-  className
+  className,
+  variant = 'default'
 }: {
   title: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  variant?: 'default' | 'color-scheme' | 'theme-library' | 'interface';
 }) {
   return (
-    <section className={cn('settings-section', className)}>
+    <section
+      className={cn('settings-section', variant !== 'default' && `settings-${variant}`, className)}
+    >
       <div className="settings-section-header">
         <h3>{title}</h3>
         {actions && <div className="settings-actions">{actions}</div>}
@@ -172,6 +176,7 @@ function Section({
   );
 }
 
+/** Provides a keyboard-accessible drill-in row inside a shared settings group. */
 function Item({
   label,
   description,

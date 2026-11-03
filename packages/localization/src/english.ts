@@ -1,5 +1,6 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  SessionDeleteFailed: 'Could not finish deleting this session',
   SubjectIconSymbols: 'Icons',
   SubjectIconEmojis: 'Emoji',
   SubjectIconMonogram: 'Monogram',

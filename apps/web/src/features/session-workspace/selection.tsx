@@ -8,6 +8,7 @@ import { Button } from '@study/ui/button';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
+import { WorkspaceSurface } from '@study/ui/workspace';
 import {
   useInfiniteQuery,
   useIsMutating,
@@ -108,7 +109,7 @@ export function SelectionPanel({ id }: { id: SessionId }) {
   } = useSelection(id);
 
   return (
-    <div className="session-section">
+    <WorkspaceSurface.Section>
       <Notebook.Muted>{t('SessionSelectionHelp')}</Notebook.Muted>
       {selected.isPending && <Loading label={t('LoadingStudy')} />}
       {selected.error && (
@@ -173,7 +174,7 @@ export function SelectionPanel({ id }: { id: SessionId }) {
           {t('LibraryMore')}
         </Button>
       )}
-    </div>
+    </WorkspaceSurface.Section>
   );
 }
 

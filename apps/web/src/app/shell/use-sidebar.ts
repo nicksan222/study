@@ -4,7 +4,7 @@ import { useNavigate, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import type { ItemFilter } from '../../features/library';
-import { sessionOptions } from '../../features/session-workspace/session-workspace.queries';
+import { sessionOptions } from '../../features/session-workspace';
 import type { PageMetadata } from '../../lib/navigation/route-contract';
 import type { Sessions, Subjects } from '../../lib/study-client/operations';
 import {
@@ -39,6 +39,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     selectedSession && !sessionReady ? ownershipStatus : projects.status
   );
   const sessionState = loadingState(sessionList.status);
+  const [settingsProject, setSettingsProject] = useState<ProjectId>();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ItemFilter>('all');
   const {
@@ -75,6 +76,8 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   } = useSidebarActions(project, global, clearSearch);
 
   return {
+    settingsProject,
+    setSettingsProject,
     metadata,
     collapsed,
     onToggle,
@@ -138,6 +141,7 @@ function useSidebarOwnership(metadata: PageMetadata) {
           ''
       ) || null
     : (search.project ?? null);
+
   return {
     selectedSession,
     requestedProject,

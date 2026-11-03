@@ -45,6 +45,7 @@ function Dialog<Payload>(props: DialogPrimitive.Root.Props<Payload>) {
 const DialogPortal = DialogPrimitive.Portal;
 
 const DialogClose = DialogPrimitive.Close;
+
 const DialogTrigger = DialogPrimitive.Trigger;
 
 function DialogBackdrop({
@@ -78,6 +79,13 @@ function DialogViewport({ className, ...props }: DialogPrimitive.Viewport.Props)
   );
 }
 
+const popupClasses = {
+  default: '',
+  media: '',
+  identity: 'ui-identity-dialog',
+  'workspace-context': 'session-context-dialog'
+} as const;
+
 function DialogPopup({
   className,
   viewportClassName,
@@ -94,12 +102,15 @@ function DialogPopup({
   keepMounted?: boolean;
   closeLabel: string;
   bottomStickOnMobile?: boolean;
-  variant?: 'default' | 'media';
+  variant?: 'default' | 'media' | 'identity' | 'workspace-context';
 }) {
   return (
     <DialogPortal keepMounted={keepMounted}>
       {/* Media opens from inside other overlays (a composer chip, a popover), so it sits above them. */}
-      <DialogBackdrop className={variant === 'media' ? 'z-[60]' : undefined} variant={variant} />
+      <DialogBackdrop
+        className={variant === 'media' ? 'z-[60]' : undefined}
+        variant={variant === 'media' ? 'media' : 'default'}
+      />
       <DialogViewport
         className={cn(
           bottomStickOnMobile && 'max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12',
@@ -112,7 +123,8 @@ function DialogPopup({
           className={cn(
             variant === 'media' ? DIALOG_MEDIA_POPUP_CLASS : DIALOG_POPUP_CLASS,
             'row-start-2 text-popover-foreground',
-            variant === 'default' && 'max-h-full max-w-lg',
+            variant !== 'media' && 'max-h-full max-w-lg',
+            popupClasses[variant],
             bottomStickOnMobile && DIALOG_MOBILE_SHEET_CLASS,
             className
           )}

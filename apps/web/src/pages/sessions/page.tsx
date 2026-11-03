@@ -1,7 +1,6 @@
-import type { SessionId } from '@study/contracts/ids';
-
 import { PageView } from './page.view';
+import { usePage } from './use-page';
 
-export function Page({ id }: { id?: SessionId }) {
-  return <PageView id={id} />;
+export function Page() {
+  return <PageView {...usePage()} />;
 }

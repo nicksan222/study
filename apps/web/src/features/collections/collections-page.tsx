@@ -18,8 +18,7 @@ import { toStudyError } from '../../lib/study-client/errors';
 import { request } from '../../lib/study-client/request';
 import { materialsOptions } from '../material-library';
 import { sessionPagesOptions } from '../session-workspace';
-import { SubjectIconEditor } from '../subjects/subject-icon-editor';
-import { SubjectIdentity } from '../subjects/subject-identity';
+import { SubjectIconEditor, SubjectIdentity } from '../subjects';
 import { useCollectionState, validCollectionName } from './collection-state';
 import { materialMembership, sessionMembership } from './collections.queries';
 import { useCollectionsView } from './collections.queries';
@@ -74,6 +73,7 @@ function ReadState({
   ) : null;
 }
 
+/** Uses shared subject drafts while keeping material and session memberships independently editable. */
 function Collection({
   project,
   busy,
@@ -93,11 +93,11 @@ function Collection({
 
   return (
     <CollectionPanel.Collection aria-label={project.name}>
-      <div className="flex items-center gap-3">
+      <CollectionPanel.IdentityHeader>
         <SubjectIdentity name={project.name} icon={project.icon} size="large" />
         <CollectionPanel.Title>{project.name}</CollectionPanel.Title>
         <SubjectIconEditor project={project} disabled={busy} />
-      </div>
+      </CollectionPanel.IdentityHeader>
       <CollectionPanel.Navigation>
         <Link to="/library" search={{ project: String(project.id) }}>
           <CollectionPanel.LinkText>{t('collections.library')}</CollectionPanel.LinkText>
@@ -158,15 +158,18 @@ function Collection({
         pending={busy}
         onConfirm={() => {
           if (busy) return;
+
           return mutate(async () => {
             const deleted = await request((c) => c['projects.deleteProject']({ id: project.id }));
+
             if (!deleted) throw new StudyError('not_found', 'Subject no longer exists');
+
             toastManager.add({ title: t('SubjectDeleted'), type: 'success' });
             close(project.id);
           });
         }}
       >
-        {state.error && <p role="alert">{t('collections.mutationError')}</p>}
+        {state.error && <ErrorState layout="inline" title={t('collections.mutationError')} />}
       </DangerDialog>
     </CollectionPanel.Collection>
   );

@@ -13,7 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import type { StudyClient } from '../../lib/study-client/client';
+import type { StudyClient } from '../../lib/study-client/request';
 import { request } from '../../lib/study-client/request';
 
 type DeletePreview = typeof materialDeletionPreviewSchema.Type;
@@ -122,9 +122,12 @@ export function useMaterialLifecycle(id: MaterialId) {
 
   function confirmCleanup() {
     const submitted = confirmation;
+
     if (!submitted || busy) return;
+
     return run(async () => {
       let result: DeleteOperation | PruneOperation;
+
       if (submitted.kind === 'delete') {
         result = await request((rpc) => rpc['materials.requestDeletion'](submitted.input));
         setDeleteOperation(result);
@@ -134,10 +137,13 @@ export function useMaterialLifecycle(id: MaterialId) {
         result = await request((rpc) => rpc['materials.requestHistoryPrune'](submitted.input));
         setPruneOperation(result);
       }
+
       if (result.status === 'failed') {
         toastManager.add({ title: t('DocumentCleanupFailed'), type: 'error' });
+
         return;
       }
+
       toastManager.add({
         title: t(
           result.status === 'completed' ? 'DocumentCleanupCompleted' : 'DocumentCleanupPending'

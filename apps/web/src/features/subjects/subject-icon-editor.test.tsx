@@ -8,15 +8,19 @@ import { afterEach, expect, it, vi } from 'vite-plus/test';
 import { SubjectIconEditor } from './subject-icon-editor';
 
 const save = vi.hoisted(() => vi.fn());
+
 vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('../../lib/study-client/request', () => ({
   request: (fn: (client: unknown) => unknown) => fn({ 'projects.setIcon': save })
 }));
+
 const clients: QueryClient[] = [];
+
 afterEach(() => {
   clients.splice(0).forEach((client) => client.clear());
   save.mockReset();
 });
+
 const project = Schema.decodeUnknownSync(projectSchema)({
   id: 91n,
   name: 'Cell Biology',
@@ -25,9 +29,12 @@ const project = Schema.decodeUnknownSync(projectSchema)({
   createdAt: 1n,
   updatedAt: 1n
 });
+
 function mount(icon: ProjectIcon = automaticProjectIcon) {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(cache);
+
   return {
     cache,
     ...render(
@@ -37,13 +44,16 @@ function mount(icon: ProjectIcon = automaticProjectIcon) {
     )
   };
 }
+
 it('saves a valid custom monogram with exact subject identity, preserving canonical response in cache', async () => {
   save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
   const { cache } = mount();
+
   fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
   expect(screen.getByText('CB')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'SubjectIconCustom' }));
   const input = screen.getByRole('textbox', { name: 'SubjectIconLetters' });
+
   fireEvent.change(input, { target: { value: 'ABCD' } });
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   fireEvent.change(input, { target: { value: 'bio' } });
@@ -58,6 +68,7 @@ it('saves a valid custom monogram with exact subject identity, preserving canoni
     icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
   });
 });
+
 it('restores automatic mode without storing the derived initials', async () => {
   save.mockResolvedValue(project);
   mount({ kind: 'monogram', value: 'BIO', color: 'neutral' });
@@ -68,6 +79,7 @@ it('restores automatic mode without storing the derived initials', async () => {
     expect(save).toHaveBeenCalledExactlyOnceWith({ id: project.id, icon: automaticProjectIcon })
   );
 });
+
 it('retains custom letters on save failure and allows explicit retry', async () => {
   save.mockRejectedValue(new Error('offline'));
   mount();
@@ -85,6 +97,7 @@ it('retains custom letters on save failure and allows explicit retry', async () 
 it('saves a searched symbol with its selected color and survives reopening the editor', async () => {
   save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
   const view = mount();
+
   fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
   fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
   fireEvent.change(screen.getByRole('textbox', { name: 'SubjectIconSearch' }), {
@@ -94,6 +107,7 @@ it('saves a searched symbol with its selected color and survives reopening the e
   fireEvent.click(screen.getByRole('radio', { name: 'SubjectColorViolet' }));
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   const icon = { kind: 'symbol', value: 'atom', color: 'violet' } as const;
+
   await waitFor(() => expect(save).toHaveBeenCalledExactlyOnceWith({ id: project.id, icon }));
   view.rerender(
     <QueryClientProvider client={view.cache}>
@@ -110,6 +124,7 @@ it('saves a searched symbol with its selected color and survives reopening the e
     'true'
   );
 });
+
 it('saves a selected emoji as a typed icon rather than a monogram', async () => {
   save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
   mount();

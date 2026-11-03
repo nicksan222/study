@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises structured project icons across SQLite reopen and missing-subject        │
+ * │ failures.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies persisted glyph modes and theme accent choices.                               │
+ * │ - Checks automatic initials survive canonical subject mutations.                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses the project store and real database without replacing the persistence boundary.     │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
@@ -18,10 +32,12 @@ test('custom subject icon persists across SQLite reopen and automatic mode resto
   let context = new ServerContext(location.open(), clock);
   const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
     Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
+
   try {
     const created = await provide(
       transaction((tx) => tx.store(ProjectsStore).createProject({ name: 'Cell Biology' }))
     );
+
     await provide(
       transaction((tx) =>
         tx
@@ -32,6 +48,7 @@ test('custom subject icon persists across SQLite reopen and automatic mode resto
     context.close();
     context = new ServerContext(location.open(), clock);
     const store = await provide(useStore(ProjectsStore));
+
     assert.deepEqual((await Effect.runPromise(store.project(created.id))).icon, {
       kind: 'monogram',
       value: 'BIO',
@@ -68,6 +85,7 @@ test('custom subject icon persists across SQLite reopen and automatic mode resto
         )
       )
     );
+
     assert.deepEqual(error.kind, 'not_found');
   } finally {
     context.close();
@@ -81,10 +99,12 @@ test('rich icons persist their typed variant and color across SQLite reopen', as
   let context = new ServerContext(location.open(), clock);
   const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
     Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
+
   try {
     const created = await provide(
       transaction((tx) => tx.store(ProjectsStore).createProject({ name: 'Biology' }))
     );
+
     for (const icon of [
       { kind: 'symbol', value: 'atom', color: 'violet' },
       { kind: 'emoji', value: '📚', color: 'blue' },
@@ -94,6 +114,7 @@ test('rich icons persist their typed variant and color across SQLite reopen', as
       context.close();
       context = new ServerContext(location.open(), clock);
       const store = await provide(useStore(ProjectsStore));
+
       assert.deepEqual((await Effect.runPromise(store.project(created.id))).icon, icon);
     }
   } finally {

@@ -1,4 +1,5 @@
 import type { ProjectId, SessionId } from '@study/contracts/ids';
+import { Loading } from '@study/ui/loading';
 import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -24,16 +25,18 @@ import { WorkspaceContext } from './workspace-context';
 import { WorkspaceFooter } from './workspace-footer';
 import { WorkspaceHeader } from './workspace-header';
 
+/** Keeps the starter and active notebook under the same context-panel owner. */
 export function SessionWorkspace({ id }: { id?: SessionId } = {}) {
   return (
     <WorkspaceCard.Provider>
-      <div className="session-workspace">
+      <WorkspaceSurface.Container>
         {id ? <SessionBody key={String(id)} id={id} /> : <SessionStart />}
-      </div>
+      </WorkspaceSurface.Container>
     </WorkspaceCard.Provider>
   );
 }
 
+/** Combines authoritative session and deletion reads before allowing edits or file drops. */
 function useSessionWorkspace(id: SessionId) {
   const state = useQuery(sessionOptions(id));
   const search = useSearch({ from: '__root__' });
@@ -49,15 +52,19 @@ function useSessionWorkspace(id: SessionId) {
   const deletion = useQuery(deletionOptions(id, true));
   const deleteAttempt = useQuery(deletionAttemptOptions(id));
   const completed = deletion.data?.status === 'completed';
+
   useCompletedDeletion(completed, project);
   const live = deletion.isSuccess && deletion.data === null;
   const editable = !!state.data && !state.isError && live && !deletePending && !deleteAttempt.data;
+
   useEffect(() => {
     if (state.isSuccess) {
       const created = cache.getQueryData<{ id?: SessionId }>(['session-workspace', 'creation']);
+
       if (created?.id === id) cache.setQueryData(['session-workspace', 'creation'], {});
     }
   }, [cache, id, state.isSuccess]);
+
   return {
     state,
     owner,
@@ -73,6 +80,7 @@ function useSessionWorkspace(id: SessionId) {
   };
 }
 
+/** Keeps deletion ownership mounted while replacing completed notebooks with the starter. */
 function SessionBody({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const {
@@ -88,78 +96,86 @@ function SessionBody({ id }: { id: SessionId }) {
     editable,
     completed
   } = useSessionWorkspace(id);
-  if (completed) {
-    return (
-      <>
-        <SessionStart />
-        <SessionDeleteDialog id={id} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
-      </>
-    );
-  }
+
   return (
-    <WorkspaceSurface.Root
-      variant="session"
-      className="session-canvas"
-      onDragOver={(event) => {
-        if (live && !deletePending) event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        const draft = cache.getQueryData<Draft>(['session-drafts', String(id), 'note']);
-        if (editable && canAttachDraft(draft)) files.add(Array.from(event.dataTransfer.files));
-      }}
-    >
-      {live && (
-        <WorkspaceContext id={id}>
-          {editable && <SessionContextActions id={id} onDelete={() => setDeleteDialogOpen(true)} />}
-        </WorkspaceContext>
-      )}
-      <WorkspaceHeader owner={owner} title={state.data?.title}>
-        {live && <WorkspaceCard.Toggle label={t('SessionContextPanel')} />}
-      </WorkspaceHeader>
-      {deletion.data && <SessionDeletion id={id} />}
+    <>
       <SessionDeleteDialog id={id} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
-      <SessionFeedback state={state} deletion={deletion} />
-      {editable && (
-        <>
-          <WorkspaceSurface.Body>
-            <History id={id} />
-          </WorkspaceSurface.Body>
-          <WorkspaceSurface.Dock>
-            <Composer id={id} />
-            <WorkspaceFooter />
-          </WorkspaceSurface.Dock>
-        </>
+      {completed ? (
+        <SessionStart />
+      ) : (
+        <WorkspaceSurface.Root
+          variant="session"
+          onDragOver={(event) => {
+            if (live && !deletePending) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const draft = cache.getQueryData<Draft>(['session-drafts', String(id), 'note']);
+
+            if (editable && canAttachDraft(draft)) files.add(Array.from(event.dataTransfer.files));
+          }}
+        >
+          {live && (
+            <WorkspaceContext id={id}>
+              {editable && (
+                <SessionContextActions id={id} onDelete={() => setDeleteDialogOpen(true)} />
+              )}
+            </WorkspaceContext>
+          )}
+          <WorkspaceHeader owner={owner} title={state.data?.title}>
+            {live && <WorkspaceCard.Toggle label={t('SessionContextPanel')} />}
+          </WorkspaceHeader>
+          {deletion.data && <SessionDeletion id={id} />}
+          <SessionFeedback state={state} deletion={deletion} />
+          {editable && (
+            <>
+              <WorkspaceSurface.Body>
+                <History id={id} />
+              </WorkspaceSurface.Body>
+              <WorkspaceSurface.Dock>
+                <Composer id={id} />
+                <WorkspaceFooter />
+              </WorkspaceSurface.Dock>
+            </>
+          )}
+        </WorkspaceSurface.Root>
       )}
-    </WorkspaceSurface.Root>
+    </>
   );
 }
 
+/** Protects drafts whose pending or uncertain writes already own their attachments. */
 function canAttachDraft(draft: Draft | undefined) {
   return !draft?.pending && !draft?.askAttempt && draft?.noteAttempt === undefined;
 }
 
+/** Refreshes navigation hints and leaves the deleted URL without losing its subject scope. */
 function useCompletedDeletion(completed: boolean, project: ProjectId | undefined) {
   const cache = useQueryClient();
   const navigate = useNavigate();
   const search = useSearch({ from: '__root__' });
+
   useEffect(() => {
     if (!completed) return;
+
     void cache.invalidateQueries({ queryKey: ['sessions'] });
     void cache.invalidateQueries({ queryKey: ['search'] });
     const subject = project ? String(project) : search.project;
+
     void navigate({ to: '/sessions', search: subject ? { project: subject } : {}, replace: true });
   }, [completed, cache, navigate, project, search.project]);
 }
 
+/** Presents independent session and deletion read failures without exposing editable content. */
 function SessionFeedback({
   state,
   deletion
 }: Pick<ReturnType<typeof useSessionWorkspace>, 'state' | 'deletion'>) {
   const { t } = useI18n();
+
   return (
     <>
-      {(state.isPending || deletion.isPending) && <p role="status">{t('LoadingStudy')}</p>}
+      {(state.isPending || deletion.isPending) && <Loading label={t('LoadingStudy')} />}
       {deletion.error && (
         <SessionReadError error={deletion.error} retry={() => void deletion.refetch()} />
       )}

@@ -3,8 +3,10 @@ import { Effect, Schema } from 'effect';
 import { projectIdSchema } from '../ids.ts';
 
 const graphemes = new Intl.Segmenter('en', { granularity: 'grapheme' });
+
 const segments = (value: string) => Array.from(graphemes.segment(value), (part) => part.segment);
 
+/** Accepts one to three visible letter or number graphemes without surrounding whitespace. */
 function validProjectMonogram(value: string) {
   return (
     value === value.trim() &&
@@ -26,6 +28,7 @@ export const projectIconColors = [
   'violet',
   'pink'
 ] as const;
+
 export const projectSymbols = [
   'book',
   'notebook',
@@ -52,6 +55,7 @@ export const projectSymbols = [
   'sparkles',
   'compass'
 ] as const;
+
 export const projectEmojis = [
   '📚',
   '📖',
@@ -78,7 +82,9 @@ export const projectEmojis = [
   '⚖️',
   '🗺️'
 ] as const;
+
 const iconColor = Schema.Literals(projectIconColors);
+
 export const projectIconSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('automatic'), color: iconColor }),
   Schema.Struct({
@@ -97,12 +103,15 @@ export const projectIconSchema = Schema.Union([
     value: Schema.Literals(projectEmojis)
   })
 ]);
+
 export type ProjectIcon = typeof projectIconSchema.Type;
+
 export const automaticProjectIcon = {
   kind: 'automatic',
   color: 'neutral'
 } as const satisfies ProjectIcon;
 
+/** Derives deterministic Unicode initials without persisting a copy of the subject title. */
 export function projectInitials(name: string) {
   const words =
     name
@@ -115,6 +124,7 @@ export function projectInitials(name: string) {
       : segments(words[0] ?? '')
           .slice(0, 2)
           .join('');
+
   return segments(letters.toLocaleUpperCase('en-US')).slice(0, 2).join('') || 'S';
 }
 

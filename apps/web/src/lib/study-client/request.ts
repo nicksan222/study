@@ -14,3 +14,5 @@ export function request<A, E>(
     signal
   );
 }
+
+export type { StudyClient } from './client';

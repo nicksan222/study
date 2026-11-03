@@ -17,6 +17,7 @@ import {
 } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { IconChoices } from '@study/ui/icon-choices';
+import { IdentityEditor } from '@study/ui/identity-editor';
 import { Input } from '@study/ui/input';
 import { Label } from '@study/ui/label';
 import { toastManager } from '@study/ui/toast';
@@ -26,18 +27,17 @@ import { Pencil } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
+import { subjectIconMutationOptions } from './subject-icon-editor.queries';
 import { subjectColors, subjectSymbols } from './subject-icon-options';
 import { SubjectIdentity } from './subject-identity';
 
+/** Persists the canonical icon before refreshing every subject presentation. */
 function useSubjectIconMutation(project: Project, onSaved: () => void) {
   const { t } = useI18n();
   const cache = useQueryClient();
+
   return useMutation({
-    mutationKey: ['subject-icon', String(project.id)],
-    mutationFn: (icon: ProjectIcon) =>
-      request((client) => client['projects.setIcon']({ id: project.id, icon })),
-    retry: false,
+    ...subjectIconMutationOptions(project.id),
     onSuccess: (updated) => {
       cache.setQueryData(['projects', 'collection', String(project.id)], updated);
       void cache.invalidateQueries({ queryKey: ['projects'] });
@@ -47,6 +47,7 @@ function useSubjectIconMutation(project: Project, onSaved: () => void) {
   });
 }
 
+/** Retains per-mode choices locally while sharing the selected accent across modes. */
 function useIconDraft(project: Project) {
   const [icon, setIcon] = useState<ProjectIcon>(project.icon);
   const [mode, setMode] = useState<'symbol' | 'emoji' | 'monogram'>(
@@ -63,16 +64,21 @@ function useIconDraft(project: Project) {
     icon.color === project.icon.color &&
     (icon.kind === 'automatic' ||
       (project.icon.kind !== 'automatic' && icon.value === project.icon.value));
+
   function changeMode(next: typeof mode) {
     if (next === mode) return;
+
     remembered.current[mode] = icon;
     setMode(next);
     setSearch('');
     const previous = remembered.current[next];
+
     if (previous) {
       setIcon({ ...previous, color: icon.color });
+
       return;
     }
+
     if (next === 'symbol')
       setIcon({
         kind: 'symbol',
@@ -87,6 +93,7 @@ function useIconDraft(project: Project) {
       });
     else setIcon({ kind: 'automatic', color: icon.color });
   }
+
   return {
     icon,
     setIcon,
@@ -101,6 +108,7 @@ function useIconDraft(project: Project) {
   };
 }
 
+/** Validates the complete icon draft and prevents dismissal during its save. */
 function SubjectIconDialog({
   project,
   open,
@@ -125,6 +133,7 @@ function SubjectIconDialog({
     changeMode
   } = useIconDraft(project);
   const mutation = useSubjectIconMutation(project, () => onOpenChange(false));
+
   return (
     <Dialog
       open={open}
@@ -132,24 +141,24 @@ function SubjectIconDialog({
         if (!mutation.isPending) onOpenChange(next);
       }}
     >
-      <DialogPopup closeLabel={t('Close')} className="ui-identity-dialog">
+      <DialogPopup closeLabel={t('Close')} variant="identity">
         <DialogHeader>
           <DialogTitle>{t('SubjectIconTitle')}</DialogTitle>
           <DialogDescription>{t('SubjectIconHelp')}</DialogDescription>
         </DialogHeader>
-        <form
+        <IdentityEditor.Form
           id={field}
-          className="space-y-5 px-6 pb-6"
           onSubmit={(event) => {
             event.preventDefault();
+
             if (!mutation.isPending && valid && !unchanged) mutation.mutate(icon);
           }}
         >
-          <div className="flex items-center gap-3">
+          <IdentityEditor.Preview>
             <SubjectIdentity name={project.name} icon={valid ? icon : project.icon} size="large" />
-            <span className="min-w-0 break-words text-sm font-medium">{project.name}</span>
-          </div>
-          <div role="group" aria-label={t('SubjectIconMode')} className="flex flex-wrap gap-1">
+            <IdentityEditor.Name>{project.name}</IdentityEditor.Name>
+          </IdentityEditor.Preview>
+          <IdentityEditor.Modes label={t('SubjectIconMode')}>
             {(['symbol', 'emoji', 'monogram'] as const).map((value) => (
               <Button
                 key={value}
@@ -168,8 +177,8 @@ function SubjectIconDialog({
                 )}
               </Button>
             ))}
-          </div>
-          <div className="space-y-2">
+          </IdentityEditor.Modes>
+          <IdentityEditor.Field>
             <Label>{t('SubjectIconColor')}</Label>
             <IconChoices
               label={t('SubjectIconColor')}
@@ -179,11 +188,11 @@ function SubjectIconDialog({
               options={projectIconColors.map((color) => ({
                 value: color,
                 label: t(subjectColors[color]),
-                content: <span className="ui-icon-color" data-color={color} />
+                content: <IdentityEditor.Color color={color} />
               }))}
               onValueChange={(color) => setIcon({ ...icon, color })}
             />
-          </div>
+          </IdentityEditor.Field>
           {mode === 'symbol' && (
             <SymbolChoices
               project={project}
@@ -224,7 +233,7 @@ function SubjectIconDialog({
               description={t('SubjectIconSaveRetry')}
             />
           )}
-        </form>
+        </IdentityEditor.Form>
         <DialogFooter>
           <Button
             variant="outline"
@@ -242,6 +251,7 @@ function SubjectIconDialog({
   );
 }
 
+/** Searches localized symbol names without changing the stable symbol values sent to storage. */
 function SymbolChoices({
   project,
   icon,
@@ -261,8 +271,9 @@ function SymbolChoices({
   const options = projectSymbols.filter((value) =>
     t(subjectSymbols[value].label).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
   );
+
   return (
-    <div className="space-y-3">
+    <IdentityEditor.Choices>
       <Input
         aria-label={t('SubjectIconSearch')}
         placeholder={t('SubjectIconSearch')}
@@ -286,15 +297,12 @@ function SymbolChoices({
         }))}
         onValueChange={(value) => onChange({ kind: 'symbol', value, color: icon.color })}
       />
-      {!options.length && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {t('SearchNoResults')}
-        </p>
-      )}
-    </div>
+      {!options.length && <IdentityEditor.Empty>{t('SearchNoResults')}</IdentityEditor.Empty>}
+    </IdentityEditor.Choices>
   );
 }
 
+/** Separates title-derived initials from explicitly saved Unicode letters. */
 function MonogramChoices({
   field,
   icon,
@@ -312,9 +320,10 @@ function MonogramChoices({
 }) {
   const { t } = useI18n();
   const automatic = icon.kind === 'automatic';
+
   return (
-    <div className="space-y-3">
-      <div role="group" aria-label={t('SubjectIconMonogram')} className="flex flex-wrap gap-1">
+    <IdentityEditor.Choices>
+      <IdentityEditor.Modes label={t('SubjectIconMonogram')}>
         <Button
           variant={automatic ? 'secondary' : 'ghost-muted'}
           size="sm"
@@ -333,9 +342,9 @@ function MonogramChoices({
         >
           {t('SubjectIconCustom')}
         </Button>
-      </div>
+      </IdentityEditor.Modes>
       {!automatic && (
-        <div className="space-y-2">
+        <IdentityEditor.Field>
           <Label htmlFor={field + '-letters'}>{t('SubjectIconLetters')}</Label>
           <Input
             id={field + '-letters'}
@@ -346,19 +355,21 @@ function MonogramChoices({
             disabled={disabled}
             onChange={(event) => {
               const value = event.target.value.normalize('NFC').toLocaleUpperCase('en-US');
+
               onLetters(value);
               onChange({ kind: 'monogram', value, color: icon.color });
             }}
           />
-          <p id={field + '-help'} className="text-xs text-muted-foreground">
+          <IdentityEditor.Help id={field + '-help'}>
             {t('SubjectIconLettersHelp')}
-          </p>
-        </div>
+          </IdentityEditor.Help>
+        </IdentityEditor.Field>
       )}
-    </div>
+    </IdentityEditor.Choices>
   );
 }
 
+/** Starts a fresh icon draft for the reviewed subject whenever the chooser opens. */
 export function SubjectIconEditor({
   project,
   disabled = false
@@ -368,6 +379,7 @@ export function SubjectIconEditor({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+
   return (
     <>
       <Button variant="ghost-muted" size="sm" disabled={disabled} onClick={() => setOpen(true)}>

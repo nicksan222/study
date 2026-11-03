@@ -1,10 +1,10 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { useNavigate, useSearch } from '@tanstack/react-router';
 
 import { PageView } from './page.view';
 import type { SettingsSectionId } from './page.view';
 import { usePage } from './use-page';
 
+/** Clears workspace scope only when settings deletes the subject currently shown there. */
 export function Page({
   onClose,
   initialSection,
@@ -14,17 +14,5 @@ export function Page({
   initialSection?: SettingsSectionId;
   initialProject?: ProjectId;
 }) {
-  const search = useSearch({ from: '__root__' });
-  const navigate = useNavigate();
-  return (
-    <PageView
-      open
-      {...usePage(onClose, initialSection)}
-      initialProject={initialProject}
-      onProjectDeleted={(id) => {
-        if (search.project === String(id))
-          void navigate({ to: '/sessions', search: {}, replace: true });
-      }}
-    />
-  );
+  return <PageView open {...usePage(onClose, initialSection)} initialProject={initialProject} />;
 }

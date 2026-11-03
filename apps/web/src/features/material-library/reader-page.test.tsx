@@ -256,6 +256,7 @@ it('opens deletion through reader Actions and recovers accepted cleanup after th
   rpc['materials.material'].mockReturnValue(Effect.fail(new StudyError('not_found', 'Retired')));
   await user.click(dialog.getByRole('button', { name: catalogs.english.DocumentConfirmDelete }));
   const confirmation = within(await screen.findByRole('alertdialog'));
+
   await user.type(confirmation.getByRole('textbox'), catalogs.english.DeleteConfirmationWord);
   await user.click(
     confirmation.getByRole('button', { name: catalogs.english.DocumentConfirmDelete })

@@ -129,10 +129,12 @@ export function useAnnotationControls({ annotation }: { annotation: Annotation }
                 review: outcome.outcome === 'conflict' ? outcome.current : undefined
               })
       );
+
       if (operation === 'delete' && outcome.outcome === 'saved') {
         toastManager.add({ title: t('AnnotationDeleted'), type: 'success' });
         setDeleting(false);
       }
+
       await Promise.allSettled([
         client.invalidateQueries({ queryKey: ['materials', 'annotations'] }),
         client.invalidateQueries({ queryKey: ['materials', 'annotationHistory', key] }),

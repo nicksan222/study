@@ -2,6 +2,7 @@ import { StudyError } from '@study/contracts/errors';
 import { materialDeletionSchema } from '@study/contracts/materials/deletion';
 import { historyPreviewSchema, historyPruneSchema } from '@study/contracts/materials/history';
 import { catalogs } from '@study/localization';
+import type * as ToastModule from '@study/ui/toast';
 import { toastManager } from '@study/ui/toast';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, within } from '@testing-library/react';
@@ -19,7 +20,8 @@ import { MaterialLifecycle } from './material-lifecycle';
 import { materialRpc, mountLibraryRoute } from './test/support';
 
 vi.mock('@study/ui/toast', async (load) => {
-  const actual = await load<typeof import('@study/ui/toast')>();
+  const actual = await load<typeof ToastModule>();
+
   return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
 });
 beforeEach(() => vi.mocked(toastManager.add).mockClear());
@@ -134,6 +136,7 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
     const confirm = within(confirmation).getByRole('button', {
       name: catalogs.english.DocumentConfirmPrune
     });
+
     expect(confirm).toBeDisabled();
     await user.type(
       within(confirmation).getByRole('textbox'),
@@ -176,6 +179,7 @@ it('replays a lost prune acceptance after remount, retains its receipt, and star
     const confirm = within(confirmation).getByRole('button', {
       name: catalogs.english.DocumentConfirmPrune
     });
+
     expect(confirm).toBeDisabled();
     await user.type(
       within(confirmation).getByRole('textbox'),
@@ -214,16 +218,19 @@ it('keeps a failed prune receipt in review and never announces it as queued or s
       .fn<StudyClient['materials.requestHistoryPrune']>()
       .mockReturnValue(Effect.succeed(failed))
   };
+
   vi.mocked(request).mockImplementation((invoke, signal) =>
     runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
   );
   const client = createStudyQueryClient();
+
   render(
     <QueryClientProvider client={client}>
       <MaterialLifecycle id={materialId('41')} />
     </QueryClientProvider>
   );
   const user = userEvent.setup();
+
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
   await user.click(
@@ -233,6 +240,7 @@ it('keeps a failed prune receipt in review and never announces it as queued or s
   const confirm = within(dialog).getByRole('button', {
     name: catalogs.english.DocumentConfirmPrune
   });
+
   expect(confirm).toBeDisabled();
   expect(rpc['materials.requestHistoryPrune']).not.toHaveBeenCalled();
   await user.type(within(dialog).getByRole('textbox'), catalogs.english.DeleteConfirmationWord);
@@ -246,6 +254,7 @@ it('keeps a failed prune receipt in review and never announces it as queued or s
     type: 'error'
   });
   const submitted = rpc['materials.requestHistoryPrune'].mock.calls[0]![0];
+
   expect(submitted.materialId).toBe(preview.materialId);
   expect(submitted.token).toBe(preview.token);
   expect(submitted.candidateIds).toEqual(preview.candidateIds);

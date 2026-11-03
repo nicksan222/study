@@ -59,6 +59,7 @@ test('native RPC handlers return projects and typed failures', async () => {
             id: created.id,
             icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
           });
+
           assert.deepEqual(custom.icon, { kind: 'monogram', value: 'BIO', color: 'neutral' });
           assert.deepEqual((yield* client('projects.project', { id: created.id })).icon, {
             kind: 'monogram',
@@ -75,6 +76,7 @@ test('native RPC handlers return projects and typed failures', async () => {
             id: created.id,
             icon: { kind: 'automatic', color: 'neutral' }
           });
+
           assert.deepEqual(automatic.icon, { kind: 'automatic', color: 'neutral' });
           assert.deepEqual(automatic.name, 'Cell Biology');
           assert.deepEqual(
