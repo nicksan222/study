@@ -269,3 +269,13 @@ export const publishTitleInputSchema = Schema.Struct({
   requestId: Schema.String,
   title: Schema.String
 });
+
+const sessionSummarySchema = Schema.Struct({
+  settledOverride: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  id: sessionIdSchema,
+  generatedDocumentCount: Schema.BigInt,
+  running: Schema.Boolean,
+  activity: Schema.Literals(['idle', 'generating', 'processing', 'answering'])
+});
+
+export const sessionSummariesSchema = Schema.Struct({ items: Schema.Array(sessionSummarySchema) });

@@ -13,7 +13,7 @@ import { Input } from '@study/ui/input';
 import type { InputProps } from '@study/ui/input';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { cn } from '@study/ui/utils';
-import { PanelLeft, Search, X, ChevronDown } from 'lucide-react';
+import { PanelLeft, Search, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
@@ -404,6 +404,55 @@ function SearchField({
   );
 }
 
+function SessionActivity({ running, ...props }: ComponentProps<'span'> & { running?: boolean }) {
+  return <span {...props} className="study-session-activity" data-running={running || undefined} />;
+}
+
+function SessionCount(props: ComponentProps<'span'>) {
+  return <span {...props} className="study-session-document-count" />;
+}
+
+function SettleAction(props: ComponentProps<typeof Button>) {
+  return <Button {...props} size="sm" variant="ghost-muted" className="study-session-settle" />;
+}
+
+function SessionEntry({ className, ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={cn('study-session-entry', className)} />;
+}
+
+function SessionGroups({ className, ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={cn('study-session-groups', className)} />;
+}
+
+function SessionGroup({
+  title,
+  count,
+  children,
+  defaultOpen = false
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className="study-session-group"
+    >
+      <summary aria-label={title}>
+        <span>{title}</span>
+        <span>{count}</span>
+        <ChevronRight aria-hidden="true" />
+      </summary>
+      <div>{children}</div>
+    </details>
+  );
+}
+
 function Item({
   label,
   layout = 'detailed',
@@ -614,6 +663,12 @@ export const Sidebar = {
   NavigationItem,
   Items,
   Item,
+  SessionGroup,
+  SessionGroups,
+  SessionEntry,
+  SessionActivity,
+  SessionCount,
+  SettleAction,
   Message,
   Toggle,
   Utility,

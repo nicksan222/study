@@ -38,3 +38,7 @@ export const concurrencySettingsSchema = Schema.Struct({
   maxConcurrentAi: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 })),
   maxQueuedAi: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 64 }))
 });
+
+export const sidebarSettingsSchema = Schema.Struct({
+  settledDocumentThreshold: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
+});

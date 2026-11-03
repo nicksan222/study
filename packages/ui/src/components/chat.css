@@ -207,3 +207,32 @@
   background: transparent;
   padding: 0.5rem 0;
 }
+
+/* Capture cards fit a short thought without reserving a blank editor canvas. */
+.session-desk-board .chat-timeline-body > .chat-message {
+  padding: 0.875rem 1rem 0.625rem;
+  min-height: 0;
+}
+.session-desk-board .chat-timeline-body .chat-message-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+.session-desk-board .chat-message > .chat-message-actions {
+  margin-block: 0.5rem 0;
+  gap: 0.125rem;
+}
+.session-desk-board .chat-message-actions button {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+}
+@media (any-pointer: coarse) {
+  .session-desk-board .chat-message-actions button {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}

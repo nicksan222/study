@@ -13,6 +13,7 @@
  */
 
 import {
+  sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   appearancePreferencesSchema,
@@ -77,6 +78,11 @@ export const SettingsStore = defineStore({
         })
       },
       mutations: {
+        saveSidebarSettings: storeMutation({
+          input: sidebarSettingsSchema,
+          output: Schema.Void,
+          run: (input) => replace('sidebar', { ...input })
+        }),
         saveConcurrencySettings: storeMutation({
           input: concurrencySettingsSchema,
           output: Schema.Void,

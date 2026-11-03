@@ -195,3 +195,24 @@ it('supports keyboard selection and returns focus when the subject picker closes
   await user.keyboard('{Escape}');
   await waitFor(() => expect(screen.getByRole('combobox', { name: 'History' })).toHaveFocus());
 });
+
+it('keeps settled-group disclosure usable in the collapsed rail', async () => {
+  const user = userEvent.setup();
+
+  render(
+    <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
+      <Sidebar.SessionGroup title="Settled" count={1}>
+        <a href="/sessions/42">Settled session</a>
+      </Sidebar.SessionGroup>
+    </Sidebar.Frame>
+  );
+  const summary = screen.getByText('Settled').closest('summary')!;
+  const group = summary.closest('details')!;
+
+  expect(group).not.toHaveAttribute('open');
+  await user.click(summary);
+  expect(group).toHaveAttribute('open');
+  expect(screen.getByRole('link', { name: 'Settled session' })).toBeVisible();
+  await user.click(summary);
+  expect(group).not.toHaveAttribute('open');
+});

@@ -37,7 +37,7 @@ const sections = [
     group: 'SettingsGroupApplication',
     label: 'GeneralSettingsTitle',
     Icon: Settings2,
-    keywords: ['GeneralSettingsLanguage']
+    keywords: ['GeneralSettingsLanguage', 'SidebarSettingsTitle', 'SidebarSettledThreshold']
   },
   {
     id: 'appearance',

@@ -1,6 +1,4 @@
-import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
-import { useNowMinute } from '@study/ui/clock';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
@@ -27,8 +25,8 @@ import type { ReactNode } from 'react';
 import { SubjectIdentity } from '../../features/subjects';
 import { useI18n } from '../../lib/i18n';
 import { Page as SettingsPage } from '../../pages/settings/page';
+import { RichSidebarSessions } from './rich-sidebar';
 import { SidebarNavigation } from './sidebar-navigation.view';
-import { SidebarSessionActions } from './sidebar-session-actions';
 import { resultLocation } from './sidebar.locations';
 import type { SidebarModel } from './use-sidebar';
 
@@ -135,8 +133,7 @@ function SidebarSessions({
   | 'sessionState'
   | 'reloadSessions'
 >) {
-  const { t, locale, date } = useI18n();
-  const now = useNowMinute();
+  const { t } = useI18n();
 
   return (
     <SidebarUI.Items id="study-sidebar-sessions" aria-label={t('Sessions')}>
@@ -152,54 +149,14 @@ function SidebarSessions({
           }
         />
       )}
-      {sessionState === 'ready' &&
-        !invalidSubject &&
-        sessions.map((session) => {
-          const owner = subjects.find(
-            (item) =>
-              item.id === project ||
-              (session.projectIds.length === 1 && session.projectIds.includes(item.id))
-          );
-
-          return (
-            <SidebarSessionActions
-              key={String(session.id)}
-              id={session.id}
-              project={project ? String(project) : undefined}
-            >
-              <SidebarUI.Item
-                layout="compact"
-                label={session.title}
-                icon={
-                  owner ? (
-                    <SubjectIdentity name={owner.name} icon={owner.icon} />
-                  ) : (
-                    <MessagesSquare aria-hidden="true" />
-                  )
-                }
-                context={owner?.name ?? t('Sessions')}
-                timestamp={
-                  <time
-                    dateTime={new Date(Number(session.updatedAt) * 1000).toISOString()}
-                    title={date(session.updatedAt)}
-                  >
-                    {age(locale, now - Number(session.updatedAt))}
-                  </time>
-                }
-                aria-label={session.title}
-                aria-current={selectedSession === String(session.id) ? 'page' : undefined}
-                title={session.title}
-                render={
-                  <Link
-                    to="/sessions/$sessionId"
-                    params={{ sessionId: session.id }}
-                    search={project ? { project: String(project) } : {}}
-                  />
-                }
-              />
-            </SidebarSessionActions>
-          );
-        })}
+      {sessionState === 'ready' && !invalidSubject && (
+        <RichSidebarSessions
+          project={project}
+          selectedSession={selectedSession}
+          subjects={subjects}
+          sessions={sessions}
+        />
+      )}
       {sessionState === 'ready' && !invalidSubject && sessions.length === 0 && (
         <SidebarUI.Message>{t('DashboardNoSessions')}</SidebarUI.Message>
       )}

@@ -39,6 +39,7 @@ export const LlmModel = {
 export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
 
 import type {
+  sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   appearancePreferencesSchema,
@@ -72,3 +73,7 @@ export const defaultConcurrencySettings: ConcurrencySettings = {
   maxConcurrentAi: 2,
   maxQueuedAi: 16
 };
+
+export type SidebarSettings = typeof sidebarSettingsSchema.Type;
+
+export const defaultSidebarSettings: SidebarSettings = { settledDocumentThreshold: 1 };
