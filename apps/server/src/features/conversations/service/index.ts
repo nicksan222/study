@@ -106,8 +106,9 @@ import {
   inspectMaterialHistory
 } from './material-history.ts';
 
+/** Recognizes whole assistant mention tokens without matching identifier suffixes. */
 function mentionsAssistant(text: string) {
-  return [...text.matchAll(/(?:^|\s)(@[a-z]+)/giu)].some(
+  return [...text.matchAll(/(?:^|\s)(@[\p{L}\p{M}\p{N}_]+)/gu)].some(
     (match) => match[1]!.toLowerCase() === mentionLabel('assistant')
   );
 }

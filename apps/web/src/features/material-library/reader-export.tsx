@@ -1,4 +1,4 @@
-import type { exportFormatSchema } from '@study/contracts/materials/export';
+import type { exportFormatSchema, exportOmissionSchema } from '@study/contracts/materials/export';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
@@ -13,6 +13,17 @@ import { availableExportFormats, exportReaderVersion } from './reader-export.que
 
 type Format = typeof exportFormatSchema.Type;
 
+type Omission = typeof exportOmissionSchema.Type;
+
+const omissionLabels = {
+  image_not_embedded: 'ExportOmitImage',
+  unsafe_link: 'ExportOmitLink',
+  math_not_rendered: 'ExportOmitMath',
+  metadata_sidecar: 'ExportOmitMetadata',
+  csv_structure: 'ExportOmitCsv',
+  source_fidelity: 'ExportOmitSource'
+} as const;
+
 const formatLabels = {
   markdown: 'ExportMarkdown',
   html: 'ExportHtml',
@@ -20,10 +31,12 @@ const formatLabels = {
   csv: 'ExportCsv'
 } as const;
 
+/** Downloads a supported format and reports the exact omissions returned by its serializer. */
 export function ReaderExport({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
   const preferences = useWorkspacePreferences();
   const formats = availableExportFormats(version);
+  const [omissions, setOmissions] = useState<readonly Omission[]>([]);
   const [selected, setSelected] = useState<Format>();
   const [status, setStatus] = useState<'idle' | 'busy' | 'failed' | 'omissions'>('idle');
   const preferred = selected ?? preferences.defaultExportFormat;
@@ -52,9 +65,11 @@ export function ReaderExport({ version }: { version: MaterialVersionDetailDto })
           setStatus('busy');
 
           try {
-            const omissions = await exportReaderVersion(version.id, format);
+            const result = await exportReaderVersion(version.id, format);
 
-            setStatus(omissions.length ? 'omissions' : 'idle');
+            setOmissions(result);
+
+            setStatus(result.length ? 'omissions' : 'idle');
           } catch {
             setStatus('failed');
           }
@@ -68,7 +83,9 @@ export function ReaderExport({ version }: { version: MaterialVersionDetailDto })
       )}
       {status === 'omissions' && (
         <MaterialLibrary.ExportStatus role="status">
-          {t('ExportOmissions')}
+          {[...new Set(omissions.map((item) => item.code))]
+            .map((code) => t(omissionLabels[code]))
+            .join(' ')}
         </MaterialLibrary.ExportStatus>
       )}
     </MaterialLibrary.ExportActions>

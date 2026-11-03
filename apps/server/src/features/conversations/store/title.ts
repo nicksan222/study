@@ -35,7 +35,7 @@ import { makePersistence } from './persistence.ts';
 const requestInput = Schema.Struct({ ...titleRequestSchema.fields });
 
 function makeHelpers({ db, clock }: StoreResources) {
-  const { conversationHistory } = makeHistory({ db, clock });
+  const { titleHistory } = makeHistory({ db, clock });
 
   function read(requestId: string, replayTitle?: string, eventId?: string) {
     const foundEventRow = db.orm
@@ -106,7 +106,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     const stale = () => {
       throw new StudyError('invalid_input', 'title request is stale');
     };
-    const current = conversationHistory(event.sessionId);
+    const current = titleHistory(event.sessionId);
 
     if (
       current.length !== event.messages.length ||
@@ -125,7 +125,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       return stale();
   }
 
-  return { read, conversationHistory };
+  return { read, titleHistory };
 }
 
 export const TitleStore = defineStore({
@@ -133,7 +133,7 @@ export const TitleStore = defineStore({
   entity: { singular: 'titleSnapshot', plural: 'titleSnapshots' },
   make: ({ db, clock }) => {
     const { requiredSession } = makePersistence({ db, clock });
-    const { read, conversationHistory } = makeHelpers({ db, clock });
+    const { read, titleHistory } = makeHelpers({ db, clock });
 
     return {
       queries: {
@@ -153,7 +153,7 @@ export const TitleStore = defineStore({
 
             if (session.title_source !== 'provisional') return Option.none();
 
-            const history = conversationHistory(session.id);
+            const history = titleHistory(session.id);
 
             if (!history.some((message) => message.text.trim())) return Option.none();
 
@@ -194,7 +194,7 @@ export const TitleStore = defineStore({
               contextRevision: session.context_revision,
               titleSource: session.title_source,
               title: session.title,
-              messages: conversationHistory(session.id)
+              messages: titleHistory(session.id)
             };
           }
         }),

@@ -302,3 +302,64 @@ test('automatic session titles are opt-in, durable, replay-safe and respect user
     location.cleanup();
   }
 });
+
+test('automatic titles and replies commit together while title snapshots skip pending assistants', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Layer.merge(Conversations.layer, Settings.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const conversations = yield* Conversations;
+        const settings = yield* Settings;
+
+        yield* settings.saveWorkspacePreferences({
+          ...defaultWorkspacePreferences,
+          autoTitleSessions: true
+        });
+        const session = yield* conversations.createUntitledSession({});
+        const note = yield* conversations.postMessage({
+          sessionId: session.id,
+          text: 'Explain cell division',
+          requestReply: true
+        });
+        const events = context.db.orm
+          .select()
+          .from(s.workflowEvents)
+          .all()
+          .map((row) => decodeEvent(row.payload));
+        const title = events.find((event) => event.type === 'ConversationTitleRequested');
+        const reply = events.find((event) => event.type === 'ConversationGenerationRequested');
+
+        assert.ok(title && title.type === 'ConversationTitleRequested');
+        assert.ok(reply && reply.type === 'ConversationGenerationRequested');
+        assert.deepEqual(
+          title.messages.map((message) => message.messageId),
+          [note.id]
+        );
+        assert.deepEqual(
+          (yield* conversations.titleSnapshot({ requestId: title.requestId })).messages,
+          title.messages
+        );
+        const thread = yield* conversations.thread({ sessionId: session.id, limit: 10 });
+
+        assert.equal(thread.items.length, 2);
+        assert.equal(thread.items[1]?.versions[0]?.status, 'pending');
+        const manual = yield* conversations.requestTitle({ sessionId: session.id });
+
+        assert.deepEqual((yield* conversations.titleSnapshot(manual)).messages, title.messages);
+        yield* conversations.editMessage({ messageId: note.id, text: 'New context' });
+        assert.equal(
+          (yield* Effect.flip(conversations.titleSnapshot(manual))).kind,
+          'invalid_input'
+        );
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});

@@ -1,5 +1,13 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  ExportOmitImage: 'Images were not embedded in this export.',
+  ExportOmitLink: 'Unsupported links were omitted.',
+  ExportOmitMath: 'Mathematical notation is included as text, without rendering.',
+  ExportOmitMetadata: 'Some metadata is provided separately.',
+  ExportOmitCsv:
+    'CSV flattens study-aid structure; nested details and formatting may not be preserved.',
+  ExportOmitSource: 'Original file layout and formatting may not be preserved.',
+
   WorkspaceSettingsFailed: 'Could not save or load these preferences. Try again.',
   WorkspaceSettingsSaved: 'Changes saved',
   WorkspaceNumberValidation: 'Enter a whole number within the allowed range.',
@@ -7,7 +15,7 @@ export const english = Object.freeze({
   WorkspaceWritingDescription:
     'Make the editor and quick capture feel right for you. Changes apply to new and open pages.',
   WorkspaceAutosave: 'Autosave interval',
-  WorkspaceAutosaveHelp: 'Save page changes after 1–30 seconds without typing.',
+  WorkspaceAutosaveHelp: 'Save page changes every 1–30 seconds.',
   WorkspaceEditorFont: 'Editor text size',
   WorkspaceEditorFontHelp: 'Page text size in pixels, from 14 to 24.',
   WorkspaceSpellcheck: 'Spell check',

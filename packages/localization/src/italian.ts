@@ -1,6 +1,15 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  ExportOmitImage: 'Le immagini non sono state incluse in questa esportazione.',
+  ExportOmitLink: 'I collegamenti non supportati sono stati omessi.',
+  ExportOmitMath: 'La notazione matematica è inclusa come testo, senza rendering.',
+  ExportOmitMetadata: 'Alcuni metadati sono forniti separatamente.',
+  ExportOmitCsv:
+    'Il CSV appiattisce la struttura del sussidio di studio; dettagli annidati e formattazione potrebbero non essere mantenuti.',
+  ExportOmitSource:
+    'L’impaginazione e la formattazione del file originale potrebbero non essere mantenute.',
+
   WorkspaceSettingsFailed: 'Impossibile salvare o caricare queste preferenze. Riprova.',
   WorkspaceSettingsSaved: 'Modifiche salvate',
   WorkspaceNumberValidation: 'Inserisci un numero intero entro i limiti indicati.',
@@ -8,7 +17,7 @@ export const italian = Object.freeze({
   WorkspaceWritingDescription:
     'Adatta l’editor e le note rapide al tuo modo di lavorare. Le modifiche si applicano alle pagine nuove e aperte.',
   WorkspaceAutosave: 'Intervallo di salvataggio',
-  WorkspaceAutosaveHelp: 'Salva le modifiche dopo 1–30 secondi senza digitazione.',
+  WorkspaceAutosaveHelp: 'Salva le modifiche ogni 1–30 secondi.',
   WorkspaceEditorFont: 'Dimensione del testo nell’editor',
   WorkspaceEditorFontHelp: 'Dimensione del testo delle pagine in pixel, da 14 a 24.',
   WorkspaceSpellcheck: 'Controllo ortografico',

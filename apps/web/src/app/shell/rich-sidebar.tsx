@@ -114,7 +114,14 @@ function SessionLink({ session, project, subjects, selectedSession, progress }: 
             <MessagesSquare aria-hidden="true" />
           )
         }
-        timestamp={<SessionTime at={session.updatedAt} />}
+        timestamp={
+          <>
+            {preferences.sidebarDensity === 'compact' && preferences.sidebarShowDocumentCounts && (
+              <SessionDocumentCount progress={progress} />
+            )}
+            <SessionTime at={session.updatedAt} />
+          </>
+        }
         description={<SessionProgress progress={progress} />}
         aria-label={session.title}
         aria-current={selectedSession === String(session.id) ? 'page' : undefined}
@@ -162,12 +169,19 @@ function SessionProgress({ progress }: { progress?: Progress }) {
         {progress?.running && <Spinner size="xs" label={t(label)} aria-hidden="true" />}
         {t(label)}
       </SidebarUI.SessionActivity>
-      {preferences.sidebarShowDocumentCounts && (
-        <SidebarUI.SessionCount title={t('SidebarGeneratedDocuments')}>
-          <FileText size={12} aria-hidden="true" />
-          {progress ? String(progress.generatedDocumentCount) : '—'}
-        </SidebarUI.SessionCount>
-      )}
+      {preferences.sidebarShowDocumentCounts && <SessionDocumentCount progress={progress} />}
     </>
+  );
+}
+
+/** Reuses the document count in both detailed and compact session rows. */
+function SessionDocumentCount({ progress }: { progress?: Progress }) {
+  const { t } = useI18n();
+
+  return (
+    <SidebarUI.SessionCount title={t('SidebarGeneratedDocuments')}>
+      <FileText size={12} aria-hidden="true" />
+      {progress ? String(progress.generatedDocumentCount) : '—'}
+    </SidebarUI.SessionCount>
   );
 }

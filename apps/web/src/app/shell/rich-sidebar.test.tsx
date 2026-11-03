@@ -1,4 +1,5 @@
 import { sessionSchema } from '@study/contracts/conversations/schemas';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
@@ -6,7 +7,7 @@ import {
   createMemoryHistory,
   RouterProvider
 } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
@@ -89,6 +90,26 @@ it('settles only sessions meeting the saved document threshold and keeps running
     within(groups[1] as HTMLElement).getByRole('link', { name: 'Session 2' })
   ).toBeInTheDocument();
   expect(api.summaries).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    cache.setQueryData(['workspace-preferences'], {
+      ...defaultWorkspacePreferences,
+      sidebarDensity: 'compact'
+    });
+  });
+  const compact = screen.getByRole('link', { name: 'Session 1' });
+
+  expect(compact).toHaveAttribute('data-layout', 'compact');
+  expect(within(compact).getByTitle('SidebarGeneratedDocuments')).toHaveTextContent('1');
+  await act(async () => {
+    cache.setQueryData(['workspace-preferences'], {
+      ...defaultWorkspacePreferences,
+      sidebarDensity: 'compact',
+      sidebarShowDocumentCounts: false
+    });
+  });
+  await waitFor(() =>
+    expect(within(compact).queryByTitle('SidebarGeneratedDocuments')).not.toBeInTheDocument()
+  );
 });
 
 it('settles a row without navigating and persists an explicit reopen over the automatic threshold', async () => {

@@ -3,7 +3,10 @@ import {
   materialDeletionPreviewSchema,
   materialDeletionSchema
 } from '@study/contracts/materials/deletion';
-import { materialVersionSummarySchema } from '@study/contracts/materials/schemas';
+import {
+  materialVersionDetailSchema,
+  materialVersionSummarySchema
+} from '@study/contracts/materials/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -322,4 +325,54 @@ it('exports the selected version using the configured format and server filename
   );
   download.mockRestore();
   create.mockRestore();
+});
+
+it('reports CSV structure loss without an unrelated image warning', async () => {
+  const rpc = materialRpc();
+
+  rpc['settings.workspacePreferences'].mockReturnValue(
+    Effect.succeed({ ...defaultWorkspacePreferences, defaultExportFormat: 'csv' })
+  );
+  rpc['materials.materialVersion'].mockReturnValue(
+    Effect.succeed(
+      Schema.decodeUnknownSync(materialVersionDetailSchema)({
+        ...importedVersion(),
+        kind: 'flashcards',
+        content: { kind: 'flashcards', cards: [] }
+      })
+    )
+  );
+  rpc['materials.exportMaterialVersion'].mockReturnValue(
+    Effect.succeed({
+      versionId: versionId('101'),
+      format: 'csv',
+      filename: 'cards.csv',
+      mediaType: 'text/csv; charset=utf-8',
+      bytes: new TextEncoder().encode('cardId,front,back'),
+      omissions: [{ code: 'csv_structure' }]
+    })
+  );
+  const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv-export');
+
+  try {
+    mountLibraryRoute('/materials/41?version=101', rpc);
+    const button = await screen.findByRole('button', { name: catalogs.english.ExportDownload });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: catalogs.english.ExportFormat })
+      ).toHaveTextContent(catalogs.english.ExportCsv)
+    );
+    await userEvent.click(button);
+    expect(await screen.findByText(catalogs.english.ExportOmitCsv)).toBeInTheDocument();
+    expect(screen.queryByText(catalogs.english.ExportOmitImage)).not.toBeInTheDocument();
+    expect(rpc['materials.exportMaterialVersion']).toHaveBeenCalledWith({
+      id: versionId('101'),
+      format: 'csv'
+    });
+  } finally {
+    download.mockRestore();
+    create.mockRestore();
+  }
 });
