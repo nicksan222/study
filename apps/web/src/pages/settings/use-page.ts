@@ -73,8 +73,18 @@ export function usePage(
 
   return {
     onProjectDeleted: (id: ProjectId) => {
-      if (scope.project === String(id) || workspaceProject === id)
+      const activeProject =
+        workspaceProject === undefined ? scope.project : String(workspaceProject);
+
+      if (activeProject === String(id)) {
         void navigate({ to: '/sessions', search: {}, replace: true });
+      } else if (scope.project === String(id)) {
+        void navigate({
+          to: '.',
+          search: (previous) => ({ ...previous, project: undefined }),
+          replace: true
+        });
+      }
     },
     search,
     onSearch,

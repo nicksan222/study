@@ -82,3 +82,19 @@ it.each([
     else expect(router.navigate).not.toHaveBeenCalled();
   }
 );
+
+it('clears a deleted stale URL subject without leaving the resolved session', () => {
+  router.scope = { project: '41' };
+  router.navigate.mockClear();
+  const { result } = setup(() => usePage(undefined, 'projects', projectIdSchema.make(42n)));
+
+  act(() => result.current.onProjectDeleted(projectIdSchema.make(41n)));
+  expect(router.navigate).toHaveBeenCalledExactlyOnceWith({
+    to: '.',
+    search: expect.any(Function),
+    replace: true
+  });
+  const search = router.navigate.mock.calls[0]![0].search;
+
+  expect(search({ project: '41', version: '9' })).toEqual({ project: undefined, version: '9' });
+});

@@ -1292,7 +1292,7 @@ it('announces completion once when deleting from the active workspace dialog', a
   rpc.session.mockResolvedValue({
     id,
     title: 'Notebook',
-    projectIds: [],
+    projectIds: [projectIdSchema.make(42n)],
     createdAt: 1n,
     updatedAt: 1n
   });
@@ -1327,4 +1327,5 @@ it('announces completion once when deleting from the active workspace dialog', a
   await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   expect(notify).toHaveBeenCalledExactlyOnceWith({ title: 'SessionDeleted', type: 'success' });
   await waitFor(() => expect(view.router.state.location.pathname).toBe('/sessions'));
+  expect(view.router.state.location.search).toEqual({ project: '42' });
 });
