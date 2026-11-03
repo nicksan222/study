@@ -1,49 +1,59 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Adds execution-ordered test progress alongside the standard Node TAP results.      │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Reports test execution and named fixture phases before declaration-ordered results.    │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Uses public Node test events; never inspects resources or logs operation payloads.       │
+ * │ @file Reports each test result and retains diagnostics only for failing test files.    │
+ * │                                                                                        │
+ * │ Responsibilities:                                                                      │
+ * │ - Keeps stdout, stderr and fixture phases available when a test file fails.            │
+ * │                                                                                        │
+ * │ Boundaries:                                                                            │
+ * │ Uses public Node test events; never inspects resources or logs operation payloads.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { Readable } from 'node:stream';
 import type { TestContext } from 'node:test';
-import { tap } from 'node:test/reporters';
+import { spec } from 'node:test/reporters';
 import type { TestEvent } from 'node:test/reporters';
 
-/** Preserve TAP while exposing execution events across both concurrent test files. */
+/** Console events are file-scoped, so failure diagnostics retain the whole file's output. */
 export default async function* progress(source: AsyncIterable<TestEvent>) {
-  yield* tap(observe(source));
+  yield* Readable.from(observe(source)).pipe(new spec());
+}
+
+function isDiagnostic(event: TestEvent) {
+  return (
+    ['test:stdout', 'test:stderr', 'test:log'].includes(event.type) ||
+    (event.type === 'test:diagnostic' && event.data.file !== undefined)
+  );
 }
 
 async function* observe(source: AsyncIterable<TestEvent>) {
-  for await (const event of source) {
-    if (
-      event.type === 'test:dequeue' ||
-      event.type === 'test:complete' ||
-      (event.type === 'test:log' && event.data.message.startsWith('study-test-phase:'))
-    ) {
-      const { file, entryFile, name, testId, nesting } = event.data;
+  const pending = new Map<string | undefined, TestEvent[]>();
+  const failed = new Set<string | undefined>();
 
-      process.stderr.write(
-        JSON.stringify({
-          event: event.type,
-          at: new Date().toISOString(),
-          file,
-          entryFile,
-          name,
-          testId,
-          nesting,
-          phase: event.type === 'test:log' ? event.data.message : undefined,
-          passed: event.type === 'test:complete' ? event.data.details.passed : undefined
-        }) + '\n'
-      );
+  for await (const event of source) {
+    const file = 'file' in event.data ? event.data.file : undefined;
+
+    if (event.type === 'test:fail') {
+      failed.add(file);
+      yield* pending.get(file) ?? [];
+      pending.delete(file);
     }
 
-    yield event;
+    if (isDiagnostic(event)) {
+      if (failed.has(file)) yield event;
+      else {
+        const events = pending.get(file) ?? [];
+
+        events.push(event);
+        pending.set(file, events);
+      }
+    } else yield event;
+
+    if (event.type === 'test:summary') {
+      pending.delete(file);
+      failed.delete(file);
+    }
   }
 }
 

@@ -10,9 +10,10 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build, generated database drift,
-  tooling tests, server package checks, and the website's Bun type check. CI runs equivalent gates as sequential, emoji-labeled steps in its required
-  `Test and build` job, with readable test output and a results table in the run summary.
-  After setup, every gate runs even if an earlier check fails.
+  tooling tests, server package checks, and the website's Bun type check. CI runs equivalent gates, with server tests in a parallel Node-only job. The required
+  `Test and build` check passes only when both jobs succeed. Package gates continue after
+  earlier failures, and run summaries list their outcomes. The web build reuses its earlier
+  type check.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an
@@ -75,14 +76,15 @@ Run `npm run format` to format, `npm run format:check` to check formatting, and 
 for the combined format/lint gate with warnings denied.
 The Vite+ pipeline uses syntax-only lint analysis, React stability rules and package-manifest
 sorting; dedicated TypeScript checks and Study's architecture rules remain required. Server tests keep the actual Node
-runtime (`npm run server:test`) with TAP results and an execution-ordered progress reporter. JSON progress lines on stderr
-identify dequeued/completed tests by entry file and test ID, and named fixture phases distinguish
-setup, body operations and cleanup without operation payloads. The inherited test timeout is
-three minutes; the crash-recovery lifecycle test has a one-minute timeout, and automatic
-resource/database cleanup hooks have a thirty-second timeout. These bounds fail tests; they
-do not cancel arbitrary promises or guarantee a blocked event loop can recover.
-The CI server test step fails after ten minutes, allowing the remaining independent gates to run; frontend tests use the verbose
-Vitest reporter. TypeScript checks keep `tsc`.
+runtime (`npm run server:test`) with one result per test. Passing server test files hide
+stdout, stderr and fixture diagnostics; a failing file prints its captured output alongside
+assertion details. Console events are file-scoped, so diagnostics include the whole failing
+file. Fixture phases still identify setup, body operations and cleanup. The inherited test
+timeout is three minutes; the crash-recovery lifecycle test has a one-minute timeout, and
+automatic resource/database cleanup hooks have a thirty-second timeout. These bounds fail
+tests; they do not cancel arbitrary promises or guarantee a blocked event loop can recover.
+The CI server test step fails after ten minutes; frontend tests keep the verbose Vitest
+reporter and show console output only for failing tests. TypeScript checks keep `tsc`.
 Run `npm run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.
 It checks the full repository for dead code, code health and duplication and fails on
 any reported issue. Local `just check` and the required CI `Test and build` job both
