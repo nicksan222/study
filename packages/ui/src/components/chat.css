@@ -186,3 +186,24 @@
   min-width: 2rem;
   padding: 0;
 }
+
+/* File previews are already surfaces; only plain writing receives a timeline card. */
+.session-desk-board .chat-timeline-body > .chat-message:has(.session-desk-attachments) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.session-desk-board .chat-message:has(.session-desk-attachments) > .chat-message-text {
+  width: 100%;
+  max-width: none;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--background);
+}
+.session-desk-board .chat-timeline-body > .session-desk-document {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 0;
+}
