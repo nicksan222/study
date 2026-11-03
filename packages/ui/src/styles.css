@@ -1,3 +1,6 @@
+@import './components/session-desk.css';
+@import './components/chat.css';
+@import './components/rich-note.css';
 @import './components/activity.css';
 @import './components/material-library.css';
 @import './session-workspace.css';
@@ -5,6 +8,7 @@
 @import './theme.css';
 @import './components/shell.css';
 @import './components/composer.css';
+@import './components/attachment-preview.css';
 @import './components/workspace.css';
 @import './components/error-state.css';
 @import './components/sidebar.css';

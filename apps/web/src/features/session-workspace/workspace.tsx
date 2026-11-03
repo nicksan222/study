@@ -8,11 +8,8 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../../lib/i18n';
 import { projectsQueryOptions } from '../../lib/study-client/study.queries';
 import { useAttachments } from './attachments';
-import { Composer } from './composer';
-import { SessionContextActions } from './context-actions';
 import { SessionDeletion, SessionDeleteDialog } from './deletion';
 import type { Draft } from './draft';
-import { History } from './history';
 import {
   deletionOptions,
   deletionAttemptOptions,
@@ -21,8 +18,7 @@ import {
 } from './session-workspace.queries';
 import { SessionStart } from './start';
 import { SessionReadError } from './status';
-import { WorkspaceContext } from './workspace-context';
-import { WorkspaceFooter } from './workspace-footer';
+import { SessionWorkbench } from './workbench';
 import { WorkspaceHeader } from './workspace-header';
 
 /** Keeps the starter and active notebook under the same context-panel owner. */
@@ -82,7 +78,6 @@ function useSessionWorkspace(id: SessionId) {
 
 /** Keeps deletion ownership mounted while replacing completed notebooks with the starter. */
 function SessionBody({ id }: { id: SessionId }) {
-  const { t } = useI18n();
   const {
     state,
     owner,
@@ -104,7 +99,7 @@ function SessionBody({ id }: { id: SessionId }) {
         <SessionStart />
       ) : (
         <WorkspaceSurface.Root
-          variant="session"
+          variant="desk"
           onDragOver={(event) => {
             if (live && !deletePending) event.preventDefault();
           }}
@@ -115,29 +110,10 @@ function SessionBody({ id }: { id: SessionId }) {
             if (editable && canAttachDraft(draft)) files.add(Array.from(event.dataTransfer.files));
           }}
         >
-          {live && (
-            <WorkspaceContext id={id}>
-              {editable && (
-                <SessionContextActions id={id} onDelete={() => setDeleteDialogOpen(true)} />
-              )}
-            </WorkspaceContext>
-          )}
-          <WorkspaceHeader owner={owner} title={state.data?.title}>
-            {live && <WorkspaceCard.Toggle label={t('SessionContextPanel')} />}
-          </WorkspaceHeader>
+          <WorkspaceHeader owner={owner} title={state.data?.title} />
           {deletion.data && <SessionDeletion id={id} />}
           <SessionFeedback state={state} deletion={deletion} />
-          {editable && (
-            <>
-              <WorkspaceSurface.Body>
-                <History id={id} />
-              </WorkspaceSurface.Body>
-              <WorkspaceSurface.Dock>
-                <Composer id={id} />
-                <WorkspaceFooter />
-              </WorkspaceSurface.Dock>
-            </>
-          )}
+          {editable && <SessionWorkbench id={id} onDelete={() => setDeleteDialogOpen(true)} />}
         </WorkspaceSurface.Root>
       )}
     </>

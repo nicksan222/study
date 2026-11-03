@@ -62,7 +62,9 @@ it('opens settings over the current page and restores focus without changing the
 
   history.replaceState(null, '', '/sessions/42?project=1');
   render(<App />);
-  await user.click(await screen.findByRole('button', { name: catalogs.english.ToggleSidebar }));
+  expect(
+    await screen.findByRole('button', { name: catalogs.english.ToggleSidebar })
+  ).toHaveAttribute('aria-expanded', 'true');
   const trigger = await screen.findByRole('button', { name: catalogs.english.Settings });
 
   await user.click(trigger);

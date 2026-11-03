@@ -666,3 +666,91 @@
 .session-context-dialog-body .session-exact-document {
   overflow-wrap: anywhere;
 }
+
+.session-page {
+  width: min(100%, var(--workspace-content-width, 48rem));
+  margin-inline: auto;
+  padding: 1rem 0.75rem 3rem;
+}
+.session-page-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--background);
+  padding-block: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+.session-page-heading {
+  margin-block: 1.25rem 2rem;
+}
+.session-page-heading h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+  margin: 0 0 0.625rem;
+}
+.session-page-heading p {
+  max-width: 58ch;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--workspace-supporting, var(--muted-foreground));
+  margin: 0;
+}
+.session-capture-tools {
+  display: flex;
+  justify-content: flex-start;
+  margin-block: 0.25rem 0.75rem;
+}
+.session-notes-heading > .session-page-heading {
+  padding-inline: 0.75rem;
+  margin-bottom: 1rem;
+}
+.session-entry > .rich-note-content {
+  margin-block: 1rem 1.25rem;
+}
+.session-item-editor .rich-note-content .tiptap {
+  min-height: 12rem;
+}
+@media (max-width: 640px) {
+  .session-page {
+    padding-inline: 0;
+  }
+  .session-page-navigation {
+    margin-bottom: 1.5rem;
+    gap: 0.5rem;
+  }
+  .session-page-heading h1 {
+    font-size: 1.5rem;
+  }
+}
+
+.session-capture-tools {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+}
+.session-notes-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+.session-notes-heading > button {
+  flex-shrink: 0;
+  margin-block-start: 1.5rem;
+}
+@media (max-width: 640px) {
+  .session-notes-heading {
+    flex-direction: column;
+    gap: 0;
+  }
+  .session-notes-heading > button {
+    margin: 0 0 1rem 0.75rem;
+  }
+}

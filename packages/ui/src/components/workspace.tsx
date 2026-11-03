@@ -61,10 +61,10 @@ function Root({
   className,
   variant,
   ...props
-}: ComponentProps<'div'> & { variant: 'welcome' | 'session' }) {
+}: ComponentProps<'div'> & { variant: 'welcome' | 'session' | 'desk' }) {
   return (
     <div
-      className={cn('ui-workspace', variant === 'session' && 'session-canvas', className)}
+      className={cn('ui-workspace', variant !== 'welcome' && 'session-canvas', className)}
       data-variant={variant}
       {...props}
     />

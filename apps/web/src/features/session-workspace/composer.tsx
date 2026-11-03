@@ -5,9 +5,9 @@ import { ComposerSurface } from '@study/ui/composer';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { Sparkles, SlidersHorizontal, ArrowUp } from 'lucide-react';
+import { ArrowUp, FilePenLine } from 'lucide-react';
 
-import { Attachments } from './attachments';
+import { AttachmentPicker, AttachmentTray } from './attachments';
 import { useComposer } from './composer.queries';
 import { sessionKey } from './session-workspace.queries';
 import { SessionError } from './status';
@@ -16,7 +16,7 @@ import { UnavailableAttempt } from './unavailable-attempt';
 type ComposerModel = ReturnType<typeof useComposer>;
 
 /** Combines quick capture, attachments and request recovery for the active session. */
-export function Composer({ id }: { id: SessionId }) {
+export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () => void }) {
   const model = useComposer(id);
   const { t, draft, files, blocked, setDraft, submitNote } = model;
 
@@ -35,9 +35,10 @@ export function Composer({ id }: { id: SessionId }) {
       }}
     >
       <Notebook.Label htmlFor={`session-note-${id}`}>{t('SessionCompose')}</Notebook.Label>
+      <AttachmentTray id={id} blocked={blocked} />
       <ComposerSurface.Input
         id={`session-note-${id}`}
-        rows={3}
+        rows={1}
         value={draft.text}
         onKeyDown={(event) => {
           if (
@@ -58,101 +59,40 @@ export function Composer({ id }: { id: SessionId }) {
         }}
       />
       <ComposerSurface.Footer variant="notebook">
-        <Attachments id={id} blocked={blocked} />
-        <ComposerPreferences model={model} />
+        <Notebook.CaptureTools>
+          <AttachmentPicker id={id} blocked={blocked} />
+          {onDocument && (
+            <Button variant="ghost-muted" size="sm" onClick={onDocument} disabled={blocked}>
+              <FilePenLine size={16} aria-hidden="true" />
+              {t('SessionWritePage')}
+            </Button>
+          )}
+        </Notebook.CaptureTools>
         <ComposerActions model={model} />
       </ComposerSurface.Footer>
       <WorkspaceSurface.ComposerHint id={`session-draft-help-${id}`}>
         {t('SessionNotebookHint')}
       </WorkspaceSurface.ComposerHint>
-      <AskRecovery model={model} />
-      <NoteRecovery model={model} />
+      <ComposerRecovery model={model} />
     </ComposerSurface.Root>
   );
 }
 
-function ComposerPreferences({ model }: { model: ComposerModel }) {
-  const { t, locale, draft, setDraft, blocked } = model;
-
-  return (
-    <>
-      <Notebook.Preferences>
-        <summary title={t('SessionGenerationPreferences')}>
-          <SlidersHorizontal size={16} aria-hidden="true" />
-          <Notebook.AccessibleText>{t('SessionGenerationPreferences')}</Notebook.AccessibleText>
-        </summary>
-        <Notebook.Actions role="group" aria-label={t('SessionAnswerDetail')}>
-          {(['brief', 'balanced', 'detailed'] as const).map((detail) => (
-            <Button
-              key={detail}
-              size="sm"
-              variant="ghost"
-              aria-pressed={(draft.preferences?.detail ?? 'balanced') === detail}
-              disabled={blocked}
-              onClick={() =>
-                setDraft((previous) => ({
-                  ...previous,
-                  preferences: { language: locale, ...previous.preferences, detail }
-                }))
-              }
-            >
-              {t(
-                detail === 'brief'
-                  ? 'SessionDetailBrief'
-                  : detail === 'balanced'
-                    ? 'SessionDetailBalanced'
-                    : 'SessionDetailDetailed'
-              )}
-            </Button>
-          ))}
-        </Notebook.Actions>
-      </Notebook.Preferences>
-    </>
-  );
-}
-
-/** Chooses note and question actions from the current draft and request availability. */
+/** Saves captured material into the session stream. */
 function ComposerActions({ model }: { model: ComposerModel }) {
-  const {
-    t,
-    draft,
-    sourceIds,
-    filesBlocked,
-    selection,
-    dirtySelection,
-    blocked,
-    submitNote,
-    submitAsk
-  } = model;
+  const { t, draft, sourceIds, filesBlocked, blocked, submitNote } = model;
 
   return (
-    <>
-      <Notebook.Actions>
-        <Button
-          size="sm"
-          variant="ghost-muted"
-          disabled={
-            blocked ||
-            filesBlocked ||
-            (!draft.text.trim() && !sourceIds.length) ||
-            !selection.data ||
-            !!dirtySelection.data
-          }
-          onClick={submitAsk}
-        >
-          {t('SessionAsk')}
-          <Sparkles size={15} aria-hidden="true" />
-        </Button>
-        <WorkspaceSurface.ComposerSubmit
-          aria-label={t('SessionSaveNote')}
-          title={t('SessionSaveNote')}
-          disabled={blocked || filesBlocked || (!draft.text.trim() && !sourceIds.length)}
-          onClick={submitNote}
-        >
-          <ArrowUp size={18} aria-hidden="true" />
-        </WorkspaceSurface.ComposerSubmit>
-      </Notebook.Actions>
-    </>
+    <Notebook.Actions>
+      <WorkspaceSurface.ComposerSubmit
+        aria-label={t('SessionSaveNote')}
+        title={t('SessionSaveNote')}
+        disabled={blocked || filesBlocked || (!draft.text.trim() && !sourceIds.length)}
+        onClick={submitNote}
+      >
+        <ArrowUp size={18} aria-hidden="true" />
+      </WorkspaceSurface.ComposerSubmit>
+    </Notebook.Actions>
   );
 }
 
@@ -253,6 +193,16 @@ function AskConflict({ model }: { model: ComposerModel }) {
           {t('SessionReviewConflict')}
         </Button>
       )}
+    </>
+  );
+}
+
+/** Keeps uncertain-write and request recovery available in either capture presentation. */
+function ComposerRecovery({ model }: { model: ComposerModel }) {
+  return (
+    <>
+      <AskRecovery model={model} />
+      <NoteRecovery model={model} />
     </>
   );
 }

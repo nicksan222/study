@@ -37,7 +37,10 @@ export class Db {
     });
   }
 
-  static open(path: string): Db {
+  static open(
+    path: string,
+    migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
+  ): Db {
     if (process.platform !== 'win32' && path !== ':memory:') {
       const fd = openSync(path, 'a', 0o600);
 
@@ -51,7 +54,7 @@ export class Db {
       // SQLite table rebuilds must disable foreign keys before the migrator's transaction.
       sqlite.exec('PRAGMA busy_timeout = 30000; PRAGMA foreign_keys = OFF;');
       migrate(drizzle({ client: sqlite }), {
-        migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url))
+        migrationsFolder
       });
       sqlite.exec(
         'PRAGMA foreign_keys = ON; PRAGMA recursive_triggers = ON; PRAGMA journal_mode = WAL;'

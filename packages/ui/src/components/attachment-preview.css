@@ -1,0 +1,26 @@
+.ui-attachment-preview {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--muted);
+  border-radius: 0.5rem;
+}
+
+.ui-attachment-preview img,
+.ui-attachment-preview video {
+  display: block;
+  width: 100%;
+  max-height: 22rem;
+  aspect-ratio: 16 / 10;
+  object-fit: contain;
+}
+
+.ui-attachment-preview audio {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.ui-attachment-preview[data-kind='audio'] {
+  background: transparent;
+}

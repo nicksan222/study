@@ -14,7 +14,7 @@ export function WorkspaceHeader({
 }: {
   owner: typeof projectSchema.Type | undefined;
   title: string | undefined;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
 

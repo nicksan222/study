@@ -98,6 +98,7 @@ export const documentProposalOutcomeSchema = Schema.Struct({
 /** An imported source can be supplied as an exact input; this creates its authored derivative. */
 
 export const createManualDocumentSchema = Schema.Struct({
+  createKey: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 200))),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
   document: materialDocumentSchema,
   inputVersionId: Schema.optional(materialVersionIdSchema),

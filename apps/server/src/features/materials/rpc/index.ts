@@ -98,6 +98,7 @@ export const MaterialsRpcLive = defineRpc(
       'materials.createVersion': (value) => materials.createVersion(value),
       'materials.archive': (value) => materials.archive(value),
       'materials.unarchive': (value) => materials.unarchive(value),
+      'materials.updateDescription': (value) => materials.updateDescription(value),
       'materials.rename': (value) => materials.rename(value),
       'materials.deleteDraft': (value) => materials.deleteDraft(value),
       'materials.publishVersion': (value) => materials.publishVersion(value),

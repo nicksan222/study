@@ -45,6 +45,8 @@ export const ConversationsRpcLive = defineRpc(
       'conversations.message': ({ id }) => conversations.message(id),
       'conversations.thread': (input) => conversations.thread(input),
       'conversations.postMessage': (input) => conversations.postMessage(input),
+      'conversations.updateMessageDescription': (input) =>
+        conversations.updateMessageDescription(input),
       'conversations.editMessage': (input) => conversations.editMessage(input),
       'conversations.deleteMessage': ({ id }) => conversations.deleteMessage(id),
       'conversations.setActiveVersion': (input) => conversations.setActiveVersion(input),

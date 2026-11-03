@@ -1,0 +1,1 @@
+ALTER TABLE `messages` ADD `format` text DEFAULT 'text' NOT NULL;

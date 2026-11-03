@@ -71,7 +71,10 @@ export function useMessageActions({
 
   useEffect(() => {
     if (draft.mode && previousMode.current !== draft.mode)
-      editor.current?.querySelector<HTMLElement>('textarea, button:not(:disabled)')?.focus();
+      (
+        editor.current?.querySelector<HTMLElement>('[contenteditable="true"], textarea') ??
+        editor.current?.querySelector<HTMLElement>('button:not(:disabled)')
+      )?.focus();
     else if (!draft.mode && previousMode.current) launcher.current?.focus();
 
     previousMode.current = draft.mode;

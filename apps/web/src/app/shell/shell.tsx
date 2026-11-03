@@ -8,8 +8,7 @@ import { Sidebar } from './sidebar';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
 function useShellNavigation(sessions: boolean) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const focusSearch = useRef(false);
 
   useEffect(() => {
@@ -36,9 +35,9 @@ function useShellNavigation(sessions: boolean) {
 
   return {
     visible: !sessions || open,
-    collapsed: sessions ? !open : collapsed,
+    collapsed: !open,
     open,
-    toggle: () => (sessions ? setOpen((value) => !value) : setCollapsed((value) => !value))
+    toggle: () => setOpen((value) => !value)
   };
 }
 

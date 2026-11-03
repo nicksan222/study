@@ -2,7 +2,8 @@ import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
@@ -280,7 +281,10 @@ it('keeps the edit payload and write fence across remounts until the original re
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await act(async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Edited note' } });
+    const input = screen.getByRole('textbox');
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Edited note', { skipClick: true });
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await act(async () => {
@@ -382,73 +386,53 @@ it('sends custom instructions only to the chosen message', async () => {
   );
 });
 
-it('reanswers only an assistant reply with a retained replyTo target', async () => {
+it('offers editing actions without Ask or Reanswer for existing entries', () => {
   const assistant = { ...message, role: 'assistant' as const, replyTo: message.id };
 
-  vi.mocked(reanswerNote).mockResolvedValue({
-    requestId: 'reanswer',
-    sessionId: id,
-    messageId: message.id,
-    versionId: message.activeVersionId!
-  });
-  rpc.message.mockResolvedValue(assistant);
   mount(actions(message.activeVersionId!, assistant));
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionReanswer' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() => expect(reanswerNote).toHaveBeenCalledWith(message.id));
-  expect(rewriteNote).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'SessionReanswer' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'SessionImprove' })).toBeVisible();
+  expect(reanswerNote).not.toHaveBeenCalled();
+  expect(ask).not.toHaveBeenCalled();
 });
 
-it('uses atomic Ask with an explicit quoted target and retries its original identity', async () => {
-  vi.mocked(ask)
-    .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
-    .mockResolvedValueOnce({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
-  const first = mount(actions());
-
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+it('retains exact retry identity for an Ask operation already stored before the capture-only UI', async () => {
+  vi.mocked(ask).mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
-  await act(async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Why is this true?' } });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  const editor = screen.getByRole('region', { name: 'SessionItemActions' });
-
-  await waitFor(() =>
-    expect(within(editor).getByRole('button', { name: 'SessionAsk' })).toBeEnabled()
-  );
-  await act(async () => {
-    fireEvent.click(within(editor).getByRole('button', { name: 'SessionAsk' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByRole('alert');
-  const input = vi.mocked(ask).mock.calls[0]![0];
-
-  expect(input).toMatchObject({
+  const input = {
     sessionId: id,
     expectedSelectionRevision: 8n,
-    text: 'Why is this true?'
+    intentKey: 'retained-quoted-ask',
+    text: 'Why is this true?',
+    instruction: JSON.stringify({
+      targetMessageId: '71',
+      targetVersionId: '81',
+      targetText: 'Current note'
+    })
+  };
+
+  client.setQueryData(['session-drafts', String(id), 'message-action', String(message.id)], {
+    text: '',
+    instruction: '',
+    error: new StudyError('transient', 'Unconfirmed'),
+    attempt: {
+      action: 'ask',
+      versionId: message.activeVersionId,
+      text: '',
+      instruction: '',
+      askInput: input
+    }
   });
-  expect(JSON.parse(input.instruction!)).toMatchObject({
-    targetMessageId: '71',
-    targetVersionId: '81',
-    targetText: 'Current note'
-  });
+  const first = mount(actions(), client);
+
+  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
   first.unmount();
-  mount(actions(), first.client);
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
-  expect(vi.mocked(ask).mock.calls[1]![0]).toEqual(input);
+  mount(actions(), client);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  await waitFor(() => expect(ask).toHaveBeenCalledExactlyOnceWith(input));
   expect(saveNote).not.toHaveBeenCalled();
 });
 
@@ -499,40 +483,25 @@ it('discovers canonical runs on a cold mount, paginates exact cursors, and mount
   expect(screen.getAllByTestId('proposal')).toHaveLength(1);
 });
 
-it('includes accepted files in one atomic Ask and never posts a separate note', async () => {
+it('captures accepted files and plain text together without requesting a reply', async () => {
   vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
     ReturnType<typeof uploadSource>
   >);
-  vi.mocked(ask).mockResolvedValue({ requestId: 'attachment-ask' } as Awaited<
-    ReturnType<typeof ask>
-  >);
+  vi.mocked(saveNote).mockResolvedValue(message);
   mount(<Composer id={id} />);
-  await act(async () => {
-    fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-      target: { files: [new File(['n'], 'n.txt')] }
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+    target: { files: [new File(['n'], 'n.txt')] }
   });
   await screen.findByText('SessionFileAccepted');
-  await act(async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Explain this attachment' } });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  fireEvent.change(screen.getByRole('textbox'), {
+    target: { value: 'Keep this with the lecture' }
   });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
   await waitFor(() =>
-    expect(ask).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: id,
-        sourceIds: [47n],
-        text: 'Explain this attachment',
-        expectedSelectionRevision: 8n
-      })
-    )
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Keep this with the lecture', [47n])
   );
-  expect(saveNote).not.toHaveBeenCalled();
+  expect(ask).not.toHaveBeenCalled();
   expect(uploadSource).toHaveBeenCalledTimes(1);
 });
 

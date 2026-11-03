@@ -83,7 +83,7 @@ export const MaterialsStore = defineStore({
 
     const { publishVersion } = makePublishVersionAction(resources);
 
-    const { rename } = makeRenameAction(resources);
+    const { rename, updateDescription } = makeRenameAction(resources);
 
     const { reorder } = makeReorderAction(resources);
 
@@ -159,6 +159,11 @@ export const MaterialsStore = defineStore({
           input: input.unarchiveInputSchema,
           output: materialDetailSchema,
           run: unarchive
+        }),
+        updateDescription: storeMutation({
+          input: input.updateDescriptionInputSchema,
+          output: materialDetailSchema,
+          run: updateDescription
         }),
         rename: storeMutation({
           input: input.renameInputSchema,

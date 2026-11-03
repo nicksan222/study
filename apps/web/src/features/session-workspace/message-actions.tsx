@@ -1,29 +1,28 @@
 import { Button } from '@study/ui/button';
+import { ChatMessageActionToolbar } from '@study/ui/chat';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
-import {
-  Pencil,
-  MessageSquare,
-  RotateCcw,
-  Sparkles,
-  AlignLeft,
-  SlidersHorizontal,
-  Check
-} from 'lucide-react';
+import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { toStudyError } from '../../lib/study-client/errors';
 import { useMessageActions } from './message-actions.queries';
+import { NoteEditor } from './note-editor';
 import { ExecutionStatus, SessionError } from './status';
 
 type MessageActionsModel = ReturnType<typeof useMessageActions>;
 
-export function MessageActions(props: Parameters<typeof useMessageActions>[0]) {
+export function MessageActions({
+  children,
+  ...props
+}: Parameters<typeof useMessageActions>[0] & { children?: ReactNode }) {
   const model = useMessageActions(props);
   const { draft } = model;
 
   return (
     <>
+      {draft.mode !== 'edit' && children}
       <MessageToolbar model={model} />
       {draft.mode && <MessageEditor model={model} />}
       <MessageRecovery model={model} />
@@ -36,7 +35,7 @@ function MessageToolbar({ model }: { model: MessageActionsModel }) {
 
   return (
     <>
-      <Notebook.RowTools role="group" aria-label={t('SessionItemActions')}>
+      <ChatMessageActionToolbar aria-label={t('SessionItemActions')}>
         {active && (
           <>
             {message.role === 'user' && (
@@ -50,31 +49,6 @@ function MessageToolbar({ model }: { model: MessageActionsModel }) {
                 <Pencil size={15} aria-hidden="true" />
                 <Notebook.ActionLabel>{t('SessionEditNote')}</Notebook.ActionLabel>
               </Button>
-            )}
-            {message.role === 'user' ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={blocked}
-                onClick={() => open('ask')}
-                title={t('SessionAsk')}
-              >
-                <MessageSquare size={15} aria-hidden="true" />
-                <Notebook.ActionLabel>{t('SessionAsk')}</Notebook.ActionLabel>
-              </Button>
-            ) : (
-              message.replyTo !== null && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={blocked}
-                  onClick={() => open('answer')}
-                  title={t('SessionReanswer')}
-                >
-                  <RotateCcw size={15} aria-hidden="true" />
-                  <Notebook.ActionLabel>{t('SessionReanswer')}</Notebook.ActionLabel>
-                </Button>
-              )
             )}
             <Button
               size="sm"
@@ -120,7 +94,7 @@ function MessageToolbar({ model }: { model: MessageActionsModel }) {
             <Notebook.ActionLabel>{t('SessionUseVersion')}</Notebook.ActionLabel>
           </Button>
         )}
-      </Notebook.RowTools>
+      </ChatMessageActionToolbar>
     </>
   );
 }
@@ -134,15 +108,10 @@ function MessageEditor({ model }: { model: MessageActionsModel }) {
         <Notebook.Muted>
           {t(messageScope(draft.mode))} · {t('ReaderVersion')} {String(draft.targetNumber ?? '')}
         </Notebook.Muted>
-        <Notebook.TargetPreview>{draft.targetText}</Notebook.TargetPreview>
-        {draft.mode === 'edit' && (
-          <Textarea
-            aria-label={t('SessionEditNote')}
-            value={draft.text}
-            disabled={!!draft.attempt}
-            onChange={(event) => patch({ text: event.target.value })}
-          />
+        {draft.mode !== 'edit' && (
+          <Notebook.TargetPreview>{draft.targetText}</Notebook.TargetPreview>
         )}
+        {draft.mode === 'edit' && <MessageTextEditor model={model} />}
         {(draft.mode === 'instruction' || draft.mode === 'ask') && (
           <Textarea
             aria-label={t('SessionInstructions')}
@@ -250,4 +219,24 @@ function messageActionLabel(mode: MessageActionsModel['draft']['mode']) {
   if (mode === 'ask') return 'SessionAsk';
 
   return 'SessionApplyAction';
+}
+
+function MessageTextEditor({ model }: { model: MessageActionsModel }) {
+  const { message, t, draft, patch } = model;
+
+  return message.format === 'document' ? (
+    <NoteEditor
+      label={t('SessionEditNote')}
+      value={draft.text}
+      disabled={!!draft.attempt}
+      onChange={(text) => patch({ text })}
+    />
+  ) : (
+    <Textarea
+      aria-label={t('SessionEditNote')}
+      value={draft.text}
+      disabled={!!draft.attempt}
+      onChange={(event) => patch({ text: event.target.value })}
+    />
+  );
 }

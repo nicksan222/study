@@ -20,6 +20,7 @@ import { useI18n } from '../../lib/i18n';
 import { ExactDocument } from '../material-library';
 import { changeVersions, sessionChanges } from './changes';
 import type { ChangeMessage } from './changes';
+import { NoteContent, NoteSummary } from './note-editor';
 import {
   generationOptions,
   sessionGenerationsOptions,
@@ -174,7 +175,7 @@ function MessageChange({
               <MessageSquare aria-hidden="true" />
             )}
             <WorkspaceChanges.Label>
-              <strong>{current.text.trim().split('\n')[0] || t('SessionNote')}</strong>
+              <strong>{<NoteSummary value={current.text} fallback={t('SessionNote')} />}</strong>
               <small>
                 {t(
                   message.versions.length > 1
@@ -227,7 +228,9 @@ function MessagePreview({ message }: { message: ChangeMessage }) {
               {t('ReaderVersion')} {String(previous.number)}
             </span>
           </h3>
-          <WorkspaceChanges.Text data-previous>{previous.text}</WorkspaceChanges.Text>
+          <WorkspaceChanges.Text data-previous>
+            <NoteContent value={previous.text} />
+          </WorkspaceChanges.Text>
         </section>
       )}
       <section>
@@ -246,7 +249,7 @@ function MessagePreview({ message }: { message: ChangeMessage }) {
           )}
         </h3>
         <WorkspaceChanges.Text>
-          {current?.text || t('SessionReadUnavailable')}
+          {current?.text ? <NoteContent value={current.text} /> : t('SessionReadUnavailable')}
         </WorkspaceChanges.Text>
       </section>
       {current && current.status !== 'complete' && <p role="status">{t('SessionPending')}</p>}

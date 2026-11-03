@@ -424,7 +424,12 @@ export const MaterialDeletionStore = defineStore({
 
             db.orm
               .update(s.materials)
-              .set({ title: '-', archived_at: unixSeconds(clock) })
+              .set({
+                title: '-',
+                description: null,
+                creation_intent: sql`CASE WHEN create_key IS NULL THEN NULL ELSE '{}' END`,
+                archived_at: unixSeconds(clock)
+              })
               .where(inArray(s.materials.id, [...deletion.materialIds]))
               .run();
 

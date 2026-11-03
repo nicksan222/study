@@ -1,16 +1,32 @@
 import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import type { SessionId, VersionId, MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
 import { Button } from '@study/ui/button';
+import { ChatConversation, ChatMessage, ChatMessageText, ChatTimelineEvent } from '@study/ui/chat';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogPopup,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose
+} from '@study/ui/dialog';
 import { Loading } from '@study/ui/loading';
+import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { History as HistoryIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '../../lib/i18n';
 import { versionOptions } from '../material-library';
+import { AttachmentCards } from './attachment-cards';
 import { MessageActions } from './message-actions';
+import { NoteContent, NoteSummary } from './note-editor';
+import { SessionDocumentCard } from './session-document-card';
 import {
   citationsOptions,
   contextOptions,
@@ -21,8 +37,24 @@ import { ExecutionStatus, SessionReadError } from './status';
 
 type Message = typeof chatMessageSchema.Type;
 
-export function History({ id }: { id: SessionId }) {
-  const { t } = useI18n();
+export function History({
+  id,
+  onDocument,
+  onOpen,
+  activeDocument,
+  documents = [],
+  onOpenMaterial,
+  activeMaterial
+}: {
+  id: SessionId;
+  onDocument?: () => void;
+  onOpen?: (message: Message) => void;
+  activeDocument?: string;
+  documents?: readonly MaterialSummaryDto[];
+  onOpenMaterial?: (material: MaterialSummaryDto) => void;
+  activeMaterial?: string;
+}) {
+  const { t, date } = useI18n();
   const state = useInfiniteQuery(threadOptions(id));
   const messages = [
     ...new Map(
@@ -32,59 +64,167 @@ export function History({ id }: { id: SessionId }) {
     a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1
   );
 
+  const entries = timelineEntries(messages, documents);
+
   return (
-    <Notebook.History aria-label={t('SessionNotebook')}>
-      {state.isPending && <Loading label={t('LoadingStudy')} />}
-      {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
-      {state.hasNextPage && (
-        <Button
-          variant="ghost"
-          disabled={state.isFetchingNextPage}
-          onClick={() => void state.fetchNextPage()}
-        >
-          {t('SessionEarlier')}
-        </Button>
-      )}
-      {state.isSuccess && messages.length === 0 && (
-        <WorkspaceSurface.Heading>
-          <h3>{t('SessionStartTitle')}</h3>
-          <p>{t('SessionStartHelp')}</p>
-        </WorkspaceSurface.Heading>
-      )}
-      {messages.map((message) => (
-        <MessageEntry key={String(message.id)} message={message} />
-      ))}
-    </Notebook.History>
+    <ChatConversation
+      key={String(id)}
+      label={t('SessionNotebook')}
+      jumpLabel={t('JumpToLatest')}
+      itemCount={entries.length}
+      firstItemKey={timelineKey(entries[0])}
+    >
+      <Notebook.History aria-label={t('SessionNotebook')}>
+        <Notebook.NotesHeading>
+          <Notebook.PageHeading>
+            <h1>{t('SessionNotesTitle')}</h1>
+            <p>{t('SessionNotesHelp')}</p>
+          </Notebook.PageHeading>
+          {onDocument && (
+            <Button variant="outline" size="sm" onClick={onDocument}>
+              {t('SessionWritePage')}
+            </Button>
+          )}
+        </Notebook.NotesHeading>
+        {state.isPending && <Loading label={t('LoadingStudy')} />}
+        {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
+        {state.hasNextPage && (
+          <Button
+            variant="ghost"
+            disabled={state.isFetchingNextPage}
+            onClick={() => void state.fetchNextPage()}
+          >
+            {t('SessionEarlier')}
+          </Button>
+        )}
+        {state.isSuccess && messages.length === 0 && documents.length === 0 && (
+          <WorkspaceSurface.Heading>
+            <h3>{t('SessionNotesEmpty')}</h3>
+            <p>{t('SessionStartHelp')}</p>
+          </WorkspaceSurface.Heading>
+        )}
+        {entries.map((entry) => (
+          <ChatTimelineEvent key={timelineKey(entry)} time={date(entry.time)}>
+            {entry.kind === 'document' ? (
+              <SessionDocumentCard
+                material={entry.material}
+                onOpen={(material) => onOpenMaterial?.(material)}
+                active={String(entry.material.id) === activeMaterial}
+              />
+            ) : (
+              <HistoryMessage
+                message={entry.message}
+                onOpen={onOpen}
+                activeDocument={activeDocument}
+                onOpenMaterial={onOpenMaterial}
+              />
+            )}
+          </ChatTimelineEvent>
+        ))}
+      </Notebook.History>
+    </ChatConversation>
   );
 }
 
-function MessageEntry({ message }: { message: Message }) {
+function timelineKey(entry: ReturnType<typeof timelineEntries>[number] | undefined) {
+  if (!entry) return undefined;
+
+  return entry.kind === 'message'
+    ? 'message-' + String(entry.message.id)
+    : 'material-' + String(entry.material.id);
+}
+
+function timelineEntries(messages: Message[], documents: readonly MaterialSummaryDto[]) {
+  const entries = [
+    ...messages.map((message) => ({ kind: 'message' as const, message, time: message.createdAt })),
+    ...documents.map((material) => ({
+      kind: 'document' as const,
+      material,
+      time: material.created_at
+    }))
+  ];
+
+  return entries.toSorted((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+}
+
+function HistoryMessage({
+  message,
+  onOpen,
+  activeDocument,
+  onOpenMaterial
+}: {
+  message: Message;
+  onOpen?: (message: Message) => void;
+  activeDocument?: string;
+  onOpenMaterial?: (material: MaterialSummaryDto) => void;
+}) {
+  return message.format === 'document' && onOpen ? (
+    <DocumentEntry
+      message={message}
+      onOpen={onOpen}
+      active={(message.captureKey ?? String(message.id)) === activeDocument}
+    />
+  ) : (
+    <MessageEntry message={message} onOpenMaterial={onOpenMaterial} />
+  );
+}
+
+function DocumentEntry({
+  message,
+  onOpen,
+  active
+}: {
+  message: Message;
+  onOpen: (message: Message) => void;
+  active: boolean;
+}) {
+  const { t, date } = useI18n();
+  const version = message.versions.find((item) => item.id === message.activeVersionId);
+
+  return (
+    <Desk.DocumentCard
+      title={<NoteSummary value={version?.text ?? ''} fallback={t('SessionNewPage')} />}
+      preview={
+        message.description || (
+          <NoteSummary value={version?.text.split('\n').slice(1).join('\n') ?? ''} fallback="" />
+        )
+      }
+      meta={date(message.createdAt)}
+      onOpen={() => onOpen(message)}
+      active={active}
+    />
+  );
+}
+
+function MessageEntry({
+  message,
+  onOpenMaterial
+}: {
+  message: Message;
+  onOpenMaterial?: (material: MaterialSummaryDto) => void;
+}) {
   const { t, date } = useI18n();
   const [selected, setSelected] = useState<VersionId>();
   const [historyOpen, setHistoryOpen] = useState(false);
   const version = message.versions.find(
     (item) => item.id === (selected ?? message.activeVersionId)
   );
-  const citations = useQuery({
-    ...citationsOptions(message.sessionId, message.id, version?.id),
-    enabled: !!version
-  });
 
   return (
-    <Notebook.Entry data-role={message.role}>
+    <ChatMessage>
       <header>
-        <strong>{t(message.role === 'user' ? 'SessionNote' : 'SessionReply')}</strong>
         <time>{date(message.createdAt)}</time>
       </header>
       {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
       {version && (
         <>
-          <Notebook.Prose>{version.text}</Notebook.Prose>
           <MessageActions
             message={message}
             versionId={version.id}
             onActive={() => setSelected(undefined)}
-          />
+          >
+            <MessageContent message={message} text={version.text} />
+          </MessageActions>
           {version.status !== 'complete' && <Loading label={t('SessionPending')} />}
           <MessageVersions
             message={message}
@@ -104,12 +244,22 @@ function MessageEntry({ message }: { message: Message }) {
         </>
       )}
       {message.parts.length > 0 && (
-        <ul>
-          {message.parts.map((part) => (
-            <li key={String(part.id)}>{part.sourceName}</li>
-          ))}
-        </ul>
+        <AttachmentCards parts={message.parts} onOpenDocument={onOpenMaterial} />
       )}
+      <MessageCitations message={message} versionId={version?.id} />
+    </ChatMessage>
+  );
+}
+
+function MessageCitations({ message, versionId }: { message: Message; versionId?: VersionId }) {
+  const { t } = useI18n();
+  const citations = useQuery({
+    ...citationsOptions(message.sessionId, message.id, versionId),
+    enabled: !!versionId
+  });
+
+  return (
+    <>
       {citations.error && (
         <SessionReadError error={citations.error} retry={() => void citations.refetch()} />
       )}
@@ -145,7 +295,15 @@ function MessageEntry({ message }: { message: Message }) {
           </ol>
         </details>
       )}
-    </Notebook.Entry>
+    </>
+  );
+}
+
+function MessageContent({ message, text }: { message: Message; text: string }) {
+  return message.role === 'user' && message.format !== 'document' ? (
+    <ChatMessageText text={text} />
+  ) : (
+    <NoteContent value={text} />
   );
 }
 
@@ -298,7 +456,7 @@ function MessageVersions({
           <summary>{t('SessionVersions')}</summary>
           <Notebook.Actions
             role="group"
-            aria-label={`${t(message.role === 'user' ? 'SessionNote' : 'SessionReply')} · ${date(message.createdAt)} · ${String(message.id)}`}
+            aria-label={`${t('SessionNote')} · ${date(message.createdAt)} · ${String(message.id)}`}
           >
             {message.versions.map((item) => (
               <Button
@@ -357,5 +515,35 @@ function ProvenanceFeedback({
       )}
       <ProvenanceNotice state={receipt?.state} />
     </>
+  );
+}
+
+/** Keeps immutable versions, evidence and existing note actions reachable from the document editor. */
+export function PageDetails({ message }: { message: Message }) {
+  const { t } = useI18n();
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={<Button variant="ghost-muted" size="icon-sm" />}
+        aria-label={t('VersionHistory')}
+        title={t('VersionHistory')}
+      >
+        <HistoryIcon size={15} aria-hidden="true" />
+      </DialogTrigger>
+      <DialogPopup closeLabel={t('Close')} variant="workspace-context" bottomStickOnMobile={false}>
+        <DialogHeader>
+          <DialogTitle>{t('VersionHistory')}</DialogTitle>
+        </DialogHeader>
+        <WorkspaceSurface.ContextDialogBody>
+          <WorkspaceSurface.Container>
+            <MessageEntry message={message} />
+          </WorkspaceSurface.Container>
+        </WorkspaceSurface.ContextDialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
+        </DialogFooter>
+      </DialogPopup>
+    </Dialog>
   );
 }

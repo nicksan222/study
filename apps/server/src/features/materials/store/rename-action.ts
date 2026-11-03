@@ -12,7 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { renameInputSchema } from '@study/contracts/materials/rpc';
+import { StudyError } from '@study/contracts/errors';
+import type {
+  updateDescriptionInputSchema,
+  renameInputSchema
+} from '@study/contracts/materials/rpc';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -39,5 +43,22 @@ export function makeRenameAction(resources: StoreResources) {
       return required(readMaterial(input.id));
     });
 
-  return { rename };
+  const updateDescription = (input: typeof updateDescriptionInputSchema.Type) =>
+    materialIntegrity(() => {
+      const row = materialRow(input.id, true);
+      const description = input.description?.trim() || null;
+
+      if (row.description !== input.expectedDescription && row.description !== description)
+        throw new StudyError('invalid_input', 'Document description changed before save');
+
+      store.orm
+        .update(s.materials)
+        .set({ description, updated_at: now(clock) })
+        .where(eq(s.materials.id, input.id))
+        .run();
+
+      return required(readMaterial(input.id));
+    });
+
+  return { rename, updateDescription };
 }

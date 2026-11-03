@@ -20,20 +20,30 @@ import { Transformation } from './transformation';
 function ContextAction({
   title,
   icon,
-  children
+  children,
+  compact
 }: {
   title: string;
   icon: ReactNode;
   children: ReactNode;
+  compact?: boolean;
 }) {
   const { t } = useI18n();
 
   return (
     <Dialog>
-      <DialogTrigger render={<WorkspaceCard.Item />}>
+      <DialogTrigger
+        aria-label={title}
+        title={compact ? title : undefined}
+        render={compact ? <Button variant="ghost-muted" size="icon-sm" /> : <WorkspaceCard.Item />}
+      >
         {icon}
-        <span>{title}</span>
-        <ArrowUpRight aria-hidden="true" />
+        {!compact && (
+          <>
+            <span>{title}</span>
+            <ArrowUpRight aria-hidden="true" />
+          </>
+        )}
       </DialogTrigger>
       <DialogPopup
         keepMounted
@@ -55,21 +65,49 @@ function ContextAction({
   );
 }
 
-export function SessionContextActions({ id, onDelete }: { id: SessionId; onDelete: () => void }) {
+export function SessionContextActions({
+  id,
+  onDelete,
+  compact
+}: {
+  id: SessionId;
+  onDelete: () => void;
+  compact?: boolean;
+}) {
   const { t } = useI18n();
 
   return (
     <WorkspaceChanges.Actions>
-      <ContextAction title={t('SessionSelection')} icon={<FileInput aria-hidden="true" />}>
+      <ContextAction
+        compact={compact}
+        title={t('SessionSelection')}
+        icon={<FileInput aria-hidden="true" />}
+      >
         <SelectionPanel id={id} />
       </ContextAction>
-      <ContextAction title={t('SessionTransform')} icon={<WandSparkles aria-hidden="true" />}>
+      <ContextAction
+        compact={compact}
+        title={t('SessionTransform')}
+        icon={<WandSparkles aria-hidden="true" />}
+      >
         <Transformation id={id} />
       </ContextAction>
-      <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
-        <Trash2 aria-hidden="true" />
-        <span>{t('SessionDelete')}</span>
-      </WorkspaceCard.Item>
+      {compact ? (
+        <Button
+          variant="ghost-muted"
+          size="icon-sm"
+          title={t('SessionDelete')}
+          aria-label={t('SessionDelete')}
+          onClick={onDelete}
+        >
+          <Trash2 size={16} aria-hidden="true" />
+        </Button>
+      ) : (
+        <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
+          <Trash2 aria-hidden="true" />
+          <span>{t('SessionDelete')}</span>
+        </WorkspaceCard.Item>
+      )}
     </WorkspaceChanges.Actions>
   );
 }

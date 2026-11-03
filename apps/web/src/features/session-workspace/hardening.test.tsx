@@ -1154,14 +1154,14 @@ it.each(['', '?project=9007199254740997'])(
 
     expect(within(header as HTMLElement).getByText('Biology')).toBeVisible();
     expect(within(header as HTMLElement).queryByText('History')).toBeNull();
-    const context = await screen.findByRole('complementary', { name: 'SessionContextPanel' });
+    const context = view.container.querySelector<HTMLElement>('.session-desk-board-tools')!;
 
     expect(within(context).queryByRole('combobox')).toBeNull();
     expect(within(context).queryByRole('link', { name: 'SidebarLibrary' })).toBeNull();
   }
 );
 
-it('keeps all session actions in the single context card through collapse', async () => {
+it('keeps session actions on the board and restores dialog focus and drafts', async () => {
   rpc.session.mockResolvedValue({
     id,
     title: 'Notebook',
@@ -1171,10 +1171,11 @@ it('keeps all session actions in the single context card through collapse', asyn
   });
   rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
   const view = mount(<SessionWorkspace id={id} />);
-  const toggle = await screen.findByRole('button', { name: 'SessionContextPanel' });
-  const panel = screen.getByRole('complementary', { name: 'SessionContextPanel' });
 
-  expect(screen.getAllByRole('complementary')).toHaveLength(1);
+  await screen.findByRole('button', { name: 'SessionTransform' });
+  const panel = view.container.querySelector<HTMLElement>('.session-desk-board-tools')!;
+
+  expect(screen.getAllByRole('button', { name: 'SessionTransform' })).toHaveLength(1);
   expect(within(panel).getByRole('button', { name: 'SessionSelection' })).toBeInTheDocument();
   expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toBeInTheDocument();
   expect(within(panel).getByRole('button', { name: 'SessionDelete' })).toBeInTheDocument();
@@ -1190,18 +1191,13 @@ it('keeps all session actions in the single context card through collapse', asyn
   await waitFor(() =>
     expect(screen.queryByRole('dialog', { name: 'SessionTransform' })).toBeNull()
   );
-  expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toHaveFocus();
   fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
   await screen.findByRole('dialog', { name: 'SessionTransform' });
   fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' }).at(-1)!);
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  fireEvent.click(toggle);
-  expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  expect(panel).not.toBeVisible();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'SessionInstructions' })).toBeNull();
-  fireEvent.click(toggle);
   fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
   expect(
     within(await screen.findByRole('dialog', { name: 'SessionTransform' })).getByRole('textbox', {

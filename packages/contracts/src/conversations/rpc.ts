@@ -19,7 +19,10 @@ import {
   runSelectionContextSchema
 } from './context.ts';
 import { sessionDeletionSchema } from './deletion.ts';
+import { captureKeySchema } from './schemas.ts';
 import {
+  messageDescriptionSchema,
+  messageFormatSchema,
   replySnapshotInputSchema,
   replySnapshotSchema,
   chatMessageSchema,
@@ -102,6 +105,8 @@ const threadPageSchema = Schema.Struct({
 });
 
 export const postMessageInputSchema = Schema.Struct({
+  format: Schema.optional(messageFormatSchema),
+  captureKey: Schema.optional(captureKeySchema),
   sessionId: sessionIdSchema,
   threadRoot: Schema.optional(partIdSchema),
   requestReply: Schema.optional(Schema.Boolean),
@@ -110,8 +115,15 @@ export const postMessageInputSchema = Schema.Struct({
 });
 
 export const editMessageInputSchema = Schema.Struct({
+  expectedActiveVersionId: Schema.optional(versionIdSchema),
   messageId: messageIdSchema,
   text: Schema.String
+});
+
+export const updateMessageDescriptionInputSchema = Schema.Struct({
+  messageId: messageIdSchema,
+  description: Schema.NullOr(messageDescriptionSchema),
+  expectedDescription: Schema.NullOr(messageDescriptionSchema)
 });
 
 export const setActiveVersionInputSchema = Schema.Struct({
@@ -198,6 +210,11 @@ export const ConversationsRpc = RpcGroup.make(
   }),
   Rpc.make('postMessage', {
     payload: postMessageInputSchema,
+    success: chatMessageSchema,
+    error: failureSchema
+  }),
+  Rpc.make('updateMessageDescription', {
+    payload: updateMessageDescriptionInputSchema,
     success: chatMessageSchema,
     error: failureSchema
   }),

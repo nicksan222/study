@@ -21,12 +21,24 @@ export const materials = sqliteTable(
     id: integer().primaryKey({ autoIncrement: true }).$type<MaterialId>(),
     kind: text({ enum: materialKinds }).notNull(),
     title: text().notNull(),
+    description: text(),
+    create_key: text(),
+    creation_intent: text(),
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull(),
     archived_at: integer().$type<bigint>()
   },
   (t) => [
     uniqueIndex('materials_id_kind_unique').on(t.id, t.kind),
+    uniqueIndex('materials_create_key_unique').on(t.create_key),
+    check(
+      'materials_description_check',
+      sql`${t.description} IS NULL OR length(${t.description}) <= 240`
+    ),
+    check(
+      'materials_creation_intent_check',
+      sql`(${t.create_key} IS NULL AND ${t.creation_intent} IS NULL) OR (length(${t.create_key}) BETWEEN 1 AND 200 AND json_valid(${t.creation_intent}))`
+    ),
     check(
       'materials_kind_check',
       sql`kind IN ('file','audio','video','image','link','document','diagram','quiz','flashcards')`

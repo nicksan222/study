@@ -7,6 +7,7 @@ import { Schema } from 'effect';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { Composer } from './composer';
+import type { Draft } from './draft';
 import type * as SessionQueries from './session-workspace.queries';
 import { ask, saveNote } from './session-workspace.queries';
 
@@ -55,52 +56,57 @@ function mount(
   };
 }
 
-it('uses one atomic Ask call and keeps later unsent typing after the receipt', async () => {
-  let resolve!: (value: typeof receipt) => void;
+it('captures a note without chat controls and preserves later typing after its save', async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof saveNote>>) => void;
 
-  vi.mocked(ask).mockImplementation(
+  vi.mocked(saveNote).mockImplementation(
     () =>
       new Promise((accept) => {
         resolve = accept;
       })
   );
   mount();
-  fireEvent.change(screen.getByRole('textbox'), {
-    target: { value: 'Question about this selection' }
-  });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'SessionAsk' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
-  await waitFor(() => expect(ask).toHaveBeenCalledTimes(1));
-  expect(ask).toHaveBeenCalledWith(
-    expect.objectContaining({
-      sessionId: id,
-      expectedSelectionRevision: 8n,
-      text: 'Question about this selection',
-      preferences: { language: 'italian' }
-    })
+  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
+  expect(screen.queryByTitle('SessionGenerationPreferences')).toBeNull();
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Lecture notes' } });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
   );
-  expect(saveNote).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+  await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Lecture notes', []));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Later draft' } });
-  await act(async () => resolve(receipt));
+  await act(async () => resolve({} as Awaited<ReturnType<typeof saveNote>>));
   await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('Later draft'));
+  expect(ask).not.toHaveBeenCalled();
 });
 
-it('recovers an ambiguous Ask after navigation using its original payload and intent key', async () => {
+it('recovers an already stored ambiguous Ask after navigation without exposing new chat controls', async () => {
   vi.mocked(ask)
     .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
     .mockResolvedValueOnce(receipt);
-  const first = mount();
+  const cache = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  });
+  const submitted = {
+    sessionId: id,
+    intentKey: 'retained-ask',
+    expectedSelectionRevision: 8n,
+    text: 'Original question'
+  };
 
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Original question' } });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'SessionAsk' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'SessionAsk' }));
+  cache.setQueryData<Draft>(['session-drafts', String(id), 'note'], {
+    text: 'Original question',
+    instruction: '',
+    askAttempt: submitted
+  });
+  const first = mount(cache);
+
+  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionRetryAsk' }));
   await screen.findByRole('alert');
-  const submitted = vi.mocked(ask).mock.calls[0]![0];
-
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Do not send this yet' } });
   first.unmount();
-  mount(first.cache);
-  expect(screen.getByRole('textbox')).toHaveValue('Do not send this yet');
+  mount(cache);
   fireEvent.click(screen.getByRole('button', { name: 'SessionRetryAsk' }));
   await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
   expect(vi.mocked(ask).mock.calls[1]![0]).toEqual(submitted);
@@ -123,13 +129,19 @@ it('does not automatically resubmit a note whose save was not confirmed', async 
   expect(ask).not.toHaveBeenCalled();
 });
 
-it('blocks Ask while exact selection edits remain unsaved', async () => {
+it('keeps plain capture available while selection edits remain unsaved', async () => {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   cache.setQueryData(['session-drafts', String(id), 'selection'], { revision: 8n, targets: [] });
+  vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
   mount(cache);
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Question' } });
-  expect(screen.getByRole('button', { name: 'SessionAsk' })).toBeDisabled();
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A quick note' } });
+  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+  await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'A quick note', []));
   expect(ask).not.toHaveBeenCalled();
 });
 

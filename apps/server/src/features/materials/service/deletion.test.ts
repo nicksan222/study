@@ -80,10 +80,16 @@ test('native RPC deletes only explicit descendants and preserves exact missing e
       Effect.gen(function* () {
         const m = yield* Materials;
 
-        const root = yield* m.create({
+        const root = yield* m.createManualDocument({
           title: 'Root',
-          content: content('ORIGINAL_DELETE_ONLY'),
-          publish: true
+          document: content('ORIGINAL_DELETE_ONLY'),
+          createKey: 'root-document-creation'
+        });
+
+        yield* m.updateDescription({
+          id: root.id,
+          description: 'PRIVATE_DESCRIPTION_DELETE_ONLY',
+          expectedDescription: null
         });
 
         const selected = yield* m.create({
@@ -212,6 +218,7 @@ test('native RPC deletes only explicit descendants and preserves exact missing e
     );
 
     assertScrubbed(f, 'ORIGINAL_DELETE_ONLY');
+    assertScrubbed(f, 'PRIVATE_DESCRIPTION_DELETE_ONLY');
 
     assertScrubbed(f, 'SELECTED_DELETE_ONLY');
   } finally {
