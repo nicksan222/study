@@ -59,15 +59,22 @@ export async function backupFixture(t?: TestContext) {
 
   const requests: string[] = [];
 
-  const open = () =>
-    App.open({
+  const open = () => {
+    const started = performance.now();
+
+    return App.open({
       path: location.path,
+      onPhase: (phase) =>
+        t?.log(
+          `study-test-phase:fixture-startup:${phase} elapsedMs=${Math.round(performance.now() - started)}`
+        ),
       fetch: async (input) => {
         requests.push(String(input));
 
         throw new Error('Backup and restore must not make a network request');
       }
     });
+  };
 
   let app: App;
 

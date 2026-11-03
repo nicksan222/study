@@ -27,6 +27,8 @@ import { createNativeRuntime, runNative } from './layers.ts';
 import { nativeLayers } from './native.ts';
 import { Workers } from './workers.ts';
 
+type OpenPhase = `${'ownership' | 'restore' | 'database' | 'services'}:${'start' | 'complete'}`;
+
 /** Owns the database, native services, and workflow consumer for one application. */
 
 export class App {
@@ -61,9 +63,20 @@ export class App {
     issuer?: string;
     hostId?: string;
     fetch?: typeof fetch;
+    onPhase?: (phase: OpenPhase) => void;
   }): Promise<App> {
+    const report = (phase: OpenPhase) => {
+      try {
+        options.onPhase?.(phase);
+      } catch {
+        // Observers cannot change startup, ownership, or resource cleanup.
+      }
+    };
+
+    report('ownership:start');
     const ownership = await acquireDatabaseOwnership(options.path);
 
+    report('ownership:complete');
     options = { ...options, path: ownership.path };
 
     const issuer = options.issuer ?? 'https://auth.openai.com';
@@ -111,7 +124,14 @@ export class App {
 
         const store = yield* Effect.acquireRelease(
           Effect.try({
-            try: () => ServerContext.open(options.path, clock),
+            try: () => {
+              report('database:start');
+              const context = ServerContext.open(options.path, clock);
+
+              report('database:complete');
+
+              return context;
+            },
             catch: (cause) => cause
           }),
           (context) => Effect.sync(() => context.close())
@@ -185,7 +205,14 @@ export class App {
             )
         );
         yield* Effect.tryPromise({
-          try: () => runtime!.context(),
+          try: async () => {
+            report('services:start');
+            const context = await runtime!.context();
+
+            report('services:complete');
+
+            return context;
+          },
           catch: (cause) => cause
         });
 
@@ -208,7 +235,9 @@ export class App {
     }
 
     try {
+      report('restore:start');
       await ManagedBackups.activate(options.path, backupPolicy);
+      report('restore:complete');
 
       return await runNative(
         Effect.uninterruptibleMask((restore) => Effect.gen(() => openScope(restore)))

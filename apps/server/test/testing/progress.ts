@@ -72,16 +72,20 @@ export async function inTestPhase<A>(
   phase: string,
   work: () => A | Promise<A>
 ): Promise<A> {
+  const started = performance.now();
+
   t?.log(`study-test-phase:${phase}:start`);
 
   try {
     const result = await work();
 
-    t?.log(`study-test-phase:${phase}:complete`);
+    t?.log(
+      `study-test-phase:${phase}:complete elapsedMs=${Math.round(performance.now() - started)}`
+    );
 
     return result;
   } catch (cause) {
-    t?.log(`study-test-phase:${phase}:failed`);
+    t?.log(`study-test-phase:${phase}:failed elapsedMs=${Math.round(performance.now() - started)}`);
 
     throw cause;
   }
