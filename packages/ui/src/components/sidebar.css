@@ -957,3 +957,20 @@
 .study-shell[data-sidebar-collapsed='true'] .study-session-document-count {
   display: none;
 }
+
+.study-session-entry:has(> .study-session-row[data-layout='compact']) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.study-session-entry:has(> .study-session-row[data-layout='compact']) > .study-session-settle {
+  position: static;
+  margin-inline-end: 0.5rem;
+}
+.study-session-entry:has(> .study-session-row[data-layout='compact']) > .study-sidebar-message {
+  grid-column: 1 / -1;
+}
+.study-session-entry:has(> .study-session-row[data-layout='compact']):is(:hover, :focus-within)
+  .study-session-document-count {
+  visibility: visible;
+}
