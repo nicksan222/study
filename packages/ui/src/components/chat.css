@@ -228,7 +228,7 @@
   min-width: 1.75rem;
   min-height: 1.75rem;
 }
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
   .session-desk-board .chat-message-actions button {
     width: 2.75rem;
     height: 2.75rem;

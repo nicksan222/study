@@ -6,6 +6,7 @@ import { Settings } from '@study/ui/settings';
 import { useI18n } from '../../../lib/i18n';
 import { useSidebarSettings } from './sidebar-settings.queries';
 
+/** Exposes the settlement threshold with bounded input and save recovery. */
 export function SidebarSettings() {
   const { t } = useI18n();
   const model = useSidebarSettings();

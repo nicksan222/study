@@ -7,6 +7,14 @@ import { renderInRouter } from '../../test/render-in-router';
 import { sidebarModel } from '../../test/sidebar-model';
 import { SidebarView } from './sidebar.view';
 
+vi.mock('./rich-sidebar.queries', () => ({
+  useSidebarProgress: () => ({
+    settings: { data: { settledDocumentThreshold: 1 } },
+    progress: { data: { items: [] } }
+  }),
+  useSessionSettlement: () => ({ mutate: vi.fn(), isPending: false })
+}));
+
 it('renders invalid subjects and invokes retry callbacks without fetching data', async () => {
   const user = userEvent.setup();
   const reloadSubjects = vi.fn();

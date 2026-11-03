@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { request } from '../../lib/study-client/request';
 import { sidebarSettingsOptions } from '../../lib/study-client/sidebar.queries';
 
+/** Loads the threshold and periodically refreshes persisted session summaries. */
 export function useSidebarProgress() {
   const settings = useQuery(sidebarSettingsOptions());
   const progress = useQuery({
@@ -15,6 +16,7 @@ export function useSidebarProgress() {
   return { settings, progress };
 }
 
+/** Saves a settlement override and refreshes the grouped session summaries. */
 export function useSessionSettlement(id: SessionId) {
   const cache = useQueryClient();
 

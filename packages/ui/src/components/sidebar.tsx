@@ -443,7 +443,7 @@ function SessionGroup({
       onToggle={(event) => setOpen(event.currentTarget.open)}
       className="study-session-group"
     >
-      <summary>
+      <summary aria-label={title}>
         <span>{title}</span>
         <span>{count}</span>
         <ChevronRight aria-hidden="true" />

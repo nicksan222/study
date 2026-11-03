@@ -18,6 +18,7 @@ type Progress = NonNullable<
   ReturnType<typeof useSidebarProgress>['progress']['data']
 >['items'][number];
 
+/** Groups sessions using persisted overrides, document counts, and running work. */
 export function RichSidebarSessions(props: Props) {
   const { t } = useI18n();
   const { settings, progress } = useSidebarProgress();
@@ -65,6 +66,7 @@ export function RichSidebarSessions(props: Props) {
 
 type RowProps = Props & { session: SessionDto; progress?: Progress; settled: boolean };
 
+/** Keeps settlement actions separate from navigation and disabled during active work. */
 function RichSession(props: RowProps) {
   const { t } = useI18n();
   const settlement = useSessionSettlement(props.session.id);
@@ -88,6 +90,7 @@ function RichSession(props: RowProps) {
   );
 }
 
+/** Renders subject identity, selection, and progress for one session destination. */
 function SessionLink({ session, project, subjects, selectedSession, progress }: RowProps) {
   const { t } = useI18n();
   const owner = subjects.find(
@@ -125,6 +128,7 @@ function SessionLink({ session, project, subjects, selectedSession, progress }: 
   );
 }
 
+/** Refreshes the displayed age without changing the stored timestamp. */
 function SessionTime({ at }: { at: bigint }) {
   const { locale, date } = useI18n();
   const now = useNowMinute();
@@ -136,6 +140,7 @@ function SessionTime({ at }: { at: bigint }) {
   );
 }
 
+/** Shows workflow activity and retained generated-document counts. */
 function SessionProgress({ progress }: { progress?: Progress }) {
   const { t } = useI18n();
   const labels = {

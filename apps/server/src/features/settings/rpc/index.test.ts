@@ -77,7 +77,9 @@ test('settings RPC exposes typed settings and maps service failures', async () =
               'settings.saveAppSettings',
               'settings.saveLlmSettings',
               'settings.saveMaterialSettings',
-              'settings.saveReviewSettings'
+              'settings.saveReviewSettings',
+              'settings.saveSidebarSettings',
+              'settings.sidebarSettings'
             ].sort()
           );
         }).pipe(Effect.provide(handlers))

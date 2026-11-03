@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { request } from '../../../lib/study-client/request';
 import { sidebarSettingsOptions } from '../../../lib/study-client/sidebar.queries';
 
+/** Validates and saves the threshold, preserving failed input for retry. */
 export function useSidebarSettings() {
   const cache = useQueryClient();
   const query = useQuery(sidebarSettingsOptions());
