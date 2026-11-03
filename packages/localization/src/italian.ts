@@ -1,6 +1,25 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  SidebarSettle: 'Completa',
+  SidebarReopen: 'Riapri',
+  SidebarSettlementError: 'Impossibile modificare la sessione. Riprova.',
+
+  SidebarStatusUnavailable: 'Stato non disponibile',
+  SidebarOpen: 'Aperte',
+  SidebarSettled: 'Completate',
+  SidebarReady: 'Pronta',
+  SidebarGenerating: 'Generazione documenti',
+  SidebarProcessing: 'Lettura allegati',
+  SidebarWriting: 'Scrittura',
+  SidebarGeneratedDocuments: 'Documenti generati',
+  SidebarSettingsTitle: 'Barra delle sessioni',
+  SidebarSettledThreshold: 'Documenti necessari per completare una sessione',
+  SidebarSettledDescription:
+    'Le sessioni passano a Completate dopo questo numero di documenti generati. Le sessioni con attività in corso restano Aperte.',
+  SidebarSettledValidation: 'Scegli un numero intero da 1 a 100.',
+  SidebarSettingsError: 'Impossibile salvare le impostazioni della barra.',
+
   SessionDeleteFailed: 'Impossibile completare l’eliminazione della sessione',
   SubjectIconSymbols: 'Icone',
   SubjectIconEmojis: 'Emoji',

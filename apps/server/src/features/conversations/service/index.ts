@@ -31,6 +31,7 @@ import type {
   threadInputSchema,
   renameSessionInputSchema,
   sessionPageInputSchema,
+  setSessionSettledInputSchema,
   sessionGenerationPageInputSchema
 } from '@study/contracts/conversations/rpc';
 import type {
@@ -79,6 +80,7 @@ import {
   ReplyReadinessStore,
   ReplyWakeStore
 } from '#server/features/conversations/store/reply';
+import { SessionSummaryStore } from '#server/features/conversations/store/sidebar-summary';
 import { TitleStore } from '#server/features/conversations/store/title';
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
@@ -128,6 +130,7 @@ export const Conversations = defineService(
     const readReplyWakeStore = yield* useStore(ReplyWakeStore);
 
     const store = yield* useStore(SessionStore);
+    const summaries = yield* useStore(SessionSummaryStore);
 
     const titles = yield* useStore(TitleStore);
 
@@ -563,6 +566,9 @@ export const Conversations = defineService(
         transaction((tx) => tx.store(MessageStore).deleteMessage(id)),
       renameSession: (input: typeof renameSessionInputSchema.Type) =>
         transaction((tx) => tx.store(SessionStore).renameSession(input)),
+      sessionSummaries: summaries.sessionSummary,
+      setSessionSettled: (input: typeof setSessionSettledInputSchema.Type) =>
+        transaction((tx) => tx.store(SessionSummaryStore).setSessionSettled(input)),
       session: store.session,
       findSession: store.findSession,
       sessions: (input: typeof sessionPageInputSchema.Type) =>

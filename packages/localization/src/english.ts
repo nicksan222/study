@@ -1,5 +1,24 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  SidebarSettle: 'Settle',
+  SidebarReopen: 'Reopen',
+  SidebarSettlementError: 'Could not change this session. Try again.',
+
+  SidebarStatusUnavailable: 'Status unavailable',
+  SidebarOpen: 'Open',
+  SidebarSettled: 'Settled',
+  SidebarReady: 'Ready',
+  SidebarGenerating: 'Generating documents',
+  SidebarProcessing: 'Reading attachments',
+  SidebarWriting: 'Writing',
+  SidebarGeneratedDocuments: 'Generated documents',
+  SidebarSettingsTitle: 'Session sidebar',
+  SidebarSettledThreshold: 'Documents needed to settle a session',
+  SidebarSettledDescription:
+    'Sessions move to Settled after this many generated documents. Sessions with work in progress stay Open.',
+  SidebarSettledValidation: 'Choose a whole number from 1 to 100.',
+  SidebarSettingsError: 'Could not save sidebar settings.',
+
   SessionDeleteFailed: 'Could not finish deleting this session',
   SubjectIconSymbols: 'Icons',
   SubjectIconEmojis: 'Emoji',

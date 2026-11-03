@@ -43,6 +43,15 @@ test('settings defaults, updates, model selection and rollback use SQLite', asyn
           zoomPercent: 100,
           onboarded: false
         });
+        assert.deepEqual(yield* settings.sidebarSettings(), { settledDocumentThreshold: 1 });
+        yield* settings.saveSidebarSettings({ settledDocumentThreshold: 3 });
+        assert.deepEqual(yield* settings.sidebarSettings(), { settledDocumentThreshold: 3 });
+        const invalidSidebar = yield* Effect.flip(
+          settings.saveSidebarSettings({ settledDocumentThreshold: 0 })
+        );
+
+        assert.equal(invalidSidebar.kind, 'invalid_input');
+        assert.deepEqual(yield* settings.sidebarSettings(), { settledDocumentThreshold: 3 });
         assert.deepEqual(yield* settings.materialSettings(), { sift: true });
         assert.deepEqual(yield* settings.reviewSettings(), { newCardsPerDay: 20 });
         assert.equal(yield* settings.language(), 'english');

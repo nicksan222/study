@@ -15,6 +15,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { JsonValue } from '@study/contracts/json';
 import {
+  sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   appearancePreferencesSchema,
@@ -35,6 +36,7 @@ import {
   Language,
   LlmModel,
   LlmProvider,
+  defaultSidebarSettings,
   defaultConcurrencySettings,
   defaultAppearancePreferences
 } from '@study/contracts/settings/types';
@@ -74,6 +76,22 @@ const make = Effect.gen(function* () {
   const store = yield* useStore(SettingsStore);
 
   return {
+    sidebarSettings: () =>
+      store.preference('sidebar').pipe(
+        Effect.map((v) => {
+          const resolved = { ...defaultSidebarSettings, ...v };
+
+          return Schema.is(sidebarSettingsSchema)(resolved) ? resolved : defaultSidebarSettings;
+        })
+      ),
+    saveSidebarSettings: (input: typeof sidebarSettingsSchema.Type) =>
+      !Schema.is(sidebarSettingsSchema)(input)
+        ? Effect.fail(new StudyError('invalid_input', 'Invalid sidebar settings'))
+        : transaction((tx) => {
+            tx.store(SettingsStore).saveSidebarSettings(input);
+
+            return {};
+          }),
     concurrencySettings: () =>
       store.preference('concurrency').pipe(
         Effect.map((v) => {

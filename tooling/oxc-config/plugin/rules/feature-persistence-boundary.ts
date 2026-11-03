@@ -29,6 +29,7 @@ const groups: Record<string, string[]> = {
     'conversation_reply_requests',
     'session_run_contexts',
     'session_deletions',
+    'session_sidebar_preferences',
     'session_deletion_correlations'
   ],
   recordings: ['recordings', 'recording_chunks', 'recording_posts'],

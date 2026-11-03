@@ -9,7 +9,8 @@ import {
   Minimize2,
   Plus,
   ArrowLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowUpRight
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
@@ -192,16 +193,10 @@ function DocumentCard({
         <span className="session-desk-document-title">{title}</span>
         {preview && <span className="session-desk-document-preview">{preview}</span>}
         <span className="session-desk-document-meta">{meta}</span>
-        {openLabel && (
-          <span className="session-desk-document-open">
-            {openLabel}
-            <ChevronRight size={14} aria-hidden="true" />
-          </span>
-        )}
       </span>
-      {!openLabel && (
-        <ChevronRight className="session-desk-document-arrow" size={16} aria-hidden="true" />
-      )}
+      <span className="session-desk-document-open" aria-hidden="true">
+        <ArrowUpRight size={16} />
+      </span>
     </button>
   );
 }

@@ -329,3 +329,16 @@ export const session_deletion_correlations = sqliteTable('session_deletion_corre
     .notNull()
     .references(() => session_deletions.session_id)
 });
+
+/** Manual sidebar placement belongs to the session and disappears with it. */
+export const session_sidebar_preferences = sqliteTable(
+  'session_sidebar_preferences',
+  {
+    session_id: integer()
+      .$type<SessionId>()
+      .primaryKey()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    settled: integer({ mode: 'boolean' }).notNull()
+  },
+  (t) => [check('session_sidebar_preferences_settled_check', sql`${t.settled} IN (0, 1)`)]
+);

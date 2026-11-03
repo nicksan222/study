@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
+  sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   appearancePreferencesSchema,
@@ -14,6 +15,16 @@ import {
 const saved = Schema.Struct({});
 
 export const SettingsRpc = RpcGroup.make(
+  Rpc.make('sidebarSettings', {
+    payload: {},
+    success: sidebarSettingsSchema,
+    error: failureSchema
+  }),
+  Rpc.make('saveSidebarSettings', {
+    payload: sidebarSettingsSchema,
+    success: saved,
+    error: failureSchema
+  }),
   Rpc.make('concurrencySettings', {
     payload: {},
     success: concurrencySettingsSchema,

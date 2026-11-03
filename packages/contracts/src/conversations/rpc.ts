@@ -19,6 +19,7 @@ import {
   runSelectionContextSchema
 } from './context.ts';
 import { sessionDeletionSchema } from './deletion.ts';
+import { sessionSummariesSchema } from './schemas.ts';
 import { captureKeySchema } from './schemas.ts';
 import {
   messageDescriptionSchema,
@@ -67,6 +68,11 @@ export const messageVersionCitationsSchema = Schema.Struct({
 });
 
 const sessionCursorSchema = Schema.Struct({ updatedAt: Schema.BigInt, id: sessionIdSchema });
+
+export const setSessionSettledInputSchema = Schema.Struct({
+  id: sessionIdSchema,
+  settled: Schema.Boolean
+});
 
 export const sessionPageInputSchema = Schema.Struct({
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
@@ -137,6 +143,16 @@ export const renameSessionInputSchema = Schema.Struct({
 });
 
 export const ConversationsRpc = RpcGroup.make(
+  Rpc.make('setSessionSettled', {
+    payload: setSessionSettledInputSchema,
+    success: Schema.Struct({}),
+    error: failureSchema
+  }),
+  Rpc.make('sessionSummaries', {
+    payload: {},
+    success: sessionSummariesSchema,
+    error: failureSchema
+  }),
   Rpc.make('ask', { payload: askInputSchema, success: askResultSchema, error: failureSchema }),
   Rpc.make('replyVersion', {
     payload: replyVersionInputSchema,

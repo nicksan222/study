@@ -26,6 +26,8 @@ export const SettingsRpcLive = defineRpc(
     const admission = yield* AiAdmission;
 
     return {
+      'settings.sidebarSettings': () => settings.sidebarSettings(),
+      'settings.saveSidebarSettings': (input) => settings.saveSidebarSettings(input),
       'settings.concurrencySettings': () => settings.concurrencySettings(),
       'settings.saveConcurrencySettings': (input) =>
         settings

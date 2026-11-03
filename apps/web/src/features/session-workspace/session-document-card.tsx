@@ -12,14 +12,14 @@ export function SessionDocumentCard({
   onOpen: (material: MaterialSummaryDto) => void;
   active: boolean;
 }) {
-  const { t, date } = useI18n();
+  const { t } = useI18n();
 
   return (
     <Desk.DocumentCard
       title={material.title}
       openLabel={t('SessionOpenPage')}
       preview={material.description}
-      meta={`${t('SourceDocument')} · ${date(material.updated_at)}`}
+      meta={t('SourceDocument')}
       active={active}
       onOpen={() => onOpen(material)}
     />
