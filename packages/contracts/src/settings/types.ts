@@ -39,6 +39,7 @@ export const LlmModel = {
 export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
 
 import type {
+  workspacePreferencesSchema,
   sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
@@ -77,3 +78,20 @@ export const defaultConcurrencySettings: ConcurrencySettings = {
 export type SidebarSettings = typeof sidebarSettingsSchema.Type;
 
 export const defaultSidebarSettings: SidebarSettings = { settledDocumentThreshold: 1 };
+
+export type WorkspacePreferences = typeof workspacePreferencesSchema.Type;
+
+export const defaultWorkspacePreferences: WorkspacePreferences = {
+  autosaveIntervalSeconds: 3,
+  spellcheck: true,
+  submitOnEnter: false,
+  defaultExportFormat: 'markdown',
+  defaultAiDetail: 'balanced',
+  autoTitleSessions: false,
+  sidebarDensity: 'comfortable',
+  sidebarShowDocumentCounts: true,
+  sidebarTimeFormat: 'relative',
+  editorFontSize: 16,
+  readerFontSize: 16,
+  expandDocuments: false
+};

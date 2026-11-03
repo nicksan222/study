@@ -13,6 +13,7 @@
  */
 
 import {
+  workspacePreferencesSchema,
   sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
@@ -78,6 +79,11 @@ export const SettingsStore = defineStore({
         })
       },
       mutations: {
+        saveWorkspacePreferences: storeMutation({
+          input: workspacePreferencesSchema,
+          output: Schema.Void,
+          run: (input) => replace('workspace', { ...input })
+        }),
         saveSidebarSettings: storeMutation({
           input: sidebarSettingsSchema,
           output: Schema.Void,

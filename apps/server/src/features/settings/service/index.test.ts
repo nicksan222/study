@@ -16,7 +16,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { Appearance, Language, LlmModel, LlmProvider } from '@study/contracts/settings/types';
+import {
+  defaultWorkspacePreferences,
+  Appearance,
+  Language,
+  LlmModel,
+  LlmProvider
+} from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
@@ -190,6 +196,59 @@ test('concurrency settings persist and reject invalid limits without changing sa
           maxQueuedAi: 0
         });
         assert.equal((yield* settings.appSettings()).zoomPercent, 100);
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+test('workspace preferences persist in SQLite, merge new defaults and reject invalid updates', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Settings.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const settings = yield* Settings;
+
+        assert.deepEqual(yield* settings.workspacePreferences(), defaultWorkspacePreferences);
+        const saved = {
+          ...defaultWorkspacePreferences,
+          autosaveIntervalSeconds: 8,
+          defaultAiDetail: 'detailed' as const,
+          spellcheck: false,
+          autoTitleSessions: true
+        };
+
+        yield* settings.saveWorkspacePreferences(saved);
+        assert.deepEqual(yield* settings.workspacePreferences(), saved);
+
+        for (const invalid of [
+          { ...saved, autosaveIntervalSeconds: 0 },
+          { ...saved, autosaveIntervalSeconds: 31 },
+          { ...saved, autosaveIntervalSeconds: 1.5 },
+          { ...saved, editorFontSize: 13 },
+          { ...saved, readerFontSize: 25 }
+        ])
+          assert.equal(
+            (yield* Effect.flip(settings.saveWorkspacePreferences(invalid))).kind,
+            'invalid_input'
+          );
+
+        assert.deepEqual(yield* settings.workspacePreferences(), saved);
+        context.db.orm.run(
+          sql`DELETE FROM preferences WHERE scope = 'workspace' AND key = 'spellcheck'`
+        );
+        assert.deepEqual(yield* settings.workspacePreferences(), { ...saved, spellcheck: true });
+        context.db.orm.run(
+          sql`UPDATE preferences SET value = '999' WHERE scope = 'workspace' AND key = 'editorFontSize'`
+        );
+        assert.deepEqual(yield* settings.workspacePreferences(), defaultWorkspacePreferences);
       }).pipe(Effect.provide(layer))
     );
   } finally {

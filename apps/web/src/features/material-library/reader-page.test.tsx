@@ -4,6 +4,7 @@ import {
   materialDeletionSchema
 } from '@study/contracts/materials/deletion';
 import { materialVersionSummarySchema } from '@study/contracts/materials/schemas';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -279,4 +280,46 @@ it('opens deletion through reader Actions and recovers accepted cleanup after th
   await recovery.findByText(catalogs.english.DocumentCleanupCompleted);
   expect(rpc['materials.requestDeletion']).toHaveBeenCalledTimes(1);
   expect(rpc['materials.retryDeletion']).not.toHaveBeenCalled();
+});
+
+it('exports the selected version using the configured format and server filename', async () => {
+  const rpc = materialRpc();
+
+  rpc['settings.workspacePreferences'].mockReturnValue(
+    Effect.succeed({ ...defaultWorkspacePreferences, defaultExportFormat: 'html' })
+  );
+  rpc['materials.exportMaterialVersion'].mockReturnValue(
+    Effect.succeed({
+      versionId: versionId('101'),
+      format: 'html',
+      filename: 'my-notes.html',
+      mediaType: 'text/html; charset=utf-8',
+      bytes: new TextEncoder().encode('<p>Notes</p>'),
+      omissions: []
+    })
+  );
+  const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:export-notes');
+
+  mountLibraryRoute('/materials/41?version=101', rpc);
+  const button = await screen.findByRole('button', { name: catalogs.english.ExportDownload });
+
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: catalogs.english.ExportFormat })).toHaveTextContent(
+      catalogs.english.ExportHtml
+    )
+  );
+  await userEvent.click(button);
+  await waitFor(() =>
+    expect(rpc['materials.exportMaterialVersion']).toHaveBeenCalledWith({
+      id: versionId('101'),
+      format: 'html'
+    })
+  );
+  await waitFor(() => expect(download).toHaveBeenCalled());
+  expect(create).toHaveBeenCalledWith(
+    expect.objectContaining({ type: 'text/html; charset=utf-8' })
+  );
+  download.mockRestore();
+  create.mockRestore();
 });

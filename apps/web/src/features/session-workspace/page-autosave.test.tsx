@@ -1,6 +1,7 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, cleanup } from '@testing-library/react';
 import { Schema } from 'effect';
@@ -9,6 +10,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { usePageAutosave } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
+
+const preferences = vi.hoisted(() => ({ autosaveIntervalSeconds: 3 }));
+
+vi.mock('../../lib/study-client/workspace-preferences.queries', () => ({
+  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+}));
 
 const api = vi.hoisted(() => ({ post: vi.fn(), edit: vi.fn(), message: vi.fn() }));
 
@@ -208,4 +215,21 @@ it('reconciles a lost edit receipt without creating a duplicate version', async 
     await vi.advanceTimersByTimeAsync(9000);
   });
   expect(api.edit).toHaveBeenCalledTimes(1);
+});
+
+it('waits for the configured autosave interval before creating a page', async () => {
+  preferences.autosaveIntervalSeconds = 8;
+  api.post.mockResolvedValue(message('Longer pause'));
+  const view = mount();
+
+  act(() => view.result.current.setText('Longer pause'));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(7999);
+  });
+  expect(api.post).not.toHaveBeenCalled();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(api.post).toHaveBeenCalledTimes(1);
+  preferences.autosaveIntervalSeconds = 3;
 });

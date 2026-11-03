@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -243,5 +244,61 @@ test('title workflow checkpoints and fences stale and renamed sessions', async (
     context.close();
     location.cleanup();
     await new Promise<void>((resolve) => peer.close(() => resolve()));
+  }
+});
+
+test('automatic session titles are opt-in, durable, replay-safe and respect user titles', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Layer.merge(Conversations.layer, Settings.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const conversations = yield* Conversations;
+        const settings = yield* Settings;
+        const session = yield* conversations.createUntitledSession({});
+
+        yield* conversations.postMessage({ sessionId: session.id, text: 'Cells and tissues' });
+        const titles = () =>
+          context.db.orm
+            .select()
+            .from(s.workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload))
+            .filter((event) => event.type === 'ConversationTitleRequested');
+
+        assert.equal(titles().length, 0);
+        yield* settings.saveWorkspacePreferences({
+          ...defaultWorkspacePreferences,
+          autoTitleSessions: true
+        });
+        const input = {
+          sessionId: session.id,
+          text: 'Mitosis overview',
+          captureKey: 'automatic-title-note',
+          requestReply: false
+        };
+        const note = yield* conversations.postMessage(input);
+
+        assert.equal(titles().length, 1);
+        assert.equal((yield* conversations.postMessage(input)).id, note.id);
+        assert.equal(titles().length, 1);
+        yield* conversations.renameSession({ id: session.id, title: 'My biology notes' });
+        yield* conversations.postMessage({ sessionId: session.id, text: 'More cells' });
+        assert.equal(titles().length, 1);
+        yield* settings.saveWorkspacePreferences(defaultWorkspacePreferences);
+        const manual = yield* conversations.createUntitledSession({});
+
+        yield* conversations.postMessage({ sessionId: manual.id, text: 'Manual title' });
+        yield* conversations.requestTitle({ sessionId: manual.id });
+        assert.equal(titles().length, 2);
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
   }
 });

@@ -1,6 +1,66 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  WorkspaceSettingsFailed: 'Impossibile salvare o caricare queste preferenze. Riprova.',
+  WorkspaceSettingsSaved: 'Modifiche salvate',
+  WorkspaceNumberValidation: 'Inserisci un numero intero entro i limiti indicati.',
+  WorkspaceWritingTitle: 'Scrittura',
+  WorkspaceWritingDescription:
+    'Adatta l’editor e le note rapide al tuo modo di lavorare. Le modifiche si applicano alle pagine nuove e aperte.',
+  WorkspaceAutosave: 'Intervallo di salvataggio',
+  WorkspaceAutosaveHelp: 'Salva le modifiche dopo 1–30 secondi senza digitazione.',
+  WorkspaceEditorFont: 'Dimensione del testo nell’editor',
+  WorkspaceEditorFontHelp: 'Dimensione del testo delle pagine in pixel, da 14 a 24.',
+  WorkspaceSpellcheck: 'Controllo ortografico',
+  WorkspaceSpellcheckHelp: 'Usa i suggerimenti ortografici del sistema mentre scrivi le pagine.',
+  WorkspaceEnterCapture: 'Invio per aggiungere una nota',
+  WorkspaceEnterCaptureHelp: 'Premi Invio per aggiungere una nota rapida. Maiusc+Invio va a capo.',
+  WorkspaceExpandDocuments: 'Apri i documenti espansi',
+  WorkspaceExpandDocumentsHelp:
+    'Usa tutta la larghezza dello spazio di lavoro per i documenti appena aperti.',
+  WorkspaceSidebarTitle: 'Sessioni',
+  WorkspaceSidebarDescription:
+    'Scegli come mostrare le sessioni nella barra laterale e quando spostarle tra quelle concluse.',
+  WorkspaceDensity: 'Spaziatura della barra laterale',
+  WorkspaceDensityHelp: 'Lascia spazio intorno a ogni sessione oppure mostrane di più.',
+  WorkspaceComfortable: 'Comoda',
+  WorkspaceCompact: 'Compatta',
+  WorkspaceTimeFormat: 'Orari delle sessioni',
+  WorkspaceTimeFormatHelp: 'Mostra il tempo trascorso oppure la data e l’ora complete.',
+  WorkspaceRelativeTime: 'Tempo trascorso',
+  WorkspaceAbsoluteTime: 'Data e ora',
+  WorkspaceDocumentCounts: 'Conteggio documenti',
+  WorkspaceDocumentCountsHelp: 'Mostra quanti documenti appartengono a ogni sessione.',
+  WorkspaceReadingTitle: 'Lettura ed esportazioni',
+  WorkspaceReadingDescription:
+    'Scegli una dimensione comoda per la lettura e il formato di download preferito.',
+  WorkspaceReaderFont: 'Dimensione del testo nel lettore',
+  WorkspaceReaderFontHelp: 'Dimensione di lettura dei documenti in pixel, da 14 a 24.',
+  WorkspaceExportFormat: 'Formato di esportazione preferito',
+  WorkspaceExportFormatHelp:
+    'I formati disponibili dipendono dal materiale. Il lettore seleziona un formato supportato se quello preferito non è disponibile.',
+  WorkspaceMarkdown: 'Markdown',
+  WorkspaceHtml: 'Documento HTML',
+  WorkspaceDocumentJson: 'Sussidio di studio JSON',
+  WorkspaceAiTitle: 'Assistenza alla scrittura',
+  WorkspaceAiDescription:
+    'Preferenze per le risposte future e i titoli delle nuove sessioni. Puoi scegliere un livello di dettaglio diverso per ogni richiesta.',
+  WorkspaceAiDetail: 'Dettaglio delle risposte',
+  WorkspaceAiDetailHelp:
+    'Scegli quanto dettaglio includere quando una richiesta non specifica una preferenza.',
+  WorkspaceAutoTitles: 'Titoli automatici delle sessioni',
+  WorkspaceAutoTitlesHelp:
+    'Suggerisci un titolo dopo la prima nota rapida di una nuova sessione. I titoli scelti da te vengono mantenuti.',
+
+  ExportFormat: 'Formato di esportazione',
+  ExportMarkdown: 'Markdown',
+  ExportHtml: 'Documento HTML',
+  ExportAidJson: 'Materiale di studio (JSON)',
+  ExportCsv: 'Foglio di calcolo (CSV)',
+  ExportDownload: 'Esporta',
+  ExportFailed: 'Impossibile esportare questa versione. Riprova.',
+  ExportOmissions:
+    'Download completato. Immagini e formattazione del file originale potrebbero non essere conservate.',
   SidebarSettle: 'Completa',
   SidebarReopen: 'Riapri',
   SidebarSettlementError: 'Impossibile modificare la sessione. Riprova.',

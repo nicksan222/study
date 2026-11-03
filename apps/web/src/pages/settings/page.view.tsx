@@ -2,20 +2,42 @@ import type { ProjectId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
-import { Palette, Settings2, Bot, GraduationCap, Gauge, Database, Folder } from 'lucide-react';
+import {
+  Palette,
+  Settings2,
+  Bot,
+  GraduationCap,
+  Gauge,
+  Database,
+  Folder,
+  PenLine,
+  MessagesSquare,
+  BookOpen
+} from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { ProjectSettings } from '../../features/collections';
 import { useI18n } from '../../lib/i18n';
 import { AiSettings } from './ai';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';
+import { SidebarSettings } from './general/sidebar-settings';
 import { InterfaceSettings } from './interface-settings';
 import { PerformanceSettings } from './performance';
 import { StudySettings } from './study';
 import { ColorScheme, ThemeLibrary } from './theme-library';
 import type { AppearanceModel } from './use-page';
+import {
+  AiWritingSettings,
+  ReadingSettings,
+  SessionDisplaySettings,
+  WritingSettings
+} from './workspace-settings';
 
 export type SettingsSectionId =
+  | 'writing'
+  | 'sessions'
+  | 'reading'
   | 'general'
   | 'appearance'
   | 'ai'
@@ -26,53 +48,81 @@ export type SettingsSectionId =
 
 const sections = [
   {
-    id: 'projects',
-    group: 'SettingsGroupLearning',
-    label: 'ProjectSettingsTitle',
-    Icon: Folder,
-    keywords: ['ProjectName', 'SubjectIconTitle', 'SubjectSettings']
-  },
-  {
     id: 'general',
-    group: 'SettingsGroupApplication',
     label: 'GeneralSettingsTitle',
     Icon: Settings2,
-    keywords: ['GeneralSettingsLanguage', 'SidebarSettingsTitle', 'SidebarSettledThreshold']
+    keywords: ['GeneralSettingsLanguage']
   },
   {
     id: 'appearance',
-    group: 'SettingsGroupApplication',
     label: 'Appearance',
     Icon: Palette,
     keywords: ['Themes', 'AppearanceContrast', 'GlassOpacity', 'PanelAnimations', 'TextSize']
   },
   {
-    id: 'data',
-    group: 'SettingsGroupApplication',
-    label: 'DataSettingsTitle',
-    Icon: Database,
-    keywords: ['DataCreate', 'DataImport', 'DataPreview']
+    id: 'writing',
+    label: 'WorkspaceWritingTitle',
+    Icon: PenLine,
+    keywords: [
+      'WorkspaceAutosave',
+      'WorkspaceSpellcheck',
+      'WorkspaceEditorFont',
+      'WorkspaceEnterCapture',
+      'WorkspaceExpandDocuments'
+    ]
   },
   {
-    id: 'ai',
-    group: 'SettingsGroupIntelligence',
-    label: 'SettingsAi',
-    Icon: Bot,
-    keywords: ['AiSettingsAccount', 'AiSettingsModels', 'AiSettingsSignIn']
+    id: 'sessions',
+    label: 'WorkspaceSidebarTitle',
+    Icon: MessagesSquare,
+    keywords: [
+      'WorkspaceDensity',
+      'WorkspaceTimeFormat',
+      'WorkspaceDocumentCounts',
+      'SidebarSettledThreshold'
+    ]
+  },
+  {
+    id: 'reading',
+    label: 'WorkspaceReadingTitle',
+    Icon: BookOpen,
+    keywords: ['WorkspaceReaderFont', 'WorkspaceExportFormat']
   },
   {
     id: 'study',
-    group: 'SettingsGroupLearning',
     label: 'StudySettingsNavigation',
     Icon: GraduationCap,
     keywords: ['StudySettingsTitle', 'StudySettingsNewCards']
   },
   {
+    id: 'ai',
+    label: 'SettingsAi',
+    Icon: Bot,
+    keywords: [
+      'AiSettingsAccount',
+      'AiSettingsModels',
+      'AiSettingsSignIn',
+      'WorkspaceAiDetail',
+      'WorkspaceAutoTitles'
+    ]
+  },
+  {
     id: 'performance',
-    group: 'SettingsGroupIntelligence',
     label: 'PerformanceSettingsTitle',
     Icon: Gauge,
     keywords: ['PerformanceSettingsParallel', 'PerformanceSettingsQueue']
+  },
+  {
+    id: 'projects',
+    label: 'ProjectSettingsTitle',
+    Icon: Folder,
+    keywords: ['ProjectName', 'SubjectIconTitle', 'SubjectSettings']
+  },
+  {
+    id: 'data',
+    label: 'DataSettingsTitle',
+    Icon: Database,
+    keywords: ['DataCreate', 'DataImport', 'DataPreview']
   }
 ] as const;
 
@@ -148,23 +198,16 @@ function SettingsNavigation({
   onSectionChange: (section: SettingsSectionId) => void;
 }) {
   const { t } = useI18n();
-  const groups = (
-    ['SettingsGroupApplication', 'SettingsGroupLearning', 'SettingsGroupIntelligence'] as const
-  ).map((group) => ({
-    label: t(group),
-    items: sections
-      .filter((item) => item.group === group)
-      .map((item) => ({
-        id: item.id,
-        label: t(item.label),
-        icon: <item.Icon aria-hidden="true" />
-      }))
+  const items = sections.map((item) => ({
+    id: item.id,
+    label: t(item.label),
+    icon: <item.Icon aria-hidden="true" />
   }));
 
   return (
     <Settings.Navigation
       label={t('Settings')}
-      groups={groups}
+      items={items}
       value={section}
       onValueChange={onSectionChange}
     />
@@ -225,22 +268,30 @@ function SectionContent({
   initialProject?: ProjectId;
   onProjectDeleted?: (id: ProjectId) => void;
 }) {
-  switch (section) {
-    case 'projects':
-      return <ProjectSettings initialProject={initialProject} onDeleted={onProjectDeleted} />;
-    case 'data':
-      return <DataSettings />;
-    case 'appearance':
-      return <AppearanceContent model={model} search={search} />;
-    case 'general':
-      return <GeneralSettings />;
-    case 'ai':
-      return <AiSettings />;
-    case 'performance':
-      return <PerformanceSettings />;
-    case 'study':
-      return <StudySettings />;
-  }
+  const content = {
+    projects: <ProjectSettings initialProject={initialProject} onDeleted={onProjectDeleted} />,
+    data: <DataSettings />,
+    appearance: <AppearanceContent model={model} search={search} />,
+    general: <GeneralSettings />,
+    writing: <WritingSettings />,
+    sessions: (
+      <>
+        <SessionDisplaySettings />
+        <SidebarSettings />
+      </>
+    ),
+    reading: <ReadingSettings />,
+    ai: (
+      <>
+        <AiSettings />
+        <AiWritingSettings />
+      </>
+    ),
+    performance: <PerformanceSettings />,
+    study: <StudySettings />
+  } satisfies Record<SettingsSectionId, ReactNode>;
+
+  return content[section];
 }
 
 function AppearanceContent({ model, search }: { model: AppearanceModel; search: string }) {

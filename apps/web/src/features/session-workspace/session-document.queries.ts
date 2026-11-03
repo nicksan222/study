@@ -14,6 +14,7 @@ import { useEffect } from 'react';
 
 import { repeatRequest } from '../../lib/study-client/repeat-request';
 import { request } from '../../lib/study-client/request';
+import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
 import { authoredCopy, blankDocument } from '../document-editing';
 
 type Document = typeof materialDocumentSchema.Type;
@@ -149,6 +150,7 @@ function initialDraft(material: MaterialDetailDto): Draft {
 
 /** The material owns versioned content; the cache holds only unsaved edits and retry receipts. */
 export function useSessionDocumentAutosave(material: MaterialDetailDto) {
+  const { autosaveIntervalSeconds } = useWorkspacePreferences();
   const cache = useQueryClient();
   const initial = initialDraft(material);
   const key = draftKey(material.id);
@@ -163,13 +165,13 @@ export function useSessionDocumentAutosave(material: MaterialDetailDto) {
   const id = material.id;
 
   useEffect(() => {
-    const stop = repeatRequest(() => persistDocument(cache, id), '3 seconds');
+    const stop = repeatRequest(() => persistDocument(cache, id), autosaveIntervalSeconds * 1000);
 
     return () => {
       stop();
       void persistDocument(cache, id);
     };
-  }, [cache, id]);
+  }, [cache, id, autosaveIntervalSeconds]);
   useEffect(() => {
     cache.setQueryData<Draft>(draftKey(material.id), (current) =>
       current &&

@@ -106,6 +106,12 @@ import {
   inspectMaterialHistory
 } from './material-history.ts';
 
+function mentionsAssistant(text: string) {
+  return [...text.matchAll(/(?:^|\s)(@[a-z]+)/giu)].some(
+    (match) => match[1]!.toLowerCase() === mentionLabel('assistant')
+  );
+}
+
 function normalizeAsk(input: typeof askInputSchema.Type) {
   return {
     sessionId: input.sessionId,
@@ -504,53 +510,77 @@ export const Conversations = defineService(
           return recording.finishRecordingPost({ ...input, messageId: message.id });
         }),
       postMessage: (input: typeof postMessageInputSchema.Type) =>
-        transaction((tx) => {
-          const message = tx.store(MessageStore).postMessage(input);
+        Effect.gen(function* () {
+          const preferences = yield* Effect.gen(function* () {
+            const settings = yield* Settings;
 
-          const mentioned = [...input.text.matchAll(/(?:^|\s)(@[a-z]+)/giu)].some(
-            (match) => match[1]!.toLowerCase() === mentionLabel('assistant')
-          );
+            return yield* settings.workspacePreferences();
+          }).pipe(Effect.provide(Settings.layer));
 
-          if (input.requestReply ?? mentioned) {
-            const requestId = randomUUID();
+          return yield* transaction((tx) => {
+            const message = tx.store(MessageStore).postMessage(input);
 
-            tx.store(ReplyStore).prepareReply({
-              sessionId: input.sessionId,
-              threadRoot: input.threadRoot
-            });
+            const mentioned = mentionsAssistant(input.text);
 
-            const context = captureContext(
-              tx,
-              {
+            if (input.requestReply ?? mentioned) {
+              const requestId = randomUUID();
+
+              tx.store(ReplyStore).prepareReply({
+                sessionId: input.sessionId,
+                threadRoot: input.threadRoot
+              });
+
+              const context = captureContext(
+                tx,
+                {
+                  sessionId: input.sessionId,
+                  threadRoot: input.threadRoot,
+                  intentKey: requestId,
+                  instruction: '',
+                  preferences: {}
+                },
+                requestId
+              );
+
+              const result = tx.store(ReplyStore).requestReply({
                 sessionId: input.sessionId,
                 threadRoot: input.threadRoot,
-                intentKey: requestId,
-                instruction: '',
-                preferences: {}
-              },
-              requestId
-            );
+                requestId,
+                context
+              });
 
-            const result = tx.store(ReplyStore).requestReply({
-              sessionId: input.sessionId,
-              threadRoot: input.threadRoot,
-              requestId,
-              context
-            });
+              tx.emit({
+                type: 'ConversationGenerationRequested',
+                eventId: randomUUID(),
+                causationId: null,
+                correlationId: requestId,
+                inputVersion: 1,
+                depth: 0,
+                ...result,
+                operation: 'reply'
+              });
+            }
 
-            tx.emit({
-              type: 'ConversationGenerationRequested',
-              eventId: randomUUID(),
-              causationId: null,
-              correlationId: requestId,
-              inputVersion: 1,
-              depth: 0,
-              ...result,
-              operation: 'reply'
-            });
-          }
+            if (preferences.autoTitleSessions) {
+              const requestId = randomUUID();
+              const snapshot = tx
+                .store(TitleStore)
+                .captureAutomaticTitle({ sessionId: input.sessionId, requestId });
 
-          return message;
+              if (Option.isSome(snapshot))
+                tx.emit({
+                  type: 'ConversationTitleRequested',
+                  eventId: randomUUID(),
+                  causationId: null,
+                  correlationId: requestId,
+                  inputVersion: 1,
+                  depth: 0,
+                  ...snapshot.value
+                });
+            }
+
+            return message;
+          });
         }),
       updateMessageDescription: (input: typeof updateMessageDescriptionInputSchema.Type) =>
         transaction((tx) =>

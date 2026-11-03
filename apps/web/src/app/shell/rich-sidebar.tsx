@@ -8,6 +8,7 @@ import { FileText, MessagesSquare } from 'lucide-react';
 
 import { SubjectIdentity } from '../../features/subjects';
 import { useI18n } from '../../lib/i18n';
+import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
 import { useSidebarProgress, useSessionSettlement } from './rich-sidebar.queries';
 import { SidebarSessionActions } from './sidebar-session-actions';
 import type { SidebarModel } from './use-sidebar';
@@ -93,6 +94,7 @@ function RichSession(props: RowProps) {
 /** Renders subject identity, selection, and progress for one session destination. */
 function SessionLink({ session, project, subjects, selectedSession, progress }: RowProps) {
   const { t } = useI18n();
+  const preferences = useWorkspacePreferences();
   const owner = subjects.find(
     (item) =>
       session.projectIds.includes(item.id) &&
@@ -102,6 +104,7 @@ function SessionLink({ session, project, subjects, selectedSession, progress }: 
   return (
     <SidebarSessionActions id={session.id} project={project ? String(project) : undefined}>
       <SidebarUI.Item
+        layout={preferences.sidebarDensity === 'compact' ? 'compact' : 'detailed'}
         label={session.title}
         context={owner?.name ?? t('Sessions')}
         icon={
@@ -132,10 +135,11 @@ function SessionLink({ session, project, subjects, selectedSession, progress }: 
 function SessionTime({ at }: { at: bigint }) {
   const { locale, date } = useI18n();
   const now = useNowMinute();
+  const preferences = useWorkspacePreferences();
 
   return (
     <time dateTime={new Date(Number(at) * 1000).toISOString()} title={date(at)}>
-      {age(locale, now - Number(at))}
+      {preferences.sidebarTimeFormat === 'absolute' ? date(at) : age(locale, now - Number(at))}
     </time>
   );
 }
@@ -143,6 +147,7 @@ function SessionTime({ at }: { at: bigint }) {
 /** Shows workflow activity and retained generated-document counts. */
 function SessionProgress({ progress }: { progress?: Progress }) {
   const { t } = useI18n();
+  const preferences = useWorkspacePreferences();
   const labels = {
     idle: 'SidebarReady',
     generating: 'SidebarGenerating',
@@ -157,10 +162,12 @@ function SessionProgress({ progress }: { progress?: Progress }) {
         {progress?.running && <Spinner size="xs" label={t(label)} aria-hidden="true" />}
         {t(label)}
       </SidebarUI.SessionActivity>
-      <SidebarUI.SessionCount title={t('SidebarGeneratedDocuments')}>
-        <FileText size={12} aria-hidden="true" />
-        {progress ? String(progress.generatedDocumentCount) : '—'}
-      </SidebarUI.SessionCount>
+      {preferences.sidebarShowDocumentCounts && (
+        <SidebarUI.SessionCount title={t('SidebarGeneratedDocuments')}>
+          <FileText size={12} aria-hidden="true" />
+          {progress ? String(progress.generatedDocumentCount) : '—'}
+        </SidebarUI.SessionCount>
+      )}
     </>
   );
 }

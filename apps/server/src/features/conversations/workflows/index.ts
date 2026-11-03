@@ -13,6 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { runPreferencesSchema } from '@study/contracts/conversations/context';
 import {
   publishReplyInputSchema,
   replySnapshotSchema
@@ -36,6 +37,7 @@ import { Activity, DurableDeferred } from 'effect/workflow';
 import { replyAgent } from '#server/features/conversations/agents/reply';
 import { rewriteAgent } from '#server/features/conversations/agents/rewrite';
 import { Conversations } from '#server/features/conversations/service/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
@@ -88,6 +90,21 @@ export const conversationReplyHandler = ({
         store,
         conversations.sealReplyAttachments({ requestId: event.requestId })
       )
+    });
+    const preferences = yield* Activity.make({
+      name: 'resolve-reply-preferences',
+      success: runPreferencesSchema,
+      error: failureSchema,
+      execute: Effect.gen(function* () {
+        const snapshot = yield* conversations.replySnapshot({ requestId: event.requestId });
+        const settings = yield* Settings;
+        const defaults = yield* settings.workspacePreferences();
+
+        return {
+          ...snapshot.context?.preferences,
+          detail: snapshot.context?.preferences.detail ?? defaults.defaultAiDetail
+        };
+      }).pipe(Effect.provide(Settings.layer))
     });
     const publication = yield* retryResumableActivity(
       Activity.make({
@@ -152,7 +169,7 @@ export const conversationReplyHandler = ({
           };
           const agentServices = {
             ...agents,
-            language: snapshot.context?.preferences.language ?? agents.language,
+            language: preferences.language ?? agents.language,
             searchSources: (query: string) => Effect.sync(() => catalog.search(query))
           };
           const text = yield* (
@@ -166,7 +183,7 @@ export const conversationReplyHandler = ({
                     })),
                     origin: snapshot.generation.origin,
                     instruction: snapshot.generation.instruction,
-                    preferences: snapshot.context?.preferences
+                    preferences
                   },
                   options
                 )
@@ -186,7 +203,7 @@ export const conversationReplyHandler = ({
                                 content:
                                   snapshot.context.instruction +
                                   '\nPreferences: ' +
-                                  JSON.stringify(snapshot.context.preferences)
+                                  JSON.stringify(preferences)
                               }
                             ]
                           : []

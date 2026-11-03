@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { SettingsRpc } from '@study/contracts/settings/rpc';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Deferred, Effect, Fiber, Layer } from 'effect';
@@ -44,6 +45,18 @@ test('settings RPC exposes typed settings and maps service failures', async () =
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(SettingsRpc, { flatten: true });
 
+          assert.deepEqual(
+            yield* client('settings.workspacePreferences', {}),
+            defaultWorkspacePreferences
+          );
+          yield* client('settings.saveWorkspacePreferences', {
+            ...defaultWorkspacePreferences,
+            autosaveIntervalSeconds: 7
+          });
+          assert.equal(
+            (yield* client('settings.workspacePreferences', {})).autosaveIntervalSeconds,
+            7
+          );
           assert.deepEqual(yield* client('settings.concurrencySettings', {}), {
             maxConcurrentAi: 2,
             maxQueuedAi: 16
@@ -66,6 +79,8 @@ test('settings RPC exposes typed settings and maps service failures', async () =
           assert.deepEqual(
             [...SettingsRpc.requests.keys()].sort(),
             [
+              'settings.workspacePreferences',
+              'settings.saveWorkspacePreferences',
               'settings.concurrencySettings',
               'settings.saveConcurrencySettings',
               'settings.appearancePreferences',

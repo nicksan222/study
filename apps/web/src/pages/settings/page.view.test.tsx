@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vite-plus/test';
 
@@ -141,15 +141,26 @@ it('shows only working interface controls and saves their committed values', asy
   expect(screen.getByRole('slider', { name: 'Text size' })).toBeInTheDocument();
 });
 
-it('groups settings for growth and shows only relevant cross-section search results', () => {
+it('orders a single settings list and shows relevant cross-section search results', () => {
   const onSectionChange = vi.fn();
   const { rerender } = render(
     <PageView open onClose={vi.fn()} model={appearanceModel()} onSectionChange={onSectionChange} />
   );
 
-  expect(screen.getByRole('group', { name: 'Application' })).toBeInTheDocument();
-  expect(screen.getByRole('group', { name: 'Learning' })).toBeInTheDocument();
-  expect(screen.getByRole('group', { name: 'AI' })).toBeInTheDocument();
+  const navigation = screen.getByRole('navigation', { name: 'Settings' });
+  const labels = within(navigation)
+    .getAllByRole('button')
+    .map((button) => button.getAttribute('aria-label'));
+
+  expect(labels.slice(0, 5)).toEqual([
+    'General',
+    'Appearance',
+    'Writing',
+    'Sessions',
+    'Reading & exports'
+  ]);
+  expect(within(navigation).queryByRole('heading')).not.toBeInTheDocument();
+  expect(labels).toHaveLength(10);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'

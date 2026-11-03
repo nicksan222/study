@@ -22,7 +22,7 @@ import { StudyError } from '@study/contracts/errors';
 import { conversationTitleRequestedSchema } from '@study/contracts/events';
 import { and, desc, eq, sql } from '@study/db';
 import { sessions, workflowEvents } from '@study/db/schema';
-import { Schema } from 'effect';
+import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -145,6 +145,41 @@ export const TitleStore = defineStore({
         })
       },
       mutations: {
+        captureAutomaticTitle: storeMutation({
+          input: requestInput,
+          output: Schema.Option(titleSnapshotSchema),
+          run: (input) => {
+            const session = requiredSession(input.sessionId);
+
+            if (session.title_source !== 'provisional') return Option.none();
+
+            const history = conversationHistory(session.id);
+
+            if (!history.some((message) => message.text.trim())) return Option.none();
+
+            const pending = db.orm
+              .select({ eventId: workflowEvents.eventId })
+              .from(workflowEvents)
+              .where(
+                and(
+                  eq(workflowEvents.type, 'ConversationTitleRequested'),
+                  sql`json_extract(${workflowEvents.payload}, '$.sessionId') = ${String(input.sessionId)}`,
+                  sql`json_extract(${workflowEvents.payload}, '$.contextRevision') = ${String(session.context_revision)}`
+                )
+              )
+              .get();
+
+            if (pending) return Option.none();
+
+            return Option.some({
+              ...input,
+              contextRevision: session.context_revision,
+              titleSource: session.title_source,
+              title: session.title,
+              messages: history
+            });
+          }
+        }),
         captureTitle: storeMutation({
           input: requestInput,
           output: titleSnapshotSchema,

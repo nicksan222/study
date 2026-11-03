@@ -1,6 +1,7 @@
 import { askResultSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
@@ -27,6 +28,12 @@ vi.mock('./session-workspace.queries', async (importOriginal) => {
     })
   };
 });
+
+const preferences = vi.hoisted(() => ({ submitOnEnter: false }));
+
+vi.mock('../../lib/study-client/workspace-preferences.queries', () => ({
+  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+}));
 
 const id = Schema.decodeUnknownSync(sessionIdSchema)(9007199254740993n);
 
@@ -165,4 +172,19 @@ it('keeps Enter and composition keystrokes in the notebook editor', () => {
   });
   expect(saveNote).not.toHaveBeenCalled();
   expect(ask).not.toHaveBeenCalled();
+});
+
+it('optionally submits Enter while preserving Shift+Enter and composition', async () => {
+  preferences.submitOnEnter = true;
+  vi.mocked(saveNote).mockImplementation(() => new Promise(() => {}));
+  mount();
+  const input = screen.getByRole('textbox');
+
+  fireEvent.change(input, { target: { value: 'Quick thought' } });
+  fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+  fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+  expect(saveNote).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: 'Enter' });
+  await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
+  preferences.submitOnEnter = false;
 });

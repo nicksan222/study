@@ -2,6 +2,7 @@ import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui/rich
 import type { ReactNode } from 'react';
 
 import { useI18n } from '../../lib/i18n';
+import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
 
 /** Adapts the shared text editor to the session's bilingual controls. */
 export function NoteEditor({
@@ -19,6 +20,7 @@ export function NoteEditor({
 }) {
   const { t } = useI18n();
   const labels = useNoteLabels();
+  const preferences = useWorkspacePreferences();
 
   return (
     <RichNoteEditor
@@ -26,6 +28,8 @@ export function NoteEditor({
       value={value}
       onChange={onChange}
       disabled={disabled}
+      spellcheck={preferences.spellcheck}
+      fontSize={preferences.editorFontSize}
       label={label ?? t('SessionPageEditor')}
       placeholder={t('SessionPagePlaceholder')}
       labels={labels}

@@ -5,6 +5,7 @@ import { Search as SearchIcon, X, ChevronRight } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
+import { semanticPart } from './semantic-part';
 import { SettingsGroup, SettingsRow } from './settings-group';
 
 function Root({
@@ -84,34 +85,29 @@ type NavigationItem<Id extends string> = { id: Id; label: string; icon: ReactNod
 
 function Navigation<Id extends string>({
   label,
-  groups,
+  items,
   value,
   onValueChange
 }: {
   label: string;
-  groups: readonly { label: string; items: readonly NavigationItem<Id>[] }[];
+  items: readonly NavigationItem<Id>[];
   value: Id;
   onValueChange: (id: Id) => void;
 }) {
   return (
     <nav className="settings-nav" aria-label={label}>
-      {groups.map((group) => (
-        <div className="settings-nav-group" key={group.label} role="group" aria-label={group.label}>
-          <h3 className="settings-nav-heading">{group.label}</h3>
-          {group.items.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              className="settings-navigation-item"
-              aria-label={item.label}
-              aria-current={item.id === value ? 'page' : undefined}
-              onClick={() => onValueChange(item.id)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
+      {items.map((item) => (
+        <button
+          type="button"
+          key={item.id}
+          className="settings-navigation-item"
+          aria-label={item.label}
+          aria-current={item.id === value ? 'page' : undefined}
+          onClick={() => onValueChange(item.id)}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+        </button>
       ))}
     </nav>
   );
@@ -392,6 +388,8 @@ function Status({ children, action }: { children: ReactNode; action?: ReactNode 
 }
 
 export const Settings = {
+  Intro: semanticPart('p', 'settings-intro'),
+  Feedback: semanticPart('p', 'settings-feedback'),
   Item,
   Navigation,
   SearchResults,
