@@ -856,3 +856,15 @@
   font-size: 0.8125rem;
   margin-top: 0.75rem;
 }
+
+/* Retain native scrolling without reserving visible scrollbar tracks. */
+.settings-navigation,
+.settings-scroll {
+  scrollbar-width: none;
+}
+.settings-navigation::-webkit-scrollbar,
+.settings-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
