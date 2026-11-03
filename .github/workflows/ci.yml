@@ -1,4 +1,4 @@
-name: CI
+name: 🧪 CI
 
 on:
   push:
@@ -18,9 +18,8 @@ env:
   CARGO_TARGET_DIR: target/devcontainer
 
 jobs:
-  check:
-    # Required by the main branch ruleset; keep this name.
-    name: Test and build
+  gates:
+    name: 📦 Package checks
     runs-on: ubuntu-24.04
     steps:
       - name: 📥 Check out repository
@@ -65,12 +64,6 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: npm run server:typecheck
 
-      - name: 🧪 Test server, AI, database and localization
-        id: server_tests
-        timeout-minutes: 10
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npm run server:test
-
       - name: 🧩 Type-check web and tooling
         id: frontend_types
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -104,7 +97,8 @@ jobs:
       - name: 📦 Build web app
         id: frontend_build
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npm run build
+        # Type checking already ran above; the root build repeats it.
+        run: npm exec -- vp run --fail-if-no-match --filter @study/web build
 
       - name: 🌍 Check landing page
         id: landing
@@ -129,7 +123,6 @@ jobs:
             'fallow': '🌱 Check dead code, complexity and duplication',
             'dependencies': '🛡️ Audit Rust dependencies',
             'server_types': '🧩 Type-check server packages',
-            'server_tests': '🧪 Test server, AI, database and localization',
             'frontend_types': '🧩 Type-check web and tooling',
             'frontend_tests': '🖼️ Test web, UI and localization components',
             'native_tests': '🦀 Test native shell and Rust doctests',
@@ -146,4 +139,49 @@ jobs:
               for key, label in labels.items():
                   outcome = steps.get(key, {}).get('outcome', 'skipped')
                   summary.write(f'| {label} | {icons.get(outcome, "❔")} {outcome} |\n')
+          PYTHON
+
+  server_tests:
+    name: 🧪 Server tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      # This suite needs Node and SQLite, not the native Linux GUI toolchain.
+      - name: 💚 Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.8.2
+          cache: npm
+      - name: 📦 Install workspace dependencies
+        run: npm ci --no-fund --no-audit
+      - name: 🧪 Test server, AI, database and localization
+        timeout-minutes: 10
+        run: npm run server:test
+
+  check:
+    # Required by the main branch ruleset; keep this name.
+    name: Test and build
+    needs: [gates, server_tests]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 🏁 Require every check to pass
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import sys
+
+          results = json.loads(os.environ['RESULTS'])
+          icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}
+          labels = {'gates': '📦 Package checks', 'server_tests': '🧪 Server tests'}
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('## 🏁 Study CI\n\n| Check | Result |\n| :--- | :--- |\n')
+              for name, job in results.items():
+                  result = job['result']
+                  summary.write(f"| {labels[name]} | {icons[result]} {result} |\n")
+          sys.exit(any(job['result'] != 'success' for job in results.values()))
           PYTHON

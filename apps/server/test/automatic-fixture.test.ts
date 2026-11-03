@@ -25,7 +25,8 @@ import { promisify } from 'node:util';
 
 const preload = fileURLToPath(new URL('./testing/preload.ts', import.meta.url));
 
-const reporter = fileURLToPath(new URL('./testing/progress.ts', import.meta.url));
+// These fixtures expose machine-readable lifecycle markers even on success.
+const reporter = 'tap';
 
 const scenario = fileURLToPath(new URL('./testing/automatic-fixture-scenario.ts', import.meta.url));
 
