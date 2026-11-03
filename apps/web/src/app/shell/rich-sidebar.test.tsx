@@ -100,6 +100,10 @@ it('settles only sessions meeting the saved document threshold and keeps running
 
   expect(compact).toHaveAttribute('data-layout', 'compact');
   expect(within(compact).getByTitle('SidebarGeneratedDocuments')).toHaveTextContent('1');
+  expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
+  expect(
+    within(screen.getByRole('link', { name: 'Session 3' })).getByText('SidebarGenerating')
+  ).toBeInTheDocument();
   await act(async () => {
     cache.setQueryData(['workspace-preferences'], {
       ...defaultWorkspacePreferences,

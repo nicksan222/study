@@ -113,6 +113,29 @@ function mentionsAssistant(text: string) {
   );
 }
 
+function readWorkspacePreferences() {
+  return Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+    Effect.provide(Settings.layer)
+  );
+}
+
+/** Captures at most one automatic title request per provisional session revision. */
+function scheduleAutomaticTitle(tx: Transaction, sessionId: SessionId) {
+  const requestId = randomUUID();
+  const snapshot = tx.store(TitleStore).captureAutomaticTitle({ sessionId, requestId });
+
+  if (Option.isSome(snapshot))
+    tx.emit({
+      type: 'ConversationTitleRequested',
+      eventId: randomUUID(),
+      causationId: null,
+      correlationId: requestId,
+      inputVersion: 1,
+      depth: 0,
+      ...snapshot.value
+    });
+}
+
 function normalizeAsk(input: typeof askInputSchema.Type) {
   return {
     sessionId: input.sessionId,
@@ -289,15 +312,29 @@ export const Conversations = defineService(
           return tx.store(ReplyStore).abandonReply(input);
         }),
       publishReply: (input: typeof publishReplyInputSchema.Type) =>
-        publicationTransaction((tx) => {
-          const context = tx
-            .store(SessionContextStore)
-            .findSessionContext({ requestId: input.requestId });
+        Effect.gen(function* () {
+          const preferences = yield* readWorkspacePreferences();
 
-          if (Option.isSome(context))
-            for (const target of context.value.inputs) assertCapturedTarget(tx, target);
+          return yield* publicationTransaction((tx) => {
+            const context = tx
+              .store(SessionContextStore)
+              .findSessionContext({ requestId: input.requestId });
 
-          return tx.store(ReplyStore).publishReply(input);
+            if (Option.isSome(context))
+              for (const target of context.value.inputs) assertCapturedTarget(tx, target);
+
+            const versionId = tx.store(ReplyStore).publishReply(input);
+
+            if (preferences.autoTitleSessions) {
+              const reply = tx
+                .store(ReplyRequestStore)
+                .findReplyRequest({ requestId: input.requestId });
+
+              if (Option.isSome(reply)) scheduleAutomaticTitle(tx, reply.value.sessionId);
+            }
+
+            return versionId;
+          });
         }),
       messageVersionCitations: (input: typeof replyVersionInputSchema.Type) =>
         transaction((tx) => {
@@ -512,11 +549,7 @@ export const Conversations = defineService(
         }),
       postMessage: (input: typeof postMessageInputSchema.Type) =>
         Effect.gen(function* () {
-          const preferences = yield* Effect.gen(function* () {
-            const settings = yield* Settings;
-
-            return yield* settings.workspacePreferences();
-          }).pipe(Effect.provide(Settings.layer));
+          const preferences = yield* readWorkspacePreferences();
 
           return yield* transaction((tx) => {
             const message = tx.store(MessageStore).postMessage(input);
@@ -562,23 +595,7 @@ export const Conversations = defineService(
               });
             }
 
-            if (preferences.autoTitleSessions) {
-              const requestId = randomUUID();
-              const snapshot = tx
-                .store(TitleStore)
-                .captureAutomaticTitle({ sessionId: input.sessionId, requestId });
-
-              if (Option.isSome(snapshot))
-                tx.emit({
-                  type: 'ConversationTitleRequested',
-                  eventId: randomUUID(),
-                  causationId: null,
-                  correlationId: requestId,
-                  inputVersion: 1,
-                  depth: 0,
-                  ...snapshot.value
-                });
-            }
+            if (preferences.autoTitleSessions) scheduleAutomaticTitle(tx, input.sessionId);
 
             return message;
           });

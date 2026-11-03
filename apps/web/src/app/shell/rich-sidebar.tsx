@@ -114,14 +114,7 @@ function SessionLink({ session, project, subjects, selectedSession, progress }: 
             <MessagesSquare aria-hidden="true" />
           )
         }
-        timestamp={
-          <>
-            {preferences.sidebarDensity === 'compact' && preferences.sidebarShowDocumentCounts && (
-              <SessionDocumentCount progress={progress} />
-            )}
-            <SessionTime at={session.updatedAt} />
-          </>
-        }
+        timestamp={<SessionTime at={session.updatedAt} />}
         description={<SessionProgress progress={progress} />}
         aria-label={session.title}
         aria-current={selectedSession === String(session.id) ? 'page' : undefined}
@@ -165,9 +158,9 @@ function SessionProgress({ progress }: { progress?: Progress }) {
 
   return (
     <>
-      <SidebarUI.SessionActivity running={progress?.running}>
+      <SidebarUI.SessionActivity running={progress?.running} title={t(label)}>
         {progress?.running && <Spinner size="xs" label={t(label)} aria-hidden="true" />}
-        {t(label)}
+        <span>{t(label)}</span>
       </SidebarUI.SessionActivity>
       {preferences.sidebarShowDocumentCounts && <SessionDocumentCount progress={progress} />}
     </>
