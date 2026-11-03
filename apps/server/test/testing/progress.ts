@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Reports each test result and retains diagnostics only for failing test files.    │
- * │                                                                                        │
- * │ Responsibilities:                                                                      │
- * │ - Keeps stdout, stderr and fixture phases available when a test file fails.            │
- * │                                                                                        │
- * │ Boundaries:                                                                            │
- * │ Uses public Node test events; never inspects resources or logs operation payloads.     │
+ * │ @file Reports each test result and retains diagnostics only for failing test files.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Keeps stdout, stderr and fixture phases available when a test file fails.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses public Node test events; never inspects resources or logs operation payloads.       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -27,12 +27,21 @@ function isDiagnostic(event: TestEvent) {
   );
 }
 
+/** Group imported test definitions with the process that owns their console output. */
+function entryFile(data: TestEvent['data']) {
+  if (!data) return undefined;
+
+  return (
+    ('entryFile' in data ? data.entryFile : undefined) ?? ('file' in data ? data.file : undefined)
+  );
+}
+
 async function* observe(source: AsyncIterable<TestEvent>) {
   const pending = new Map<string | undefined, TestEvent[]>();
   const failed = new Set<string | undefined>();
 
   for await (const event of source) {
-    const file = 'file' in event.data ? event.data.file : undefined;
+    const file = entryFile(event.data);
 
     if (event.type === 'test:fail') {
       failed.add(file);

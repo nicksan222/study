@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Checks concise test results and failure-only file diagnostics.                   │
- * │                                                                                        │
- * │ Responsibilities:                                                                      │
- * │ - Exercises the real Node CLI with passing and failing files running together.         │
- * │                                                                                        │
- * │ Boundaries:                                                                            │
- * │ Uses public Node reporter events; CLI loading is covered by automatic fixture tests.   │
+ * │ @file Checks concise test results and failure-only file diagnostics.                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises the real Node CLI with passing and failing files running together.           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses public Node reporter events; CLI loading is covered by automatic fixture tests.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -15,16 +15,22 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import progress from '#testing/progress';
+
 const reporter = fileURLToPath(new URL('./testing/progress.ts', import.meta.url));
 
-for (const fails of [false, true]) {
-  test(`progress keeps test results and ${fails ? 'shows failed' : 'hides passing'} file diagnostics`, () => {
+for (const mode of ['pass', 'fail', 'imported-fail']) {
+  const fails = mode !== 'pass';
+
+  test(`progress keeps test results and filters diagnostics for ${mode}`, () => {
     const directory = mkdtempSync(join(tmpdir(), 'study-reporter-'));
     const fixture = join(directory, 'fixture.test.mjs');
     const passing = join(directory, 'passing.test.mjs');
+    const definition = mode === 'imported-fail' ? join(directory, 'definition.mjs') : fixture;
     const env = { ...process.env };
 
     delete env.NODE_TEST_CONTEXT;
@@ -38,7 +44,7 @@ for (const fails of [false, true]) {
       `
       );
       writeFileSync(
-        fixture,
+        definition,
         `
         import { test } from 'node:test';
         test('visible test result', (t) => {
@@ -50,6 +56,9 @@ for (const fails of [false, true]) {
         });
       `
       );
+
+      if (definition !== fixture) writeFileSync(fixture, `import './definition.mjs';`);
+
       const child = spawnSync(
         process.execPath,
         ['--test', `--test-reporter=${reporter}`, fixture, passing],
@@ -82,3 +91,11 @@ for (const fails of [false, true]) {
     }
   });
 }
+
+test('progress emits no debug output for an empty event stream', async () => {
+  let output = '';
+
+  for await (const chunk of progress(Readable.from([]))) output += chunk;
+
+  assert.equal(output, '');
+});
