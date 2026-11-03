@@ -49,7 +49,10 @@ export default defineRule({
         )
           return;
 
-        const path = node.value.split('?')[0];
+        const literalPath = node.value.split('?')[0];
+        const path = fileRouteIndexId(node, bindings, current)
+          ? literalPath.slice(0, -1)
+          : literalPath;
 
         if (
           path !== '/' &&
@@ -116,4 +119,36 @@ function hrefValue(attribute: any): unknown {
         attribute.value.expression.type === 'Literal'
       ? attribute.value.expression.value
       : null;
+}
+
+/** Only a bound TanStack file route declaration can use a trailing slash as its index ID. */
+function fileRouteIndexId(node: any, bindings: ReturnType<typeof effectBindings>, current: string) {
+  const call = node.parent;
+
+  if (
+    !/^routes\/(?:.*[/.])?index\.tsx?$/.test(current) ||
+    node.value === '/' ||
+    !node.value.endsWith('/') ||
+    node.value.includes('?') ||
+    call?.type !== 'CallExpression' ||
+    call.arguments[0] !== node
+  )
+    return false;
+
+  const callee = call.callee;
+
+  if (callee.type !== 'Identifier') return false;
+
+  return fileRouteImport(bindings.definition(callee));
+}
+
+/** Resolve the runtime import rather than trusting a callee spelling or shadowed alias. */
+function fileRouteImport(definition: any) {
+  return (
+    definition?.type === 'ImportSpecifier' &&
+    definition.importKind !== 'type' &&
+    definition.imported?.name === 'createFileRoute' &&
+    definition.parent?.source?.value === '@tanstack/react-router' &&
+    definition.parent.importKind !== 'type'
+  );
 }

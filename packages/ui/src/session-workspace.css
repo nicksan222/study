@@ -540,3 +540,129 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.session-changes {
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 0.875rem;
+}
+.session-changes-heading {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.875rem 1rem 0.625rem;
+  color: var(--workspace-supporting, var(--muted-foreground));
+}
+.session-workspace .session-changes-heading h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.session-changes-empty {
+  margin: 0;
+  padding: 0.25rem 1rem 1rem;
+  color: var(--workspace-supporting, var(--muted-foreground));
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.session-changes-list {
+  max-height: min(28rem, 48dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.session-changes .ui-workspace-card-group {
+  padding: 0.25rem 0.375rem;
+}
+.session-changes .ui-workspace-card-group + .ui-workspace-card-group {
+  border: 0;
+}
+.session-changes .session-change-label {
+  display: grid;
+  gap: 0.125rem;
+}
+.session-change-label strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.session-change-label small {
+  font-size: 0.75rem;
+  color: var(--workspace-supporting, var(--muted-foreground));
+}
+.session-changes-more {
+  padding: 0.375rem 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.session-change-dialog {
+  width: min(52rem, calc(100vw - 2rem));
+  max-width: 52rem;
+}
+.session-change-preview {
+  padding: 0 1.5rem 1.5rem;
+  max-height: 60dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.session-change-versions {
+  display: grid;
+  gap: 1.5rem;
+}
+.session-change-versions h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 0 0 0.75rem;
+}
+.session-change-versions h3 span {
+  font-weight: 400;
+  color: var(--workspace-supporting, var(--muted-foreground));
+}
+.session-change-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+.session-change-text[data-previous] {
+  color: var(--workspace-supporting, var(--muted-foreground));
+}
+
+.session-context-actions {
+  border-top: 1px solid var(--border);
+}
+.session-context-actions .ui-workspace-card-item > span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.session-context-dialog {
+  width: min(46rem, calc(100vw - 2rem));
+  max-width: 46rem;
+}
+.session-context-dialog-body {
+  min-height: 0;
+  padding: 0 1.5rem 1.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.session-context-dialog-body .session-section {
+  padding: 0;
+  border: 0;
+}
+.session-context-dialog-body p {
+  margin-block: 0 1rem;
+}
+.session-context-dialog-body .session-selected,
+.session-context-dialog-body .session-materials {
+  max-height: none;
+}
+.session-context-dialog-body .session-exact-document {
+  overflow-wrap: anywhere;
+}

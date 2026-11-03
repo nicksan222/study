@@ -17,8 +17,12 @@ import { PanelLeft, Search, X, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
+const frameClasses = { default: '', 'session-entry': 'study-shell-session-entry' } as const;
+
+/** Owns persisted sidebar resizing within the content and sidebar width constraints. */
 function Frame({
   collapsed,
+  variant = 'default',
   defaultWidth = 320,
   minWidth = 208,
   minContentWidth = 640,
@@ -30,6 +34,7 @@ function Frame({
   ...props
 }: ComponentProps<'div'> & {
   collapsed: boolean;
+  variant?: 'default' | 'session-entry';
   defaultWidth?: number;
   minWidth?: number;
   minContentWidth?: number;
@@ -119,7 +124,7 @@ function Frame({
     <div
       {...props}
       ref={frame}
-      className={cn('study-shell', className)}
+      className={cn('study-shell', frameClasses[variant], className)}
       data-sidebar-collapsed={collapsed}
       data-resizing={resizing || undefined}
       style={{ ...props.style, '--sidebar-width': `${width}px` } as CSSProperties}
@@ -288,15 +293,25 @@ function Topbar({
   );
 }
 
+/** Exposes sidebar expansion with optional placement for hidden session navigation. */
 function Toggle({
   label,
   expanded,
+  placement = 'default',
   ...props
-}: Omit<ComponentProps<typeof Button>, 'children'> & { label: string; expanded: boolean }) {
+}: Omit<ComponentProps<typeof Button>, 'children'> & {
+  label: string;
+  expanded: boolean;
+  placement?: 'default' | 'reveal';
+}) {
   return (
     <Button
       {...props}
-      className={cn('study-sidebar-toggle', props.className)}
+      className={cn(
+        'study-sidebar-toggle',
+        placement === 'reveal' && 'study-entry-navigation-toggle',
+        props.className
+      )}
       size="icon"
       variant="ghost-muted"
       aria-label={label}
@@ -510,8 +525,10 @@ function PickerOption<T>({
   );
 }
 
+/** Labels a nonempty picker group and announces its item count. */
 function PickerHeading({ count, label }: { count: number; label?: ReactNode }) {
   if (!count || !label) return null;
+
   return (
     <div className="study-sidebar-picker-heading">
       <span>{label}</span>
@@ -520,6 +537,7 @@ function PickerHeading({ count, label }: { count: number; label?: ReactNode }) {
   );
 }
 
+/** Provides searchable identity selection with controlled opening and optional management actions. */
 function Picker<T>({
   items,
   value,
@@ -607,5 +625,15 @@ export const Sidebar = {
   Search: SearchField,
   FormFields,
   Main,
-  Topbar
+  Topbar,
+  ScreenReaderHeading
 };
+
+/** Preserve a page heading when session entry hides the visible topbar. */
+function ScreenReaderHeading({ children, ...props }: ComponentProps<'h1'>) {
+  return (
+    <h1 {...props} className={cn('sr-only', props.className)}>
+      {children}
+    </h1>
+  );
+}

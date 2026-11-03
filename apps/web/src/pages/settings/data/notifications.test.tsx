@@ -37,6 +37,7 @@ const backup = Schema.decodeUnknownSync(backupManifestSchema)({
     prunedVersions: 0
   }
 });
+
 const acceptance = Schema.decodeUnknownSync(acceptRestoreSchema)({
   backupId: backup.id,
   token: backup.id,
@@ -56,6 +57,7 @@ function mount(client: QueryClient) {
     </QueryClientProvider>
   );
 }
+
 async function complete(
   client: QueryClient,
   key: readonly unknown[],
@@ -67,6 +69,7 @@ async function complete(
     mutationFn: async () => data,
     gcTime: Infinity
   });
+
   await act(async () => {
     await mutation.execute(variables);
   });
@@ -75,6 +78,7 @@ async function complete(
 it('toasts a newly committed operation once and never replays cached success on remount or refresh', async () => {
   const client = new QueryClient();
   const first = mount(client);
+
   await complete(client, backupMutationKeys.create, backup);
   expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
     title: 'DataBackupCreated',
@@ -83,6 +87,7 @@ it('toasts a newly committed operation once and never replays cached success on 
   await client.invalidateQueries();
   first.unmount();
   const second = mount(client);
+
   expect(toastManager.add).toHaveBeenCalledTimes(1);
   second.unmount();
   client.clear();
@@ -90,8 +95,10 @@ it('toasts a newly committed operation once and never replays cached success on 
 
 it('does not notify about success that completed before the provider subscribed', async () => {
   const client = new QueryClient();
+
   await complete(client, backupMutationKeys.create, backup);
   const view = mount(client);
+
   expect(toastManager.add).not.toHaveBeenCalled();
   view.unmount();
   client.clear();
@@ -102,6 +109,7 @@ it.each(['idle', 'applied', 'activation-failed', 'target-changed', 'pending', 'u
   async (state) => {
     const client = new QueryClient();
     const view = mount(client);
+
     await complete(
       client,
       backupMutationKeys.accept,
@@ -117,6 +125,7 @@ it.each(['idle', 'applied', 'activation-failed', 'target-changed', 'pending', 'u
 it('only confirms a staged restore for the exact accepted backup', async () => {
   const client = new QueryClient();
   const view = mount(client);
+
   await complete(
     client,
     backupMutationKeys.accept,
@@ -156,6 +165,7 @@ it.each(
 )('does not turn a noncanonical fulfilled receipt into success for %s', async ({ key }) => {
   const client = new QueryClient();
   const view = mount(client);
+
   await complete(client, key, { state: 'failed' });
   expect(toastManager.add).not.toHaveBeenCalled();
   view.unmount();
@@ -171,6 +181,7 @@ it('does not turn a rejected request into successful feedback', async () => {
       throw new Error('Receipt lost');
     }
   });
+
   await act(async () => {
     await expect(mutation.execute(undefined)).rejects.toThrow('Receipt lost');
   });

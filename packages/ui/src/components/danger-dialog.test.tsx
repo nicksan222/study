@@ -17,8 +17,10 @@ it('focuses Cancel, uses alert semantics and leaves confirmation ownership with 
   const user = userEvent.setup();
   const confirm = vi.fn();
   const change = vi.fn();
+
   render(<DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />);
   const dialog = await screen.findByRole('alertdialog', { name: labels.title });
+
   expect(dialog).toHaveAccessibleDescription(labels.description);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus());
   expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
@@ -27,6 +29,7 @@ it('focuses Cancel, uses alert semantics and leaves confirmation ownership with 
     'destructive'
   );
   const field = screen.getByRole('textbox', { name: 'Type delete to confirm.' });
+
   expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Delete' }));
   expect(confirm).not.toHaveBeenCalled();
@@ -44,8 +47,10 @@ it('blocks duplicate confirm, Cancel and Escape while the operation is pending',
   const user = userEvent.setup();
   const confirm = vi.fn();
   const change = vi.fn();
+
   render(<DangerDialog open pending {...labels} onOpenChange={change} onConfirm={confirm} />);
   const dialog = await screen.findByRole('alertdialog');
+
   expect(dialog).toHaveAttribute('aria-busy', 'true');
   expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
@@ -58,8 +63,10 @@ it('blocks duplicate confirm, Cancel and Escape while the operation is pending',
 
 it('does not dismiss on outside pointer interaction and returns focus after Cancel', async () => {
   const user = userEvent.setup();
+
   function Harness() {
     const [open, setOpen] = useState(false);
+
     return (
       <>
         <button type="button" onClick={() => setOpen(true)}>
@@ -69,11 +76,14 @@ it('does not dismiss on outside pointer interaction and returns focus after Canc
       </>
     );
   }
+
   render(<Harness />);
   const opener = screen.getByRole('button', { name: 'Open' });
+
   await user.click(opener);
   await screen.findByRole('alertdialog');
   const backdrop = document.querySelector('.ui-danger-backdrop')!;
+
   await user.click(backdrop);
   expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -86,6 +96,7 @@ it('resets exact confirmation when the target, required phrase or open session c
   const confirm = vi.fn();
   const change = vi.fn();
   const view = render(<DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />);
+
   await user.type(screen.getByRole('textbox'), 'delete');
   expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   view.rerender(
@@ -124,6 +135,7 @@ it('resets exact confirmation when the target, required phrase or open session c
 
 it('does not accept leading or trailing whitespace as the exact confirmation phrase', () => {
   const confirm = vi.fn();
+
   render(<DangerDialog open {...labels} onOpenChange={() => {}} onConfirm={confirm} />);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'delete ' } });
   fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -133,6 +145,7 @@ it('does not accept leading or trailing whitespace as the exact confirmation phr
 
 it('keeps Cancel focused without scrolling long reviewed content away on open', async () => {
   const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+
   render(
     <DangerDialog open {...labels} onOpenChange={() => {}} onConfirm={() => {}}>
       <div style={{ height: 2000 }}>Reviewed content begins here</div>

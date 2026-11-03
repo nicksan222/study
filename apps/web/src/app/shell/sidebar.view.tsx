@@ -18,15 +18,15 @@ import {
   Search,
   ListFilter,
   FolderPlus,
+  Settings2,
   SquarePen,
   Check
 } from 'lucide-react';
-import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { SubjectIconDialog } from '../../features/subjects/subject-icon-editor';
-import { SubjectIdentity } from '../../features/subjects/subject-identity';
+import { SubjectIdentity } from '../../features/subjects';
 import { useI18n } from '../../lib/i18n';
+import { Page as SettingsPage } from '../../pages/settings/page';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import { SidebarSessionActions } from './sidebar-session-actions';
 import { resultLocation } from './sidebar.locations';
@@ -44,6 +44,7 @@ export function SidebarView(model: SidebarModel & { library: ReactNode }) {
         section={model.section}
         settings={model.metadata.title === 'Settings'}
         project={model.requestedProject}
+        workspaceProject={model.project}
         onNavigate={model.clearSearch}
       />
       <NewProjectDialog {...model} />
@@ -115,6 +116,7 @@ function SidebarSearchResults({
   );
 }
 
+/** Lists scoped sessions with an independent deletion action for each row. */
 function SidebarSessions({
   project,
   selectedSession,
@@ -205,6 +207,7 @@ function SidebarSessions({
   );
 }
 
+/** Keeps the subject settings target stable even if that subject is removed from the sidebar. */
 function SidebarHeader({
   collapsed,
   onToggle,
@@ -218,7 +221,10 @@ function SidebarHeader({
   setActionError,
   clearSearch,
   selectSubject,
-  reloadSubjects
+  reloadSubjects,
+  project,
+  settingsProject,
+  setSettingsProject
 }: Pick<
   SidebarModel,
   | 'collapsed'
@@ -234,9 +240,11 @@ function SidebarHeader({
   | 'clearSearch'
   | 'selectSubject'
   | 'reloadSubjects'
+  | 'project'
+  | 'settingsProject'
+  | 'setSettingsProject'
 >) {
   const { t, date } = useI18n();
-  const [iconEditorOpen, setIconEditorOpen] = useState(false);
 
   return (
     <SidebarUI.Header>
@@ -254,7 +262,7 @@ function SidebarHeader({
         value={subject ?? null}
         getLabel={(item) => item.name}
         getValue={(item) => String(item.id)}
-        getIcon={(item) => <SubjectIdentity name={item.name} icon={item.icon} />}
+        getIcon={subjectPickerIcon}
         getDescription={(item) =>
           item.examOn
             ? t('SidebarPolishExam', {
@@ -289,21 +297,22 @@ function SidebarHeader({
           setNewSubjectOpen={setNewSubjectOpen}
           setActionError={setActionError}
           clearSearch={clearSearch}
-          onChangeIcon={() => setIconEditorOpen(true)}
+          onEditSubject={() => setSettingsProject(subject?.id)}
         />
       </SidebarUI.Picker>
-      {subject && iconEditorOpen && (
-        <SubjectIconDialog
-          key={String(subject.id)}
-          project={subject}
-          open
-          onOpenChange={setIconEditorOpen}
+      {settingsProject && (
+        <SettingsPage
+          initialSection="projects"
+          initialProject={settingsProject}
+          workspaceProject={project}
+          onClose={() => setSettingsProject(undefined)}
         />
       )}
     </SidebarUI.Header>
   );
 }
 
+/** Closes the picker before opening subject creation, management, or global navigation. */
 function SidebarPickerActions({
   subject,
   requestedProject,
@@ -311,7 +320,7 @@ function SidebarPickerActions({
   setNewSubjectOpen,
   setActionError,
   clearSearch,
-  onChangeIcon
+  onEditSubject
 }: Pick<
   SidebarModel,
   | 'subject'
@@ -321,9 +330,10 @@ function SidebarPickerActions({
   | 'setActionError'
   | 'clearSearch'
 > & {
-  onChangeIcon: () => void;
+  onEditSubject: () => void;
 }) {
   const { t } = useI18n();
+
   return (
     <>
       <Button
@@ -361,11 +371,11 @@ function SidebarPickerActions({
           layout="navigation"
           onClick={() => {
             setPickerOpen(false);
-            onChangeIcon();
+            onEditSubject();
           }}
         >
-          <SubjectIdentity name={subject.name} icon={subject.icon} />
-          {t('SubjectIconChange')}
+          <Settings2 aria-hidden="true" />
+          {t('SubjectSettings')}
         </Button>
       )}
       <SidebarPickerShortcuts
@@ -377,12 +387,14 @@ function SidebarPickerActions({
   );
 }
 
+/** Closes the picker before navigating to the overview or help destination. */
 function SidebarPickerShortcuts({
   requestedProject,
   setPickerOpen,
   clearSearch
 }: Pick<SidebarModel, 'requestedProject' | 'setPickerOpen' | 'clearSearch'>) {
   const { t } = useI18n();
+
   return (
     <SidebarUI.PickerShortcuts>
       <Button
@@ -760,8 +772,14 @@ function SidebarSearchControl({
   );
 }
 
+/** Disables quick session creation until subject ownership is ready. */
 function SidebarCreateSessionIcon({ creating }: Pick<SidebarModel, 'creating'>) {
   const { t } = useI18n();
 
   return creating ? <Spinner label={t('Saving')} /> : <SquarePen aria-hidden="true" />;
+}
+
+/** Keep picker icon rendering stable while subject and selection state change. */
+function subjectPickerIcon(item: SidebarModel['subjects'][number]) {
+  return <SubjectIdentity name={item.name} icon={item.icon} />;
 }

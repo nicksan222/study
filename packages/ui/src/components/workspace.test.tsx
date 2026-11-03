@@ -8,6 +8,7 @@ afterEach(cleanup);
 
 it('toggles the associated panel by keyboard and preserves its draft', async () => {
   const user = userEvent.setup();
+
   render(
     <WorkspaceCard.Provider>
       <WorkspaceCard.Toggle label="Session context" />
@@ -18,6 +19,7 @@ it('toggles the associated panel by keyboard and preserves its draft', async () 
   );
   const toggle = screen.getByRole('button', { name: 'Session context' });
   const panel = screen.getByRole('complementary', { name: 'Session context' });
+
   expect(toggle.getAttribute('aria-controls')).toBe(panel.id);
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   toggle.focus();

@@ -15,6 +15,7 @@ export const CollectionPanel = {
     'section',
     'min-w-0 space-y-5 border-t border-border pt-5 xl:border-t-0 xl:pt-0'
   ),
+  IdentityHeader: semanticPart('div', 'flex items-center gap-3'),
   Title: semanticPart('h2', 'text-lg font-semibold'),
   Navigation: semanticPart('div', 'flex gap-4'),
   LinkText: semanticPart('span', 'underline'),

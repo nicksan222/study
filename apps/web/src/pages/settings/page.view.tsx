@@ -1,8 +1,10 @@
+import type { ProjectId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
-import { Palette, Settings2, Bot, GraduationCap, Gauge, Database } from 'lucide-react';
+import { Palette, Settings2, Bot, GraduationCap, Gauge, Database, Folder } from 'lucide-react';
 
+import { ProjectSettings } from '../../features/collections';
 import { useI18n } from '../../lib/i18n';
 import { AiSettings } from './ai';
 import { DataSettings } from './data';
@@ -13,9 +15,23 @@ import { StudySettings } from './study';
 import { ColorScheme, ThemeLibrary } from './theme-library';
 import type { AppearanceModel } from './use-page';
 
-export type SettingsSectionId = 'general' | 'appearance' | 'ai' | 'study' | 'performance' | 'data';
+export type SettingsSectionId =
+  | 'general'
+  | 'appearance'
+  | 'ai'
+  | 'study'
+  | 'performance'
+  | 'data'
+  | 'projects';
 
 const sections = [
+  {
+    id: 'projects',
+    group: 'SettingsGroupLearning',
+    label: 'ProjectSettingsTitle',
+    Icon: Folder,
+    keywords: ['ProjectName', 'SubjectIconTitle', 'SubjectSettings']
+  },
   {
     id: 'general',
     group: 'SettingsGroupApplication',
@@ -60,6 +76,7 @@ const sections = [
   }
 ] as const;
 
+/** Composes settings navigation and passes subject identity and committed deletion outcomes to its section. */
 export function PageView({
   open,
   onClose,
@@ -67,7 +84,9 @@ export function PageView({
   search = '',
   onSearch,
   section = 'appearance',
-  onSectionChange
+  onSectionChange,
+  initialProject,
+  onProjectDeleted
 }: {
   open: boolean;
   onClose: () => void;
@@ -76,6 +95,8 @@ export function PageView({
   onSearch?: (value: string) => void;
   section?: SettingsSectionId;
   onSectionChange?: (section: SettingsSectionId) => void;
+  initialProject?: ProjectId;
+  onProjectDeleted?: (id: ProjectId) => void;
 }) {
   const { t } = useI18n();
   const current = sections.find((item) => item.id === section)!;
@@ -107,7 +128,13 @@ export function PageView({
       {search.trim() && onSectionChange ? (
         <SearchContent search={search} model={model} onSectionChange={onSectionChange} />
       ) : (
-        <SectionContent section={section} model={model} search={search} />
+        <SectionContent
+          section={section}
+          model={model}
+          search={search}
+          initialProject={initialProject}
+          onProjectDeleted={onProjectDeleted}
+        />
       )}
     </Settings.Root>
   );
@@ -144,6 +171,7 @@ function SettingsNavigation({
   );
 }
 
+/** Groups matching settings entries and exposes an empty state when none match. */
 function SearchContent({
   search,
   model,
@@ -183,16 +211,23 @@ function SearchContent({
   );
 }
 
+/** Selects the feature-owned settings surface without copying feature state into the shell. */
 function SectionContent({
   section,
   model,
-  search
+  search,
+  initialProject,
+  onProjectDeleted
 }: {
   section: SettingsSectionId;
   model: AppearanceModel;
   search: string;
+  initialProject?: ProjectId;
+  onProjectDeleted?: (id: ProjectId) => void;
 }) {
   switch (section) {
+    case 'projects':
+      return <ProjectSettings initialProject={initialProject} onDeleted={onProjectDeleted} />;
     case 'data':
       return <DataSettings />;
     case 'appearance':

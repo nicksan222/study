@@ -11,9 +11,10 @@ import { ArrowUpRight, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
-import { SessionDeleteDialog } from '../../features/session-workspace/deletion';
+import { SessionDeleteDialog } from '../../features/session-workspace';
 import { useI18n } from '../../lib/i18n';
 
+/** Opens deletion for the selected session without activating its navigation link. */
 export function SidebarSessionActions({
   id,
   project,
@@ -26,6 +27,7 @@ export function SidebarSessionActions({
   const { t } = useI18n();
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
+
   return (
     <>
       <ContextMenu>

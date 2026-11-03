@@ -25,6 +25,7 @@ it('requires the deletion phrase before deleting the selected theme and announci
     saveTheme: vi.fn(),
     deleteTheme: remove
   };
+
   render(
     <ThemeEditor.Delete
       theme={{ version: 1, id: 'ocean', name: 'Ocean' }}
@@ -36,6 +37,7 @@ it('requires the deletion phrase before deleting the selected theme and announci
   const confirm = within(dialog).getByRole('button', { name: catalogs.english.DeleteTheme });
   const field = within(dialog).getByRole('textbox');
   const user = userEvent.setup();
+
   expect(confirm).toBeDisabled();
   await user.type(field, 'wrong');
   expect(confirm).toBeDisabled();

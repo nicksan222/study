@@ -6,9 +6,11 @@ import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
 
 import { changeVersions, sessionChanges } from './changes';
+import type * as WorkspaceQueries from './session-workspace.queries';
 import { WorkspaceContext } from './workspace-context';
 
 const rpc = vi.hoisted(() => ({ thread: vi.fn(), generations: vi.fn(), imported: vi.fn() }));
+
 vi.mock('../../lib/study-client/request', () => ({
   request: (fn: (client: { 'materials.importedMaterial': typeof rpc.imported }) => unknown) =>
     fn({ 'materials.importedMaterial': rpc.imported })
@@ -18,7 +20,7 @@ vi.mock('../material-library/exact-document', () => ({
   ExactDocument: ({ id }: { id: bigint }) => <div>Exact document {String(id)}</div>
 }));
 vi.mock('./session-workspace.queries', async (load) => ({
-  ...(await load<typeof import('./session-workspace.queries')>()),
+  ...(await load<typeof WorkspaceQueries>()),
   threadOptions: (id: bigint) => ({
     queryKey: ['changes-thread', String(id)],
     initialPageParam: undefined,
@@ -36,8 +38,11 @@ vi.mock('./session-workspace.queries', async (load) => ({
     queryFn: async () => ({ title: 'Generated outline' })
   })
 }));
+
 const id = Schema.decodeUnknownSync(sessionIdSchema)(51n);
+
 const other = Schema.decodeUnknownSync(sessionIdSchema)(52n);
+
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 71n,
   sessionId: id,
@@ -84,16 +89,21 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
     }
   ]
 });
+
 const clients: QueryClient[] = [];
+
 function mount(sessionId?: typeof id) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(client);
+
   return render(
     <QueryClientProvider client={client}>
       <WorkspaceContext id={sessionId} />
     </QueryClientProvider>
   );
 }
+
 beforeEach(() => {
   vi.clearAllMocks();
   rpc.thread.mockResolvedValue({ items: [], next: null });
@@ -101,8 +111,10 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+
   for (const client of clients.splice(0)) client.clear();
 });
+
 it('filters foreign sessions and deduplicates overlapping pages', () => {
   expect(
     sessionChanges(id, [
@@ -112,6 +124,7 @@ it('filters foreign sessions and deduplicates overlapping pages', () => {
     ])
   ).toEqual([message]);
 });
+
 it('compares the exact basedOn version rather than the previous array entry', () => {
   expect(changeVersions(message)).toMatchObject({
     current: { text: 'Current note' },
@@ -122,12 +135,14 @@ it('compares the exact basedOn version rather than the previous array entry', ()
     previous: undefined
   });
 });
+
 it('shows an honest starter state without fetching any session', () => {
   mount();
   expect(screen.getByText('SessionChangesStart')).toBeVisible();
   expect(rpc.thread).not.toHaveBeenCalled();
   expect(rpc.generations).not.toHaveBeenCalled();
 });
+
 it('opens a read-only exact before/current preview and excludes other sessions', async () => {
   rpc.thread.mockResolvedValue({
     items: [message, { ...message, sessionId: other, id: 99n }],
@@ -135,14 +150,17 @@ it('opens a read-only exact before/current preview and excludes other sessions',
   });
   mount(id);
   const row = await screen.findByRole('button', { name: /Current note/ });
+
   fireEvent.click(row);
   const dialog = await screen.findByRole('dialog');
+
   expect(within(dialog).getByText('Original note')).toBeVisible();
   expect(within(dialog).getByText('Current note')).toBeVisible();
   expect(within(dialog).queryByText('Different branch')).toBeNull();
   expect(within(dialog).queryByRole('textbox')).toBeNull();
   expect(screen.getAllByRole('button', { name: /Current note/, hidden: true })).toHaveLength(1);
 });
+
 it('paginates both canonical feeds and previews an exact proposed document', async () => {
   rpc.thread.mockImplementation((_id, before) =>
     Promise.resolve({ items: before ? [message] : [], next: before ? null : 71n })
@@ -172,11 +190,13 @@ it('paginates both canonical feeds and previews an exact proposed document', asy
   expect(rpc.thread).toHaveBeenCalledWith(id, 71n);
   expect(rpc.generations).toHaveBeenCalledWith(id, 'cursor');
 });
+
 it('never retains a previous session preview when session identity changes', async () => {
   rpc.thread.mockImplementation((sessionId) =>
     Promise.resolve({ items: sessionId === id ? [message] : [], next: null })
   );
   const view = mount(id);
+
   fireEvent.click(await screen.findByRole('button', { name: /Current note/ }));
   view.rerender(
     <QueryClientProvider client={clients[0]!}>
@@ -186,6 +206,7 @@ it('never retains a previous session preview when session identity changes', asy
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(await screen.findByText('SessionChangesEmpty')).toBeVisible();
 });
+
 it('keeps incomplete replies visible even before any text arrives', async () => {
   rpc.thread.mockResolvedValue({
     items: [
@@ -200,6 +221,7 @@ it('keeps incomplete replies visible even before any text arrives', async () => 
   mount(id);
   expect(await screen.findByRole('button', { name: /SessionPending/ })).toBeVisible();
 });
+
 it('does not report an empty session while canonical data is pending', async () => {
   rpc.thread.mockReturnValue(new Promise(() => {}));
   mount(id);
@@ -219,6 +241,7 @@ it('resolves attachments by retained source identity and previews their canonica
     ...message,
     parts: [{ id: 101n, sourceId: 201n, sourceName: 'Lecture notes.pdf', sourceKind: 'pdf' }]
   });
+
   rpc.thread.mockResolvedValue({ items: [attached], next: null });
   rpc.imported.mockResolvedValue({ version: { id: 301n } });
   mount(id);

@@ -19,7 +19,7 @@ import type {
   MaterialVersionId
 } from '@study/contracts/ids';
 import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
 
 import { toStudyError } from '../../lib/study-client/errors';
 import { request } from '../../lib/study-client/request';
@@ -135,12 +135,14 @@ export const deletionOptions = (id: SessionId, enabled: boolean) =>
         return await request((client) => client['conversations.sessionDeletion']({ id }), signal);
       } catch (error) {
         if (toStudyError(error).kind === 'not_found') return null;
+
         throw error;
       }
     },
     enabled,
     refetchInterval: (query) => (query.state.data?.status === 'pending' ? 3000 : false)
   });
+
 export const ask = (input: AskInput) => request((client) => client['conversations.ask'](input));
 
 export const saveNote = (sessionId: SessionId, text: string, sourceIds?: readonly SourceId[]) =>
@@ -245,3 +247,11 @@ export const rewriteNote = (input: typeof rewriteMessageInputSchema.Type) =>
 
 export const reanswerNote = (messageId: MessageId) =>
   request((client) => client['conversations.reanswer']({ messageId }));
+
+/** Shares the exact deletion request while leaving attempt ownership in its mounted caller. */
+export const deleteSessionMutationOptions = (id: SessionId) =>
+  mutationOptions({ mutationFn: () => deleteSession(id), retry: false });
+
+/** Retries the existing cleanup operation rather than creating another deletion intent. */
+export const retrySessionDeletionMutationOptions = (id: SessionId) =>
+  mutationOptions({ mutationFn: () => retryDeletion(id), retry: false });

@@ -9,16 +9,14 @@ export const Route = createFileRoute('/sessions/$sessionId')({
   params: {
     parse: ({ sessionId }) => {
       if (!/^[1-9][0-9]{0,18}$/.test(sessionId)) throw notFound();
+
       const id = BigInt(sessionId);
+
       if (!Schema.is(sessionIdSchema)(id)) throw notFound();
+
       return { sessionId: id };
     },
     stringify: ({ sessionId }) => ({ sessionId: String(sessionId) })
   },
-  component: SessionPage
+  component: Page
 });
-
-function SessionPage() {
-  const { sessionId } = Route.useParams();
-  return <Page id={sessionId} />;
-}

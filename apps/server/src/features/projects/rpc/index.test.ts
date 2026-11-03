@@ -43,25 +43,49 @@ test('native RPC handlers return projects and typed failures', async () => {
           const client = yield* RpcTest.makeClient(ProjectsRpc, { flatten: true });
           const id = 999n as ProjectId;
 
-          assert.equal((yield* Effect.flip(client('projects.project', { id }))).kind, 'not_found');
+          assert.deepEqual(
+            (yield* Effect.flip(client('projects.project', { id }))).kind,
+            'not_found'
+          );
           assert.ok(Option.isNone(yield* client('projects.findProject', { id })));
-          assert.equal(
+          assert.deepEqual(
             (yield* Effect.flip(client('projects.createProject', { name: ' ' }))).kind,
             'invalid_input'
           );
           const created = yield* client('projects.createProject', { name: 'Test' });
 
-          assert.equal(created.icon, null);
-          const custom = yield* client('projects.setIcon', { id: created.id, icon: 'BIO' });
-          assert.equal(custom.icon, 'BIO');
-          assert.equal((yield* client('projects.project', { id: created.id })).icon, 'BIO');
+          assert.deepEqual(created.icon, { kind: 'automatic', color: 'neutral' });
+          const custom = yield* client('projects.setIcon', {
+            id: created.id,
+            icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
+          });
+
+          assert.deepEqual(custom.icon, { kind: 'monogram', value: 'BIO', color: 'neutral' });
+          assert.deepEqual((yield* client('projects.project', { id: created.id })).icon, {
+            kind: 'monogram',
+            value: 'BIO',
+            color: 'neutral'
+          });
           yield* client('projects.renameProject', { id: created.id, name: 'Cell Biology' });
-          assert.equal((yield* client('projects.project', { id: created.id })).icon, 'BIO');
-          const automatic = yield* client('projects.setIcon', { id: created.id, icon: null });
-          assert.equal(automatic.icon, null);
-          assert.equal(automatic.name, 'Cell Biology');
-          assert.equal(
-            (yield* Effect.flip(client('projects.setIcon', { id, icon: 'A' }))).kind,
+          assert.deepEqual((yield* client('projects.project', { id: created.id })).icon, {
+            kind: 'monogram',
+            value: 'BIO',
+            color: 'neutral'
+          });
+          const automatic = yield* client('projects.setIcon', {
+            id: created.id,
+            icon: { kind: 'automatic', color: 'neutral' }
+          });
+
+          assert.deepEqual(automatic.icon, { kind: 'automatic', color: 'neutral' });
+          assert.deepEqual(automatic.name, 'Cell Biology');
+          assert.deepEqual(
+            (yield* Effect.flip(
+              client('projects.setIcon', {
+                id,
+                icon: { kind: 'monogram', value: 'A', color: 'neutral' }
+              })
+            )).kind,
             'not_found'
           );
         }).pipe(Effect.provide(handlers))

@@ -533,6 +533,7 @@ it('uses complete projectIds in the picker and reconciles a lost add response wi
 
 it('requires the exact subject name and fences dismissal while its native deletion is pending', async () => {
   const response = deferred<boolean>();
+
   rpc['projects.deleteProject'].mockReturnValue(Effect.promise(() => response.promise));
   mount();
   await selectProject();
@@ -540,6 +541,7 @@ it('requires the exact subject name and fences dismissal while its native deleti
   const dialog = await screen.findByRole('alertdialog');
   const confirm = within(dialog).getByRole('button', { name: t['collections.delete'] });
   const field = within(dialog).getByRole('textbox');
+
   expect(confirm).toBeDisabled();
   fireEvent.change(field, { target: { value: 'delete' } });
   expect(confirm).toBeDisabled();
@@ -569,6 +571,7 @@ it('does not announce a missing subject as deleted when the native receipt is fa
   await selectProject();
   fireEvent.click(detail().getByRole('button', { name: t['collections.delete'] }));
   const dialog = await screen.findByRole('alertdialog');
+
   fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: project.name } });
   fireEvent.click(within(dialog).getByRole('button', { name: t['collections.delete'] }));
   expect(await within(dialog).findByRole('alert')).toHaveTextContent(

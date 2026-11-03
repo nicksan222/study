@@ -1,7 +1,8 @@
+import type { ProjectId } from '@study/contracts/ids';
 import type { AppearancePreferences } from '@study/contracts/settings/types';
 import type { Appearance as AppearanceMode } from '@study/ui/theme';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { applyAppearance } from '../../lib/appearance';
@@ -24,6 +25,7 @@ export interface AppearanceModel {
   deleteTheme: (id: string) => Promise<unknown>;
 }
 
+/** Loads persisted appearance data and refreshes it after preference or theme mutations. */
 export function useAppearance(): AppearanceModel {
   const client = useQueryClient();
   const query = useQuery(appearanceQueryOptions());
@@ -57,13 +59,33 @@ export function useAppearance(): AppearanceModel {
   };
 }
 
-export function usePage(onClose?: () => void) {
+/** Keeps section navigation local and clears search when opening a different settings section. */
+export function usePage(
+  onClose?: () => void,
+  initialSection: SettingsSectionId = 'appearance',
+  workspaceProject?: ProjectId
+) {
   const navigate = useNavigate();
+  const scope = useSearch({ from: '__root__' });
   const model = useAppearance();
   const [search, onSearch] = useState('');
-  const [section, setSection] = useState<SettingsSectionId>('appearance');
+  const [section, setSection] = useState<SettingsSectionId>(initialSection);
 
   return {
+    onProjectDeleted: (id: ProjectId) => {
+      const activeProject =
+        workspaceProject === undefined ? scope.project : String(workspaceProject);
+
+      if (activeProject === String(id)) {
+        void navigate({ to: '/sessions', search: {}, replace: true });
+      } else if (scope.project === String(id)) {
+        void navigate({
+          to: '.',
+          search: (previous) => ({ ...previous, project: undefined }),
+          replace: true
+        });
+      }
+    },
     search,
     onSearch,
     section,

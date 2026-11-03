@@ -24,7 +24,11 @@ import {
   projectMaterialInputSchema,
   projectSessionInputSchema
 } from '@study/contracts/projects/rpc';
-import { projectSchema } from '@study/contracts/projects/schemas';
+import {
+  projectSchema,
+  projectIconSchema,
+  automaticProjectIcon
+} from '@study/contracts/projects/schemas';
 import { and, desc, eq, lt } from '@study/db';
 import {
   projects,
@@ -39,15 +43,21 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
+/** Decodes persisted glyph variants and colors through the canonical icon schema. */
 const row = (value: typeof projects.$inferSelect) => ({
   id: value.id,
   name: value.name,
-  icon: value.icon,
+  icon: Schema.decodeUnknownSync(projectIconSchema)(
+    value.icon === null
+      ? { kind: 'automatic', color: value.icon_color }
+      : { kind: value.icon_kind, value: value.icon, color: value.icon_color }
+  ),
   examOn: value.exam_on,
   createdAt: value.created_at,
   updatedAt: value.updated_at
 });
 
+/** Maps stored project rows behind the typed feature boundary for exact-ID reads. */
 function makeHelpers({ db }: StoreResources) {
   const find = (id: typeof projectIdSchema.Type) => {
     const value = db.orm.select().from(projects).where(eq(projects.id, id)).get();
@@ -179,7 +189,7 @@ export const ProjectsStore = defineStore({
             return {
               id: Schema.decodeUnknownSync(projectIdSchema)(BigInt(result.lastInsertRowid)),
               name: input.name,
-              icon: null,
+              icon: automaticProjectIcon,
               examOn: null,
               createdAt: timestamp,
               updatedAt: timestamp
@@ -207,11 +217,18 @@ export const ProjectsStore = defineStore({
           output: projectSchema,
           run: (input) => {
             if (!find(input.id)) throw new StudyError('not_found', 'Subject not found');
+
             db.orm
               .update(projects)
-              .set({ icon: input.icon, updated_at: unixSeconds(clock) })
+              .set({
+                icon: input.icon.kind === 'automatic' ? null : input.icon.value,
+                icon_kind: input.icon.kind === 'automatic' ? 'monogram' : input.icon.kind,
+                icon_color: input.icon.color,
+                updated_at: unixSeconds(clock)
+              })
               .where(eq(projects.id, input.id))
               .run();
+
             return find(input.id)!;
           }
         }),

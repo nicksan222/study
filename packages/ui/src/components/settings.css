@@ -802,3 +802,55 @@
 .settings-interface .settings-slider:active::-moz-range-thumb {
   transform: none;
 }
+
+.settings-drilldown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 3.5rem;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  color: var(--contrast-foreground);
+  text-align: start;
+  cursor: pointer;
+}
+.settings-drilldown-item + .settings-drilldown-item {
+  border-top: 1px solid var(--ui-divider-border);
+}
+.settings-drilldown-item:hover {
+  background: var(--accent);
+}
+.settings-drilldown-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.settings-drilldown-icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+.settings-drilldown-copy {
+  min-width: 0;
+  flex: 1;
+}
+.settings-drilldown-label {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.375rem;
+}
+.settings-drilldown-description {
+  display: block;
+  margin-top: 0.125rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.settings-drilldown-item > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  color: var(--contrast-muted-foreground);
+}

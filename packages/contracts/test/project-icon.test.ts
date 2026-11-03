@@ -17,9 +17,22 @@ test('subject initials are deterministic Unicode-aware monograms', () => {
   ])
     assert.equal(projectInitials(name!), initials);
 });
-test('custom subject icons accept one to three letters or numbers without hidden whitespace', () => {
-  for (const icon of ['A', 'BIO', 'é', '日本', '42', 'e\u0301'])
+test('subject icon variants validate their own values and a closed color palette', () => {
+  for (const icon of [
+    { kind: 'automatic', color: 'neutral' },
+    { kind: 'monogram', value: 'BIO', color: 'green' },
+    { kind: 'symbol', value: 'atom', color: 'violet' },
+    { kind: 'emoji', value: '📚', color: 'blue' }
+  ])
     assert.ok(Schema.is(projectIconSchema)(icon));
-  for (const icon of ['', ' FOUR ', 'ABCD', 'A B', '😀', '<svg>', '\nA'])
+
+  for (const icon of [
+    'BIO',
+    null,
+    { kind: 'monogram', value: 'ABCD', color: 'neutral' },
+    { kind: 'symbol', value: '<svg>', color: 'blue' },
+    { kind: 'emoji', value: 'hello', color: 'blue' },
+    { kind: 'automatic', color: 'url(evil)' }
+  ])
     assert.ok(!Schema.is(projectIconSchema)(icon));
 });

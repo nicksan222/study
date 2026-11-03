@@ -21,6 +21,7 @@ export type DangerDialogProps = {
   children?: ReactNode;
 };
 
+/** Requires target-specific typed confirmation and prevents dismissal while the destructive action is pending. */
 export function DangerDialog({
   open,
   onOpenChange,
@@ -37,6 +38,7 @@ export function DangerDialog({
   const cancel = useRef<HTMLButtonElement>(null);
   const inputId = useId();
   const typed = useConfirmation(open, confirmation);
+
   return (
     <AlertDialog.Root
       open={open}
@@ -51,6 +53,7 @@ export function DangerDialog({
             className={cn(DIALOG_POPUP_CLASS, 'ui-danger-dialog')}
             initialFocus={() => {
               cancel.current?.focus({ preventScroll: true });
+
               return false;
             }}
             aria-busy={pending || undefined}
@@ -100,6 +103,7 @@ export function DangerDialog({
   );
 }
 
+/** Resets typed confirmation whenever dialog visibility or target identity changes. */
 function useConfirmation(open: boolean, confirmation: DangerDialogProps['confirmation']) {
   const [draft, setDraft] = useState({
     open,
@@ -111,11 +115,14 @@ function useConfirmation(open: boolean, confirmation: DangerDialogProps['confirm
     draft.open === open &&
     draft.identity === confirmation.identity &&
     draft.required === confirmation.value;
+
   if (!current) {
     setDraft({ open, identity: confirmation.identity, required: confirmation.value, text: '' });
   }
+
   const phrase = current ? draft.text : '';
   const verified = open && confirmation.value.length > 0 && phrase === confirmation.value;
+
   return {
     value: phrase,
     verified,

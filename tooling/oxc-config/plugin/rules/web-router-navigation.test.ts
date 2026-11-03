@@ -123,3 +123,25 @@ test('proposal result and captured input links use typed route search for exact 
 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
+
+test('permits bound TanStack index route IDs while retaining strict actual navigation paths', () => {
+  const diagnostics = lintRule(
+    'web-router-navigation',
+    {
+      'apps/web/src/routes/sessions.index.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';
+        export const Route = fileRoute('/sessions/')({component: Page});`,
+      'apps/web/src/routes/sessions.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/sessions/')({});`,
+      'apps/web/src/routes/sessions/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/sessions/')({});`,
+      'apps/web/src/routes/unsafe.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';
+        fileRoute('/Sessions/')({});
+        function shadow(fileRoute) { return fileRoute('/sessions/')({}); }
+        const badNavigation = '/sessions/';`,
+      'apps/web/src/routes/other.tsx': `import { createFileRoute } from 'another-router'; createFileRoute('/sessions/')({});`,
+      'apps/web/src/app/shell/links.tsx': `import { Link } from '@tanstack/react-router'; const view = <Link to="/sessions/" />;`
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/sessions.index.tsx')));
+});

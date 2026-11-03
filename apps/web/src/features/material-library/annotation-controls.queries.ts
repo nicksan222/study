@@ -8,6 +8,7 @@ import { request } from '../../lib/study-client/request';
 import { savedDraft, retainAnnotations } from './annotation-state';
 import type { Annotation, AnnotationDraft } from './annotation-state';
 
+/** Coordinates exact-version annotation mutations with confirmation and reconciliation state. */
 export function useAnnotationControls({ annotation }: { annotation: Annotation }) {
   const { t } = useI18n();
   const client = useQueryClient();
@@ -129,10 +130,12 @@ export function useAnnotationControls({ annotation }: { annotation: Annotation }
                 review: outcome.outcome === 'conflict' ? outcome.current : undefined
               })
       );
+
       if (operation === 'delete' && outcome.outcome === 'saved') {
         toastManager.add({ title: t('AnnotationDeleted'), type: 'success' });
         setDeleting(false);
       }
+
       await Promise.allSettled([
         client.invalidateQueries({ queryKey: ['materials', 'annotations'] }),
         client.invalidateQueries({ queryKey: ['materials', 'annotationHistory', key] }),

@@ -1,7 +1,7 @@
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogTitle, DialogClose } from '@study/ui/dialog';
 import { cn } from '@study/ui/utils';
-import { Search as SearchIcon, X } from 'lucide-react';
+import { Search as SearchIcon, X, ChevronRight } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
@@ -150,25 +150,56 @@ function SearchResults<Id extends string>({
   );
 }
 
+/** Groups related settings under a heading with optional section actions. */
 function Section({
   title,
   actions,
   children,
-  className
+  className,
+  variant = 'default'
 }: {
   title: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  variant?: 'default' | 'color-scheme' | 'theme-library' | 'interface';
 }) {
   return (
-    <section className={cn('settings-section', className)}>
+    <section
+      className={cn('settings-section', variant !== 'default' && `settings-${variant}`, className)}
+    >
       <div className="settings-section-header">
         <h3>{title}</h3>
         {actions && <div className="settings-actions">{actions}</div>}
       </div>
       {children}
     </section>
+  );
+}
+
+/** Provides a keyboard-accessible drill-in row inside a shared settings group. */
+function Item({
+  label,
+  description,
+  icon,
+  onClick
+}: {
+  label: string;
+  description?: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="settings-drilldown-item" aria-label={label} onClick={onClick}>
+      <span className="settings-drilldown-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="settings-drilldown-copy">
+        <span className="settings-drilldown-label">{label}</span>
+        {description && <span className="settings-drilldown-description">{description}</span>}
+      </span>
+      <ChevronRight aria-hidden="true" />
+    </button>
   );
 }
 
@@ -350,6 +381,7 @@ function Empty({
   );
 }
 
+/** Presents a settings status with an optional recovery action. */
 function Status({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div role="alert" className="mb-6 flex items-center justify-between gap-4 text-sm">
@@ -360,6 +392,7 @@ function Status({ children, action }: { children: ReactNode; action?: ReactNode 
 }
 
 export const Settings = {
+  Item,
   Navigation,
   SearchResults,
   Group: SettingsGroup,

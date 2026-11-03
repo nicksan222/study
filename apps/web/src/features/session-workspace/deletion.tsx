@@ -2,21 +2,25 @@ import type { sessionDeletionSchema } from '@study/contracts/conversations/delet
 import type { SessionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
+import { ErrorState } from '@study/ui/error-state';
+import { Loading } from '@study/ui/loading';
 import { toastManager } from '@study/ui/toast';
+import { WorkspaceSurface } from '@study/ui/workspace';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { useI18n } from '../../lib/i18n';
 import { toStudyError } from '../../lib/study-client/errors';
 import {
-  deleteSession,
+  deleteSessionMutationOptions,
   deletionOptions,
   deletionAttemptOptions,
-  retryDeletion,
+  retrySessionDeletionMutationOptions,
   sessionKey
 } from './session-workspace.queries';
 import { SessionError, SessionReadError } from './status';
 
+/** Shares deletion receipts through the query cache while keeping success announcements owned by the initiating observer. */
 function useSessionDeletion(id: SessionId, enabled = true) {
   const { t } = useI18n();
   const cache = useQueryClient();
@@ -38,45 +42,50 @@ function useSessionDeletion(id: SessionId, enabled = true) {
   };
   const mutation = useMutation({
     mutationKey,
-    mutationFn: () => deleteSession(id),
-    retry: false,
+    ...deleteSessionMutationOptions(id),
     onMutate: ownAttempt,
     onSuccess: commitReceipt,
     onError: (error) => {
       if (toStudyError(error).kind === 'invalid_input') {
         setStarted(false);
       }
+
       void cache.invalidateQueries({ queryKey: deletionOptions(id, true).queryKey });
     }
   });
   const retry = useMutation({
     mutationKey,
-    mutationFn: () => retryDeletion(id),
-    retry: false,
+    ...retrySessionDeletionMutationOptions(id),
     onMutate: ownAttempt,
     onSuccess: commitReceipt
   });
-  const announcementKey = [...sessionKey(id), 'deletion-announced'];
+  const announcementKey = useMemo(() => [...sessionKey(id), 'deletion-announced'], [id]);
+
   cache.setQueryDefaults(announcementKey, { gcTime: Infinity });
   useEffect(() => {
     const receipt = state.data;
+
     if (
       !notificationOwner.current ||
       receipt?.status !== 'completed' ||
       cache.getQueryData(announcementKey) === receipt.operationId
     )
       return;
+
     cache.setQueryData(announcementKey, receipt.operationId);
     toastManager.add({ title: t('SessionDeleted'), type: 'success' });
-  }, [state.data, started, t, cache, id]);
+  }, [state.data, started, t, cache, announcementKey]);
   const available = state.isSuccess && state.data === null;
+
   return { state, mutation, retry, started, pending, available, owned: notificationOwner.current };
 }
 
 type DeletionFlow = ReturnType<typeof useSessionDeletion>;
 
+/** Exposes mutation and receipt read failures with the recovery each operation permits. */
 function DeleteErrors({ flow }: { flow: DeletionFlow }) {
   const { state, mutation, retry, pending } = flow;
+
   return (
     <>
       {mutation.error && (
@@ -91,13 +100,15 @@ function DeleteErrors({ flow }: { flow: DeletionFlow }) {
   );
 }
 
+/** Reports loading, deletion progress and committed completion from the shared receipt. */
 function DeleteStatus({ flow }: { flow: DeletionFlow }) {
   const { t } = useI18n();
   const { state, pending } = flow;
+
   return (
     <>
-      {state.isPending && <p role="status">{t('LoadingStudy')}</p>}
-      {(pending || state.data?.status === 'pending') && <p role="status">{t('SessionDeleting')}</p>}
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
+      {(pending || state.data?.status === 'pending') && <Loading label={t('SessionDeleting')} />}
       {state.data?.status === 'completed' && <p role="status">{t('SessionDeleted')}</p>}
     </>
   );
@@ -112,22 +123,31 @@ function DeleteFeedback({ flow }: { flow: DeletionFlow }) {
   );
 }
 
+/** Shows recovery for an interrupted session deletion without restoring deleted session content. */
 export function SessionDeletion({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const flow = useSessionDeletion(id);
+
   return (
-    <section className="session-delete" aria-label={t('SessionDelete')}>
+    <WorkspaceSurface.Deletion aria-label={t('SessionDelete')}>
       <p>{t('SessionDeleteHelp')}</p>
       <DeleteFeedback flow={flow} />
       {flow.state.data?.status === 'failed' && (
-        <Button disabled={flow.pending} onClick={() => flow.retry.mutate()}>
-          {t('SessionRetryDelete')}
-        </Button>
+        <ErrorState
+          layout="inline"
+          title={t('SessionDeleteFailed')}
+          action={
+            <Button disabled={flow.pending} onClick={() => flow.retry.mutate()}>
+              {t('SessionRetryDelete')}
+            </Button>
+          }
+        />
       )}
-    </section>
+    </WorkspaceSurface.Deletion>
   );
 }
 
+/** Confirms deletion once per attempt and closes only after its owned operation completes. */
 export function SessionDeleteDialog({
   id,
   open,
@@ -141,9 +161,11 @@ export function SessionDeleteDialog({
   const flow = useSessionDeletion(id, open);
   const retryable = flow.state.data?.status === 'failed';
   const pending = flow.pending || flow.state.data?.status === 'pending';
+
   useEffect(() => {
     if (flow.owned && flow.state.data?.status === 'completed') onOpenChange(false);
   }, [flow.owned, flow.state.data?.status, onOpenChange]);
+
   return (
     <DangerDialog
       open={open}
@@ -161,6 +183,7 @@ export function SessionDeleteDialog({
       disabled={!retryable && (!flow.available || flow.started)}
       onConfirm={() => {
         if (pending) return;
+
         if (retryable) flow.retry.mutate();
         else if (flow.available && !flow.started) flow.mutation.mutate();
       }}

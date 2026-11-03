@@ -184,6 +184,7 @@ it('deletes only after confirmation and keeps paginated deleted revisions access
   await user.click(screen.getByRole('button', { name: 'AnnotationDelete' }));
   const dialog = await screen.findByRole('alertdialog');
   const confirm = within(dialog).getByRole('button', { name: 'AnnotationDelete' });
+
   expect(confirm).toBeDisabled();
   expect(rpc['materials.deleteAnnotation']).not.toHaveBeenCalled();
   await user.type(within(dialog).getByRole('textbox'), 'DeleteConfirmationWord');

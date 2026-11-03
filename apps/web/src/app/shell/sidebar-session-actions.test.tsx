@@ -13,19 +13,28 @@ import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
+import type * as WorkspaceQueries from '../../features/session-workspace/session-workspace.queries';
 import { SidebarSessionActions } from './sidebar-session-actions';
 
 const notices = vi.hoisted(() => ({ add: vi.fn() }));
+
 vi.mock('@study/ui/toast', () => ({ toastManager: notices }));
 
 const deletion = vi.hoisted(() => ({ remove: vi.fn(), read: vi.fn(), retry: vi.fn() }));
+
 vi.mock('../../features/session-workspace/session-workspace.queries', async (load) => {
-  const actual =
-    await load<typeof import('../../features/session-workspace/session-workspace.queries')>();
+  const actual = await load<typeof WorkspaceQueries>();
+
   return {
     ...actual,
-    deleteSession: deletion.remove,
-    retryDeletion: deletion.retry,
+    deleteSessionMutationOptions: (id: unknown) => ({
+      mutationFn: () => deletion.remove(id),
+      retry: false
+    }),
+    retrySessionDeletionMutationOptions: (id: unknown) => ({
+      mutationFn: () => deletion.retry(id),
+      retry: false
+    }),
     deletionOptions: (id: unknown) => ({
       queryKey: ['delete-session-test', String(id)],
       queryFn: deletion.read
@@ -34,12 +43,15 @@ vi.mock('../../features/session-workspace/session-workspace.queries', async (loa
 });
 
 const id = Schema.decodeUnknownSync(sessionIdSchema)(9007199254740993n);
+
 const en = catalogs.english;
+
 const clients: QueryClient[] = [];
 
 function mount() {
   deletion.read.mockResolvedValue(null);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(client);
   const root = createRootRoute({
     component: () => (
@@ -54,12 +66,15 @@ function mount() {
     routeTree: root,
     history: createMemoryHistory({ initialEntries: ['/'] })
   });
+
   render(<RouterProvider router={router} />);
+
   return router;
 }
 
 afterEach(() => {
   for (const client of clients.splice(0)) client.clear();
+
   vi.clearAllMocks();
 });
 
@@ -71,8 +86,10 @@ it('opens session actions with right click and cancels deletion without a mutati
     clientY: 80
   });
   const remove = await screen.findByRole('menuitem', { name: en.SessionDelete });
+
   await userEvent.setup().click(remove);
   const dialog = await screen.findByRole('alertdialog');
+
   expect(within(dialog).getByText(en.SessionDeleteHelp)).toBeVisible();
   expect(within(dialog).getByRole('button', { name: en.Cancel })).toHaveFocus();
   await userEvent.setup().click(within(dialog).getByRole('button', { name: en.Cancel }));
@@ -82,6 +99,7 @@ it('opens session actions with right click and cancels deletion without a mutati
 
 it('opens the canonical session path from the context menu without adding row controls', async () => {
   const router = mount();
+
   fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
     button: 2,
     clientX: 80,
@@ -97,6 +115,7 @@ it('deletes only the exact session after explicit confirmation', async () => {
   deletion.remove.mockReturnValue(new Promise(() => {}));
   mount();
   const user = userEvent.setup();
+
   fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
     button: 2,
     clientX: 80,
@@ -104,10 +123,13 @@ it('deletes only the exact session after explicit confirmation', async () => {
   });
   await user.click(await screen.findByRole('menuitem', { name: en.SessionDelete }));
   const dialog = await screen.findByRole('alertdialog');
+
   expect(deletion.remove).not.toHaveBeenCalled();
   const confirm = await within(dialog).findByRole('button', { name: en.SessionConfirmDelete });
+
   expect(confirm).toBeDisabled();
   const phrase = within(dialog).getByRole('textbox');
+
   await user.type(phrase, 'wrong');
   expect(confirm).toBeDisabled();
   expect(deletion.remove).not.toHaveBeenCalled();
@@ -137,9 +159,11 @@ it('announces an owned retry completion once and does not announce cached receip
   deletion.read.mockResolvedValue(receipt('failed'));
   deletion.retry.mockResolvedValue(receipt('completed'));
   const user = userEvent.setup();
+
   fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
   await user.click(await screen.findByRole('menuitem', { name: en.SessionDelete }));
   const dialog = await screen.findByRole('alertdialog');
+
   await user.type(within(dialog).getByRole('textbox'), en.DeleteConfirmationWord);
   await user.click(await within(dialog).findByRole('button', { name: en.SessionRetryDelete }));
   await waitFor(() => expect(deletion.retry).toHaveBeenCalledExactlyOnceWith(id));
@@ -155,6 +179,7 @@ it('announces an owned retry completion once and does not announce cached receip
   fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
   await user.click(await screen.findByRole('menuitem', { name: en.SessionDelete }));
   const cached = await screen.findByRole('alertdialog');
+
   expect(
     await within(cached).findByRole('button', { name: en.SessionConfirmDelete })
   ).toBeDisabled();

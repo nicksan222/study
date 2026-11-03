@@ -3,22 +3,21 @@ import type { MaterialVersionId, SessionId, SourceId } from '@study/contracts/id
 import { Button } from '@study/ui/button';
 import {
   Dialog,
-  DialogPopup,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
   DialogClose
 } from '@study/ui/dialog';
-import { WorkspaceCard } from '@study/ui/workspace';
+import { Loading } from '@study/ui/loading';
+import { WorkspaceChanges, WorkspaceCard } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { FileText, Paperclip, ArrowUpRight, History, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
-import { ExactDocument } from '../material-library/exact-document';
+import { ExactDocument } from '../material-library';
 import { changeVersions, sessionChanges } from './changes';
 import type { ChangeMessage } from './changes';
 import {
@@ -27,32 +26,37 @@ import {
   threadOptions
 } from './session-workspace.queries';
 import { SessionReadError } from './status';
+import { attachmentPreviewOptions } from './workspace-context.queries';
 
-import './changes.css';
 type Preview =
   | { kind: 'message'; message: ChangeMessage }
   | { kind: 'attachment'; name: string; sourceId: SourceId | null }
   | { kind: 'document'; name: string; versionId: MaterialVersionId };
+
+/** Shows session changes or a starter hint inside the shared context surface. */
 export function WorkspaceContext({ id, children }: { id?: SessionId; children?: ReactNode }) {
   const { t } = useI18n();
+
   return (
     <WorkspaceCard.Root
       aria-label={t(id ? 'SessionContextPanel' : 'SessionChanges')}
-      className="session-changes"
+      variant="changes"
     >
-      <header className="session-changes-heading">
+      <WorkspaceChanges.Heading>
         <History size={15} aria-hidden="true" />
         <h2>{t('SessionChanges')}</h2>
-      </header>
+      </WorkspaceChanges.Heading>
       {id ? (
         <SessionChanges key={String(id)} id={id} />
       ) : (
-        <p className="session-changes-empty">{t('SessionChangesStart')}</p>
+        <WorkspaceChanges.Empty>{t('SessionChangesStart')}</WorkspaceChanges.Empty>
       )}
       {children}
     </WorkspaceCard.Root>
   );
 }
+
+/** Combines paginated messages and unique generation runs with typed preview selection. */
 function SessionChanges({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const thread = useInfiniteQuery(threadOptions(id));
@@ -64,13 +68,14 @@ function SessionChanges({ id }: { id: SessionId }) {
       generations.data?.pages.flatMap((page) => page.items).map((run) => [run.requestId, run])
     ).values()
   ];
+
   return (
     <>
-      <div className="session-changes-list">
+      <WorkspaceChanges.List>
         {[thread, generations].some((query) => query.isPending) && (
-          <p role="status" className="session-changes-empty">
-            {t('LoadingStudy')}
-          </p>
+          <WorkspaceChanges.Empty>
+            <Loading label={t('LoadingStudy')} />
+          </WorkspaceChanges.Empty>
         )}
         {thread.error && (
           <SessionReadError error={thread.error} retry={() => void thread.refetch()} />
@@ -80,7 +85,7 @@ function SessionChanges({ id }: { id: SessionId }) {
         )}
         {[thread, generations].every((query) => query.isSuccess) &&
           messages.length + runs.length === 0 && (
-            <p className="session-changes-empty">{t('SessionChangesEmpty')}</p>
+            <WorkspaceChanges.Empty>{t('SessionChangesEmpty')}</WorkspaceChanges.Empty>
           )}
         {messages.map((message) => (
           <MessageChange key={String(message.id)} message={message} onPreview={setPreview} />
@@ -88,27 +93,29 @@ function SessionChanges({ id }: { id: SessionId }) {
         {runs.map((run) => (
           <GenerationChange key={run.requestId} run={run} onPreview={setPreview} />
         ))}
-      </div>
+      </WorkspaceChanges.List>
       {[thread, generations].some((query) => query.hasNextPage) && (
-        <div className="session-changes-more">
+        <WorkspaceChanges.More>
           <Button
             size="sm"
             variant="ghost-muted"
             disabled={[thread, generations].some((query) => query.isFetchingNextPage)}
             onClick={() => {
               if (thread.hasNextPage) void thread.fetchNextPage();
+
               if (generations.hasNextPage) void generations.fetchNextPage();
             }}
           >
             {t('SessionChangesMore')}
           </Button>
-        </div>
+        </WorkspaceChanges.More>
       )}
       <ChangePreview preview={preview} onClose={() => setPreview(undefined)} />
     </>
   );
 }
 
+/** Presents the selected change in a dismissible preview dialog. */
 function ChangePreview({
   preview,
   onClose
@@ -117,6 +124,7 @@ function ChangePreview({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+
   return (
     <Dialog
       open={!!preview}
@@ -124,11 +132,7 @@ function ChangePreview({
         if (!open) onClose();
       }}
     >
-      <DialogPopup
-        closeLabel={t('Close')}
-        className="session-change-dialog"
-        bottomStickOnMobile={false}
-      >
+      <WorkspaceChanges.Dialog closeLabel={t('Close')}>
         <DialogHeader>
           <DialogTitle>
             {preview?.kind === 'message'
@@ -137,17 +141,18 @@ function ChangePreview({
           </DialogTitle>
           <DialogDescription>{t('SessionChangesPreview')}</DialogDescription>
         </DialogHeader>
-        <div className="session-change-preview">
+        <WorkspaceChanges.Preview>
           <PreviewContent preview={preview} />
-        </div>
+        </WorkspaceChanges.Preview>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
         </DialogFooter>
-      </DialogPopup>
+      </WorkspaceChanges.Dialog>
     </Dialog>
   );
 }
 
+/** Lists a message revision and its source attachments as separate preview targets. */
 function MessageChange({
   message,
   onPreview
@@ -157,6 +162,7 @@ function MessageChange({
 }) {
   const { t } = useI18n();
   const { current } = changeVersions(message);
+
   return (
     <WorkspaceCard.Group>
       {current &&
@@ -167,7 +173,7 @@ function MessageChange({
             ) : (
               <MessageSquare aria-hidden="true" />
             )}
-            <span className="session-change-label">
+            <WorkspaceChanges.Label>
               <strong>{current.text.trim().split('\n')[0] || t('SessionNote')}</strong>
               <small>
                 {t(
@@ -179,7 +185,7 @@ function MessageChange({
                 )}
                 {current.status !== 'complete' ? ' · ' + t('SessionPending') : ''}
               </small>
-            </span>
+            </WorkspaceChanges.Label>
             <ArrowUpRight aria-hidden="true" />
           </WorkspaceCard.Item>
         )}
@@ -195,10 +201,10 @@ function MessageChange({
           }
         >
           <Paperclip aria-hidden="true" />
-          <span className="session-change-label">
+          <WorkspaceChanges.Label>
             <strong>{part.sourceName}</strong>
             <small>{t('SessionChangesAttachment')}</small>
-          </span>
+          </WorkspaceChanges.Label>
           <ArrowUpRight aria-hidden="true" />
         </WorkspaceCard.Item>
       ))}
@@ -206,11 +212,13 @@ function MessageChange({
   );
 }
 
+/** Shows the current message version alongside its predecessor when one exists. */
 function MessagePreview({ message }: { message: ChangeMessage }) {
   const { t } = useI18n();
   const { current, previous } = changeVersions(message);
+
   return (
-    <div className="session-change-versions">
+    <WorkspaceChanges.Versions>
       {previous && (
         <section>
           <h3>
@@ -219,9 +227,7 @@ function MessagePreview({ message }: { message: ChangeMessage }) {
               {t('ReaderVersion')} {String(previous.number)}
             </span>
           </h3>
-          <div className="session-change-text" data-previous>
-            {previous.text}
-          </div>
+          <WorkspaceChanges.Text data-previous>{previous.text}</WorkspaceChanges.Text>
         </section>
       )}
       <section>
@@ -239,30 +245,33 @@ function MessagePreview({ message }: { message: ChangeMessage }) {
             </span>
           )}
         </h3>
-        <div className="session-change-text">{current?.text || t('SessionReadUnavailable')}</div>
+        <WorkspaceChanges.Text>
+          {current?.text || t('SessionReadUnavailable')}
+        </WorkspaceChanges.Text>
       </section>
       {current && current.status !== 'complete' && <p role="status">{t('SessionPending')}</p>}
-    </div>
+    </WorkspaceChanges.Versions>
   );
 }
+
+/** Loads the source-pinned document version and exposes read recovery before previewing it. */
 function AttachmentPreview({ sourceId }: { sourceId: SourceId | null }) {
   const { t } = useI18n();
-  const state = useQuery({
-    queryKey: ['materials', 'imported', String(sourceId)],
-    enabled: sourceId !== null,
-    queryFn: ({ signal }) =>
-      request((client) => client['materials.importedMaterial']({ sourceId: sourceId! }), signal),
-    refetchInterval: (query) => (query.state.data ? false : 3000)
-  });
+  const state = useQuery(attachmentPreviewOptions(sourceId));
+
   if (sourceId === null) return <p>{t('SessionReadUnavailable')}</p>;
+
   if (state.error)
     return <SessionReadError error={state.error} retry={() => void state.refetch()} />;
+
   return state.data ? (
     <ExactDocument id={state.data.version.id} />
   ) : (
-    <p role="status">{t('SessionChangesPreparing')}</p>
+    <Loading label={t('SessionChangesPreparing')} />
   );
 }
+
+/** Enables document previews only for available generation outputs with an exact version. */
 function GenerationChange({
   run,
   onPreview
@@ -278,6 +287,7 @@ function GenerationChange({
   const versionId = run.resultVersionId ?? run.proposedVersionId;
   const title = state.data?.title || t('SessionTransform');
   const status = generationStatus(run);
+
   return (
     <WorkspaceCard.Group>
       <WorkspaceCard.Item
@@ -287,10 +297,10 @@ function GenerationChange({
         }}
       >
         <FileText aria-hidden="true" />
-        <span className="session-change-label">
+        <WorkspaceChanges.Label>
           <strong>{title}</strong>
           <small>{t(status)}</small>
-        </span>
+        </WorkspaceChanges.Label>
         {versionId && <ArrowUpRight aria-hidden="true" />}
       </WorkspaceCard.Item>
       {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
@@ -298,17 +308,25 @@ function GenerationChange({
   );
 }
 
+/** Prioritizes retirement, availability and cancellation before labeling a generation result. */
 function generationStatus(run: typeof sessionGenerationSchema.Type) {
   if (run.state === 'retired') return 'SessionRunRetired';
+
   if (run.state === 'unavailable') return 'SessionContextUnavailable';
+
   if (run.cancelled) return 'SessionCancelledTransform';
+
   if (run.resultVersionId) return 'SessionChangesGenerated';
+
   if (run.proposedVersionId) return 'SessionRunProposal';
+
   return 'SessionRunAwaitingOutput';
 }
 
+/** Dispatches each typed preview to its message, source or exact-version reader. */
 function PreviewContent({ preview }: { preview: Preview | undefined }) {
   if (!preview) return null;
+
   switch (preview.kind) {
     case 'message':
       return <MessagePreview message={preview.message} />;

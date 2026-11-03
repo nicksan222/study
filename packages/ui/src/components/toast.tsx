@@ -4,6 +4,7 @@ import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
 export const toastManager = ToastPrimitive.createToastManager();
+
 const useToastManager = ToastPrimitive.useToastManager;
 
 export function ToastProvider({
@@ -24,14 +25,17 @@ export function ToastProvider({
   );
 }
 
+/** Renders managed notifications with accessible dismissal and optional actions. */
 function Toaster({ closeLabel, viewportLabel }: { closeLabel: string; viewportLabel: string }) {
   const { toasts } = useToastManager();
+
   return (
     <ToastPrimitive.Portal>
       <ToastPrimitive.Viewport className="ui-toast-viewport" aria-label={viewportLabel}>
         {toasts.map((toast) => {
           const Icon =
             toast.type === 'error' ? CircleAlert : toast.type === 'success' ? CircleCheck : Info;
+
           return (
             <ToastPrimitive.Root key={toast.id} toast={toast} className="ui-toast">
               <ToastPrimitive.Content className="ui-toast-content">

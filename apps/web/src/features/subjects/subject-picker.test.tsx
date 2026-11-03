@@ -12,7 +12,7 @@ const subjects = [
   Schema.decodeUnknownSync(projectSchema)({
     id: 1n,
     name: 'Cell Biology',
-    icon: 'BIO',
+    icon: { kind: 'monogram', value: 'BIO', color: 'neutral' },
     examOn: null,
     createdAt: 1n,
     updatedAt: 1n
@@ -20,22 +20,28 @@ const subjects = [
   Schema.decodeUnknownSync(projectSchema)({
     id: 2n,
     name: 'History of Art',
-    icon: null,
+    icon: { kind: 'automatic', color: 'neutral' },
     examOn: null,
     createdAt: 1n,
     updatedAt: 1n
   })
 ];
+
+function subjectIcon(item: (typeof subjects)[number]) {
+  return <SubjectIdentity name={item.name} icon={item.icon} />;
+}
+
 function Picker() {
   const [value, setValue] = useState(subjects[0]!);
   const [open, setOpen] = useState(false);
+
   return (
     <Sidebar.Picker
       items={subjects}
       value={value}
       getLabel={(item) => item.name}
       getValue={(item) => String(item.id)}
-      getIcon={(item) => <SubjectIdentity name={item.name} icon={item.icon} />}
+      getIcon={subjectIcon}
       onValueChange={setValue}
       open={open}
       onOpenChange={setOpen}
@@ -45,14 +51,18 @@ function Picker() {
     />
   );
 }
+
 it('uses the same custom/automatic identity in the trigger and searchable keyboard picker', async () => {
   const user = userEvent.setup();
+
   render(<Picker />);
   const trigger = screen.getByRole('combobox', { name: 'Cell Biology' });
+
   expect(within(trigger).getByText('BIO')).toBeVisible();
   await user.click(trigger);
   await user.type(await screen.findByRole('combobox', { name: 'Find subject' }), 'History');
   const choice = await screen.findByRole('option', { name: 'History of Art' });
+
   expect(within(choice).getByText('HA')).toBeVisible();
   await user.keyboard('{ArrowDown}{Enter}');
   expect(await screen.findByRole('combobox', { name: 'History of Art' })).toBeVisible();

@@ -194,10 +194,11 @@ function PruneNext({ c }: { c: LifecycleController }) {
   );
 }
 
+/** Shows retention controls and recoverable cleanup operations for a material. */
 export function MaterialLifecycle({ id }: { id: MaterialId }) {
   const { t } = useI18n();
   const c = useMaterialLifecycle(id);
-  const { mode, setMode, busy, failed, confirmation, setConfirmation, operation } = c;
+  const { mode, setMode, busy, failed } = c;
 
   return (
     <MaterialLibrary.HistorySection>
@@ -240,34 +241,55 @@ export function MaterialLifecycle({ id }: { id: MaterialId }) {
           </MaterialLibrary.Import>
         </DialogPopup>
       </Dialog>
-      <DangerDialog
-        open={confirmation !== undefined}
-        onOpenChange={(open) => {
-          if (!open) setConfirmation(undefined);
-        }}
-        title={t(confirmation?.kind === 'delete' ? 'DocumentDelete' : 'DocumentPrune')}
-        confirmation={{
-          value: t('DeleteConfirmationWord'),
-          label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
-          identity: confirmation
-            ? `${confirmation.kind}:${confirmation.input.materialId}:${confirmation.input.token}${confirmation.kind === 'prune' ? ':' + confirmation.input.operationId : ''}`
-            : ''
-        }}
-        description={t(
-          confirmation?.kind === 'delete' ? 'DocumentDeleteExplanation' : 'DocumentPruneExplanation'
-        )}
-        confirmLabel={t(
-          confirmation?.kind === 'delete' ? 'DocumentConfirmDelete' : 'DocumentConfirmPrune'
-        )}
-        cancelLabel={t('Cancel')}
-        pending={busy}
-        disabled={operation !== undefined}
-        onConfirm={c.confirmCleanup}
-      >
-        {failed && <p role="alert">{t('DocumentPreviewFailed')}</p>}
-        {operation?.status === 'failed' && <p role="alert">{t('DocumentCleanupFailed')}</p>}
-      </DangerDialog>
+      <LifecycleConfirmation c={c} />
     </MaterialLibrary.HistorySection>
+  );
+}
+
+/** A renewed preview or prune operation requires a fresh confirmation phrase. */
+function cleanupConfirmationIdentity(confirmation: LifecycleController['confirmation']) {
+  if (!confirmation) return '';
+
+  const base = `${confirmation.kind}:${confirmation.input.materialId}:${confirmation.input.token}`;
+
+  return confirmation.kind === 'prune' ? `${base}:${confirmation.input.operationId}` : base;
+}
+
+/** Confirmation stays bound to the exact preview identity and pending operation fence. */
+function LifecycleConfirmation({ c }: { c: LifecycleController }) {
+  const { t } = useI18n();
+  const { confirmation, setConfirmation, operation, busy, failed } = c;
+
+  return (
+    <DangerDialog
+      open={confirmation !== undefined}
+      onOpenChange={(open) => {
+        if (!open) setConfirmation(undefined);
+      }}
+      title={t(confirmation?.kind === 'delete' ? 'DocumentDelete' : 'DocumentPrune')}
+      confirmation={{
+        value: t('DeleteConfirmationWord'),
+        label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
+        identity: cleanupConfirmationIdentity(confirmation)
+      }}
+      description={t(
+        confirmation?.kind === 'delete' ? 'DocumentDeleteExplanation' : 'DocumentPruneExplanation'
+      )}
+      confirmLabel={t(
+        confirmation?.kind === 'delete' ? 'DocumentConfirmDelete' : 'DocumentConfirmPrune'
+      )}
+      cancelLabel={t('Cancel')}
+      pending={busy}
+      disabled={operation !== undefined}
+      onConfirm={c.confirmCleanup}
+    >
+      {failed && (
+        <ErrorState title={t('ErrorStateTitle')} description={t('DocumentPreviewFailed')} />
+      )}
+      {operation?.status === 'failed' && (
+        <ErrorState title={t('ErrorStateTitle')} description={t('DocumentCleanupFailed')} />
+      )}
+    </DangerDialog>
   );
 }
 

@@ -6,6 +6,7 @@ import { ToastProvider, toastManager } from './toast';
 
 it('shows standard success feedback and supports keyboard access and localized dismissal', async () => {
   const user = userEvent.setup();
+
   render(
     <ToastProvider closeLabel="Dismiss notification" viewportLabel="Notifications">
       <button

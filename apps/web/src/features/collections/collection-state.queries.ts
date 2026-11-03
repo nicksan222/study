@@ -29,10 +29,12 @@ const initial: CollectionState = {
   reviewed: false
 };
 
+/** Matches the database name limit using Unicode code points after trimming. */
 export function validCollectionName(name: string) {
   return name.trim().length > 0 && [...name.trim()].length <= 100;
 }
 
+/** Shares drafts and mutation ownership across collection views and subject settings. */
 export function useCollectionState() {
   const client = useQueryClient();
   const query = useQuery({
@@ -47,6 +49,34 @@ export function useCollectionState() {
     client.setQueryData<CollectionState>(key, (value) => change(value ?? initial));
   }
 
+  /** Advances the subject-specific draft revision so late responses cannot erase newer edits. */
+  function changeName(id: ProjectId, text: string) {
+    update((value) => ({
+      ...value,
+      names: {
+        ...value.names,
+        [String(id)]: {
+          text,
+          revision: (value.names[String(id)]?.revision ?? 0) + 1
+        }
+      }
+    }));
+  }
+
+  /** Clears only the draft revision acknowledged by a successful rename. */
+  function acceptName(id: ProjectId, revision: number | undefined) {
+    update((value) => {
+      if (value.names[String(id)]?.revision !== revision) return value;
+
+      const names = { ...value.names };
+
+      delete names[String(id)];
+
+      return { ...value, names };
+    });
+  }
+
+  /** Serializes collection writes and reconciles reads even when a committed response is lost. */
   async function mutate(action: () => Promise<unknown>) {
     if (client.getQueryData<CollectionState>(key)?.pending) return;
 
@@ -67,5 +97,5 @@ export function useCollectionState() {
     }
   }
 
-  return { state: query.data, update, mutate };
+  return { state: query.data, update, mutate, changeName, acceptName };
 }

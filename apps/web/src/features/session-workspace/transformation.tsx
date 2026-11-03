@@ -6,6 +6,7 @@ import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
+import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
@@ -100,13 +101,13 @@ export function Transformation({ id }: { id: SessionId }) {
 
   return (
     <>
-      <div className="session-section">
+      <WorkspaceSurface.Section>
         <Notebook.Muted>{t('SessionTransformHelp')}</Notebook.Muted>
         <TransformFields model={model} />
         <TransformFailure model={model} />
         <TransformRecovery model={model} />
         <TransformReceipt model={model} />
-      </div>
+      </WorkspaceSurface.Section>
       <SessionRuns id={id} />
     </>
   );

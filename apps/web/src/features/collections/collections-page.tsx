@@ -18,8 +18,7 @@ import { toStudyError } from '../../lib/study-client/errors';
 import { request } from '../../lib/study-client/request';
 import { materialsOptions } from '../material-library';
 import { sessionPagesOptions } from '../session-workspace';
-import { SubjectIconEditor } from '../subjects/subject-icon-editor';
-import { SubjectIdentity } from '../subjects/subject-identity';
+import { SubjectIconEditor, SubjectIdentity } from '../subjects';
 import { useCollectionState, validCollectionName } from './collection-state';
 import { materialMembership, sessionMembership } from './collections.queries';
 import { useCollectionsView } from './collections.queries';
@@ -42,6 +41,7 @@ export function CollectionsPage() {
   );
 }
 
+/** Renders collection loading and read failures before exposing collection content. */
 function ReadState({
   pending,
   error,
@@ -74,6 +74,7 @@ function ReadState({
   ) : null;
 }
 
+/** Uses shared subject drafts while keeping material and session memberships independently editable. */
 function Collection({
   project,
   busy,
@@ -86,18 +87,18 @@ function Collection({
   close: (id: ProjectId) => void;
 }) {
   const { t } = useI18n();
-  const { state, update } = useCollectionState();
+  const { state, changeName, acceptName } = useCollectionState();
   const entry = state.names[String(project.id)];
   const name = entry?.text ?? project.name;
   const [deleting, setDeleting] = useState(false);
 
   return (
     <CollectionPanel.Collection aria-label={project.name}>
-      <div className="flex items-center gap-3">
+      <CollectionPanel.IdentityHeader>
         <SubjectIdentity name={project.name} icon={project.icon} size="large" />
         <CollectionPanel.Title>{project.name}</CollectionPanel.Title>
         <SubjectIconEditor project={project} disabled={busy} />
-      </div>
+      </CollectionPanel.IdentityHeader>
       <CollectionPanel.Navigation>
         <Link to="/library" search={{ project: String(project.id) }}>
           <CollectionPanel.LinkText>{t('collections.library')}</CollectionPanel.LinkText>
@@ -118,15 +119,7 @@ function Collection({
 
               if (!changed) throw new StudyError('not_found', 'Collection no longer exists');
 
-              update((value) => {
-                if (value.names[String(project.id)]?.revision !== entry?.revision) return value;
-
-                const names = { ...value.names };
-
-                delete names[String(project.id)];
-
-                return { ...value, names };
-              });
+              acceptName(project.id, entry?.revision);
             });
         }}
       >
@@ -135,18 +128,7 @@ function Collection({
           <Input
             value={name}
             onChange={(e) => {
-              const text = e.target.value;
-
-              update((value) => ({
-                ...value,
-                names: {
-                  ...value.names,
-                  [String(project.id)]: {
-                    text,
-                    revision: (value.names[String(project.id)]?.revision ?? 0) + 1
-                  }
-                }
-              }));
+              changeName(project.id, e.target.value);
             }}
           />
         </CollectionPanel.NameField>
@@ -177,15 +159,18 @@ function Collection({
         pending={busy}
         onConfirm={() => {
           if (busy) return;
+
           return mutate(async () => {
             const deleted = await request((c) => c['projects.deleteProject']({ id: project.id }));
+
             if (!deleted) throw new StudyError('not_found', 'Subject no longer exists');
+
             toastManager.add({ title: t('SubjectDeleted'), type: 'success' });
             close(project.id);
           });
         }}
       >
-        {state.error && <p role="alert">{t('collections.mutationError')}</p>}
+        {state.error && <ErrorState layout="inline" title={t('collections.mutationError')} />}
       </DangerDialog>
     </CollectionPanel.Collection>
   );

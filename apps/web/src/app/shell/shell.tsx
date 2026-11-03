@@ -6,26 +6,34 @@ import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../lib/i18n';
 import { Sidebar } from './sidebar';
 
+/** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
 function useShellNavigation(sessions: boolean) {
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
   const focusSearch = useRef(false);
+
   useEffect(() => {
     if (!sessions || open) return;
+
     const revealSearch = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+
       event.preventDefault();
       focusSearch.current = true;
       setOpen(true);
     };
+
     window.addEventListener('keydown', revealSearch);
+
     return () => window.removeEventListener('keydown', revealSearch);
   }, [sessions, open]);
   useEffect(() => {
     if (!open || !focusSearch.current) return;
+
     focusSearch.current = false;
     document.querySelector<HTMLInputElement>('.study-sidebar-search input')?.focus();
   }, [open]);
+
   return {
     visible: !sessions || open,
     collapsed: sessions ? !open : collapsed,
@@ -34,6 +42,7 @@ function useShellNavigation(sessions: boolean) {
   };
 }
 
+/** Keeps a page heading accessible when the session layout hides its visual top bar. */
 function ShellHeader({
   sessions,
   visible,
@@ -46,13 +55,15 @@ function ShellHeader({
   onToggle: () => void;
 }) {
   const { t } = useI18n();
+
   if (!sessions) return <SidebarUI.Topbar parent={t('AppName')} title={title} />;
+
   return (
     <>
-      <h1 className="sr-only">{title}</h1>
+      <SidebarUI.ScreenReaderHeading>{title}</SidebarUI.ScreenReaderHeading>
       {!visible && (
         <SidebarUI.Toggle
-          className="study-entry-navigation-toggle"
+          placement="reveal"
           label={t('ToggleSidebar')}
           expanded={false}
           onClick={onToggle}
@@ -62,6 +73,7 @@ function ShellHeader({
   );
 }
 
+/** Selects the session layout from route metadata and composes the shared application shell. */
 export function Shell() {
   const { t } = useI18n();
   const matches = useMatches();
@@ -69,9 +81,10 @@ export function Shell() {
   const title = metadata.title ?? 'Home';
   const sessions = title === 'Sessions';
   const navigation = useShellNavigation(sessions);
+
   return (
     <SidebarUI.Frame
-      className={sessions ? 'study-shell-session-entry' : undefined}
+      variant={sessions ? 'session-entry' : 'default'}
       data-entry-navigation={navigation.open}
       collapsed={navigation.collapsed}
       defaultWidth={288}

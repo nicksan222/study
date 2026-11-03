@@ -85,6 +85,7 @@ function model() {
       blockedByCurrentBarriers: false
     }
   };
+
   return { state, owner };
 }
 
@@ -93,6 +94,7 @@ function supply(value: ReturnType<typeof model>) {
 }
 
 beforeEach(() => vi.clearAllMocks());
+
 it('shows complete scopes and requires deliberate acceptance of the exact reviewed backup', () => {
   const value = model();
 
@@ -118,6 +120,7 @@ it('resets deliberate intent when the preview token changes and blocks barriers'
 
   supply(value);
   const { rerender } = render(<DataSettings />);
+
   fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
     target: { value: 'DataRestoreConfirmationWord' }
   });
@@ -245,6 +248,7 @@ it('renders distinct current and backup counts for every scope outside diagnosti
     const row = within(table)
       .getByRole('rowheader', { name: `DataScope${key}` })
       .closest('tr')!;
+
     expect(row).toBeVisible();
     expect(
       within(row)
@@ -301,6 +305,7 @@ it('requires a fresh deliberate confirmation each time snapshot deletion is open
   render(<DataSettings />);
   fireEvent.click(screen.getByRole('button', { name: 'DataDelete' }));
   let dialog = screen.getByRole('alertdialog');
+
   expect(within(dialog).getByText(/date:0.001/)).toBeVisible();
   expect(within(dialog).getByText('DataDeleteWarning')).toBeVisible();
   expect(within(dialog).getByRole('button', { name: 'DataDelete' })).toBeDisabled();
@@ -346,6 +351,7 @@ it('keeps uncertainty visible and acknowledgment disabled until canonical discov
 
 it('opens the native backup picker from the shared choose-file button', () => {
   const value = model();
+
   value.state.preview = undefined;
   supply(value);
   render(<DataSettings />);
@@ -353,6 +359,7 @@ it('opens the native backup picker from the shared choose-file button', () => {
     'DataImport'
   ) as HTMLInputElement;
   const choose = vi.spyOn(input, 'click').mockImplementation(() => {});
+
   expect(input).toHaveAttribute('accept', '.studybackup');
   expect(input).toHaveAttribute('tabindex', '-1');
   fireEvent.click(screen.getByRole('button', { name: 'DataChooseFile' }));
@@ -362,6 +369,7 @@ it('opens the native backup picker from the shared choose-file button', () => {
 
 it('does not replay a retained receipt as inline operation feedback', () => {
   const value = model();
+
   value.state.preview = undefined;
   value.state.submitted = { kind: 'create' };
   value.state.receipt = backup;
@@ -378,6 +386,7 @@ it('keeps the exact restore review visible while pending and closes only after i
   const value = model();
   const reviewed = value.state.preview!;
   let finish!: () => void;
+
   vi.mocked(value.owner.accept).mockImplementation(
     () =>
       new Promise<void>((resolve) => {
@@ -388,6 +397,7 @@ it('keeps the exact restore review visible while pending and closes only after i
   supply(value);
   const view = render(<DataSettings />);
   const confirm = screen.getByRole('button', { name: 'DataAccept' });
+
   fireEvent.click(confirm);
   expect(value.owner.accept).not.toHaveBeenCalled();
   fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
@@ -416,6 +426,7 @@ it('keeps the exact restore review visible while pending and closes only after i
 it('keeps an uncertain restore visible and fenced until the user returns to recovery', async () => {
   const value = model();
   let finish!: () => void;
+
   vi.mocked(value.owner.accept).mockImplementation(
     () =>
       new Promise<void>((resolve) => {
@@ -425,6 +436,7 @@ it('keeps an uncertain restore visible and fenced until the user returns to reco
   vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
   supply(value);
   const view = render(<DataSettings />);
+
   fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
     target: { value: 'DataRestoreConfirmationWord' }
   });
@@ -434,6 +446,7 @@ it('keeps an uncertain restore visible and fenced until the user returns to reco
   await act(async () => finish());
   view.rerender(<DataSettings />);
   const dialog = screen.getByRole('alertdialog', { name: 'DataPreview' });
+
   expect(within(dialog).getByText('DataUncertain')).toBeVisible();
   expect(within(dialog).getByRole('button', { name: 'DataAccept' })).toBeDisabled();
   expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
@@ -441,8 +454,10 @@ it('keeps an uncertain restore visible and fenced until the user returns to reco
 
 it('keeps deletion pending until a new receipt for the exact selected backup is confirmed', async () => {
   const value = model();
+
   value.state.preview = undefined;
   let finish!: () => void;
+
   vi.mocked(value.owner.delete).mockImplementation(
     () =>
       new Promise<void>((resolve) => {
@@ -452,8 +467,10 @@ it('keeps deletion pending until a new receipt for the exact selected backup is 
   vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
   supply(value);
   const view = render(<DataSettings />);
+
   fireEvent.click(screen.getByRole('button', { name: 'DataDelete' }));
   const dialog = screen.getByRole('alertdialog');
+
   fireEvent.click(within(dialog).getByRole('button', { name: 'DataDelete' }));
   expect(value.owner.delete).not.toHaveBeenCalled();
   fireEvent.change(within(dialog).getByRole('textbox'), {
