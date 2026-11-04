@@ -19,26 +19,9 @@ import {
   activityExecutionOptions,
   cancelExecutionOptions
 } from './activity.queries';
+import { workflowLabel } from './workflow-label';
 
 type Execution = typeof executionSchema.Type;
-
-const workflowLabels: Readonly<Partial<Record<string, StaticMessageKey>>> = {
-  'source-ingestion': 'workspace.task.source-ingestion',
-  'source-correction': 'workspace.task.source-correction',
-  'source-material-projection': 'workspace.task.source-material-projection',
-  'material-generation': 'workspace.task.material-generation',
-  'conversation-reply': 'workspace.task.conversation-reply',
-  'conversation-title': 'workspace.task.conversation-title',
-  'conversation-attachment-wake': 'workspace.task.conversation-attachment-wake',
-  'recording-post': 'workspace.task.recording-post',
-  'quiz-grading': 'workspace.task.quiz-grading',
-  'practice-slot': 'workspace.task.practice-slot',
-  'practice-failure': 'workspace.task.practice-failure',
-  'practice-publication': 'workspace.task.practice-publication',
-  'material-history-prune': 'workspace.task.material-history-prune',
-  'session-deletion': 'workspace.task.session-deletion',
-  'material-deletion': 'workspace.task.material-deletion'
-};
 
 const failureGuidance: Readonly<Record<ErrorKind, StaticMessageKey>> = {
   auth: 'workspace.failure.auth',
@@ -129,7 +112,7 @@ export function Activity() {
                         <ActivityIcon />
                       </ActivityPanel.Icon>
                       <ActivityPanel.Copy>
-                        {t(workflowLabels[item.workflow] ?? 'workspace.task.other')}
+                        {t(workflowLabel(item.workflow))}
                         <time>
                           {item.createdAtMs >= -8_640_000_000_000_000n &&
                           item.createdAtMs <= 8_640_000_000_000_000n

@@ -1,4 +1,3 @@
-import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { SessionId, VersionId, SourceId } from '@study/contracts/ids';
@@ -34,13 +33,10 @@ import { NoteContent, NoteSummary } from './note-editor';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
 import { NotebookNavigation } from './notebook-navigation';
 import { SessionDocumentCard } from './session-document-card';
-import {
-  citationsOptions,
-  contextOptions,
-  provenanceOptions,
-  threadOptions
-} from './session-workspace.queries';
-import { ExecutionStatus, SessionReadError } from './status';
+import { citationsOptions, threadOptions } from './session-workspace.queries';
+import { SessionReadError } from './status';
+
+export { CapturedContext } from './captured-context';
 
 type Message = typeof chatMessageSchema.Type;
 
@@ -249,14 +245,6 @@ function MessageEntry({
             )}
           </MessageActions>
           {version.status !== 'complete' && <Loading label={t('SessionPending')} />}
-          {hasReplyContext(message, version.origin) && (
-            <ReplyContext
-              sessionId={message.sessionId}
-              message={message}
-              versionId={version.id}
-              pending={version.status !== 'complete'}
-            />
-          )}
         </>
       )}
       {message.parts.length > 0 && (
@@ -312,151 +300,6 @@ function MessageCitations({ message, versionId }: { message: Message; versionId?
           </ol>
         </details>
       )}
-    </>
-  );
-}
-
-function ReplyContext({
-  sessionId,
-  message,
-  versionId,
-  pending
-}: {
-  sessionId: SessionId;
-  message: Message;
-  versionId: VersionId;
-  pending: boolean;
-}) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const provenance = useQuery({
-    ...provenanceOptions(sessionId, message.id, versionId),
-    enabled: open || pending
-  });
-  const receipt = provenance.isError ? undefined : provenance.data;
-  const available = receipt?.state === 'available' ? receipt.requestId : undefined;
-
-  return (
-    <>
-      {available ? (
-        pending ? (
-          <>
-            <Loading label={t('SessionPending')} />
-            <ExecutionStatus requestId={available} />
-          </>
-        ) : null
-      ) : null}
-      <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-        <summary>{t('SessionContextUsed')}</summary>
-        <ProvenanceFeedback provenance={provenance} open={open} />
-        {open && available && <CapturedContext requestId={available} />}
-      </details>
-    </>
-  );
-}
-
-export function CapturedContext({ requestId }: { requestId: string }) {
-  const { t } = useI18n();
-  const state = useQuery(contextOptions(requestId));
-
-  return (
-    <Notebook.Captured>
-      {state.isPending && <Loading label={t('LoadingStudy')} />}
-      {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
-      {state.data && !state.isError && (
-        <>
-          <Notebook.Muted>
-            {t('SessionCapturedHelp')} · {t('SessionRevision')}{' '}
-            {String(state.data.selectionRevision)}
-          </Notebook.Muted>
-          {state.data.instruction && (
-            <Notebook.Instruction>{state.data.instruction}</Notebook.Instruction>
-          )}
-          <ul>
-            {state.data.inputs.map((input) => (
-              <li key={selectionReferenceKey(input.input)}>
-                <CapturedInputLink input={input.input} name={input.name} /> · {t('ReaderVersion')}{' '}
-                {input.input.kind === 'document'
-                  ? String(input.input.versionId)
-                  : String(input.input.revision)}{' '}
-                ·{' '}
-                {t(
-                  input.scope.kind === 'document'
-                    ? 'SessionWhole'
-                    : input.scope.kind === 'blocks'
-                      ? 'SessionBlocks'
-                      : 'SessionRanges'
-                )}
-                {input.excerpts.map((excerpt) => (
-                  <blockquote key={`${excerpt.blockId}-${excerpt.start}-${excerpt.end}`}>
-                    <p>{excerpt.text}</p>
-                    <small>
-                      {excerpt.blockId} · {excerpt.start}–{excerpt.end}
-                    </small>
-                  </blockquote>
-                ))}
-              </li>
-            ))}
-          </ul>
-          <details>
-            <summary>
-              {t('SessionCapturedNotes')} · {state.data.messages.length}
-            </summary>
-            {state.data.messages.map((message) => (
-              <Notebook.Prose key={`${message.messageId}-${message.versionId}`}>
-                {message.text}
-              </Notebook.Prose>
-            ))}
-          </details>
-          {state.data.excludedMessages > 0 && (
-            <p>
-              {t('SessionExcludedNotes')} {state.data.excludedMessages}
-            </p>
-          )}
-        </>
-      )}
-    </Notebook.Captured>
-  );
-}
-
-function ProvenanceNotice({ state }: { state: string | undefined }) {
-  const { t } = useI18n();
-
-  if (state === 'manual') return <p>{t('SessionManualVersion')}</p>;
-
-  if (state === 'retired' || state === 'unavailable')
-    return <p>{t('SessionContextUnavailable')}</p>;
-
-  return null;
-}
-
-function hasReplyContext(message: Message, origin: string) {
-  return message.role === 'assistant' || (origin !== 'typed' && origin !== 'edited');
-}
-
-function ProvenanceFeedback({
-  provenance,
-  open
-}: {
-  provenance: ReturnType<
-    typeof useQuery<
-      Awaited<
-        ReturnType<Exclude<ReturnType<typeof provenanceOptions>['queryFn'], undefined | symbol>>
-      >
-    >
-  >;
-  open: boolean;
-}) {
-  const { t } = useI18n();
-  const receipt = provenance.isError ? undefined : provenance.data;
-
-  return (
-    <>
-      {open ? provenance.isPending ? <Loading label={t('LoadingStudy')} /> : null : null}
-      {provenance.error && (
-        <SessionReadError error={provenance.error} retry={() => void provenance.refetch()} />
-      )}
-      <ProvenanceNotice state={receipt?.state} />
     </>
   );
 }

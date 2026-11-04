@@ -836,7 +836,7 @@ testStable(
 );
 
 testStable(
-  'hides cached reply provenance on failure and recovers the same exact reply and capture',
+  'opens work details from the menu and recovers the exact reply context after failure',
   async () => {
     const message = Schema.decodeUnknownSync(chatMessageSchema)({
       id: 61n,
@@ -870,7 +870,12 @@ testStable(
     const client = cache();
 
     mount(<History id={id} />, client);
-    fireEvent.click(await screen.findByText('SessionContextUsed', { selector: 'summary' }));
+    const reply = await screen.findByText('Retained reply', { selector: 'p' });
+    expect(rpc.provenance).not.toHaveBeenCalled();
+    expect(screen.queryByText('SessionContextUsed')).toBeNull();
+    fireEvent.contextMenu(reply, { button: 2, clientX: 80, clientY: 80 });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SessionWorkDetails' }));
+    expect(await screen.findByRole('dialog', { name: 'SessionWorkDetails' })).toBeVisible();
     expect(await screen.findByText('Clarify')).toBeVisible();
     expect(screen.queryByText('SessionVersions', { selector: 'summary' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'SessionVersions' })).toBeNull();
@@ -896,6 +901,13 @@ testStable(
       )
     ).toBe(true);
     expect(rpc.context.mock.calls.every(([input]) => input.requestId === 'capture-1')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: options.queryKey })?.getObserversCount()).toBe(
+        0
+      )
+    );
+    await waitFor(() => expect(reply.closest('[tabindex="0"]')).toHaveFocus());
   }
 );
 
