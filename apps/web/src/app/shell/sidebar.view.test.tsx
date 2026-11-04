@@ -1,13 +1,29 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import type { ReactNode } from 'react';
+import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { renderInRouter } from '#web/test/render-in-router.tsx';
 import { sidebarModel } from '#web/test/sidebar-model.ts';
 
 import { SidebarView } from './sidebar.view';
+
+const caches: QueryClient[] = [];
+
+afterEach(() => {
+  caches.splice(0).forEach((cache) => cache.clear());
+});
+
+function renderSidebar(children: ReactNode) {
+  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  caches.push(cache);
+
+  return renderInRouter(<QueryClientProvider client={cache}>{children}</QueryClientProvider>);
+}
 
 vi.mock('./rich-sidebar.queries', () => ({
   useSidebarProgress: () => ({
@@ -24,7 +40,7 @@ testStable(
     const reloadSubjects = vi.fn();
     const fetch = vi.spyOn(globalThis, 'fetch');
 
-    renderInRouter(
+    renderSidebar(
       <SidebarView
         {...sidebarModel()}
         invalidSubject
@@ -44,7 +60,7 @@ testStable('allows creating an unfiled session from an empty session list', asyn
   const user = userEvent.setup();
   const createSession = vi.fn();
 
-  renderInRouter(<SidebarView {...sidebarModel()} createSession={createSession} library={null} />);
+  renderSidebar(<SidebarView {...sidebarModel()} createSession={createSession} library={null} />);
   expect(await screen.findByText(catalogs.english.DashboardNoSessions)).toBeInTheDocument();
   const create = screen.getByRole('button', { name: catalogs.english.NewSession });
 
@@ -54,21 +70,21 @@ testStable('allows creating an unfiled session from an empty session list', asyn
 });
 
 testStable('announces session loading once through the shared indicator', async () => {
-  renderInRouter(<SidebarView {...sidebarModel()} sessionState="loading" library={null} />);
+  renderSidebar(<SidebarView {...sidebarModel()} sessionState="loading" library={null} />);
 
   expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingSessions);
   expect(screen.getAllByRole('status')).toHaveLength(1);
 });
 
 testStable('shows the shared search indicator while search results are pending', async () => {
-  renderInRouter(<SidebarView {...sidebarModel()} query="biology" library={null} />);
+  renderSidebar(<SidebarView {...sidebarModel()} query="biology" library={null} />);
 
   expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.Searching);
   expect(screen.getAllByRole('status')).toHaveLength(1);
 });
 
 testStable('shows localized loading in the subject picker', async () => {
-  renderInRouter(
+  renderSidebar(
     <SidebarView {...sidebarModel()} pickerOpen subjectState="loading" library={null} />
   );
 
@@ -78,7 +94,7 @@ testStable('shows localized loading in the subject picker', async () => {
 testStable(
   'keeps a saving subject disabled with one loading announcement in the dialog',
   async () => {
-    renderInRouter(
+    renderSidebar(
       <SidebarView {...sidebarModel()} newSubjectOpen creating name="Biology" library={null} />
     );
     const dialog = await screen.findByRole('dialog');
