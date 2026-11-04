@@ -269,11 +269,13 @@ testStable('Vitest expectations accept a diagnostic message and reject a third a
     'src/shared/message.test.ts':
       "import { testStable } from '@study/testing/vitest'; import { expect } from 'vite-plus/test'; testStable('message', () => { expect(1, 'context').toBe(1); });"
   });
+
   assert.strictEqual(accepted.length, 0, JSON.stringify(accepted));
   const rejected = lintFiles({
     'src/shared/message.test.ts':
       "import { testStable } from '@study/testing/vitest'; import { expect } from 'vite-plus/test'; testStable('message', () => { expect(1, 'context', 'extra').toBe(1); });"
   });
+
   assert.strictEqual(rejected.length, 1, JSON.stringify(rejected));
   assert.strictEqual(rejected[0]?.code, 'vitest(valid-expect)');
 });
