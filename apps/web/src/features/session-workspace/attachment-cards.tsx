@@ -160,7 +160,9 @@ function AttachmentContextMenu({
       {children}
     </ItemContextMenu>
   );
+
   if (!source) return menu();
+
   return (
     <SourceDeletion
       source={source}
@@ -201,7 +203,9 @@ function AttachmentMeta({
   ]
     .filter(Boolean)
     .join(' · ');
+
   if (source) return meta;
+
   return `${meta} · ${t(part.sourceId === null ? 'ReaderOriginalUnavailable' : failed ? 'Retry' : 'SessionPending')}`;
 }
 

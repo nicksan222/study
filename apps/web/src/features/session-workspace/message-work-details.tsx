@@ -36,6 +36,7 @@ export function MessageWorkDetails({
   finalFocus: RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useI18n();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup variant="workspace-context" closeLabel={t('Close')} finalFocus={finalFocus}>
@@ -61,8 +62,10 @@ function WorkContent({ target }: { target: MessageWorkTarget }) {
 
   if (!requestId) {
     if (provenance.isPending) return <Loading label={t('LoadingStudy')} />;
+
     if (provenance.error)
       return <SessionReadError error={provenance.error} retry={() => void provenance.refetch()} />;
+
     return (
       <Notebook.Muted>
         {t(receipt?.state === 'manual' ? 'SessionWorkManual' : 'SessionContextUnavailable')}

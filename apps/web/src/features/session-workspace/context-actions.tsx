@@ -1,5 +1,6 @@
 import type { SessionId } from '@study/contracts/ids';
-import { Dialog, DialogTrigger, DialogPopup, DialogTitle } from '@study/ui/dialog';
+import { Dialog, DialogTrigger } from '@study/ui/dialog';
+import { SelectionSurface } from '@study/ui/selection';
 import { WorkspaceCard, WorkspaceChanges } from '@study/ui/workspace';
 import { ArrowUpRight, Archive, FileText, FilePlus2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -30,16 +31,10 @@ function ContextAction({
           <ArrowUpRight aria-hidden="true" />
         </>
       </DialogTrigger>
-      <DialogPopup
-        keepMounted
-        closeLabel={t('Close')}
-        className="settings-popup ui-selection-dialog"
-        viewportClassName="settings-viewport"
-        bottomStickOnMobile={false}
-      >
-        <DialogTitle className="sr-only">{title}</DialogTitle>
+      <SelectionSurface.Popup keepMounted closeLabel={t('Close')} bottomStickOnMobile={false}>
+        <SelectionSurface.Title>{title}</SelectionSurface.Title>
         {children}
-      </DialogPopup>
+      </SelectionSurface.Popup>
     </Dialog>
   );
 }

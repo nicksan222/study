@@ -489,6 +489,10 @@ export const Sources = defineService(
 
       return tx.store(SourceExtractionsStore).extraction(v);
     },
+    archiveSessionInTransaction: (
+      tx: Transaction,
+      v: typeof sourceLinkSchema.Type & { archivedAt: bigint | null }
+    ) => tx.store(SessionSourcesStore).archiveSession(v),
     attachInTransaction: (tx: Transaction, v: typeof sourceLinkSchema.Type) => {
       tx.store(SourceStore).source(v.sourceId);
       tx.store(SessionSourcesStore).attachSource(v);

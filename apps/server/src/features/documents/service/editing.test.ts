@@ -269,6 +269,7 @@ testStable('retires only one selected authored note version', async () => {
   const layer = Documents.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -298,6 +299,7 @@ testStable('retires only one selected authored note version', async () => {
           versionId: second.submittedVersionId
         };
         const preview = yield* documents.previewHistory(scope);
+
         expect(preview.versionIds).toEqual([second.submittedVersionId]);
         yield* documents.retireHistory({ ...scope, token: preview.token });
         expect(

@@ -292,6 +292,7 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
             }
           }
         );
+
         if (mode === 'alt-range') {
           const result = await fixture.executeAuthored(
             fixture.authoredEvent(setup.request.id),
@@ -302,6 +303,7 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
               Effect.provide(fixture.domain())
             )
           );
+
           assert.ok(
             saved.document.blocks.some(
               (block) => block.content.type === 'image' && block.content.sourceId === setup.image.id
@@ -310,8 +312,10 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
           assert.strictEqual(fixture.bodies.length, 2);
           assert.strictEqual(fixture.replies.length, 0);
           assert.ok(fixture.bodies[0]!.includes('alpha image'));
+
           return;
         }
+
         await expect(
           fixture.executeAuthored(fixture.authoredEvent(setup.request.id), mode)
         ).rejects.toSatisfy(() => true);

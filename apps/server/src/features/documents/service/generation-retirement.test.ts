@@ -47,6 +47,7 @@ for (const mode of ['history', 'delete'] as const)
 
             assert.ok(input.version);
             const session = yield* chats.createUntitledSession({});
+
             yield* docs.attach({ sessionId: session.id, documentId: input.id });
 
             yield* chats.updateSessionSelection({

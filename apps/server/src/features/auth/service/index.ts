@@ -293,6 +293,7 @@ function* makeAuth() {
     receiveSignInCallback: (input: { search: string }) =>
       Effect.sync(() => {
         const signin: SignIn | undefined = active?.signin;
+
         return signin?.acceptCallback(new URLSearchParams(input.search)) ?? false;
       }),
     finishSignIn: (input: { attemptId: string }) => Effect.gen(() => finishActiveSignIn(input)),

@@ -107,6 +107,7 @@ export function setup(
 
       if (additionalInputVersionId !== undefined) {
         const additional = yield* documents.version({ id: additionalInputVersionId });
+
         yield* documents.attach({ sessionId: session.id, documentId: additional.documentId });
       }
 

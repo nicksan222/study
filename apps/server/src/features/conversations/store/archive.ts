@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists session note archives and reads active material memberships.              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Keeps notebook visibility and archive ordering consistent within transactions.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Document and source membership mutations remain inside their owning features.            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   archivedSessionItemSchema,
   sessionArchiveInputSchema,
@@ -41,7 +53,7 @@ export function activeMessageCondition() {
         AND source_link.source_id=root_part.source_id AND source_link.archived_at IS NOT NULL)))`;
 }
 
-function archiveReads({ db }: StoreResources) {
+function makeArchiveReads({ db }: StoreResources) {
   function assertSession(id: SessionId) {
     if (
       !db.orm.select().from(sessions).where(eq(sessions.id, id)).get() ||
@@ -113,48 +125,24 @@ export const SessionArchiveStore = defineStore({
   entity: { singular: 'archivedItem', plural: 'archivedItems' },
   make: (resources) => {
     const { db, clock } = resources;
-    const reads = archiveReads(resources);
+    const reads = makeArchiveReads(resources);
 
     function setArchived(input: typeof setSessionItemArchivedSchema.Type) {
       reads.assertSession(input.sessionId);
       const archived_at = input.archived ? unixSeconds(clock) : null;
       const target = input.target;
-      let changed: unknown;
 
       if (target.kind === 'message') {
-        changed = db.orm
+        const changed = db.orm
           .update(messages)
           .set({ archived_at })
           .where(and(eq(messages.id, target.id), eq(messages.session_id, input.sessionId)))
           .returning({ id: messages.id })
           .get();
-      } else if (target.kind === 'document') {
-        changed = db.orm
-          .update(session_documents)
-          .set({ archived_at })
-          .where(
-            and(
-              eq(session_documents.document_id, target.id),
-              eq(session_documents.session_id, input.sessionId),
-              sql`NOT EXISTS(SELECT 1 FROM study_document_deletions d WHERE d.document_id=${session_documents.document_id})`
-            )
-          )
-          .returning({ id: session_documents.document_id })
-          .get();
-      } else {
-        changed = db.orm
-          .update(session_sources)
-          .set({ archived_at })
-          .where(
-            and(
-              eq(session_sources.source_id, target.id),
-              eq(session_sources.session_id, input.sessionId)
-            )
-          )
-          .returning({ id: session_sources.source_id })
-          .get();
+
+        if (!changed) throw new StudyError('not_found', 'Session item is unavailable');
       }
-      if (!changed) throw new StudyError('not_found', 'Session item is unavailable');
+
       db.orm
         .update(sessions)
         .set({
@@ -164,6 +152,8 @@ export const SessionArchiveStore = defineStore({
         })
         .where(eq(sessions.id, input.sessionId))
         .run();
+
+      return archived_at;
     }
 
     return {
@@ -178,6 +168,7 @@ export const SessionArchiveStore = defineStore({
           output: Schema.Array(archivedSessionItemSchema),
           run: ({ sessionId, limit, offset }) => {
             reads.assertSession(sessionId);
+
             return [
               ...reads.archivedMessages(sessionId, limit + offset),
               ...reads.archivedDocuments(sessionId, limit + offset),
@@ -193,7 +184,7 @@ export const SessionArchiveStore = defineStore({
       mutations: {
         setItemArchived: storeMutation({
           input: setSessionItemArchivedSchema,
-          output: Schema.Void,
+          output: Schema.NullOr(Schema.BigInt),
           run: setArchived
         })
       }
@@ -206,7 +197,8 @@ export const SessionMaterialMembershipStore = defineStore({
   entity: { singular: 'sessionMaterialMembership', plural: 'sessionMaterialMemberships' },
   make: (resources) => {
     const { db } = resources;
-    const reads = archiveReads(resources);
+    const reads = makeArchiveReads(resources);
+
     return {
       queries: {
         sessionMaterialMembership: storeQuery({
@@ -223,6 +215,7 @@ export const SessionMaterialMembershipStore = defineStore({
           }),
           run: ({ sessionId, throughMessageId, threadRoot }) => {
             reads.assertSession(sessionId);
+
             return {
               documents: db.orm
                 .select({ id: session_documents.document_id })

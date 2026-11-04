@@ -11,6 +11,7 @@ import * as operations from '#web/lib/study-client/ai-settings.ts';
 import { AiSettings } from './index';
 
 const runtime = vi.hoisted(() => ({ native: false, openUrl: vi.fn() }));
+
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => runtime.native }));
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: runtime.openUrl }));
 beforeEach(() => {
@@ -219,6 +220,7 @@ testStable(
   'unsupported browser origins show localized sign-in guidance and close the blank tab',
   async () => {
     const { popup } = browserWindow();
+
     vi.mocked(operations.startChatGptSignIn).mockRejectedValue(
       new StudyError('unsupported', 'Loopback required')
     );
@@ -232,8 +234,10 @@ testStable(
 testStable('native sign-in opens the system browser without a webview popup', async () => {
   runtime.native = true;
   const { open } = browserWindow();
+
   pendingSignIn('native-attempt');
   const view = mount();
+
   fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
   await waitFor(() => expect(runtime.openUrl).toHaveBeenCalledWith('https://auth.openai.com/test'));
   expect(open).not.toHaveBeenCalled();

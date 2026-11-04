@@ -8,6 +8,7 @@ import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 import { PendingMessageWork } from './pending-message-work';
 
 const api = vi.hoisted(() => ({ provenance: vi.fn(), executions: vi.fn(), cancel: vi.fn() }));
+
 vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
@@ -17,11 +18,13 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
       'workflows.cancelExecution': api.cancel
     })
 }));
+
 const target = {
   sessionId: Schema.decodeUnknownSync(sessionIdSchema)(1n),
   messageId: Schema.decodeUnknownSync(messageIdSchema)(2n),
   versionId: Schema.decodeUnknownSync(versionIdSchema)(3n)
 };
+
 const execution = {
   id: 'exact-run',
   workflow: 'reply',
@@ -33,7 +36,9 @@ const execution = {
   createdAtMs: 1n,
   updatedAtMs: 1n
 };
+
 let cache: QueryClient;
+
 beforeEach(() => {
   vi.resetAllMocks();
   cache = new QueryClient({
@@ -46,6 +51,7 @@ afterEach(() => {
   cleanup();
   cache.clear();
 });
+
 function mount() {
   render(
     <QueryClientProvider client={cache}>
@@ -63,6 +69,7 @@ testStable('cancels the exact pending version and waits for committed stopping s
   });
   mount();
   const button = await screen.findByRole('button', { name: 'SessionCancel' });
+
   fireEvent.click(button);
   await waitFor(() =>
     expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: 'exact-run', mode: 'safe' })

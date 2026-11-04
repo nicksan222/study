@@ -3,6 +3,8 @@ import { makeStudyClient } from '@study/server/client';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { Effect } from 'effect';
 
+export const browserOrigin = () => window.location.origin;
+
 export const studyClient = makeStudyClient(StudyRpc, {
   baseUrl: async () => {
     if (isTauri()) {
@@ -11,7 +13,7 @@ export const studyClient = makeStudyClient(StudyRpc, {
       return connection.baseUrl;
     }
 
-    return window.location.origin;
+    return browserOrigin();
   }
 });
 

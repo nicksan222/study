@@ -19,6 +19,7 @@ export function ArchiveMenuItem({
 }) {
   const { t } = useI18n();
   const archive = useItemArchive(sessionId, target);
+
   return (
     <>
       <ContextMenuItem disabled={disabled || archive.pending} onClick={() => archive.change(true)}>

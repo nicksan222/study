@@ -1,14 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exact authored transform publication keeps captured blocks, immutable receipts and │
- * │ atomic alternatives.                                                                     │
+ * │ @file Verifies authored document transformation integrity across persistence boundaries. │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Verifies whole captured blocks publish and exact citation identities and              │
- * │   report hashes remain immutable across reopen.                                          │
+ * │ - Exercises immutable captures, publication ownership and exact retained citations.      │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * │ Tests use real SQLite fixtures and public feature services exclusively.                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -93,6 +91,7 @@ function capture(exactTarget: boolean) {
     const unselected = paragraph('echo');
     const original = yield* create('Repeated phrases', [block, unselected]);
     const session = yield* chats.createUntitledSession({});
+
     yield* (yield* Documents).attach({ sessionId: session.id, documentId: original.id });
     const input = { kind: 'document' as const, versionId: original.version.id };
     const target = {

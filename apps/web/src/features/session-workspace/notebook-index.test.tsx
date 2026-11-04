@@ -183,7 +183,9 @@ testStable(
     expect(within(card).queryByText('Current note')).toBeNull();
     expect(within(card).queryByText('Original note')).toBeNull();
     expect(within(card).getByRole('button', { name: 'Lecture notes.pdf' })).toBeVisible();
-    expect(within(card).getByRole('button', { name: 'Study outline' })).toBeVisible();
+    expect(within(card).getByRole('button', { name: 'SessionOpenPage' })).toHaveTextContent(
+      'Study outline'
+    );
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(rpc.generations).not.toHaveBeenCalled();
   }

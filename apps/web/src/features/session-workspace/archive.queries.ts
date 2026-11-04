@@ -1,5 +1,5 @@
 import type { SessionArchiveTarget } from '@study/contracts/conversations/archive';
-import type { SessionId } from '@study/contracts/ids';
+import type { MessageId, SessionId } from '@study/contracts/ids';
 import { toastManager } from '@study/ui/toast';
 import { queryOptions, useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -13,6 +13,12 @@ export const archivedItemsOptions = (sessionId: SessionId) =>
     queryKey: [...sessionKey(sessionId), 'archived'],
     queryFn: ({ signal }) =>
       request((rpc) => rpc['conversations.archivedItems']({ sessionId }), signal)
+  });
+
+export const archivedMessageOptions = (id: MessageId) =>
+  queryOptions({
+    queryKey: ['session-archive-message', String(id)],
+    queryFn: ({ signal }) => request((rpc) => rpc['conversations.message']({ id }), signal)
   });
 
 /** Membership changes are idempotent; every mounted instance shares the pending fence. */
@@ -41,11 +47,13 @@ export function useItemArchive(sessionId: SessionId, target: SessionArchiveTarge
       ]);
     }
   });
+
   return {
     pending,
     error: mutation.error,
     change: (archived: boolean) => {
       if (cache.isMutating({ mutationKey, exact: true })) return;
+
       mutation.mutate(archived);
     }
   };

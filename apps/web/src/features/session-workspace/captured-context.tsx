@@ -1,7 +1,5 @@
-import {
-  runSelectionContextSchema,
-  selectionReferenceKey
-} from '@study/contracts/conversations/context';
+import { selectionReferenceKey } from '@study/contracts/conversations/context';
+import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { useQuery } from '@tanstack/react-query';
@@ -37,6 +35,7 @@ export function CapturedContext({ requestId }: { requestId: string }) {
 
 function ContextSnapshot({ context }: { context: typeof runSelectionContextSchema.Type }) {
   const { t } = useI18n();
+
   return (
     <>
       <Notebook.ContextNotice>

@@ -24,4 +24,5 @@ export const archivedSessionItemSchema = Schema.Struct({
 });
 
 export type SessionArchiveTarget = typeof sessionArchiveTargetSchema.Type;
+
 export type ArchivedSessionItem = typeof archivedSessionItemSchema.Type;

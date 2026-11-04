@@ -49,7 +49,7 @@ export function SessionDocumentDialog({
         </DialogHeader>
         <WorkspaceSurface.ContextDialogBody>
           <WorkspaceSurface.Container>
-            <Transformation id={id} sessions={sessions} />
+            <Transformation id={id} sessions={sessions} onStarted={() => onOpenChange(false)} />
           </WorkspaceSurface.Container>
         </WorkspaceSurface.ContextDialogBody>
         <DialogFooter>

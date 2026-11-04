@@ -13,8 +13,11 @@ import { ItemDeletionMenu } from '../session-workspace/item-deletion-menu';
 import { DocumentNotebookDeletion } from './notebook-deletion';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
+
 const en = catalogs.english;
+
 const clients: QueryClient[] = [];
+
 afterEach(() => {
   cleanup();
   clients.splice(0).forEach((client) => client.clear());
@@ -41,8 +44,10 @@ testStable('confirms one authored note revision separately from the full item', 
     'documents.retireHistory': retire,
     'documents.delete': remove
   };
+
   vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
   const client = new QueryClient();
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
@@ -50,7 +55,7 @@ testStable('confirms one authored note revision separately from the full item', 
         document={document}
         renderActions={(actions) => (
           <ItemContextMenu
-            target={<button type="button" />}
+            target={<button type="button" aria-label="OpenMaterial" />}
             label="OpenMaterial"
             dialogOpen={actions.open}
             actions={<ItemDeletionMenu {...actions} />}
@@ -62,6 +67,7 @@ testStable('confirms one authored note revision separately from the full item', 
     </QueryClientProvider>
   );
   const user = userEvent.setup();
+
   expect(screen.queryByRole('button', { name: en.SessionDeleteVersion })).not.toBeInTheDocument();
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Page' }), {
     button: 2,
@@ -70,6 +76,7 @@ testStable('confirms one authored note revision separately from the full item', 
   });
   await user.click(await screen.findByRole('menuitem', { name: en.SessionDeleteVersion }));
   const dialog = await screen.findByRole('alertdialog');
+
   expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
   expect(
     within(dialog).queryByRole('button', { name: en.SessionDeleteVersion })
@@ -81,6 +88,7 @@ testStable('confirms one authored note revision separately from the full item', 
     await within(dialog).findByRole('button', { name: new RegExp(en.ReaderVersion + ' 1') })
   );
   const input = within(dialog).getByRole('textbox');
+
   await waitFor(() => expect(input).toBeEnabled());
   expect(retire).not.toHaveBeenCalled();
   await user.type(input, document.title);
@@ -103,6 +111,7 @@ testStable('confirms one authored note revision separately from the full item', 
   await user.click(await screen.findByRole('menuitem', { name: en.SessionDeleteItem }));
   const entire = await screen.findByRole('alertdialog');
   const name = within(entire).getByRole('textbox');
+
   await waitFor(() => expect(name).toBeEnabled());
   await user.type(name, document.title);
   await user.click(within(entire).getByRole('button', { name: en.SessionDeleteItem }));
@@ -116,8 +125,10 @@ testStable('shows a review-only list when the current version is the only versio
   const rpc = {
     'documents.versions': async () => ({ items: [document.version!], nextCursor: null })
   };
+
   vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
   const client = new QueryClient();
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
@@ -126,6 +137,7 @@ testStable('shows a review-only list when the current version is the only versio
   );
   await userEvent.setup().click(screen.getByRole('button', { name: en.SessionDeleteVersion }));
   const dialog = await screen.findByRole('alertdialog', { name: en.SessionDeleteChooseVersion });
+
   expect(await within(dialog).findByText(en.SessionDeleteNoOlderVersions)).toBeVisible();
   expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
   expect(

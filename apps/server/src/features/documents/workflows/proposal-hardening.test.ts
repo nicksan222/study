@@ -473,6 +473,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
 
             assert.ok(target.version);
             const session = yield* chats.createSession({ title: 'In flight' });
+
             yield* (yield* Documents).attach({ sessionId: session.id, documentId: target.id });
 
             yield* chats.updateSessionSelection({

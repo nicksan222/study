@@ -52,7 +52,11 @@ const operations = [
   ['factual_correction', 'SessionOpCorrect']
 ] as const;
 
-function useTransformation(id: SessionId, sessions?: readonly SelectedSession[]) {
+function useTransformation(
+  id: SessionId,
+  sessions?: readonly SelectedSession[],
+  onStarted?: () => void
+) {
   const { t, locale } = useI18n();
   const cache = useQueryClient();
   const additionalSessionIds = [
@@ -95,6 +99,7 @@ function useTransformation(id: SessionId, sessions?: readonly SelectedSession[])
 
     setDraft({ attempt, pending: true, unavailable: false });
     submit.mutate(attempt);
+    onStarted?.();
   }
 
   return {
@@ -118,12 +123,14 @@ type TransformationModel = ReturnType<typeof useTransformation>;
 
 export function Transformation({
   id,
-  sessions
+  sessions,
+  onStarted
 }: {
   id: SessionId;
   sessions?: readonly SelectedSession[];
+  onStarted?: () => void;
 }) {
-  const model = useTransformation(id, sessions);
+  const model = useTransformation(id, sessions, onStarted);
 
   return (
     <>

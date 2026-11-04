@@ -789,6 +789,7 @@ testStable(
       role: 'assistant' as const,
       versions: message.versions.map((version) => ({ ...version, status: 'pending' as const }))
     };
+
     mount(<VersionedNote value={pending} />);
     fireEvent.contextMenu(screen.getByText('Current note'), {
       button: 2,
@@ -811,6 +812,7 @@ testStable('keeps raw note deletion in both the toolbar and right-click menu', a
   expect(await screen.findByRole('menuitem', { name: 'SessionDeleteItem' })).toBeVisible();
   await userEvent.setup().click(screen.getByRole('menuitem', { name: 'SessionDeleteVersion' }));
   const dialog = await screen.findByRole('alertdialog');
+
   expect(within(dialog).getByText('SessionDeleteVersionHelp')).toBeVisible();
   await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Cancel' }));
   await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());

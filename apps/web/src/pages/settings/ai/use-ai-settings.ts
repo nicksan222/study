@@ -34,6 +34,7 @@ async function openAttemptBrowser(browser: SignInBrowser | undefined, attempt: S
     return (await browser?.open(attempt.url)) ?? false;
   } catch (error) {
     await disposeSignIn(attempt.attemptId).catch(() => {});
+
     throw error;
   }
 }
@@ -63,7 +64,9 @@ export function useAiSettings() {
 
       owned.current = value;
       const opened = await openAttemptBrowser(browser.current, value);
+
       if (!mounted.current || owned.current !== value) return;
+
       setAttempt(value);
       setPopupBlocked(!opened);
       finishing.current = new AbortController();

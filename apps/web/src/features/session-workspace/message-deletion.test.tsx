@@ -14,6 +14,7 @@ import { MessageDeletion } from './message-deletion';
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const en = catalogs.english;
+
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 41n,
   sessionId: 7n,
@@ -41,6 +42,7 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   parts: [],
   citations: []
 });
+
 const clients: QueryClient[] = [];
 
 afterEach(() => {
@@ -51,6 +53,7 @@ afterEach(() => {
 
 function mount() {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
@@ -62,6 +65,7 @@ function mount() {
 testStable('confirms only the displayed revision and keeps item deletion separate', async () => {
   const removeVersion = vi.fn().mockResolvedValue({ ...message, versions: [message.versions[1]!] });
   const removeItem = vi.fn().mockResolvedValue(true);
+
   vi.mocked(request).mockImplementation(async (invoke) =>
     invoke({
       'conversations.deleteMessageVersion': removeVersion,
@@ -70,8 +74,10 @@ testStable('confirms only the displayed revision and keeps item deletion separat
   );
   mount();
   const user = userEvent.setup();
+
   await user.click(screen.getByRole('button', { name: en.SessionDeleteVersion }));
   const dialog = await screen.findByRole('alertdialog');
+
   expect(removeVersion).not.toHaveBeenCalled();
   expect(within(dialog).getByText(en.SessionDeleteVersionHelp)).toBeVisible();
   await user.type(within(dialog).getByRole('textbox'), en.DeleteConfirmationWord);
@@ -86,11 +92,13 @@ testStable('confirms only the displayed revision and keeps item deletion separat
   await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   await user.click(screen.getByRole('button', { name: en.SessionDeleteItem }));
   const entire = await screen.findByRole('alertdialog');
+
   expect(within(entire).getByText(en.SessionDeleteItemHelp)).toBeVisible();
   await user.click(within(entire).getByRole('button', { name: en.Cancel }));
   expect(removeItem).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: en.SessionDeleteItem }));
   const confirmed = await screen.findByRole('alertdialog');
+
   await user.type(within(confirmed).getByRole('textbox'), en.DeleteConfirmationWord);
   await user.click(within(confirmed).getByRole('button', { name: en.SessionDeleteItem }));
   await waitFor(() => expect(removeItem).toHaveBeenCalledExactlyOnceWith({ id: message.id }));

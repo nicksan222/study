@@ -14,8 +14,11 @@ import { ItemDeletionMenu } from '../session-workspace/item-deletion-menu';
 import { SourceVersionDeletion } from './version-deletion';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
+
 const en = catalogs.english;
+
 const clients: QueryClient[] = [];
+
 afterEach(() => {
   cleanup();
   clients.splice(0).forEach((client) => client.clear());
@@ -52,10 +55,13 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
     'sources.previewHistory': preview,
     'sources.retireHistory': remove
   };
+
   vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
   const client = new QueryClient();
+
   clients.push(client);
   const removed = vi.fn();
+
   render(
     <QueryClientProvider client={client}>
       <SourceVersionDeletion
@@ -63,7 +69,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
         onDeleted={removed}
         renderTrigger={(onDeleteVersion, open) => (
           <ItemContextMenu
-            target={<button type="button" />}
+            target={<button type="button" aria-label="OpenMaterial" />}
             label="OpenMaterial"
             dialogOpen={open}
             actions={
@@ -81,6 +87,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
     </QueryClientProvider>
   );
   const user = userEvent.setup();
+
   expect(screen.queryByRole('button', { name: en.SessionDeleteVersion })).not.toBeInTheDocument();
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Attachment' }), {
     button: 2,
@@ -89,6 +96,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
   });
   await user.click(await screen.findByRole('menuitem', { name: en.SessionDeleteVersion }));
   const dialog = await screen.findByRole('alertdialog');
+
   expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
   expect(
     within(dialog).queryByRole('button', { name: en.SessionDeleteVersion })
@@ -96,6 +104,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
   const versions = await within(dialog).findAllByRole('button', {
     name: new RegExp(en.ReaderVersion)
   });
+
   await user.click(versions.at(-1)!);
   await waitFor(() =>
     expect(preview).toHaveBeenLastCalledWith({
@@ -105,6 +114,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
     })
   );
   const input = within(dialog).getByRole('textbox');
+
   await waitFor(() => expect(input).toBeEnabled());
   expect(remove).not.toHaveBeenCalled();
   await user.type(input, importedSource.name);

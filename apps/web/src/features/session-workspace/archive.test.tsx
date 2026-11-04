@@ -20,27 +20,36 @@ vi.mock('../document-presentation', () => ({
     <article>{document.blocks.map((block) => block.text).join(' ')}</article>
   )
 }));
+
 const id = Schema.decodeUnknownSync(sessionIdSchema)(7n);
+
 const document = authoredDocument(31n, 'Archived physics content', 41n);
+
 const item = Schema.decodeUnknownSync(archivedSessionItemSchema)({
   target: { kind: 'document', id: document.id },
   name: 'Physics',
   archivedAt: 1n
 });
+
 const clients: QueryClient[] = [];
+
 afterEach(() => {
   cleanup();
   clients.splice(0).forEach((client) => client.clear());
   vi.resetAllMocks();
 });
+
 function mount(children = <ArchivePanel id={id} />) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
+
   clients.push(client);
   render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+
   return client;
 }
+
 function setup(items = [item]) {
   const rpc = {
     'conversations.archivedItems': vi.fn().mockResolvedValue(items),
@@ -54,11 +63,15 @@ function setup(items = [item]) {
     }),
     'documents.delete': vi.fn().mockResolvedValue(undefined)
   };
+
   vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
+
   return rpc;
 }
+
 testStable('previews archived content read-only and restores the session membership', async () => {
   const rpc = setup();
+
   mount();
   fireEvent.click(await screen.findByRole('button', { name: 'Physics' }));
   expect(await screen.findByText('Archived physics content')).toBeVisible();
@@ -91,6 +104,7 @@ testStable(
 testStable('shows honest empty and failed archive reads', async () => {
   const rpc = setup([]);
   const client = mount();
+
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('SessionArchiveEmpty'));
   rpc['conversations.archivedItems'].mockRejectedValue(new StudyError('internal', 'Unavailable'));
   await act(async () => {
@@ -102,19 +116,23 @@ testStable('shows honest empty and failed archive reads', async () => {
   expect(screen.queryByText('SessionReadErrorTitle')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Physics' })).toBeNull();
 });
+
 function SharedRestore() {
   const archive = useItemArchive(id, item.target);
+
   return (
     <button disabled={archive.pending} onClick={() => archive.change(false)}>
       restore
     </button>
   );
 }
+
 testStable(
   'fences duplicate archive changes across mounted observers and recovers from failure',
   async () => {
     const rpc = setup();
     let reject!: (error: unknown) => void;
+
     rpc['conversations.setItemArchived'].mockReturnValue(
       new Promise((_, fail) => {
         reject = fail;
@@ -127,6 +145,7 @@ testStable(
       </>
     );
     const buttons = screen.getAllByRole('button');
+
     fireEvent.click(buttons[0]!);
     fireEvent.click(buttons[1]!);
     await waitFor(() => expect(rpc['conversations.setItemArchived']).toHaveBeenCalledTimes(1));
@@ -140,9 +159,11 @@ testStable(
   'protects permanent deletion and disables Restore while its confirmation is open',
   async () => {
     const rpc = setup();
+
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Physics' }));
     const restore = await screen.findByRole('button', { name: 'SessionRestore' });
+
     fireEvent.click(screen.getByRole('button', { name: 'SessionDeletePermanently' }));
     expect(await screen.findByRole('alertdialog')).toBeVisible();
     expect(restore).toBeDisabled();

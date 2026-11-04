@@ -11,6 +11,7 @@ export const authCallbackRoutes = HttpRouter.add('GET', '/auth/callback', (reque
     const accepted = yield* auth
       .receiveSignInCallback({ search: new URL(request.url, 'http://127.0.0.1').search })
       .pipe(Effect.catch(() => Effect.succeed(false)));
+
     return HttpServerResponse.html(signInCallbackPage(accepted)).pipe(
       HttpServerResponse.setStatus(accepted ? 200 : 400),
       HttpServerResponse.setHeaders({

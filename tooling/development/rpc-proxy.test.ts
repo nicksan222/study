@@ -70,10 +70,12 @@ testStable(
       path: database.path,
       fetch: async (_url, init) => {
         const form = new URLSearchParams(init?.body as string);
+
         assert.strictEqual(form.get('redirect_uri'), callbackUrl);
         assert.strictEqual(form.get('client_id'), 'issued-client');
         assert.ok(form.get('code_verifier'));
         exchanges++;
+
         return Response.json({
           access_token: 'test-access',
           refresh_token: 'test-refresh',
@@ -88,11 +90,14 @@ testStable(
       server: { host: '127.0.0.1', port: 0, hmr: false, proxy: studyRpcProxy(server.url) },
       optimizeDeps: { noDiscovery: true }
     });
+
     try {
       await web.listen();
       const address = web.httpServer?.address();
+
       assert.ok(address && typeof address !== 'string');
       const baseUrl = `http://127.0.0.1:${address.port}`;
+
       callbackUrl = `${baseUrl}/auth/callback`;
       await Effect.runPromise(
         Effect.scoped(
@@ -100,26 +105,33 @@ testStable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl });
             const attempt = yield* client['auth.startSignIn']({ callbackUrl });
             const authorization = new URL(attempt.url);
+
             assert.strictEqual(authorization.searchParams.get('redirect_uri'), callbackUrl);
             nonce = authorization.searchParams.get('nonce')!;
             const redirect = new URL(callbackUrl);
+
             redirect.searchParams.set('state', authorization.searchParams.get('state')!);
             redirect.searchParams.set('code', 'test-authorization');
             redirect.searchParams.set('client_id', 'issued-client');
             const wrongState = new URL(redirect);
+
             wrongState.searchParams.set('state', 'stale-state');
             const rejected = yield* Effect.promise(() => fetch(wrongState));
+
             assert.strictEqual(rejected.status, 400);
             yield* Effect.promise(() => rejected.arrayBuffer());
             const response = yield* Effect.promise(() => fetch(redirect));
+
             assert.strictEqual(response.status, 200);
             assert.strictEqual(response.headers.get('cache-control'), 'no-store');
             assert.strictEqual(response.headers.get('referrer-policy'), 'no-referrer');
             yield* Effect.promise(() => response.arrayBuffer());
             const replay = yield* Effect.promise(() => fetch(redirect));
+
             assert.strictEqual(replay.status, 400);
             yield* Effect.promise(() => replay.arrayBuffer());
             const result = yield* client['auth.finishSignIn']({ attemptId: attempt.attemptId });
+
             assert.strictEqual(result.signedIn, true);
             assert.strictEqual(exchanges, 1);
             assert.strictEqual((yield* client['auth.publicAccount']({}))?.subject, 'test-subject');
@@ -131,14 +143,18 @@ testStable(
       await server.close();
       await app.close();
     }
+
     const reopened = await App.open({ path: database.path });
+
     try {
       const reopenedServer = await serve(reopened);
+
       try {
         await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
               const client = yield* makeStudyClient(StudyRpc, { baseUrl: reopenedServer.url });
+
               assert.strictEqual((yield* client['auth.status']({})).signedIn, true);
             })
           )

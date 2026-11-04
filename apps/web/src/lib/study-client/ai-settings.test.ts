@@ -5,6 +5,7 @@ import { beforeEach, expect, vi } from 'vite-plus/test';
 import { browserSignInCallbackUrl, startChatGptSignIn } from './ai-settings';
 
 const api = vi.hoisted(() => ({ native: false, start: vi.fn() }));
+
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => api.native }));
 vi.mock('./request', () => ({
   request: (invoke: (client: { 'auth.startSignIn': typeof api.start }) => Effect.Effect<unknown>) =>

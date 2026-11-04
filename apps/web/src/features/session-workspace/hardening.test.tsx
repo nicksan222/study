@@ -712,6 +712,7 @@ testStable(
 
     mount(<History id={id} />, client);
     const reply = await screen.findByText('Retained reply', { selector: 'p' });
+
     expect(rpc.provenance).not.toHaveBeenCalled();
     expect(screen.queryByText('SessionContextUsed')).toBeNull();
     fireEvent.contextMenu(reply, { button: 2, clientX: 80, clientY: 80 });
@@ -1304,6 +1305,7 @@ async function openStarterComposer() {
 
 testStable('ignores obsolete selection drafts when starting a session transformation', async () => {
   const client = cache();
+
   client.setQueryData(['session-drafts', String(id), 'selection'], selection());
   mount(<Transformation id={id} />, client);
   fireEvent.change(await screen.findByRole('textbox', { name: 'SessionOutputTitle' }), {

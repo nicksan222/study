@@ -26,10 +26,12 @@ export function SessionTitleEdit({ id, title }: { id: SessionId; title: string }
       open={open}
       onOpenChange={(next) => {
         if (mutation.isPending) return;
+
         if (next) {
           setDraft(title);
           mutation.reset();
         }
+
         setOpen(next);
       }}
     >
@@ -47,7 +49,9 @@ export function SessionTitleEdit({ id, title }: { id: SessionId; title: string }
         <form
           onSubmit={(event) => {
             event.preventDefault();
+
             if (!draft.trim() || mutation.isPending) return;
+
             mutation.mutate(draft.trim(), { onSuccess: () => setOpen(false) });
           }}
         >

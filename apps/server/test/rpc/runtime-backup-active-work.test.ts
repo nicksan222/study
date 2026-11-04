@@ -61,6 +61,7 @@ for (const action of ['apply', 'keep'] as const)
 
             assert.ok(document.version);
             const session = yield* c.createUntitledSession({});
+
             yield* m.attach({ sessionId: session.id, documentId: document.id });
 
             yield* c.updateSessionSelection({

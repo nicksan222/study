@@ -8,9 +8,9 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { request } from '#web/lib/study-client/request.ts';
 
 import type { ItemDeletionActions } from './item-deletion-menu';
+import { messageDeletionOptions } from './message-deletion.queries';
 import { sessionKey } from './session-workspace.queries';
 import { SessionError } from './status';
 
@@ -35,18 +35,11 @@ export function MessageDeletion({
   const [target, setTarget] = useState<'item' | VersionId>();
   const last = message.versions.filter((version) => version.status === 'complete').length < 2;
   const remove = useMutation({
-    retry: false,
-    mutationFn: async (intent: 'item' | VersionId) => {
-      if (intent === 'item')
-        await request((rpc) => rpc['conversations.deleteMessage']({ id: message.id }));
-      else
-        await request((rpc) =>
-          rpc['conversations.deleteMessageVersion']({ messageId: message.id, versionId: intent })
-        );
-    },
+    ...messageDeletionOptions(message.id),
     onSuccess: (_, intent) => {
       if (intent !== 'item') onVersionDeleted?.();
       else onDeleted?.();
+
       setTarget(undefined);
       void cache.invalidateQueries({ queryKey: sessionKey(message.sessionId) });
       void cache.invalidateQueries({ queryKey: ['sessions'] });

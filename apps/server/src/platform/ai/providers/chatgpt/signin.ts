@@ -131,8 +131,10 @@ export class SignIn {
 
   static async start(options: SignInOptions): Promise<SignIn> {
     new URL(`${options.issuer.replace(/\/$/, '')}/api/accounts/authorize`);
+
     if (options.callbackUrl !== undefined)
       Schema.decodeUnknownSync(signInCallbackUrlSchema)(options.callbackUrl);
+
     const verifier = random(),
       state = random(),
       nonce = random();
@@ -147,28 +149,39 @@ export class SignIn {
     let delivered = false;
     const receiveCallback = (params: URLSearchParams): boolean => {
       if (delivered) return false;
+
       if (params.get('state') !== state) {
         reject(new Error('Sign-in state mismatch'));
+
         return false;
       }
+
       delivered = true;
       const code = params.get('code');
+
       if (!code || params.has('error')) {
         reject(new Error('Sign-in declined'));
+
         return false;
       }
+
       resolve({ code, clientId: params.get('client_id') ?? undefined });
+
       return true;
     };
     const server = options.callbackUrl
       ? undefined
       : createServer({ maxHeaderSize: 16 * 1024 }, (request, response) => {
           const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+
           if (url.pathname !== '/auth/callback') {
             response.writeHead(404).end();
+
             return;
           }
+
           const accepted = receiveCallback(url.searchParams);
+
           response
             .writeHead(accepted ? 200 : 400, {
               'content-type': 'text/html; charset=utf-8',
@@ -178,6 +191,7 @@ export class SignIn {
             .end(signInCallbackPage(accepted));
         });
     let redirect = options.callbackUrl;
+
     if (server) {
       server.requestTimeout = 30_000;
       server.headersTimeout = 30_000;
@@ -198,7 +212,9 @@ export class SignIn {
 
       redirect = `http://127.0.0.1:${address.port}/auth/callback`;
     }
+
     if (!redirect) throw new Error('Cannot determine sign-in callback');
+
     return new SignIn(server, options, redirect, verifier, state, nonce, callback, receiveCallback);
   }
 
@@ -210,6 +226,7 @@ export class SignIn {
       params.get('state') !== this.state
     )
       return false;
+
     return this.receiveCallback(params);
   }
 
@@ -375,5 +392,6 @@ function assertIdClaims(
 
 export function signInCallbackPage(accepted: boolean): string {
   const key = accepted ? 'LlmChatGptBrowserDone' : 'LlmChatGptBrowserFailed';
+
   return `<!doctype html><meta charset=utf-8><title>Study</title><p>${[text('english', key), text('italian', key)].map((value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')).join('<br>')}</p>`;
 }

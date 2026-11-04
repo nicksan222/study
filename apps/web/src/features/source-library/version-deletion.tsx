@@ -55,6 +55,7 @@ export function SourceVersionDeletion({
 function SourceVersionDialog({ model, source }: { model: Model; source: Source }) {
   const { t } = useI18n();
   const { selected, view, preview, blocked, pending, confirming, selectedVersion } = model;
+
   return (
     <DangerDialog
       open={view.open}
@@ -104,6 +105,7 @@ function useSourceVersionDeletion(source: Source, onDeleted: () => void) {
   const selectedVersion = history.data?.pages
     .flatMap((page) => page.items)
     .find((version) => version.snapshotId === selected);
+
   return {
     selected,
     setSelected,
@@ -124,6 +126,7 @@ function SourceVersionChoices({ model }: { model: Model }) {
   const { selected, setSelected, view, history, preview, pending } = model;
   const versions = history.data?.pages.flatMap((page) => page.items) ?? [];
   const latest = versions[0]?.snapshotId;
+
   return (
     <>
       {history.isPending && <Loading label={t('LoadingStudy')} />}
@@ -156,6 +159,7 @@ function SourceVersionChoices({ model }: { model: Model }) {
 function SourceVersionFeedback({ model }: { model: Model }) {
   const { t } = useI18n();
   const { selected, view, history, preview, blocked, pending } = model;
+
   return (
     <>
       {' '}

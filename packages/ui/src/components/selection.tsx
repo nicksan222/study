@@ -1,7 +1,24 @@
+import type { ComponentProps } from 'react';
+
+import { DialogPopup, DialogTitle } from './dialog';
 import { semanticPart as part } from './semantic-part';
+
+function SelectionDialogPopup(
+  props: Omit<ComponentProps<typeof DialogPopup>, 'className' | 'viewportClassName'>
+) {
+  return (
+    <DialogPopup
+      {...props}
+      className="settings-popup ui-selection-dialog"
+      viewportClassName="settings-viewport"
+    />
+  );
+}
 
 /** Searchable item navigation, archive previews, and retained content excerpts. */
 export const SelectionSurface = {
+  Popup: SelectionDialogPopup,
+  Title: part(DialogTitle, 'sr-only'),
   Root: part('div', 'ui-selection'),
   Search: part('label', 'ui-selection-search'),
   Navigation: part('aside', 'settings-navigation ui-selection-navigation'),

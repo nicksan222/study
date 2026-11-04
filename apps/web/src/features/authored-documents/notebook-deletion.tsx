@@ -1,6 +1,7 @@
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { StudyDocumentVersionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
+import type { ItemDeletionActions } from '@study/ui/context-menu';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { Loading } from '@study/ui/loading';
 import { VersionDeletionList } from '@study/ui/version-deletion-list';
@@ -13,10 +14,12 @@ import {
   documentHistoryOptions,
   invalidateDocuments
 } from '#web/lib/study-client/documents.queries.ts';
-import { request } from '#web/lib/study-client/request.ts';
 
 import { ContentReadError, releaseBodyPreviews } from '../document-presentation';
-import type { ItemDeletionActions } from '../session-workspace/item-deletion-menu';
+import {
+  notebookDeletionOptions,
+  notebookDeletionPreviewOptions
+} from './notebook-deletion.queries';
 
 /** Notebook actions keep whole-document deletion separate from one exact historical body. */
 export function DocumentNotebookDeletion({
@@ -59,6 +62,7 @@ function DocumentDeletionDialog({ model }: { model: Model }) {
   const { t } = useI18n();
   const { mode, setMode, preview, remove, blocked, confirming } = model;
   const copy = useDocumentDeletionCopy(model);
+
   return (
     <DangerDialog
       open={mode !== undefined}
@@ -87,12 +91,14 @@ function useDocumentDeletionCopy(model: Model) {
   const label = t(mode === 'item' ? 'SessionDeleteItem' : 'SessionDeleteVersion');
   const title = mode === 'version' && !confirming ? t('SessionDeleteChooseVersion') : label;
   let description = document.title;
+
   if (mode === 'item') description = t('SessionDeleteItemHelp');
   else if (confirming)
     description = t('SessionDeleteChosenVersionHelp', {
       version: t('ReaderVersion') + ' ' + String(selectedVersion?.number),
       name: document.title
     });
+
   const confirmation = confirming
     ? {
         identity:
@@ -101,6 +107,7 @@ function useDocumentDeletionCopy(model: Model) {
         label: t('DeleteConfirmationInstruction', { word: document.title })
       }
     : null;
+
   return { label, title, description, confirmation };
 }
 
@@ -112,40 +119,19 @@ function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?:
     ...documentHistoryOptions(document.id),
     enabled: mode === 'version'
   });
-  const preview = useQuery({
-    queryKey: ['documents', 'notebook-deletion', String(document.id), mode, String(versionId)],
-    enabled: mode === 'item' || (mode === 'version' && versionId !== undefined),
-    retry: false,
-    queryFn: ({ signal }) =>
-      request(
-        (rpc) =>
-          mode === 'item'
-            ? rpc['documents.previewDeletion']({ id: document.id })
-            : rpc['documents.previewHistory']({
-                documentId: document.id,
-                keepLatest: 1,
-                versionId
-              }),
-        signal
-      )
-  });
+  const preview = useQuery(
+    notebookDeletionPreviewOptions({ documentId: document.id, mode, versionId })
+  );
   const remove = useMutation({
-    retry: false,
-    mutationFn: async () => {
+    ...notebookDeletionOptions({
+      documentId: document.id,
+      mode,
+      versionId,
+      token: preview.data?.token
+    }),
+    onSuccess: async () => {
       if (!preview.data) return;
-      if (mode === 'item')
-        await request((rpc) =>
-          rpc['documents.delete']({ documentId: document.id, token: preview.data!.token })
-        );
-      else
-        await request((rpc) =>
-          rpc['documents.retireHistory']({
-            documentId: document.id,
-            keepLatest: 1,
-            versionId,
-            token: preview.data!.token
-          })
-        );
+
       await releaseBodyPreviews(cache, {
         kind: 'document',
         documentId: String(document.id),
@@ -153,6 +139,7 @@ function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?:
       });
       await invalidateDocuments(cache);
       setMode(undefined);
+
       if (mode === 'item') onDeleted?.();
     },
     onError: async () => {
@@ -172,11 +159,13 @@ function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?:
   const selectedVersion = history.data?.pages
     .flatMap((page) => page.items)
     .find((version) => version.id === versionId);
+
   function open(next: 'item' | 'version') {
     remove.reset();
     setVersionId(undefined);
     setMode(next);
   }
+
   return {
     document,
     mode,
@@ -199,6 +188,7 @@ function DocumentVersionChoices({ model }: { model: Model }) {
   const { t, date } = useI18n();
   const { document, versionId, setVersionId, history, preview } = model;
   const versions = history.data?.pages.flatMap((page) => page.items) ?? [];
+
   return (
     <>
       {history.isPending && <Loading label={t('LoadingStudy')} />}
@@ -231,6 +221,7 @@ function DocumentVersionChoices({ model }: { model: Model }) {
 function DocumentDeletionFeedback({ model }: { model: Model }) {
   const { t } = useI18n();
   const { mode, history, preview, remove, blocked } = model;
+
   return (
     <>
       {' '}

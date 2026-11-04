@@ -22,6 +22,7 @@ export const signInCallbackUrlSchema = Schema.String.check(
   Schema.makeFilter((value) => {
     try {
       const url = new URL(value);
+
       return (
         url.protocol === 'http:' &&
         url.hostname === '127.0.0.1' &&

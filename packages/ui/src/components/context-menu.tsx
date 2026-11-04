@@ -22,3 +22,11 @@ export function ContextMenuPopup({ className, children, ...props }: Primitive.Po
     </Primitive.Portal>
   );
 }
+
+export type ItemDeletionActions = {
+  onDeleteItem: () => void;
+  onDeleteVersion: () => void;
+  open: boolean;
+  disabled?: boolean;
+  versionDisabled?: boolean;
+};

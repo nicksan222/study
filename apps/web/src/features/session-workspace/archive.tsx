@@ -16,12 +16,11 @@ import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { request } from '#web/lib/study-client/request.ts';
 
-import { DocumentNotebookDeletion } from '../authored-documents/notebook-deletion';
+import { DocumentNotebookDeletion } from '../authored-documents';
 import { DocumentReader } from '../document-presentation';
 import { SourceDeletion, sourceOptions, sourceExtractionOptions } from '../source-library';
-import { archivedItemsOptions, useItemArchive } from './archive.queries';
+import { archivedItemsOptions, archivedMessageOptions, useItemArchive } from './archive.queries';
 import { MessageDeletion } from './message-deletion';
 import { NoteContent } from './note-editor';
 import { sessionDocumentOptions } from './session-document.queries';
@@ -36,6 +35,7 @@ export function ArchivePanel({ id }: { id: SessionId }) {
   const [search, setSearch] = useState('');
   const available = items.isError ? [] : (items.data ?? []);
   const active = available.find((item) => itemKey(item.target) === selected);
+
   return (
     <Surface.Root>
       <ArchiveNavigation
@@ -82,7 +82,9 @@ function ArchiveOverview({
   retry: () => void;
 }) {
   const { t } = useI18n();
+
   if (pending) return <Loading label={t('LoadingStudy')} />;
+
   if (failed)
     return (
       <ErrorState
@@ -95,6 +97,7 @@ function ArchiveOverview({
         }
       />
     );
+
   return (
     <Surface.Empty role="status">
       <strong>{t(hasItems ? 'SessionArchiveChoose' : 'SessionArchiveEmpty')}</strong>
@@ -125,6 +128,7 @@ function ArchiveNavigation({
   const filtered = available.filter((item) =>
     item.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
   );
+
   return (
     <Surface.Navigation aria-label={t('SessionArchived')}>
       <Surface.Search htmlFor={searchId}>
@@ -171,8 +175,11 @@ function ArchivedPreview({ sessionId, item }: { sessionId: SessionId; item: Arch
     void cache.invalidateQueries(archivedItemsOptions(sessionId));
   };
   const props = { sessionId, onDeleted };
+
   if (item.target.kind === 'message') return <ArchivedMessage {...props} id={item.target.id} />;
+
   if (item.target.kind === 'document') return <ArchivedDocument {...props} id={item.target.id} />;
+
   return <ArchivedSource {...props} id={item.target.id} />;
 }
 
@@ -191,6 +198,7 @@ function ArchiveActions({
 }) {
   const { t } = useI18n();
   const archive = useItemArchive(sessionId, target);
+
   return (
     <Surface.ArchiveFooter aria-busy={archive.pending}>
       <Surface.ArchiveActions>
@@ -214,15 +222,16 @@ function ArchiveActions({
 
 function ArchivedMessage({ id, sessionId, onDeleted }: PreviewProps & { id: MessageId }) {
   const { t } = useI18n();
-  const message = useQuery({
-    queryKey: ['session-archive-message', String(id)],
-    queryFn: ({ signal }) => request((rpc) => rpc['conversations.message']({ id }), signal)
-  });
+  const message = useQuery(archivedMessageOptions(id));
+
   if (message.error)
     return <SessionReadError error={message.error} retry={() => void message.refetch()} />;
+
   if (!message.data) return <Loading label={t('LoadingStudy')} />;
+
   const value = message.data;
   const version = value.versions.find((v) => v.id === value.activeVersionId);
+
   return (
     <Surface.ArchiveFrame>
       <Surface.ArchiveReading>
@@ -274,9 +283,12 @@ function ArchivedMessage({ id, sessionId, onDeleted }: PreviewProps & { id: Mess
 function ArchivedDocument({ id, sessionId, onDeleted }: PreviewProps & { id: StudyDocumentId }) {
   const { t } = useI18n();
   const document = useQuery(sessionDocumentOptions(id));
+
   if (document.error)
     return <SessionReadError error={document.error} retry={() => void document.refetch()} />;
+
   if (!document.data) return <Loading label={t('LoadingStudy')} />;
+
   return (
     <Surface.ArchiveFrame>
       <Surface.ArchiveReading>
@@ -320,9 +332,12 @@ function ArchivedSource({ id, sessionId, onDeleted }: PreviewProps & { id: Sourc
   const { t } = useI18n();
   const source = useQuery(sourceOptions(id));
   const extraction = useQuery(sourceExtractionOptions(id));
+
   if (source.error)
     return <SessionReadError error={source.error} retry={() => void source.refetch()} />;
+
   if (!source.data) return <Loading label={t('LoadingStudy')} />;
+
   return (
     <Surface.ArchiveFrame>
       <Surface.ArchiveReading>
@@ -366,6 +381,7 @@ function ArchiveContext({ children }: { children: ReactNode }) {
     </Surface.ArchiveContext>
   );
 }
+
 function ArchivePlaceholder() {
   return (
     <ChatMessage aria-hidden="true">

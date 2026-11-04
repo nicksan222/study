@@ -270,7 +270,22 @@ export const Conversations = defineService(
       archivedItems: (input: typeof sessionArchiveInputSchema.Type) =>
         transaction((tx) => allArchivedItems(tx, input.sessionId)),
       setItemArchived: (input: typeof setSessionItemArchivedSchema.Type) =>
-        transaction((tx) => tx.store(SessionArchiveStore).setItemArchived(input)),
+        transaction((tx) => {
+          const archivedAt = tx.store(SessionArchiveStore).setItemArchived(input);
+
+          if (input.target.kind === 'document')
+            Documents.archiveSessionInTransaction(tx, {
+              sessionId: input.sessionId,
+              documentId: input.target.id,
+              archivedAt
+            });
+          else if (input.target.kind === 'source')
+            Sources.archiveSessionInTransaction(tx, {
+              sessionId: input.sessionId,
+              sourceId: input.target.id,
+              archivedAt
+            });
+        }),
       sessionSelection: selections.sessionSelection,
       updateSessionSelection: (input: typeof updateSessionSelectionSchema.Type) =>
         transaction((tx) => {

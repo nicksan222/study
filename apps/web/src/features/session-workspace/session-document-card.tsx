@@ -6,7 +6,7 @@ import { FileText } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { DocumentNotebookDeletion } from '../authored-documents/notebook-deletion';
+import { DocumentNotebookDeletion } from '../authored-documents';
 import { ArchiveMenuItem } from './archive-menu-item';
 import { ItemContextMenu } from './item-context-menu';
 import { ItemDeletionMenu } from './item-deletion-menu';
@@ -44,11 +44,23 @@ export function SessionDocumentCard({
             </>
           }
           dialogOpen={actions.open}
-          target={<button type="button" onClick={() => onOpen(document)} />}
+          target={
+            <button
+              type="button"
+              aria-label={t('SessionOpenPage')}
+              onClick={() => onOpen(document)}
+            />
+          }
         >
           {compact ? (
             <WorkspaceAttachments.Item
-              render={<button type="button" onClick={() => onOpen(document)} />}
+              render={
+                <button
+                  type="button"
+                  aria-label={t('SessionOpenPage')}
+                  onClick={() => onOpen(document)}
+                />
+              }
             >
               <FileText aria-hidden="true" />
               <span>{document.title}</span>

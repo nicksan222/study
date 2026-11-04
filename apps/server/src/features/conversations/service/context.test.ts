@@ -1050,6 +1050,7 @@ testStable(
             bytes: new TextEncoder().encode('Attachment')
           });
           const processing = yield* sources.sourceProcessing(source.id);
+
           yield* transaction((tx) =>
             tx.store(SourceStore).publishSourceDocument({
               id: source.id,
@@ -1136,12 +1137,14 @@ testStable(
           expect(yield* client('conversations.captureSessionContext', intent)).toStrictEqual(
             captured
           );
+
           for (let index = 0; index < 3; index++)
             yield* client('conversations.postMessage', {
               sessionId: session.id,
               threadRoot,
               text: String(index).repeat(80000)
             });
+
           assert.strictEqual(
             (yield* Effect.flip(
               client('conversations.captureSessionContext', {

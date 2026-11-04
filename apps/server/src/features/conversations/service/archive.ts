@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Collects archived session items through bounded transactional store reads.         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Preserves complete archive results while respecting store pagination limits.           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The owning conversation transaction supplies persistence access and session identity.    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { ArchivedSessionItem } from '@study/contracts/conversations/archive';
 import type { SessionId } from '@study/contracts/ids';
 
@@ -9,10 +21,14 @@ export function allArchivedItems(tx: Transaction, sessionId: SessionId) {
   const items: ArchivedSessionItem[] = [];
   const limit = 100;
   let offset = 0;
+
   for (;;) {
     const page = tx.store(SessionArchiveStore).archivedItems({ sessionId, limit, offset });
+
     items.push(...page);
+
     if (page.length < limit) return items;
+
     offset += limit;
   }
 }

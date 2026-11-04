@@ -33,9 +33,12 @@ vi.mock('../source-library', () => ({
     queryFn: async () => (id === null ? null : { id, name: 'Lecture.pdf', sizeBytes: 10n })
   })
 }));
+
 const clients: QueryClient[] = [];
+
 afterEach(() => {
   cleanup();
+
   for (const client of clients.splice(0)) client.clear();
 });
 
@@ -43,6 +46,7 @@ testStable.each([false, true])(
   'opens the exact attachment from its context menu (compact: %s)',
   async (compact) => {
     const client = new QueryClient();
+
     clients.push(client);
     const open = vi.fn();
     const part = Schema.decodeUnknownSync(messagePartSchema)({
@@ -51,6 +55,7 @@ testStable.each([false, true])(
       sourceName: 'Lecture.pdf',
       sourceKind: 'pdf'
     });
+
     render(
       <QueryClientProvider client={client}>
         <AttachmentCards parts={[part]} compact={compact} onOpenSource={open} />
@@ -61,6 +66,7 @@ testStable.each([false, true])(
       expect(screen.getByRole('button', { name: 'Lecture.pdf' })).toBeEnabled()
     );
     const card = screen.getByRole('button', { name: 'Lecture.pdf' });
+
     expect(screen.queryByRole('button', { name: 'SessionDeleteItem' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'SessionDeleteVersion' })).not.toBeInTheDocument();
     fireEvent.contextMenu(card, { button: 2, clientX: 80, clientY: 80 });
@@ -80,6 +86,7 @@ testStable('opens the exact authored document from its context menu', async () =
   const document = authoredDocument();
   const open = vi.fn();
   const client = new QueryClient();
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
@@ -102,6 +109,7 @@ testStable('opens the exact authored document from its context menu', async () =
 
 testStable('keeps unavailable attachment context actions disabled', async () => {
   const client = new QueryClient();
+
   clients.push(client);
   const part = Schema.decodeUnknownSync(messagePartSchema)({
     id: 3n,
@@ -109,6 +117,7 @@ testStable('keeps unavailable attachment context actions disabled', async () => 
     sourceName: 'Missing.pdf',
     sourceKind: 'pdf'
   });
+
   render(
     <QueryClientProvider client={client}>
       <AttachmentCards parts={[part]} onOpenSource={vi.fn()} />
@@ -126,10 +135,12 @@ testStable.each(['document', 'source'] as const)(
   async (kind) => {
     const sessionId = Schema.decodeUnknownSync(sessionIdSchema)(15n);
     const archive = vi.fn().mockResolvedValue(undefined);
+
     vi.mocked(request).mockImplementation(async (invoke) =>
       invoke({ 'conversations.setItemArchived': archive } as never)
     );
     const client = new QueryClient();
+
     clients.push(client);
     const document = authoredDocument();
     const part = Schema.decodeUnknownSync(messagePartSchema)({
@@ -138,6 +149,7 @@ testStable.each(['document', 'source'] as const)(
       sourceName: 'Lecture.pdf',
       sourceKind: 'pdf'
     });
+
     render(
       <QueryClientProvider client={client}>
         {kind === 'document' ? (
@@ -153,9 +165,11 @@ testStable.each(['document', 'source'] as const)(
       </QueryClientProvider>
     );
     const name = kind === 'document' ? /New document/ : 'Lecture.pdf';
+
     await screen.findByRole('button', { name });
     await vi.waitFor(() => expect(screen.getByRole('button', { name })).toBeEnabled());
     const target = screen.getByRole('button', { name });
+
     fireEvent.contextMenu(target, { button: 2, clientX: 80, clientY: 80 });
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'SessionArchive' }));
     await vi.waitFor(() =>

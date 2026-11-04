@@ -1,15 +1,10 @@
 import { ContextMenuItem, ContextMenuSeparator } from '@study/ui/context-menu';
+import type { ItemDeletionActions } from '@study/ui/context-menu';
 import { FileMinus2, Trash2 } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-export type ItemDeletionActions = {
-  onDeleteItem: () => void;
-  onDeleteVersion: () => void;
-  open: boolean;
-  disabled?: boolean;
-  versionDisabled?: boolean;
-};
+export type { ItemDeletionActions } from '@study/ui/context-menu';
 
 export function ItemDeletionMenu({
   onDeleteItem,
@@ -18,6 +13,7 @@ export function ItemDeletionMenu({
   versionDisabled
 }: ItemDeletionActions) {
   const { t } = useI18n();
+
   return (
     <>
       <ContextMenuSeparator />

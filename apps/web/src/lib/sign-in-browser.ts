@@ -12,17 +12,22 @@ export function prepareSignInBrowser(): SignInBrowser {
     return {
       open: async (url) => {
         await openUrl(url);
+
         return true;
       },
       close: () => {}
     };
 
   const popup = window.open('about:blank', '_blank');
+
   if (popup) popup.opener = null;
+
   return {
     open: async (url) => {
       if (!popup || popup.closed) return false;
+
       popup.location.replace(url);
+
       return true;
     },
     close: () => popup?.close()

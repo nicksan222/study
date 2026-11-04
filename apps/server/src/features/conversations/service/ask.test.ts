@@ -450,6 +450,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
               citations: []
             });
             const session = yield* c.createUntitledSession({});
+
             yield* documents.attach({ sessionId: session.id, documentId: material.id });
 
             yield* c.updateSessionSelection({

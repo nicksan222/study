@@ -191,7 +191,13 @@ function DocumentEntry({
   const menu = (actions?: ItemDeletionActions) => (
     <ItemContextMenu
       label={t('SessionOpenPage')}
-      target={<button type="button" onClick={() => onOpen(message)} />}
+      target={
+        <button
+          type="button"
+          aria-label={t('SessionOpenPage')}
+          onClick={() => onOpen(message)}
+        />
+      }
       dialogOpen={actions?.open}
       actions={actions && <ItemDeletionMenu {...actions} />}
     >
@@ -207,6 +213,7 @@ function DocumentEntry({
       />
     </ItemContextMenu>
   );
+
   return version ? (
     <MessageDeletion message={message} versionId={version.id} renderActions={menu} />
   ) : (

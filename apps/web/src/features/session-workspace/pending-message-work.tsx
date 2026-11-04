@@ -73,6 +73,7 @@ function PendingRequestWork({
               variant="ghost-muted"
               onClick={async () => {
                 const result = await work.refetch();
+
                 if (!result.isError) cancel.reset();
               }}
             >
@@ -104,5 +105,6 @@ function usePendingRequestWork(requestId: string, target: MessageWorkTarget) {
   const stopping = cancel.isPending || execution?.status === 'cancelling';
 
   const showCancel = execution?.canCancel || stopping || cancel.isError;
+
   return { work, cancel, execution, stopping, showCancel };
 }

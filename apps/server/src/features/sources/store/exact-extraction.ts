@@ -214,6 +214,28 @@ export const SessionSourcesStore = defineStore({
         })
       },
       mutations: {
+        archiveSession: storeMutation({
+          input: Schema.Struct({
+            ...c.sourceLinkSchema.fields,
+            archivedAt: Schema.NullOr(Schema.BigInt)
+          }),
+          output: Schema.Void,
+          run: (v) => {
+            const changed = db.orm
+              .update(s.session_sources)
+              .set({ archived_at: v.archivedAt })
+              .where(
+                and(
+                  eq(s.session_sources.source_id, v.sourceId),
+                  eq(s.session_sources.session_id, v.sessionId)
+                )
+              )
+              .returning({ id: s.session_sources.source_id })
+              .get();
+
+            if (!changed) throw new StudyError('not_found', 'Session item is unavailable');
+          }
+        }),
         attachSource: storeMutation({
           input: c.sourceLinkSchema,
           output: Schema.Void,

@@ -14,6 +14,9 @@
 import * as e from '@study/contracts/documents/editing';
 import * as r from '@study/contracts/documents/rpc';
 import * as c from '@study/contracts/documents/schemas';
+import { StudyError } from '@study/contracts/errors';
+import { and, eq, sql } from '@study/db';
+import { session_documents } from '@study/db/schema';
 import { Schema, Option } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
@@ -25,6 +28,7 @@ export const DocumentsStore = defineStore({
   entity: { singular: 'document', plural: 'documents' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+    const { db } = resources;
 
     return {
       queries: {
@@ -42,6 +46,26 @@ export const DocumentsStore = defineStore({
         })
       },
       mutations: {
+        archiveSession: storeMutation({
+          input: Schema.Struct({ ...r.linkSchema.fields, archivedAt: Schema.NullOr(Schema.BigInt) }),
+          output: Schema.Void,
+          run: (v) => {
+            const changed = db.orm
+              .update(session_documents)
+              .set({ archived_at: v.archivedAt })
+              .where(
+                and(
+                  eq(session_documents.document_id, v.documentId),
+                  eq(session_documents.session_id, v.sessionId),
+                  sql`NOT EXISTS(SELECT 1 FROM study_document_deletions d WHERE d.document_id=${session_documents.document_id})`
+                )
+              )
+              .returning({ id: session_documents.document_id })
+              .get();
+
+            if (!changed) throw new StudyError('not_found', 'Session item is unavailable');
+          }
+        }),
         updateMetadata: storeMutation({
           input: r.metadataSchema,
           output: c.detailSchema,
@@ -108,6 +132,7 @@ export const DocumentVersionsStore = defineStore({
   entity: { singular: 'version', plural: 'versions' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+    const { db } = resources;
 
     return {
       queries: {
@@ -199,6 +224,7 @@ export const DocumentProposalsStore = defineStore({
   entity: { singular: 'proposal', plural: 'proposals' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+    const { db } = resources;
 
     return {
       queries: {
@@ -238,6 +264,7 @@ export const DocumentProposalReceiptsStore = defineStore({
   entity: { singular: 'proposalReceipt', plural: 'proposalReceipts' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+    const { db } = resources;
 
     return {
       queries: {

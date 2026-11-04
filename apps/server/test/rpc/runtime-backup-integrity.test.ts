@@ -56,7 +56,7 @@ testStable(
               blocks: [
                 createBlock({
                   type: 'paragraph',
-                  content: [{ type: 'text', text: 'Retained image evidence' }]
+                  inlines: [{ type: 'text', text: 'Retained image evidence', marks: [] }]
                 }),
                 createBlock({
                   type: 'image',
@@ -75,6 +75,7 @@ testStable(
           const c = yield* Conversations;
 
           const session = yield* c.createUntitledSession({});
+
           yield* (yield* Documents).attach({ sessionId: session.id, documentId: document.id });
 
           yield* c.updateSessionSelection({

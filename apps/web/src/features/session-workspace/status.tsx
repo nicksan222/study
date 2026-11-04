@@ -5,7 +5,7 @@ import { Notebook } from '@study/ui/session-workspace';
 import { useQuery } from '@tanstack/react-query';
 import { Brain, Check, CircleAlert, CircleSlash, Clock, ChevronRight } from 'lucide-react';
 
-import { workflowLabel } from '#web/features/activity/workflow-label.ts';
+import { workflowLabel } from '#web/features/activity/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
@@ -87,6 +87,7 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
       {state.data?.items.toReversed().map((item) => {
         const failure = item.outcome === 'failure';
         const Icon = failure ? CircleAlert : workIcon(item.status);
+
         return (
           <Notebook.WorkItem key={item.id}>
             <Notebook.WorkSummary>

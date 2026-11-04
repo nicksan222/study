@@ -11,12 +11,15 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { selectedContentOptions } from './selection.queries';
 import { SessionReadError } from './status';
+
 type Target = typeof sessionSelectionTargetSchema.Type;
+
 const scopeLabels = {
   document: 'SessionWhole',
   blocks: 'SessionBlocks',
   ranges: 'SessionRanges'
 } as const;
+
 function SelectionDisclosure({ title, children }: { title: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
 

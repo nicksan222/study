@@ -124,6 +124,7 @@ testStable(
               0n
             );
             const session = yield* rpc['conversations.createSession']({ title: 'Historic source' });
+
             yield* sources.attachSource({ sessionId: session.id, sourceId: source.id });
             const range = { blockId: block.id, start: 1, end: 3 };
 

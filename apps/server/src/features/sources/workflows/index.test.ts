@@ -169,6 +169,7 @@ testStable(
               instruction: 'Explain',
               preferences: {}
             });
+
             yield* sources.replaceSource({
               id: source.id,
               expectedRevision: 1,

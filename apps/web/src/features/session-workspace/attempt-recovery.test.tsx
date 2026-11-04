@@ -173,12 +173,13 @@ testStable(
   'retains transform pending ownership and immutable retry inputs across remount and edited fields',
   async () => {
     const capture = deferred<Awaited<ReturnType<typeof captureContext>>>();
+    const onStarted = vi.fn();
 
     vi.mocked(captureContext)
       .mockReturnValueOnce(capture.promise)
       .mockRejectedValueOnce(new StudyError('not_found', 'Retired capture'));
     vi.mocked(transformDocument).mockRejectedValueOnce(new StudyError('transient', 'Lost receipt'));
-    const first = mount(<Transformation id={id} />);
+    const first = mount(<Transformation id={id} onStarted={onStarted} />);
 
     fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
       target: { value: 'Original title' }
@@ -190,6 +191,7 @@ testStable(
       expect(screen.getByRole('button', { name: 'SessionCreateDocument' })).toBeEnabled()
     );
     fireEvent.click(screen.getByRole('button', { name: 'SessionCreateDocument' }));
+    expect(onStarted).toHaveBeenCalledExactlyOnceWith();
     await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(1));
     const submitted = vi.mocked(captureContext).mock.calls[0]![0];
 

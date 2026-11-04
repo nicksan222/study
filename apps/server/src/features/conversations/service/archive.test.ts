@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies automatic session inclusion and reversible item archiving.                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises archive ownership, restoration, immutable captures and bounded reads.        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Tests use real SQLite fixtures and public feature services exclusively.                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import { testStable } from '@study/testing/vitest';
@@ -14,6 +26,7 @@ testStable(
   'automatically includes active session items, archives reversibly, and preserves captured requests',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -34,6 +47,7 @@ testStable(
             citations: [],
             document: deletionDocument('Document evidence')
           });
+
           yield* documents.attach({ sessionId: second.id, documentId: doc.id });
           const capture = () =>
             conversations.captureSessionContext({
@@ -43,6 +57,7 @@ testStable(
               preferences: {}
             });
           const before = yield* capture();
+
           expect(before.messages.map((x) => x.text)).toEqual(['Session note']);
           expect(before.inputs.map((x) => x.name)).toEqual(['Shared document']);
 
@@ -71,6 +86,7 @@ testStable(
               .sort()
           ).toEqual(['document', 'message']);
           const empty = yield* Effect.flip(capture());
+
           expect(empty.kind).toBe('invalid_input');
           expect(
             (yield* conversations.inspectSessionContext({
@@ -110,6 +126,7 @@ testStable(
   'source archive is session-scoped and pending active material is never silently omitted',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -122,6 +139,7 @@ testStable(
             bytes: new TextEncoder().encode('Evidence'),
             projectId: null
           });
+
           yield* conversations.postMessage({
             sessionId: first.id,
             text: '',
@@ -169,6 +187,7 @@ testStable(
               preferences: {}
             })
           );
+
           expect(failure.kind).toBe('not_enough');
         }).pipe(Effect.provide(f.domain()))
       );
@@ -180,6 +199,7 @@ testStable(
 
 testStable('archive mutation rejects an item owned by another session', async () => {
   const f = await documentTransformFixture();
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -198,6 +218,7 @@ testStable('archive mutation rejects an item owned by another session', async ()
             archived: true
           })
         );
+
         expect(failure.kind).toBe('not_found');
         expect(
           (yield* conversations.thread({ sessionId: second.id, limit: 30 })).items
@@ -211,19 +232,23 @@ testStable('archive mutation rejects an item owned by another session', async ()
 
 testStable('empty archives load and bounded reads retain every archived item', async () => {
   const f = await documentTransformFixture();
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         const conversations = yield* Conversations;
         const session = yield* conversations.createSession({ title: 'Archive pages' });
+
         expect(yield* conversations.archivedItems({ sessionId: session.id })).toEqual([]);
         const ids = [];
+
         for (let i = 0; i < 101; i++) {
           const note = yield* conversations.postMessage({
             sessionId: session.id,
             text: 'Archived note ' + i,
             requestReply: false
           });
+
           ids.push(note.id);
           yield* conversations.setItemArchived({
             sessionId: session.id,
@@ -231,7 +256,9 @@ testStable('empty archives load and bounded reads retain every archived item', a
             archived: true
           });
         }
+
         const items = yield* conversations.archivedItems({ sessionId: session.id });
+
         expect(items).toHaveLength(101);
         expect(new Set(items.map((item) => item.target.id))).toEqual(new Set(ids));
       }).pipe(Effect.provide(f.domain()))

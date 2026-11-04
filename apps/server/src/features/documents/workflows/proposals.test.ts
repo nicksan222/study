@@ -211,6 +211,7 @@ for (const scenario of [
             });
             const target = yield* create('Target', [paragraph('alpha target'), imageBlock]);
             const input = yield* create('Evidence');
+
             for (const document of [target, input])
               yield* (yield* Documents).attach({ sessionId: session.id, documentId: document.id });
 
@@ -505,6 +506,7 @@ for (const barrier of ['cancel', 'delete'] as const)
             const docs = yield* Documents;
             const session = yield* chats.createSession({ title: 'Fence' });
             const target = yield* create('Target');
+
             yield* docs.attach({ sessionId: session.id, documentId: target.id });
 
             yield* chats.updateSessionSelection({
@@ -568,6 +570,7 @@ testStable(
           const session = yield* chats.createUntitledSession({});
           const block = paragraph('alpha selected omega');
           const target = yield* create('Target', [block]);
+
           yield* (yield* Documents).attach({ sessionId: session.id, documentId: target.id });
           const input = { kind: 'document' as const, versionId: target.version.id };
 
@@ -602,6 +605,7 @@ testStable(
               operations: ['clarity'],
               editTargetVersionId: target.version.id
             });
+
             assert.strictEqual(request.editTargetVersionId, target.version.id);
           }
 

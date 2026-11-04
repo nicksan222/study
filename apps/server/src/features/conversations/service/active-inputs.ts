@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Resolves complete active session material for immutable context capture.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses published document and source identities from public feature services.            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ All material resolution runs within the caller owned synchronous transaction.            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type {
   sessionContextIntentSchema,
   sessionSelectionTargetSchema
@@ -28,6 +40,7 @@ export function activeSessionTargets(
   for (const id of ids.documents) {
     const owner = Documents.documentInTransaction(tx, { id });
     const version = owner.version;
+
     if (
       version?.status === 'published' &&
       version.document.blocks.some((block) => block.text.trim())
@@ -37,12 +50,16 @@ export function activeSessionTargets(
         scope: { kind: 'document' }
       });
   }
+
   for (const id of ids.sources) {
     const extraction = Sources.currentExtractionInTransaction(tx, id);
+
     if (!extraction) {
       if (scope.deferPendingAttachments && ids.deferredSourceIds.includes(id)) continue;
+
       throw new StudyError('not_enough', 'A session source is still being processed');
     }
+
     if (extraction.document.blocks.some((block) => block.text.trim()))
       targets.push({
         input: {
@@ -54,5 +71,6 @@ export function activeSessionTargets(
         scope: { kind: 'document' }
       });
   }
+
   return targets;
 }

@@ -293,6 +293,7 @@ testStable(
   'deletes only the selected attachment extraction through the history boundary',
   async () => {
     const f = fixture();
+
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -300,15 +301,18 @@ testStable(
             const rpc = yield* RpcTest.makeClient(SourcesRpc);
             const saved = yield* setup();
             const [first, second, current] = saved.snapshots;
+
             assert.ok(first && second && current);
             const input = { sourceId: saved.source.id, keepLatest: 1, snapshotId: second };
             const preview = yield* rpc['sources.previewHistory'](input);
+
             expect(preview.candidates.map((item) => item.snapshotId)).toEqual([second]);
             yield* rpc['sources.retireHistory']({ ...input, token: preview.token });
             const history = yield* rpc['sources.extractions']({
               sourceId: saved.source.id,
               limit: 100
             });
+
             expect(history.items.map((item) => item.snapshotId)).toEqual([current, first]);
             expect(
               (yield* rpc['sources.previewHistory']({ ...input, snapshotId: current })).candidates

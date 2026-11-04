@@ -314,6 +314,10 @@ export const Documents = defineService(
       tx.store(DocumentsStore).document(v),
     versionInTransaction: (tx: Transaction, id: (typeof r.versionKeySchema.Type)['id']) =>
       tx.store(DocumentVersionsStore).version({ id }),
+    archiveSessionInTransaction: (
+      tx: Transaction,
+      v: typeof r.linkSchema.Type & { archivedAt: bigint | null }
+    ) => tx.store(DocumentsStore).archiveSession(v),
     attachInTransaction: (tx: Transaction, v: typeof r.linkSchema.Type) =>
       tx.store(DocumentsStore).attach(v)
   }

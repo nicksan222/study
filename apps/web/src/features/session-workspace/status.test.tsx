@@ -7,6 +7,7 @@ import { expect, vi } from 'vite-plus/test';
 import { ExecutionStatus } from './status';
 
 const api = vi.hoisted(() => ({ executions: vi.fn() }));
+
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => createLocalization('english')
 }));
@@ -16,6 +17,7 @@ vi.mock('./session-workspace.queries', () => ({
 
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   return render(
     <QueryClientProvider client={client}>
       <ExecutionStatus requestId="prompt" />
@@ -48,6 +50,7 @@ testStable('shows real request work in chronological muted rows', async () => {
   mount();
   await screen.findByText('Generate reply');
   const work = screen.getByRole('status', { name: 'Work for this prompt' });
+
   expect(work.textContent).toMatch(/Import material.*Completed.*Generate reply.*Working/s);
   expect(within(work).queryByRole('button')).not.toBeInTheDocument();
 });
