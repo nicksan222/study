@@ -155,11 +155,7 @@ export function SessionStart() {
           <HomeHub.Description>{t('SessionStartHelp')}</HomeHub.Description>
         </HomeHub.Header>
         <HomeHub.Actions>
-          <Button
-            onClick={view.beginSession}
-            disabled={view.blocked}
-            aria-busy={!!flow.data.pending}
-          >
+          <Button onClick={view.beginSession} disabled={view.blocked} aria-busy={flow.data.pending}>
             {flow.data.pending ? (
               <Spinner label={t('SessionPending')} aria-hidden="true" />
             ) : (

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { semanticPart as part } from './semantic-part';
@@ -45,50 +45,66 @@ function Marker({
 
 function Root({ label, children }: { label: string; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
-  const magnify = (position?: number) => {
-    const markers = [
-      ...(root.current?.querySelectorAll<HTMLElement>('[data-notebook-marker]') ?? [])
-    ];
-    const centers = markers.map((marker) => {
+  useEffect(() => {
+    const rail = root.current;
+
+    if (!rail) return;
+
+    const magnify = (position?: number) => {
+      const markers = [...rail.querySelectorAll<HTMLElement>('[data-notebook-marker]')];
+      const centers = markers.map((marker) => {
+        const rect = marker.getBoundingClientRect();
+
+        return rect.top + rect.height / 2;
+      });
+      const step =
+        Math.abs((centers[1] ?? 0) - (centers[0] ?? 0)) ||
+        markers[0]?.getBoundingClientRect().height ||
+        1;
+
+      markers.forEach((marker, index) => {
+        const scale =
+          position === undefined
+            ? 1
+            : 1 + 1.5 * 0.5 ** (Math.abs(centers[index]! - position) / step);
+
+        marker.style.setProperty('--notebook-marker-scale', String(scale));
+      });
+    };
+    const focusPosition = (element: Element | null) => {
+      const marker = element?.closest<HTMLElement>('[data-notebook-marker]');
+
+      if (!marker || !rail.contains(marker)) return undefined;
+
       const rect = marker.getBoundingClientRect();
 
       return rect.top + rect.height / 2;
-    });
-    const step =
-      Math.abs((centers[1] ?? 0) - (centers[0] ?? 0)) ||
-      markers[0]?.getBoundingClientRect().height ||
-      1;
+    };
+    const pointerMove = (event: PointerEvent) => magnify(event.clientY);
+    const pointerLeave = () => magnify(focusPosition(rail.ownerDocument.activeElement));
+    const focusIn = (event: FocusEvent) => {
+      if (event.target instanceof Element) magnify(focusPosition(event.target));
+    };
+    const focusOut = (event: FocusEvent) => {
+      if (!(event.relatedTarget instanceof Node) || !rail.contains(event.relatedTarget)) magnify();
+    };
 
-    markers.forEach((marker, index) => {
-      const scale =
-        position === undefined ? 1 : 1 + 1.5 * 0.5 ** (Math.abs(centers[index]! - position) / step);
+    rail.addEventListener('pointermove', pointerMove);
+    rail.addEventListener('pointerleave', pointerLeave);
+    rail.addEventListener('focusin', focusIn);
+    rail.addEventListener('focusout', focusOut);
 
-      marker.style.setProperty('--notebook-marker-scale', String(scale));
-    });
-  };
-  const focusPosition = (element: Element | null) => {
-    const marker = element?.closest<HTMLElement>('[data-notebook-marker]');
-
-    if (!marker || !root.current?.contains(marker)) return undefined;
-
-    const rect = marker.getBoundingClientRect();
-
-    return rect.top + rect.height / 2;
-  };
+    return () => {
+      rail.removeEventListener('pointermove', pointerMove);
+      rail.removeEventListener('pointerleave', pointerLeave);
+      rail.removeEventListener('focusin', focusIn);
+      rail.removeEventListener('focusout', focusOut);
+    };
+  }, []);
 
   return (
     <TooltipProvider delay={120}>
-      <nav
-        ref={root}
-        className="notebook-rail"
-        aria-label={label}
-        onPointerMove={(event) => magnify(event.clientY)}
-        onPointerLeave={() => magnify(focusPosition(document.activeElement))}
-        onFocus={(event) => magnify(focusPosition(event.target))}
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) magnify();
-        }}
-      >
+      <nav ref={root} className="notebook-rail" aria-label={label}>
         {children}
       </nav>
     </TooltipProvider>
