@@ -1,5 +1,6 @@
 import type { ComponentPropsWithRef } from 'react';
 
+import { Button } from './button';
 import { semanticPart as part } from './semantic-part';
 import { Textarea } from './textarea';
 
@@ -7,7 +8,13 @@ function BlockText(props: Omit<ComponentPropsWithRef<typeof Textarea>, 'classNam
   return <Textarea {...props} className="session-block-text" />;
 }
 
+function TransformOperation(props: Omit<ComponentPropsWithRef<typeof Button>, 'className'>) {
+  return <Button {...props} className="session-transform-operation" />;
+}
+
 export const Notebook = {
+  TransformOperations: part('div', 'session-transform-operations'),
+  TransformOperation,
   Attachments: part('div', 'session-attachments'),
   FileButton: part('label', 'session-file-button'),
   AttemptRecovery: part('section', 'session-attempt-recovery'),

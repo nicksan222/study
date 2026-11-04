@@ -300,9 +300,24 @@
 .session-preferences > summary {
   color: var(--workspace-supporting, var(--muted-foreground));
   font-size: 0.75rem;
+  cursor: pointer;
+  padding-block: 0.5rem;
+}
+.session-preferences[open] {
+  display: grid;
+  gap: 0.65rem;
+  margin-block: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.session-preferences .session-muted {
+  margin: 0;
 }
 .session-preferences .session-actions {
   justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 .session-attempt-recovery {
   padding-block: 0.5rem;
@@ -741,14 +756,24 @@
   margin-block-end: 1.25rem;
 }
 .document-source-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   margin: 0.5rem 0 0;
-  padding-inline-start: 1.25rem;
+  padding: 0;
   max-height: 9rem;
   overflow-y: auto;
   font-size: 0.875rem;
+  list-style: none;
 }
 .document-source-list li {
-  padding-block: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--foreground);
   overflow-wrap: anywhere;
 }
 
@@ -758,4 +783,37 @@
   margin-block: 0.75rem;
   text-align: start;
   overflow-wrap: anywhere;
+}
+
+.session-transform-operations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.session-transform-operations .session-transform-operation {
+  height: auto;
+  min-height: 4.5rem;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  white-space: normal;
+  text-align: start;
+}
+.session-transform-operation strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.session-transform-operation > span {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+@media (max-width: 560px) {
+  .session-transform-operations {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

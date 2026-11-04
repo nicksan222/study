@@ -137,7 +137,9 @@ export function Transformation({
           <Notebook.DocumentSourceList>
             {sessions?.length ? (
               sessions.map((session) => (
-                <li key={String(session.id)}>{session.title || model.t('SessionUntitled')}</li>
+                <li key={String(session.id)} title={session.title || model.t('SessionUntitled')}>
+                  {session.title || model.t('SessionUntitled')}
+                </li>
               ))
             ) : (
               <li>{model.t('DocumentCurrentSession')}</li>
@@ -160,6 +162,7 @@ function TransformFields({ model }: { model: TransformationModel }) {
   return (
     <>
       <label htmlFor={`transform-title-${id}`}>{t('SessionOutputTitle')}</label>
+      <Notebook.Muted>{t('SessionOutputTitleHelp')}</Notebook.Muted>
       <Input
         id={`transform-title-${id}`}
         maxLength={200}
@@ -167,6 +170,7 @@ function TransformFields({ model }: { model: TransformationModel }) {
         onChange={(event) => setDraft({ title: event.target.value })}
       />
       <label htmlFor={`transform-instruction-${id}`}>{t('SessionInstructions')}</label>
+      <Notebook.Muted>{t('SessionInstructionsHelp')}</Notebook.Muted>
       <Textarea
         id={`transform-instruction-${id}`}
         maxLength={100000}
@@ -176,6 +180,7 @@ function TransformFields({ model }: { model: TransformationModel }) {
       />
       <Notebook.Preferences>
         <summary>{t('DocumentAdvancedOptions')}</summary>
+        <Notebook.Muted>{t('SessionAdvancedOptionsHelp')}</Notebook.Muted>
         <TransformOperations model={model} />
       </Notebook.Preferences>
       <CreateTransform model={model} />
@@ -184,19 +189,27 @@ function TransformFields({ model }: { model: TransformationModel }) {
 }
 
 function TransformOperations({ model }: { model: TransformationModel }) {
-  const { t, draft, setDraft } = model;
+  const { id, t, draft, setDraft, additionalSessionIds } = model;
 
   return (
-    <>
-      <fieldset>
-        <legend>{t('SessionOperations')}</legend>
-        <Notebook.Actions>
-          {operations.map(([operation, label]) => (
-            <Button
+    <fieldset>
+      <legend>{t('SessionOperations')}</legend>
+      <Notebook.Muted>{t('SessionOperationsHelp')}</Notebook.Muted>
+      <Notebook.TransformOperations>
+        {operations.map(([operation, label]) => {
+          const required = operation === 'combine' && additionalSessionIds.length > 0;
+          const selected = required || draft.operations.includes(operation);
+          const descriptionId = `transform-${id}-${operation}-help`;
+
+          return (
+            <Notebook.TransformOperation
               key={operation}
               size="sm"
-              variant={draft.operations.includes(operation) ? 'secondary' : 'ghost'}
-              aria-pressed={draft.operations.includes(operation)}
+              variant={selected ? 'secondary' : 'ghost'}
+              aria-label={t(label)}
+              aria-describedby={descriptionId}
+              aria-pressed={selected}
+              disabled={required}
               onClick={() =>
                 setDraft({
                   operations: draft.operations.includes(operation)
@@ -205,12 +218,13 @@ function TransformOperations({ model }: { model: TransformationModel }) {
                 })
               }
             >
-              {t(label)}
-            </Button>
-          ))}
-        </Notebook.Actions>
-      </fieldset>
-    </>
+              <strong>{t(label)}</strong>
+              <span id={descriptionId}>{t(`${label}Help`)}</span>
+            </Notebook.TransformOperation>
+          );
+        })}
+      </Notebook.TransformOperations>
+    </fieldset>
   );
 }
 

@@ -508,3 +508,17 @@ testStable(
     expect(router.state.location.pathname).toBe('/');
   }
 );
+
+testStable('opens the conversion dialog from a row without navigating or settling it', async () => {
+  const router = mountSelectionSidebar();
+  const link = await screen.findByRole('link', { name: 'Session 1' });
+  const row = link.closest('.study-session-entry') as HTMLElement;
+
+  expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
+  fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoDoc' }));
+  const dialog = await screen.findByRole('dialog', { name: 'SessionTransform' });
+
+  expect(within(dialog).getByText('Session 1')).toBeVisible();
+  expect(within(dialog).queryByText('Session 2')).not.toBeInTheDocument();
+  expect(router.state.location.pathname).toBe('/');
+});
