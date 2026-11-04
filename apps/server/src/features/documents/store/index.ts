@@ -135,7 +135,6 @@ export const DocumentVersionsStore = defineStore({
   entity: { singular: 'version', plural: 'versions' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
-    const { db } = resources;
 
     return {
       queries: {
@@ -227,7 +226,6 @@ export const DocumentProposalsStore = defineStore({
   entity: { singular: 'proposal', plural: 'proposals' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
-    const { db } = resources;
 
     return {
       queries: {
@@ -267,7 +265,6 @@ export const DocumentProposalReceiptsStore = defineStore({
   entity: { singular: 'proposalReceipt', plural: 'proposalReceipts' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
-    const { db } = resources;
 
     return {
       queries: {
