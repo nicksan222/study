@@ -16,7 +16,9 @@
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { Effect, Exit, Layer, Scope } from 'effect';
+import { HttpRouter } from 'effect/http';
 
+import { authCallbackRoutes } from '#server/features/auth/http/index';
 import { serveRpc } from '#server/platform/rpc/node';
 
 import { runNative } from './layers.ts';
@@ -35,9 +37,12 @@ export async function serve(app: App, options: ServeOptions = {}) {
     const services = await app.nativeRuntime.context();
     const handlers = app.native.handlers.pipe(Layer.provide(Layer.succeedContext(services)));
     const server = await runNative(
-      serveRpc({ group: StudyRpc, handlers, ...options }).pipe(
-        Effect.provideService(Scope.Scope, scope)
-      )
+      serveRpc({
+        group: StudyRpc,
+        handlers,
+        routes: authCallbackRoutes.pipe(HttpRouter.provideRequest(Layer.succeedContext(services))),
+        ...options
+      }).pipe(Effect.provideService(Scope.Scope, scope))
     );
     let closing: Promise<void> | undefined;
 

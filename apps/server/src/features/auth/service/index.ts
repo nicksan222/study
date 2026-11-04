@@ -247,7 +247,7 @@ function* makeAuth() {
             : undefined
         )
       ),
-    startSignIn: (input: { reconsent?: boolean }) =>
+    startSignIn: (input: { reconsent?: boolean; callbackUrl?: string }) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
           if (closing) return yield* Effect.fail(cancelled());
@@ -260,6 +260,7 @@ function* makeAuth() {
 
           const signin = yield* acquireSignIn({
             issuer,
+            callbackUrl: input.callbackUrl,
             hostId: resolvedHostId,
             reconsent: input.reconsent,
             fetch: request
@@ -289,6 +290,11 @@ function* makeAuth() {
           ).pipe(Effect.onError(() => Effect.gen(closeFailedSignIn)));
         })
       ),
+    receiveSignInCallback: (input: { search: string }) =>
+      Effect.sync(() => {
+        const signin: SignIn | undefined = active?.signin;
+        return signin?.acceptCallback(new URLSearchParams(input.search)) ?? false;
+      }),
     finishSignIn: (input: { attemptId: string }) => Effect.gen(() => finishActiveSignIn(input)),
     cancelSignIn: (input: { attemptId?: string }) =>
       cancel(input.attemptId).pipe(Effect.map((result) => result.cancelled)),

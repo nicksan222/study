@@ -36,7 +36,7 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
             </Button>
           }
         >
-          {t('AiSettingsFailed')}
+          {t(model.signInUnsupported ? 'AiSettingsSignInLocalOnly' : 'AiSettingsFailed')}
         </Settings.Status>
       )}
       {model.data && (

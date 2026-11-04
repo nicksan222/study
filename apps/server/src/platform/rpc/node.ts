@@ -27,7 +27,10 @@ import type { RpcServerOptions } from './index.ts';
 
 /** The listener and every active request belong to the caller's Effect scope. */
 export function serveRpc<R extends Rpc.Any, E>(
-  options: RpcServerOptions<R, E> & { port?: number }
+  options: RpcServerOptions<R, E> & {
+    port?: number;
+    routes?: Layer.Layer<never, never, HttpRouter.HttpRouter>;
+  }
 ) {
   const origins = new Set(options.allowedOrigins ?? desktopOrigins);
   const policy = HttpRouter.middleware((request) =>
@@ -40,7 +43,9 @@ export function serveRpc<R extends Rpc.Any, E>(
       return yield* request;
     })
   );
-  const routes = rpcRoutes(options).pipe(Layer.provide(policy.layer));
+  const routes = Layer.merge(rpcRoutes(options), options.routes ?? Layer.empty).pipe(
+    Layer.provide(policy.layer)
+  );
   const server = HttpRouter.serve(routes, { disableLogger: true, disableListenLog: true }).pipe(
     Layer.provideMerge(
       NodeHttpServer.layer(createServer, {

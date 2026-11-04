@@ -18,6 +18,7 @@ testStable('renders connected account and localized model controls without reque
       settings: { tiny: { provider: 1 }, medium: { provider: 1 }, smart: { provider: 1 } }
     },
     loading: false,
+    signInUnsupported: false,
     error: false,
     pending: false,
     cancelling: false,

@@ -19,6 +19,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
 
+import { signInCallbackUrlSchema } from '@study/contracts/auth/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { text } from '@study/localization';
 import { Clock, Effect, Schema } from 'effect';
@@ -60,6 +61,7 @@ export interface SignInOptions {
   issuer: string;
   hostId: string;
   clientId?: string;
+  callbackUrl?: string;
   reconsent?: boolean;
   fetch?: typeof fetch;
   lifetimeMs?: number;
@@ -75,7 +77,8 @@ export interface SignInResult {
 /** A single-use loopback OAuth authorization with PKCE. */
 export class SignIn {
   readonly url: string;
-  private readonly server: Server;
+  private readonly server: Server | undefined;
+  private readonly receiveCallback: (params: URLSearchParams) => boolean;
   private readonly options: SignInOptions;
   private readonly redirect: string;
   private readonly verifier: string;
@@ -86,13 +89,14 @@ export class SignIn {
   private readonly controller = new AbortController();
 
   private constructor(
-    server: Server,
+    server: Server | undefined,
     options: SignInOptions,
     redirect: string,
     verifier: string,
     state: string,
     nonce: string,
-    callback: Promise<{ code: string; clientId?: string }>
+    callback: Promise<{ code: string; clientId?: string }>,
+    receiveCallback: (params: URLSearchParams) => boolean
   ) {
     this.server = server;
     this.options = options;
@@ -101,6 +105,7 @@ export class SignIn {
     this.state = state;
     this.nonce = nonce;
     this.callback = callback;
+    this.receiveCallback = receiveCallback;
     const clientId = options.clientId ?? dynamicClient;
     const url = new URL(`${options.issuer.replace(/\/$/, '')}/api/accounts/authorize`);
     const params: Record<string, string> = {
@@ -126,6 +131,8 @@ export class SignIn {
 
   static async start(options: SignInOptions): Promise<SignIn> {
     new URL(`${options.issuer.replace(/\/$/, '')}/api/accounts/authorize`);
+    if (options.callbackUrl !== undefined)
+      Schema.decodeUnknownSync(signInCallbackUrlSchema)(options.callbackUrl);
     const verifier = random(),
       state = random(),
       nonce = random();
@@ -137,68 +144,73 @@ export class SignIn {
     });
 
     void callback.catch(() => {});
-    const page = (message: 'LlmChatGptBrowserDone' | 'LlmChatGptBrowserFailed') =>
-      `<!doctype html><meta charset=utf-8><title>Study</title><p>${[text('english', message), text('italian', message)].map((value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')).join('<br>')}</p>`;
-    const server = createServer({ maxHeaderSize: 16 * 1024 }, (request, response) => {
-      const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-
-      if (url.pathname !== '/auth/callback') {
-        response.writeHead(404).end();
-
-        return;
-      }
-
-      if (url.searchParams.get('state') !== state) {
-        response.writeHead(400).end(page('LlmChatGptBrowserFailed'));
+    let delivered = false;
+    const receiveCallback = (params: URLSearchParams): boolean => {
+      if (delivered) return false;
+      if (params.get('state') !== state) {
         reject(new Error('Sign-in state mismatch'));
-
-        return;
+        return false;
       }
-
-      const code = url.searchParams.get('code');
-
-      if (!code || url.searchParams.has('error')) {
-        response.writeHead(400).end(page('LlmChatGptBrowserFailed'));
+      delivered = true;
+      const code = params.get('code');
+      if (!code || params.has('error')) {
         reject(new Error('Sign-in declined'));
+        return false;
+      }
+      resolve({ code, clientId: params.get('client_id') ?? undefined });
+      return true;
+    };
+    const server = options.callbackUrl
+      ? undefined
+      : createServer({ maxHeaderSize: 16 * 1024 }, (request, response) => {
+          const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+          if (url.pathname !== '/auth/callback') {
+            response.writeHead(404).end();
+            return;
+          }
+          const accepted = receiveCallback(url.searchParams);
+          response
+            .writeHead(accepted ? 200 : 400, {
+              'content-type': 'text/html; charset=utf-8',
+              'cache-control': 'no-store',
+              'referrer-policy': 'no-referrer'
+            })
+            .end(signInCallbackPage(accepted));
+        });
+    let redirect = options.callbackUrl;
+    if (server) {
+      server.requestTimeout = 30_000;
+      server.headersTimeout = 30_000;
+      await new Promise<void>((resolveListen, rejectListen) => {
+        server.once('error', rejectListen);
+        server.listen(0, '127.0.0.1', () => {
+          server.off('error', rejectListen);
+          resolveListen();
+        });
+      });
+      const address = server.address();
 
-        return;
+      if (!address || typeof address === 'string') {
+        server.close();
+
+        throw new Error('Cannot open sign-in listener');
       }
 
-      response
-        .writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-        .end(page('LlmChatGptBrowserDone'));
-      resolve({
-        code,
-        clientId: url.searchParams.get('client_id') ?? undefined
-      });
-    });
-
-    server.requestTimeout = 30_000;
-    server.headersTimeout = 30_000;
-    await new Promise<void>((resolveListen, rejectListen) => {
-      server.once('error', rejectListen);
-      server.listen(0, '127.0.0.1', () => {
-        server.off('error', rejectListen);
-        resolveListen();
-      });
-    });
-    const address = server.address();
-
-    if (!address || typeof address === 'string') {
-      server.close();
-
-      throw new Error('Cannot open sign-in listener');
+      redirect = `http://127.0.0.1:${address.port}/auth/callback`;
     }
+    if (!redirect) throw new Error('Cannot determine sign-in callback');
+    return new SignIn(server, options, redirect, verifier, state, nonce, callback, receiveCallback);
+  }
 
-    return new SignIn(
-      server,
-      options,
-      `http://127.0.0.1:${address.port}/auth/callback`,
-      verifier,
-      state,
-      nonce,
-      callback
-    );
+  /** Only the configured browser callback transport may submit the matching pending state. */
+  acceptCallback(params: URLSearchParams): boolean {
+    if (
+      !this.options.callbackUrl ||
+      this.controller.signal.aborted ||
+      params.get('state') !== this.state
+    )
+      return false;
+    return this.receiveCallback(params);
   }
 
   dispose(reason: Error = new Error('Sign-in cancelled')): void {
@@ -206,8 +218,8 @@ export class SignIn {
 
     this.controller.abort(reason);
 
-    this.server.closeAllConnections();
-    this.server.close();
+    this.server?.closeAllConnections();
+    this.server?.close();
   }
 
   // fallow-ignore-next-line unused-class-member -- Auth service calls finish on the scoped sign-in; signin.test.ts exercises the OAuth exchange.
@@ -359,4 +371,9 @@ function assertIdClaims(
     !(claims.exp > (options.clock ?? liveClock()).currentTimeMillisUnsafe() / 1000)
   )
     throw new Error('Invalid ID token claims');
+}
+
+export function signInCallbackPage(accepted: boolean): string {
+  const key = accepted ? 'LlmChatGptBrowserDone' : 'LlmChatGptBrowserFailed';
+  return `<!doctype html><meta charset=utf-8><title>Study</title><p>${[text('english', key), text('italian', key)].map((value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')).join('<br>')}</p>`;
 }

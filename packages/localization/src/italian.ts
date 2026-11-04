@@ -959,6 +959,8 @@ export const italian = Object.freeze({
   AiSettingsConnected: 'Collegato',
   AiSettingsSignIn: 'Accedi a ChatGPT',
   AiSettingsSignOut: 'Esci',
+  AiSettingsSignInLocalOnly:
+    'Apri Study tramite una porta HTTP locale inoltrata oppure usa l’app desktop, poi accedi di nuovo.',
   AiSettingsOpenSignIn: 'Apri l’accesso a ChatGPT',
   AiSettingsCancelSignIn: 'Annulla accesso',
   AiSettingsWaiting: 'In attesa dell’accesso a ChatGPT.',

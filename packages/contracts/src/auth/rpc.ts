@@ -2,7 +2,12 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
-import { publicAccountSchema, signInAttemptSchema, signInStatusSchema } from './schemas.ts';
+import {
+  publicAccountSchema,
+  signInAttemptSchema,
+  signInStatusSchema,
+  signInCallbackUrlSchema
+} from './schemas.ts';
 
 export const AuthRpc = RpcGroup.make(
   Rpc.make('status', { payload: {}, success: signInStatusSchema, error: failureSchema }),
@@ -12,7 +17,10 @@ export const AuthRpc = RpcGroup.make(
     error: failureSchema
   }),
   Rpc.make('startSignIn', {
-    payload: { reconsent: Schema.optionalKey(Schema.Boolean) },
+    payload: {
+      reconsent: Schema.optionalKey(Schema.Boolean),
+      callbackUrl: Schema.optionalKey(signInCallbackUrlSchema)
+    },
     success: signInAttemptSchema,
     error: failureSchema
   }),

@@ -1,7 +1,11 @@
+import { StudyError } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';
 import type { LlmModel, LlmSettings } from '@study/contracts/settings/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+
+import { prepareSignInBrowser } from '#web/lib/sign-in-browser.ts';
+import type { SignInBrowser } from '#web/lib/sign-in-browser.ts';
 
 import {
   aiSettingsQueryOptions,
@@ -21,15 +25,28 @@ function requestState(results: readonly { isPending: boolean; isError: boolean }
   };
 }
 
+function isUnsupportedSignIn(error: unknown) {
+  return error instanceof StudyError && error.kind === 'unsupported';
+}
+
+async function openAttemptBrowser(browser: SignInBrowser | undefined, attempt: SignInAttempt) {
+  try {
+    return (await browser?.open(attempt.url)) ?? false;
+  } catch (error) {
+    await disposeSignIn(attempt.attemptId).catch(() => {});
+    throw error;
+  }
+}
+
 export function useAiSettings() {
   const client = useQueryClient();
   const query = useQuery(aiSettingsQueryOptions());
   const [attempt, setAttempt] = useState<SignInAttempt>();
   const [popupBlocked, setPopupBlocked] = useState(false);
-  const browser = useRef<Window | null>(null);
+  const browser = useRef<SignInBrowser | undefined>(undefined);
   const closeBrowser = () => {
     browser.current?.close();
-    browser.current = null;
+    browser.current = undefined;
   };
   const owned = useRef<SignInAttempt | undefined>(undefined);
   const mounted = useRef(true);
@@ -37,7 +54,7 @@ export function useAiSettings() {
   const refresh = () => client.invalidateQueries({ queryKey: aiSettingsQueryOptions().queryKey });
   const start = useMutation({
     ...startSignInOptions(),
-    onSuccess: (value) => {
+    onSuccess: async (value) => {
       if (!mounted.current) {
         void disposeSignIn(value.attemptId).catch(() => {});
 
@@ -45,15 +62,17 @@ export function useAiSettings() {
       }
 
       owned.current = value;
+      const opened = await openAttemptBrowser(browser.current, value);
+      if (!mounted.current || owned.current !== value) return;
       setAttempt(value);
-
-      if (browser.current && !browser.current.closed) browser.current.location.replace(value.url);
-      else setPopupBlocked(true);
-
+      setPopupBlocked(!opened);
       finishing.current = new AbortController();
       finish.mutate({ attemptId: value.attemptId, signal: finishing.current.signal });
     },
-    onError: closeBrowser
+    onError: () => {
+      owned.current = undefined;
+      closeBrowser();
+    }
   });
   const finish = useMutation({
     ...finishSignInOptions(),
@@ -115,6 +134,7 @@ export function useAiSettings() {
 
   return {
     data: query.data,
+    signInUnsupported: isUnsupportedSignIn(start.error),
     loading: query.isPending,
     ...requestState([
       { isPending: false, isError: query.isError },
@@ -138,11 +158,8 @@ export function useAiSettings() {
     start: () => {
       finish.reset();
       cancel.reset();
-      browser.current = window.open('about:blank', '_blank');
-
-      if (browser.current) browser.current.opener = null;
-
-      setPopupBlocked(browser.current === null);
+      browser.current = prepareSignInBrowser();
+      setPopupBlocked(false);
       start.mutate();
     },
     cancel: () => {

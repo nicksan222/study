@@ -209,3 +209,62 @@ testStable(
     }
   }
 );
+
+testStable(
+  'browser callback bridge rejects stale states, replays, and cancelled attempts',
+  async () => {
+    const signin = await SignIn.start({
+      issuer: 'https://auth.example',
+      hostId: 'host',
+      callbackUrl: 'http://127.0.0.1:5173/auth/callback'
+    });
+    try {
+      const authorization = new URL(signin.url);
+      assert.strictEqual(
+        authorization.searchParams.get('redirect_uri'),
+        'http://127.0.0.1:5173/auth/callback'
+      );
+      const params = new URLSearchParams({
+        state: 'old-state',
+        code: 'test-code',
+        client_id: 'issued'
+      });
+      assert.strictEqual(signin.acceptCallback(params), false);
+      params.set('state', authorization.searchParams.get('state')!);
+      assert.strictEqual(signin.acceptCallback(params), true);
+      assert.strictEqual(signin.acceptCallback(params), false);
+      signin.dispose();
+      assert.strictEqual(signin.acceptCallback(params), false);
+    } finally {
+      signin.dispose();
+    }
+  }
+);
+
+testStable('browser callback denial fails completion and releases the attempt', async () => {
+  const signin = await SignIn.start({
+    issuer: 'https://auth.example',
+    hostId: 'host',
+    callbackUrl: 'http://127.0.0.1:5173/auth/callback'
+  });
+  const params = new URLSearchParams({
+    state: new URL(signin.url).searchParams.get('state')!,
+    error: 'access_denied'
+  });
+  assert.strictEqual(signin.acceptCallback(params), false);
+  await expect(signin.finish(1000)).rejects.toThrow(/declined/);
+  assert.strictEqual(signin.acceptCallback(params), false);
+});
+
+for (const callbackUrl of [
+  'https://example.com/auth/callback',
+  'http://localhost:5173/auth/callback',
+  'http://127.0.0.1:5173/other',
+  'http://user@127.0.0.1:5173/auth/callback',
+  'http://127.0.0.1:5173/auth/callback?code=x'
+])
+  testStable(`OAuth rejects an unsafe callback URL: ${callbackUrl}`, async () => {
+    await expect(
+      SignIn.start({ issuer: 'https://auth.example', hostId: 'host', callbackUrl })
+    ).rejects.toThrow();
+  });

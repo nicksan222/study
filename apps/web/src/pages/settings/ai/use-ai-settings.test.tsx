@@ -1,13 +1,22 @@
+import { StudyError } from '@study/contracts/errors';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import * as operations from '#web/lib/study-client/ai-settings.ts';
 
 import { AiSettings } from './index';
+
+const runtime = vi.hoisted(() => ({ native: false, openUrl: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => runtime.native }));
+vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: runtime.openUrl }));
+beforeEach(() => {
+  runtime.native = false;
+  runtime.openUrl.mockReset().mockResolvedValue(undefined);
+});
 
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: keyof typeof catalogs.english) => catalogs.english[key] })
@@ -205,3 +214,49 @@ testStable('a cancelled completion cannot clear or close its replacement sign-in
   ).toBeInTheDocument();
   expect(popup.close).not.toHaveBeenCalled();
 });
+
+testStable(
+  'unsupported browser origins show localized sign-in guidance and close the blank tab',
+  async () => {
+    const { popup } = browserWindow();
+    vi.mocked(operations.startChatGptSignIn).mockRejectedValue(
+      new StudyError('unsupported', 'Loopback required')
+    );
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+    expect(await screen.findByText(catalogs.english.AiSettingsSignInLocalOnly)).toBeInTheDocument();
+    expect(popup.close).toHaveBeenCalled();
+  }
+);
+
+testStable('native sign-in opens the system browser without a webview popup', async () => {
+  runtime.native = true;
+  const { open } = browserWindow();
+  pendingSignIn('native-attempt');
+  const view = mount();
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  await waitFor(() => expect(runtime.openUrl).toHaveBeenCalledWith('https://auth.openai.com/test'));
+  expect(open).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole('status', { name: catalogs.english.AiSettingsWaiting })
+  ).toBeInTheDocument();
+  view.unmount();
+  await waitFor(() =>
+    expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('native-attempt')
+  );
+});
+
+testStable(
+  'a native browser launch failure cancels its attempt instead of waiting forever',
+  async () => {
+    runtime.native = true;
+    runtime.openUrl.mockRejectedValue(new Error('No browser'));
+    pendingSignIn('native-failed-attempt');
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+    await waitFor(() =>
+      expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('native-failed-attempt')
+    );
+    expect(await screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
+  }
+);
