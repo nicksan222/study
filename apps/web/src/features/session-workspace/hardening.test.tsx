@@ -27,8 +27,10 @@ import { authoredDocument } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
 import { selectedContentOptions } from './selection.queries';
 import { sessionDocumentOptions } from './session-document.queries';
+
 const pickerDocument = (versionId = 102n) => {
   const value = authoredDocument(41n, 'Historical extraction', versionId);
+
   return {
     ...value,
     title: 'Material 41',
@@ -45,6 +47,7 @@ const pickerDocument = (versionId = 102n) => {
     }
   };
 };
+
 import { attachmentKey } from './attachments';
 import { SessionDeleteDialog } from './deletion';
 import { History, CapturedContext } from './history';
@@ -773,7 +776,6 @@ testStable(
     expect(
       await screen.findByRole('checkbox', { name: '1 · Historical extraction' })
     ).toBeEnabled();
-    const versionId = pickerDocument().version.id;
 
     rpc.document.mockRejectedValue(new StudyError('not_found', 'Retired'));
     await act(async () => {
@@ -1443,6 +1445,8 @@ async function openStarterComposer() {
       screen.queryByRole('textbox', { name: 'SessionCompose' }) ??
       screen.getByRole('button', { name: 'SessionStartWithNote' })
   );
+
   if (entry.tagName === 'BUTTON') fireEvent.click(entry);
+
   return screen.findByRole('textbox', { name: 'SessionCompose' });
 }

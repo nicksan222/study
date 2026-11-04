@@ -21,16 +21,15 @@ import type { ProjectId } from '@study/contracts/ids';
 import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
-import { sessions, workflowEvents } from '@study/db/schema';
+import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
-import { Effect, Layer, Option, Schema } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
-import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
@@ -50,6 +49,7 @@ const document = () => ({
     omissions: []
   }
 });
+
 function createEvidence(input: { projectId: ProjectId; title: string }) {
   return Effect.flatMap(Documents, (docs) =>
     docs.create({
@@ -62,10 +62,12 @@ function createEvidence(input: { projectId: ProjectId; title: string }) {
   ).pipe(
     Effect.map((value) => {
       assert.ok(value.version);
+
       return { ...value, version: value.version };
     })
   );
 }
+
 testStable(
   'generation requests persist immutable published document inputs and an outbox event',
   async () => {
@@ -136,6 +138,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       const foreign = yield* createEvidence({ projectId: other.id, title: 'Foreign' });
       const draftOwner = yield* createEvidence({ projectId: project.id, title: 'Draft' });
       const docs = yield* Documents;
+
       yield* docs.save({
         documentId: draftOwner.id,
         expectedVersionId: draftOwner.version.id,
@@ -150,6 +153,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       });
       const draft = yield* docs.version({ id: alternative.submittedVersionId });
       const archived = yield* createEvidence({ projectId: project.id, title: 'Archived' });
+
       yield* docs.archive({ id: archived.id, archived: true });
       const diagram = yield* materials.create({
         projectId: project.id,
@@ -171,6 +175,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       }
 
       const parse = Schema.decodeUnknownSync(requestMaterialGenerationInputSchema);
+
       assert.throws(() =>
         parse({ ...base, inputs: [{ kind: 'material', versionId: diagram.version.id }] })
       );
@@ -271,6 +276,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
         assert.deepEqual(snapshot.inputs, [{ kind: 'document', versionId }]);
         const docs = yield* Documents;
         const exact = snapshot.inputs[0];
+
         assert.ok(exact?.kind === 'document');
         assert.equal((yield* docs.version({ id: exact.versionId })).snapshotId, documentId);
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${snapshot.projectId}`);

@@ -16,6 +16,7 @@ import { threadOptions } from './session-workspace.queries';
 import { SessionReadError } from './status';
 
 /** Keeps session actions above the compact list of files and attached documents. */
+
 export function WorkspaceContext({
   id,
   children,
@@ -34,6 +35,7 @@ export function WorkspaceContext({
   onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
   const { t } = useI18n();
+
   return (
     <WorkspaceCard.Root
       aria-label={t(id ? 'SessionContextPanel' : 'SessionAttachments')}
@@ -60,6 +62,7 @@ export function WorkspaceContext({
     </WorkspaceCard.Root>
   );
 }
+
 function SessionFiles({
   id,
   onOpenDocument,
@@ -79,6 +82,7 @@ function SessionFiles({
   const attached = [
     ...new Map(documents.data?.items.map((material) => [material.id, material])).values()
   ];
+
   return (
     <WorkspaceAttachments.List aria-label={t('SessionAttachments')}>
       {thread.isPending || documents.isPending ? <Loading label={t('LoadingStudy')} /> : null}

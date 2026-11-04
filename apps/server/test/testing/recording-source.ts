@@ -1,4 +1,16 @@
-/** Publishes a real recording Source while keeping the raw session's independently owned PCM. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Publishes a real recording Source while preserving independently owned session     │
+ * │ audio.                                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Prepares independent retained inputs through real feature services.                    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Test callers own isolated SQLite lifetimes and explicitly control provider responses.    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { eq } from '@study/db';
@@ -14,7 +26,9 @@ import {
 } from '#server/features/recordings/workflows/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 import type { documentTransformFixture } from '#testing/document-transform';
+
 type SourceFixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+
 export async function recordingSource(f: SourceFixture) {
   const post = await Effect.runPromise(
     Effect.gen(function* () {

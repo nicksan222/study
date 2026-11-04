@@ -3,9 +3,11 @@ import type { SearchResults } from '../study-client/operations';
 type Hit = SearchResults['hits'][number];
 
 /** Search results navigate to their owning domain; learning hits preserve exact versions. */
+
 export function searchResultLocation(hit: Hit, project?: string) {
   const search = project ? { project } : {};
   const target = hit.target;
+
   switch (target.type) {
     case 'project':
       return { to: '/home', search: { project: String(target.id) } } as const;
@@ -49,5 +51,6 @@ export function searchResultKey(hit: Hit) {
           : target.type === 'source'
             ? target.sourceId
             : target.materialId;
+
   return `${target.type}:${id}:${hit.at}:${hit.excerpt ?? ''}`;
 }

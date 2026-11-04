@@ -668,6 +668,7 @@ testStable(
               }
             }
           });
+
           assert.ok(material.version);
 
           yield* conversations.updateSessionSelection({

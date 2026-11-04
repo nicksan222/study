@@ -1,19 +1,34 @@
-/** Validates authored payloads and retires pending authority in isolated backup copies. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates authored payloads and retires pending authority in backup copies.        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Validates authored payloads and retires pending authority in backup copies.            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as evidence from '@study/contracts/documents/evidence';
 import { StudyError } from '@study/contracts/errors';
 import { eq, isNull, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
-import { decodeTransformRequest } from '#server/features/documents/decoders/transform-request';
+import { decodeTransformRequest } from '#server/features/documents/store/transforms';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeDocumentReads } from './reads.ts';
 
 const annotationCodec = Schema.fromJsonString(Schema.toCodecJson(evidence.annotationSchema));
+
 const assessmentCodec = Schema.fromJsonString(Schema.toCodecJson(evidence.assessmentSchema));
+
 function assertAnnotationRecord(row: typeof s.study_document_annotation_revisions.$inferSelect) {
   const item = Schema.decodeUnknownSync(annotationCodec)(row.payload);
+
   if (
     item.id !== row.annotation_id ||
     item.revision !== row.revision ||
@@ -23,12 +38,14 @@ function assertAnnotationRecord(row: typeof s.study_document_annotation_revision
   )
     throw new StudyError('invalid_input', 'Backup annotation identity is inconsistent');
 }
+
 export const DocumentBackupStore = defineStore({
   name: 'study/DocumentBackupStore',
   entity: { singular: 'backupDocument', plural: 'backupDocuments' },
   make: (resources) => {
     const { db } = resources;
     const reads = makeDocumentReads(resources);
+
     return {
       queries: {
         backupDocument: storeQuery({
@@ -45,14 +62,17 @@ export const DocumentBackupStore = defineStore({
                 'invalid_input',
                 'Backup contains pending authored generation authority'
               );
+
             if (
               db.orm.get(
                 sql`SELECT 1 FROM session_context_documents c JOIN study_document_retirements r ON r.version_id=c.version_id LIMIT 1`
               )
             )
               throw new StudyError('invalid_input', 'Captured authored input has been retired');
+
             for (const row of db.orm.select().from(s.study_document_transform_requests).all())
               decodeTransformRequest(row);
+
             for (const row of db.orm.select().from(s.study_document_versions).all()) {
               if (
                 !db.orm
@@ -63,10 +83,13 @@ export const DocumentBackupStore = defineStore({
               )
                 reads.version(row.id);
             }
+
             for (const row of db.orm.select().from(s.study_document_annotation_revisions).all())
               assertAnnotationRecord(row);
+
             for (const row of db.orm.select().from(s.study_document_citation_assessments).all())
               Schema.decodeUnknownSync(assessmentCodec)(row.payload);
+
             return true;
           }
         })

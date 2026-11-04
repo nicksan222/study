@@ -240,7 +240,12 @@ testStable(
           executions++;
         }),
       triggers: [
-        { subscription: 'test-recovery', event: 'SourceIndexed', emits: [], enabled: () => enabled }
+        {
+          subscription: 'test-recovery',
+          event: 'SourceIndexed',
+          emits: [],
+          enabled: () => enabled
+        }
       ]
     });
 

@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates canonical Unicode text ranges against exact Document block identities.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Validates canonical Unicode text ranges against exact Document block identities.       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Pure schema and content validation grants no persistence or publication authority.       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { validBlockTextRange } from '@study/contracts/sources/document';
 import type { documentSchema, blockIdSchema } from '@study/contracts/sources/schemas';
 
@@ -12,6 +24,7 @@ export function validRange(
   quote?: string
 ) {
   if (range.end <= range.start || !validBlockTextRange(document, range)) return false;
+
   return (
     quote === undefined ||
     document.blocks.some(

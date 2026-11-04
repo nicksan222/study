@@ -1,4 +1,4 @@
-import { materialVersionIdSchema, sourceIdSchema } from '@study/contracts/ids';
+import { materialVersionIdSchema } from '@study/contracts/ids';
 import type { MaterialId, SourceId } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';

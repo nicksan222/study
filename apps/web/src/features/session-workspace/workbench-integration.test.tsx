@@ -58,6 +58,7 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
         (...args: never[]) => Effect.promise(() => Promise.resolve(method(...args)))
       ])
     );
+
     return Effect.runPromise(invoke(client));
   }
 }));
@@ -112,6 +113,7 @@ beforeEach(() => {
   });
   rpc.copy.mockImplementation(async () => {
     created = material(52n, 'Current extraction 41');
+
     return created;
   });
 });
@@ -152,6 +154,7 @@ testStable(
 
 function ImportedPanel() {
   const [id, setId] = useState<ReturnType<typeof material>['id']>();
+
   return id ? (
     <SessionDocumentPanel documentId={id} />
   ) : (
@@ -203,6 +206,7 @@ testStable(
     const scrollHost = screen
       .getByRole('log', { name: 'SessionNotebook' })
       .closest('[data-notebook-scroll-host]');
+
     expect(scrollHost).toContainElement(card);
     expect(
       view.container.querySelector('.ui-workspace-dock')?.closest('[data-notebook-scroll-host]')

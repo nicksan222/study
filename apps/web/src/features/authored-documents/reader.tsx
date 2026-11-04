@@ -1,4 +1,4 @@
-import type { StudyDocumentVersion } from '@study/contracts/documents/types';
+import type { StudyDocument } from '@study/contracts/documents/types';
 import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
 import { studyDocumentVersionIdSchema } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
@@ -9,13 +9,14 @@ import { Schema } from 'effect';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { documentHistoryOptions } from '#web/lib/study-client/documents.queries.ts';
-import { request } from '#web/lib/study-client/request.ts';
+import {
+  documentVersionOptions,
+  documentHistoryOptions
+} from '#web/lib/study-client/documents.queries.ts';
 
 import { DocumentActions } from '../document-editing';
-import { ContentReadError } from '../document-presentation/read-error';
-import { DocumentMetadata } from '../session-workspace/session-document-metadata';
-import { sessionDocumentOptions } from '../session-workspace/session-document.queries';
+import { ContentReadError } from '../document-presentation';
+import { DocumentMetadata, sessionDocumentOptions } from '../session-workspace';
 import { ExactAuthoredDocument } from './exact-document';
 import { VersionExport } from './export';
 import { EvidenceDetails } from './reader-evidence';
@@ -31,6 +32,7 @@ export function AuthoredDocumentReader({
   const { t } = useI18n();
   const model = useAuthoredReader(id, initialVersion);
   const { document } = model;
+
   return (
     <MaterialLibrary.Reader>
       {document.isPending && <Loading label={t('LoadingStudy')} />}
@@ -43,6 +45,7 @@ export function AuthoredDocumentReader({
     </MaterialLibrary.Reader>
   );
 }
+
 function useAuthoredReader(id: StudyDocumentId, initialVersion?: string) {
   const document = useQuery(sessionDocumentOptions(id));
   const [selected, setSelected] = useState<StudyDocumentVersionId | undefined>(() =>
@@ -52,23 +55,24 @@ function useAuthoredReader(id: StudyDocumentId, initialVersion?: string) {
   );
   const history = useInfiniteQuery(documentHistoryOptions(id));
   const exact = useQuery({
-    queryKey: ['documents', 'version', String(selected)],
-    enabled: selected !== undefined,
-    queryFn: ({ signal }) => request((rpc) => rpc['documents.version']({ id: selected! }), signal)
+    ...documentVersionOptions(selected!),
+    enabled: selected !== undefined
   });
   const version =
     selected === undefined ? document.data?.version : exact.isError ? undefined : exact.data;
 
   return { document, history, exact, selected, setSelected, version, id };
 }
+
 function AuthoredReaderContent({
   value,
   model
 }: {
-  value: import('@study/contracts/documents/types').StudyDocument;
+  value: StudyDocument;
   model: ReturnType<typeof useAuthoredReader>;
 }) {
   const { exact, selected, version, id } = model;
+
   return (
     <>
       <h1>{value.title}</h1>
@@ -94,9 +98,11 @@ function AuthoredReaderContent({
     </>
   );
 }
+
 function AuthoredHistory({ model }: { model: ReturnType<typeof useAuthoredReader> }) {
   const { t } = useI18n();
   const { history, setSelected } = model;
+
   return (
     <details>
       <summary>{t('ReaderHistory')}</summary>

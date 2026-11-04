@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document citation judgments behavior through real persistence   │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies user judgments pin both rich ranges; claim edits, citation copies and         │
+ * │   restoration never inherit verification.                                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -26,6 +40,7 @@ const meta = {
   corrected: false,
   omissions: []
 };
+
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: ['strong'] }] });
 
@@ -38,6 +53,7 @@ testStable(
       Layer.provideMerge(Documents.layer),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -51,6 +67,7 @@ testStable(
               inputs: [],
               citations: []
             });
+
             assert.ok(evidence.version);
             const input = { kind: 'document' as const, versionId: evidence.version.id };
             const evidenceRange = { blockId: block.id, start: 0, end: block.text.length };
@@ -69,6 +86,7 @@ testStable(
               inputs: [input],
               citations: [citation]
             });
+
             assert.ok(claim.version);
             const target = {
               documentId: claim.id,
@@ -92,6 +110,7 @@ testStable(
               .select()
               .from(s.study_document_citation_assessments)
               .all();
+
             assert.equal(
               (yield* rpc['documents.assessments']({
                 versionId: claim.version.id,
@@ -100,6 +119,7 @@ testStable(
               })).items.length,
               0
             );
+
             for (const invalid of [
               { ...assessment, evidenceRange: { ...evidenceRange, end: 5 } },
               { ...assessment, claim: { ...target, documentId: evidence.id } },
@@ -114,6 +134,7 @@ testStable(
                 before
               );
             }
+
             context.db.exec(
               "CREATE TRIGGER reject_assessment_insert AFTER INSERT ON study_document_citation_assessments BEGIN SELECT RAISE(ABORT,'injected failure'); END"
             );
@@ -129,6 +150,7 @@ testStable(
             );
             context.db.exec('DROP TRIGGER reject_assessment_insert');
             const recorded = yield* rpc['documents.assessCitation'](assessment);
+
             assert.equal(recorded.assessment.independentVerification, false);
             assert.equal(recorded.assessment.suppliedBy, 'user');
             assert.equal(
@@ -147,6 +169,7 @@ testStable(
               marker: 1,
               limit: 10
             })).items[0];
+
             assert.equal(stale.state, 'stale');
             assert.deepEqual(stale.assessment.claim, target);
             assert.equal(
@@ -157,6 +180,7 @@ testStable(
               0
             );
             const copied = yield* rpc['documents.version']({ id: changed.submittedVersionId });
+
             assert.deepEqual(copied.citations, [citation]);
             assert.deepEqual(copied.inputs, [input]);
             const restored = yield* rpc['documents.restore']({
@@ -165,6 +189,7 @@ testStable(
               restoreVersionId: claim.version.id,
               key: 'claim-restore'
             });
+
             assert.equal(
               (yield* rpc['documents.assessments']({
                 versionId: restored.submittedVersionId,
@@ -178,6 +203,7 @@ testStable(
               key: 'evidence-edit',
               document: { blocks: [correctBlockText(block, 'Revised evidence')], meta }
             });
+
             assert.equal(
               (yield* rpc['documents.document']({ id: evidence.id })).headVersionId,
               edited.submittedVersionId
@@ -192,6 +218,7 @@ testStable(
               'Exact evidence'
             );
             const rows = context.db.orm.select().from(s.study_document_citation_assessments).all();
+
             assert.throws(() => context.db.orm.delete(s.study_document_citation_assessments).run());
             assert.throws(() =>
               context.db.orm
@@ -201,6 +228,7 @@ testStable(
             );
             const row = rows[0];
             const payload = JSON.parse(row.payload);
+
             for (const forged of [
               { ...payload, independentVerification: true },
               { ...payload, suppliedBy: 'agent' },
@@ -222,6 +250,7 @@ testStable(
                   })
                   .run()
               );
+
             assert.deepEqual(
               context.db.orm.select().from(s.study_document_citation_assessments).all(),
               rows
@@ -230,6 +259,7 @@ testStable(
               input
             ]);
             const retirement = yield* rpc['documents.previewDeletion']({ id: claim.id });
+
             yield* rpc['documents.delete']({ documentId: claim.id, token: retirement.token });
             assert.equal(
               context.db.orm.select().from(s.study_document_citation_assessments).all().length,

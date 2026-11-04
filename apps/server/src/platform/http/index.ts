@@ -215,7 +215,10 @@ export function streamingFetch(
         const noBody = [204, 205, 304].includes(response.status);
 
         resolve(
-          new Response(noBody ? null : body, { status: response.status, headers: response.headers })
+          new Response(noBody ? null : body, {
+            status: response.status,
+            headers: response.headers
+          })
         );
         settled = true;
 

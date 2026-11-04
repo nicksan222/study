@@ -1,19 +1,17 @@
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
-import type { exportOmissionSchema } from '@study/contracts/exports';
 import { Button } from '@study/ui/button';
-import { downloadFile } from '@study/ui/download';
 import { SelectControl } from '@study/ui/select-control';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { exportOmissionLabels } from '#web/lib/export-labels.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
-import { request } from '#web/lib/study-client/request.ts';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
-import { ContentReadError } from '../document-presentation/read-error';
+import { ContentReadError } from '../document-presentation';
+import { versionExportOptions } from './export.queries';
+import type { Format } from './export.queries';
 
-type Format = 'canonical_json' | 'markdown' | 'html';
 export function VersionExport({ version }: { version: StudyDocumentVersion }) {
   const { t } = useI18n();
   const preferences = useWorkspacePreferences();
@@ -23,26 +21,8 @@ export function VersionExport({ version }: { version: StudyDocumentVersion }) {
     (preferences.defaultExportFormat === 'markdown' || preferences.defaultExportFormat === 'html'
       ? preferences.defaultExportFormat
       : 'canonical_json');
-  const output = useMutation({
-    mutationFn: async () => {
-      if (format === 'canonical_json') {
-        const result = await request((rpc) => rpc['documents.exportVersion']({ id: version.id }));
-        downloadFile(
-          `document-${version.documentId}-v${version.number}.json`,
-          new Blob([result.content], { type: 'application/json' })
-        );
-        return [] as readonly (typeof exportOmissionSchema.Type)[];
-      }
-      const result = await request((rpc) =>
-        rpc['documents.exportFile']({ id: version.id, format })
-      );
-      downloadFile(
-        result.filename,
-        new Blob([new Uint8Array(result.bytes)], { type: result.mediaType })
-      );
-      return result.omissions;
-    }
-  });
+  const output = useMutation(versionExportOptions(version, format));
+
   return (
     <>
       <SelectControl

@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto';
 
 import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import * as h from '@study/contracts/materials/history';
-import { eq, and, desc, inArray, or } from '@study/db';
+import { eq, and, desc, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema, Option } from 'effect';
 
@@ -110,7 +110,9 @@ function makeHistory(resources: StoreResources) {
     const eligible = retained.filter((version) => {
       const reason =
         version.status === 'draft' ? 'draft' : latest.includes(version.id) ? 'keep_latest' : null;
+
       if (reason !== null) protectedVersions.push({ versionId: version.id, reason });
+
       return reason === null;
     });
 

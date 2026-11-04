@@ -265,10 +265,12 @@ testStable(
     );
     const summary = screen.getByText('Settled').closest('summary')!;
     const group = summary.closest('details')!;
+
     fireEvent.click(summary);
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     expect(group).toHaveAttribute('open');
     const body = group.querySelector('.study-session-group-body')!;
+
     expect(body).toHaveAttribute('aria-hidden', 'true');
     expect(body).toHaveAttribute('inert');
     fireEvent.transitionEnd(group.querySelector('.study-session-group-slide')!);
@@ -289,6 +291,7 @@ testStable(
       </Sidebar.SessionGroup>
     );
     const summary = screen.getByText('Settled').closest('summary')!;
+
     fireEvent.click(summary);
     fireEvent.click(summary);
     await waitFor(() => expect(summary).toHaveAttribute('aria-expanded', 'true'));
@@ -301,6 +304,7 @@ testStable(
 
 testStable('closes settled content immediately when reduced motion is enabled', () => {
   const media = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+
   try {
     render(
       <Sidebar.SessionGroup title="Settled" count={1} defaultOpen variant="settled">
@@ -308,6 +312,7 @@ testStable('closes settled content immediately when reduced motion is enabled', 
       </Sidebar.SessionGroup>
     );
     const summary = screen.getByText('Settled').closest('summary')!;
+
     fireEvent.click(summary);
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     expect(summary.closest('details')).not.toHaveAttribute('open');

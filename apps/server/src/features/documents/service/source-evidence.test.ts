@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document source evidence behavior through real persistence      │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies source correction and replacement retain exact citations, independent         │
+ * │   authored copies and user judgments.                                                    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -24,6 +38,7 @@ import { withTestPublication } from '#testing/publication';
 
 function requireRow<T>(value: T | null | undefined): T {
   assert.ok(value !== null && value !== undefined);
+
   return value;
 }
 
@@ -50,6 +65,7 @@ testStable(
       ),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -72,8 +88,10 @@ testStable(
                 const row = context.db.orm.get(
                   sql`SELECT payload FROM workflow_events WHERE correlation_id=${state.requestId} ORDER BY rowid DESC LIMIT 1`
                 );
+
                 assert.ok(row);
                 const event = decodeEvent(String(row.payload));
+
                 assert.ok(
                   event.type === 'SourceProcessingRequested' ||
                     event.type === 'SourceCorrectionRequested'
@@ -83,7 +101,9 @@ testStable(
                   sources.publishSourceDocument({ event, document }).pipe(Effect.asVoid)
                 );
                 const current = yield* sources.currentExtraction({ id: source.id });
+
                 assert.ok(current);
+
                 return current.snapshotId;
               });
             const first = yield* publish({ blocks: [block], meta });
@@ -93,6 +113,7 @@ testStable(
               revision: 1n,
               snapshotId: first
             };
+
             assert.equal(
               requireRow(context.db.orm.get(sql`SELECT count(*) n FROM materials`)).n,
               0n
@@ -103,6 +124,7 @@ testStable(
             );
             const session = yield* rpc['conversations.createSession']({ title: 'Historic source' });
             const range = { blockId: block.id, start: 1, end: 3 };
+
             yield* rpc['conversations.updateSessionSelection']({
               sessionId: session.id,
               expectedRevision: 0n,
@@ -113,6 +135,7 @@ testStable(
               intentKey: randomUUID(),
               instruction: 'Explain the selected passage'
             });
+
             yield* withTestPublication(
               context,
               conversations
@@ -136,17 +159,21 @@ testStable(
             const original = yield* rpc['conversations.message']({ id: request.messageId });
             const stored = context.db.orm.select().from(s.citations).all();
             const citation = original.citations[0];
+
             assert.ok(citation);
             assert.equal(citation.evidence?.availability, 'available');
+
             if (citation.evidence?.availability === 'available') {
               assert.equal(citation.evidence.excerpt, '😀');
               assert.equal(citation.evidence.precision, 'exact');
             }
+
             const copy = yield* rpc['documents.copySource']({
               createKey: randomUUID(),
               title: 'Independent copy',
               ...input
             });
+
             assert.ok(copy.version);
             const copyBlock = copy.version.document.blocks[0]!;
             const annotation = yield* rpc['documents.createAnnotation']({
@@ -174,6 +201,7 @@ testStable(
               inputs: [input],
               citations: [{ marker: 1, input, target: range, anchor: block.anchor, quote: '😀' }]
             });
+
             assert.ok(claim.version);
             yield* rpc['documents.assessCitation']({
               claim: {
@@ -194,6 +222,7 @@ testStable(
             });
             const support = () =>
               rpc['documents.assessments']({ versionId: claim.version!.id, marker: 1, limit: 10 });
+
             assert.equal((yield* support()).items[0]?.state, 'assessed');
             yield* sources.correctBlock({
               id: source.id,
@@ -209,22 +238,26 @@ testStable(
               blocks: [correctBlockText(block, 'A😀B corrected')],
               meta: { ...meta, corrected: true }
             });
+
             assert.notEqual(corrected, first);
             assert.equal(
               (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
               corrected
             );
             const afterCorrection = yield* rpc['conversations.message']({ id: request.messageId });
+
             assert.deepEqual(afterCorrection.citations, original.citations);
             const edited = yield* rpc['conversations.editMessage']({
               messageId: request.messageId,
               text: 'Qualified historic citation [1]'
             });
+
             assert.deepEqual(edited.citations, original.citations);
             const restored = yield* rpc['conversations.setActiveVersion']({
               messageId: request.messageId,
               versionId: original.activeVersionId!
             });
+
             assert.deepEqual(restored.citations, original.citations);
             yield* sources.replaceSource({
               id: source.id,
@@ -244,16 +277,16 @@ testStable(
               (yield* rpc['conversations.message']({ id: request.messageId })).citations,
               original.citations
             );
+            const retainedCitations = new Set(
+              stored.map((old) => `${old.version_id}:${old.marker}`)
+            );
+
             assert.deepEqual(
               context.db.orm
                 .select()
                 .from(s.citations)
                 .all()
-                .filter((row) =>
-                  stored.some(
-                    (old) => old.version_id === row.version_id && old.marker === row.marker
-                  )
-                ),
+                .filter((row) => retainedCitations.has(`${row.version_id}:${row.marker}`)),
               stored
             );
             assert.deepEqual((yield* rpc['documents.version']({ id: claim.version.id })).inputs, [

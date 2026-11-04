@@ -16,6 +16,7 @@
 
 import assert from 'node:assert/strict';
 
+import type { SessionId } from '@study/contracts/ids';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
 import { correctBlockText, plainBlock } from '@study/contracts/sources/document';
@@ -656,6 +657,7 @@ testStable(
     const layer = Layer.mergeAll(Sources.layer, Documents.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       context.db.orm.run(
         sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1)`
@@ -669,6 +671,7 @@ testStable(
             bytes: new TextEncoder().encode('Evidence'),
             projectId: projectIdSchema.make(1n)
           });
+
           assert.equal(
             context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM materials`)!.n,
             0n
@@ -696,6 +699,7 @@ testStable(
             revision: 1n,
             snapshotId: published.documentId
           });
+
           yield* documents.archive({ id: copy.id, archived: true });
           assert.equal(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
@@ -1050,6 +1054,7 @@ testStable(
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -1084,6 +1089,7 @@ testStable(
             })
           );
           const exact = { sourceId: source.id, revision: 1n, snapshotId: published.documentId };
+
           assert.equal(
             (yield* sources.extraction(exact)).document.blocks[0].text,
             'Exact old extraction'
@@ -1095,17 +1101,18 @@ testStable(
           const session = context.db.orm.get<{ id: bigint }>(
             sql`INSERT INTO sessions(title,title_source,created_at,updated_at) VALUES('Session','user',1,1) RETURNING id`
           )!;
+
           yield* sources.attachSource({
-            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            sessionId: session.id as SessionId,
             sourceId: source.id
           });
           yield* sources.attachSource({
-            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            sessionId: session.id as SessionId,
             sourceId: source.id
           });
           assert.equal(
             (yield* sources.sessionSources({
-              sessionId: session.id as import('@study/contracts/ids').SessionId,
+              sessionId: session.id as SessionId,
               limit: 100
             })).length,
             1
@@ -1129,6 +1136,7 @@ testStable(
             'new'
           );
           const history = yield* sources.extractions({ sourceId: source.id, limit: 1 });
+
           assert.deepEqual(
             history.items.map((item) => [item.revision, item.snapshotId]),
             [[1n, published.documentId]]
@@ -1140,9 +1148,10 @@ testStable(
             'not_found'
           );
           const links = yield* sources.sessionSources({
-            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            sessionId: session.id as SessionId,
             limit: 100
           });
+
           assert.equal(links[0].revision, 2n);
           assert.equal(links[0].pending, true);
           assert.equal(links[0].snapshotId, null);
@@ -1160,12 +1169,12 @@ testStable(
             0n
           );
           yield* sources.detachSource({
-            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            sessionId: session.id as SessionId,
             sourceId: source.id
           });
           assert.deepEqual(
             yield* sources.sessionSources({
-              sessionId: session.id as import('@study/contracts/ids').SessionId,
+              sessionId: session.id as SessionId,
               limit: 100
             }),
             []

@@ -28,6 +28,7 @@ type Progress = NonNullable<
 >['items'][number];
 
 /** Groups sessions using persisted overrides, document counts, and running work. */
+
 export function RichSidebarSessions(props: Props) {
   return <SidebarSessionList key={String(props.project)} {...props} />;
 }
@@ -52,12 +53,14 @@ function SidebarSessionList(props: Props) {
     toggle: (session) =>
       setSelected((current) => {
         const items = current ?? [];
+
         return items.some((item) => item.id === session.id)
           ? items.filter((item) => item.id !== session.id)
           : [...items, { id: session.id, title: session.title }];
       })
   };
   const selecting = selected !== null;
+
   useEffect(() => {
     if (selecting) selectionToolbar.current?.focus();
     else if (selectionOrigin.current) {
@@ -166,6 +169,7 @@ function SidebarSessionList(props: Props) {
           onDeleted={(ids) => {
             setSelected((current) => {
               const remaining = current?.filter((item) => !ids.includes(item.id)) ?? [];
+
               return remaining.length ? remaining : null;
             });
           }}
@@ -176,6 +180,7 @@ function SidebarSessionList(props: Props) {
 }
 
 /** Keeps completed work scannable while revealing older sessions in deliberate batches. */
+
 function SettledSessions(
   props: Props & { summaries: Map<string, Progress>; selection: SelectionControls }
 ) {
@@ -231,32 +236,43 @@ type RowProps = Props & {
 };
 
 /** Fit the initial preview to the bottom half before offering older completed work. */
+
 function useSettledPreview(rows: { current: HTMLDivElement | null }, count: number) {
   const [limit, setLimit] = useState(10);
+
   useEffect(() => {
     const list = rows.current;
     const available = list?.closest('.study-sidebar-scroll');
     const summary = list?.closest('details')?.querySelector('summary');
+
     if (!list || !available || !summary || typeof ResizeObserver === 'undefined') return;
+
     const measure = () => {
       const row = list.firstElementChild?.getBoundingClientRect().height ?? 0;
       const height = available.getBoundingClientRect().height;
+
       if (!row || !height) return;
+
       const gap = Number.parseFloat(getComputedStyle(list).rowGap) || 0;
       const summaryHeight = summary.getBoundingClientRect().height;
       const capacity = Math.floor((height / 2 - summaryHeight) / (row + gap));
       const withMore = Math.floor((height / 2 - summaryHeight - row) / (row + gap));
+
       setLimit(Math.max(1, Math.min(10, count <= capacity ? capacity : withMore)));
     };
     const observer = new ResizeObserver(measure);
+
     observer.observe(available);
     measure();
+
     return () => observer.disconnect();
   }, [rows, count]);
+
   return limit;
 }
 
 /** Keeps settlement actions separate from navigation and disabled during active work. */
+
 function RichSession(props: RowProps) {
   const { t } = useI18n();
   const settlement = useSessionSettlement(props.session.id);
@@ -286,6 +302,7 @@ function RichSession(props: RowProps) {
 }
 
 /** Renders subject identity, selection, and progress for one session destination. */
+
 function SessionLink({
   session,
   project,
@@ -337,6 +354,7 @@ function SessionRowIcon({
   settled: boolean;
 }) {
   if (owner) return <SubjectIdentity name={owner.name} icon={owner.icon} />;
+
   return settled ? <SquareDashed aria-hidden="true" /> : <MessagesSquare aria-hidden="true" />;
 }
 
@@ -346,7 +364,10 @@ function sessionDestination(
   selection: SelectionControls
 ) {
   if (selection.items !== null)
-    return <button type="button" onClick={() => selection.toggle(session)} />;
+    return (
+      <button type="button" aria-label={session.title} onClick={() => selection.toggle(session)} />
+    );
+
   return (
     <Link
       to="/sessions/$sessionId"
@@ -357,6 +378,7 @@ function sessionDestination(
 }
 
 /** Refreshes the displayed age without changing the stored timestamp. */
+
 function SessionTime({ at }: { at: bigint }) {
   const { locale, date } = useI18n();
   const now = useNowMinute();
@@ -370,6 +392,7 @@ function SessionTime({ at }: { at: bigint }) {
 }
 
 /** Shows workflow activity and retained generated-document counts. */
+
 function SessionProgress({ progress }: { progress?: Progress }) {
   const { t } = useI18n();
   const preferences = useWorkspacePreferences();
@@ -393,6 +416,7 @@ function SessionProgress({ progress }: { progress?: Progress }) {
 }
 
 /** Reuses the document count in both detailed and compact session rows. */
+
 function SessionDocumentCount({ progress }: { progress?: Progress }) {
   const { t } = useI18n();
 

@@ -230,6 +230,7 @@ testStable(
   () => {
     const learning = Schema.decodeUnknownSync(materialGenerationInputSchema);
     const authored = Schema.decodeUnknownSync(transformRequestSchema);
+
     assert.throws(() => learning({ title: 'Cards', kind: 'flashcards', inputVersionIds: [1n] }));
     assert.throws(() =>
       learning({ title: 'Doc', kind: 'document', inputVersionIds: [1n], projectId: 1n })
@@ -253,6 +254,7 @@ testStable(
         'factual_correction'
       ]
     });
+
     assert.equal(result.contextRequestId, 'capture');
   }
 );

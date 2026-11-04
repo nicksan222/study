@@ -19,6 +19,7 @@ export function MessageVersionStepper({
 }) {
   const { t } = useI18n();
   const { versionNumber, previous, next, isLatest, context } = versionState(message, versionId);
+
   return (
     <Notebook.VersionStepper
       role="group"
@@ -73,5 +74,6 @@ function versionState(message: ChatMessage, versionId: VersionId) {
   const isLatest = current?.id === latest?.id;
   const context = current?.text.trim().split('\n')[0]?.slice(0, 80);
   const versionNumber = String(current?.number ?? '');
+
   return { versionNumber, previous, next, isLatest, context };
 }

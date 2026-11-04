@@ -26,6 +26,7 @@ export function makeAssertContextAvailable({ db }: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Captured input history is unavailable');
+
     if (
       actionable &&
       db.orm

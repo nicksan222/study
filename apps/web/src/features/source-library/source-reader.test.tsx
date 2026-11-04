@@ -1,10 +1,9 @@
 import { StudyError } from '@study/contracts/errors';
-import { sourceIdSchema } from '@study/contracts/ids';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Effect, Schema } from 'effect';
+import { Effect } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
@@ -98,10 +97,14 @@ testStable(
       expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
       await waitFor(() => expect(original).toBeEnabled(), { timeout: 2500 });
       const scheduled = timers.mock.calls.findLastIndex(([, delay]) => delay === 30000);
+
       expect(scheduled).toBeGreaterThanOrEqual(0);
       const callback = timers.mock.calls[scheduled]![0];
+
       clearTimeout(timers.mock.results[scheduled]!.value);
+
       if (typeof callback !== 'function') throw new Error('Expected a download cleanup callback');
+
       callback();
       expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:historical-original');
     } finally {

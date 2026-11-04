@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads source retirement correlations and previews exact retained deletion          │
+ * │ blockers.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Reads source retirement correlations and previews exact retained deletion blockers.    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
+import { StudyError } from '@study/contracts/errors';
 /** Source retirement also removes private native processing captures. */
 import { sourceIdSchema } from '@study/contracts/ids';
 import { sourceDeletionPreviewSchema } from '@study/contracts/sources/rpc';
@@ -49,16 +63,24 @@ export const SourceDeletionPreviewStore = defineStore({
         output: sourceDeletionPreviewSchema,
         run: (id) => {
           const source = resources.db.orm.select().from(sources).where(eq(sources.id, id)).get();
+
           if (!source) return undefined;
+
+          const revisions = resources.db.orm.get<{ n: bigint }>(
+            sql`SELECT count(*) n FROM source_snapshots WHERE source_id=${id}`
+          );
+          const extractions = resources.db.orm.get<{ n: bigint }>(
+            sql`SELECT count(*) n FROM source_extraction_revisions WHERE source_id=${id}`
+          );
+
+          if (!revisions || !extractions)
+            throw new StudyError('internal', 'Source deletion counts are unavailable');
+
           return {
             sourceId: id,
             name: source.name,
-            revisionCount: resources.db.orm.get<{ n: bigint }>(
-              sql`SELECT count(*) n FROM source_snapshots WHERE source_id=${id}`
-            )!.n,
-            extractionCount: resources.db.orm.get<{ n: bigint }>(
-              sql`SELECT count(*) n FROM source_extraction_revisions WHERE source_id=${id}`
-            )!.n,
+            revisionCount: revisions.n,
+            extractionCount: extractions.n,
             blockedBy: sourceDeletionBlockers(resources, id),
             retainedCopies: 'authored_outputs_and_raw_session_records' as const
           };

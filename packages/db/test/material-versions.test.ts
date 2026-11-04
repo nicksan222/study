@@ -4,13 +4,14 @@ import type { TestContext } from 'node:test';
 import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 
-import { Db } from '../src/index.ts';
+import type { Db } from '../src/index.ts';
 import { material_quiz_choices } from '../src/schema.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
 function fixture(t: TestContext) {
   const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   const db = location.open();
+
   t.after(() => {
     db.close();
     location.cleanup();
@@ -50,16 +51,19 @@ function authored(db: Db, id: bigint, publishNow = true) {
   db.orm.run(
     sql`INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(${id},${id},1,${id},1)`
   );
+
   if (publishNow)
     db.orm.run(
       sql`UPDATE study_document_versions SET status='published',published_at=2 WHERE id=${id}`
     );
 }
+
 function original(db: Db) {
   db.exec(`INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,1,'import','audio','audio/wav','lecture.wav',4,zeroblob(32),1),(2,2,'import','audio','audio/wav','other.wav',4,zeroblob(32),1);
  INSERT INTO source_blobs(source_id,bytes) VALUES(1,X'00010203'),(2,X'00010203');
  INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) SELECT id,1,X'00010203',kind,mime FROM sources;`);
 }
+
 function publish(db: Db, id: bigint) {
   db.orm.run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=${id}`);
 }
@@ -138,6 +142,7 @@ testStable(
   'multi-input provenance crosses collections, stays published-only and is sealed at publication',
   (t) => {
     const db = fixture(t);
+
     diagram(db, 1n);
     publish(db, 1n);
     diagram(db, 3n);
@@ -215,6 +220,7 @@ testStable(
   'source originals own media bytes independently of learning and authored storage',
   (t) => {
     const db = fixture(t);
+
     original(db);
     assert.equal(db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)?.n, 2n);
     assert.equal(db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
@@ -233,6 +239,7 @@ testStable(
 
 testStable('authored versions own canonical snapshots and freeze their underlying blocks', (t) => {
   const db = fixture(t);
+
   authored(db, 1n, false);
   db.exec('DELETE FROM blocks WHERE document_id=1');
   assert.throws(() =>
@@ -240,6 +247,7 @@ testStable('authored versions own canonical snapshots and freeze their underlyin
   );
   db.exec(`INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(1,0,'paragraph','block-1','{"type":"paragraph","inlines":[{"type":"text","text":"Derivative","marks":[]}]}','Derivative','{"type":"authored"}');
  UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1;`);
+
   for (const q of [
     "UPDATE blocks SET text='changed' WHERE document_id=1",
     'DELETE FROM blocks WHERE document_id=1',
@@ -253,6 +261,7 @@ testStable(
   'collection deletion preserves source bytes, authored versions, learning and independent session attachments',
   (t) => {
     const db = fixture(t);
+
     original(db);
     authored(db, 1n);
     diagram(db, 1n);
@@ -262,8 +271,10 @@ testStable(
  INSERT INTO session_documents(session_id,document_id,position) VALUES(1,1,0);
  INSERT INTO session_materials(session_id,material_id,position) VALUES(1,1,0);
  DELETE FROM projects WHERE id=1;`);
+
     for (const table of ['sources', 'source_snapshots'])
       assert.equal(db.orm.get(sql.raw(`SELECT count(*) n FROM ${table}`))?.n, 2n);
+
     for (const table of [
       'content_snapshots',
       'study_document_versions',
@@ -273,6 +284,7 @@ testStable(
       'session_materials'
     ])
       assert.equal(db.orm.get(sql.raw(`SELECT count(*) n FROM ${table}`))?.n, 1n);
+
     assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
   }
 );
@@ -303,6 +315,7 @@ testStable(
   'draft learning inputs reference exact source extractions independently of collection organization',
   (t) => {
     const db = fixture(t);
+
     original(db);
     diagram(db, 1n);
     db.exec(`INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at) VALUES(1,2,1,'{}',1);
@@ -315,13 +328,16 @@ testStable(
 
 testStable('authored publication rejects malformed canonical anchors', (t) => {
   const db = fixture(t);
+
   authored(db, 1n, false);
+
   for (const anchor of ['null', '{}', '[]', '{"type":"page","page":0}']) {
     db.orm.run(sql`UPDATE blocks SET anchor=${anchor} WHERE document_id=1`);
     assert.throws(() =>
       db.exec("UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1")
     );
   }
+
   db.exec(`UPDATE blocks SET anchor='{"type":"authored"}' WHERE document_id=1;
     UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1`);
 });
@@ -346,6 +362,7 @@ testStable(
   'removing a draft learning artifact preserves a source-owned extraction snapshot',
   (t) => {
     const db = fixture(t);
+
     original(db);
     diagram(db, 1n);
     db.exec(`INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at) VALUES(1,1,1,'{}',1);
@@ -361,8 +378,10 @@ testStable(
   'retired source and document Material kinds cannot be authored through generic storage',
   (t) => {
     const db = fixture(t);
+
     for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document'])
       assert.throws(() => draft(db, 1n, kind));
+
     diagram(db, 1n);
     assert.throws(() =>
       db.exec(

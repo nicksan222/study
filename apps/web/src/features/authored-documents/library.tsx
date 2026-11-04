@@ -5,10 +5,11 @@ import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { ContentReadError } from '../document-presentation/read-error';
-import type { useLibraryPage } from '../material-library/library-page.queries';
+import { ContentReadError } from '../document-presentation';
+import type { useLibraryPage } from '../material-library';
 
 type State = ReturnType<typeof useLibraryPage>['documents'];
+
 export function AuthoredLibrary({
   state,
   rememberRow
@@ -18,6 +19,7 @@ export function AuthoredLibrary({
 }) {
   const { t } = useI18n();
   const items = state.isError ? [] : (state.data?.pages.flatMap((page) => page.items) ?? []);
+
   return (
     <section aria-label={t('SourceDocument')}>
       {state.isPending && <Loading label={t('LoadingStudy')} />}

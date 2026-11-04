@@ -12,6 +12,7 @@ import { Db } from '../src/index.ts';
 
 /** Live watch applied this exact migration name/hash before the next schema refinement. */
 const applied = '20261103210031_glamorous_network';
+
 const appliedHash = '8cf7fd38c8a2cbb7a8730759535b666a4b7a44520bd3f27912f66f7de4d4c07a';
 
 testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })(
@@ -20,8 +21,10 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const folder = mkdtempSync(join(tmpdir(), 'study-intermediate-'));
     const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
     const previous = join(folder, 'migrations');
+
     mkdirSync(previous);
     let db: Db | undefined;
+
     try {
       assert.equal(
         createHash('sha256')
@@ -29,10 +32,13 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           .digest('hex'),
         appliedHash
       );
+
       for (const name of readdirSync(migrations))
         if (name <= applied && !name.endsWith('_prepare-authored-assets'))
           cpSync(join(migrations, name), join(previous, name), { recursive: true });
+
       const path = join(folder, 'study.db');
+
       db = Db.open(path, previous);
       db.exec(`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
    INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'user',1);
@@ -67,15 +73,19 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       );
       assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
       const reference = Db.open(':memory:');
+
       try {
         assert.equal(db.schemaIdentity(), reference.schemaIdentity());
       } finally {
         reference.close();
       }
+
       const backup = join(folder, 'intermediate-backup.db');
+
       await db.snapshot(backup);
       assert.equal(Db.validateSnapshot(backup), db.schemaIdentity());
       const schema = db.schemaIdentity();
+
       db.close();
       db = undefined;
       db = Db.open(path);

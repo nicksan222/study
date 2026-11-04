@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import { createTestDatabase } from '../src/testing.ts';
 
 type TestDb = ReturnType<ReturnType<typeof createTestDatabase>['open']>;
+
 function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio') {
   const mime = {
     audio: 'audio/wav',
@@ -13,6 +14,7 @@ function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio'
     image: 'image/png',
     link: 'text/uri-list'
   }[kind];
+
   db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Media',1,1);
  INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,uri,created_at)
  VALUES(1,1,'attachment','${kind}','${mime}','original',1,zeroblob(32),${kind === 'link' ? "'https://example.com/original'" : 'NULL'},1);
@@ -27,9 +29,11 @@ function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio'
  INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1);
  INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','flowchart LR; A-->B');`);
 }
+
 function fixture(run: (db: TestDb) => void) {
   const location = createTestDatabase();
   const db = location.open();
+
   try {
     run(db);
     assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
@@ -38,6 +42,7 @@ function fixture(run: (db: TestDb) => void) {
     location.cleanup();
   }
 }
+
 function pin(db: TestDb, revision = 1, snapshotId = 1) {
   db.exec(
     `INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,1,${revision},${snapshotId})`
@@ -49,14 +54,17 @@ testStable(
   () =>
     fixture((db) => {
       source(db);
+
       for (const [revision, snapshot] of [
         [0, 1],
         [2, 1],
         [1, 999]
       ])
         assert.throws(() => pin(db, revision, snapshot));
+
       pin(db);
       db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=1");
+
       for (const statement of [
         'UPDATE material_evidence_inputs SET source_revision=2 WHERE version_id=1',
         'DELETE FROM material_evidence_inputs WHERE version_id=1',
@@ -64,6 +72,7 @@ testStable(
         'DELETE FROM source_extraction_revisions WHERE source_id=1'
       ])
         assert.throws(() => db.exec(statement));
+
       assert.equal(db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 1n);
     })
 );
@@ -123,12 +132,14 @@ for (const kind of ['audio', 'video', 'image', 'link'] as const)
         const original = db.orm.get(
           sql`SELECT * FROM source_snapshots WHERE source_id=1 AND revision=1`
         );
+
         pin(db);
         db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=1");
         db.exec(`INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,2,X'020304','text','text/plain');
   UPDATE sources SET kind='text',mime='text/plain',uri=NULL,size_bytes=3 WHERE id=1;
   UPDATE source_blobs SET bytes=X'020304' WHERE source_id=1;
   UPDATE source_processing SET revision=2,request_id='replacement',published_request_id=NULL,document_id=NULL WHERE source_id=1;`);
+
         for (const patch of [
           "bytes=X'ff'",
           "kind='text'",
@@ -140,6 +151,7 @@ for (const kind of ['audio', 'video', 'image', 'link'] as const)
           assert.throws(() =>
             db.exec(`UPDATE source_snapshots SET ${patch} WHERE source_id=1 AND revision=1`)
           );
+
         assert.throws(() =>
           db.exec('DELETE FROM source_snapshots WHERE source_id=1 AND revision=1')
         );

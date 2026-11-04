@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists exact source evidence pins owned by captured conversation replies.        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists exact source evidence pins owned by captured conversation replies.            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { replySnapshotSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { and, eq } from '@study/db';
@@ -6,6 +18,7 @@ import { conversation_reply_sources } from '@study/db/schema';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Snapshot = typeof replySnapshotSchema.Type;
+
 export function makeReplySourceInputs({ db }: StoreResources) {
   function expected(snapshot: Snapshot) {
     return [
@@ -27,6 +40,7 @@ export function makeReplySourceInputs({ db }: StoreResources) {
       }))
     ];
   }
+
   function retain(snapshot: Snapshot) {
     for (const input of expected(snapshot)) {
       const old = db.orm
@@ -39,6 +53,7 @@ export function makeReplySourceInputs({ db }: StoreResources) {
           )
         )
         .get();
+
       if (
         old &&
         (old.source_id !== input.source_id ||
@@ -46,6 +61,7 @@ export function makeReplySourceInputs({ db }: StoreResources) {
           (old.snapshot_id !== null && old.snapshot_id !== input.snapshot_id))
       )
         throw new StudyError('invalid_input', 'Captured reply source identity changed');
+
       db.orm
         .insert(conversation_reply_sources)
         .values(input)
@@ -56,6 +72,7 @@ export function makeReplySourceInputs({ db }: StoreResources) {
         .run();
     }
   }
+
   function assert(snapshot: Snapshot) {
     const rows = db.orm
       .select()
@@ -63,6 +80,7 @@ export function makeReplySourceInputs({ db }: StoreResources) {
       .where(eq(conversation_reply_sources.request_id, snapshot.requestId))
       .all();
     const inputs = expected(snapshot);
+
     if (
       rows.length !== inputs.length ||
       inputs.some(
@@ -78,5 +96,6 @@ export function makeReplySourceInputs({ db }: StoreResources) {
     )
       throw new StudyError('invalid_input', 'Captured reply source pins are unavailable');
   }
+
   return { retain, assert };
 }

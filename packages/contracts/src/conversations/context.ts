@@ -3,8 +3,6 @@ import { Schema } from 'effect';
 import {
   contentSnapshotIdSchema,
   studyDocumentIdSchema,
-  studyDocumentVersionIdSchema,
-  sourceIdSchema,
   sessionIdSchema,
   messageIdSchema,
   versionIdSchema,

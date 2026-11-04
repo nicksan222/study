@@ -1,10 +1,8 @@
 import { StudyError } from '@study/contracts/errors';
-import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { expect, vi } from 'vite-plus/test';
 
@@ -112,6 +110,7 @@ for (const component of ['evidence', 'picker'] as const)
         component === 'evidence'
           ? retainedRangeOptions(target)
           : annotationDocumentOptions(doc.documentId, doc.id);
+
       cache.setQueryData(
         options.queryKey,
         component === 'evidence' ? 'Private retired evidence' : doc
@@ -126,6 +125,7 @@ for (const component of ['evidence', 'picker'] as const)
           )}
         </QueryClientProvider>
       );
+
       await act(async () => {
         await cache.invalidateQueries({ queryKey: options.queryKey });
       });
@@ -154,6 +154,7 @@ testStable(
     const cache = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } }
     });
+
     cache.setQueryData(retainedRangeOptions(target).queryKey, 'Private retired evidence');
     vi.mocked(request).mockRejectedValue(new StudyError('not_found', 'Body retired'));
     const child = (
@@ -162,6 +163,7 @@ testStable(
       </QueryClientProvider>
     );
     const view = render(child);
+
     expect(screen.getByText('retired evidence', { exact: false })).toBeVisible();
     await act(async () => {
       await releaseBodyPreviews(cache, {
@@ -175,6 +177,7 @@ testStable(
     );
     view.unmount();
     const reopened = render(child);
+
     await screen.findByText('ReaderUnavailable');
     expect(screen.queryByText('retired evidence', { exact: false })).toBeNull();
     reopened.unmount();

@@ -42,9 +42,10 @@ testStable(
 
       await provide(
         transaction((tx) =>
-          tx
-            .store(ProjectsStore)
-            .setIcon({ id: created.id, icon: { kind: 'monogram', value: 'BIO', color: 'neutral' } })
+          tx.store(ProjectsStore).setIcon({
+            id: created.id,
+            icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
+          })
         )
       );
       context.close();

@@ -28,7 +28,7 @@ import {
 } from '@study/contracts/sources/rpc';
 import { documentSchema, hasTextualContent, sourceSchema } from '@study/contracts/sources/schemas';
 import { MAX_SOURCE_BYTES, sourceKindSchema } from '@study/contracts/sources/sniff';
-import { isNull, and, desc, eq, getTableColumns, lt, sql } from '@study/db';
+import { isNull, and, desc, eq, getTableColumns, lt } from '@study/db';
 import * as tables from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -352,6 +352,7 @@ export const SourceStore = defineStore({
               .delete(tables.session_sources)
               .where(eq(tables.session_sources.source_id, id))
               .run();
+
             return (
               db.orm.delete(tables.sources).where(eq(tables.sources.id, id)).run().changes !== 0n
             );

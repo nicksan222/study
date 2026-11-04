@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Serializes exact learning versions using bounded canonical export representations. │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Serializes exact learning versions using bounded canonical export representations.     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature policy coordinates public services and private stores within caller-owned        │
+ * │ transactions.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
 import type {
@@ -11,10 +24,13 @@ import type {
 import { Schema } from 'effect';
 
 import { exportBudget } from '#server/platform/content-export/budget';
+
 const json = (value: unknown) =>
   JSON.stringify(value, (_, item: unknown) => (typeof item === 'bigint' ? item.toString() : item));
+
 const csvCell = (s: string) =>
   '"' + (/^(?:\s*[=+@-]|[\t\r\n])/.test(s) ? "'" : '') + s.replaceAll('"', '""') + '"';
+
 export function serializeMaterialVersion(
   version: MaterialVersionDetailDto,
   format: typeof learningExportFormatSchema.Type,
@@ -23,6 +39,7 @@ export function serializeMaterialVersion(
   exportBudget().consume({ version, citations });
   const omissions: (typeof exportOmissionSchema.Type)[] = [];
   let body: string;
+
   if (format === 'aid_json') {
     if (!['quiz', 'flashcards', 'diagram'].includes(version.kind))
       throw new StudyError('unsupported', 'Typed aid export requires an aid');
@@ -59,8 +76,10 @@ export function serializeMaterialVersion(
   }
 
   const bytes = new TextEncoder().encode(body);
+
   if (bytes.length > MAX_EXPORT_BYTES)
     throw new StudyError('invalid_input', 'Export exceeds byte limit');
+
   return {
     versionId: version.id,
     format,

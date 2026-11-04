@@ -296,6 +296,7 @@ testStable(
         ]}
       />
     );
+
     fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
       target: { value: 'Course notes' }
     });
@@ -316,7 +317,10 @@ testStable(
           id={id}
           sessions={[
             { id, title: 'First renamed' },
-            { id: Schema.decodeUnknownSync(sessionIdSchema)(502n), title: 'Second lecture renamed' }
+            {
+              id: Schema.decodeUnknownSync(sessionIdSchema)(502n),
+              title: 'Second lecture renamed'
+            }
           ]}
         />
       </QueryClientProvider>
@@ -344,6 +348,7 @@ testStable(
         ]}
       />
     );
+
     fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
       target: { value: 'First group' }
     });
@@ -363,6 +368,7 @@ testStable(
       />,
       first.client
     );
+
     expect(screen.getByLabelText('SessionOutputTitle')).toHaveValue('');
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
     fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {

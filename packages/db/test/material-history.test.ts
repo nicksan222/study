@@ -147,6 +147,7 @@ testStable(
   'exact raw attachment pins reject forged source or extraction ownership while preserving current source roots',
   () => {
     const db = Db.open(':memory:');
+
     try {
       db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,'attachment','text','text/plain','source.txt',1,zeroblob(32),1),(2,'attachment','text','text/plain','other.txt',1,zeroblob(32),1);
   INSERT INTO source_blobs(source_id,bytes) VALUES(1,X'01'),(2,X'02');
@@ -158,6 +159,7 @@ testStable(
   INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
   INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'assistant',1),(2,1,'assistant',1),(3,1,'assistant',1);
   INSERT INTO message_versions(id,message_id,number,origin,status,created_at) VALUES(1,1,1,'answer','pending',1),(2,2,1,'answer','pending',1),(3,3,1,'answer','pending',1);`);
+
       for (const [requestId, versionId, sourceId, snapshotId] of [
         ['exact', 1, '1', '1'],
         ['wrong-source', 2, '2', '1'],
@@ -166,6 +168,7 @@ testStable(
         db.orm.run(
           dbSql`INSERT INTO conversation_reply_requests(request_id,session_id,version_id,snapshot) VALUES(${requestId},1,${versionId},${JSON.stringify({ messages: [{ attachments: [{ partId: '1', sourceId, revision: '1', snapshotId }] }] })})`
         );
+
       db.exec(
         "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('exact',1,1,1,1)"
       );
@@ -179,6 +182,7 @@ testStable(
           "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-document',1,1,1,1)"
         )
       );
+
       for (const statement of [
         "UPDATE conversation_reply_sources SET snapshot_id=2 WHERE request_id='exact'",
         "DELETE FROM conversation_reply_sources WHERE request_id='exact'",
@@ -188,6 +192,7 @@ testStable(
         'DELETE FROM source_snapshots WHERE source_id=1 AND revision=1'
       ])
         assert.throws(() => db.exec(statement));
+
       db.exec(
         'DELETE FROM sessions WHERE id=1; DELETE FROM source_extraction_revisions WHERE snapshot_id=1; DELETE FROM content_snapshots WHERE id=1'
       );

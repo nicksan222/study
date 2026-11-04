@@ -1,4 +1,15 @@
-/** Exact raw reply pins and private native checkpoints follow independent source/authored and session lifetimes. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exact raw reply pins and private native checkpoints follow independent             │
+ * │ source/authored and session lifetimes.                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies retained identities and exact input retirement invariants.                    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -30,6 +41,7 @@ import { withTestPublication } from '#testing/publication';
 import { assertScrubbed, awaitNativeStatus, deletionEvent } from '#testing/session-deletion';
 
 type Fixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+
 function replyEvent(f: Fixture, requestId: string) {
   const event = f.context.db.orm
     .select()
@@ -40,15 +52,19 @@ function replyEvent(f: Fixture, requestId: string) {
     .findLast(
       (event) => event.type === 'ConversationGenerationRequested' && event.requestId === requestId
     );
+
   assert.ok(event?.type === 'ConversationGenerationRequested');
+
   return event;
 }
+
 for (const kind of ['document', 'source'] as const)
   for (const second of [false, true])
     testStable(
       `${kind} exact reply ${second ? (kind === 'document' ? 'rewrite' : 'generated checkpoint') : 'pending capture'} protects history until explicit raw session cleanup`,
       async () => {
         const f = await documentTransformFixture();
+
         try {
           const evidence =
             kind === 'document'
@@ -64,6 +80,7 @@ for (const kind of ['document', 'source'] as const)
                   ).pipe(Effect.provide(f.domain()))
                 ).then((value) => {
                   assert.ok(value.version);
+
                   return {
                     input: { kind: 'document' as const, versionId: value.version.id },
                     document: value.version.document,
@@ -81,6 +98,7 @@ for (const kind of ['document', 'source'] as const)
                     ).pipe(Effect.provide(f.domain()))
                   );
                   const body = await processSource(f);
+
                   return Effect.runPromise(
                     Effect.flatMap(Sources, (sources) =>
                       sources.extraction({
@@ -106,6 +124,7 @@ for (const kind of ['document', 'source'] as const)
               const chats = yield* Conversations;
               const session = yield* chats.createUntitledSession({});
               const other = yield* chats.createUntitledSession({});
+
               yield* chats.postMessage({
                 sessionId: session.id,
                 text: 'RAW_PRIVATE_QUESTION',
@@ -117,17 +136,20 @@ for (const kind of ['document', 'source'] as const)
                 text: 'Unrelated raw note',
                 requestReply: false
               });
+
               if (input.kind === 'document')
                 yield* chats.updateSessionSelection({
                   sessionId: session.id,
                   expectedRevision: 0n,
                   targets: [{ input, scope: { kind: 'document' } }]
                 });
+
               const completed = yield* chats.requestReply({
                 sessionId: session.id,
                 intentKey: 'completed'
               });
               const block = evidence.document.blocks[0]!;
+
               yield* withTestPublication(
                 f.context,
                 chats
@@ -144,7 +166,11 @@ for (const kind of ['document', 'source'] as const)
                         quote: block.text,
                         ...(input.kind === 'document'
                           ? {
-                              selectedRange: { blockId: block.id, start: 0, end: block.text.length }
+                              selectedRange: {
+                                blockId: block.id,
+                                start: 0,
+                                end: block.text.length
+                              }
                             }
                           : {})
                       }
@@ -173,6 +199,7 @@ for (const kind of ['document', 'source'] as const)
                 requestId: unrelated.requestId
               });
               const otherThread = yield* chats.thread({ sessionId: other.id, limit: 20 });
+
               return {
                 session,
                 other,
@@ -188,6 +215,7 @@ for (const kind of ['document', 'source'] as const)
           const event = replyEvent(f, saved.pending.requestId);
           const otherEvent = replyEvent(f, saved.unrelated.requestId);
           const checkpoint = kind === 'source' && second;
+
           if (checkpoint) {
             f.context.db.exec(
               "CREATE TRIGGER reject_reply_publication BEFORE UPDATE OF status ON message_versions WHEN NEW.status='complete' BEGIN SELECT RAISE(ABORT,'injected publication gap'); END"
@@ -201,6 +229,7 @@ for (const kind of ['document', 'source'] as const)
                 Effect.scoped(
                   Effect.gen(function* () {
                     const engine = yield* WorkflowEngine.WorkflowEngine;
+
                     yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
                     yield* engine.execute(conversationReplyWorkflow, {
                       executionId: 'checkpoint-reply',
@@ -217,11 +246,13 @@ for (const kind of ['document', 'source'] as const)
             );
             f.context.db.exec('DROP TRIGGER reject_reply_publication');
           }
+
           if (input.kind === 'document')
             await Effect.runPromise(
               Effect.gen(function* () {
                 const docs = yield* Documents;
                 const old = yield* docs.version({ id: input.versionId });
+
                 yield* docs.save({
                   documentId: old.documentId,
                   expectedVersionId: old.id,
@@ -232,6 +263,7 @@ for (const kind of ['document', 'source'] as const)
                   documentId: old.documentId,
                   keepLatest: 1
                 });
+
                 assert.ok(preview.blockedVersionIds.includes(old.id));
               }).pipe(Effect.provide(f.domain()))
             );
@@ -254,6 +286,7 @@ for (const kind of ['document', 'source'] as const)
                   sourceId: input.sourceId,
                   keepLatest: 1
                 });
+
                 assert.ok(preview.blockedSnapshotIds.includes(input.snapshotId));
                 assert.equal(
                   (yield* Effect.flip(
@@ -268,6 +301,7 @@ for (const kind of ['document', 'source'] as const)
               }).pipe(Effect.provide(f.domain()))
             );
           }
+
           await Effect.runPromise(
             Effect.scoped(
               Effect.gen(function* () {
@@ -275,8 +309,11 @@ for (const kind of ['document', 'source'] as const)
                 const chats = yield* Conversations;
                 const gate = DurableDeferred.make('retired-reply');
                 const otherGate = DurableDeferred.make('independent-reply');
-                yield* engine.register(conversationReplyWorkflow, ({ event: run }) =>
-                  Effect.gen(function* () {
+
+                function suspendedReply({
+                  event: run
+                }: typeof conversationReplyWorkflow.payloadSchema.Type) {
+                  return Effect.gen(function* () {
                     if (run.requestId === saved.pending.requestId) {
                       yield* Activity.make({
                         name: 'private-pending-reply',
@@ -285,39 +322,49 @@ for (const kind of ['document', 'source'] as const)
                       });
                       yield* DurableDeferred.await(gate);
                     } else yield* DurableDeferred.await(otherGate);
+
                     return run.versionId;
-                  })
-                );
+                  });
+                }
+
+                yield* engine.register(conversationReplyWorkflow, suspendedReply);
                 yield* engine.register(sessionDeletionWorkflow, sessionDeletionHandler);
+
                 if (!checkpoint)
                   yield* engine.execute(conversationReplyWorkflow, {
                     executionId: 'pending-reply',
                     payload: { event },
                     discard: true
                   });
+
                 yield* engine.execute(conversationReplyWorkflow, {
                   executionId: 'independent-reply',
                   payload: { event: otherEvent },
                   discard: true
                 });
+
                 if (!checkpoint) yield* awaitNativeStatus(f, 'pending-reply', 'suspended');
+
                 yield* awaitNativeStatus(f, 'independent-reply', 'suspended');
                 const before = yield* chats.messageVersionCitations({
                   sessionId: saved.session.id,
                   messageId: saved.completed.messageId,
                   versionId: saved.completed.versionId
                 });
+
                 assert.equal(before.citations[0]?.evidence?.availability, 'available');
                 yield* chats.deleteSession(saved.session.id);
                 yield* engine.execute(sessionDeletionWorkflow, {
                   executionId: 'raw-input-cleanup',
                   payload: { event: deletionEvent(f, saved.session.id) }
                 });
+
                 if (!checkpoint)
                   assert.equal(
                     workflowStore(f.context).execution('pending-reply')?.status,
                     'cancelled'
                   );
+
                 assert.equal(
                   workflowStore(f.context).execution('independent-reply')?.status,
                   'suspended'
@@ -330,6 +377,7 @@ for (const kind of ['document', 'source'] as const)
           await Effect.runPromise(
             Effect.gen(function* () {
               const chats = yield* Conversations;
+
               assert.equal(
                 (yield* Effect.flip(chats.message(saved.completed.messageId))).kind,
                 'not_found'
@@ -347,11 +395,13 @@ for (const kind of ['document', 'source'] as const)
                 yield* chats.thread({ sessionId: saved.other.id, limit: 20 }),
                 saved.otherThread
               );
+
               if (input.kind === 'document') {
                 const docs = yield* Documents;
                 const old = yield* docs.version({ id: input.versionId });
                 const scope = { documentId: old.documentId, keepLatest: 1 };
                 const preview = yield* docs.previewHistory(scope);
+
                 assert.deepEqual(preview.blockedVersionIds, []);
                 yield* docs.retireHistory({ ...scope, token: preview.token });
                 assert.equal(
@@ -362,6 +412,7 @@ for (const kind of ['document', 'source'] as const)
                 const sources = yield* Sources;
                 const scope = { sourceId: input.sourceId, keepLatest: 1 };
                 const preview = yield* sources.previewHistory(scope);
+
                 assert.deepEqual(preview.blockedSnapshotIds, []);
                 yield* sources.retireHistory({ ...scope, token: preview.token });
                 assert.equal(
@@ -381,11 +432,13 @@ for (const kind of ['document', 'source'] as const)
           assertScrubbed(f, 'PRIVATE_SUSPENDED_REPLY');
           assertScrubbed(f, 'PRIVATE_REPLY_CHECKPOINT');
           const calls = f.bodies.length;
+
           await assert.rejects(
             Effect.runPromise(
               Effect.scoped(
                 Effect.gen(function* () {
                   const engine = yield* WorkflowEngine.WorkflowEngine;
+
                   yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
                   yield* engine.execute(conversationReplyWorkflow, {
                     executionId: 'late-private-reply',

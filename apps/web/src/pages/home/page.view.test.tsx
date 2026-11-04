@@ -39,6 +39,7 @@ testStable.each(['/home', '/sessions'])(
   async (path) => {
     renderPage(path + '?project=9007199254740993', 'english');
     const t = catalogs.english;
+
     expect(await screen.findByRole('heading', { name: t.SessionStartTitle })).toBeVisible();
     expect(
       within(screen.getByRole('main')).getByRole('button', { name: t.SessionNew })

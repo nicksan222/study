@@ -1,4 +1,15 @@
-/** Exact input and external image roots retain source bytes independently of organization. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Finds exact evidence and image roots retaining independent source bytes.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Finds exact evidence and image roots retaining independent source bytes.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { SourceId } from '@study/contracts/ids';
 import { sql } from '@study/db';
 
@@ -6,6 +17,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function sourceDeletionBlockers({ db }: Pick<StoreResources, 'db'>, sourceId: SourceId) {
   const blockedBy: ('exact_inputs' | 'image_assets')[] = [];
+
   if (
     db.orm.get(sql`SELECT 1 FROM (
     SELECT body.source_id FROM citations c JOIN content_snapshots body ON body.id=c.document_id WHERE body.source_id IS NOT NULL
@@ -17,11 +29,13 @@ export function sourceDeletionBlockers({ db }: Pick<StoreResources, 'db'>, sourc
   ) WHERE source_id=${sourceId} LIMIT 1`)
   )
     blockedBy.push('exact_inputs');
+
   if (
     db.orm
       .get(sql`SELECT 1 FROM document_assets a JOIN content_snapshots body ON body.id=a.document_id
     WHERE a.source_id=${sourceId} AND body.source_id IS NOT ${sourceId} LIMIT 1`)
   )
     blockedBy.push('image_assets');
+
   return blockedBy;
 }

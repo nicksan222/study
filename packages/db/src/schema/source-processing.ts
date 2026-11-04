@@ -8,8 +8,7 @@ import {
   integer,
   primaryKey,
   sqliteTable,
-  text,
-  uniqueIndex
+  text
 } from 'drizzle-orm/sqlite-core';
 
 import { codes_source_kind } from './codes.ts';

@@ -64,6 +64,7 @@ function searchPresentation(kind: SidebarModel['hits'][number]['kind']) {
       return { Icon: MessagesSquare, label: 'SearchKindSession' as const };
   }
 }
+
 function SidebarSearchHit({
   global,
   project,
@@ -121,6 +122,7 @@ function SidebarSearchResults({
 }
 
 /** Lists scoped sessions with an independent deletion action for each row. */
+
 function SidebarSessions({
   project,
   selectedSession,
@@ -171,6 +173,7 @@ function SidebarSessions({
 }
 
 /** Keeps the subject settings target stable even if that subject is removed from the sidebar. */
+
 function SidebarHeader({
   collapsed,
   onToggle,
@@ -276,6 +279,7 @@ function SidebarHeader({
 }
 
 /** Closes the picker before opening subject creation, management, or global navigation. */
+
 function SidebarPickerActions({
   subject,
   requestedProject,
@@ -351,6 +355,7 @@ function SidebarPickerActions({
 }
 
 /** Closes the picker before navigating to the overview or help destination. */
+
 function SidebarPickerShortcuts({
   requestedProject,
   setPickerOpen,
@@ -674,6 +679,7 @@ function SidebarSearchControl({
 }
 
 /** Disables quick session creation until subject ownership is ready. */
+
 function SidebarCreateSessionIcon({ creating }: Pick<SidebarModel, 'creating'>) {
   const { t } = useI18n();
 
@@ -681,6 +687,7 @@ function SidebarCreateSessionIcon({ creating }: Pick<SidebarModel, 'creating'>) 
 }
 
 /** Keep picker icon rendering stable while subject and selection state change. */
+
 function subjectPickerIcon(item: SidebarModel['subjects'][number]) {
   return <SubjectIdentity name={item.name} icon={item.icon} />;
 }

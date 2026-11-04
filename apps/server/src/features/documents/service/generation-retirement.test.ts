@@ -1,4 +1,15 @@
-/** Authored generation receipts retain metadata independently of raw sessions and retired bodies. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Authored generation receipts retain metadata independently of raw sessions and     │
+ * │ retired bodies.                                                                          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies retained identities and exact generation retirement invariants.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -19,10 +30,12 @@ for (const mode of ['history', 'delete'] as const)
     `generated authored ${mode} retires bodies without reassigning receipts, erasing instructions or resurrecting captures`,
     async () => {
       const f = await documentTransformFixture();
+
       try {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
+
             const chats = yield* Conversations;
             const input = yield* docs.create({
               createKey: randomUUID(),
@@ -31,8 +44,10 @@ for (const mode of ['history', 'delete'] as const)
               inputs: [],
               citations: []
             });
+
             assert.ok(input.version);
             const session = yield* chats.createUntitledSession({});
+
             yield* chats.updateSessionSelection({
               sessionId: session.id,
               expectedRevision: 0n,
@@ -54,16 +69,19 @@ for (const mode of ['history', 'delete'] as const)
               title: 'Authored output',
               operations: ['clarity']
             });
+
             return { input: { ...input, version: input.version }, session, capture, request };
           }).pipe(Effect.provide(f.domain()))
         );
         const event = f.authoredEvent(saved.request.id);
+
         f.replies.push(
           { kind: 'sources', query: 'Generation evidence' },
           { kind: 'output', output: validDocumentTransformOutput('INTENTIONAL_AUTHORED_BODY [1]') }
         );
         const resultId = await f.executeAuthored(event, 'authored-generation');
         // Exercise every private native storage location, including recovery registrations.
+
         f.context.db.orm.run(
           sql`INSERT INTO workflow_deferreds(execution_id,name,result) VALUES('authored-generation','private-copy','"INTENTIONAL_AUTHORED_BODY"')`
         );
@@ -81,6 +99,7 @@ for (const mode of ['history', 'delete'] as const)
             eventId: 'independent-event'
           }
         });
+
         f.context.db.orm.run(
           sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at) VALUES('independent-native','document-transform/v1',1,${independentPayload},'suspended',1,1)`
         );
@@ -90,8 +109,10 @@ for (const mode of ['history', 'delete'] as const)
         const retained = await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
-            const chats = yield* Conversations;
+
+            yield* Conversations;
             const output = yield* docs.version({ id: resultId });
+
             assert.notEqual(output.documentId, saved.input.id);
             assert.deepEqual(output.inputs, [
               { kind: 'document', versionId: saved.input.version.id }
@@ -103,11 +124,13 @@ for (const mode of ['history', 'delete'] as const)
               inputs: [],
               citations: []
             });
+
             assert.ok(copy.version);
             f.context.db.exec(
               "CREATE TRIGGER reject_private_retirement BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT,'injected retirement rollback'); END"
             );
             const failedPreview = yield* docs.previewDeletion({ id: output.documentId });
+
             yield* Effect.flip(
               docs.delete({ documentId: output.documentId, token: failedPreview.token })
             );
@@ -125,6 +148,7 @@ for (const mode of ['history', 'delete'] as const)
             );
             assert.ok(yield* docs.version({ id: output.id }));
             f.context.db.exec('DROP TRIGGER reject_private_retirement');
+
             if (mode === 'history') {
               const current = yield* docs.save({
                 documentId: output.documentId,
@@ -134,6 +158,7 @@ for (const mode of ['history', 'delete'] as const)
               });
               const scope = { documentId: output.documentId, keepLatest: 1 };
               const preview = yield* docs.previewHistory(scope);
+
               assert.deepEqual(preview.versionIds, [output.id]);
               yield* docs.retireHistory({ ...scope, token: preview.token });
               assert.equal(
@@ -142,8 +167,10 @@ for (const mode of ['history', 'delete'] as const)
               );
             } else {
               const preview = yield* docs.previewDeletion({ id: output.documentId });
+
               yield* docs.delete({ documentId: output.documentId, token: preview.token });
             }
+
             assert.equal((yield* Effect.flip(docs.version({ id: output.id }))).kind, 'not_found');
             // Retirement must scrub native output while the independent raw session still exists.
             assert.equal(
@@ -162,10 +189,12 @@ for (const mode of ['history', 'delete'] as const)
                 saved.input.version.id
               )
             );
+
             return { copy: copy.version, outputId: output.documentId };
           }).pipe(Effect.provide(f.domain()))
         );
         // Reopen with the raw session retained: retiring its independent output is sufficient.
+
         f.reopen();
         assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM sessions WHERE id=${saved.session.id}`));
         assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
@@ -176,13 +205,17 @@ for (const mode of ['history', 'delete'] as const)
           '"Independent private content"'
         );
         const callsBeforeReplay = f.bodies.length;
+
         await assert.rejects(f.executeAuthored(event, 'retired-body-session-retained-replay'));
         assert.equal(f.bodies.length, callsBeforeReplay);
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
+
             const chats = yield* Conversations;
+
             yield* chats.deleteSession(saved.session.id);
+
             if (mode === 'history') {
               assert.ok(
                 (yield* docs.previewDeletion({ id: saved.input.id })).blockedVersionIds.includes(
@@ -190,9 +223,12 @@ for (const mode of ['history', 'delete'] as const)
                 )
               );
               const preview = yield* docs.previewDeletion({ id: retained.outputId });
+
               yield* docs.delete({ documentId: retained.outputId, token: preview.token });
             }
+
             const released = yield* docs.previewDeletion({ id: saved.input.id });
+
             assert.deepEqual(released.blockedVersionIds, []);
             yield* docs.delete({ documentId: saved.input.id, token: released.token });
           }).pipe(Effect.provide(f.domain()))
@@ -202,7 +238,9 @@ for (const mode of ['history', 'delete'] as const)
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
+
             const chats = yield* Conversations;
+
             assert.deepEqual(yield* docs.version({ id: retained.copy.id }), retained.copy);
             assert.equal((yield* Effect.flip(docs.version({ id: resultId }))).kind, 'not_found');
             assert.equal(
@@ -211,11 +249,13 @@ for (const mode of ['history', 'delete'] as const)
               'not_found'
             );
             const request = yield* docs.transform({ requestId: saved.request.id });
+
             assert.equal(request.resultVersionId, resultId);
             assert.equal(request.instruction, 'Retained authored generation instruction');
           }).pipe(Effect.provide(f.domain()))
         );
         const receipt = f.context.db.orm.select().from(s.study_document_generation_requests).get();
+
         assert.equal(receipt?.document_id, retained.outputId);
         assert.equal(receipt.result_version_id, resultId);
         assert.equal(
@@ -224,13 +264,16 @@ for (const mode of ['history', 'delete'] as const)
           )?.instruction,
           'Retained authored generation instruction'
         );
+
         for (const mutation of [
           sql`UPDATE study_document_generation_requests SET result_version_id=NULL`,
           sql`UPDATE study_document_generation_requests SET document_id=${saved.input.id}`,
           sql`DELETE FROM study_document_generation_requests`
         ])
           assert.throws(() => f.context.db.orm.run(mutation));
+
         const calls = f.bodies.length;
+
         await assert.rejects(f.executeAuthored(event, 'late-retired-authored-generation'));
         assert.equal(f.bodies.length, calls);
         assert.equal(

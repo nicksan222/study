@@ -17,9 +17,8 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
-import { createBlock, plainBlock } from '@study/contracts/sources/document';
-import { sql } from '@study/db';
+import { MaterialsRpc } from '@study/contracts/materials/rpc';
+import { plainBlock } from '@study/contracts/sources/document';
 import { sessions, workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
@@ -32,7 +31,6 @@ import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
@@ -40,6 +38,7 @@ const content = {
   format: 'mermaid' as const,
   payload: 'flowchart LR; A-->B'
 };
+
 testStable(
   'materials versions, links, citations and session membership preserve SQLite invariants',
   async () => {
@@ -59,11 +58,13 @@ testStable(
             materials = yield* Materials;
           const project = yield* projects.createProject({ name: 'Physics' });
           const sources = yield* Sources;
-          const source = yield* sources.createSource({
+
+          yield* sources.createSource({
             projectId: project.id,
             name: 'notes.txt',
             bytes: new TextEncoder().encode('Canonical source')
           });
+
           assert.equal(
             (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
               .items.length,
@@ -90,6 +91,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(evidence.version);
           const input = { kind: 'document' as const, versionId: evidence.version.id };
           const another = yield* projects.createProject({ name: 'Other' });
@@ -157,6 +159,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(foreign.version);
           const foreignInput = { kind: 'document' as const, versionId: foreign.version.id };
           const shared = yield* materials.createVersion({
@@ -164,6 +167,7 @@ testStable(
             content,
             inputs: [foreignInput]
           });
+
           assert.deepEqual(shared.inputs, [foreignInput]);
           const session = context.db.orm
             .insert(sessions)

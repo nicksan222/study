@@ -13,7 +13,9 @@ import {
   citationSchema,
   versionSchema
 } from './schemas.ts';
+
 export const keySchema = Schema.String.check(Schema.isBetweenLength(1, 200));
+
 export const createSchema = Schema.Struct({
   createKey: keySchema,
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
@@ -23,18 +25,21 @@ export const createSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema),
   sessionId: Schema.optional(sessionIdSchema)
 });
+
 export const saveSchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   expectedVersionId: studyDocumentVersionIdSchema,
   key: keySchema,
   document: authoredContentSchema
 });
+
 export const restoreSchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   expectedVersionId: studyDocumentVersionIdSchema,
   restoreVersionId: studyDocumentVersionIdSchema,
   key: keySchema
 });
+
 export const editOutcomeSchema = Schema.Struct({
   outcome: Schema.Literals(['saved', 'conflict']),
   replayed: Schema.Boolean,
@@ -42,12 +47,15 @@ export const editOutcomeSchema = Schema.Struct({
   currentVersionId: studyDocumentVersionIdSchema,
   submittedVersionId: studyDocumentVersionIdSchema
 });
+
 export const compareSchema = Schema.Struct({
   beforeVersionId: studyDocumentVersionIdSchema,
   proposedVersionId: studyDocumentVersionIdSchema,
   currentVersionId: studyDocumentVersionIdSchema
 });
+
 export const blockDifferenceSchema = documentBlockDifferenceSchema;
+
 export const comparisonSchema = Schema.Struct({
   ...compareSchema.fields,
   before: versionSchema,
@@ -57,6 +65,7 @@ export const comparisonSchema = Schema.Struct({
   currentChanges: Schema.Array(blockDifferenceSchema),
   evidence: Schema.Literal('structural_only')
 });
+
 export const publishSchema = Schema.Struct({
   requestId: keySchema,
   documentId: studyDocumentIdSchema,
@@ -91,6 +100,7 @@ export const createGeneratedOutcomeSchema = Schema.Struct({
 });
 
 export const proposalKeySchema = Schema.Struct({ requestId: keySchema });
+
 export const proposalSchema = Schema.Struct({
   ...proposalKeySchema.fields,
   documentId: studyDocumentIdSchema,
@@ -98,16 +108,19 @@ export const proposalSchema = Schema.Struct({
   proposedVersionId: studyDocumentVersionIdSchema,
   currentVersionId: studyDocumentVersionIdSchema
 });
+
 export const applyProposalSchema = Schema.Struct({
   ...proposalKeySchema.fields,
   key: keySchema,
   expectedVersionId: studyDocumentVersionIdSchema
 });
+
 export const keepProposalSchema = Schema.Struct({
   ...proposalKeySchema.fields,
   key: keySchema,
   title: createSchema.fields.title
 });
+
 export const proposalOutcomeSchema = Schema.Struct({
   ...proposalKeySchema.fields,
   outcome: Schema.Literals(['applied', 'kept', 'conflict']),

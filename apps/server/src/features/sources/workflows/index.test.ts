@@ -121,6 +121,7 @@ testStable(
               );
               assert.equal(context.db.orm.select().from(tables.materials).all().length, 0);
               assert.equal(context.db.orm.select().from(tables.study_documents).all().length, 0);
+
               return { documentId };
             }
 

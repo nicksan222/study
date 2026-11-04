@@ -116,6 +116,7 @@ testStable(
   'superseded generic document kinds and payload storage cannot claim authored snapshots',
   (t) => {
     const db = fixture(t);
+
     assert.throws(() =>
       db.exec(
         `INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (77,'document','Bypass',1,1)`
@@ -131,6 +132,7 @@ testStable(
 
 testStable('authored publication rejects an exact input draft or retired dependent body', (t) => {
   const db = fixture(t);
+
   db.exec(
     `INSERT INTO study_document_inputs(version_id,position,document_version_id) VALUES(1,0,3);`
   );

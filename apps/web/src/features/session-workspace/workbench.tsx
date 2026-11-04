@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { SourcePanel } from '../source-library/source-panel';
+import { SourcePanel } from '../source-library';
 import { Composer } from './composer';
 import { SessionContextActions } from './context-actions';
 import { History } from './history';
@@ -46,6 +46,7 @@ function DocumentTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'doc
 }
 
 /** Keeps quick conversation and document work side by side, with one full-screen editor on narrow displays. */
+
 export function SessionWorkbench({ id, onDelete }: { id: SessionId; onDelete: () => void }) {
   const { t } = useI18n();
   const model = useWorkbench(id);

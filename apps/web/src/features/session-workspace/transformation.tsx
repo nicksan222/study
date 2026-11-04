@@ -127,6 +127,7 @@ export function Transformation({
   sessions?: readonly SelectedSession[];
 }) {
   const model = useTransformation(id, sessions);
+
   return (
     <>
       <WorkspaceSurface.Section>

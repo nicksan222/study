@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates captured transform requests and coordinates exact authored publication.  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Validates captured transform requests and coordinates exact authored publication.      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature policy coordinates public services and private stores within caller-owned        │
+ * │ transactions.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import type { exactInputSchema } from '@study/contracts/documents/schemas';
 import * as t from '@study/contracts/documents/transform';
@@ -22,6 +35,7 @@ export function requestTransform(
 ) {
   if (context.requestId !== value.contextRequestId)
     throw new StudyError('invalid_input', 'Captured context mismatch');
+
   if (
     value.editTargetVersionId !== undefined &&
     !context.inputs.some(
@@ -32,10 +46,13 @@ export function requestTransform(
     )
   )
     throw new StudyError('invalid_input', 'Proposals require a captured whole authored version');
+
   const result = tx
     .store(DocumentTransformsStore)
     .requestTransform({ ...value, sessionId: context.sessionId, instruction: context.instruction });
+
   if (result.created) emitRequested(tx, result.request);
+
   return result.request;
 }
 
@@ -51,6 +68,7 @@ function publicationContent(
       versionId: message.versionId
     }))
   ];
+
   return {
     requestId: request.id,
     document: value.document,
@@ -65,6 +83,7 @@ function publicationContent(
     language: value.language ?? null
   };
 }
+
 export function publishTransform(
   tx: Transaction,
   context: Context | undefined,
@@ -72,21 +91,27 @@ export function publishTransform(
 ) {
   const store = tx.store(DocumentTransformsStore);
   const request = store.transform(value);
+
   if (request.cancelled || request.eventId !== value.generationEventId)
     throw new StudyError('cancelled', 'Document generation is no longer active');
+
   if (request.resultVersionId !== null) {
     store.finishTransform({ ...value, versionId: request.resultVersionId });
+
     return request.resultVersionId;
   }
+
   if (
     !context ||
     context.requestId !== request.contextRequestId ||
     context.instruction !== request.instruction
   )
     throw new StudyError('not_found', 'Captured document inputs are unavailable');
+
   validateDocumentTransform(context, value, request.editTargetVersionId);
   const common = publicationContent(request, context, value);
   let versionId;
+
   if (request.editTargetVersionId !== undefined) {
     const base = tx.store(DocumentVersionsStore).version({ id: request.editTargetVersionId });
     const result = tx.store(DocumentProposalsStore).proposeGenerated({
@@ -95,13 +120,16 @@ export function publishTransform(
       expectedVersionId: base.id,
       key: `transform:${intentHash(t.transformKeySchema, value)}`
     });
+
     versionId = result.proposedVersionId;
   } else {
     const result = tx
       .store(DocumentsStore)
       .createGenerated({ ...common, title: request.title, sessionId: context.sessionId });
+
     versionId = result.version.id;
   }
+
   store.finishTransform({ ...value, versionId });
   tx.emit({
     type: 'DocumentPublished',
@@ -112,23 +140,30 @@ export function publishTransform(
     depth: 1,
     versionId
   });
+
   return versionId;
 }
 
 export function retryTransform(tx: Transaction, value: { requestId: string; retryId: string }) {
   const store = tx.store(DocumentTransformsStore);
   const old = store.transform(value);
+
   if (old.cancelled) throw new StudyError('cancelled', 'Document generation is cancelled');
+
   if (old.resultVersionId !== null || old.eventId === value.retryId) return old;
+
   const request = store.changeTransform({
     ...value,
     eventId: value.retryId,
     cancel: false,
     errorKind: null
   });
+
   emitRequested(tx, request);
+
   return request;
 }
+
 function emitRequested(tx: Transaction, request: typeof t.transformSnapshotSchema.Type) {
   tx.emit({
     type: 'DocumentGenerationRequested',

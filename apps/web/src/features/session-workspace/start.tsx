@@ -5,7 +5,7 @@ import { ComposerSurface } from '@study/ui/composer';
 import { HomeHub } from '@study/ui/home-hub';
 import { Loading } from '@study/ui/loading';
 import { SessionStarter } from '@study/ui/session-start';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import { Spinner } from '@study/ui/spinner';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
@@ -30,6 +30,7 @@ import { SessionError, SessionReadError } from './status';
 import { WorkspaceFooter } from './workspace-footer';
 
 /** Draft text and attachments remain cached under their originating project scope. */
+
 function useStartDraft(project: string | undefined) {
   const draftKey = ['session-start-draft', project ?? 'all'];
   const draft = useQuery(startDraftOptions(draftKey));
@@ -40,6 +41,7 @@ function useStartDraft(project: string | undefined) {
 }
 
 /** Creation owns the shared uncertainty fence and transfers only the submitted draft keys. */
+
 function useSessionStart() {
   const cache = useQueryClient();
   const navigate = useNavigate();
@@ -131,6 +133,7 @@ function useSessionStart() {
 type StartView = ReturnType<typeof useSessionStart>;
 
 /** Presents session creation with quick notes, attachments and recoverable submission state. */
+
 export function SessionStart() {
   const { t } = useI18n();
   const view = useSessionStart();
@@ -157,7 +160,11 @@ export function SessionStart() {
             disabled={view.blocked}
             aria-busy={!!flow.data.pending}
           >
-            <NotebookPen size={16} aria-hidden="true" />
+            {flow.data.pending ? (
+              <Spinner label={t('SessionPending')} aria-hidden="true" />
+            ) : (
+              <NotebookPen size={16} aria-hidden="true" />
+            )}
             {t('SessionNew')}
           </Button>
           {!showCapture && (
@@ -196,6 +203,7 @@ export function SessionStart() {
 const attachmentIds = new WeakMap<File, string>();
 
 /** File identity survives removals; occurrence suffixes also support repeated File references. */
+
 function attachmentEntries(files: File[]) {
   const occurrences = new Map<string, number>();
 
@@ -216,6 +224,7 @@ function attachmentEntries(files: File[]) {
 }
 
 /** Starter editing uses the same project draft and blocks attachments once creation starts. */
+
 function StarterComposer({ view }: { view: StartView }) {
   const { t } = useI18n();
   const attachmentId = useId();
@@ -316,6 +325,7 @@ function StarterComposer({ view }: { view: StartView }) {
 }
 
 /** Navigation failures retain the known created session for a safe retry. */
+
 function CreationStatus({ view }: { view: StartView }) {
   const { t } = useI18n();
   const { flow, select, navigationError, create } = view;
@@ -340,6 +350,7 @@ function CreationStatus({ view }: { view: StartView }) {
 }
 
 /** An uncertain creation can be cleared only after a successful session-list review. */
+
 function CreationRecovery({ view }: { view: StartView }) {
   const { t, date } = useI18n();
   const { flow, state, reviewed, setReviewed, cache, create, search } = view;

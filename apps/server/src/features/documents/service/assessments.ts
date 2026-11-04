@@ -1,27 +1,44 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates user citation judgments against exact claim and evidence ranges.         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Validates user citation judgments against exact claim and evidence ranges.             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature policy coordinates public services and private stores within caller-owned        │
+ * │ transactions.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as c from '@study/contracts/documents/evidence';
 import { citationSchema, exactInputSchema } from '@study/contracts/documents/schemas';
 import type { ExactDocumentInput } from '@study/contracts/documents/types';
 import { StudyError } from '@study/contracts/errors';
 import { Schema } from 'effect';
 
+import { validRange } from '#server/features/documents/decoders/range';
+import { DocumentCitationAssessmentsStore } from '#server/features/documents/store/assessments';
+import { DocumentsStore, DocumentVersionsStore } from '#server/features/documents/store/index';
 import { Sources } from '#server/features/sources/index';
 import type { Transaction } from '#server/platform/definitions/define-store';
-
-import { validRange } from '../decoders/range.ts';
-import { DocumentCitationAssessmentsStore } from '../store/assessments.ts';
-import { DocumentsStore, DocumentVersionsStore } from '../store/index.ts';
 
 function evidenceBody(tx: Transaction, input: ExactDocumentInput) {
   if (input.kind === 'document') {
     const version = tx.store(DocumentVersionsStore).version({ id: input.versionId });
+
     if (version.status === 'published') return version.document;
   }
+
   if (input.kind === 'source' && input.snapshotId !== null)
     return Sources.extractionInTransaction(tx, { ...input, snapshotId: input.snapshotId }).document;
+
   throw new StudyError('invalid_input', 'Citation assessment requires retained canonical evidence');
 }
+
 function claimVersion(tx: Transaction, target: typeof c.annotationTargetSchema.Type) {
   const v = tx.store(DocumentVersionsStore).version({ id: target.range.versionId });
+
   if (
     v.status !== 'published' ||
     v.documentId !== target.documentId ||
@@ -29,11 +46,14 @@ function claimVersion(tx: Transaction, target: typeof c.annotationTargetSchema.T
     !validRange(v.document, target.range)
   )
     throw new StudyError('invalid_input', 'Assessment claim requires an exact authored passage');
+
   return v;
 }
+
 export function assessCitation(tx: Transaction, value: typeof c.assessCitationSchema.Type) {
   const claim = claimVersion(tx, value.claim);
   const citation = claim.citations.find((citation) => citation.marker === value.marker);
+
   if (
     !citation ||
     citation.target === null ||
@@ -45,31 +65,40 @@ export function assessCitation(tx: Transaction, value: typeof c.assessCitationSc
     !validRange(evidenceBody(tx, value.evidence), value.evidenceRange, citation.quote)
   )
     throw new StudyError('invalid_input', 'Assessment evidence must match the exact cited passage');
+
   return tx
     .store(DocumentCitationAssessmentsStore)
     .assessCitation({ ...value, citation, suppliedBy: 'user', independentVerification: false });
 }
+
 function evidenceIsCurrent(tx: Transaction, input: ExactDocumentInput) {
   if (input.kind === 'document') {
     const version = tx.store(DocumentVersionsStore).version({ id: input.versionId });
+
     return (
       tx.store(DocumentsStore).document({ id: version.documentId }).headVersionId === version.id
     );
   }
+
   if (input.kind === 'source') {
     const current = Sources.currentExtractionInTransaction(tx, input.sourceId);
+
     return (
       !!current && current.revision === input.revision && current.snapshotId === input.snapshotId
     );
   }
+
   return true;
 }
+
 function assessmentState(tx: Transaction, assessment: typeof c.assessmentSchema.Type) {
   try {
     const claim = claimVersion(tx, assessment.claim);
     const citation = claim.citations.find((citation) => citation.marker === assessment.marker);
+
     if (!citation || !Schema.toEquivalence(citationSchema)(citation, assessment.citation))
       return 'stale' as const;
+
     if (
       !validRange(
         evidenceBody(tx, assessment.evidence),
@@ -78,9 +107,13 @@ function assessmentState(tx: Transaction, assessment: typeof c.assessmentSchema.
       )
     )
       return 'stale' as const;
+
     const owner = tx.store(DocumentsStore).document({ id: claim.documentId });
+
     if (owner.headVersionId !== claim.id) return 'stale' as const;
+
     if (!evidenceIsCurrent(tx, assessment.evidence)) return 'stale' as const;
+
     return 'assessed' as const;
   } catch (error) {
     if (
@@ -88,12 +121,15 @@ function assessmentState(tx: Transaction, assessment: typeof c.assessmentSchema.
       (error.kind === 'not_found' || error.kind === 'invalid_input')
     )
       return 'unavailable' as const;
+
     throw error;
   }
 }
+
 export function citationAssessments(tx: Transaction, value: typeof c.assessmentsInputSchema.Type) {
   tx.store(DocumentVersionsStore).version({ id: value.versionId });
   const page = tx.store(DocumentCitationAssessmentsStore).citationAssessments(value);
+
   return {
     ...page,
     items: page.items.map((record) => ({

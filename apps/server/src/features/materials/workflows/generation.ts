@@ -20,8 +20,6 @@ import { materialGenerationRequestedSchema } from '@study/contracts/events';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import { contentInputKey } from '@study/contracts/inputs';
 import type { ContentInput } from '@study/contracts/inputs';
-import type { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
@@ -116,6 +114,7 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
 
           for (const input of initial.inputs) {
             const exact = yield* materials.contentInput(input);
+
             catalog.addDocument({
               key: contentInputKey(input),
               name: exact.name,

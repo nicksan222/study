@@ -3,7 +3,7 @@ import { contentSnapshotIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
@@ -41,6 +41,7 @@ for (const context of ['current', 'historical', 'session'] as const)
         alt: 'Replacement figure'
       });
       const body = { ...base.document, blocks: [figure, neighbor] };
+
       rpc['sources.currentExtraction'].mockReturnValue(
         Effect.succeed({
           sourceId,
@@ -54,11 +55,14 @@ for (const context of ['current', 'historical', 'session'] as const)
         Effect.succeed({ ...input, name: 'old.png', document: body })
       );
       let fail = true;
+
       rpc['sources.exportRevision'].mockImplementation((input) => {
         if (input.revision === 1n && fail) {
           fail = false;
+
           return Effect.fail(new StudyError('transient', 'Interrupted image'));
         }
+
         return Effect.succeed({
           ...input,
           name: 'retained.png',
@@ -74,6 +78,7 @@ for (const context of ['current', 'historical', 'session'] as const)
       );
       const revoke = vi.fn();
       let count = 0;
+
       vi.stubGlobal(
         'URL',
         class extends URL {
@@ -94,9 +99,11 @@ for (const context of ['current', 'historical', 'session'] as const)
           <SourcePanel {...props} />
         </Providers>
       );
+
       try {
         const image = await screen.findByRole('img', { name: 'Replacement figure' });
         const url = image.getAttribute('src');
+
         await userEvent
           .setup()
           .click(await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
@@ -116,6 +123,7 @@ for (const context of ['current', 'historical', 'session'] as const)
             snapshotId: Schema.decodeUnknownSync(contentSnapshotIdSchema)(999n)
           }
         };
+
         view.rerender(
           <Providers queryClient={cache}>
             <SourcePanel key="next" {...next} />

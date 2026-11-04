@@ -1,8 +1,3 @@
-import { selectionReferenceKey } from '@study/contracts/conversations/context';
-import type {
-  selectionReferenceSchema,
-  selectionRangeSchema
-} from '@study/contracts/conversations/context';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Registers durable conversation workflows and handlers for processing conversation  │
@@ -17,6 +12,12 @@ import type {
  * │ performed by guarded activities.                                                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
+
+import { selectionReferenceKey } from '@study/contracts/conversations/context';
+import type {
+  selectionReferenceSchema,
+  selectionRangeSchema
+} from '@study/contracts/conversations/context';
 import { runPreferencesSchema } from '@study/contracts/conversations/context';
 import {
   publishReplyInputSchema,
@@ -33,7 +34,7 @@ import {
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
 import { versionIdSchema } from '@study/contracts/ids';
-import type { ContentSnapshotId, SourceId, MaterialVersionId } from '@study/contracts/ids';
+import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
 import { Effect, Result, Schema } from 'effect';
 import { Activity, DurableDeferred } from 'effect/workflow';
 

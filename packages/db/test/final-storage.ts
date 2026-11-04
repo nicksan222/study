@@ -39,10 +39,12 @@ const superseded = [
 /** Checks the final persisted model, including trigger bodies and foreign-key definitions. */
 export function assertFinalStorage(db: Db) {
   const forbidden = new RegExp(`\\b(${superseded.join('|')})\\b`);
+
   for (const row of db.orm.all<{ name: string; sql: string }>(
     sql`SELECT name,sql FROM sqlite_schema WHERE sql IS NOT NULL`
   ))
     assert.equal(forbidden.test(row.sql), false, `${row.name} retains superseded storage`);
+
   assert.equal(
     db.orm.get(sql`SELECT 1 FROM materials WHERE kind NOT IN('diagram','quiz','flashcards')`),
     undefined

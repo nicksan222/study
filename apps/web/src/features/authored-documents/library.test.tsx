@@ -10,6 +10,7 @@ vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 testStable('shows authored outputs in the main library with their own document route', async () => {
   const rpc = materialRpc();
+
   rpc['documents.documents'].mockReturnValue(
     Effect.succeed({
       items: [{ ...authoredDocument(41n), title: 'Authored notebook' }],
@@ -24,11 +25,13 @@ testStable('shows authored outputs in the main library with their own document r
 
 testStable('shows source uploads directly without waiting for a Material projection', async () => {
   const rpc = materialRpc();
+
   rpc['sources.sources'].mockReturnValue(
     Effect.succeed({ items: [{ ...importedSource, name: 'Original upload' }], next: null })
   );
   mountLibraryRoute('/library', rpc);
   const main = within(await screen.findByRole('main'));
+
   expect(await main.findByRole('link', { name: /Original upload/ })).toHaveAttribute(
     'href',
     `/sources/${importedSource.id}`

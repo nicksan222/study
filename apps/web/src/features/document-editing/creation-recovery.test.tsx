@@ -10,8 +10,11 @@ import { expect, vi } from 'vite-plus/test';
 
 import { collectionId } from '../material-library/identity';
 import { authoredDocument } from './test-support';
+
 const materialId = (id: string) => studyDocumentIdSchema.make(BigInt(id));
+
 const summary = (id = 41n) => ({ ...authoredDocument(id), title: `Material ${id}` });
+
 import { documentsOptions as materialsOptions } from '#web/lib/study-client/documents.queries.ts';
 
 import { deferred, materialRpc, mountLibraryRoute } from '../material-library/test/support';

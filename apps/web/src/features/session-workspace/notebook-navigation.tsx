@@ -22,6 +22,7 @@ export function NotebookNavigation({
   onMore: () => void;
 }) {
   const { t } = useI18n();
+
   return (
     <NotebookRail.Root label={t('SessionPageIndex')}>
       {more && (
@@ -37,6 +38,7 @@ export function NotebookNavigation({
       {entries.map((entry) => {
         if (entry.kind === 'document') {
           const target = notebookTargetId(id, 'document', entry.document.id);
+
           return (
             <NotebookRail.Marker
               key={target}
@@ -48,6 +50,7 @@ export function NotebookNavigation({
             />
           );
         }
+
         const message = entry.message;
         const current = message.versions.find((version) => version.id === message.activeVersionId);
         const target = notebookTargetId(id, 'message', message.id);
@@ -58,6 +61,7 @@ export function NotebookNavigation({
               ? 'SessionReply'
               : 'SessionNote'
         );
+
         return (
           <MessageMarkers
             key={target}
@@ -72,6 +76,7 @@ export function NotebookNavigation({
     </NotebookRail.Root>
   );
 }
+
 function MessageMarkers({
   id,
   message,
@@ -103,6 +108,7 @@ function MessageMarkers({
       {message.format !== 'document' &&
         message.parts.map((part) => {
           const attachment = notebookTargetId(id, 'attachment', part.id);
+
           return (
             <NotebookRail.Marker
               key={attachment}

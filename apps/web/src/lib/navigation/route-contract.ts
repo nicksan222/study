@@ -43,7 +43,9 @@ function decimalId(value: unknown): value is string {
 
 function versionReference(value: unknown, valid: (id: bigint) => boolean) {
   if (value === undefined) return undefined;
+
   if (!decimalId(value) || !valid(BigInt(value))) throw new Error('Invalid version identity');
+
   return value;
 }
 
@@ -58,8 +60,10 @@ export function validateSearch(search: Record<string, unknown>): AppSearch {
     Schema.is(contentSnapshotIdSchema)
   );
   const sourceRevision = versionReference(search.sourceRevision, (revision) => revision > 0n);
+
   if ((sourceSnapshot === undefined) !== (sourceRevision === undefined))
     throw new Error('Incomplete source extraction identity');
+
   return {
     ...(sourceSnapshot && sourceRevision ? { sourceSnapshot, sourceRevision } : {}),
     ...(documentVersion ? { documentVersion } : {}),

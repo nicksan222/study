@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises native runtime validator behavior through real persistence boundaries.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies diagram parser does not inherit application preloads.                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';

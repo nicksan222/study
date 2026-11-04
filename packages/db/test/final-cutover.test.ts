@@ -22,6 +22,7 @@ const meta = JSON.stringify({
   corrected: false,
   omissions: []
 });
+
 const block = (id: number, text: string) =>
   `INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(${id},0,'paragraph','block-${id}','{"type":"paragraph","inlines":[{"type":"text","text":"${text}","marks":[]}]}','${text}','{"type":"authored"}');`;
 
@@ -32,13 +33,17 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const official = fileURLToPath(new URL('../drizzle', import.meta.url));
     const migrations = process.env.STUDY_FINAL_MIGRATIONS ?? official;
     const before = join(folder, 'before');
+
     mkdirSync(before);
     let db: Db | undefined;
+
     try {
       for (const name of readdirSync(official))
         if (name < '20261104020301')
           cpSync(join(official, name), join(before, name), { recursive: true });
+
       const path = join(folder, 'study.db');
+
       db = Db.open(path, before);
       db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
       INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(9,'Raw session','user',1,1);
@@ -84,6 +89,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const late = db.orm.get(
         sql`SELECT id FROM study_documents WHERE title='Last old authored output'`
       )!.id;
+
       assert.equal(
         requireRow(
           db.orm.get(
@@ -159,6 +165,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         )
       );
       const identity = db.schemaIdentity();
+
       db.close();
       db = Db.open(path, migrations);
       assert.equal(db.schemaIdentity(), identity);

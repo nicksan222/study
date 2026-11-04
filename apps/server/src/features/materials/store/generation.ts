@@ -17,17 +17,15 @@ import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
-import type { SessionId } from '@study/contracts/ids';
-import { contentInputKey, resolvedContentInputSchema } from '@study/contracts/inputs';
+import type { resolvedContentInputSchema } from '@study/contracts/inputs';
+import { contentInputKey } from '@study/contracts/inputs';
 import {
   materialGenerationInputSchema,
   materialGenerationPayloadSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
 import { validBlockTextRange } from '@study/contracts/sources/document';
-import { decodeBlockContent } from '@study/contracts/sources/document';
-import { hasTextualContent } from '@study/contracts/sources/schemas';
-import { and, asc, eq, inArray } from '@study/db';
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -38,7 +36,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeCreateMaterial } from './create-material.ts';
 import { makeExactInputs } from './exact-inputs.ts';
-import { makeReads, required } from './reads.ts';
+import { required } from './reads.ts';
 import { makeSetCitationsAction } from './set-citations-action.ts';
 import { makeWrites, now } from './writes.ts';
 
@@ -50,11 +48,9 @@ export function makeGeneration(resources: StoreResources) {
 
   const { createMaterial } = makeCreateMaterial(resources);
 
-  const { materialRow, versionRow, readVersion } = makeReads(resources);
-
   const { setCitations } = makeSetCitationsAction(resources);
 
-  const { publish, insertVersion, assertProject, assertMembership } = makeWrites(resources);
+  const { publish, assertProject } = makeWrites(resources);
 
   function requestGenerationOnce(value: {
     requestId: string;
@@ -147,6 +143,7 @@ export function makeGeneration(resources: StoreResources) {
       .get();
 
     if (!row) return null;
+
     if (row.payload === '{}')
       throw new StudyError('not_found', 'Generation inputs are unavailable');
 
@@ -404,6 +401,7 @@ export function makeGeneration(resources: StoreResources) {
     setCitations({ id: material.version.id, citations: resolved });
 
     publish(material.version.id);
+
     return { versionId: material.version.id, materialId: material.id };
   }
 
@@ -414,11 +412,15 @@ export function makeGeneration(resources: StoreResources) {
   ) {
     const key = contentInputKey(citation.input);
     const selected = snapshots.find((snapshot) => contentInputKey(snapshot.input) === key);
+
     if (!selected || !request.inputs.some((input) => contentInputKey(input) === key))
       throw new StudyError('invalid_input', 'Citation is outside exact learning inputs');
+
     const block = selected.document.blocks[citation.blockOrdinal];
+
     if (!block || !block.text.includes(citation.quote))
       throw new StudyError('invalid_input', 'Citation does not match its exact source block');
+
     if (
       citation.target &&
       (citation.target.blockId !== block.id ||
@@ -429,6 +431,7 @@ export function makeGeneration(resources: StoreResources) {
         'invalid_input',
         'Citation target does not match its exact source passage'
       );
+
     return {
       marker: citation.marker,
       input: citation.input,

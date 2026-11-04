@@ -385,6 +385,7 @@ testStable(
   'searches authored outputs, sources and raw sessions through their distinct owning routes',
   async () => {
     const rpc = materialRpc();
+
     rpc['system.search'].mockReturnValue(
       Effect.succeed({
         semantic: false,
@@ -412,6 +413,7 @@ testStable(
     );
     mountLibraryRoute('/library?project=3', rpc);
     const user = userEvent.setup();
+
     await user.type(
       await screen.findByRole('textbox', { name: catalogs.english.LibraryGlobalSearch }),
       'evidence'

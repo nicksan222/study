@@ -34,7 +34,12 @@ testStable('citations only resolve excerpts exposed by search', () => {
   assert.throws(() => catalog.citations('Answer [1]'));
   assert.equal(catalog.search('alpha')[0]?.text, '[1] alpha beta');
   assert.deepEqual(catalog.citations('Answer [1]'), [
-    { marker: 1, reference: { sourceId: 1n, documentId: 2n }, blockOrdinal: 0, quote: 'alpha beta' }
+    {
+      marker: 1,
+      reference: { sourceId: 1n, documentId: 2n },
+      blockOrdinal: 0,
+      quote: 'alpha beta'
+    }
   ]);
   assert.throws(() => catalog.citations('Answer [2]'));
   assert.deepEqual(catalog.citations('Plain answer'), []);

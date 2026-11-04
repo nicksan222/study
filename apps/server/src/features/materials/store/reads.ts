@@ -1,4 +1,3 @@
-import { StudyError } from '@study/contracts/errors';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Groups read-side material store operations and their typed query definitions.      │
@@ -12,9 +11,10 @@ import { StudyError } from '@study/contracts/errors';
  * │ policy and composes these private operations.                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
+
+import { StudyError } from '@study/contracts/errors';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import type {
-  ContentSnapshotId,
   MaterialId,
   MaterialVersionId,
   QuizChoiceId,
@@ -34,7 +34,6 @@ import { eq, and, asc, desc, sql, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
-import { decodeStoredBlock } from '#server/platform/database/content-block';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeExactInputs } from './exact-inputs.ts';
@@ -53,6 +52,7 @@ export function required<T>(value: T | null | undefined): T {
 
 export function makeReads(resources: StoreResources) {
   const store = resources.db;
+
   function assertAvailable(id: MaterialId) {
     if (
       store.orm

@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Removes explicitly retired private conversation captures without deleting session    │
+ * │ @file Removes explicitly retired private conversation captures without deleting session  │
  * │ messages.                                                                                │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │

@@ -33,6 +33,7 @@ function Provider({ children }: { children: ReactNode }) {
 }
 
 /** Toggles the workspace context panel using its shared visibility state. */
+
 function Toggle({
   label,
   open,
@@ -65,6 +66,7 @@ function Toggle({
 }
 
 /** Applies the welcome or session canvas layout through the shared workspace surface. */
+
 function Root({
   className,
   variant,
@@ -96,6 +98,7 @@ function Dock({ className, ...props }: ComponentProps<'div'>) {
 }
 
 /** Styles a workspace context card with the optional changes presentation. */
+
 function Card({
   className,
   variant,
@@ -119,8 +122,10 @@ function Card({
         return;
 
       event.preventDefault();
+
       if (onDismiss) onDismiss();
       else context?.setOpen(false);
+
       context?.trigger.current?.focus();
     };
 
@@ -185,6 +190,7 @@ export const WorkspaceChanges = {
 function AttachmentItem(props: ComponentProps<typeof Button>) {
   return <Button {...props} size="sm" variant="ghost-muted" className="session-attachment-item" />;
 }
+
 export const WorkspaceAttachments = {
   Heading: part('header', 'session-page-index-heading'),
   Empty: part('p', 'session-page-index-empty'),

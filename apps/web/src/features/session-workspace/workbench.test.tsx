@@ -214,6 +214,7 @@ testStable(
   'keeps the action card visible until hidden and docks existing tabs without creating documents',
   async () => {
     const view = mount();
+
     await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
     act(() => view.result.current.showEditor('bottom'));
     await waitFor(() => expect(view.result.current.visible).toBe(false));
@@ -225,6 +226,7 @@ testStable(
       documentId: studyDocumentIdSchema.make(88n),
       title: 'Existing document'
     };
+
     act(() => view.result.current.open(target));
     await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
     act(() => view.result.current.hide());
@@ -248,6 +250,7 @@ testStable(
   'switches from an open editor back to its action card without dropping tabs',
   async () => {
     const view = mount();
+
     act(() => view.result.current.open({ kind: 'new', captureKey: 'draft-card', text: '' }));
     await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
     act(() => view.result.current.toggleCard());

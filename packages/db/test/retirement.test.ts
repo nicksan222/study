@@ -2,14 +2,10 @@ import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-/* eslint-disable study/database-ownership -- Upgrade fixture uses the official migrator for the preceding schema. */
 import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-sqlite';
-import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
 import { Db } from '../src/index.ts';
 
@@ -27,10 +23,9 @@ testStable(
 
       retainPrecedingMigrations(migrations);
 
-      const old = new DatabaseSync(path, { readBigInts: true });
+      const old = Db.open(path, migrations);
 
       old.exec('PRAGMA foreign_keys=OFF');
-      migrate(drizzle({ client: old }), { migrationsFolder: migrations });
       old.exec(`PRAGMA foreign_keys=ON;
       INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
       INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,1,'note','note','text/plain','Source',1,zeroblob(32),1);
@@ -60,11 +55,10 @@ testStable(
       INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at) VALUES('exec','test',1,'{}','running',1,1);
       INSERT INTO workflow_job_bindings(execution_id,activity_name,activity_attempt,job_id,owner_token,snapshot) VALUES('exec','fetch',0,1,'owner','{}');
     `);
-      const triggerSql = old
-        .prepare(
+      const triggerSql = old.orm
+        .all(
           "SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') ORDER BY name"
         )
-        .all()
         .map((row) => ({ ...row }));
 
       old.close();

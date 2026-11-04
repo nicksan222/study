@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document image retention behavior through real persistence      │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies authored images retain exact source bytes through replacement, unrelated      │
+ * │   draft cleanup and project deletion.                                                    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -25,6 +39,7 @@ testStable(
       Sources.layer,
       Projects.layer
     ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -64,6 +79,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(image.version);
           const content = {
             kind: 'diagram' as const,
@@ -80,6 +96,7 @@ testStable(
             content,
             publish: false
           });
+
           yield* materials.deleteDraft({ id: draft.id });
           assert.equal(
             context.db.orm.get(
@@ -89,6 +106,7 @@ testStable(
           );
           const before = context.db.orm.all(sql`SELECT * FROM source_snapshots`);
           const events = context.db.orm.all(sql`SELECT * FROM workflow_events`).length;
+
           context.db.exec(
             "CREATE TRIGGER reject_image_replacement BEFORE INSERT ON workflow_events WHEN NEW.type='SourceProcessingRequested' BEGIN SELECT RAISE(ABORT,'injected replacement failure'); END"
           );
@@ -115,12 +133,14 @@ testStable(
             bytes
           );
           assert.deepEqual((yield* docs.version({ id: image.version.id })).document, document);
+
           for (const query of [
             sql`UPDATE source_snapshots SET bytes=X'00' WHERE source_id=${source.id} AND revision=1`,
             sql`UPDATE source_snapshots SET mime='text/plain' WHERE source_id=${source.id} AND revision=1`,
             sql`DELETE FROM source_snapshots WHERE source_id=${source.id} AND revision=1`
           ])
             assert.throws(() => context.db.orm.run(query));
+
           yield* sources.setSourceProject({ id: source.id, projectId: other.id });
           yield* projects.deleteProject({ id: project.id });
           assert.deepEqual((yield* docs.version({ id: image.version.id })).document, document);
@@ -128,6 +148,7 @@ testStable(
             (yield* sources.previewDeletion({ id: source.id })).blockedBy.includes('image_assets')
           );
           const preview = yield* docs.previewDeletion({ id: image.id });
+
           yield* docs.delete({ documentId: image.id, token: preview.token });
           assert.deepEqual((yield* sources.previewDeletion({ id: source.id })).blockedBy, []);
           assert.equal(yield* sources.deleteSource({ id: source.id }), true);

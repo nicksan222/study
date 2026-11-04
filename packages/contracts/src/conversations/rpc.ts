@@ -3,7 +3,6 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
-  materialVersionIdSchema,
   studyDocumentVersionIdSchema,
   messageIdSchema,
   partIdSchema,

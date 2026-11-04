@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Resolves selected conversation evidence through public exact content services.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Resolves selected conversation evidence through public exact content services.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature policy coordinates public services and private stores within caller-owned        │
+ * │ transactions.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type {
   resolvedSelectionSchema,
   sessionSelectionTargetSchema
@@ -26,20 +39,25 @@ export function resolveSelection(
             ? [{ blockId: block.id, start: 0, end: block.text.length }]
             : []
         );
+
   if (
     scope.kind === 'blocks' &&
     (new Set(scope.blockIds).size !== scope.blockIds.length ||
       spans.length !== scope.blockIds.length)
   )
     throw new StudyError('invalid_input', 'Invalid selected blocks');
+
   const seen = new Set<string>();
   const excerpts = spans.map((range) => {
     const key = `${range.blockId}:${range.start}:${range.end}`;
+
     if (!validBlockTextRange(document, range) || range.start === range.end || seen.has(key))
       throw new StudyError('invalid_input', 'Invalid selected range');
+
     seen.add(key);
     const blockOrdinal = document.blocks.findIndex((block) => block.id === range.blockId);
     const block = document.blocks[blockOrdinal]!;
+
     return {
       ...range,
       blockOrdinal,
@@ -48,8 +66,10 @@ export function resolveSelection(
       content: scope.kind === 'ranges' ? undefined : block.content
     };
   });
+
   if (!excerpts.length || !excerpts.some((item) => item.text.trim()))
     throw new StudyError('invalid_input', 'Selected content has no text');
+
   return {
     ...target,
     snapshotId: content.snapshotId,
@@ -62,13 +82,19 @@ export function resolveSelection(
 
 function exactContent(tx: Transaction, target: typeof sessionSelectionTargetSchema.Type) {
   const input = target.input;
+
   if (input.kind === 'source') {
     const source = Sources.extractionInTransaction(tx, input);
+
     return { ...source, documentId: null };
   }
+
   const version = Documents.versionInTransaction(tx, input.versionId);
+
   if (version.status !== 'published')
     throw new StudyError('invalid_input', 'Selected authored version is unpublished');
+
   const document = Documents.documentInTransaction(tx, { id: version.documentId });
+
   return { ...version, name: document.title };
 }

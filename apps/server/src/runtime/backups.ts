@@ -46,6 +46,7 @@ export const backupPolicy: SnapshotPolicy = {
       transaction((tx) => {
         Materials.prepareBackup(tx);
         const authoredRequests = Documents.prepareBackup(tx);
+
         Workflows.retireCorrelations(tx, authoredRequests, [
           'DocumentGenerationRequested',
           'DocumentGenerationFailed',

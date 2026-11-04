@@ -64,8 +64,10 @@ export function learningVersion(id = 101n, owner = 41n, text = 'Historical extra
   });
 }
 /** Canonical snapshot fixture, independent of authored or learning identities. */
+
 function exactDocument(id = 101n, text = 'Historical extraction') {
   const version = authoredDocument(41n, text, id).version!;
+
   return { id: version.snapshotId, document: version.document };
 }
 

@@ -13,14 +13,10 @@
  */
 
 import type { MaterialVersionId, MaterialId } from '@study/contracts/ids';
-import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { eq, inArray, and, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
-
-const payloadCodec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema));
 
 type RetirementScope = { kind: 'deletion'; id: MaterialId } | { kind: 'history'; id: string };
 
@@ -34,6 +30,7 @@ export function makeGenerationRetirement(resources: StoreResources) {
       .where(inArray(s.material_versions.id, versionIds))
       .all()
       .flatMap((row) => (row.id === null ? [] : [row.id]));
+
     return db.orm
       .select()
       .from(s.material_generation_requests)

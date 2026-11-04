@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Generates authored Document alternatives from exact captured conversation          │
+ * │ evidence.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Generates authored Document alternatives from exact captured conversation evidence.    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Native Workflow and Activities own durable execution; public services enforce            │
+ * │ publication policy.                                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import type { citationSchema } from '@study/contracts/documents/schemas';
@@ -31,6 +45,7 @@ export const documentTransformWorkflow = defineWorkflow({
   error: failureSchema,
   idempotencyKey: ({ event }) => event.eventId
 });
+
 export const documentTransformHandler = ({
   event
 }: typeof documentTransformWorkflow.payloadSchema.Type) =>
@@ -39,6 +54,7 @@ export const documentTransformHandler = ({
     const conversations = yield* Conversations;
     const database = yield* Database;
     const request = yield* docs.transform({ requestId: event.requestId });
+
     if (
       event.causationId !== null ||
       event.correlationId !== request.id ||
@@ -48,9 +64,12 @@ export const documentTransformHandler = ({
       return yield* Effect.fail(
         new StudyError('invalid_input', 'Document generation event identity mismatch')
       );
+
     if (request.resultVersionId !== null) return request.resultVersionId;
+
     const preflight = Effect.gen(function* () {
       const current = yield* docs.transform({ requestId: event.requestId });
+
       if (
         current.cancelled ||
         current.eventId !== event.eventId ||
@@ -59,25 +78,19 @@ export const documentTransformHandler = ({
         return yield* Effect.fail(
           new StudyError('cancelled', 'Document generation is no longer active')
         );
+
       return yield* conversations.documentTransformContext({ requestId: request.id });
     });
+
     return yield* Effect.gen(function* () {
       const output = yield* retryResumableActivity(
-        Activity.make({
-          name: 'generate-authored-document',
-          success: transformPublicationSchema,
-          error: failureSchema,
-          execute: Effect.gen(function* () {
-            const context = yield* preflight;
-            return yield* generateTransform(
-              request,
-              context,
-              event.eventId,
-              preflight.pipe(Effect.asVoid, Effect.provideService(Database, database))
-            );
-          })
-        })
+        generateTransform(
+          request,
+          event.eventId,
+          preflight.pipe(Effect.provideService(Database, database))
+        )
       );
+
       return yield* Activity.make({
         name: 'publish-authored-document',
         success: studyDocumentVersionIdSchema,
@@ -104,6 +117,7 @@ export const documentTransformHandler = ({
       )
     );
   });
+
 export const documentTransformRegistration = defineWorkflowHandler(documentTransformWorkflow, {
   execute: documentTransformHandler,
   triggers: [
@@ -117,82 +131,93 @@ export const documentTransformRegistration = defineWorkflowHandler(documentTrans
 
 function generateTransform(
   request: typeof transformSnapshotSchema.Type,
-  context: typeof runSelectionContextSchema.Type,
   eventId: string,
-  preflight: Effect.Effect<void, StudyError>
+  preflight: Effect.Effect<typeof runSelectionContextSchema.Type, StudyError>
 ) {
-  return Effect.gen(function* () {
-    const agents = yield* Agents;
-    const catalog = createEvidenceCatalog<{
-      input: typeof citationSchema.Type.input;
-      target: typeof citationSchema.Type.target;
-      anchor: typeof citationSchema.Type.anchor;
-    }>([]);
-    for (const input of context.inputs)
-      for (const [index, excerpt] of input.excerpts.entries())
+  return Activity.make({
+    name: 'generate-authored-document',
+    success: transformPublicationSchema,
+    error: failureSchema,
+    execute: Effect.gen(function* () {
+      const context = yield* preflight;
+      const agents = yield* Agents;
+      const catalog = createEvidenceCatalog<{
+        input: typeof citationSchema.Type.input;
+        target: typeof citationSchema.Type.target;
+        anchor: typeof citationSchema.Type.anchor;
+      }>([]);
+
+      for (const input of context.inputs)
+        for (const [index, excerpt] of input.excerpts.entries())
+          catalog.addDocument({
+            key: `${selectionReferenceKey(input.input)}:${index}`,
+            name: input.name,
+            reference: {
+              input: input.input,
+              target: { blockId: excerpt.blockId, start: excerpt.start, end: excerpt.end },
+              anchor: excerpt.anchor
+            },
+            quoteLimit: 100000,
+            blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
+          });
+
+      for (const message of context.messages)
         catalog.addDocument({
-          key: `${selectionReferenceKey(input.input)}:${index}`,
-          name: input.name,
+          key: `message:${message.versionId}`,
+          name: `${message.role} ${message.messageId}`,
           reference: {
-            input: input.input,
-            target: { blockId: excerpt.blockId, start: excerpt.start, end: excerpt.end },
-            anchor: excerpt.anchor
+            input: { kind: 'message', versionId: message.versionId },
+            target: null,
+            anchor: { type: 'authored' }
           },
           quoteLimit: 100000,
-          blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
+          blocks: [{ text: message.text, blockOrdinal: 0 }]
         });
-    for (const message of context.messages)
-      catalog.addDocument({
-        key: `message:${message.versionId}`,
-        name: `${message.role} ${message.messageId}`,
-        reference: {
-          input: { kind: 'message', versionId: message.versionId },
-          target: null,
-          anchor: { type: 'authored' }
-        },
-        quoteLimit: 100000,
-        blocks: [{ text: message.text, blockOrdinal: 0 }]
+
+      const { prompt, editTarget } = yield* Effect.try({
+        try: () => documentTransformPrompt(request, context),
+        catch: (cause) =>
+          new StudyError('invalid_input', 'Invalid captured Document prompt', { cause })
       });
-    const { prompt, editTarget } = yield* Effect.try({
-      try: () => documentTransformPrompt(request, context),
-      catch: (cause) =>
-        new StudyError('invalid_input', 'Invalid captured Document prompt', { cause })
-    });
-    const output = yield* generateAgent(
-      documentTransformAgent,
-      { prompt },
-      { maxRetries: 0, preflight }
-    ).pipe(
-      Effect.provideService(Agents, {
-        ...agents,
-        searchSources: (query: string) => Effect.sync(() => catalog.search(query))
-      })
-    );
-    return yield* Effect.try({
-      try: () => {
-        const result = canonicalDocumentTransformOutput(output, editTarget?.document?.blocks);
-        const citations = catalog
-          .citations(
-            [
-              ...result.document.blocks.map((block) => block.text),
-              ...result.report.notes.map((note) => note.explanation)
-            ].join('\n')
-          )
-          .map(({ marker, reference, quote }) => ({ marker, ...reference, quote }));
-        const publication = {
-          ...result,
-          requestId: request.id,
-          generationEventId: eventId,
-          language: context.preferences.language,
-          citations
-        };
-        validateDocumentTransform(context, publication, request.editTargetVersionId);
-        return publication;
-      },
-      catch: (cause) =>
-        cause instanceof StudyError
-          ? cause
-          : new StudyError('invalid_input', 'Invalid Document output', { cause })
-    });
+      const output = yield* generateAgent(
+        documentTransformAgent,
+        { prompt },
+        { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) }
+      ).pipe(
+        Effect.provideService(Agents, {
+          ...agents,
+          searchSources: (query: string) => Effect.sync(() => catalog.search(query))
+        })
+      );
+
+      return yield* Effect.try({
+        try: () => {
+          const result = canonicalDocumentTransformOutput(output, editTarget?.document?.blocks);
+          const citations = catalog
+            .citations(
+              [
+                ...result.document.blocks.map((block) => block.text),
+                ...result.report.notes.map((note) => note.explanation)
+              ].join('\n')
+            )
+            .map(({ marker, reference, quote }) => ({ marker, ...reference, quote }));
+          const publication = {
+            ...result,
+            requestId: request.id,
+            generationEventId: eventId,
+            language: context.preferences.language,
+            citations
+          };
+
+          validateDocumentTransform(context, publication, request.editTargetVersionId);
+
+          return publication;
+        },
+        catch: (cause) =>
+          cause instanceof StudyError
+            ? cause
+            : new StudyError('invalid_input', 'Invalid Document output', { cause })
+      });
+    })
   });
 }

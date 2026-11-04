@@ -9,6 +9,7 @@ export const notebookTargetId = (
 ) => `notebook-${sessionId}-${kind}-${id}`;
 
 /** Both the board and its index use the same loaded, current-session timeline. */
+
 export function notebookMessages(sessionId: SessionId, messages: readonly ChatMessage[]) {
   return [
     ...new Map(
@@ -35,12 +36,15 @@ export function notebookTimeline(
       })
     )
   ];
+
   return entries.toSorted((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
 }
 
 export function jumpToNotebookTarget(id: string) {
   const target = document.getElementById(id);
+
   if (!target) return;
+
   target.focus({ preventScroll: true });
   target.scrollIntoView({
     behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',

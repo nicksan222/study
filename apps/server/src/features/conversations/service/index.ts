@@ -173,19 +173,25 @@ export const Conversations = defineService(
             ...value,
             operation: 'apply'
           });
+
           if (replay) return replay;
+
           const request = Documents.findTransformInTransaction(tx, value);
           let relevantValid = true;
+
           if (request) {
             if (request.cancelled)
               throw new StudyError('cancelled', 'Proposal generation is unavailable');
+
             const context = readCapturedContext(tx, request.contextRequestId);
+
             relevantValid =
               context.inputs.every((item) => inputIsCurrent(tx, item.input)) &&
               tx
                 .store(SessionContextValidityStore)
                 .sessionContextValidity({ requestId: request.contextRequestId });
           }
+
           return Documents.applyProposalInTransaction(tx, value, relevantValid);
         }),
       keepDocumentProposal: (value: typeof editing.keepProposalSchema.Type) =>
@@ -194,13 +200,18 @@ export const Conversations = defineService(
             ...value,
             operation: 'keep'
           });
+
           if (replay) return replay;
+
           const request = Documents.findTransformInTransaction(tx, value);
+
           if (request) {
             if (request.cancelled)
               throw new StudyError('cancelled', 'Proposal generation is unavailable');
+
             readCapturedContext(tx, request.contextRequestId);
           }
+
           return Documents.keepProposalInTransaction(tx, value);
         }),
       requestDocumentTransform: (value: typeof transformRequestSchema.Type) =>
@@ -215,8 +226,10 @@ export const Conversations = defineService(
         transaction((tx) => {
           const request = Documents.transformInTransaction(tx, value);
           const context = readCapturedContext(tx, request.contextRequestId);
+
           if (request.cancelled || context.instruction !== request.instruction)
             throw new StudyError('cancelled', 'Document generation is unavailable');
+
           return context;
         }),
       publishDocumentTransform: (value: typeof transformPublicationSchema.Type) =>
@@ -226,12 +239,15 @@ export const Conversations = defineService(
             request.resultVersionId === null
               ? readCapturedContext(tx, request.contextRequestId)
               : undefined;
+
           return Documents.publishTransformInTransaction(tx, context, value);
         }),
       retryDocumentTransform: (value: { requestId: string; retryId: string }) =>
         transaction((tx) => {
           const request = Documents.transformInTransaction(tx, value);
+
           if (request.resultVersionId === null) readCapturedContext(tx, request.contextRequestId);
+
           return Documents.retryTransformInTransaction(tx, value);
         }),
       sessionSelection: selections.sessionSelection,
@@ -747,8 +763,10 @@ export const Conversations = defineService(
 /** Source membership is independent of the raw message that introduced it. */
 function postMessage(tx: Transaction, input: typeof postMessageInputSchema.Type) {
   const message = tx.store(MessageStore).postMessage(input);
+
   for (const sourceId of input.sourceIds ?? [])
     Sources.attachInTransaction(tx, { sessionId: input.sessionId, sourceId });
+
   return message;
 }
 
@@ -863,11 +881,14 @@ function resolveCombinedTargets(
   targets: typeof updateSessionSelectionSchema.Type.targets
 ) {
   const grouped = new Map<string, Array<typeof resolvedSelectionSchema.Type>>();
+
   for (const target of targets) {
     const resolved = resolveSelection(tx, target);
     const key = selectionReferenceKey(target.input);
+
     grouped.set(key, [...(grouped.get(key) ?? []), resolved]);
   }
+
   if (grouped.size > 20)
     throw new StudyError('invalid_input', 'Combined selection has too many documents');
 
@@ -875,20 +896,26 @@ function resolveCombinedTargets(
     tx,
     [...grouped.values()].map((items) => {
       const whole = items.find((item) => item.scope.kind === 'document');
+
       if (whole) return whole;
+
       if (items.length === 1) return items[0]!;
+
       const first = items[0]!;
+
       if (items.every((item) => item.scope.kind === 'blocks')) {
         const blockIds = [
           ...new Set(
             items.flatMap((item) => (item.scope.kind === 'blocks' ? item.scope.blockIds : []))
           )
         ];
+
         return {
           input: first.input,
           scope: { kind: 'blocks' as const, blockIds }
         };
       }
+
       const ranges = [
         ...new Map(
           items
@@ -902,6 +929,7 @@ function resolveCombinedTargets(
             .map((range) => [`${range.blockId}:${range.start}:${range.end}`, range])
         ).values()
       ];
+
       return {
         input: first.input,
         scope: { kind: 'ranges' as const, ranges }
@@ -927,11 +955,14 @@ function assertCapturedTarget(tx: Transaction, target: typeof resolvedSelectionS
 function inputIsCurrent(tx: Transaction, input: ContentInput) {
   if (input.kind === 'document') {
     const version = Documents.versionInTransaction(tx, input.versionId);
+
     return (
       Documents.documentInTransaction(tx, { id: version.documentId }).headVersionId === version.id
     );
   }
+
   const current = Sources.currentExtractionInTransaction(tx, input.sourceId);
+
   return (
     current !== null &&
     current.revision === input.revision &&

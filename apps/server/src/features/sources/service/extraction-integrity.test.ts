@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises source extraction integrity behavior through real persistence            │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies an unpinned published source extraction is immutable until its retained       │
+ * │   identity is released.                                                                  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { plainBlock } from '@study/contracts/sources/document';
@@ -17,6 +31,7 @@ testStable(
   async () => {
     const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
     const context = new ServerContext(location.open());
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -49,6 +64,7 @@ testStable(
             })
           );
           const id = result.documentId;
+
           for (const statement of [
             sql`UPDATE blocks SET text='Forged' WHERE document_id=${id}`,
             sql`UPDATE blocks SET editing_id='forged' WHERE document_id=${id}`,
@@ -59,6 +75,7 @@ testStable(
             sql`UPDATE source_extraction_revisions SET revision=revision WHERE snapshot_id=${id}`
           ])
             assert.throws(() => context.db.orm.run(statement));
+
           assert.equal((yield* sources.currentExtraction({ id: source.id }))?.snapshotId, id);
           assert.equal(yield* sources.deleteSource({ id: source.id }), true);
           assert.equal(

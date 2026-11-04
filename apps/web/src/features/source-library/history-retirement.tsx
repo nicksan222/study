@@ -10,10 +10,13 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { useSourceHistoryRetirement } from './history-retirement.queries';
 
 type View = ReturnType<typeof useSourceHistoryRetirement>;
+
 function HistoryReview({ view }: { view: View }) {
   const { t } = useI18n();
   const value = view.preview.data;
+
   if (view.preview.isFetching) return <Loading label={t('LoadingStudy')} />;
+
   return (
     <>
       {value && (
@@ -41,8 +44,10 @@ function HistoryReview({ view }: { view: View }) {
     </>
   );
 }
+
 function removalDisabled(view: View) {
   const preview = view.preview;
+
   return (
     !view.valid ||
     !!view.state.attempt ||
@@ -52,6 +57,7 @@ function removalDisabled(view: View) {
     !!preview.data?.blockedSnapshotIds.length
   );
 }
+
 export function SourceHistoryRetirement({
   source,
   onRetired
@@ -63,6 +69,7 @@ export function SourceHistoryRetirement({
   const view = useSourceHistoryRetirement(source.id, onRetired);
   const preview = view.preview;
   const disabled = removalDisabled(view);
+
   return (
     <>
       <Button variant="ghost" onClick={view.show}>

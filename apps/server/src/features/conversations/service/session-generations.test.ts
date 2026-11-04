@@ -142,9 +142,11 @@ testStable(
         Effect.gen(function* () {
           const docs = yield* Documents;
           const chats = yield* Conversations;
+
           assert.ok((yield* docs.previewDeletion({ id: setup.input.id })).blockedVersionIds.length);
           yield* docs.cancelTransform({ requestId: setup.requests[0]!.requestId });
           const page = yield* chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 });
+
           assert.equal(page.items[0]?.cancelled, true);
           assert.ok(page.items.every((item) => item.state === 'available'));
           yield* chats.deleteSession(setup.session.id);
@@ -155,6 +157,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Conversations;
+
           assert.equal(
             (yield* Effect.flip(
               chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 })
@@ -163,6 +166,7 @@ testStable(
           );
           const docs = yield* Documents;
           const retained = yield* docs.document({ id: setup.input.id });
+
           assert.ok(retained.version);
           assert.equal(retained.version.document.blocks[0]?.text, 'Retained discovery evidence');
         }).pipe(Effect.provide(fixture.domain()))

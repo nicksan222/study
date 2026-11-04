@@ -11,6 +11,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import type { AppSearch } from '#web/lib/navigation/route-contract.ts';
 import type { Subjects } from '#web/lib/study-client/operations.ts';
 
+import type { LibrarySelection } from './library.locations';
 import { itemLocation } from './library.locations';
 import type { LibraryItem } from './library.logic';
 
@@ -33,7 +34,7 @@ export function LibraryListView({
   blocked: boolean;
   query: string;
   search: AppSearch;
-  selected?: { source?: string; document?: string };
+  selected?: LibrarySelection;
   reload: () => void;
 }) {
   const { t, locale, date } = useI18n();
@@ -131,18 +132,18 @@ function itemProjectId(item: LibraryItem) {
 
 function itemTimestamp(item: LibraryItem) {
   if (item.type === 'source') return item.value.createdAt;
+
   return item.type === 'document' ? item.value.updatedAt : item.value.updated_at;
 }
-function itemIsActive(
-  item: LibraryItem,
-  search: AppSearch,
-  selected?: { source?: string; document?: string }
-) {
+
+function itemIsActive(item: LibraryItem, search: AppSearch, selected?: LibrarySelection) {
   if (item.type === 'source')
     return (
       selected?.source === String(item.value.id) ||
       (search.id === String(item.value.id) && !search.material)
     );
+
   if (item.type === 'document') return selected?.document === String(item.value.id);
+
   return search.material === String(item.value.id);
 }

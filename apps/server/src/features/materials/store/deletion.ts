@@ -282,8 +282,6 @@ export const MaterialDeletionStore = defineStore({
               .where(inArray(s.material_versions.material_id, [...deletion.materialIds]))
               .all();
 
-            const versionIds = versions.map((v) => v.id);
-
             for (const v of versions) {
               removeContent(v.id);
 

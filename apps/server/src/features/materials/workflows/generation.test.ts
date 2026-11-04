@@ -15,7 +15,6 @@
 
 import assert from 'node:assert/strict';
 
-import { projectIdSchema } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -277,8 +276,10 @@ testStable(
             }
           });
           const exact = yield* sources.currentExtraction({ id: source.id });
+
           assert.ok(exact);
           assert.equal(context.db.orm.select().from(s.materials).all().length, 0);
+
           return {
             projectId: project.id,
             sourceId: source.id,

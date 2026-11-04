@@ -19,7 +19,10 @@ import { Schema } from 'effect';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { scrubRetiredConfiguration } from '#server/platform/workflows/configuration';
 import { decodeEvent, scrubRetiredEvents } from '#server/platform/workflows/events';
-import { scrubRetiredExecution } from '#server/platform/workflows/store';
+import {
+  scrubRetiredExecution,
+  scrubRetiredCorrectionExecution
+} from '#server/platform/workflows/store';
 
 const correlations = Schema.Array(Schema.String);
 
@@ -186,43 +189,27 @@ export const WorkflowRetirementStore = defineStore({
           output: Schema.Void,
           run: (ids) => {
             const runs = retiredExecutions(ids);
+
             for (const retired of runs) {
               const run = db.orm
                 .select()
                 .from(s.workflow_executions)
                 .where(eq(s.workflow_executions.execution_id, retired.execution_id))
                 .get();
+
               scrubRetiredConfiguration(db, retired.execution_id);
+
               if (run?.workflow_tag !== 'source-correction/v1' || run.status !== 'completed') {
                 scrubRetiredExecution(db, retired.execution_id);
                 continue;
               }
               // The successful correction Activity owns the retained AFTER document. The
               // event/execution payload owns BEFORE text. Fence both before releasing input.
-              db.orm
-                .update(s.workflow_executions)
-                .set({ payload: '{}', result: null, owner_token: null })
-                .where(eq(s.workflow_executions.execution_id, retired.execution_id))
-                .run();
-              db.orm
-                .delete(s.workflow_activities)
-                .where(
-                  and(
-                    eq(s.workflow_activities.execution_id, retired.execution_id),
-                    sql`${s.workflow_activities.name} NOT IN ('correct-source','publish-source')`
-                  )
-                )
-                .run();
-              db.orm
-                .delete(s.workflow_deferreds)
-                .where(eq(s.workflow_deferreds.execution_id, retired.execution_id))
-                .run();
-              db.orm
-                .delete(s.workflow_clocks)
-                .where(eq(s.workflow_clocks.execution_id, retired.execution_id))
-                .run();
+
+              scrubRetiredCorrectionExecution(db, retired.execution_id);
             }
             // Keep SourceIndexed's content-free exact output identity for later retirement.
+
             scrubRetiredEvents(db, ids, ['SourceCorrectionRequested']);
           }
         }),

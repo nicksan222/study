@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
-import { errorKindSchema, failureSchema } from '@study/contracts/errors';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Coordinates persistence for practice sessions and responses.                       │
@@ -14,12 +11,12 @@ import { errorKindSchema, failureSchema } from '@study/contracts/errors';
  * │ composes these private operations.                                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
+
+import { randomUUID } from 'node:crypto';
+
+import { errorKindSchema, failureSchema } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
-import {
-  materialVersionIdSchema,
-  projectIdSchema,
-  quizQuestionIdSchema
-} from '@study/contracts/ids';
+import { projectIdSchema, quizQuestionIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId, ProjectId } from '@study/contracts/ids';
 import { contentInputSchema, contentInputKey } from '@study/contracts/inputs';
 import type { ContentInput } from '@study/contracts/inputs';
@@ -235,6 +232,7 @@ function makePractice(resources: StoreResources) {
           ...contentInputColumns(input)
         })
         .run();
+
     return id;
   }
 
@@ -501,7 +499,12 @@ export const PracticeStore = defineStore({
               .set({ status: 'cancelled' })
               .where(eq(slots.status, 'pending'))
               .run();
-            db.orm.delete(s.learning_practice_inputs).run();
+
+            for (const input of db.orm.select().from(s.learning_practice_inputs).all())
+              db.orm
+                .delete(s.learning_practice_inputs)
+                .where(eq(s.learning_practice_inputs.slot_id, input.slot_id))
+                .run();
           }
         }),
         start: storeMutation({

@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
-import type { sessionGenerationPageInputSchema } from '@study/contracts/conversations/rpc';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Coordinates material creation, versioning, links, citations, and generation        │
@@ -15,9 +12,11 @@ import type { sessionGenerationPageInputSchema } from '@study/contracts/conversa
  * │ implementations stay private to the service.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-import { StudyError } from '@study/contracts/errors';
+
+import { randomUUID } from 'node:crypto';
+
 import type { ErrorKind } from '@study/contracts/errors';
-import type { ProjectId, SourceId, SessionId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { exportMaterialVersionInputSchema } from '@study/contracts/materials/export';
 import type * as input from '@study/contracts/materials/rpc';
@@ -111,8 +110,10 @@ function* makeMaterials() {
         const request = yield* transaction((tx) =>
           tx.store(MaterialGenerationStore).cancelGeneration(value)
         );
+
         if (request.resultVersionId === null)
           yield* Workflows.cancelCorrelatedExecutions(request.id, 'material-generation/v1');
+
         return request;
       }),
     publishMaterialGeneration: (value: typeof materialGenerationPublicationSchema.Type) =>
@@ -192,6 +193,7 @@ function* makeMaterials() {
     requestMaterialGeneration: (value: typeof input.requestMaterialGenerationInputSchema.Type) =>
       transaction((tx) => {
         const requestId = randomUUID();
+
         assertContentInputs(tx, value.inputs, value.projectId, true);
 
         const result = tx.store(MaterialGenerationStore).request({ requestId, request: value });
@@ -333,6 +335,7 @@ function* makeMaterials() {
     publishVersion: (value: typeof input.publishVersionInputSchema.Type) =>
       transaction((tx) => {
         const pending = tx.store(MaterialVersionsStore).materialVersion({ id: value.id });
+
         assertContentInputs(tx, pending.inputs);
         const result = tx.store(MaterialsStore).publishVersion(value);
 
@@ -350,6 +353,7 @@ function* makeMaterials() {
     setCitations: (value: typeof input.setCitationsInputSchema.Type) =>
       transaction((tx) => {
         for (const citation of value.citations) assertContentCitation(tx, citation);
+
         const result = tx.store(MaterialsStore).setCitations(value);
 
         return result;
@@ -384,6 +388,7 @@ export const Materials = defineService('study/Materials', Effect.gen(makeMateria
   validateBackup: (tx: Transaction) => {
     for (const version of tx.store(MaterialBackupStore).backupValidation(undefined)) {
       for (const input of version.inputs) readContentInput(tx, input, undefined, true);
+
       for (const citation of version.citations) assertContentCitation(tx, citation, true);
     }
   },

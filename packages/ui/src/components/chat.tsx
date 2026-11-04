@@ -1,5 +1,5 @@
 import { ArrowDown } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -12,6 +12,7 @@ function readingViewport(node: HTMLDivElement | null) {
 }
 
 /** Adapted from coss Chat UI's conversation contract: follow only while the reader is at the end. */
+
 function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstItemKey?: string }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -39,6 +40,16 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
 
     if (!viewport || !content) return;
 
+    function onScroll() {
+      const viewport = readingViewport(viewportRef.current);
+
+      if (!viewport) return;
+
+      atBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 64;
+      previous.current.height = viewport.scrollHeight;
+      setShowJump(!atBottom.current);
+    }
+
     const observer = new ResizeObserver(() => {
       if (atBottom.current) viewport.scrollTop = viewport.scrollHeight;
 
@@ -55,16 +66,6 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
     };
   }, []);
 
-  function onScroll() {
-    const viewport = readingViewport(viewportRef.current);
-
-    if (!viewport) return;
-
-    atBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 64;
-    previous.current.height = viewport.scrollHeight;
-    setShowJump(!atBottom.current);
-  }
-
   function scrollToLatest() {
     const viewport = readingViewport(viewportRef.current);
 
@@ -80,6 +81,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
 }
 
 /** The data owner supplies paging keys; the viewport owns only reading position and end following. */
+
 export function ChatConversation({
   children,
   label,
@@ -97,13 +99,20 @@ export function ChatConversation({
 }) {
   const scroll = useChatScroll({ itemCount, firstItemKey });
   const [overlay, setOverlay] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    setOverlay(
-      scroll.viewportRef.current
-        ?.closest('.session-desk-notebook')
-        ?.querySelector<HTMLElement>('[data-notebook-navigation-host]') ?? null
-    );
-  }, []);
+
+  const viewportRef = scroll.viewportRef;
+  const attachViewport = useCallback(
+    (node: HTMLDivElement | null) => {
+      viewportRef.current = node;
+      setOverlay(
+        node
+          ?.closest('.session-desk-notebook')
+          ?.querySelector<HTMLElement>('[data-notebook-navigation-host]') ?? null
+      );
+    },
+    [viewportRef]
+  );
+
   const controls = (
     <>
       {navigation}
@@ -137,7 +146,7 @@ export function ChatConversation({
     >
       {overlay ? createPortal(controls, overlay) : controls}
       <div
-        ref={scroll.viewportRef}
+        ref={attachViewport}
         className="chat-viewport"
         role="log"
         aria-label={label}
@@ -153,6 +162,7 @@ export function ChatConversation({
 }
 
 /** Shared timeline entry; session notes and generated material use the same reading direction. */
+
 export function ChatMessage({ className, ...props }: ComponentPropsWithRef<'article'>) {
   return (
     <article

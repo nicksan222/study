@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError, errorKindSchema } from '@study/contracts/errors';
-import { sourceIndexedSchema, materialGenerationRequestedSchema } from '@study/contracts/events';
-import { sourceIdSchema, projectIdSchema, sessionIdSchema } from '@study/contracts/ids';
+import { errorKindSchema } from '@study/contracts/errors';
+import { materialGenerationRequestedSchema } from '@study/contracts/events';
+import { projectIdSchema } from '@study/contracts/ids';
 import { resolvedContentInputSchema } from '@study/contracts/inputs';
 import * as input from '@study/contracts/materials/rpc';
 import {
@@ -26,7 +26,6 @@ import {
   materialVersionDetailSchema,
   materialCitationSchema
 } from '@study/contracts/materials/schemas';
-import { sourceExportSchema } from '@study/contracts/sources/rpc';
 import { and, asc, eq, gt } from '@study/db';
 import * as tables from '@study/db/schema';
 import { Option, Schema } from 'effect';

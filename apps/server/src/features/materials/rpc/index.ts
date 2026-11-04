@@ -12,9 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import { Effect, Option } from 'effect';
+import { Effect } from 'effect';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Materials } from '#server/features/materials/service/index';
@@ -24,7 +23,8 @@ export const MaterialsRpcLive = defineRpc(
   MaterialsRpc,
   Effect.gen(function* () {
     const materials = yield* Materials;
-    const conversations = yield* Effect.serviceOption(Conversations);
+
+    yield* Effect.serviceOption(Conversations);
 
     return {
       'materials.previewHistoryPrune': (value) => materials.previewHistoryPrune(value),

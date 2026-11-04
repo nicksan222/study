@@ -12,6 +12,7 @@ export function SessionLayoutControls({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const model = useWorkbench(id);
   const unavailable = model.tabs.length === 0;
+
   return (
     <Desk.LayoutControls aria-label={t('SessionLayout')}>
       <WorkspaceCard.Toggle

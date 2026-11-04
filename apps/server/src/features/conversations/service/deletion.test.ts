@@ -717,6 +717,7 @@ testStable(
         .select()
         .from(s.study_document_proposal_receipts)
         .all();
+
       await cleanup(fixture, saved.session.id);
       assert.deepEqual(
         fixture.context.db.orm.select().from(s.study_document_proposals).all(),

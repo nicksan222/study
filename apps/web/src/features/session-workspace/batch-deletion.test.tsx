@@ -11,6 +11,7 @@ import { SessionBatchDeleteDialog } from './deletion';
 import type * as Queries from './session-workspace.queries';
 
 const rpc = vi.hoisted(() => ({ remove: vi.fn(), retry: vi.fn(), read: vi.fn() }));
+
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
@@ -30,22 +31,33 @@ vi.mock('./session-workspace.queries', async (load) => ({
     retry: false
   })
 }));
+
 const first = Schema.decodeUnknownSync(sessionIdSchema)(1n);
+
 const second = Schema.decodeUnknownSync(sessionIdSchema)(2n);
+
 const third = Schema.decodeUnknownSync(sessionIdSchema)(3n);
+
 const sessions = [
   { id: first, title: 'First session' },
   { id: second, title: 'Second session' }
 ];
+
 const clients: QueryClient[] = [];
+
 afterEach(() => {
   cleanup();
+
   for (const client of clients.splice(0)) client.clear();
+
   vi.resetAllMocks();
 });
+
 function mount(onDeleted = vi.fn()) {
   if (!rpc.read.getMockImplementation()) rpc.read.mockResolvedValue(null);
+
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(client);
   const close = vi.fn();
   const node = (selected = sessions) => (
@@ -58,8 +70,10 @@ function mount(onDeleted = vi.fn()) {
       />
     </QueryClientProvider>
   );
+
   return { ...render(node()), node, client, close, onDeleted };
 }
+
 testStable('does not delete anything when batch confirmation is cancelled', async () => {
   mount();
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
@@ -76,15 +90,18 @@ testStable(
       attempt: 1,
       completedAt: 1n
     });
+
     rpc.remove.mockImplementation(async (id: SessionId) => {
       if (
         id === second &&
         rpc.remove.mock.calls.filter(([called]) => called === second).length === 1
       )
         throw new StudyError('invalid_input', 'Rejected before commit');
+
       return receipt(id);
     });
     const view = mount();
+
     fireEvent.change(await screen.findByRole('textbox'), {
       target: { value: 'DeleteConfirmationWord' }
     });
@@ -116,6 +133,7 @@ testStable(
       attempt: 1,
       completedAt: 1n
     };
+
     rpc.read.mockImplementation(async (id: SessionId) => (id === first ? receipt : null));
     rpc.remove.mockResolvedValue({ ...receipt, sessionId: second, operationId: 'second' });
     mount();
@@ -141,6 +159,7 @@ testStable(
       completedAt: null
     });
     const view = mount();
+
     await screen.findAllByText('SessionDeleting');
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

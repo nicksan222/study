@@ -81,6 +81,7 @@ testStable(
   'refreshes the library and search summaries after authored metadata changes',
   async () => {
     const view = mount();
+
     view.client.setQueryData(['library', 'library', ['1']], []);
     view.client.setQueryData(['search', { query: 'notes' }], { hits: [] });
     await act(async () => {

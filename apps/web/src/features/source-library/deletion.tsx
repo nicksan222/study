@@ -13,6 +13,7 @@ export function SourceDeletion({ source, onDeleted }: { source: Source; onDelete
   const view = useSourceDeletion(source, onDeleted);
   const blocked =
     !view.preview.data || view.preview.isError || view.preview.data.blockedBy.length > 0;
+
   return (
     <>
       <Button variant="destructive-outline" onClick={view.show}>

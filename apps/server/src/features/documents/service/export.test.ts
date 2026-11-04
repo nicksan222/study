@@ -177,6 +177,7 @@ testStable(
               inputs: [],
               citations: []
             });
+
             assert.ok(large.version);
             const input = { kind: 'document' as const, versionId: large.version.id };
             const cited = yield* rpc('documents.create', {
@@ -192,11 +193,13 @@ testStable(
                 target: { blockId: largeBody.blocks[0]!.id, start: 0, end: 1 }
               }))
             });
+
             assert.ok(cited.version);
             const references = yield* rpc('documents.exportFile', {
               id: cited.version.id,
               format: 'markdown'
             });
+
             assert.ok(
               references.bytes.length < 64 * 1024,
               'Referenced source bodies are never expanded into another export'
@@ -213,11 +216,13 @@ testStable(
               id: aid.version.id,
               format: 'csv'
             });
+
             assert.ok(new TextDecoder().decode(csv.bytes).includes("'=1+1"));
             const aidJson = yield* aidRpc('materials.exportMaterialVersion', {
               id: aid.version.id,
               format: 'aid_json'
             });
+
             assert.equal(
               JSON.parse(new TextDecoder().decode(aidJson.bytes)).version.content.kind,
               'flashcards'
@@ -229,6 +234,7 @@ testStable(
               inputs: [],
               citations: []
             });
+
             assert.ok(historical.version);
             yield* rpc('documents.save', {
               documentId: historical.id,
@@ -240,10 +246,12 @@ testStable(
               id: historical.version.id,
               format: 'markdown'
             });
+
             assert.ok(new TextDecoder().decode(exact.bytes).includes('BEFORE_EXACT'));
             assert.ok(!new TextDecoder().decode(exact.bytes).includes('AFTER_CURRENT'));
             const scope = { documentId: historical.id, keepLatest: 1 };
             const history = yield* rpc('documents.previewHistory', scope);
+
             yield* rpc('documents.retireHistory', { ...scope, token: history.token });
             assert.equal(
               (yield* Effect.flip(
@@ -252,6 +260,7 @@ testStable(
               'not_found'
             );
             const preview = yield* rpc('documents.previewDeletion', { id: material.id });
+
             yield* rpc('documents.delete', { documentId: material.id, token: preview.token });
             assert.equal((yield* Effect.flip(rpc('documents.exportFile', key))).kind, 'not_found');
             assert.deepEqual(

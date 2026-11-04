@@ -10,6 +10,7 @@ import { authoredDocument } from '../document-editing/test-support';
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
+
 const t = catalogs.english;
 
 testStable(
@@ -18,6 +19,7 @@ testStable(
     const rpc = materialRpc();
     const current = authoredDocument(41n, 'Current authored body', 103n);
     const old = authoredDocument(41n, 'Historical authored body', 91n).version!;
+
     rpc['documents.document'].mockReturnValue(Effect.succeed(current));
     rpc['documents.versions'].mockReturnValue(
       Effect.succeed({ items: [current.version!, old], nextCursor: null })
@@ -27,6 +29,7 @@ testStable(
     );
     mountLibraryRoute('/documents/41', rpc);
     const main = within(await screen.findByRole('main'));
+
     expect(await main.findByText('Current authored body')).toBeVisible();
     await userEvent.setup().click(main.getByText(t.ReaderHistory, { selector: 'summary' }));
     await userEvent
@@ -50,6 +53,7 @@ testStable(
     const oldest = authoredDocument(41n, 'First extraction', 1001n).version!;
     const corrected = authoredDocument(41n, 'Corrected extraction', 1002n).version!;
     const current = authoredDocument(41n, 'Replacement extraction', 2001n).version!;
+
     rpc['sources.currentExtraction'].mockReturnValue(
       Effect.succeed({
         sourceId,
@@ -79,6 +83,7 @@ testStable(
     mountLibraryRoute('/sources/7', rpc);
     const main = within(await screen.findByRole('main'));
     const user = userEvent.setup();
+
     expect(await main.findByText('Replacement extraction')).toBeVisible();
     await user.click(main.getByText(t.ReaderHistory, { selector: 'summary' }));
     await user.click(
@@ -120,6 +125,7 @@ testStable(
     const current = authoredDocument(41n, 'URL current body', 103n);
     const a = authoredDocument(41n, 'URL exact A', 91n).version!;
     const b = authoredDocument(41n, 'URL exact B', 92n).version!;
+
     rpc['documents.document'].mockReturnValue(Effect.succeed(current));
     rpc['documents.version'].mockImplementation(({ id }) =>
       id === a.id
@@ -132,6 +138,7 @@ testStable(
     );
     const view = mountLibraryRoute('/documents/41?documentVersion=91', rpc);
     const draftKey = ['document-editor', '20', '201'];
+
     view.queryClient.setQueryData(draftKey, { text: 'Unrelated unsaved draft' });
     await screen.findByText('URL exact A');
     const go = async (documentVersion?: string) =>
@@ -142,6 +149,7 @@ testStable(
           search: { documentVersion }
         });
       });
+
     await go('92');
     expect(await screen.findByText('URL exact B')).toBeVisible();
     await act(async () => {

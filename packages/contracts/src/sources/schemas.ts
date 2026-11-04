@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { projectIdSchema, sourceIdSchema, contentSnapshotIdSchema } from '../ids.ts';
+import { projectIdSchema, sourceIdSchema } from '../ids.ts';
 import { sourceKinds } from './sniff.ts';
 
 export const sourceSchema = Schema.Struct({

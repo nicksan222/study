@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads exact retained source extractions without following mutable processing       │
+ * │ heads.                                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Reads exact retained source extractions without following mutable processing heads.    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 /** Sources resolves exact retained revisions without following a mutable extraction head. */
 import * as c from '@study/contracts/sources/rpc';
@@ -27,7 +40,9 @@ function makeExtractions({ db }: StoreResources) {
         )
       )
       .get();
+
     if (!row) throw new StudyError('not_found', 'Exact source extraction is unavailable');
+
     const blocks = db.orm
       .select()
       .from(s.blocks)
@@ -35,8 +50,10 @@ function makeExtractions({ db }: StoreResources) {
       .orderBy(asc(s.blocks.ordinal))
       .all()
       .map(decodeStoredBlock);
+
     return { ...v, name: row.name, document: { blocks, meta: JSON.parse(row.snapshot.meta) } };
   }
+
   return {
     extraction,
     currentExtraction: ({ id }: typeof c.currentExtractionInputSchema.Type) => {
@@ -45,13 +62,17 @@ function makeExtractions({ db }: StoreResources) {
         .from(s.source_processing)
         .where(eq(s.source_processing.source_id, id))
         .get();
+
       if (!state) throw new StudyError('not_found', 'Source is unavailable');
+
       if (state.request_id !== state.published_request_id || state.document_id === null)
         return null;
+
       return extraction({ sourceId: id, revision: state.revision, snapshotId: state.document_id });
     }
   };
 }
+
 export const SourceExtractionsStore = defineStore({
   name: 'study/SourceExtractionsStore',
   entity: { singular: 'extraction', plural: 'extractions' },
@@ -96,6 +117,7 @@ export const SourceExtractionsStore = defineStore({
             .all();
           const items = rows.slice(0, limit);
           const last = items.at(-1);
+
           return {
             items,
             next:
@@ -115,6 +137,7 @@ export const SourceExtractionsStore = defineStore({
     mutations: {}
   })
 });
+
 export const CurrentExtractionStore = defineStore({
   name: 'study/CurrentExtractionStore',
   entity: { singular: 'currentExtraction', plural: 'currentExtractions' },
@@ -146,6 +169,7 @@ export const SessionSourcesStore = defineStore({
       )
         throw new StudyError('not_found', 'Session is unavailable');
     }
+
     return {
       queries: {
         sessionSources: storeQuery({
@@ -154,6 +178,7 @@ export const SessionSourcesStore = defineStore({
           output: Schema.Array(c.sessionSourceSchema),
           run: (v) => {
             assertSession(v.sessionId);
+
             return db.orm
               .select({
                 id: s.sources.id,
@@ -199,6 +224,7 @@ export const SessionSourcesStore = defineStore({
               .where(eq(s.session_sources.session_id, v.sessionId))
               .orderBy(desc(s.session_sources.position))
               .get();
+
             db.orm
               .insert(s.session_sources)
               .values({
@@ -257,8 +283,10 @@ export const SourceRevisionExportsStore = defineStore({
               )
             )
             .get();
+
           if (!row)
             throw new StudyError('not_found', 'Exact original source revision is unavailable');
+
           return { ...v, ...row, bytes: new Uint8Array(row.bytes) };
         }
       })

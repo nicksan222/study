@@ -83,13 +83,12 @@ testStable(
             expectedRevision: 0n,
             targets: [{ input: { kind: 'document', versionId }, scope: { kind: 'document' } }]
           });
-          const whole = yield* conversations.captureSessionContext({
+          yield* conversations.captureSessionContext({
             sessionId: session.id,
             intentKey: 'whole',
             instruction: 'Read',
             preferences: {}
           });
-          const documentId = whole.inputs[0]!.documentId;
 
           yield* conversations.updateSessionSelection({
             sessionId: session.id,

@@ -24,6 +24,7 @@ const meta = JSON.stringify({
   corrected: false,
   omissions: []
 });
+
 const rich = JSON.stringify({
   type: 'paragraph',
   inlines: [{ type: 'text', text: 'Retained 😀', marks: ['strong'] }]
@@ -31,7 +32,9 @@ const rich = JSON.stringify({
 
 function cell(db: Db, query: SQL, key: string): unknown {
   const row = db.orm.get(query);
+
   assert.ok(row);
+
   return row[key];
 }
 
@@ -40,15 +43,19 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
   async () => {
     const folder = mkdtempSync(join(tmpdir(), 'study-authored-migration-'));
     const previous = join(folder, 'migrations');
+
     mkdirSync(previous);
     const migrations =
       process.env.STUDY_FINAL_MIGRATIONS ?? fileURLToPath(new URL('../drizzle', import.meta.url));
     let db: Db | undefined;
+
     try {
       for (const name of readdirSync(migrations))
         if (name <= '20261103204411_icy_lenny_balinger')
           cpSync(join(migrations, name), join(previous, name), { recursive: true });
+
       const path = join(folder, 'study.db');
+
       db = Db.open(path, previous);
       db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(5,'Project',1,1);
    INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(9,'Session','user',1,1);
@@ -109,6 +116,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const oldReceipts = db.orm.all(
         sql`SELECT key,intent,outcome FROM document_edit_receipts ORDER BY key`
       );
+
       db.close();
       db = undefined;
       db = Db.open(path, migrations);
@@ -119,6 +127,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         { old_snapshot_id: 103n, new_snapshot_id: 204n },
         { old_snapshot_id: 201n, new_snapshot_id: 205n }
       ];
+
       assert.equal(cell(db, sql`SELECT count(*) AS n FROM study_document_versions`, 'n'), 4n);
       assert.deepEqual(
         db.orm
@@ -131,21 +140,24 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           { id: 4n, status: 'published', number: 1n }
         ]
       );
+
       for (const map of mappings) {
         const old = oldBlocks
           .filter((x) => x.document_id === map.old_snapshot_id)
-          .map(({ document_id, ...x }) => ({ ...x }));
+          .map(({ document_id: _documentId, ...x }) => ({ ...x }));
         const current: Record<string, unknown>[] = db.orm
           .all(
             sql`SELECT ordinal,editing_id,content,text,anchor FROM blocks WHERE document_id=${map.new_snapshot_id} ORDER BY ordinal`
           )
           .map((x) => ({ ...x }));
+
         assert.deepEqual(current, old);
         assert.equal(
           cell(db, sql`SELECT meta FROM content_snapshots WHERE id=${map.new_snapshot_id}`, 'meta'),
           meta
         );
       }
+
       assert.deepEqual(
         db.orm.all(sql`SELECT key,intent,outcome FROM study_document_edit_receipts ORDER BY key`),
         oldReceipts.map((receipt) => ({ ...receipt, intent: '"domain_cutover"' }))
@@ -193,6 +205,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const citation = db.orm.get(
         sql`SELECT anchor,target,quote FROM study_document_citations WHERE version_id=1`
       );
+
       assert.deepEqual(
         { ...citation },
         {
@@ -204,6 +217,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const annotation = JSON.parse(
         String(cell(db, sql`SELECT payload FROM study_document_annotation_revisions`, 'payload'))
       );
+
       assert.equal(annotation.note, 'Exact annotation 😀');
       assert.deepEqual(annotation.target, {
         documentId: '1',
@@ -241,6 +255,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const assessment = JSON.parse(
         String(cell(db, sql`SELECT payload FROM study_document_citation_assessments`, 'payload'))
       );
+
       assert.equal(assessment.note, 'Exact judgment');
       assert.deepEqual(assessment.evidence, {
         kind: 'source',
@@ -252,10 +267,12 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const decodedAssessment = Schema.decodeUnknownSync(
         Schema.fromJsonString(Schema.toCodecJson(assessmentSchema))
       )(JSON.stringify(assessment));
+
       assert.equal(decodedAssessment.claim.range.versionId, 1n);
       const decodedAnnotation = Schema.decodeUnknownSync(
         Schema.fromJsonString(Schema.toCodecJson(annotationSchema))
       )(JSON.stringify(annotation));
+
       assert.equal(decodedAnnotation.target.range.snapshotId, 202n);
       assert.equal(cell(db, sql`SELECT count(*) AS n FROM session_documents`, 'n'), 2n);
       assert.equal(cell(db, sql`SELECT source_id FROM session_sources`, 'source_id'), 7n);
@@ -289,6 +306,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const learningCitation = db.orm.get(
         sql`SELECT marker,anchor,target,quote FROM material_evidence_citations WHERE version_id=301`
       )!;
+
       assert.equal(learningCitation.marker, 1n);
       assert.equal(learningCitation.quote, 'Retained 😀');
       assert.deepEqual(JSON.parse(String(learningCitation.target)), {
@@ -310,14 +328,18 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       assert.equal(cell(db, sql`PRAGMA integrity_check`, 'integrity_check'), 'ok');
       const backup = join(folder, 'backup.db');
       const identity = db.contentIdentity();
+
       await db.snapshot(backup);
       // An unpublished staged schema must remain outside the runtime's trusted restore set.
+
       if (process.env.STUDY_FINAL_MIGRATIONS)
         assert.throws(() => Db.validateSnapshot(backup), TypeError);
       else assert.equal(Db.validateSnapshot(backup), db.schemaIdentity());
+
       const restored = process.env.STUDY_FINAL_MIGRATIONS
         ? Db.open(backup, migrations)
         : Db.openSnapshot(backup);
+
       try {
         assert.equal(restored.contentIdentity(), identity);
         assert.deepEqual(restored.orm.all(sql`PRAGMA foreign_key_check`), []);

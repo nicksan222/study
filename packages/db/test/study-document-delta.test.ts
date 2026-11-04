@@ -23,14 +23,17 @@ const meta = JSON.stringify({
   corrected: false,
   omissions: []
 });
+
 const paragraph = (text: string) =>
   JSON.stringify({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
+
 const snapshot = (
   id: number,
   text: string,
   block = 'base-block'
 ) => `INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(${id},0,'${meta}',1);
 INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(${id},0,'paragraph','${block}','${paragraph(text)}','${text}','{"type":"authored"}');`;
+
 const oldAnnotation = (revision: number, versionId: number, snapshotId: number, note: string) =>
   JSON.stringify({
     id: '31',
@@ -59,17 +62,22 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const migrations = process.env.STUDY_DELTA_MIGRATIONS ?? official;
     const before = join(folder, 'before');
     const copied = join(folder, 'copied');
+
     mkdirSync(before);
     mkdirSync(copied);
     let db: Db | undefined;
+
     try {
       for (const name of readdirSync(official)) {
         if (name < '20261104010712')
           cpSync(join(official, name), join(copied, name), { recursive: true });
+
         if (name <= '20261103204411_icy_lenny_balinger')
           cpSync(join(official, name), join(before, name), { recursive: true });
       }
+
       const path = join(folder, 'study.db');
+
       db = Db.open(path, before);
       db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(5,'Project',1,1);
    INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(9,'Session','user',1,1);
@@ -142,6 +150,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         messages: [],
         excludedMessages: 0
       };
+
       db.exec(`UPDATE sessions SET selection='[{"materialId":"1","versionId":"12","scope":{"kind":"document"}}]' WHERE id=9;
       INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot) VALUES('late-context',9,'late-key','{}','${JSON.stringify(context)}');
       INSERT INTO messages(id,session_id,role,created_at) VALUES(1,9,'user',1);
@@ -155,6 +164,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           sql`SELECT v.id,v.number,b.text FROM study_document_versions v JOIN blocks b ON b.document_id=v.content_snapshot_id WHERE v.document_id=1 ORDER BY v.number`
         )
         .map((row) => ({ ...row }));
+
       assert.deepEqual(versions, [
         { id: 1n, number: 1n, text: 'Base' },
         { id: 3n, number: 2n, text: 'Legacy late' },
@@ -232,6 +242,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           ).snapshot
         )
       );
+
       assert.deepEqual(captured.inputs[0]!.input, { kind: 'document', versionId: 3n });
       assert.equal(captured.inputs[0]!.documentId, 1n);
       assert.equal(
@@ -254,6 +265,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       );
       assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
       const identity = db.schemaIdentity();
+
       db.close();
       db = undefined;
       db = Db.open(path, migrations);
@@ -272,6 +284,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const migrations =
       process.env.STUDY_DELTA_MIGRATIONS ?? fileURLToPath(new URL('../drizzle', import.meta.url));
     const db = Db.open(':memory:', migrations);
+
     try {
       assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
       assert.ok(

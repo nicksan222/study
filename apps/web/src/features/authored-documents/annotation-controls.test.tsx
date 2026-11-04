@@ -41,6 +41,7 @@ const rpc = {
   'documents.versions': vi.fn(),
   'documents.version': vi.fn()
 };
+
 beforeEach(() => {
   vi.clearAllMocks();
   rpc['documents.versions'].mockResolvedValue({ items: [], nextCursor: null });

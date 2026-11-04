@@ -32,7 +32,6 @@ import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
 import { Materials } from '#server/features/materials/index';
 import { makeCitations } from '#server/features/materials/store/citations';
 import { MaterialExportCitationsStore } from '#server/features/materials/store/export';
-import { makeReads } from '#server/features/materials/store/reads';
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { exportBudget } from '#server/platform/content-export/budget';
@@ -70,6 +69,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
     `exact authored export and ancestor ${retirement} honor retained descendant pins`,
     async () => {
       const f = fixture();
+
       try {
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -81,9 +81,11 @@ for (const retirement of ['deletion', 'prune'] as const) {
               inputs: [],
               citations: []
             });
+
             assert.ok(ancestor.version);
             const chain = [ancestor];
             let input = ancestor.version.id;
+
             for (let depth = 0; depth < 4; depth++) {
               const next = yield* rpc('documents.create', {
                 createKey: `${retirement}-${depth}`,
@@ -92,13 +94,17 @@ for (const retirement of ['deletion', 'prune'] as const) {
                 inputs: [{ kind: 'document', versionId: input }],
                 citations: []
               });
+
               assert.ok(next.version);
               chain.push(next);
               input = next.version.id;
             }
+
             const key = { id: input, format: 'markdown' as const };
             const before = yield* rpc('documents.exportFile', key);
+
             assert.ok(new TextDecoder().decode(before.bytes).includes('Derived 3'));
+
             if (retirement === 'prune')
               yield* rpc('documents.save', {
                 documentId: ancestor.id,
@@ -106,31 +112,40 @@ for (const retirement of ['deletion', 'prune'] as const) {
                 key: 'replace',
                 document: deletionDocument('Replacement')
               });
+
             const scope = { documentId: ancestor.id, keepLatest: 1 };
             const preview =
               retirement === 'prune'
                 ? yield* rpc('documents.previewHistory', scope)
                 : yield* rpc('documents.previewDeletion', { id: ancestor.id });
+
             assert.deepEqual(preview.blockedVersionIds, [ancestor.version.id]);
             const attempted =
               retirement === 'prune'
                 ? rpc('documents.retireHistory', { ...scope, token: preview.token })
                 : rpc('documents.delete', { documentId: ancestor.id, token: preview.token });
+
             assert.equal((yield* Effect.flip(attempted)).kind, 'invalid_input');
             assert.deepEqual(yield* rpc('documents.exportFile', key), before);
+
             for (const descendant of chain.slice(1).reverse()) {
               const selected = yield* rpc('documents.previewDeletion', { id: descendant.id });
+
               assert.deepEqual(selected.blockedVersionIds, []);
               yield* rpc('documents.delete', { documentId: descendant.id, token: selected.token });
             }
+
             const released =
               retirement === 'prune'
                 ? yield* rpc('documents.previewHistory', scope)
                 : yield* rpc('documents.previewDeletion', { id: ancestor.id });
+
             assert.deepEqual(released.blockedVersionIds, []);
+
             if (retirement === 'prune')
               yield* rpc('documents.retireHistory', { ...scope, token: released.token });
             else yield* rpc('documents.delete', { documentId: ancestor.id, token: released.token });
+
             assert.equal(
               (yield* Effect.flip(
                 rpc('documents.exportFile', { id: ancestor.version.id, format: 'markdown' })
@@ -156,6 +171,7 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+
             const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
             const document = deletionDocument('Evidence é😀');
             const owner = yield* docs('documents.create', {
@@ -165,7 +181,8 @@ testStable(
               title: 'Evidence',
               document
             });
-            const retained = yield* docs('documents.version', {
+
+            yield* docs('documents.version', {
               id: owner.version!.id
             });
             const contents: (typeof materialContentInputSchema.Type)[] = [
@@ -269,7 +286,8 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-            const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
+
+            yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
             const cells = [
               '=1+1',
               '  +SUM(A1)',
@@ -339,6 +357,7 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+
             const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
             const body = deletionDocument('é😀'.repeat(32 * 1024));
             const owner = yield* docs('documents.create', {
@@ -355,7 +374,8 @@ testStable(
               title: 'Later',
               document: deletionDocument('Later')
             });
-            const retained = yield* docs('documents.version', {
+
+            yield* docs('documents.version', {
               id: owner.version!.id
             });
             const claim = yield* rpc('materials.create', {
@@ -418,8 +438,10 @@ testStable(
                 claim.version.id
               )
             );
+
             assert.deepEqual(actual, expected);
             const preview = yield* docs('documents.previewDeletion', { id: later.id });
+
             assert.deepEqual(preview.blockedVersionIds, [later.version!.id]);
             assert.equal(
               (yield* Effect.flip(
@@ -429,6 +451,7 @@ testStable(
             );
             assert.equal((yield* Effect.flip(snapshot(exact))).kind, 'invalid_input');
             const bounded = yield* snapshot(MAX_EXPORT_BYTES);
+
             assert.equal(bounded.citations.length, 3);
             assert.ok(
               JSON.stringify(bounded, (_, value) =>

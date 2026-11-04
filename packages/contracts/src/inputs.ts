@@ -8,17 +8,21 @@ const authoredVersionInputSchema = Schema.Struct({
   kind: Schema.Literal('document'),
   versionId: studyDocumentVersionIdSchema
 });
+
 const extractedSourceInputSchema = Schema.Struct({
   kind: Schema.Literal('source'),
   sourceId: sourceIdSchema,
   revision: Schema.BigInt.check(Schema.isGreaterThanBigInt(0n)),
   snapshotId: contentSnapshotIdSchema
 });
+
 export const contentInputSchema = Schema.Union([
   authoredVersionInputSchema,
   extractedSourceInputSchema
 ]);
+
 export type ContentInput = typeof contentInputSchema.Type;
+
 export function contentInputKey(input: ContentInput): string {
   return input.kind === 'document'
     ? `document:${input.versionId}`

@@ -49,6 +49,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
       Effect.gen(function* () {
         const projects = yield* Projects;
         const materials = yield* Materials;
+
         const documents = yield* Documents;
         const project = yield* projects.createProject({ name: 'Generation' });
         const doc = yield* documents.create({
@@ -274,6 +275,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           }
         ]);
         const blocked = yield* documents.previewDeletion({ id: doc.id });
+
         assert.deepEqual(blocked.blockedVersionIds, [doc.version!.id]);
         assert.throws(() =>
           context.db.orm.run(
@@ -360,7 +362,8 @@ testStable('guarded generation publishes once and replays its receipt', async ()
     await Effect.runPromise(
       Effect.gen(function* () {
         const materials = yield* Materials;
-        const documents = yield* Documents;
+
+        yield* Documents;
         const error = yield* Effect.flip(
           withPublicationGuard(
             context,
@@ -415,6 +418,7 @@ testStable('receipt persists across reopen and a new workflow execution', async 
         context,
         Effect.gen(function* () {
           const materials = yield* Materials;
+
           const documents = yield* Documents;
 
           if (!replay) {

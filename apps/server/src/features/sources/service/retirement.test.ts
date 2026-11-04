@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises source retirement behavior through real persistence boundaries.          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies source deletion scrubs native captures before interrupting a retired provider │
+ * │   execution.                                                                             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { createBlock, plainBlock } from '@study/contracts/sources/document';
@@ -43,6 +56,7 @@ testStable(
         )
       )
     );
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -60,6 +74,7 @@ testStable(
               )?.payload
             )
           );
+
           context.db.orm
             .run(sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,owner_token,created_at,updated_at)
         VALUES('source-run','SourceIngestionWorkflow',1,${JSON.stringify({ event })},'running','owner',1,1)`);
@@ -106,6 +121,7 @@ testStable(
     const layer = Layer.merge(Sources.layer, Conversations.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -118,6 +134,7 @@ testStable(
           });
           const processing = yield* sources.sourceProcessing(source.id);
           const session = yield* conversations.createSession({ title: 'Exact attachments' });
+
           yield* conversations.postMessage({
             sessionId: session.id,
             sourceIds: [source.id],
@@ -125,6 +142,7 @@ testStable(
             requestReply: false
           });
           const request = yield* conversations.requestReply({ sessionId: session.id });
+
           assert.equal(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
             'invalid_input'
@@ -161,16 +179,16 @@ testStable(
               }
             })
           );
+
           yield* withTestPublication(
             context,
             conversations.sealReplyAttachments({ requestId: request.requestId }).pipe(
-              Effect.tap((sealed) =>
-                Effect.sync(() => {
-                  assert.equal(sealed.messages[0].attachments[0].revision, 1n);
-                  assert.equal(sealed.messages[0].attachments[0].snapshotId, published.documentId);
-                })
-              ),
-              Effect.asVoid
+              Effect.tap((sealed) => {
+                assert.equal(sealed.messages[0].attachments[0].revision, 1n);
+                assert.equal(sealed.messages[0].attachments[0].snapshotId, published.documentId);
+
+                return Effect.void;
+              })
             )
           );
           yield* sources.replaceSource({
@@ -209,6 +227,7 @@ testStable(
     const layer = Layer.merge(Sources.layer, Documents.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -236,6 +255,7 @@ testStable(
               omissions: []
             }
           };
+
           yield* transaction((tx) =>
             tx.store(SourceStore).publishSourceDocument({
               id: source.id,
@@ -245,6 +265,7 @@ testStable(
             })
           );
           const own = yield* sources.previewDeletion({ id: source.id });
+
           assert.deepEqual(own.blockedBy, []);
           assert.equal(own.revisionCount, 1n);
           assert.equal(own.extractionCount, 1n);
@@ -265,6 +286,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.deepEqual((yield* sources.previewDeletion({ id: source.id })).blockedBy, [
             'image_assets'
           ]);
@@ -273,6 +295,7 @@ testStable(
             'invalid_input'
           );
           const preview = yield* documents.previewDeletion({ id: authored.id });
+
           yield* documents.delete({ documentId: authored.id, token: preview.token });
           assert.deepEqual((yield* sources.previewDeletion({ id: source.id })).blockedBy, []);
           assert.equal(yield* sources.deleteSource({ id: source.id }), true);

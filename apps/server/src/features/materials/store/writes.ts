@@ -13,13 +13,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type {
-  ContentSnapshotId,
-  MaterialId,
-  MaterialVersionId,
-  ProjectId,
-  SessionId
-} from '@study/contracts/ids';
+import type { MaterialId, MaterialVersionId, ProjectId, SessionId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { createMaterialVersionInputSchema } from '@study/contracts/materials/schemas';
 import { and, eq, desc } from '@study/db';
@@ -71,10 +65,13 @@ export function makeWrites(resources: StoreResources) {
     links: { inputs?: readonly ContentInput[]; parents?: readonly MaterialVersionId[] }
   ) {
     const parents = links.parents ?? [];
+
     if (new Set(parents).size !== parents.length)
       throw new StudyError('invalid_input', 'Duplicate version ancestry');
+
     for (const id of parents) {
       const parent = versionRow(id);
+
       if (
         parent.id === version.id ||
         parent.status !== 'published' ||
@@ -84,11 +81,13 @@ export function makeWrites(resources: StoreResources) {
           'invalid_input',
           'Ancestry requires a published version of the same learning artifact'
         );
+
       store.orm
         .insert(s.material_version_parents)
         .values({ version_id: version.id, parent_version_id: id, material_id: version.material_id })
         .run();
     }
+
     exact.insertInputs({ kind: 'version', id: version.id }, links.inputs ?? []);
   }
 

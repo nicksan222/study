@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises native runtime runtime backup retention behavior through real            │
+ * │ persistence boundaries.                                                                  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies authored history retirement protects exact dependents before restoring        │
+ * │   unavailable bodies and independent current history.                                    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -23,6 +37,7 @@ for (const kind of ['file', 'image'] as const)
     async () => {
       const source = await documentTransformFixture();
       let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
+
       try {
         const bytes =
           kind === 'image'
@@ -71,12 +86,15 @@ for (const kind of ['file', 'image'] as const)
                   });
             const original = yield* create('Retired authored output');
             const copy = yield* create('Independent retained output');
+
             assert.ok(original.version);
             assert.ok(copy.version);
             const expected = yield* docs.exportVersion({ id: copy.version.id });
             const preview = yield* docs.previewDeletion({ id: original.id });
+
             assert.deepEqual(preview.blockedVersionIds, []);
             yield* docs.delete({ documentId: original.id, token: preview.token });
+
             return {
               originalId: original.id,
               originalVersionId: original.version.id,
@@ -86,10 +104,12 @@ for (const kind of ['file', 'image'] as const)
           }).pipe(Effect.provide(source.domain()))
         );
         const backup = await exportSnapshot(source.context.db);
+
         await source.close();
         target = await restoreSnapshot(backup);
         const app = target.app;
         const docs = await app.nativeRuntime.runPromise(Documents);
+
         assert.equal(
           (
             await app.nativeRuntime.runPromise(
@@ -113,12 +133,15 @@ for (const kind of ['file', 'image'] as const)
           bytes
         );
         const owner = await app.nativeRuntime.runPromise(Sources);
+
         assert.ok(
           (await app.nativeRuntime.runPromise(owner.previewDeletion({ id: originalSource.id })))
             .blockedBy.length
         );
+
         if (kind === 'image')
           assert.equal(app.store.db.orm.select().from(s.document_assets).all().length, 1);
+
         await app.workers.start();
         await app.workers.stop();
         assert.equal(
@@ -142,6 +165,7 @@ testStable(
   async () => {
     const source = await documentTransformFixture();
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -159,6 +183,7 @@ testStable(
               citations: []
             });
           const root = yield* create('Retire history', 'PRIVATE_PRUNED_BODY');
+
           assert.ok(root.version);
           const current = yield* docs.save({
             documentId: root.id,
@@ -170,19 +195,24 @@ testStable(
             { kind: 'document', versionId: root.version.id }
           ]);
           const independent = yield* create('Independent', 'Independent body');
+
           assert.ok(independent.version);
           const scope = { documentId: root.id, keepLatest: 1 };
           const blocked = yield* docs.previewHistory(scope);
+
           assert.deepEqual(blocked.blockedVersionIds, [root.version.id]);
           assert.equal(
             (yield* Effect.flip(docs.retireHistory({ ...scope, token: blocked.token }))).kind,
             'invalid_input'
           );
           const removeDependent = yield* docs.previewDeletion({ id: dependent.id });
+
           yield* docs.delete({ documentId: dependent.id, token: removeDependent.token });
           const preview = yield* docs.previewHistory(scope);
+
           assert.deepEqual(preview.blockedVersionIds, []);
           yield* docs.retireHistory({ ...scope, token: preview.token });
+
           return {
             rootId: root.id,
             old: root.version.id,
@@ -191,12 +221,15 @@ testStable(
           };
         }).pipe(Effect.provide(source.domain()))
       );
+
       assertScrubbed(source, 'PRIVATE_PRUNED_BODY');
       const bytes = await exportSnapshot(source.context.db);
+
       await source.close();
       target = await restoreSnapshot(bytes);
       const app = target.app;
       const docs = await app.nativeRuntime.runPromise(Documents);
+
       assert.equal(
         (await app.nativeRuntime.runPromise(Effect.flip(docs.version({ id: saved.old })))).kind,
         'not_found'
@@ -219,6 +252,7 @@ testStable(
       assert.equal(app.store.db.orm.select().from(s.study_document_retirements).all().length, 2);
       const api = await target.api();
       const next = await app.nativeRuntime.runPromise(api.createBackup());
+
       assert.equal(
         (await app.nativeRuntime.runPromise(api.previewRestore({ id: next.id })))
           .blockedByCurrentBarriers,

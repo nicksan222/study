@@ -1,4 +1,15 @@
-/** Independent authored source pins keep exact original bytes until explicit source deletion. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Independent authored source pins keep exact original bytes until explicit source   │
+ * │ deletion.                                                                                │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies retained identities and exact retained copies invariants.                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -20,6 +31,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
     `independent ${kind} pins preserve exact exports until final source removal without affecting equal-hash bytes or raw PCM`,
     async () => {
       const f = await documentTransformFixture();
+
       try {
         const recordingId = kind === 'recording' ? await recordingSource(f) : null;
         const saved = await Effect.runPromise(
@@ -66,16 +78,19 @@ for (const kind of ['file', 'image', 'recording'] as const)
               });
             const a = yield* create('First authored owner');
             const b = yield* create('Independent authored owner');
+
             assert.ok(a.version);
             assert.ok(b.version);
             const expected = yield* docs.exportVersion({ id: b.version.id });
             const preview = yield* docs.previewDeletion({ id: a.id });
+
             yield* docs.delete({ documentId: a.id, token: preview.token });
             assert.equal(
               (yield* Effect.flip(docs.exportVersion({ id: a.version.id }))).kind,
               'not_found'
             );
             const blocked = yield* sources.previewDeletion({ id: source.id });
+
             assert.ok(blocked.blockedBy.includes('exact_inputs'));
             assert.equal(
               (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
@@ -86,23 +101,30 @@ for (const kind of ['file', 'image', 'recording'] as const)
               original
             );
             assert.deepEqual(yield* docs.exportVersion({ id: b.version.id }), expected);
+
             return { source, unrelated, original, b: { ...b, version: b.version }, expected };
           }).pipe(Effect.provide(f.domain()))
         );
+
         f.reopen();
+
         for (const mutation of [
           sql`DELETE FROM source_snapshots WHERE source_id=${saved.source.id}`,
           sql`DELETE FROM sources WHERE id=${saved.source.id}`,
           sql`UPDATE source_snapshots SET bytes=x'00' WHERE source_id=${saved.source.id}`
         ])
           assert.throws(() => f.context.db.orm.run(mutation));
+
         const pcm = f.context.db.orm.select().from(s.recording_chunks).all();
+
         await Effect.runPromise(
           Effect.gen(function* () {
             const sources = yield* Sources;
             const docs = yield* Documents;
+
             assert.deepEqual(yield* docs.exportVersion({ id: saved.b.version.id }), saved.expected);
             const preview = yield* docs.previewDeletion({ id: saved.b.id });
+
             yield* docs.delete({ documentId: saved.b.id, token: preview.token });
             assert.deepEqual(
               (yield* sources.previewDeletion({ id: saved.source.id })).blockedBy,
@@ -148,7 +170,9 @@ for (const kind of ['file', 'image', 'recording'] as const)
           0
         );
         assert.deepEqual(f.context.db.orm.select().from(s.recording_chunks).all(), pcm);
+
         if (kind === 'recording') assert.ok(pcm.length);
+
         assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
       } finally {
         await f.close();

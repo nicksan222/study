@@ -528,11 +528,13 @@ for (const mode of ['history', 'material', 'session'] as const) {
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
+
             if (mode === 'history') {
               const preview = yield* docs.previewHistory({
                 documentId: saved.material.id,
                 keepLatest: 1
               });
+
               assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
               assert.equal(
                 (yield* Effect.flip(
@@ -546,6 +548,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
               );
             } else if (mode === 'material') {
               const preview = yield* docs.previewDeletion({ id: saved.material.id });
+
               assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
               assert.equal(
                 (yield* Effect.flip(
@@ -554,7 +557,9 @@ for (const mode of ['history', 'material', 'session'] as const) {
                 'invalid_input'
               );
             }
+
             const chats = yield* Conversations;
+
             assert.deepEqual(yield* chats.ask(saved.input), saved.result);
             yield* chats.deleteSession(saved.session.id);
           }).pipe(Effect.provide(f.domain()))
@@ -576,6 +581,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
 
             assert.equal((yield* Effect.flip(c.replyVersion(key))).kind, 'not_found');
             const docs = yield* Documents;
+
             assert.equal((yield* docs.document({ id: saved.material.id })).id, saved.material.id);
             assert.equal(
               f.context.db.orm

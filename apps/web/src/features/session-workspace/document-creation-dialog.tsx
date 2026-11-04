@@ -33,6 +33,7 @@ export function SessionDocumentDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger render={trigger} />}

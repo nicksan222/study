@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises native runtime runtime documents behavior through real persistence       │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies native HTTP runtime exposes independent Documents and persists exact saves,   │
+ * │   annotations and archive.                                                               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { StudyRpc } from '@study/contracts/rpc';
@@ -15,6 +29,7 @@ testStable(
   async (t) => {
     const fixture = await createStudyTest(t);
     const server = fixture.manage(await serve(fixture.app));
+
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -44,6 +59,7 @@ testStable(
             }
           };
           const document = yield* rpc['documents.create'](input);
+
           assert.ok(document.version);
           assert.equal((yield* rpc['documents.create'](input)).id, document.id);
           const renamed = yield* rpc['documents.updateMetadata']({
@@ -53,6 +69,7 @@ testStable(
             expectedTitle: document.title,
             expectedDescription: null
           });
+
           assert.equal(renamed.title, 'HTTP renamed');
           const rejectedMetadata = yield* Effect.flip(
             rpc['documents.updateMetadata']({
@@ -63,6 +80,7 @@ testStable(
               expectedDescription: null
             })
           );
+
           assert.ok('kind' in rejectedMetadata);
           assert.equal(rejectedMetadata.kind, 'invalid_input');
           const session = yield* rpc['conversations.createSession']({ title: 'HTTP source links' });
@@ -71,6 +89,7 @@ testStable(
             bytes: new TextEncoder().encode('Exact source bytes'),
             projectId: null
           });
+
           yield* rpc['sources.attachSource']({ sessionId: session.id, sourceId: source.id });
           yield* rpc['sources.attachSource']({ sessionId: session.id, sourceId: source.id });
           assert.equal(
@@ -89,6 +108,7 @@ testStable(
             key: 'http-save',
             document: input.document
           });
+
           assert.equal(saved.outcome, 'saved');
           const latest = yield* rpc['documents.version']({ id: saved.submittedVersionId });
           const annotation = yield* rpc['documents.createAnnotation']({
@@ -105,6 +125,7 @@ testStable(
             kind: 'note',
             note: 'HTTP exact note'
           });
+
           assert.equal(
             (yield* rpc['documents.annotation']({ id: annotation.annotation.id })).note,
             'HTTP exact note'

@@ -90,6 +90,7 @@ export const documentGenerationRequestedSchema = Schema.Struct({
   type: Schema.Literal('DocumentGenerationRequested'),
   requestId: Schema.String.check(Schema.isMinLength(1))
 });
+
 const documentGenerationFailedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('DocumentGenerationFailed'),
@@ -97,6 +98,7 @@ const documentGenerationFailedSchema = Schema.Struct({
   generationEventId: Schema.String,
   errorKind: errorKindSchema
 });
+
 const documentPublishedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('DocumentPublished'),

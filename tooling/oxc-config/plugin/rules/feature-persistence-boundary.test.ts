@@ -112,9 +112,9 @@ testStable(
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+      'Feature materials may not write source_extraction_revisions.',
       'Feature materials may not write source_recording_imports.',
-      'Feature materials may not write source_recording_imports.',
-      'Feature materials may not write source_extraction_revisions.'
+      'Feature materials may not write source_recording_imports.'
     ]);
   }
 );
@@ -177,8 +177,8 @@ testStable(
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature conversations may not write study_document_versions.',
       'Feature conversations may not write session_materials.',
+      'Feature conversations may not write study_document_versions.',
       'Feature materials may not write session_run_contexts.',
       'Feature materials may not write session_run_contexts.'
     ]);
@@ -207,9 +207,9 @@ testStable(
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+      'Feature conversations may not write material_evidence_citations.',
       'Feature conversations may not write material_evidence_inputs.',
-      'Feature conversations may not write material_generation_requests.',
-      'Feature conversations may not write material_evidence_citations.'
+      'Feature conversations may not write material_generation_requests.'
     ]);
   }
 );
@@ -424,10 +424,10 @@ testStable(
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature learning may not write session_retired_intents.',
       'Feature learning may not write material_history_members.',
       'Feature learning may not write material_history_prunes.',
       'Feature learning may not write material_history_requests.',
+      'Feature learning may not write session_retired_intents.',
       'Feature learning may not write source_extraction_revisions.',
       'Feature learning may not write source_snapshots.'
     ]);

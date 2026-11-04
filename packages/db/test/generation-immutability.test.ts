@@ -1,16 +1,12 @@
 import assert from 'node:assert/strict';
 import { cpSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-/* eslint-disable study/database-ownership -- Upgrade test uses the official migrator to seed the preceding schema. */
 import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-sqlite';
-import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
-import type { Db } from '../src/index.ts';
+import { Db } from '../src/index.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
 const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
@@ -146,10 +142,9 @@ testStable('upgrade retains a completed receipt and seals its captured inputs', 
         cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
     }
 
-    const sqlite = new DatabaseSync(location.path);
+    const sqlite = Db.open(location.path, previous);
 
     try {
-      migrate(drizzle({ client: sqlite }), { migrationsFolder: previous });
       sqlite.exec(historicalSeed);
       sqlite.exec(`UPDATE material_generation_requests SET payload=json_remove(payload,'$.inputVersionIds');
         INSERT INTO material_version_inputs(version_id,input_version_id,project_id) VALUES(2,1,1);
@@ -167,10 +162,9 @@ testStable('upgrade retains a completed receipt and seals its captured inputs', 
         cpSync(join(migrations, entry), join(current, entry), { recursive: true });
     }
 
-    const upgraded = new DatabaseSync(location.path);
+    const upgraded = Db.open(location.path, current);
 
     upgraded.exec('PRAGMA foreign_keys=OFF');
-    migrate(drizzle({ client: upgraded }), { migrationsFolder: current });
     upgraded.exec('PRAGMA foreign_keys=ON');
 
     try {
@@ -205,10 +199,9 @@ testStable('upgrade rejects a historical receipt pointing to an unrelated draft 
         cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
     }
 
-    const sqlite = new DatabaseSync(location.path);
+    const sqlite = Db.open(location.path, previous);
 
     try {
-      migrate(drizzle({ client: sqlite }), { migrationsFolder: previous });
       sqlite.exec(historicalSeed);
       sqlite.exec(
         `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request'`
@@ -225,21 +218,19 @@ testStable('upgrade rejects a historical receipt pointing to an unrelated draft 
         'errcode' in error.cause &&
         error.cause.errcode === 1811
     );
-    const retained = new DatabaseSync(location.path);
+    const retained = Db.open(location.path, previous);
 
     try {
       assert.deepEqual(
-        retained.prepare('SELECT result_version_id FROM material_generation_requests').get()
+        retained.orm.get('SELECT result_version_id FROM material_generation_requests')
           ?.result_version_id,
-        2
+        2n
       );
       assert.equal(
-        retained
-          .prepare(
-            "SELECT COUNT(*) AS count FROM pragma_table_info('material_versions') WHERE name='generation_request_id'"
-          )
-          .get()?.count,
-        0
+        retained.orm.get(
+          "SELECT COUNT(*) AS count FROM pragma_table_info('material_versions') WHERE name='generation_request_id'"
+        )?.count,
+        0n
       );
     } finally {
       retained.close();
@@ -435,6 +426,7 @@ const preCutoverSeed = `INSERT INTO projects(id,name,created_at,updated_at) VALU
 
 function triggerConstraint(error: unknown) {
   const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
+
   return cause instanceof Error && 'errcode' in cause && cause.errcode === 1811;
 }
 
@@ -453,12 +445,10 @@ testStable(
           cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
       }
 
-      const sqlite = new DatabaseSync(location.path);
+      const sqlite = Db.open(location.path, previous);
 
       try {
         sqlite.exec('PRAGMA foreign_keys=OFF');
-
-        migrate(drizzle({ client: sqlite }), { migrationsFolder: previous });
 
         sqlite.exec(preCutoverSeed);
 
@@ -521,37 +511,24 @@ testStable(
           cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
       }
 
-      const old = new DatabaseSync(location.path);
+      const old = Db.open(location.path, previous);
 
       try {
         old.exec('PRAGMA foreign_keys=OFF');
-
-        migrate(drizzle({ client: old }), { migrationsFolder: previous });
 
         old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
 
         old.exec(preCutoverSeed);
 
-        seedPrivateSessionOutput(
-          drizzle({ client: old }),
-          1,
-          4,
-          'OLD_PRIVATE_INSTRUCTION_8',
-          'documents'
-        );
+        seedPrivateSessionOutput(old.orm, 1, 4, 'OLD_PRIVATE_INSTRUCTION_8', 'documents');
 
-        seedPrivateSessionOutput(
-          drizzle({ client: old }),
-          2,
-          5,
-          'OTHER_PRIVATE_INSTRUCTION_8',
-          'documents'
-        );
+        seedPrivateSessionOutput(old.orm, 2, 5, 'OTHER_PRIVATE_INSTRUCTION_8', 'documents');
       } finally {
         old.close();
       }
 
       let db = location.open();
+
       try {
         const before = retainedSessionLibrary(db);
         const versions = db.orm.all<{
@@ -561,28 +538,16 @@ testStable(
         }>(
           'SELECT id,instruction,content_snapshot_id FROM study_document_versions WHERE instruction IS NOT NULL ORDER BY id'
         );
+
         assert.equal(versions.length, 2);
         assert.deepEqual(
           versions.map((v) => v.instruction),
           ['OLD_PRIVATE_INSTRUCTION_8', 'OTHER_PRIVATE_INSTRUCTION_8']
         );
+
         for (const version of versions) {
-          for (const assignment of [
-            'instruction=NULL',
-            "creator='user'",
-            "operation='edit'",
-            "language='it'",
-            'created_at=7',
-            'published_at=7',
-            'document_id=999'
-          ])
-            assert.throws(
-              () =>
-                db.orm.run(
-                  sql.raw(`UPDATE study_document_versions SET ${assignment} WHERE id=${version.id}`)
-                ),
-              triggerConstraint
-            );
+          assertImmutableDocumentMetadata(db, version.id);
+
           assert.throws(
             () =>
               db.orm.run(
@@ -596,6 +561,7 @@ testStable(
             triggerConstraint
           );
         }
+
         assert.equal(
           db.orm.get("SELECT 1 FROM sqlite_schema WHERE name='session_generation_retirements'"),
           undefined
@@ -632,7 +598,7 @@ testStable(
 );
 
 function seedPrivateSessionOutput(
-  db: ReturnType<typeof drizzle>,
+  db: Db['orm'],
   sessionId: number,
   id: number,
   instruction: string,
@@ -710,4 +676,23 @@ function retainedSessionLibrary(db: Db) {
     citations: db.orm.all('SELECT * FROM study_document_citations ORDER BY version_id,marker'),
     inputs: db.orm.all('SELECT * FROM study_document_inputs ORDER BY version_id,position')
   };
+}
+
+function assertImmutableDocumentMetadata(db: Db, versionId: bigint) {
+  for (const assignment of [
+    'instruction=NULL',
+    "creator='user'",
+    "operation='edit'",
+    "language='it'",
+    'created_at=7',
+    'published_at=7',
+    'document_id=999'
+  ])
+    assert.throws(
+      () =>
+        db.orm.run(
+          sql.raw(`UPDATE study_document_versions SET ${assignment} WHERE id=${versionId}`)
+        ),
+      triggerConstraint
+    );
 }

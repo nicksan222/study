@@ -627,6 +627,7 @@ testStable(
 
 function VersionedNote({ value = message }: { value?: typeof message }) {
   const [versionId, setVersionId] = useState(value.activeVersionId!);
+
   return (
     <MessageActions
       message={value}
@@ -699,6 +700,7 @@ testStable('retains the same action controls while browsing saved versions', () 
   const edit = screen.getByRole('button', { name: 'SessionEditNote' });
   const improve = screen.getByRole('button', { name: 'SessionImprove', hidden: true });
   const activate = screen.getByRole('button', { name: 'SessionUseVersion' });
+
   expect(activate).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'SessionPreviousVersion' }));
   expect(screen.getByRole('button', { name: 'SessionEditNote' })).toBe(edit);

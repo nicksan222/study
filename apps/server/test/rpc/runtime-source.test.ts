@@ -186,12 +186,17 @@ testStable(
             function* waitForExtraction(text: string) {
               for (let attempt = 0; attempt < 100; attempt++) {
                 const extraction = yield* client['sources.currentExtraction']({ id: source.id });
+
                 if (extraction?.document.blocks[0]?.text === text) return extraction;
+
                 yield* Effect.sleep('50 millis');
               }
+
               throw new Error('Source extraction did not publish');
             }
+
             const extracted = yield* waitForExtraction('Mitochondria generate ATP');
+
             assert.equal(
               (yield* client['materials.materials']({
                 projectId: project.id,
@@ -214,8 +219,10 @@ testStable(
               name: 'updated.txt',
               bytes: new TextEncoder().encode('Chloroplasts capture sunlight')
             });
+
             assert.equal(replaced.revision, 2);
             const next = yield* waitForExtraction('Chloroplasts capture sunlight');
+
             assert.equal(next.sourceId, extracted.sourceId);
             assert.notEqual(next.snapshotId, extracted.snapshotId);
             const old = yield* client['sources.extraction']({
@@ -223,6 +230,7 @@ testStable(
               revision: 1n,
               snapshotId: extracted.snapshotId
             });
+
             assert.deepEqual(old.document, extracted.document);
             const oldBytes = yield* client['sources.exportRevision']({
               sourceId: source.id,
@@ -232,6 +240,7 @@ testStable(
               sourceId: source.id,
               revision: 2n
             });
+
             assert.deepEqual(oldBytes.bytes, new TextEncoder().encode('Mitochondria generate ATP'));
             assert.deepEqual(
               nextBytes.bytes,
@@ -241,6 +250,7 @@ testStable(
               sourceId: source.id,
               limit: 10
             });
+
             assert.deepEqual(
               history.items.map((item) => item.snapshotId),
               [next.snapshotId, extracted.snapshotId]

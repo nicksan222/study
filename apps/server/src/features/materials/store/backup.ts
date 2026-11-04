@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import { contentInputSchema } from '@study/contracts/inputs';
 import { learningCitationSchema } from '@study/contracts/materials/inputs';
@@ -21,12 +19,11 @@ import {
   materialVersionDetailSchema,
   materialGenerationPayloadSchema
 } from '@study/contracts/materials/schemas';
-import { and, eq, sql } from '@study/db';
+import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeExactInputs } from './exact-inputs.ts';
 import { makeReads } from './reads.ts';
@@ -47,26 +44,32 @@ export const MaterialBackupStore = defineStore({
         ),
         run: () => {
           const { db } = resources;
+
           if (
             db.orm.get(
               sql`SELECT 1 FROM material_deletions WHERE status!='completed' UNION ALL SELECT 1 FROM material_history_prunes WHERE status!='completed' LIMIT 1`
             )
           )
             throw new StudyError('invalid_input', 'Backup requires completed learning cleanup');
+
           if (
             db.orm.get(
               sql`SELECT 1 FROM material_generation_requests WHERE cancelled=0 AND result_version_id IS NULL AND payload!='{}' LIMIT 1`
             )
           )
             throw new StudyError('invalid_input', 'Backup contains pending learning authority');
+
           const generation = Schema.decodeUnknownSync(
             Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
           );
+
           for (const row of db.orm.select().from(s.material_generation_requests).all())
             if (row.payload !== '{}') generation(row.payload);
+
           const reads = makeReads(resources);
           const evidence = makeExactInputs(resources);
           const result = [];
+
           for (const row of db.orm.select().from(s.material_versions).all()) {
             if (
               db.orm.get(
@@ -74,11 +77,14 @@ export const MaterialBackupStore = defineStore({
               )
             )
               continue;
+
             const version = Schema.decodeUnknownSync(materialVersionDetailSchema)(
               reads.readVersion(row.id)
             );
+
             result.push({ inputs: version.inputs, citations: evidence.citations(row.id) });
           }
+
           return result;
         }
       })

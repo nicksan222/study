@@ -2,12 +2,7 @@
 import { Schema } from 'effect';
 
 import { errorKindSchema } from '../errors.ts';
-import {
-  materialIdSchema,
-  materialVersionIdSchema,
-  sourceIdSchema,
-  sessionIdSchema
-} from '../ids.ts';
+import { materialIdSchema, materialVersionIdSchema, sessionIdSchema } from '../ids.ts';
 
 export const materialDeletionKeySchema = Schema.Struct({ materialId: materialIdSchema });
 
@@ -18,6 +13,7 @@ export const materialDeletionPreviewSchema = Schema.Struct({
   sessionIds: Schema.Array(sessionIdSchema),
   privateRequestIds: Schema.Array(Schema.String)
 });
+
 export const requestMaterialDeletionSchema = Schema.Struct({
   materialId: materialIdSchema,
   token: Schema.String

@@ -21,6 +21,7 @@ testStable.each(['english', 'italian'] as const)(
         .every((button) => !button.hasAttribute('disabled'))
     ).toBe(true);
     const main = within(screen.getByRole('main'));
+
     expect(main.queryByRole('textbox', { name: copy.SessionCompose })).toBeNull();
     fireEvent.click(main.getByRole('button', { name: copy.SessionStartWithNote }));
     expect(await main.findByRole('textbox', { name: copy.SessionCompose })).toBeVisible();

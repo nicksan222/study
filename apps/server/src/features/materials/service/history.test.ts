@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 
 import { historyPolicySchema, historyVersionIdsSchema } from '@study/contracts/materials/history';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import { eq, sql } from '@study/db';
+import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { testStable } from '@study/testing/node';
 import { Effect, Layer, Schema } from 'effect';
@@ -386,6 +386,7 @@ testStable(
   'authored exact captures block body retirement until raw session cleanup, while fresh work uses the independent current head',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -398,8 +399,10 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(root.version);
           const session = yield* chats.createUntitledSession({});
+
           yield* chats.postMessage({
             sessionId: session.id,
             text: 'RAW_MESSAGE_PRIVATE',
@@ -434,6 +437,7 @@ testStable(
           });
           const scope = { documentId: root.id, keepLatest: 1 };
           const preview = yield* docs.previewHistory(scope);
+
           assert.deepEqual(preview.blockedVersionIds, [root.version.id]);
           assert.equal(
             (yield* Effect.flip(docs.retireHistory({ ...scope, token: preview.token }))).kind,
@@ -445,8 +449,10 @@ testStable(
           );
           yield* chats.deleteSession(session.id);
           const released = yield* docs.previewHistory(scope);
+
           assert.deepEqual(released.blockedVersionIds, []);
           yield* docs.retireHistory({ ...scope, token: released.token });
+
           return {
             rootId: root.id,
             currentId: current.submittedVersionId,
@@ -456,12 +462,14 @@ testStable(
           };
         }).pipe(Effect.provide(f.domain()))
       );
+
       await cleanupSession(f, saved.sessionId);
       f.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
           const chats = yield* Conversations;
+
           assert.equal(
             (yield* Effect.flip(chats.sessionContext({ requestId: saved.captureId }))).kind,
             'not_found'
@@ -477,6 +485,7 @@ testStable(
             'not_found'
           );
           const session = yield* chats.createUntitledSession({});
+
           yield* chats.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 0n,
@@ -493,6 +502,7 @@ testStable(
             instruction: '',
             preferences: {}
           });
+
           assert.deepEqual(fresh.inputs[0]?.input, {
             kind: 'document',
             versionId: saved.currentId

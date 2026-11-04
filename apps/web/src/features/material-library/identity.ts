@@ -1,9 +1,5 @@
 import { materialIdSchema, materialVersionIdSchema, projectIdSchema } from '@study/contracts/ids';
-import type {
-  MaterialSummaryDto,
-  MaterialVersionDetailDto
-} from '@study/contracts/materials/schemas';
-import type { Source } from '@study/contracts/sources/schemas';
+import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { Schema } from 'effect';
 
 export function materialId(value: string) {

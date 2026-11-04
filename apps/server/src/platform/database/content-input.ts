@@ -1,5 +1,18 @@
-/** Mechanical normalized persistence columns for an exact readable content reference. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Maps exact readable content references into normalized persistence columns.        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Maps exact readable content references into normalized persistence columns.            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Exports mechanical types and operations; owning features retain lifecycle and            │
+ * │ publication policy.                                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { ContentInput } from '@study/contracts/inputs';
+
 export function contentInputColumns(input: ContentInput) {
   return input.kind === 'document'
     ? {

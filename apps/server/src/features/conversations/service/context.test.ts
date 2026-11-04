@@ -178,7 +178,10 @@ testStable(
             );
             assert.equal(
               (yield* Effect.flip(
-                client('conversations.captureSessionContext', { ...intent, instruction: 'Changed' })
+                client('conversations.captureSessionContext', {
+                  ...intent,
+                  instruction: 'Changed'
+                })
               )).kind,
               'invalid_input'
             );
@@ -536,6 +539,7 @@ testStable(
             title: 'Draft',
             document: content('Unpublished')
           });
+
           yield* documents.save({
             documentId: draftOwner.id,
             expectedVersionId: draftOwner.version!.id,
@@ -814,6 +818,7 @@ function assertRetainedCitationShapes(
   sourceId: SourceId
 ) {
   const [incomplete, mismatch, unpublished, attachment] = read.citations;
+
   for (const citation of read.citations) {
     assert.equal(citation.precision, 'unavailable');
     assert.deepEqual(citation.evidence, {
@@ -823,6 +828,7 @@ function assertRetainedCitationShapes(
     });
     assert.deepEqual(citation.anchor, anchor);
   }
+
   assert.deepEqual(incomplete!.input, { kind: 'document', versionId });
   assert.equal(incomplete!.documentId, null);
   assert.deepEqual(mismatch!.input, { kind: 'document', versionId });

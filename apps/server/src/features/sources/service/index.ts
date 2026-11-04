@@ -286,6 +286,7 @@ export const Sources = defineService(
               sourceId: input.sourceId,
               snapshotIds: preview.candidates.map((item) => item.snapshotId)
             });
+
           Workflows.retireCorrelations(tx, ids, [
             'SourceProcessingRequested',
             'SourceCorrectionRequested',
@@ -297,8 +298,10 @@ export const Sources = defineService(
           Workflows.scrubRetiredCorrelations(tx, ids);
           Workflows.scrubRetiredCorrectionInputs(tx, inputIds);
           const result = tx.store(SourceHistoryStore).retireSourceHistory(input);
+
           if (result.candidates.length) {
             const eventId = randomUUID();
+
             tx.emit({
               type: 'SourceHistoryPruned',
               eventId,
@@ -310,6 +313,7 @@ export const Sources = defineService(
               snapshotIds: result.candidates.map((item) => item.snapshotId)
             });
           }
+
           return result;
         }),
       previewDeletion: ({ id }: { id: SourceId }) =>
@@ -476,11 +480,13 @@ export const Sources = defineService(
   {
     currentExtractionInTransaction: (tx: Transaction, id: SourceId) => {
       tx.store(SourceStore).source(id);
+
       return Option.getOrNull(tx.store(CurrentExtractionStore).findCurrentExtraction({ id }));
     },
     sourceInTransaction: (tx: Transaction, id: SourceId) => tx.store(SourceStore).source(id),
     extractionInTransaction: (tx: Transaction, v: typeof exactExtractionInputSchema.Type) => {
       tx.store(SourceStore).source(v.sourceId);
+
       return tx.store(SourceExtractionsStore).extraction(v);
     },
     attachInTransaction: (tx: Transaction, v: typeof sourceLinkSchema.Type) => {

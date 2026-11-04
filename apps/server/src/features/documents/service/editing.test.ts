@@ -6,7 +6,7 @@
  * │ - Covers racing saves, retained conflicts, reopen and guarded restoration.               │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Uses real native handlers and SQLite; no remote provider is contacted.                     │
+ * │ Uses real native handlers and SQLite; no remote provider is contacted.                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

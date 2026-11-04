@@ -4,12 +4,12 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { request } from '#web/lib/study-client/request.ts';
 
-import { HistoryDisclosure } from '../document-presentation/history';
-import { ContentReadError } from '../document-presentation/read-error';
+import { HistoryDisclosure, ContentReadError } from '../document-presentation';
+import { sourceHistoryOptions } from './history.queries';
 
 type Extraction = { revision: bigint; snapshotId: ContentSnapshotId };
+
 export function SourceHistory({
   sourceId,
   onSelect
@@ -19,17 +19,8 @@ export function SourceHistory({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const history = useInfiniteQuery({
-    queryKey: ['sources', 'history', String(sourceId)],
-    enabled: open,
-    initialPageParam: undefined as Extraction | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      request(
-        (rpc) => rpc['sources.extractions']({ sourceId, limit: 30, before: pageParam }),
-        signal
-      ),
-    getNextPageParam: (page) => page.next ?? undefined
-  });
+  const history = useInfiniteQuery(sourceHistoryOptions(sourceId, open));
+
   return (
     <HistoryDisclosure
       open={open}

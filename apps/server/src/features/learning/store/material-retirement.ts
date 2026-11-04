@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { materialVersionIdSchema } from '@study/contracts/ids';
+import type { materialVersionIdSchema } from '@study/contracts/ids';
 import { eq, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
 

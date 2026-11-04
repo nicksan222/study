@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises learning deletion generation behavior through real persistence           │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies generated learning deletion fences replay, releases exact authored evidence   │
+ * │   and never reassigns cleanup ownership.                                                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { eq, sql } from '@study/db';
@@ -18,9 +32,11 @@ testStable(
   'generated learning deletion fences replay, releases exact authored evidence and never reassigns cleanup ownership',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await learningGeneration(f);
       const event = f.event(saved.request.id);
+
       queueLearningGeneration(f);
       const versionId = await f.execute(event, 'completed-generation');
       const output = await Effect.runPromise(
@@ -28,16 +44,19 @@ testStable(
           const m = yield* Materials;
           const docs = yield* Documents;
           const output = yield* m.materialVersion({ id: versionId });
+
           assert.deepEqual(output.inputs, [
             { kind: 'document', versionId: saved.input.version.id }
           ]);
           const preview = yield* docs.previewDeletion({ id: saved.input.id });
+
           assert.deepEqual(preview.blockedVersionIds, [saved.input.version.id]);
           assert.equal(
             (yield* Effect.flip(docs.delete({ documentId: saved.input.id, token: preview.token })))
               .kind,
             'invalid_input'
           );
+
           return output;
         }).pipe(Effect.provide(f.domain()))
       );
@@ -47,6 +66,7 @@ testStable(
         .from(s.material_deletion_requests)
         .where(eq(s.material_deletion_requests.request_id, saved.request.id))
         .get();
+
       assert.equal(owner?.deletion_id, output.material_id);
       assert.equal(owner.kind, 'generation');
       f.context.db.exec(
@@ -56,6 +76,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
+
           assert.equal((yield* m.deletion({ materialId: output.material_id })).status, 'failed');
           assert.equal(
             (yield* Effect.flip(m.materialVersion({ id: versionId }))).kind,
@@ -85,6 +106,7 @@ testStable(
         .from(s.material_generation_requests)
         .where(eq(s.material_generation_requests.id, saved.request.id))
         .get();
+
       assert.ok(retired);
       assert.equal(retired.payload, '{}');
       assert.equal(retired.cancelled, true);
@@ -93,6 +115,7 @@ testStable(
       assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
       assertScrubbed(f, 'GENERATED_HISTORICAL_BODY');
       const native = workflowStore(f.context).execution('completed-generation');
+
       assert.equal(native?.status, 'completed');
       assert.equal(native.payload, '{}');
       assert.equal(native.result, null);
@@ -117,12 +140,14 @@ testStable(
           )
       );
       const calls = f.bodies.length;
+
       await assert.rejects(f.execute(event, 'replay-retired-generation'));
       assert.equal(f.bodies.length, calls);
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
           const docs = yield* Documents;
+
           assert.equal(
             (yield* m.deletion({ materialId: output.material_id })).operationId,
             accepted.operationId
@@ -134,6 +159,7 @@ testStable(
             'not_found'
           );
           const preview = yield* docs.previewDeletion({ id: saved.input.id });
+
           assert.deepEqual(preview.blockedVersionIds, []);
           yield* docs.delete({ documentId: saved.input.id, token: preview.token });
         }).pipe(Effect.provide(f.domain()))

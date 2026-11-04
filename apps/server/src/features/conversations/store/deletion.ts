@@ -28,6 +28,7 @@ export const SessionDeletionStore = defineStore({
   make: (resources) => {
     const { db, clock } = resources;
     const retirement = makeContextRetirement(resources);
+
     function read(id: typeof sessionIdSchema.Type) {
       const row = db.orm
         .select()
@@ -111,6 +112,7 @@ export const SessionDeletionStore = defineStore({
                 .from(s.session_run_contexts)
                 .where(eq(s.session_run_contexts.request_id, id))
                 .get();
+
               if (captured)
                 db.orm
                   .insert(s.session_retired_intents)
@@ -122,6 +124,7 @@ export const SessionDeletionStore = defineStore({
                   })
                   .onConflictDoNothing()
                   .run();
+
               retirement.scrubRequest(id);
             }
           }

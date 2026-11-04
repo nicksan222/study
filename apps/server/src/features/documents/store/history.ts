@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Previews and retires unprotected authored history with durable identity checks.    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Previews and retires unprotected authored history with durable identity checks.        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import type { StudyDocumentId } from '@study/contracts/ids';
@@ -8,15 +21,16 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
 import { invalid } from './errors.ts';
-import type { makeDocumentReads } from './reads.ts';
+import { makeDocumentReads } from './reads.ts';
 
-export function makeDocumentHistory(
-  { db, clock }: StoreResources,
-  reads: ReturnType<typeof makeDocumentReads>
-) {
+export function makeDocumentHistory(resources: StoreResources) {
+  const { db, clock } = resources;
+  const reads = makeDocumentReads(resources);
+
   const orm = db.orm;
   const now = () => unixSeconds(clock);
   const { aggregate, liveVersion } = reads;
+
   function preview(documentId: StudyDocumentId, keepLatest: number, deletion = false) {
     aggregate(documentId);
     const all = orm
@@ -70,6 +84,7 @@ export function makeDocumentHistory(
             .from(s.session_context_documents)
             .where(eq(s.session_context_documents.version_id, x.id))
             .get() !== undefined;
+
         return (
           captured ||
           orm
@@ -124,6 +139,7 @@ export function makeDocumentHistory(
         })
       )
       .digest('hex');
+
     return {
       documentId,
       token,
@@ -132,6 +148,7 @@ export function makeDocumentHistory(
       semantics: 'retire_bodies_retain_identities' as const
     };
   }
+
   function retire(
     documentId: StudyDocumentId,
     keepLatest: number,
@@ -139,10 +156,13 @@ export function makeDocumentHistory(
     deletion = false
   ) {
     const result = preview(documentId, keepLatest, deletion);
+
     if (result.token !== token || result.blockedVersionIds.length)
       invalid('Retirement selection changed or has retained dependents');
+
     for (const id of result.versionIds) {
       const row = liveVersion(id);
+
       orm
         .insert(s.study_document_retirements)
         .values({ version_id: id, reason: deletion ? 'deletion' : 'history', created_at: now() })
@@ -163,6 +183,7 @@ export function makeDocumentHistory(
         .where(eq(s.content_snapshots.id, row.content_snapshot_id))
         .run();
     }
+
     if (deletion) {
       orm.delete(s.session_documents).where(eq(s.session_documents.document_id, documentId)).run();
       orm.delete(s.project_documents).where(eq(s.project_documents.document_id, documentId)).run();
@@ -171,7 +192,9 @@ export function makeDocumentHistory(
         .values({ document_id: documentId, created_at: now() })
         .run();
     }
+
     return result;
   }
+
   return { preview, retire };
 }

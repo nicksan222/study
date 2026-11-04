@@ -2,7 +2,6 @@ import type { StudyDocument } from '@study/contracts/documents/types';
 import type { SourceId, SessionId, ContentSnapshotId } from '@study/contracts/ids';
 import type { documentSchema, Source } from '@study/contracts/sources/schemas';
 import { Button } from '@study/ui/button';
-import { downloadFile } from '@study/ui/download';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
@@ -10,13 +9,12 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { request } from '#web/lib/study-client/request.ts';
 
-import { RetainedDocumentReader } from '../document-presentation';
-import { ContentReadError } from '../document-presentation/read-error';
+import { RetainedDocumentReader, ContentReadError } from '../document-presentation';
 import { SourceDeletion } from './deletion';
 import { SourceHistory } from './history';
 import { SourceHistoryRetirement } from './history-retirement';
+import { sourceExportOptions } from './source-export.queries';
 import { sourceExtractionOptions, sourceOptions, useSourceCopy } from './source-panel.queries';
 
 function SourceHeader({
@@ -45,24 +43,11 @@ function SourceHeader({
     </>
   );
 }
+
 function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?: bigint }) {
   const { t } = useI18n();
-  const download = useMutation({
-    mutationFn: async () => {
-      const original =
-        revision !== undefined
-          ? await request((rpc) => rpc['sources.exportRevision']({ sourceId, revision }))
-          : await request((rpc) => rpc['sources.sourceExport']({ id: sourceId })).then((value) => ({
-              name: value.source.name,
-              mime: value.source.mime,
-              bytes: value.bytes
-            }));
-      downloadFile(
-        original.name,
-        new Blob([new Uint8Array(original.bytes)], { type: original.mime })
-      );
-    }
-  });
+  const download = useMutation(sourceExportOptions(sourceId, revision));
+
   return (
     <>
       <Button variant="ghost" disabled={download.isPending} onClick={() => download.mutate()}>
@@ -77,6 +62,7 @@ function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?:
     </>
   );
 }
+
 function SourceBody({
   document,
   snapshotId,
@@ -91,8 +77,11 @@ function SourceBody({
   onCopy: () => void;
 }) {
   const { t } = useI18n();
+
   if (failed) return null;
+
   if (!document || snapshotId === undefined) return <Loading label={t('SessionPending')} />;
+
   return (
     <Desk.Editor>
       <Button size="sm" variant="outline" disabled={pending} onClick={onCopy}>
@@ -109,6 +98,7 @@ function originalRevision(
 ) {
   return exact?.revision ?? current?.revision;
 }
+
 export function SourcePanel({
   sourceId,
   exact,
@@ -128,13 +118,17 @@ export function SourcePanel({
   const source = useQuery(sourceOptions(deleted ? null : sourceId));
   const state = useQuery({ ...sourceExtractionOptions(sourceId, selected), enabled: !deleted });
   const copy = useSourceCopy(sourceId, sessionId);
+
   function editCopy() {
     if (!state.isSuccess || !source.isSuccess || !state.data) return;
+
     void copy.copy(state.data).then((document) => {
       if (document) onOpenDocument(document);
     });
   }
+
   if (deleted) return <p role="status">{t('SourceDeletedNotice')}</p>;
+
   return (
     <>
       <SourceHeader

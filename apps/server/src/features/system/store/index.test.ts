@@ -291,6 +291,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -303,6 +304,7 @@ testStable(
             citations: []
           });
           const base = document.version!;
+
           yield* documents.save({
             documentId: document.id,
             expectedVersionId: base.id,
@@ -310,6 +312,7 @@ testStable(
             document: deletionDocument('HeadOnlySearchToken')
           });
           const store = yield* useStore(SystemStore);
+
           assert.deepEqual(
             yield* store.searches({ query: 'Obsolete', kinds: ['document'], limit: 10 }),
             []
@@ -319,6 +322,7 @@ testStable(
             kinds: ['document'],
             limit: 10
           });
+
           assert.equal(hits.length, 1);
           assert.equal(hits[0].kind, 'document');
           assert.deepEqual(hits[0].target, { type: 'document', documentId: document.id });

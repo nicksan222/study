@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists independent authored Documents with immutable versions and guarded heads. │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists independent authored Documents with immutable versions and guarded heads.     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import * as e from '@study/contracts/documents/editing';
@@ -16,32 +29,35 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
 import { invalid, required } from './errors.ts';
-import type { makeDocumentEvidence } from './provenance.ts';
-import type { makeDocumentReads } from './reads.ts';
-import type { makeDocumentRevisions } from './revisions.ts';
+import { makeDocumentEvidence } from './provenance.ts';
+import { makeDocumentReads } from './reads.ts';
+import { makeDocumentRevisions } from './revisions.ts';
 
 type GeneratedMetadata = Pick<
   typeof e.createGeneratedSchema.Type,
   'operation' | 'instruction' | 'language'
 >;
+
 function creationMetadata(
   generated?: GeneratedMetadata
 ): Pick<StudyDocumentVersion, 'operation' | 'creator' | 'instruction' | 'language'> {
   if (generated) return { ...generated, creator: 'agent' };
+
   return { operation: 'original', creator: 'user', instruction: null, language: null };
 }
 
-export function makeDocumentEditing(
-  { db, clock }: StoreResources,
-  reads: ReturnType<typeof makeDocumentReads>,
-  revisions: ReturnType<typeof makeDocumentRevisions>,
-  evidence: ReturnType<typeof makeDocumentEvidence>
-) {
+export function makeDocumentEditing(resources: StoreResources) {
+  const { db, clock } = resources;
+  const reads = makeDocumentReads(resources);
+  const revisions = makeDocumentRevisions(resources);
+  const evidence = makeDocumentEvidence(resources);
+
   const orm = db.orm;
   const now = () => unixSeconds(clock);
   const { aggregate, version, head, document, content } = reads;
   const { insertVersion, publish } = revisions;
   const { assertInput, assertCitations, assertBlockOwnership } = evidence;
+
   function attach(v: typeof r.linkSchema.Type) {
     aggregate(v.documentId);
     const last = orm
@@ -50,6 +66,7 @@ export function makeDocumentEditing(
       .where(eq(s.session_documents.session_id, v.sessionId))
       .orderBy(desc(s.session_documents.position))
       .get();
+
     orm
       .insert(s.session_documents)
       .values({
@@ -59,6 +76,7 @@ export function makeDocumentEditing(
       })
       .onConflictDoNothing()
       .run();
+
     for (const project of orm
       .select()
       .from(s.project_sessions)
@@ -70,6 +88,7 @@ export function makeDocumentEditing(
         .onConflictDoNothing()
         .run();
   }
+
   function create(v: typeof e.createSchema.Type, generated?: GeneratedMetadata): StudyDocument {
     const hash = JSON.stringify(intentHash(e.createSchema, v));
     const replay = orm
@@ -77,11 +96,15 @@ export function makeDocumentEditing(
       .from(s.study_documents)
       .where(eq(s.study_documents.create_key, v.createKey))
       .get();
+
     if (replay) {
       if (generated) invalid('Generated creation key already belongs to an existing document');
+
       if (replay.creation_intent !== hash) invalid('Creation key already has another intent');
+
       return document(replay.id);
     }
+
     v.inputs.forEach((i) => assertInput(i));
     assertCitations(v.citations);
     assertBlockOwnership(v.document);
@@ -109,12 +132,17 @@ export function makeDocumentEditing(
       metadata.instruction,
       metadata.language
     );
+
     publish(row.id);
+
     if (v.projectId !== undefined)
       orm.insert(s.project_documents).values({ project_id: v.projectId, document_id: a.id }).run();
+
     if (v.sessionId !== undefined) attach({ documentId: a.id, sessionId: v.sessionId });
+
     return document(a.id);
   }
+
   function createResult(v: typeof e.createSchema.Type) {
     const replayed =
       orm
@@ -122,8 +150,10 @@ export function makeDocumentEditing(
         .from(s.study_documents)
         .where(eq(s.study_documents.create_key, v.createKey))
         .get() !== undefined;
+
     return { document: create(v), replayed };
   }
+
   function replayEdit(
     documentId: StudyDocumentId,
     key: string,
@@ -141,9 +171,12 @@ export function makeDocumentEditing(
         )
       )
       .get();
+
     if (!receipt) return;
+
     if (receipt.operation !== operation || receipt.intent !== intent)
       invalid('Edit key already has another intent');
+
     return {
       outcome: receipt.outcome,
       replayed: true,
@@ -152,6 +185,7 @@ export function makeDocumentEditing(
       submittedVersionId: receipt.submitted_version_id
     };
   }
+
   function edit(
     v: typeof e.saveSchema.Type,
     operation: 'save' | 'restore',
@@ -159,10 +193,13 @@ export function makeDocumentEditing(
     sourceId = v.expectedVersionId
   ) {
     const replay = replayEdit(v.documentId, v.key, operation, intent);
+
     if (replay) return replay;
+
     const expected = version(v.expectedVersionId),
       source = version(sourceId),
       current = required(head(v.documentId));
+
     if (
       expected.documentId !== v.documentId ||
       source.documentId !== v.documentId ||
@@ -170,6 +207,7 @@ export function makeDocumentEditing(
       source.status !== 'published'
     )
       invalid('Edit requires published history of the target document');
+
     assertBlockOwnership(v.document, v.documentId);
     const row = insertVersion(
       v.documentId,
@@ -183,7 +221,9 @@ export function makeDocumentEditing(
       source.language
     );
     const outcome = current.id === expected.id ? ('saved' as const) : ('conflict' as const);
+
     if (outcome === 'saved') publish(row.id);
+
     orm
       .insert(s.study_document_edit_receipts)
       .values({
@@ -197,6 +237,7 @@ export function makeDocumentEditing(
         outcome
       })
       .run();
+
     return {
       outcome,
       replayed: false,
@@ -205,13 +246,17 @@ export function makeDocumentEditing(
       submittedVersionId: row.id
     };
   }
+
   function save(v: typeof e.saveSchema.Type) {
     return edit(v, 'save', JSON.stringify(intentHash(e.saveSchema, v)));
   }
+
   function restore(v: typeof e.restoreSchema.Type) {
     const hash = JSON.stringify(intentHash(e.restoreSchema, v));
     const replay = replayEdit(v.documentId, v.key, 'restore', hash);
+
     if (replay) return replay;
+
     return edit(
       { ...v, document: version(v.restoreVersionId).document },
       'restore',
@@ -219,12 +264,15 @@ export function makeDocumentEditing(
       v.restoreVersionId
     );
   }
+
   function compare(v: typeof e.compareSchema.Type) {
     const before = version(v.beforeVersionId),
       proposed = version(v.proposedVersionId),
       current = version(v.currentVersionId);
+
     if (new Set([before.documentId, proposed.documentId, current.documentId]).size !== 1)
       invalid('Comparison requires one document');
+
     return {
       ...v,
       before,
@@ -235,6 +283,7 @@ export function makeDocumentEditing(
       evidence: 'structural_only' as const
     };
   }
+
   function copySource(v: typeof r.sourceCopySchema.Type) {
     required(
       orm
@@ -262,6 +311,7 @@ export function makeDocumentEditing(
         )
       }))
     };
+
     return createResult({
       createKey: v.createKey,
       title: v.title,
@@ -274,6 +324,7 @@ export function makeDocumentEditing(
       sessionId: v.sessionId
     });
   }
+
   function archive(v: typeof r.archiveSchema.Type) {
     aggregate(v.id);
     orm
@@ -281,29 +332,37 @@ export function makeDocumentEditing(
       .set({ archived_at: v.archived ? now() : null, updated_at: now() })
       .where(eq(s.study_documents.id, v.id))
       .run();
+
     return document(v.id);
   }
+
   function projectMembership(v: typeof r.projectLinkSchema.Type) {
     aggregate(v.documentId);
     required(orm.select().from(s.projects).where(eq(s.projects.id, v.projectId)).get());
+
     return { project_id: v.projectId, document_id: v.documentId };
   }
+
   function exportVersion(v: typeof r.versionKeySchema.Type) {
     const result = version(v.id);
+
     return {
       version: result,
       format: 'canonical_json' as const,
       content: Schema.encodeSync(Schema.fromJsonString(Schema.toCodecJson(c.versionSchema)))(result)
     };
   }
+
   return {
     attach,
     attachProject: (v: typeof r.projectLinkSchema.Type) => {
       const membership = projectMembership(v);
+
       orm.insert(s.project_documents).values(membership).onConflictDoNothing().run();
     },
     detachProject: (v: typeof r.projectLinkSchema.Type) => {
       const membership = projectMembership(v);
+
       orm
         .delete(s.project_documents)
         .where(
@@ -324,8 +383,10 @@ export function makeDocumentEditing(
     archive,
     updateMetadata: (v: typeof r.metadataSchema.Type) => {
       const current = aggregate(v.id);
+
       if (current.title !== v.expectedTitle || current.description !== v.expectedDescription)
         invalid('Document metadata changed before save');
+
       orm
         .update(s.study_documents)
         .set({
@@ -335,6 +396,7 @@ export function makeDocumentEditing(
         })
         .where(eq(s.study_documents.id, v.id))
         .run();
+
       return document(v.id);
     },
     exportVersion,

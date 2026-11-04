@@ -2,12 +2,7 @@
 import { Schema } from 'effect';
 
 import { errorKindSchema } from '../errors.ts';
-import {
-  materialIdSchema,
-  materialVersionIdSchema,
-  sourceIdSchema,
-  contentSnapshotIdSchema
-} from '../ids.ts';
+import { materialIdSchema, materialVersionIdSchema } from '../ids.ts';
 
 export const historyPolicySchema = Schema.Struct({
   keepLatest: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 }))

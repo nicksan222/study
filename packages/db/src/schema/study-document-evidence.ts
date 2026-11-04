@@ -8,7 +8,6 @@ import type {
   SessionId,
   StudyDocumentAnnotationId
 } from '@study/contracts/ids';
-import type { BlockId } from '@study/contracts/sources/document';
 import { sql } from 'drizzle-orm';
 import {
   sqliteTable,
@@ -22,7 +21,6 @@ import {
 
 import { requiredIdReference } from '../columns.ts';
 import { validAnchor } from './anchor-validity.ts';
-import { sqliteBoolean } from './column-types.ts';
 import { content_snapshots } from './content-snapshots.ts';
 import { sessions, message_versions } from './conversations.ts';
 import { exactCitationColumns, exactCitationConstraints } from './exact-content-input.ts';
@@ -125,6 +123,7 @@ export const study_document_inputs = sqliteTable(
     )
   ]
 );
+
 export const study_document_citations = sqliteTable(
   'study_document_citations',
   {
@@ -140,6 +139,7 @@ export const study_document_citations = sqliteTable(
     )
   ]
 );
+
 export const study_document_annotations = sqliteTable(
   'study_document_annotations',
   {
@@ -152,6 +152,7 @@ export const study_document_annotations = sqliteTable(
     check('study_document_annotations_revision', sql`${t.revision}>0`)
   ]
 );
+
 export const study_document_annotation_revisions = sqliteTable(
   'study_document_annotation_revisions',
   {
@@ -175,6 +176,7 @@ export const study_document_annotation_revisions = sqliteTable(
     check('study_document_annotation_payload', sql`json_valid(${t.payload}) AND ${t.revision}>0`)
   ]
 );
+
 export const study_document_proposals = sqliteTable('study_document_proposals', {
   request_id: text()
     .primaryKey()
@@ -186,6 +188,7 @@ export const study_document_proposals = sqliteTable('study_document_proposals', 
     .unique()
     .references(() => study_document_versions.id)
 });
+
 export const study_document_proposal_receipts = sqliteTable(
   'study_document_proposal_receipts',
   {
@@ -211,6 +214,7 @@ export const study_document_proposal_receipts = sqliteTable(
   ]
 );
 /** Explicit body retirement retains version identity and immutable edit outcomes. */
+
 export const study_document_retirements = sqliteTable('study_document_retirements', {
   version_id: integer()
     .$type<StudyDocumentVersionId>()
@@ -219,6 +223,7 @@ export const study_document_retirements = sqliteTable('study_document_retirement
   reason: text({ enum: ['history', 'deletion'] }).notNull(),
   created_at: integer().$type<bigint>().notNull()
 });
+
 export const study_document_deletions = sqliteTable('study_document_deletions', {
   document_id: integer()
     .$type<StudyDocumentId>()
@@ -227,6 +232,7 @@ export const study_document_deletions = sqliteTable('study_document_deletions', 
   created_at: integer().$type<bigint>().notNull()
 });
 /** User judgments belong to one exact declared citation; never inferred verification. */
+
 export const study_document_citation_assessments = sqliteTable(
   'study_document_citation_assessments',
   {

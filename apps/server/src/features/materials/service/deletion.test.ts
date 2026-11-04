@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises learning deletion behavior through real persistence boundaries.          │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies native RPC deletes only its exact learning output, preserving shared authored │
+ * │   evidence, raw captures and independent outputs.                                        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -29,6 +42,7 @@ import {
   deletionDocument
 } from '#testing/material-deletion';
 import { assertScrubbed, awaitNativeStatus } from '#testing/session-deletion';
+
 const content = (text: string) => ({
   kind: 'diagram' as const,
   format: 'mermaid' as const,
@@ -39,6 +53,7 @@ testStable(
   'native RPC deletes only its exact learning output, preserving shared authored evidence, raw captures and independent outputs',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -52,6 +67,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(evidence.version);
           const input = { kind: 'document' as const, versionId: evidence.version.id };
           const root = yield* m.create({
@@ -60,6 +76,7 @@ testStable(
             inputs: [input],
             publish: true
           });
+
           yield* m.updateDescription({
             id: root.id,
             description: 'PRIVATE_DESCRIPTION_DELETE_ONLY',
@@ -72,6 +89,7 @@ testStable(
             publish: true
           });
           const session = yield* chats.createUntitledSession({});
+
           yield* chats.postMessage({
             sessionId: session.id,
             text: 'Retained raw note',
@@ -88,7 +106,9 @@ testStable(
             instruction: 'Independent raw instruction',
             preferences: {}
           });
+
           yield* m.attach({ materialId: root.id, sessionId: session.id });
+
           return { root, kept, evidence: evidence.version, session, capture };
         }).pipe(Effect.provide(f.domain()))
       );
@@ -97,10 +117,12 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc);
             const preview = yield* rpc['materials.previewDeletion']({ materialId: saved.root.id });
+
             assert.deepEqual(preview.versionIds, [saved.root.version.id]);
             assert.deepEqual(preview.sessionIds, [saved.session.id]);
             const input = { materialId: saved.root.id, token: preview.token };
             const accepted = yield* rpc['materials.requestDeletion'](input);
+
             assert.equal(accepted.status, 'pending');
             assert.deepEqual(accepted.materialIds, [saved.root.id]);
             assert.deepEqual(yield* rpc['materials.requestDeletion'](input), accepted);
@@ -109,10 +131,12 @@ testStable(
                 .kind,
               'not_found'
             );
+
             return input;
           })
         ).pipe(Effect.provide(MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()))))
       );
+
       f.reopen();
       await cleanupMaterial(f, saved.root.id);
       f.reopen();
@@ -121,6 +145,7 @@ testStable(
           const m = yield* Materials;
           const docs = yield* Documents;
           const chats = yield* Conversations;
+
           assert.deepEqual((yield* m.material({ id: saved.kept.id })).version, saved.kept.version);
           assert.deepEqual(yield* docs.version({ id: saved.evidence.id }), saved.evidence);
           assert.deepEqual(
@@ -133,6 +158,7 @@ testStable(
             'Retained raw note'
           );
           const completed = yield* m.deletion({ materialId: saved.root.id });
+
           assert.equal(completed.status, 'completed');
           assert.deepEqual(yield* m.requestDeletion(input), completed);
           assert.deepEqual(
@@ -154,6 +180,7 @@ testStable(
   'learning deletion preview rejects substituted identity, new versions and newly attached sessions without persisting a barrier',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -166,6 +193,7 @@ testStable(
             publish: true
           });
           const first = yield* m.previewDeletion({ materialId: root.id });
+
           assert.equal(
             (yield* Effect.flip(m.requestDeletion({ materialId: other.id, token: first.token })))
               .kind,
@@ -179,6 +207,7 @@ testStable(
           );
           const second = yield* m.previewDeletion({ materialId: root.id });
           const session = yield* chats.createUntitledSession({});
+
           yield* m.attach({ materialId: root.id, sessionId: session.id });
           assert.equal(
             (yield* Effect.flip(m.requestDeletion({ materialId: root.id, token: second.token })))
@@ -198,12 +227,14 @@ testStable(
   'learning deletion barrier and outbox roll back together on event persistence failure',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const root = await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.create({ title: 'Rollback', content: content('ROLLBACK_PRIVATE'), publish: true })
         ).pipe(Effect.provide(f.domain()))
       );
+
       f.context.db.exec(
         "CREATE TRIGGER reject_material_intent BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialDeletionRequested' BEGIN SELECT RAISE(ABORT,'injected'); END"
       );
@@ -328,6 +359,7 @@ testStable(
 
     try {
       const saved = await learningGeneration(f);
+
       queueLearningGeneration(f);
       const versionId = await f.execute(f.event(saved.request.id), 'original-generation');
       const output = await Effect.runPromise(

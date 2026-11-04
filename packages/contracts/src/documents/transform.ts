@@ -22,12 +22,14 @@ const transformOperationsSchema = Schema.Array(
   Schema.isBetweenLength(1, 10),
   Schema.makeFilter((operations) => new Set(operations).size === operations.length)
 );
+
 export const transformRequestSchema = Schema.Struct({
   contextRequestId: Schema.String.check(Schema.isMinLength(1)),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
   operations: transformOperationsSchema,
   editTargetVersionId: Schema.optional(studyDocumentVersionIdSchema)
 });
+
 export const transformReportSchema = Schema.Struct({
   notes: Schema.Array(
     Schema.Struct({
@@ -44,7 +46,9 @@ export const transformReportSchema = Schema.Struct({
     })
   ).check(Schema.isBetweenLength(1, 200))
 });
+
 export const transformKeySchema = Schema.Struct({ requestId: Schema.String });
+
 export const transformSnapshotSchema = Schema.Struct({
   id: Schema.String,
   ...transformRequestSchema.fields,
@@ -56,6 +60,7 @@ export const transformSnapshotSchema = Schema.Struct({
   resultVersionId: Schema.NullOr(studyDocumentVersionIdSchema),
   report: Schema.NullOr(transformReportSchema)
 });
+
 export const transformPublicationSchema = Schema.Struct({
   ...transformKeySchema.fields,
   generationEventId: Schema.String,

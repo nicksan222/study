@@ -1,13 +1,7 @@
 import { Schema } from 'effect';
 
-import {
-  blockIdSchema,
-  blockContentSchema,
-  canonicalText,
-  blockSchema,
-  documentBlockDifferenceSchema
-} from './schemas.ts';
-import type { BlockContent } from './schemas.ts';
+import { blockIdSchema, blockContentSchema, canonicalText, blockSchema } from './schemas.ts';
+import type { BlockContent, documentBlockDifferenceSchema } from './schemas.ts';
 import type { anchorSchema, documentSchema } from './schemas.ts';
 
 type Mutable<T> = T extends string | number | bigint | boolean | null

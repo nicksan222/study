@@ -25,6 +25,7 @@ testStable('Materials rejects retired source and authored document kinds', () =>
       Schema.is(materialContentDetailSchema)({ kind, sourceId: 1n, source: {}, extracted: null }),
       false
     );
+
   assert.equal(
     Schema.is(materialContentDetailSchema)({
       kind: 'diagram',

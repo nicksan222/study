@@ -5,13 +5,15 @@ import { Input } from '@study/ui/input';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { ContentReadError } from '../document-presentation/read-error';
+import { ContentReadError } from '../document-presentation';
 import { useDocumentRetirement } from './retirement.queries';
 
 type View = ReturnType<typeof useDocumentRetirement>;
+
 export function DocumentRetirement({ document }: { document: StudyDocument }) {
   const { t } = useI18n();
   const view = useDocumentRetirement(document);
+
   return (
     <>
       <Button variant="ghost" onClick={() => view.open('history')}>
@@ -24,10 +26,12 @@ export function DocumentRetirement({ document }: { document: StudyDocument }) {
     </>
   );
 }
+
 function RetirementDialog({ view }: { view: View }) {
   const { t } = useI18n();
   const { document, mode, setMode, preview, retire, validKeep } = view;
   const blocked = !preview || preview.blockedVersionIds.length > 0;
+
   return (
     <DangerDialog
       open={mode !== undefined}
@@ -52,9 +56,12 @@ function RetirementDialog({ view }: { view: View }) {
     </DangerDialog>
   );
 }
+
 function HistorySettings({ view }: { view: View }) {
   const { t } = useI18n();
+
   if (view.mode !== 'history') return null;
+
   return (
     <label>
       {t('DocumentKeepLatest')}
@@ -72,9 +79,11 @@ function HistorySettings({ view }: { view: View }) {
     </label>
   );
 }
+
 function RetirementFeedback({ view }: { view: View }) {
   const { t } = useI18n();
   const { preview, inspect, retire, mode, validKeep } = view;
+
   return (
     <>
       <Button

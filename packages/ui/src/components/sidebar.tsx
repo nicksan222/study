@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 const frameClasses = { default: '', 'session-entry': 'study-shell-session-entry' } as const;
 
 /** Owns persisted sidebar resizing within the content and sidebar width constraints. */
+
 function Frame({
   collapsed,
   variant = 'default',
@@ -295,6 +296,7 @@ function Topbar({
 }
 
 /** Exposes sidebar expansion with optional placement for hidden session navigation. */
+
 function Toggle({
   label,
   expanded,
@@ -418,10 +420,12 @@ function SettleAction(props: ComponentProps<typeof Button>) {
 }
 
 /** Floats contextual actions beside their sidebar without changing its list geometry. */
+
 function SelectionBar({ ref, style, ...props }: ComponentProps<'div'>) {
   const anchor = useRef<HTMLSpanElement>(null);
   const element = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 12, top: 64 });
+
   useImperativeHandle(ref, () => element.current!);
   useLayoutEffect(() => {
     const sidebar = anchor.current?.closest('.study-sidebar');
@@ -434,21 +438,28 @@ function SelectionBar({ ref, style, ...props }: ComponentProps<'div'>) {
         left: Math.max(12, Math.min(sidebarEnd + 12, window.innerWidth - width - 12)),
         top: Math.max(12, headerEnd + 12)
       };
+
       setPosition((current) =>
         current.left === next.left && current.top === next.top ? current : next
       );
     };
+
     measure();
     const observer =
       typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+
     if (sidebar) observer?.observe(sidebar);
+
     if (element.current) observer?.observe(element.current);
+
     window.addEventListener('resize', measure);
+
     return () => {
       observer?.disconnect();
       window.removeEventListener('resize', measure);
     };
   }, []);
+
   return (
     <>
       <span ref={anchor} className="study-session-selection-anchor" aria-hidden="true" />
@@ -534,6 +545,7 @@ function NativeSessionGroup({
 }
 
 /** Keep native details mounted until the closing height transition has finished. */
+
 function useSlidingDisclosure(defaultOpen: boolean) {
   const [open, setOpen] = useState(defaultOpen);
   const [expanded, setExpanded] = useState(defaultOpen);
@@ -542,11 +554,14 @@ function useSlidingDisclosure(defaultOpen: boolean) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const clear = () => {
     if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+
     if (timer.current !== undefined) clearTimeout(timer.current);
   };
+
   useEffect(() => clear, []);
   const finish = () => {
     if (phase.current !== 'closing') return;
+
     clear();
     phase.current = 'idle';
     setOpen(false);
@@ -554,15 +569,20 @@ function useSlidingDisclosure(defaultOpen: boolean) {
   const toggle = () => {
     clear();
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
     if (expanded) {
       setExpanded(false);
       phase.current = 'closing';
+
       if (reduced) finish();
       else timer.current = setTimeout(finish, 220);
+
       return;
     }
+
     setOpen(true);
     phase.current = 'opening';
+
     if (reduced) {
       setExpanded(true);
       phase.current = 'idle';
@@ -574,11 +594,13 @@ function useSlidingDisclosure(defaultOpen: boolean) {
         });
       });
   };
+
   return { open, expanded, toggle, finish };
 }
 
 function SlidingSessionGroup({ title, count, children, defaultOpen = false }: SessionGroupProps) {
   const disclosure = useSlidingDisclosure(defaultOpen);
+
   return (
     <details open={disclosure.open} className="study-session-group" data-variant="settled">
       <summary
@@ -739,6 +761,7 @@ function PickerOption<T>({
 }
 
 /** Labels a nonempty picker group and announces its item count. */
+
 function PickerHeading({ count, label }: { count: number; label?: ReactNode }) {
   if (!count || !label) return null;
 
@@ -751,6 +774,7 @@ function PickerHeading({ count, label }: { count: number; label?: ReactNode }) {
 }
 
 /** Provides searchable identity selection with controlled opening and optional management actions. */
+
 function Picker<T>({
   items,
   value,
@@ -853,6 +877,7 @@ export const Sidebar = {
 };
 
 /** Preserve a page heading when session entry hides the visible topbar. */
+
 function ScreenReaderHeading({ children, ...props }: ComponentProps<'h1'>) {
   return (
     <h1 {...props} className={cn('sr-only', props.className)}>

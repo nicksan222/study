@@ -128,6 +128,7 @@ export function authorizedTransformAssets(context: typeof runSelectionContextSch
 }
 
 type TransformCitation = (typeof transformPublicationSchema.Type.citations)[number];
+
 function assertCapturedMessage(
   context: typeof runSelectionContextSchema.Type,
   citation: TransformCitation,
@@ -142,6 +143,7 @@ function assertCapturedMessage(
   )
     throw new StudyError('invalid_input', 'Citation is outside captured messages');
 }
+
 function capturedExcerptMatches(
   excerpt: (typeof runSelectionContextSchema.Type.inputs)[number]['excerpts'][number],
   citation: TransformCitation,
@@ -155,25 +157,32 @@ function capturedExcerptMatches(
     JSON.stringify(excerpt.anchor) === JSON.stringify(citation.anchor)
   );
 }
+
 function validateCapturedCitation(
   context: typeof runSelectionContextSchema.Type,
   citation: (typeof transformPublicationSchema.Type.citations)[number]
 ) {
   const reference = citation.input;
+
   if (reference.kind === 'message') {
     assertCapturedMessage(context, citation, reference.versionId);
+
     return;
   }
+
   if (reference.kind !== 'document' && reference.kind !== 'source')
     throw new StudyError('invalid_input', 'Citation is outside captured passages');
+
   if (reference.kind === 'source' && reference.snapshotId === null)
     throw new StudyError('invalid_input', 'Citation has no extraction');
+
   const key =
     reference.kind === 'document'
       ? selectionReferenceKey(reference)
       : selectionReferenceKey({ ...reference, snapshotId: reference.snapshotId! });
   const target = context.inputs.find((input) => selectionReferenceKey(input.input) === key);
   const range = citation.target;
+
   if (
     !range ||
     !target ||

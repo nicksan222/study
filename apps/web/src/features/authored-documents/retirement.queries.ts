@@ -8,9 +8,10 @@ import { useState } from 'react';
 
 import { request } from '#web/lib/study-client/request.ts';
 
-import { releaseBodyPreviews } from '../document-presentation/body-cache';
+import { releaseBodyPreviews } from '../document-presentation';
 
 type Preview = typeof retirementPreviewSchema.Type;
+
 export function useDocumentRetirement(document: StudyDocument) {
   const cache = useQueryClient();
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export function useDocumentRetirement(document: StudyDocument) {
   const retire = useMutation({
     mutationFn: async () => {
       if (!preview) return;
+
       if (mode === 'deletion')
         await request((rpc) =>
           rpc['documents.delete']({ documentId: document.id, token: preview.token })
@@ -44,11 +46,14 @@ export function useDocumentRetirement(document: StudyDocument) {
             token: preview.token
           })
         );
+
       await releaseVersionBodies(cache, document.id, preview.versionIds);
+
       if (mode === 'deletion') {
         releaseDocumentBodies(cache, document.id);
         await navigate({ to: '/library', search: {} });
       }
+
       void cache.invalidateQueries({ queryKey: ['documents'] });
       void cache.invalidateQueries({ queryKey: ['library'] });
       setMode(undefined);
@@ -68,6 +73,7 @@ export function useDocumentRetirement(document: StudyDocument) {
     }
   });
   const validKeep = validHistoryCount(keepLatest);
+
   function open(next: 'history' | 'deletion') {
     setPreview(undefined);
     inspect.reset();
@@ -89,8 +95,10 @@ export function useDocumentRetirement(document: StudyDocument) {
     open
   };
 }
+
 function validHistoryCount(value: string) {
   const count = Number(value);
+
   return Number.isInteger(count) && count >= 1 && count <= 1000;
 }
 
@@ -104,22 +112,27 @@ async function releaseVersionBodies(
     documentId: String(documentId),
     versionIds: versionIds.map(String)
   });
+
   for (const id of versionIds) {
     cache.removeQueries({ queryKey: ['documents', 'version', String(id)], exact: true });
     cache.removeQueries({ queryKey: ['document-editor', String(documentId), String(id)] });
   }
+
   for (const [key, copy] of cache.getQueriesData<{ document?: StudyDocument }>({
     queryKey: ['source-copy']
   })) {
     const version = copy?.document?.version;
+
     if (version && version.documentId === documentId && versionIds.includes(version.id))
       cache.removeQueries({ queryKey: key, exact: true });
   }
 }
+
 function releaseDocumentBodies(cache: QueryClient, documentId: StudyDocumentId) {
   cache.removeQueries({ queryKey: ['documents', 'detail', String(documentId)], exact: true });
   cache.removeQueries({ queryKey: ['documents', 'history', String(documentId)], exact: true });
   cache.removeQueries({ queryKey: ['session-document-drafts', String(documentId)] });
+
   for (const [key, copy] of cache.getQueriesData<{ document?: StudyDocument }>({
     queryKey: ['source-copy']
   }))

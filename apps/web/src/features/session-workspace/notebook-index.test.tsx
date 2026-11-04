@@ -14,6 +14,7 @@ import type * as WorkspaceQueries from './session-workspace.queries';
 import { WorkspaceContext } from './workspace-context';
 
 const rpc = vi.hoisted(() => ({ thread: vi.fn(), materials: vi.fn(), generations: vi.fn() }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (client: Record<string, unknown>) => unknown) =>
     invoke({
@@ -38,6 +39,7 @@ vi.mock('./session-workspace.queries', async (load) => ({
     getNextPageParam: (page: { next: bigint | null }) => page.next ?? undefined
   })
 }));
+
 const id = Schema.decodeUnknownSync(sessionIdSchema)(51n);
 
 const other = Schema.decodeUnknownSync(sessionIdSchema)(52n);
@@ -90,8 +92,10 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
 });
 
 const clients: QueryClient[] = [];
+
 function Notebook() {
   const documents = useQuery(sessionDocumentsOptions(id));
+
   return (
     <History
       id={id}
@@ -102,9 +106,12 @@ function Notebook() {
     />
   );
 }
+
 function mount(sessionId?: typeof id, board = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(client);
+
   return render(
     <QueryClientProvider client={client}>
       {board && <Notebook />}
@@ -112,6 +119,7 @@ function mount(sessionId?: typeof id, board = false) {
     </QueryClientProvider>
   );
 }
+
 beforeEach(() => {
   vi.clearAllMocks();
   rpc.thread.mockResolvedValue({ items: [], next: null });
@@ -138,6 +146,7 @@ testStable(
       ...message,
       parts: [{ id: 101n, sourceId: 201n, sourceName: 'Lecture notes.pdf', sourceKind: 'pdf' }]
     });
+
     rpc.thread.mockResolvedValue({
       items: [attached, attached, { ...message, sessionId: other, id: 99n }],
       next: null
@@ -148,11 +157,14 @@ testStable(
     });
     mount(id, true);
     const index = await screen.findByRole('navigation', { name: 'SessionPageIndex' });
+
     for (const name of ['Current note', 'Lecture notes.pdf', 'Study outline']) {
       const link = await within(index).findByRole('button', { name });
       const target = document.getElementById(link.getAttribute('data-target')!)!;
+
       expect(target).not.toBeNull();
       const scroll = vi.spyOn(target, 'scrollIntoView');
+
       link.focus();
       await userEvent.setup().keyboard('{Enter}');
       expect(scroll).toHaveBeenCalledWith({
@@ -162,10 +174,12 @@ testStable(
       });
       expect(target).toHaveFocus();
     }
+
     expect(within(index).getAllByRole('button')).toHaveLength(3);
     expect(within(index).queryByText('Original note')).toBeNull();
     expect(within(index).queryByText('Different branch')).toBeNull();
     const card = screen.getByRole('complementary', { name: 'SessionContextPanel' });
+
     expect(within(card).queryByText('Current note')).toBeNull();
     expect(within(card).queryByText('Original note')).toBeNull();
     expect(within(card).getByRole('button', { name: 'Lecture notes.pdf' })).toBeVisible();
@@ -182,8 +196,10 @@ testStable(
     );
     mount(id, true);
     const index = await screen.findByRole('navigation', { name: 'SessionPageIndex' });
+
     fireEvent.click(await within(index).findByRole('button', { name: 'SessionEarlier' }));
     const link = await within(index).findByRole('button', { name: 'Current note' });
+
     expect(document.getElementById(link.getAttribute('data-target')!)).not.toBeNull();
     expect(rpc.thread).toHaveBeenCalledWith(id, 71n);
   }
@@ -193,9 +209,11 @@ testStable('respects reduced motion when jumping to a notebook entry', async () 
   mount(id, true);
   const index = await screen.findByRole('navigation', { name: 'SessionPageIndex' });
   const link = await within(index).findByRole('button', { name: 'Current note' });
+
   vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
   const target = document.getElementById(link.getAttribute('data-target')!)!;
   const scroll = vi.spyOn(target, 'scrollIntoView');
+
   fireEvent.click(link);
   expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start', inline: 'nearest' });
 });
@@ -212,6 +230,7 @@ testStable('previews a note from the tiny rail on both hover and keyboard focus'
   const index = await screen.findByRole('navigation', { name: 'SessionPageIndex' });
   const marker = await within(index).findByRole('button', { name: 'Current note' });
   const user = userEvent.setup();
+
   await user.hover(marker);
   fireEvent.mouseMove(marker, { movementX: 4, movementY: 0 });
   await waitFor(() => expect(marker).toHaveAttribute('data-popup-open'));
@@ -229,12 +248,14 @@ testStable(
     rpc.thread.mockResolvedValue({ items: [message], next: null });
     mount(id, true);
     const board = await screen.findByRole('log', { name: 'SessionNotebook' });
+
     await within(board).findByText('Current note');
     expect(board.querySelector('time')).toBeNull();
     expect(board.querySelector('[data-slot="timeline-event"]')).toBeNull();
     const marker = await within(
       screen.getByRole('navigation', { name: 'SessionPageIndex' })
     ).findByRole('button', { name: 'Current note' });
+
     expect(document.getElementById(marker.getAttribute('data-target')!)).not.toBeNull();
   }
 );
@@ -255,6 +276,7 @@ testStable('retains rich document headings and lists in the unboxed notebook', a
     next: null
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
@@ -262,6 +284,7 @@ testStable('retains rich document headings and lists in the unboxed notebook', a
     </QueryClientProvider>
   );
   const board = await screen.findByRole('log', { name: 'SessionNotebook' });
+
   expect(await within(board).findByRole('heading', { name: 'Key idea', level: 2 })).toBeVisible();
   expect(within(board).getByText('clear', { selector: 'strong' })).toBeVisible();
   expect(within(board).getAllByRole('listitem')).toHaveLength(2);

@@ -18,7 +18,7 @@ import { expect, vi } from 'vite-plus/test';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 
 import { materialId, versionId } from './identity';
-import { importedSource, learningVersion, materialRpc, mountLibraryRoute } from './test/support';
+import { learningVersion, materialRpc, mountLibraryRoute } from './test/support';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 /** Shared history navigation keeps each owner's exact identity and query state with its caller. */
+
 export function HistoryDisclosure({
   open,
   onOpenChange,
@@ -20,6 +21,7 @@ export function HistoryDisclosure({
   children: ReactNode;
 }) {
   const { t } = useI18n();
+
   return (
     <details open={open} onToggle={(event) => onOpenChange(event.currentTarget.open)}>
       <summary>{t('ReaderHistory')}</summary>

@@ -34,12 +34,15 @@ testStable(
     const view = render(<Conversation />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
     const overlay = view.container.querySelector('[data-notebook-navigation-host]')!;
+
     dimensions(host, 1000);
     host.scrollTop = 100;
     const scroll = vi.fn();
+
     host.scrollTo = scroll;
     fireEvent.scroll(host);
     const latest = await screen.findByRole('button', { name: 'Latest' });
+
     expect(overlay).toContainElement(latest);
     expect(overlay).toContainElement(screen.getByRole('navigation', { name: 'Page index' }));
     fireEvent.click(latest);
@@ -52,6 +55,7 @@ testStable(
   async () => {
     const view = render(<Conversation />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
+
     dimensions(host, 1000);
     host.scrollTop = 100;
     fireEvent.scroll(host);

@@ -4,14 +4,12 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { failureSchema } from '../errors.ts';
 import {
   contentSnapshotIdSchema,
-  sourceIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
   projectIdSchema,
   sessionIdSchema
 } from '../ids.ts';
-import { sourceExportSchema, sourceRevisionSchema } from '../sources/rpc.ts';
-import { blockIdSchema, documentSchema } from '../sources/schemas.ts';
+import { blockIdSchema } from '../sources/schemas.ts';
 import {
   materialDeletionKeySchema,
   materialDeletionPreviewSchema,

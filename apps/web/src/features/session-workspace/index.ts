@@ -6,3 +6,7 @@ export { SessionDeleteDialog, SessionBatchDeleteDialog } from './deletion';
 export { SessionDocumentDialog } from './document-creation-dialog';
 
 export type { SelectedSession } from './document-creation-dialog';
+
+export { DocumentMetadata } from './session-document-metadata';
+
+export { sessionDocumentOptions } from './session-document.queries';

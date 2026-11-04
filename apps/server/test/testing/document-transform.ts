@@ -264,8 +264,10 @@ export async function documentTransformFixture() {
           .findLast(
             (event) => event.type === 'DocumentGenerationRequested' && event.requestId === requestId
           );
+
         if (event?.type !== 'DocumentGenerationRequested')
           throw new Error('Missing authored request event');
+
         return event;
       },
       event(requestId: string): typeof materialGenerationRequestedSchema.Type {
@@ -303,7 +305,9 @@ export async function documentTransformFixture() {
           Effect.scoped(
             Effect.gen(function* () {
               const engine = yield* WorkflowEngine.WorkflowEngine;
+
               yield* engine.register(documentTransformWorkflow, documentTransformHandler);
+
               return yield* engine.execute(documentTransformWorkflow, {
                 executionId,
                 payload: { event }

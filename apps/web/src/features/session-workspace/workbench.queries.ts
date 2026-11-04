@@ -30,6 +30,7 @@ type Workbench = {
 };
 
 /** Retains document tabs and unsent pages across session navigation without mixing them with chat drafts. */
+
 export function useWorkbench(id: SessionId) {
   const cache = useQueryClient();
   const preferences = useWorkspacePreferences();
@@ -106,6 +107,7 @@ export function useWorkbench(id: SessionId) {
     showEditor: (dock: 'side' | 'bottom') =>
       update((value) => {
         if (!value.tabs.length) return value;
+
         return {
           ...value,
           dock,

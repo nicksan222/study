@@ -89,6 +89,7 @@ for (const [name, text] of [
               bytes,
               projectId: null
             });
+
             assert.deepEqual(
               (yield* materials.materials({ archived: false, limit: 10 })).items,
               []
@@ -168,6 +169,7 @@ for (const [name, text] of [
                 .all()
                 .map((row) => decodeEvent(row.payload))
                 .findLast((event) => event.type === 'SourceProcessingFailed');
+
               assert.equal(
                 failure?.type === 'SourceProcessingFailed' && failure.sourceId,
                 source.id

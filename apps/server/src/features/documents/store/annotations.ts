@@ -1,4 +1,16 @@
-/** Exact authored targets and append-only annotation revisions, with optimistic concurrency. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists exact authored annotation targets and append-only guarded revisions.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists exact authored annotation targets and append-only guarded revisions.          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as c from '@study/contracts/documents/evidence';
 import { StudyError } from '@study/contracts/errors';
 import type { StudyDocumentAnnotationId } from '@study/contracts/ids';
@@ -13,6 +25,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { makeDocumentDomain } from './domain.ts';
 
 const codec = Schema.fromJsonString(Schema.toCodecJson(c.annotationSchema));
+
 function annotationPage<Row extends { payload: string }, Cursor>(
   rows: Row[],
   limit: number,
@@ -23,16 +36,20 @@ function annotationPage<Row extends { payload: string }, Cursor>(
     nextCursor: rows.length > limit ? cursor(rows[limit - 1]!) : null
   };
 }
+
 function makeAnnotations(resources: StoreResources) {
   const orm = resources.db.orm;
   const documents = makeDocumentDomain(resources);
+
   function annotation(id: StudyDocumentAnnotationId) {
     const a = orm
       .select()
       .from(s.study_document_annotations)
       .where(eq(s.study_document_annotations.id, id))
       .get();
+
     if (!a) throw new StudyError('not_found', 'Document annotation not found');
+
     documents.document(a.document_id);
     const r = orm
       .select()
@@ -44,13 +61,18 @@ function makeAnnotations(resources: StoreResources) {
         )
       )
       .get();
+
     if (!r) throw new StudyError('not_found', 'Document annotation revision not found');
+
     documents.version(r.version_id);
+
     return Schema.decodeUnknownSync(codec)(r.payload);
   }
+
   function assertTarget(target: typeof c.annotationTargetSchema.Type) {
     const v = documents.version(target.range.versionId);
     const range = target.range;
+
     if (
       v.documentId !== target.documentId ||
       v.status !== 'published' ||
@@ -59,6 +81,7 @@ function makeAnnotations(resources: StoreResources) {
     )
       throw new StudyError('invalid_input', 'Annotation requires an exact published UTF-16 range');
   }
+
   function append(a: typeof c.annotationSchema.Type) {
     orm
       .insert(s.study_document_annotation_revisions)
@@ -71,14 +94,17 @@ function makeAnnotations(resources: StoreResources) {
         payload: Schema.encodeSync(codec)(a)
       })
       .run();
+
     if (a.revision > 1n)
       orm
         .update(s.study_document_annotations)
         .set({ revision: a.revision })
         .where(eq(s.study_document_annotations.id, a.id))
         .run();
+
     return { outcome: 'saved' as const, annotation: a };
   }
+
   function create(v: typeof c.createAnnotationSchema.Type) {
     assertTarget(v.target);
     const row = orm
@@ -86,18 +112,24 @@ function makeAnnotations(resources: StoreResources) {
       .values({ document_id: v.target.documentId, revision: 1n })
       .returning()
       .get();
+
     return append({ ...v, id: row.id, revision: 1n, deleted: false, operation: 'create' });
   }
+
   function revise(v: typeof c.reviseAnnotationSchema.Type) {
     const a = annotation(v.id);
+
     if (a.revision !== v.expectedRevision) return { outcome: 'conflict' as const, annotation: a };
+
     if (a.deleted || v.target.documentId !== a.target.documentId)
       throw new StudyError(
         'invalid_input',
         'Annotation identity cannot move between documents or revive a tombstone'
       );
+
     assertTarget(v.target);
     const reanchored = !Schema.toEquivalence(c.annotationTargetSchema)(a.target, v.target);
+
     return append({
       id: a.id,
       revision: a.revision + 1n,
@@ -108,6 +140,7 @@ function makeAnnotations(resources: StoreResources) {
       operation: v.deleted ? 'delete' : reanchored ? 'reanchor' : 'update'
     });
   }
+
   function revisions(v: typeof c.annotationHistorySchema.Type) {
     annotation(v.id);
     const rows = orm
@@ -124,8 +157,10 @@ function makeAnnotations(resources: StoreResources) {
       .orderBy(desc(s.study_document_annotation_revisions.revision))
       .limit(v.limit + 1)
       .all();
+
     return annotationPage(rows, v.limit, (row) => row.revision);
   }
+
   function annotations(v: typeof c.annotationsSchema.Type) {
     documents.aggregate(v.documentId);
     const rows = orm
@@ -157,15 +192,19 @@ function makeAnnotations(resources: StoreResources) {
       .orderBy(desc(s.study_document_annotations.id))
       .limit(v.limit + 1)
       .all();
+
     return annotationPage(rows, v.limit, (row) => row.id);
   }
+
   return { annotation, create, revise, revisions, annotations };
 }
+
 export const DocumentAnnotationsStore = defineStore({
   name: 'study/DocumentAnnotationsStore',
   entity: { singular: 'annotation', plural: 'annotations' },
   make: (resources) => {
     const a = makeAnnotations(resources);
+
     return {
       queries: {
         annotations: storeQuery({
@@ -196,6 +235,7 @@ export const DocumentAnnotationsStore = defineStore({
     };
   }
 });
+
 export const DocumentAnnotationHistoryStore = defineStore({
   name: 'study/DocumentAnnotationHistoryStore',
   entity: { singular: 'annotationRevision', plural: 'annotationHistory' },

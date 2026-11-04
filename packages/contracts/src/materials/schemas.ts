@@ -116,14 +116,6 @@ export const materialQuestionInputSchema = Schema.Union([
 
 const optionalIdSchema = Schema.optional(materialCardIdSchema);
 
-const nonnegativeNullableBigIntSchema = Schema.NullOr(
-  Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 0n, maximum: 9223372036854775807n }))
-);
-
-const positiveNullableBigIntSchema = Schema.NullOr(
-  Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 9223372036854775807n }))
-);
-
 export const materialDiagramContentInputSchema = Schema.Struct({
   kind: Schema.Literal('diagram'),
   format: Schema.Literal('mermaid'),
@@ -150,11 +142,6 @@ export const materialFlashcardsContentInputSchema = Schema.Struct({
       return new Set(ids).size === ids.length;
     }
   )
-);
-
-const pairedDimensions = Schema.makeFilter(
-  (content: { width: bigint | null; height: bigint | null }) =>
-    (content.width === null) === (content.height === null)
 );
 
 export const materialContentInputSchema = Schema.Union([

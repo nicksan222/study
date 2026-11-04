@@ -197,6 +197,7 @@ export function makeSearch({ db }: StoreResources) {
     hits: SearchHit[]
   ) {
     if (!kinds.includes('document')) return;
+
     const body = sql`coalesce((SELECT group_concat(b.text,char(10)) FROM blocks b WHERE b.document_id=v.content_snapshot_id),'')`;
     const searchable = sql`d.title || char(10) || coalesce(d.description,'') || char(10) || ${body}`;
     const rows = db.orm.all(sql`SELECT d.id,substr(${searchable},1,400) AS text
@@ -211,6 +212,7 @@ export function makeSearch({ db }: StoreResources) {
         sql` AND `
       )}
       ORDER BY d.updated_at DESC,d.id DESC LIMIT ${limit}`);
+
     for (const row of rows)
       hits.push({
         target: { type: 'document', id: row.id as StudyDocumentId },

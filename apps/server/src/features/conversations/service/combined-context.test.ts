@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises conversation combined context behavior through real persistence          │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies combined capture pins selected sessions and shared sources, replays exactly   │
+ * │   and retires on source-session deletion.                                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
@@ -17,6 +31,7 @@ testStable(
   'combined capture pins selected sessions and shared sources, replays exactly and retires on source-session deletion',
   async () => {
     const fixture = await documentTransformFixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -41,6 +56,7 @@ testStable(
             createKey: crypto.randomUUID(),
             document: { ...structuredContent }
           });
+
           for (const session of [first, second]) {
             yield* client('conversations.postMessage', {
               sessionId: session.id,
@@ -61,6 +77,7 @@ testStable(
               ]
             });
           }
+
           yield* client('conversations.postMessage', {
             sessionId: other.id,
             text: 'Do not include'
@@ -73,6 +90,7 @@ testStable(
             preferences: {}
           };
           const capture = yield* client('conversations.captureSessionContext', intent);
+
           assert.deepEqual(
             capture.messages.map((item) => item.text),
             ['First', 'Second']
@@ -92,6 +110,7 @@ testStable(
             title: 'Combined',
             operations: ['combine', 'structure']
           });
+
           yield* client('conversations.postMessage', { sessionId: second.id, text: 'Later' });
           assert.deepEqual(yield* client('conversations.captureSessionContext', intent), capture);
           const changed = yield* Effect.flip(
@@ -100,6 +119,7 @@ testStable(
               additionalSessionIds: [other.id]
             })
           );
+
           assert.equal(changed.kind, 'invalid_input');
           const duplicate = yield* Effect.flip(
             client('conversations.captureSessionContext', {
@@ -108,13 +128,16 @@ testStable(
               additionalSessionIds: [first.id]
             })
           );
+
           assert.equal(duplicate.kind, 'invalid_input');
           const large = yield* client('conversations.createSession', { title: 'Large context' });
+
           for (let index = 0; index < 2; index++)
             yield* client('conversations.postMessage', {
               sessionId: large.id,
               text: 'x'.repeat(100000)
             });
+
           const oversized = yield* Effect.flip(
             client('conversations.captureSessionContext', {
               ...intent,
@@ -122,10 +145,12 @@ testStable(
               additionalSessionIds: [large.id]
             })
           );
+
           assert.equal(oversized.kind, 'invalid_input');
           const sourceOnly = yield* client('conversations.createSession', {
             title: 'Sources only'
           });
+
           yield* client('conversations.updateSessionSelection', {
             sessionId: sourceOnly.id,
             expectedRevision: 0n,
@@ -144,6 +169,7 @@ testStable(
               additionalSessionIds: [sourceOnly.id]
             })
           );
+
           assert.equal(deletedInput.kind, 'not_found');
           yield* client('conversations.deleteSession', { id: second.id });
           assert.equal(
@@ -168,6 +194,7 @@ testStable(
           const unavailable = yield* Effect.flip(
             client('conversations.sessionContext', { requestId: capture.requestId })
           );
+
           assert.equal(unavailable.kind, 'not_found');
           const retry = yield* Effect.flip(
             conversations.retryDocumentTransform({
@@ -175,6 +202,7 @@ testStable(
               retryId: 'after-deletion'
             })
           );
+
           assert.equal(retry.kind, 'not_found');
         }).pipe(
           Effect.scoped,

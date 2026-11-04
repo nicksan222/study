@@ -1,4 +1,15 @@
-/** Canonical payload persistence for diagram, quiz and flashcard versions. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists canonical diagram, quiz and flashcard bodies for learning versions.       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists canonical diagram, quiz and flashcard bodies for learning versions.           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
@@ -24,6 +35,7 @@ export function makeContent({ db: store }: StoreResources) {
         break;
     }
   }
+
   function insertDiagram(
     version: typeof s.material_versions.$inferSelect,
     c: Extract<MaterialContentInput, { kind: 'diagram' }>
@@ -142,12 +154,14 @@ export function makeContent({ db: store }: StoreResources) {
 
   function removeContent(id: MaterialVersionId) {
     const db = store.orm;
+
     db.delete(s.material_evidence_citations)
       .where(eq(s.material_evidence_citations.version_id, id))
       .run();
     db.delete(s.material_evidence_inputs)
       .where(eq(s.material_evidence_inputs.version_id, id))
       .run();
+
     for (const q of db
       .select()
       .from(s.material_quiz_questions)

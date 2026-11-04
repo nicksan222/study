@@ -1,6 +1,6 @@
 import { StudyError } from '@study/contracts/errors';
-import type { ContentSnapshotId, MaterialId, MaterialVersionId } from '@study/contracts/ids';
-import type { Source, blockIdSchema } from '@study/contracts/sources/schemas';
+import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
+import type { Source } from '@study/contracts/sources/schemas';
 import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
 
 import { request } from '#web/lib/study-client/request.ts';

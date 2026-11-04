@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists canonical authored version bodies, lineage and exact evidence roots.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists canonical authored version bodies, lineage and exact evidence roots.          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as c from '@study/contracts/documents/schemas';
 import type { ExactDocumentInput, StudyDocumentVersion } from '@study/contracts/documents/types';
 import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
@@ -11,18 +24,19 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
 import { invalid } from './errors.ts';
-import type { makeDocumentEvidence } from './provenance.ts';
-import type { makeDocumentReads } from './reads.ts';
+import { makeDocumentEvidence } from './provenance.ts';
+import { makeDocumentReads } from './reads.ts';
 
-export function makeDocumentRevisions(
-  { db, clock }: StoreResources,
-  reads: ReturnType<typeof makeDocumentReads>,
-  evidence: ReturnType<typeof makeDocumentEvidence>
-) {
+export function makeDocumentRevisions(resources: StoreResources) {
+  const { db, clock } = resources;
+  const reads = makeDocumentReads(resources);
+  const evidence = makeDocumentEvidence(resources);
+
   const orm = db.orm;
   const now = () => unixSeconds(clock);
   const { aggregate, liveVersion } = reads;
   const { insertEvidence } = evidence;
+
   function insertVersion(
     documentId: StudyDocumentId,
     body: typeof documentSchema.Type,
@@ -36,8 +50,10 @@ export function makeDocumentRevisions(
   ) {
     aggregate(documentId);
     Schema.decodeUnknownSync(c.authoredContentSchema)(body);
+
     for (const block of body.blocks) {
       if (block.content.type !== 'image') continue;
+
       const image = orm
         .select()
         .from(s.source_snapshots)
@@ -48,9 +64,11 @@ export function makeDocumentRevisions(
           )
         )
         .get();
+
       if (!image || image.kind !== 'image' || !image.mime.toLowerCase().startsWith('image/'))
         invalid('Managed image revision is unavailable');
     }
+
     const time = now();
     const snapshot = orm
       .insert(s.content_snapshots)
@@ -61,6 +79,7 @@ export function makeDocumentRevisions(
       })
       .returning()
       .get();
+
     body.blocks.forEach((b, i) => {
       orm
         .insert(s.blocks)
@@ -95,16 +114,21 @@ export function makeDocumentRevisions(
       })
       .returning()
       .get();
+
     for (const id of new Set(parents))
       orm
         .insert(s.study_document_version_parents)
         .values({ version_id: row.id, parent_version_id: id, document_id: documentId })
         .run();
+
     insertEvidence(row.id, inputs, citations, true);
+
     return row;
   }
+
   function publish(id: StudyDocumentVersionId) {
     const v = liveVersion(id);
+
     orm
       .update(s.study_document_versions)
       .set({ status: 'published', published_at: now() })
@@ -116,5 +140,6 @@ export function makeDocumentRevisions(
       .where(eq(s.study_documents.id, v.document_id))
       .run();
   }
+
   return { insertVersion, publish };
 }

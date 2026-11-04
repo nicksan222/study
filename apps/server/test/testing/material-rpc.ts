@@ -12,12 +12,9 @@
 
 import { Layer } from 'effect';
 
-import { Conversations } from '#server/features/conversations/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
-import { Recordings } from '#server/features/recordings/index';
-import { Sources } from '#server/features/sources/index';
 
 export const materialRpcHandlers = MaterialsRpcLive.pipe(
   Layer.provide(Materials.deletionParticipantsLayer({ Learning }))

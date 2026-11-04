@@ -7,6 +7,7 @@ import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts'
 import { request } from '#web/lib/study-client/request.ts';
 
 /** A current pending revision never borrows a previous revision's extraction. */
+
 export const sourceExtractionOptions = (
   id: SourceId,
   exact?: { revision: bigint; snapshotId: ContentSnapshotId }
@@ -29,6 +30,7 @@ export const sourceExtractionOptions = (
       ),
     refetchInterval: (query) => (query.state.data ? false : 3000)
   });
+
 export const sourceOptions = (id: SourceId | null) =>
   queryOptions({
     queryKey: ['sources', 'detail', String(id)],
@@ -39,9 +41,11 @@ export const sourceOptions = (id: SourceId | null) =>
   });
 
 type Input = typeof sourceCopySchema.Type;
+
 type CopyState = { pending: boolean; input?: Input; document?: StudyDocument; error?: unknown };
 
 /** The query cache retains an immutable copy request until its uncertain receipt is recovered. */
+
 export function useSourceCopy(sourceId: SourceId, sessionId?: SessionId) {
   const cache = useQueryClient();
   const key = ['source-copy', String(sourceId), sessionId?.toString()];
@@ -53,14 +57,18 @@ export function useSourceCopy(sourceId: SourceId, sessionId?: SessionId) {
     staleTime: Infinity,
     gcTime: Infinity
   });
+
   async function copy(extraction: {
     revision: bigint;
     snapshotId: Input['snapshotId'];
     name: string;
   }) {
     const current = cache.getQueryData<CopyState>(key) ?? initial;
+
     if (current.pending) return undefined;
+
     if (current.document) return current.document;
+
     const input = current.input ?? {
       sourceId,
       sessionId,
@@ -69,20 +77,28 @@ export function useSourceCopy(sourceId: SourceId, sessionId?: SessionId) {
       revision: extraction.revision,
       snapshotId: extraction.snapshotId
     };
+
     cache.setQueryData<CopyState>(key, { pending: true, input });
+
     try {
       const document = await request((rpc) => rpc['documents.copySource'](input));
+
       cache.setQueryData<CopyState>(key, { pending: false, input, document });
       void invalidateDocuments(cache);
+
       return document;
     } catch (error) {
       cache.setQueryData<CopyState>(key, { pending: false, input, error });
+
       return undefined;
     }
   }
+
   function acknowledge() {
     const current = cache.getQueryData<CopyState>(key);
+
     if (current?.document && !current.pending) cache.setQueryData<CopyState>(key, initial);
   }
+
   return { ...state.data, copy, acknowledge };
 }

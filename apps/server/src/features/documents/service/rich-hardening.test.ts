@@ -1,4 +1,16 @@
-/** Canonical authored bodies keep empty-evidence, receipt-draft and managed asset boundaries strict. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Canonical authored bodies keep empty-evidence, receipt-draft and managed asset     │
+ * │ boundaries strict.                                                                       │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies a retained separator-only learning request cannot retry after reopen or emit  │
+ * │   new work.                                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -27,6 +39,7 @@ const meta = {
   corrected: false,
   omissions: []
 };
+
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
@@ -34,6 +47,7 @@ testStable(
   'a retained separator-only learning request cannot retry after reopen or emit new work',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -62,7 +76,9 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(empty.version);
+
           return { project, version: empty.version };
         }).pipe(Effect.provide(f.domain()))
       );
@@ -74,6 +90,7 @@ testStable(
         inputs: [{ kind: 'document', versionId: saved.version.id }]
       });
       // Model a durable request admitted by the earlier textual-content predicate. Guards stay on.
+
       f.context.transaction(() => {
         f.context.db.orm
           .insert(s.material_generation_requests)
@@ -90,9 +107,11 @@ testStable(
       });
       f.reopen();
       const before = f.context.db.orm.select().from(s.workflowEvents).all();
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Materials;
+
           assert.equal(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({
@@ -128,11 +147,13 @@ testStable(
   'invalid rich input rolls back and retained conflict drafts reject canonical projection and payload corruption after reopen',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
           const block = paragraph('Evidence');
+
           assert.equal(
             (yield* Effect.flip(
               docs.create({
@@ -154,6 +175,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(original.version);
           yield* docs.save({
             documentId: original.id,
@@ -168,14 +190,19 @@ testStable(
             document: { blocks: [paragraph('Retained alternative')], meta }
           };
           const conflict = yield* docs.save(intent);
+
           assert.equal(conflict.outcome, 'conflict');
           const draft = yield* docs.version({ id: conflict.submittedVersionId });
+
           assert.equal(draft.status, 'draft');
+
           return { draft, intent, conflict };
         }).pipe(Effect.provide(f.domain()))
       );
+
       f.reopen();
       const before = f.context.db.orm.select().from(s.workflowEvents).all();
+
       for (const mutation of [
         sql`UPDATE blocks SET text='projection drift' WHERE document_id=${saved.draft.snapshotId}`,
         sql`UPDATE blocks SET kind='heading' WHERE document_id=${saved.draft.snapshotId}`,
@@ -184,9 +211,11 @@ testStable(
         sql`DELETE FROM content_snapshots WHERE id=${saved.draft.snapshotId}`
       ])
         assert.throws(() => f.context.db.orm.run(mutation));
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
+
           assert.deepEqual(yield* docs.version({ id: saved.draft.id }), saved.draft);
           assert.deepEqual(yield* docs.save(saved.intent), { ...saved.conflict, replayed: true });
           assert.equal(
@@ -206,6 +235,7 @@ testStable(
             document: saved.draft.document,
             key: 'adopt-alternative'
           });
+
           assert.equal(restored.outcome, 'saved');
           assert.equal(
             (yield* docs.version({ id: restored.submittedVersionId })).document.blocks[0]?.text,
@@ -228,6 +258,7 @@ testStable(
   async () => {
     const f = await documentTransformFixture();
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -247,6 +278,7 @@ testStable(
             });
           const original = yield* create('Original');
           const copy = yield* create('Independent copy');
+
           assert.ok(original.version);
           assert.ok(copy.version);
           const oldBlock = original.version.document.blocks[0]!;
@@ -257,12 +289,15 @@ testStable(
             key: randomUUID(),
             document: { blocks: [{ ...replacement, id: oldBlock.id }], meta }
           });
+
           assert.equal(edit.outcome, 'saved');
           const scope = { documentId: original.id, keepLatest: 1 };
           const preview = yield* docs.previewHistory(scope);
+
           yield* docs.retireHistory({ ...scope, token: preview.token });
           assert.equal(f.context.db.orm.select().from(s.document_assets).all().length, 2);
           const remove = yield* docs.previewDeletion({ id: original.id });
+
           yield* docs.delete({ documentId: original.id, token: remove.token });
           assert.equal(f.context.db.orm.select().from(s.document_assets).all().length, 1);
           assert.deepEqual((yield* sources.previewDeletion({ id: other.id })).blockedBy, []);
@@ -270,10 +305,13 @@ testStable(
           assert.deepEqual((yield* sources.previewDeletion({ id: first.id })).blockedBy, [
             'image_assets'
           ]);
+
           return { first, copy: copy.version };
         }).pipe(Effect.provide(f.domain()))
       );
+
       f.reopen();
+
       for (const mutation of [
         sql`UPDATE document_assets SET revision=999 WHERE source_id=${saved.first.id}`,
         sql`UPDATE source_snapshots SET bytes=x'00' WHERE source_id=${saved.first.id} AND revision=1`,
@@ -281,6 +319,7 @@ testStable(
         sql`DELETE FROM source_snapshots WHERE source_id=${saved.first.id} AND revision=1`
       ])
         assert.throws(() => f.context.db.orm.run(mutation));
+
       await Effect.runPromise(
         Effect.gen(function* () {
           assert.deepEqual(

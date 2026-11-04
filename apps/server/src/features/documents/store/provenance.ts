@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates exact Document inputs, citations and authored block ownership.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Validates exact Document inputs, citations and authored block ownership.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as c from '@study/contracts/documents/schemas';
 import type { DocumentCitation, ExactDocumentInput } from '@study/contracts/documents/types';
 import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
@@ -10,23 +23,27 @@ import { validRange } from '#server/features/documents/decoders/range';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { invalid, required } from './errors.ts';
-import type { makeDocumentReads } from './reads.ts';
+import { makeDocumentReads } from './reads.ts';
 
-export function makeDocumentEvidence(
-  { db }: StoreResources,
-  reads: ReturnType<typeof makeDocumentReads>
-) {
+export function makeDocumentEvidence(resources: StoreResources) {
+  const { db } = resources;
+  const reads = makeDocumentReads(resources);
+
   const orm = db.orm;
   const { version, content } = reads;
+
   function assertMessage(i: Extract<ExactDocumentInput, { kind: 'message' }>, inherited: boolean) {
     const row = orm
       .select()
       .from(s.message_versions)
       .where(eq(s.message_versions.id, i.versionId))
       .get();
+
     if (!row && inherited) return;
+
     if (required(row).status !== 'complete') invalid('Message input must be complete');
   }
+
   function assertSource(i: Extract<ExactDocumentInput, { kind: 'source' }>) {
     required(
       orm
@@ -40,11 +57,14 @@ export function makeDocumentEvidence(
         )
         .get()
     );
+
     if (i.snapshotId !== null) {
       const snap = required(
         orm.select().from(s.content_snapshots).where(eq(s.content_snapshots.id, i.snapshotId)).get()
       );
+
       if (snap.source_id !== i.sourceId) invalid('Input extraction belongs to another source');
+
       required(
         orm
           .select()
@@ -60,11 +80,13 @@ export function makeDocumentEvidence(
       );
     }
   }
+
   function assertInput(i: ExactDocumentInput, inherited = false) {
     switch (i.kind) {
       case 'document':
         if (version(i.versionId).status !== 'published')
           invalid('Document input must be published');
+
         return;
       case 'message':
         return assertMessage(i, inherited);
@@ -72,9 +94,11 @@ export function makeDocumentEvidence(
         return assertSource(i);
     }
   }
+
   function assertCitations(citations: readonly DocumentCitation[]) {
     for (const citation of citations) {
       if (citation.target === null) continue;
+
       const input = citation.input;
       const body =
         input.kind === 'document'
@@ -82,10 +106,12 @@ export function makeDocumentEvidence(
           : input.kind === 'source' && input.snapshotId !== null
             ? content(input.snapshotId)
             : null;
+
       if (!body || !validRange(body, citation.target, citation.quote))
         invalid('Citation target must match its exact input and quote');
     }
   }
+
   function insertEvidence(
     id: StudyDocumentVersionId,
     inputs: readonly ExactDocumentInput[],
@@ -93,10 +119,13 @@ export function makeDocumentEvidence(
     allowUnavailableMessages = false
   ) {
     const equivalence = Schema.toEquivalence(c.exactInputSchema);
+
     if (inputs.some((x, i) => inputs.slice(0, i).some((y) => equivalence(x, y))))
       invalid('Duplicate exact inputs');
+
     const rows = inputs.map((i, position) => {
       assertInput(i, allowUnavailableMessages);
+
       return orm
         .insert(s.study_document_inputs)
         .values({
@@ -120,12 +149,16 @@ export function makeDocumentEvidence(
         .returning()
         .get();
     });
+
     for (const x of citations) {
       const at = inputs.findIndex((i) => equivalence(i, x.input));
+
       if (at < 0) invalid('Citation must reference a declared exact input');
+
       if (x.target !== null) {
         if (x.target.start < 0 || x.target.end < x.target.start) invalid('Invalid citation target');
       }
+
       orm
         .insert(s.study_document_citations)
         .values({
@@ -139,9 +172,12 @@ export function makeDocumentEvidence(
         .run();
     }
   }
+
   function assertBlockOwnership(body: typeof documentSchema.Type, owner?: StudyDocumentId) {
     const ids = body.blocks.map((b) => b.id);
+
     if (!ids.length) return;
+
     const existing = orm
       .select({ documentId: s.study_document_versions.document_id })
       .from(s.blocks)
@@ -151,13 +187,16 @@ export function makeDocumentEvidence(
       )
       .where(inArray(s.blocks.editing_id, ids))
       .all();
+
     if (existing.some((x) => owner === undefined || x.documentId !== owner))
       invalid('Editing identities belong to another document');
+
     if (
       owner === undefined &&
       orm.select().from(s.blocks).where(inArray(s.blocks.editing_id, ids)).get()
     )
       invalid('New authored blocks require fresh identities');
   }
+
   return { assertInput, assertCitations, insertEvidence, assertBlockOwnership };
 }

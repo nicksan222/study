@@ -1,4 +1,15 @@
-/** Exact extraction retirement leaves original byte revisions and protected evidence intact. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Retires exact extraction bodies while retaining original byte revisions.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Retires exact extraction bodies while retaining original byte revisions.               │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
@@ -30,9 +41,12 @@ export const SourceHistoryStore = defineStore({
     UNION ALL SELECT document_id FROM citations
    ) WHERE snapshot_id=${snapshotId} LIMIT 1`);
     }
+
     function preview(input: typeof sourceHistoryInputSchema.Type) {
       const source = db.orm.select().from(s.sources).where(eq(s.sources.id, input.sourceId)).get();
+
       if (!source) throw new StudyError('not_found', 'Source not found');
+
       const current = db.orm
         .select()
         .from(s.source_processing)
@@ -73,8 +87,10 @@ export const SourceHistoryStore = defineStore({
           JSON.stringify({ value, current }, (_, v) => (typeof v === 'bigint' ? String(v) : v))
         )
         .digest('hex');
+
       return { ...value, token };
     }
+
     return {
       queries: {
         sourceHistory: storeQuery({
@@ -90,14 +106,18 @@ export const SourceHistoryStore = defineStore({
           output: sourceHistoryPreviewSchema,
           run: (input) => {
             const impact = preview({ sourceId: input.sourceId, keepLatest: input.keepLatest });
+
             if (impact.token !== input.token)
               throw new StudyError('invalid_input', 'Source history preview changed');
+
             if (impact.blockedSnapshotIds.length)
               throw new StudyError(
                 'invalid_input',
                 'Exact evidence retains source extraction history'
               );
+
             const ids = impact.candidates.map((item) => item.snapshotId);
+
             if (ids.length) {
               db.orm
                 .delete(s.source_extraction_revisions)
@@ -110,6 +130,7 @@ export const SourceHistoryStore = defineStore({
                 .run();
               db.orm.delete(s.content_snapshots).where(inArray(s.content_snapshots.id, ids)).run();
             }
+
             return impact;
           }
         })

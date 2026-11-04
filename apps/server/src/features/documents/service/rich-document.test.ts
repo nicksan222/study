@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document rich document behavior through real persistence        │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies rich authored documents round-trip native RPC and reopen with independent     │
+ * │   identities, exact assets and Unicode ranges.                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -24,6 +38,7 @@ import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { materialRpcHandlers } from '#testing/material-rpc';
+
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
 testStable(
@@ -44,6 +59,7 @@ testStable(
       Layer.mergeAll(DocumentsRpcLive, ConversationsRpcLive, materialRpcHandlers).pipe(
         Layer.provideMerge(services())
       );
+
     try {
       const setup = await Effect.runPromise(
         Effect.gen(function* () {
@@ -55,6 +71,7 @@ testStable(
             name: 'pixel.png',
             bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
           });
+
           return { collection, image };
         }).pipe(Effect.provide(services()))
       );
@@ -136,9 +153,11 @@ testStable(
               sessionId: session.id,
               projectId: setup.collection.id
             });
+
             assert.ok(original.version);
             assert.deepEqual(original.version.document, content);
             const copy = yield* create('Retained copy', copyContent);
+
             assert.ok(copy.version);
             const inserted = createBlock({ type: 'paragraph', inlines: text('Inserted') });
             const edit = yield* rpc['documents.save']({
@@ -148,10 +167,12 @@ testStable(
               document: { ...content, blocks: [inserted, ...content.blocks.toReversed()] }
             });
             const revised = yield* rpc['documents.version']({ id: edit.submittedVersionId });
+
             assert.deepEqual(
               revised.document.blocks.map((block) => block.id),
               [inserted.id, ...content.blocks.toReversed().map((block) => block.id)]
             );
+
             for (const image of [
               createBlock({ type: 'image', sourceId: setup.image.id, revision: 999, alt: '' }),
               createBlock({
@@ -167,6 +188,7 @@ testStable(
                 )).kind,
                 'invalid_input'
               );
+
             for (const rows of [
               [],
               [
@@ -188,6 +210,7 @@ testStable(
             ]) {
               const emptyContent = { ...content, blocks: [createBlock({ type: 'table', rows })] };
               const empty = yield* create('Empty structure', emptyContent);
+
               assert.ok(empty.version);
               assert.deepEqual(empty.version.document, emptyContent);
               assert.equal(
@@ -202,6 +225,7 @@ testStable(
                 'invalid_input'
               );
             }
+
             const table = yield* create('Real table', {
               ...content,
               blocks: [
@@ -218,6 +242,7 @@ testStable(
                 })
               ]
             });
+
             assert.ok(table.version);
             const request = yield* rpc['materials.requestMaterialGeneration']({
               projectId: setup.collection.id,
@@ -226,17 +251,21 @@ testStable(
               inputs: [{ kind: 'document', versionId: table.version.id }]
             });
             const materials = yield* Materials;
+
             yield* materials.retryMaterialGenerationOnce({
               requestId: request.id,
               retryId: 'real-cell-retry'
             });
             yield* rpc['conversations.deleteSession']({ id: session.id });
+
             return { original, copy, revised };
           }).pipe(Effect.provide(handlers()))
         )
       );
+
       assert.ok(saved.original.version);
       assert.ok(saved.copy.version);
+
       for (const invalid of [
         { ...content, blocks: [content.blocks[0]!, content.blocks[0]!] },
         { ...content, blocks: [{ ...content.blocks[0]!, text: 'drift' }] },
@@ -251,6 +280,7 @@ testStable(
         }
       ])
         assert.equal(Schema.is(documentSchema)(invalid), false);
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
@@ -259,6 +289,7 @@ testStable(
             ...content,
             blocks: [{ ...content.blocks[0]!, anchor: { type: 'page' as const, page: 1 } }]
           };
+
           assert.equal(
             (yield* Effect.flip(
               docs.create({
@@ -297,6 +328,7 @@ testStable(
         }).pipe(Effect.provide(services()))
       );
       const range = { blockId: content.blocks[0]!.id, start: 6, end: 8 };
+
       assert.equal(validBlockTextRange(content, range), true);
       assert.equal(validBlockTextRange(content, { ...range, start: 7 }), false);
       assert.equal(validBlockTextRange(content, { ...range, end: 100 }), false);
@@ -305,6 +337,7 @@ testStable(
         true
       );
       const snapshotId = saved.original.version.snapshotId;
+
       for (const statement of [
         sql`UPDATE blocks SET text='changed' WHERE document_id=${snapshotId}`,
         sql`UPDATE blocks SET editing_id='changed' WHERE document_id=${snapshotId}`,
@@ -312,6 +345,7 @@ testStable(
         sql`DELETE FROM document_assets WHERE document_id=${snapshotId}`
       ])
         assert.throws(() => context.db.orm.run(statement));
+
       context.close();
       context = new ServerContext(location.open());
       await Effect.runPromise(
@@ -319,6 +353,7 @@ testStable(
           const projects = yield* Projects;
           const docs = yield* Documents;
           const sources = yield* Sources;
+
           yield* projects.deleteProject({ id: setup.collection.id });
           assert.deepEqual(
             (yield* docs.version({ id: saved.original.version!.id })).document,

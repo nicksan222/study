@@ -10,9 +10,9 @@ import { useRef, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { AuthoredLibrary } from '../authored-documents/library';
+import { AuthoredLibrary } from '../authored-documents';
 import { NewDocument } from '../document-editing';
-import { SourceLibrary } from '../source-library/library';
+import { SourceLibrary } from '../source-library';
 import { useImportOperation } from './import-operation';
 import { useLibraryPage } from './library-page.queries';
 import { MaterialSearch } from './material-search';

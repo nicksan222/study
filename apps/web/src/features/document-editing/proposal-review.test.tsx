@@ -140,6 +140,7 @@ testStable.each(['apply', 'keep'] as const)(
     const submitted = operation.mock.calls[0]![0];
 
     expect(submitted).toMatchObject({ requestId: 'proposal-1', key: expect.any(String) });
+
     if (kind === 'keep') expect(submitted).toMatchObject({ title: 'DocumentCopyTitle' });
 
     if (kind === 'apply') expect(submitted).toMatchObject({ expectedVersionId: 100n });
@@ -239,6 +240,7 @@ testStable(
   'hides cached comparison bodies and apply/keep actions when mounted availability fails',
   async () => {
     const view = mount();
+
     await screen.findByRole('button', { name: 'DocumentApply' });
     fireEvent.click(screen.getByText('DocumentSubmitted', { selector: 'summary' }));
     expect(screen.getByText('Proposal private body 102')).toBeVisible();
@@ -264,6 +266,7 @@ testStable.each(['before', 'proposed', 'current'] as const)(
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } }
     });
+
     clients.push(client);
     const value = comparison();
     const key = ['documents', 'proposal-comparison', 'proposal-1'];
@@ -277,11 +280,13 @@ testStable.each(['before', 'proposed', 'current'] as const)(
       ...target,
       [slot]: authoredDocument(77n, 'Retained same owner', 502n).version!
     };
+
     client.setQueryData(key, target);
     client.setQueryData(['documents', 'proposal-comparison', 'other-owner'], otherOwner);
     client.setQueryData(['documents', 'proposal-comparison', 'other-version'], otherVersion);
     const draftKey = ['document-editor', '77', '502'];
     const noteKey = ['documents', 'annotations', '77'];
+
     client.setQueryData(draftKey, { text: 'Unsaved retained draft' });
     client.setQueryData(noteKey, { note: 'Retained annotation note' });
     await releaseBodyPreviews(client, { kind: 'document', documentId: '77', versionIds: ['501'] });
@@ -308,14 +313,18 @@ testStable.each([false, true])(
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } }
     });
+
     clients.push(client);
     const key = ['documents', 'proposal-comparison', 'proposal-1'];
+
     client.setQueryData(key, comparison());
     const first = mounted ? mount(client) : undefined;
+
     if (first) {
       fireEvent.click(await screen.findByText('DocumentSubmitted', { selector: 'summary' }));
       expect(screen.getByText('Proposal private body 102')).toBeVisible();
     }
+
     rpc.preview.mockResolvedValue({
       documentId: version(100n).documentId,
       token: 'delete-exact',
@@ -331,6 +340,7 @@ testStable.each([false, true])(
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
       )
     });
+
     act(() => retirement.result.current.open('deletion'));
     await act(async () => {
       await retirement.result.current.inspect.mutateAsync();
@@ -344,7 +354,9 @@ testStable.each([false, true])(
     });
     expect(client.getQueryData(key)).toBeUndefined();
     // Query cache updates precede batched React subscriber notifications.
+
     if (mounted) await screen.findByRole('alert');
+
     expect(screen.queryByText('Proposal private body 100')).toBeNull();
     expect(screen.queryByText('Proposal private body 101')).toBeNull();
     expect(screen.queryByText('Proposal private body 102')).toBeNull();
@@ -365,17 +377,20 @@ testStable(
       defaultOptions: { queries: { retry: false, staleTime: Infinity } }
     });
     const key = ['documents', 'proposal-comparison', 'proposal-1'];
+
     client.setQueryData(key, comparison());
     mount(client);
     fireEvent.click(screen.getByText('DocumentSubmitted', { selector: 'summary' }));
     expect(screen.getByText('Proposal private body 102')).toBeVisible();
     const availability = deferred<ReturnType<typeof comparison>>();
+
     rpc.compare.mockReturnValue(availability.promise);
     const release = releaseBodyPreviews(client, {
       kind: 'document',
       documentId: '41',
       versionIds: ['102']
     });
+
     await waitFor(() => {
       expect(client.getQueryState(key)?.fetchStatus).toBe('fetching');
       expect(screen.queryByText('Proposal private body 102')).toBeNull();

@@ -10,7 +10,7 @@ import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { sourceOptions as attachmentSourceOptions } from '../source-library/source-panel.queries';
+import { sourceOptions as attachmentSourceOptions } from '../source-library';
 import { appearances } from './attachment-appearance';
 import { useAttachmentMedia } from './attachment-cards.queries';
 import { notebookTargetId } from './notebook-index';
@@ -28,6 +28,7 @@ export function AttachmentCards({
   onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
   const Surface = compact ? WorkspaceAttachments.Rows : Desk.Attachments;
+
   return (
     <Surface>
       {parts.map((part) => (

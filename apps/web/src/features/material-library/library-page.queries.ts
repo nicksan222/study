@@ -18,22 +18,28 @@ function libraryScroll() {
     document.querySelector<HTMLElement>('[data-library-scroll], main.study-content')?.scrollTop ?? 0
   );
 }
+
 function pageItems<T>(data: { pages: readonly { items: readonly T[] }[] } | undefined): T[] {
   return data?.pages.flatMap((page) => page.items) ?? [];
 }
+
 function rememberLibraryRow(row: string, entryKey: string | undefined) {
   libraryReturn.row = row;
   libraryReturn.scroll = libraryScroll();
   libraryReturn.fromReader = true;
+
   if (entryKey) libraryEntries.set(entryKey, { row, scroll: libraryReturn.scroll });
 }
+
 function useLibraryQueries(projectId: ReturnType<typeof collectionId>) {
   const state = useInfiniteQuery(materialsOptions(projectId));
   const documents = useInfiniteQuery(documentsOptions(projectId));
   const sources = useQuery(sourceLibraryOptions(projectId));
   const collections = useQuery(projectsQueryOptions());
+
   return { state, documents, sources, collections };
 }
+
 export function useLibraryPage() {
   const { t } = useI18n();
   const search = useSearch({ from: '__root__' });
@@ -59,6 +65,7 @@ export function useLibraryPage() {
   } = useRevealState(search.project);
   const [previous, setPrevious] = useState<BrowseSnapshot | null>(importReturn.previous);
   const items = pageItems(state.data);
+
   useBrowseRestoration(state.data, entryKey, documents.isSuccess && sources.isSuccess);
 
   const rememberRow = (row: string) => rememberLibraryRow(row, entryKey);

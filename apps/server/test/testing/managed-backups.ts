@@ -121,6 +121,7 @@ export async function createDocument(app: App, text = 'Retained rich content') {
         .pipe(
           Effect.map((value) => {
             if (!value.version) throw new Error('Missing created authored version');
+
             return { ...value, version: value.version };
           })
         )

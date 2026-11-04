@@ -1,9 +1,9 @@
 import type { Source } from '@study/contracts/sources/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Option } from 'effect';
 import { useState } from 'react';
 
 import { request } from '#web/lib/study-client/request.ts';
+import { deleteSourceRecovering } from '#web/lib/study-client/source-deletion.ts';
 
 export function useSourceDeletion(source: Source, onDeleted: () => void) {
   const cache = useQueryClient();
@@ -19,22 +19,7 @@ export function useSourceDeletion(source: Source, onDeleted: () => void) {
   const remove = useMutation({
     mutationKey: ['sources', 'delete', String(source.id)],
     retry: false,
-    mutationFn: async () => {
-      try {
-        await request((rpc) => rpc['sources.deleteSource']({ id: source.id }));
-      } catch (error) {
-        // A lost response can be recovered through the source's durable absence.
-        let absent = false;
-        try {
-          absent = Option.isNone(
-            await request((rpc) => rpc['sources.findSource']({ id: source.id }))
-          );
-        } catch {
-          /* Keep the original failure when availability cannot be checked. */
-        }
-        if (!absent) throw error;
-      }
-    },
+    mutationFn: () => deleteSourceRecovering(source.id),
     onSuccess: async () => {
       setOpen(false);
       onDeleted();
@@ -42,8 +27,10 @@ export function useSourceDeletion(source: Source, onDeleted: () => void) {
         predicate: ({ queryKey }: { queryKey: readonly unknown[] }) =>
           sourceBodyQuery(queryKey, String(source.id))
       };
+
       await cache.cancelQueries(owned);
       cache.removeQueries(owned);
+
       for (const queryKey of [
         ['sources', 'library'],
         ['sources', 'selection'],
@@ -56,19 +43,25 @@ export function useSourceDeletion(source: Source, onDeleted: () => void) {
       void cache.invalidateQueries({ queryKey: key });
     }
   });
+
   function show() {
     remove.reset();
     setOpen(true);
   }
+
   return { open, setOpen, show, preview, remove };
 }
 
 function sourceBodyQuery(query: readonly unknown[], id: string) {
   if (query[0] === 'source-copy') return query[1] === id;
+
   if (query[0] !== 'sources') return false;
+
   if (query[1] === 'image') return query[4] === id;
+
   if (query[1] === 'selected-input')
     return typeof query[2] === 'string' && query[2].startsWith(`source:${id}:`);
+
   return (
     ['detail', 'current-extraction', 'extraction', 'history', 'deletion-preview'].includes(
       String(query[1])

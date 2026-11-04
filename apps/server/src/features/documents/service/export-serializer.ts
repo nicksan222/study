@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Serializes exact authored Document versions with bounded safe export links.        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Serializes exact authored Document versions with bounded safe export links.            │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature policy coordinates public services and private stores within caller-owned        │
+ * │ transactions.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import { StudyError } from '@study/contracts/errors';
 import { MAX_EXPORT_BYTES } from '@study/contracts/exports';
@@ -5,8 +18,10 @@ import type { exportOmissionSchema } from '@study/contracts/exports';
 import type { blockSchema, Inline } from '@study/contracts/sources/schemas';
 
 import { exportBudget } from '#server/platform/content-export/budget';
+
 const json = (value: unknown) =>
   JSON.stringify(value, (_, item: unknown) => (typeof item === 'bigint' ? item.toString() : item));
+
 export const escapeHtml = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -52,9 +67,11 @@ export function serializeDocumentVersion(
 ) {
   const document = version.document;
   const citations = version.citations;
+
   exportBudget().consume(version);
   const omissions: (typeof exportOmissionSchema.Type)[] = [];
   const html = format === 'html';
+
   function inline(items: readonly Inline[], asHtml = html): string {
     const esc = asHtml ? escapeHtml : markdownText;
 
@@ -268,8 +285,10 @@ export function serializeDocumentVersion(
       '\n' +
       '~'.repeat(fenceLength(metadata, /~+/g));
   const bytes = new TextEncoder().encode(body);
+
   if (bytes.length > MAX_EXPORT_BYTES)
     throw new StudyError('invalid_input', 'Export exceeds byte limit');
+
   return {
     versionId: version.id,
     format,

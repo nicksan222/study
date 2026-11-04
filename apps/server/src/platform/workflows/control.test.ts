@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises native runtime control behavior through real persistence boundaries.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies unsafe control interrupts a provider fiber after its durable source capture   │
+ * │   was retired and scrubbed.                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { sourceProcessingRequestedSchema } from '@study/contracts/events';
@@ -38,6 +51,7 @@ testStable(
       requestId: 'source-request'
     };
     let calls = 0;
+
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -45,14 +59,17 @@ testStable(
             const engine = yield* WorkflowEngine.WorkflowEngine;
             const started = yield* Deferred.make<void>();
             const stopped = yield* Deferred.make<void>();
+
+            const provider = Effect.gen(function* () {
+              calls++;
+              yield* Deferred.succeed(started, undefined);
+              yield* Effect.never;
+            }).pipe(Effect.onInterrupt(() => Deferred.succeed(stopped, undefined)));
+
             yield* engine.register(workflow, () =>
               Activity.make({
                 name: 'provider',
-                execute: Effect.gen(function* () {
-                  calls++;
-                  yield* Deferred.succeed(started, undefined);
-                  yield* Effect.never;
-                }).pipe(Effect.onInterrupt(() => Deferred.succeed(stopped, undefined)))
+                execute: provider
               })
             );
             yield* engine.execute(workflow, { executionId: id, payload: { event }, discard: true });

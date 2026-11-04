@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates independent authored Document operations through transactional stores. │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Coordinates independent authored Document operations through transactional stores.     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature policy coordinates public services and private stores within caller-owned        │
+ * │ transactions.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { randomUUID } from 'node:crypto';
 
 import type * as e from '@study/contracts/documents/editing';
@@ -8,6 +21,7 @@ import type * as r from '@study/contracts/documents/rpc';
 import type * as t from '@study/contracts/documents/transform';
 import type { StudyDocument } from '@study/contracts/documents/types';
 import { StudyError } from '@study/contracts/errors';
+import type { SessionId } from '@study/contracts/ids';
 import type { StudyDocumentVersionId } from '@study/contracts/ids';
 import { Effect, Option } from 'effect';
 
@@ -44,6 +58,7 @@ import { requestTransform, publishTransform, retryTransform } from './transforms
 
 function documentPublished(tx: Transaction, versionId: StudyDocumentVersionId) {
   const eventId = randomUUID();
+
   tx.emit({
     type: 'DocumentPublished',
     eventId,
@@ -54,26 +69,32 @@ function documentPublished(tx: Transaction, versionId: StudyDocumentVersionId) {
     versionId
   });
 }
+
 function created(tx: Transaction, result: { document: StudyDocument; replayed: boolean }) {
   if (!result.replayed && result.document.version)
     documentPublished(tx, result.document.version.id);
+
   return result.document;
 }
+
 function edited(tx: Transaction, result: typeof e.editOutcomeSchema.Type) {
   if (!result.replayed && result.outcome === 'saved')
     documentPublished(tx, result.submittedVersionId);
+
   return result;
 }
 
 function proposalCommitted(tx: Transaction, result: typeof e.proposalOutcomeSchema.Type) {
   if (!result.replayed && result.resultVersionId !== null)
     documentPublished(tx, result.resultVersionId);
+
   return result;
 }
 
 function annotationChanged(tx: Transaction, result: typeof evidence.annotationOutcomeSchema.Type) {
   if (result.outcome === 'saved') {
     const eventId = randomUUID();
+
     tx.emit({
       type: 'DocumentAnnotationChanged',
       eventId,
@@ -86,6 +107,7 @@ function annotationChanged(tx: Transaction, result: typeof evidence.annotationOu
       revision: result.annotation.revision
     });
   }
+
   return result;
 }
 
@@ -102,6 +124,7 @@ export const Documents = defineService(
     const exports = yield* useStore(DocumentExportsStore);
     const history = yield* useStore(DocumentHistoryStore);
     const deletion = yield* useStore(DocumentDeletionStore);
+
     return {
       ...docs,
       assessCitation: (v: typeof evidence.assessCitationSchema.Type) =>
@@ -116,8 +139,10 @@ export const Documents = defineService(
               .store(DocumentTransformsStore)
               .changeTransform({ ...v, cancel: true, errorKind: null })
           );
+
           if (request.resultVersionId === null)
             yield* Workflows.cancelCorrelatedExecutions(request.id, 'document-transform/v1');
+
           return request;
         }),
       failTransform: (v: {
@@ -127,7 +152,9 @@ export const Documents = defineService(
       }) =>
         publicationTransaction((tx) => {
           const old = tx.store(DocumentTransformsStore).transform(v);
+
           if (old.eventId !== v.eventId || old.cancelled || old.resultVersionId !== null) return;
+
           tx.store(DocumentTransformsStore).changeTransform({ ...v, cancel: false });
           tx.emit({
             type: 'DocumentGenerationFailed',
@@ -145,6 +172,7 @@ export const Documents = defineService(
       compareProposal: (v: typeof e.proposalKeySchema.Type) =>
         transaction((tx) => {
           const p = tx.store(DocumentProposalsStore).proposal(v);
+
           return tx.store(DocumentComparisonsStore).comparison({
             beforeVersionId: p.baseVersionId,
             proposedVersionId: p.proposedVersionId,
@@ -158,6 +186,7 @@ export const Documents = defineService(
               'unsupported',
               'Session proposal application requires captured context coordination'
             );
+
           return proposalCommitted(tx, tx.store(DocumentProposalsStore).applyProposal(v));
         }),
       keepProposal: (v: typeof e.keepProposalSchema.Type) =>
@@ -167,6 +196,7 @@ export const Documents = defineService(
               'unsupported',
               'Session proposal retention requires captured context coordination'
             );
+
           return proposalCommitted(tx, tx.store(DocumentProposalsStore).keepProposal(v));
         }),
       proposeGenerated: (v: typeof e.publishSchema.Type) =>
@@ -201,6 +231,7 @@ export const Documents = defineService(
       copySource: (v: typeof r.sourceCopySchema.Type) =>
         transaction((tx) => {
           Sources.extractionInTransaction(tx, v);
+
           return created(tx, tx.store(DocumentsStore).copySource(v));
         }),
       archive: (v: typeof r.archiveSchema.Type) =>
@@ -216,13 +247,17 @@ export const Documents = defineService(
       retireHistory: (v: typeof r.retireSchema.Type) =>
         transaction((tx) => {
           const preview = tx.store(DocumentHistoryStore).previewHistory(v);
+
           retireBodyWorkflows(tx, preview.versionIds);
+
           return tx.store(DocumentsStore).retireHistory(v);
         }),
       delete: (v: typeof r.deleteSchema.Type) =>
         transaction((tx) => {
           const preview = tx.store(DocumentDeletionStore).previewDeletion({ id: v.documentId });
+
           retireBodyWorkflows(tx, preview.versionIds);
+
           return tx.store(DocumentsStore).delete(v);
         }),
       createGenerated: (v: typeof e.createGeneratedSchema.Type) =>
@@ -234,7 +269,7 @@ export const Documents = defineService(
   {
     prepareSessionRetirement: (
       tx: Transaction,
-      v: { sessionId: import('@study/contracts/ids').SessionId; contextIds: readonly string[] }
+      v: { sessionId: SessionId; contextIds: readonly string[] }
     ) => tx.store(DocumentTransformsStore).retireSessionRequests(v),
     validateBackup: (tx: Transaction) => tx.store(DocumentBackupStore).backupDocument(undefined),
     prepareBackup: (tx: Transaction) => tx.store(DocumentBackupStore).prepareBackup(undefined),
@@ -264,7 +299,7 @@ export const Documents = defineService(
       tx.store(DocumentTransformsStore).transform(v),
     transformsInTransaction: (
       tx: Transaction,
-      v: { sessionId: import('@study/contracts/ids').SessionId; limit: number; before?: string }
+      v: { sessionId: SessionId; limit: number; before?: string }
     ) => tx.store(DocumentTransformsStore).transforms(v),
     /** Conversations/AI can join publication to an existing fenced transaction. */
     proposeGeneratedInTransaction: (tx: Transaction, v: typeof e.publishSchema.Type) =>
@@ -289,6 +324,7 @@ function retireBodyWorkflows(tx: Transaction, ids: readonly StudyDocumentVersion
   const { ids: correlations } = tx
     .store(DocumentBodyRetirementStore)
     .bodyRetirementCorrelation(ids);
+
   Workflows.retireCorrelations(tx, correlations, [
     'DocumentGenerationRequested',
     'DocumentGenerationFailed'

@@ -60,48 +60,59 @@ export const exactExtractionInputSchema = Schema.Struct({
   revision: Schema.BigInt.check(Schema.isGreaterThanBigInt(0n)),
   snapshotId: contentSnapshotIdSchema
 });
+
 const extractionCursorSchema = Schema.Struct({
   revision: Schema.BigInt,
   snapshotId: contentSnapshotIdSchema
 });
+
 export const extractionHistoryInputSchema = Schema.Struct({
   sourceId: sourceIdSchema,
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(extractionCursorSchema)
 });
+
 const extractionIdentitySchema = Schema.Struct({
   ...exactExtractionInputSchema.fields,
   createdAt: Schema.BigInt
 });
+
 export const extractionPageSchema = Schema.Struct({
   items: Schema.Array(extractionIdentitySchema),
   next: Schema.NullOr(extractionCursorSchema)
 });
+
 export const revisionExportInputSchema = Schema.Struct({
   sourceId: sourceIdSchema,
   revision: exactExtractionInputSchema.fields.revision
 });
+
 export const revisionExportSchema = Schema.Struct({
   ...revisionExportInputSchema.fields,
   name: Schema.String,
   mime: Schema.String,
   bytes: Schema.Uint8Array
 });
+
 export const currentExtractionInputSchema = Schema.Struct({ id: sourceIdSchema });
+
 export const exactExtractionSchema = Schema.Struct({
   ...exactExtractionInputSchema.fields,
   name: Schema.String,
   document: documentSchema
 });
+
 export const sessionSourcesInputSchema = Schema.Struct({
   sessionId: sessionIdSchema,
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
   afterPosition: Schema.optional(Schema.BigInt.check(Schema.isGreaterThanOrEqualToBigInt(0n)))
 });
+
 export const sourceLinkSchema = Schema.Struct({
   sessionId: sessionIdSchema,
   sourceId: sourceIdSchema
 });
+
 export const sessionSourceSchema = Schema.Struct({
   id: sourceIdSchema,
   position: Schema.BigInt,
@@ -111,10 +122,12 @@ export const sessionSourceSchema = Schema.Struct({
   snapshotId: Schema.NullOr(contentSnapshotIdSchema),
   pending: Schema.Boolean
 });
+
 export const sourceHistoryInputSchema = Schema.Struct({
   sourceId: sourceIdSchema,
   keepLatest: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
 });
+
 export const sourceHistoryPreviewSchema = Schema.Struct({
   ...sourceHistoryInputSchema.fields,
   name: Schema.String,
@@ -123,6 +136,7 @@ export const sourceHistoryPreviewSchema = Schema.Struct({
   blockedSnapshotIds: Schema.Array(contentSnapshotIdSchema),
   semantics: Schema.Literal('retire_extractions_keep_original_revisions')
 });
+
 export const sourceHistoryRetireSchema = Schema.Struct({
   ...sourceHistoryInputSchema.fields,
   token: sourceHistoryPreviewSchema.fields.token

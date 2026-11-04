@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Binds authored Document query and mutation descriptors to private persistence.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Binds authored Document query and mutation descriptors to private persistence.         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as e from '@study/contracts/documents/editing';
 import * as r from '@study/contracts/documents/rpc';
 import * as c from '@study/contracts/documents/schemas';
@@ -12,6 +25,7 @@ export const DocumentsStore = defineStore({
   entity: { singular: 'document', plural: 'documents' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+
     return {
       queries: {
         document: storeQuery({
@@ -88,11 +102,13 @@ export const DocumentsStore = defineStore({
     };
   }
 });
+
 export const DocumentVersionsStore = defineStore({
   name: 'study/DocumentVersionsStore',
   entity: { singular: 'version', plural: 'versions' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+
     return {
       queries: {
         version: storeQuery({
@@ -112,6 +128,7 @@ export const DocumentVersionsStore = defineStore({
     };
   }
 });
+
 export const DocumentComparisonsStore = defineStore({
   name: 'study/DocumentComparisonsStore',
   entity: { singular: 'comparison', plural: 'comparisons' },
@@ -127,6 +144,7 @@ export const DocumentComparisonsStore = defineStore({
     mutations: {}
   })
 });
+
 export const DocumentExportsStore = defineStore({
   name: 'study/DocumentExportsStore',
   entity: { singular: 'exportVersion', plural: 'exportVersions' },
@@ -142,6 +160,7 @@ export const DocumentExportsStore = defineStore({
     mutations: {}
   })
 });
+
 export const DocumentHistoryStore = defineStore({
   name: 'study/DocumentHistoryStore',
   entity: { singular: 'previewHistory', plural: 'historyPreviews' },
@@ -157,6 +176,7 @@ export const DocumentHistoryStore = defineStore({
     mutations: {}
   })
 });
+
 export const DocumentDeletionStore = defineStore({
   name: 'study/DocumentDeletionStore',
   entity: { singular: 'previewDeletion', plural: 'deletionPreviews' },
@@ -178,6 +198,7 @@ export const DocumentProposalsStore = defineStore({
   entity: { singular: 'proposal', plural: 'proposals' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+
     return {
       queries: {
         proposal: storeQuery({
@@ -216,6 +237,7 @@ export const DocumentProposalReceiptsStore = defineStore({
   entity: { singular: 'proposalReceipt', plural: 'proposalReceipts' },
   make: (resources) => {
     const d = makeDocumentDomain(resources);
+
     return {
       queries: {
         findProposalReceipt: storeQuery({

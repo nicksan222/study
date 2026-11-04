@@ -45,33 +45,42 @@ function Root({
 }
 
 /** Measures the floating input so the final notebook entry can always clear it. */
+
 function Notebook({ children }: { children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
+
   useLayoutEffect(() => {
     const pane = root.current;
     const viewport = pane?.querySelector<HTMLElement>('[data-notebook-scroll-host]');
     const composer = pane?.querySelector<HTMLElement>('.session-desk-floating-composer');
+
     if (!pane || !viewport || !composer) return;
+
     const measure = () => {
       pane.style.setProperty(
         '--notebook-scrollbar-width',
         String(viewport.offsetWidth - viewport.clientWidth) + 'px'
       );
       pane.style.setProperty('--notebook-composer-height', String(composer.offsetHeight) + 'px');
+
       if (viewport.clientHeight)
         pane.style.setProperty('--notebook-viewport-height', String(viewport.clientHeight) + 'px');
     };
+
     measure();
     const observer =
       typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+
     observer?.observe(viewport);
     observer?.observe(composer);
     window.addEventListener('resize', measure);
+
     return () => {
       observer?.disconnect();
       window.removeEventListener('resize', measure);
     };
   }, []);
+
   return (
     <div ref={root} className="session-desk-notebook">
       {children}
@@ -92,6 +101,7 @@ function NavigationHost() {
 }
 
 /** Uses native tab semantics and keyboard navigation while keeping close controls separate from tab buttons. */
+
 function Panel({
   tabs,
   active,

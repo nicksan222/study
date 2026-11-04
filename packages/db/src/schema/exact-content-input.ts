@@ -17,6 +17,7 @@ export function exactContentInputColumns() {
     source_snapshot_id: integer().$type<ContentSnapshotId>()
   };
 }
+
 export function exactContentInputConstraints(t: {
   document_version_id: AnySQLiteColumn;
   source_id: AnySQLiteColumn;
@@ -60,6 +61,8 @@ export function exactCitationConstraints(
     columns: [t.input_id, t.version_id],
     foreignColumns: [input.id, input.version_id]
   });
+
   if (cascade) owner.onDelete('cascade');
+
   return [primaryKey({ columns: [t.version_id, t.marker] }), owner];
 }

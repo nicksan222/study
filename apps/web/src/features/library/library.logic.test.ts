@@ -71,6 +71,7 @@ testStable(
     const project = projectIdSchema.make(1n);
     const document = { ...authoredDocument(20n), projectIds: [project] };
     const other = { ...authoredDocument(21n), projectIds: [projectIdSchema.make(2n)] };
+
     expect(libraryItems('library', [], [], project, [document, other])).toEqual([
       { type: 'document', value: document }
     ]);

@@ -11,9 +11,12 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { request } from '#web/lib/study-client/request.ts';
 
-import { annotationDocumentOptions, retainedRangeOptions } from './annotation-target.queries';
+import {
+  annotationVersionsOptions,
+  annotationDocumentOptions,
+  retainedRangeOptions
+} from './annotation-target.queries';
 
 export type Target = typeof annotationTargetSchema.Type;
 
@@ -28,16 +31,7 @@ export function TargetPicker({
 }) {
   const { t } = useI18n();
   const [version, setVersion] = useState(initialVersion);
-  const versions = useInfiniteQuery({
-    queryKey: ['documents', 'annotationVersions', String(documentId)],
-    initialPageParam: undefined as StudyDocumentVersionId | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      request(
-        (rpc) => rpc['documents.versions']({ documentId, limit: 30, cursor: pageParam }),
-        signal
-      ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined
-  });
+  const versions = useInfiniteQuery(annotationVersionsOptions(documentId));
 
   return (
     <div>
@@ -175,6 +169,7 @@ function BlockPicker({
 }
 
 /** Opens only the exact retained authored version, without following its head. */
+
 export function EvidenceTarget({
   reference,
   preview = false
@@ -186,6 +181,7 @@ export function EvidenceTarget({
   const [open, setOpen] = useState(preview);
   const state = useQuery(retainedRangeOptions(reference.target, open));
   const range = reference.target.range;
+
   return (
     <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary>{t('AnnotationOpenTarget')}</summary>

@@ -76,6 +76,7 @@ testStable.each([
         .fn<StudyClient['documents.assessments']>()
         .mockReturnValue(Effect.succeed({ items: [record], nextCursor: null }))
     };
+
     vi.mocked(request).mockImplementation((invoke, signal) =>
       runRequest(invoke(rpc as never).pipe(Effect.mapError(toStudyError)), signal)
     );
@@ -90,6 +91,7 @@ testStable.each([
     expect(await screen.findByText(label)).toBeInTheDocument();
     expect(screen.getByText('My explicit reasoning')).toBeInTheDocument();
     const shown = screen.getByText('A disputed claim').closest('blockquote')!;
+
     expect(shown).toHaveTextContent(status);
     expect(screen.getByText(catalogs.english.DocumentEvidenceExplanation)).toBeInTheDocument();
   }

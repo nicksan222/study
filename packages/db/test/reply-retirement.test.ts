@@ -10,6 +10,7 @@ testStable(
   () => {
     const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
     const db = location.open();
+
     try {
       db.exec(`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
       INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'assistant',1),(2,1,'assistant',1),(3,1,'assistant',1);
@@ -42,6 +43,7 @@ testStable(
         db.orm.get(sql`SELECT text FROM message_versions WHERE id=2`)?.text,
         'Preserved raw answer'
       );
+
       for (const name of [
         'material_deletion_reply_publication',
         'history_reply_publication',
@@ -54,6 +56,7 @@ testStable(
           undefined,
           name
         );
+
       assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
     } finally {
       db.close();

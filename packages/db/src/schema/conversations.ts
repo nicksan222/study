@@ -26,7 +26,6 @@ import {
   codes_title_source,
   codes_version_origin
 } from './codes.ts';
-import { content_snapshots } from './content-snapshots.ts';
 import { sources } from './sources.ts';
 
 export const message_versions = sqliteTable(

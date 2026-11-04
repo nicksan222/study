@@ -91,7 +91,7 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const materials = yield* Materials;
+          yield* Materials;
           const doc = yield* (yield* Documents).create({
             createKey: randomUUID(),
             inputs: [],

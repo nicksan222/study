@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads independent authored Documents and exact retained version bodies.            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Reads independent authored Documents and exact retained version bodies.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type * as r from '@study/contracts/documents/rpc';
 import type { ExactDocumentInput, StudyDocumentVersion } from '@study/contracts/documents/types';
 import { StudyError } from '@study/contracts/errors';
@@ -18,6 +31,7 @@ import { required } from './errors.ts';
 
 export function makeDocumentReads({ db }: StoreResources) {
   const orm = db.orm;
+
   function aggregate(id: StudyDocumentId) {
     if (
       orm
@@ -27,8 +41,10 @@ export function makeDocumentReads({ db }: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Document is deleted');
+
     return required(orm.select().from(s.study_documents).where(eq(s.study_documents.id, id)).get());
   }
+
   function liveVersion(id: StudyDocumentVersionId) {
     if (
       orm
@@ -38,12 +54,16 @@ export function makeDocumentReads({ db }: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Document version body is retired');
+
     const v = required(
       orm.select().from(s.study_document_versions).where(eq(s.study_document_versions.id, id)).get()
     );
+
     aggregate(v.document_id);
+
     return v;
   }
+
   function content(id: ContentSnapshotId) {
     const snapshot = required(
       orm.select().from(s.content_snapshots).where(eq(s.content_snapshots.id, id)).get()
@@ -55,11 +75,14 @@ export function makeDocumentReads({ db }: StoreResources) {
       .orderBy(asc(s.blocks.ordinal))
       .all()
       .map(decodeStoredBlock);
+
     return Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(snapshot.meta) });
   }
+
   function inputValue(i: typeof s.study_document_inputs.$inferSelect): ExactDocumentInput {
     if (i.document_version_id !== null)
       return { kind: 'document', versionId: i.document_version_id };
+
     if (i.source_id !== null)
       return {
         kind: 'source',
@@ -67,10 +90,13 @@ export function makeDocumentReads({ db }: StoreResources) {
         revision: required(i.source_revision),
         snapshotId: i.source_snapshot_id
       };
+
     if (i.exact_message_version_id !== null)
       return { kind: 'message', versionId: i.exact_message_version_id };
+
     throw new StudyError('invalid_input', 'Exact authored input identity is missing');
   }
+
   function version(id: StudyDocumentVersionId): StudyDocumentVersion {
     const v = liveVersion(id);
     const inputs = orm
@@ -92,6 +118,7 @@ export function makeDocumentReads({ db }: StoreResources) {
         target: x.target === null ? null : JSON.parse(x.target),
         quote: x.quote
       }));
+
     return {
       id: v.id,
       documentId: v.document_id,
@@ -115,6 +142,7 @@ export function makeDocumentReads({ db }: StoreResources) {
       document: content(v.content_snapshot_id)
     };
   }
+
   function head(id: StudyDocumentId) {
     return orm
       .select()
@@ -129,8 +157,10 @@ export function makeDocumentReads({ db }: StoreResources) {
       .orderBy(desc(s.study_document_versions.number))
       .get();
   }
+
   function summary(id: StudyDocumentId) {
     const a = aggregate(id);
+
     return {
       id: a.id,
       projectIds: orm
@@ -148,10 +178,13 @@ export function makeDocumentReads({ db }: StoreResources) {
       headVersionId: head(id)?.id ?? null
     };
   }
+
   function document(id: StudyDocumentId) {
     const a = summary(id);
+
     return { ...a, version: a.headVersionId === null ? null : version(a.headVersionId) };
   }
+
   function documents(v: typeof r.listSchema.Type) {
     const rows = orm
       .select()
@@ -174,11 +207,13 @@ export function makeDocumentReads({ db }: StoreResources) {
       .orderBy(desc(s.study_documents.id))
       .limit(v.limit + 1)
       .all();
+
     return {
       items: rows.slice(0, v.limit).map((x) => summary(x.id)),
       nextCursor: rows.length > v.limit ? required(rows[v.limit - 1]).id : null
     };
   }
+
   function versions(v: typeof r.versionsSchema.Type) {
     aggregate(v.documentId);
     const rows = orm
@@ -196,11 +231,13 @@ export function makeDocumentReads({ db }: StoreResources) {
       .orderBy(desc(s.study_document_versions.number))
       .limit(v.limit + 1)
       .all();
+
     return {
       items: rows.slice(0, v.limit).map((x) => version(x.id)),
       nextCursor: rows.length > v.limit ? required(rows[v.limit - 1]).id : null
     };
   }
+
   function generationRequest(id: string) {
     return orm
       .select()
@@ -208,6 +245,7 @@ export function makeDocumentReads({ db }: StoreResources) {
       .where(eq(s.study_document_generation_requests.id, id))
       .get();
   }
+
   return {
     generationRequest,
     aggregate,

@@ -9,7 +9,7 @@ import { Textarea } from '@study/ui/textarea';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { CapturedInputLink } from '../source-library/input-link';
+import { CapturedInputLink } from '../source-library';
 import { AnnotationControls } from './annotation-controls';
 import { EvidenceTarget, TargetPicker } from './annotation-target';
 import { useReaderEvidence } from './reader-evidence.queries';
@@ -17,8 +17,10 @@ import { useReaderEvidence } from './reader-evidence.queries';
 type EvidenceController = ReturnType<typeof useReaderEvidence>;
 
 type Citation = typeof citationSchema.Type;
+
 function assessmentLabel(assessment: typeof assessmentViewSchema.Type | undefined) {
   if (!assessment) return 'DocumentUnassessed' as const;
+
   switch (assessment.state) {
     case 'assessed':
       return 'DocumentUserAssessed' as const;
@@ -28,11 +30,13 @@ function assessmentLabel(assessment: typeof assessmentViewSchema.Type | undefine
       return 'ReaderUnavailable' as const;
   }
 }
+
 const judgmentLabels = {
   supports: 'DocumentSupports',
   contradicts: 'DocumentContradicts',
   uncertain: 'DocumentUncertain'
 } as const;
+
 function CitationDetails({
   citation,
   assessment
@@ -42,6 +46,7 @@ function CitationDetails({
 }) {
   const { t } = useI18n();
   const input = citation.input;
+
   return (
     <blockquote>
       <p>{citation.quote}</p>

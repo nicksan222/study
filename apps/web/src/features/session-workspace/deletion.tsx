@@ -24,6 +24,7 @@ import {
 import { SessionError, SessionReadError } from './status';
 
 /** Shares deletion receipts through the query cache while keeping success announcements owned by the initiating observer. */
+
 function useSessionDeletion(id: SessionId, enabled = true) {
   const { t } = useI18n();
   const cache = useQueryClient();
@@ -86,6 +87,7 @@ function useSessionDeletion(id: SessionId, enabled = true) {
 type DeletionFlow = ReturnType<typeof useSessionDeletion>;
 
 /** Exposes mutation and receipt read failures with the recovery each operation permits. */
+
 function DeleteErrors({ flow }: { flow: DeletionFlow }) {
   const { state, mutation, retry, pending } = flow;
 
@@ -104,6 +106,7 @@ function DeleteErrors({ flow }: { flow: DeletionFlow }) {
 }
 
 /** Reports loading, deletion progress and committed completion from the shared receipt. */
+
 function DeleteStatus({ flow }: { flow: DeletionFlow }) {
   const { t } = useI18n();
   const { state, pending } = flow;
@@ -127,6 +130,7 @@ function DeleteFeedback({ flow }: { flow: DeletionFlow }) {
 }
 
 /** Shows recovery for an interrupted session deletion without restoring deleted session content. */
+
 export function SessionDeletion({ id }: { id: SessionId }) {
   const { t } = useI18n();
   const flow = useSessionDeletion(id);
@@ -151,6 +155,7 @@ export function SessionDeletion({ id }: { id: SessionId }) {
 }
 
 /** Confirms deletion once per attempt and closes only after its owned operation completes. */
+
 export function SessionDeleteDialog({
   id,
   open,
@@ -199,6 +204,7 @@ export function SessionDeleteDialog({
 type BatchDeletionStatus = { pending: boolean; ready: boolean; complete: boolean };
 
 /** Keeps the reviewed target set fixed while each existing deletion flow owns its request and recovery. */
+
 export function SessionBatchDeleteDialog({
   sessions,
   open,
@@ -211,9 +217,12 @@ export function SessionBatchDeleteDialog({
   onDeleted?: (ids: readonly SessionId[]) => void;
 }) {
   const [review, setReview] = useState({ open, sessions });
+
   if (review.open !== open) setReview({ open, sessions: open ? sessions : review.sessions });
+
   const targets = review.sessions;
   const identity = targets.map((session) => String(session.id)).join(',');
+
   return (
     <BatchDeletion
       key={identity}
@@ -242,12 +251,14 @@ function BatchDeletion({
   const report = useCallback((id: SessionId, status: BatchDeletionStatus) => {
     setStatuses((previous) => {
       const current = previous.get(id);
+
       if (
         current?.pending === status.pending &&
         current?.ready === status.ready &&
         current?.complete === status.complete
       )
         return previous;
+
       return new Map(previous).set(id, status);
     });
   }, []);
@@ -259,6 +270,7 @@ function BatchDeletion({
     );
   const completed =
     sessions.length > 0 && sessions.every((session) => statuses.get(session.id)?.complete);
+
   useEffect(() => {
     if (confirmed && completed) onOpenChange(false);
   }, [confirmed, completed, onOpenChange]);
@@ -318,16 +330,21 @@ function useBatchDeletionItem({
   const retryable = receipt?.status === 'failed';
   const pending = flow.pending || receipt?.status === 'pending';
   const ready = retryable || (flow.available && !flow.started);
+
   useEffect(() => {
     report(session.id, { pending, ready, complete: receipt?.status === 'completed' });
   }, [session.id, pending, ready, receipt?.status, report]);
+  const retryDeletion = flow.retry.mutate;
+  const deleteSession = flow.mutation.mutate;
+
   useEffect(() => {
     if (confirmed && !attempted.current) {
       attempted.current = true;
-      if (retryable) flow.retry.mutate();
-      else if (flow.available && !flow.started) flow.mutation.mutate();
+
+      if (retryable) retryDeletion();
+      else if (flow.available && !flow.started) deleteSession();
     }
-  }, [confirmed, retryable, flow.available, flow.started, flow.retry.mutate, flow.mutation.mutate]);
+  }, [confirmed, retryable, flow.available, flow.started, retryDeletion, deleteSession]);
   useEffect(() => {
     if (receipt && !announced.current) {
       announced.current = true;
@@ -342,6 +359,7 @@ function BatchDeletionItem(props: BatchDeletionItemProps) {
   const { t } = useI18n();
   const { session, confirmed } = props;
   const { flow, retryable, pending } = useBatchDeletionItem(props);
+
   return (
     <Notebook.BatchDeletionItem>
       <strong>{session.title || t('SessionUntitled')}</strong>

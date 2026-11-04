@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists exact Document transform captures, publication receipts and guarded       │
+ * │ retries.                                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists exact Document transform captures, publication receipts and guarded retries.  │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as t from '@study/contracts/documents/transform';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
@@ -7,12 +21,30 @@ import { Schema, Option } from 'effect';
 
 import { intentHash } from '#server/features/documents/decoders/intent';
 import {
-  decodeTransformRequest,
   transformRequestCodec as requestCodec,
   transformReportCodec as reportCodec
 } from '#server/features/documents/decoders/transform-request';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
+
+export function decodeTransformRequest(row: typeof requests.$inferSelect) {
+  const request = Schema.decodeUnknownSync(requestCodec)(row.request);
+
+  if (request.contextRequestId !== row.context_request_id)
+    throw new StudyError('invalid_input', 'Document generation capture identity is inconsistent');
+
+  return Schema.decodeUnknownSync(t.transformSnapshotSchema)({
+    ...request,
+    id: row.id,
+    sessionId: row.session_id,
+    instruction: row.instruction,
+    eventId: row.event_id,
+    cancelled: row.cancelled,
+    errorKind: row.error_kind,
+    resultVersionId: row.result_version_id,
+    report: row.report === null ? null : Schema.decodeUnknownSync(reportCodec)(row.report)
+  });
+}
 
 export const DocumentTransformsStore = defineStore({
   name: 'study/DocumentTransformsStore',
@@ -20,9 +52,12 @@ export const DocumentTransformsStore = defineStore({
   make: ({ db, clock }) => {
     function read({ requestId }: typeof t.transformKeySchema.Type) {
       const row = db.orm.select().from(requests).where(eq(requests.id, requestId)).get();
+
       if (!row) throw new StudyError('not_found', 'Document generation is unavailable');
+
       return decodeTransformRequest(row);
     }
+
     return {
       queries: {
         findTransform: storeQuery({
@@ -86,6 +121,7 @@ export const DocumentTransformsStore = defineStore({
                 )
               )
               .all();
+
             for (const row of rows)
               if (row.result_version_id === null)
                 db.orm
@@ -93,6 +129,7 @@ export const DocumentTransformsStore = defineStore({
                   .set({ cancelled: true, error_kind: 'cancelled' })
                   .where(eq(requests.id, row.id))
                   .run();
+
             return rows.map((row) => row.id);
           }
         }),
@@ -114,8 +151,10 @@ export const DocumentTransformsStore = defineStore({
               value
             );
             const existing = db.orm.select().from(requests).where(eq(requests.id, requestId)).get();
+
             if (existing && existing.intent_hash !== hash)
               throw new StudyError('invalid_input', 'Document request already has another intent');
+
             if (!existing)
               db.orm
                 .insert(requests)
@@ -130,6 +169,7 @@ export const DocumentTransformsStore = defineStore({
                   created_at: unixSeconds(clock)
                 })
                 .run();
+
             return { created: !existing, request: read({ requestId }) };
           }
         }),
@@ -150,15 +190,19 @@ export const DocumentTransformsStore = defineStore({
               .from(requests)
               .where(eq(requests.id, value.requestId))
               .get();
+
             if (old.resultVersionId !== null && committed?.hash !== hash)
               throw new StudyError(
                 'invalid_input',
                 'Document result differs from its publication receipt'
               );
+
             if (old.cancelled || old.eventId !== value.generationEventId)
               throw new StudyError('cancelled', 'Document generation is no longer active');
+
             if (old.resultVersionId !== null && old.resultVersionId !== value.versionId)
               throw new StudyError('invalid_input', 'Document generation already published');
+
             db.orm
               .update(requests)
               .set({
@@ -169,6 +213,7 @@ export const DocumentTransformsStore = defineStore({
               })
               .where(eq(requests.id, value.requestId))
               .run();
+
             return read(value);
           }
         }),
@@ -182,7 +227,9 @@ export const DocumentTransformsStore = defineStore({
           output: t.transformSnapshotSchema,
           run: (value) => {
             const old = read(value);
+
             if (old.resultVersionId !== null) return old;
+
             db.orm
               .update(requests)
               .set({
@@ -192,6 +239,7 @@ export const DocumentTransformsStore = defineStore({
               })
               .where(eq(requests.id, value.requestId))
               .run();
+
             return read(value);
           }
         })

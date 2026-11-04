@@ -17,12 +17,16 @@ vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const original = authoredDocument(31n, 'Keep selected outside', 41n);
+
 const exact = original.version!;
+
 const target = Schema.decodeUnknownSync(sessionSelectionTargetSchema)({
   input: { kind: 'document', versionId: exact.id },
   scope: { kind: 'ranges', ranges: [{ blockId: exact.document.blocks[0]!.id, start: 5, end: 13 }] }
 });
+
 const clients: QueryClient[] = [];
+
 function mount(owner = { ...original, title: 'Mechanics' }) {
   const rpc = {
     'documents.version': vi
@@ -32,18 +36,22 @@ function mount(owner = { ...original, title: 'Mechanics' }) {
       .fn<StudyClient['documents.document']>()
       .mockReturnValue(Effect.succeed(owner))
   };
+
   vi.mocked(request).mockImplementation((invoke, signal) =>
     runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
       <SelectedTarget target={target} />
     </QueryClientProvider>
   );
+
   return { client, rpc };
 }
+
 afterEach(() => {
   cleanup();
   clients.splice(0).forEach((client) => client.clear());
@@ -53,6 +61,7 @@ testStable(
   'labels the retained authored version and excerpts only its selected range',
   async () => {
     const { rpc } = mount();
+
     expect(await screen.findByText('Mechanics')).toBeVisible();
     expect(await screen.findByText('selected')).toBeVisible();
     expect(screen.getByText(`ReaderVersion ${exact.number} · SessionRanges · 1`)).toBeVisible();
@@ -69,6 +78,7 @@ testStable(
   'updates the catalog title without replacing retained content with the current authored version',
   async () => {
     const { client, rpc } = mount({ ...original, title: 'Old catalog title' });
+
     expect(await screen.findByText('selected')).toBeVisible();
     expect(await screen.findByText('Old catalog title')).toBeVisible();
     rpc['documents.document'].mockReturnValue(

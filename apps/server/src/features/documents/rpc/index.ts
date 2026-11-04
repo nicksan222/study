@@ -1,9 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exposes authored Document procedures through public services and native Effect     │
+ * │ RPC.                                                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exposes authored Document procedures through public services and native Effect RPC.    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ RPC forwards to public services; persistence and domain policy remain with feature       │
+ * │ owners.                                                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { StudyError } from '@study/contracts/errors';
 import { Effect, Option } from 'effect';
 
 import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
+import { Documents } from '#server/features/documents/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const DocumentsRpcLive = defineRpc(
@@ -11,6 +25,7 @@ export const DocumentsRpcLive = defineRpc(
   Effect.gen(function* () {
     const documents = yield* Documents;
     const conversations = yield* Effect.serviceOption(Conversations);
+
     return {
       'documents.requestTransform': (v) =>
         Option.isSome(conversations)

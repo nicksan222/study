@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises source acquisition behavior through real persistence boundaries.         │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies acquisition atomically retains independent originals without authoring        │
+ * │   documents or source Materials.                                                         │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { SourcesRpc } from '@study/contracts/sources/rpc';
@@ -21,6 +34,7 @@ testStable(
       Layer.provideMerge(Sources.layer),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -38,8 +52,10 @@ testStable(
               bytes,
               projectId: null
             });
+
             assert.notEqual(first.id, second.id);
             assert.equal((yield* rpc['sources.sources']({ limit: 10 })).items.length, 2);
+
             for (const source of [first, second]) {
               assert.deepEqual(
                 (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
@@ -48,6 +64,7 @@ testStable(
               assert.ok((yield* sources.sourceProcessing(source.id)).requestId);
               assert.equal(yield* sources.currentExtraction({ id: source.id }), null);
             }
+
             assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
             assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
             context.db.exec(
@@ -88,6 +105,7 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
         Layer.provideMerge(Sources.layer),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
+
       try {
         await Effect.runPromise(
           Effect.scoped(
@@ -105,8 +123,10 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
                       ...originalFixtures[kind]
                     });
               const original = yield* sources.sourceSnapshot({ id: source.id, revision: 1 });
+
               assert.equal(original.kind, kind);
               const bytes = new TextEncoder().encode('Replacement text');
+
               yield* rpc['sources.replaceSource']({
                 id: source.id,
                 expectedRevision: 1,
@@ -116,6 +136,7 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
               assert.equal((yield* sources.source(source.id)).id, source.id);
               assert.equal((yield* sources.sources({ limit: 10 })).items.length, 1);
               const replacement = yield* sources.sourceSnapshot({ id: source.id, revision: 2 });
+
               assert.equal(replacement.kind, 'text');
               assert.equal(replacement.mime, 'text/plain');
               assert.deepEqual(replacement.bytes, bytes);

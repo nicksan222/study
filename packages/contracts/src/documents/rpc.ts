@@ -15,11 +15,15 @@ import * as evidence from './evidence.ts';
 import { exportDocumentInputSchema, documentFileSchema } from './export.ts';
 import * as s from './schemas.ts';
 import * as t from './transform.ts';
+
 export const documentKeySchema = Schema.Struct({ id: studyDocumentIdSchema });
+
 export const versionKeySchema = Schema.Struct({ id: studyDocumentVersionIdSchema });
+
 const limit = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })).pipe(
   Schema.withDecodingDefault(Effect.succeed(30))
 );
+
 export const listSchema = Schema.Struct({
   limit,
   cursor: Schema.optional(studyDocumentIdSchema),
@@ -27,11 +31,13 @@ export const listSchema = Schema.Struct({
   sessionId: Schema.optional(sessionIdSchema),
   archived: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false)))
 });
+
 export const versionsSchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   limit,
   cursor: Schema.optional(studyDocumentVersionIdSchema)
 });
+
 export const metadataSchema = Schema.Struct({
   id: studyDocumentIdSchema,
   title: e.createSchema.fields.title,
@@ -39,15 +45,19 @@ export const metadataSchema = Schema.Struct({
   expectedTitle: e.createSchema.fields.title,
   expectedDescription: Schema.NullOr(Schema.String)
 });
+
 export const archiveSchema = Schema.Struct({ id: studyDocumentIdSchema, archived: Schema.Boolean });
+
 export const linkSchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   sessionId: sessionIdSchema
 });
+
 export const projectLinkSchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   projectId: projectIdSchema
 });
+
 export const sourceCopySchema = Schema.Struct({
   createKey: e.keySchema,
   title: e.createSchema.fields.title,
@@ -57,15 +67,18 @@ export const sourceCopySchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema),
   sessionId: Schema.optional(sessionIdSchema)
 });
+
 export const exportSchema = Schema.Struct({
   version: s.versionSchema,
   format: Schema.Literal('canonical_json'),
   content: Schema.String
 });
+
 export const historySchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   keepLatest: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 }))
 });
+
 export const retirementPreviewSchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   token: Schema.String,
@@ -73,11 +86,14 @@ export const retirementPreviewSchema = Schema.Struct({
   blockedVersionIds: Schema.Array(studyDocumentVersionIdSchema),
   semantics: Schema.Literal('retire_bodies_retain_identities')
 });
+
 export const retireSchema = Schema.Struct({ ...historySchema.fields, token: Schema.String });
+
 export const deleteSchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
   token: Schema.String
 });
+
 export const DocumentsRpc = RpcGroup.make(
   Rpc.make('requestTransform', {
     payload: t.transformRequestSchema,

@@ -107,18 +107,24 @@ export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflo
           (run) => run.workflow === workflow && run.canCancel
         )
       );
+
       if (!runs.length) return;
+
       const control = yield* Effect.serviceOption(WorkflowControl);
+
       if (Option.isNone(control))
         return yield* Effect.fail(
           new StudyError('unsupported', 'Native cancellation control is unavailable')
         );
+
       for (const run of runs) yield* control.value.cancel({ id: run.id, mode: 'safe' });
     }),
   interruptRetiredExecutions: (ids: readonly string[]) =>
     Effect.gen(function* () {
       const control = yield* Effect.serviceOption(WorkflowControl);
+
       if (Option.isNone(control)) return;
+
       for (const id of ids)
         yield* control.value
           .cancel({ id: Schema.decodeUnknownSync(executionIdSchema)(id), mode: 'unsafe' })

@@ -1,4 +1,15 @@
-/** Retained raw citations protect exact authored bodies after private capture retirement. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Retained raw citations protect exact authored bodies after private capture         │
+ * │ retirement.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies retained identities and exact raw citation retention invariants.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -20,6 +31,7 @@ for (const mode of ['history', 'delete'] as const)
     `raw exact authored citation blocks ${mode} after private capture retirement until its raw message is deleted`,
     async () => {
       const f = await documentTransformFixture();
+
       try {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
@@ -32,9 +44,11 @@ for (const mode of ['history', 'delete'] as const)
               inputs: [],
               citations: []
             });
+
             assert.ok(document.version);
             const input = { kind: 'document' as const, versionId: document.version.id };
             const session = yield* chats.createUntitledSession({});
+
             yield* chats.updateSessionSelection({
               sessionId: session.id,
               expectedRevision: 0n,
@@ -42,6 +56,7 @@ for (const mode of ['history', 'delete'] as const)
             });
             const request = yield* chats.requestReply({ sessionId: session.id });
             const block = document.version.document.blocks[0]!;
+
             yield* withTestPublication(
               f.context,
               chats
@@ -85,6 +100,7 @@ for (const mode of ['history', 'delete'] as const)
               f.context.db.orm.get(sql`SELECT count(*) n FROM session_run_contexts`)?.n,
               0n
             );
+
             if (mode === 'history')
               yield* docs.save({
                 documentId: document.id,
@@ -92,12 +108,14 @@ for (const mode of ['history', 'delete'] as const)
                 key: 'advance',
                 document: deletionDocument('Current evidence')
               });
+
             return {
               document: { ...document, version: document.version },
               messageId: request.messageId
             };
           }).pipe(Effect.provide(f.domain()))
         );
+
         f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -107,6 +125,7 @@ for (const mode of ['history', 'delete'] as const)
               mode === 'history'
                 ? yield* docs.previewHistory({ documentId: saved.document.id, keepLatest: 1 })
                 : yield* docs.previewDeletion({ id: saved.document.id });
+
             assert.ok(preview.blockedVersionIds.includes(saved.document.version.id));
             assert.throws(() =>
               f.context.db.orm.run(
@@ -114,13 +133,16 @@ for (const mode of ['history', 'delete'] as const)
               )
             );
             const raw = yield* chats.message(saved.messageId);
+
             assert.equal(raw.citations[0]?.evidence?.availability, 'available');
             yield* chats.deleteMessage(saved.messageId);
             const released =
               mode === 'history'
                 ? yield* docs.previewHistory({ documentId: saved.document.id, keepLatest: 1 })
                 : yield* docs.previewDeletion({ id: saved.document.id });
+
             assert.deepEqual(released.blockedVersionIds, []);
+
             if (mode === 'history')
               yield* docs.retireHistory({
                 documentId: saved.document.id,
@@ -128,6 +150,7 @@ for (const mode of ['history', 'delete'] as const)
                 token: released.token
               });
             else yield* docs.delete({ documentId: saved.document.id, token: released.token });
+
             assert.equal(
               (yield* Effect.flip(docs.version({ id: saved.document.version.id }))).kind,
               'not_found'

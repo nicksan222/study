@@ -8,6 +8,7 @@ import { createTestDatabase } from '../src/testing.ts';
 function fixture(patch: Record<string, unknown> = {}, generationSession: number | null = null) {
   const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   const db = location.open();
+
   db.exec(`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Proposal','user',1,1),(2,'Other','user',1,1);
  INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(1,'Target',1,1),(3,'Other',1,1);
  INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(1,1,'{}',1),(2,1,'{}',1),(3,1,'{}',1),(4,1,'{}',1);
@@ -25,6 +26,7 @@ function fixture(patch: Record<string, unknown> = {}, generationSession: number 
     messages: [],
     ...patch
   };
+
   db.orm.run(
     sql`INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot) VALUES('capture',1,'proposal','{}',${JSON.stringify(capture)})`
   );
@@ -38,6 +40,7 @@ function fixture(patch: Record<string, unknown> = {}, generationSession: number 
   db.orm.run(
     sql`INSERT INTO study_document_generation_requests(id,document_id,expected_version_id,session_id,intent_hash,created_at) VALUES('document/capture',1,1,${generationSession},${'b'.repeat(64)},1)`
   );
+
   return {
     db,
     close() {
@@ -46,16 +49,19 @@ function fixture(patch: Record<string, unknown> = {}, generationSession: number 
     }
   };
 }
+
 function retain(db: ReturnType<typeof fixture>['db']) {
   db.exec(
     "INSERT INTO study_document_proposals(request_id,base_version_id,proposed_version_id) VALUES('document/capture',1,4)"
   );
 }
+
 function receipt(db: ReturnType<typeof fixture>['db']) {
   db.exec(
     "UPDATE study_document_generation_requests SET result_version_id=4 WHERE id='document/capture'"
   );
 }
+
 const mutations = [
   ['unretained output', '', false],
   [
@@ -108,13 +114,17 @@ const mutations = [
     true
   ]
 ] as const;
+
 for (const [name, mutation, retained] of mutations)
   testStable(`authored generation receipt rejects ${name}`, () => {
     const f = fixture();
+
     try {
       assert.throws(() => {
         if (mutation) f.db.exec(mutation);
+
         if (retained) retain(f.db);
+
         receipt(f.db);
       });
       assert.equal(
@@ -127,6 +137,7 @@ for (const [name, mutation, retained] of mutations)
       f.close();
     }
   });
+
 const invalidCaptures = [
   [
     'partial target scope',
@@ -167,9 +178,11 @@ const invalidCaptures = [
   ['wrong capture identity', { requestId: 'different' }],
   ['wrong captured session', { sessionId: '2' }]
 ] as const;
+
 for (const [name, patch] of invalidCaptures)
   testStable(`authored first receipt rejects ${name}`, () => {
     const f = fixture(patch);
+
     try {
       retain(f.db);
       assert.throws(() => receipt(f.db));
@@ -182,6 +195,7 @@ testStable(
   'an exact retained authored proposal commits one immutable result without publishing its draft',
   () => {
     const f = fixture();
+
     try {
       retain(f.db);
       receipt(f.db);
@@ -195,6 +209,7 @@ testStable(
         )?.id,
         3n
       );
+
       for (const mutation of [
         "UPDATE study_document_generation_requests SET result_version_id=5 WHERE id='document/capture'",
         "DELETE FROM study_document_generation_requests WHERE id='document/capture'",
@@ -204,6 +219,7 @@ testStable(
         'DELETE FROM study_document_version_parents WHERE version_id=4'
       ])
         assert.throws(() => f.db.exec(mutation));
+
       assert.deepEqual(f.db.orm.all('PRAGMA foreign_key_check'), []);
     } finally {
       f.close();
@@ -220,6 +236,7 @@ for (const [name, operation, outcome, current, result] of [
 ] as const)
   testStable(`authored proposal receipts reject ${name}`, () => {
     const f = fixture();
+
     try {
       retain(f.db);
       receipt(f.db);
@@ -236,6 +253,7 @@ for (const [name, operation, outcome, current, result] of [
 for (const result of [1, 3, 5])
   testStable(`generation cannot claim unrelated authored result ${result}`, () => {
     const f = fixture();
+
     try {
       retain(f.db);
       assert.throws(() =>
@@ -250,6 +268,7 @@ for (const result of [1, 3, 5])
 
 testStable('authored generation cannot claim another session as its publication metadata', () => {
   const f = fixture({}, 2);
+
   try {
     retain(f.db);
     assert.throws(() => receipt(f.db));

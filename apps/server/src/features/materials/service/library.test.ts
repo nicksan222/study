@@ -42,6 +42,7 @@ const content = {
   format: 'mermaid',
   payload: 'flowchart TD\nA-->B'
 } satisfies MaterialContentInput;
+
 const authored = () => ({
   blocks: [plainBlock('paragraph', 'Independent library', { type: 'authored' })],
   meta: {
@@ -56,6 +57,7 @@ const authored = () => ({
     omissions: []
   }
 });
+
 function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
   return Effect.flatMap(Documents, (docs) =>
     docs.create({
@@ -69,6 +71,7 @@ function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
   ).pipe(
     Effect.map((value) => {
       assert.ok(value.version);
+
       return { ...value, version: value.version };
     })
   );
@@ -293,6 +296,7 @@ testStable(
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
           const projects = yield* Projects;
+
           const materials = yield* Materials;
           const docs = yield* Documents;
           const conversations = yield* Conversations;
@@ -355,6 +359,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const projects = yield* Projects;
+
           const materials = yield* Materials;
           const docs = yield* Documents;
           const conversations = yield* Conversations;
@@ -389,7 +394,7 @@ testStable(
       context = new ServerContext(location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
-          const materials = yield* Materials;
+          yield* Materials;
           const docs = yield* Documents;
           const conversations = yield* Conversations;
 

@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router';
 import { documentVersionOptions } from '#web/lib/study-client/documents.queries.ts';
 
 /** Opens precisely the cited retained version or source extraction, never a current head. */
+
 export function CapturedInputLink({
   input,
   name
@@ -25,6 +26,7 @@ export function CapturedInputLink({
     <AuthoredInputLink versionId={input.versionId} name={name} />
   );
 }
+
 function AuthoredInputLink({
   versionId,
   name
@@ -33,6 +35,7 @@ function AuthoredInputLink({
   name: string;
 }) {
   const state = useQuery(documentVersionOptions(versionId));
+
   return state.data && !state.error ? (
     <Link
       to="/documents/$documentId"

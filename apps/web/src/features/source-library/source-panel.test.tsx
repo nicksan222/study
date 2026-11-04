@@ -10,6 +10,7 @@ import { authoredDocument } from '../document-editing/test-support';
 import { useSourceCopy } from './source-panel.queries';
 
 const rpc = vi.hoisted(() => ({ copy: vi.fn() }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (client: Record<string, unknown>) => unknown) =>
     invoke({ 'documents.copySource': rpc.copy })
@@ -33,14 +34,17 @@ testStable(
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={cache}>{children}</QueryClientProvider>
     );
+
     rpc.copy
       .mockRejectedValueOnce(new StudyError('transient', 'Lost copy response'))
       .mockResolvedValueOnce(authoredDocument(20n));
     const first = renderHook(() => useSourceCopy(source, session), { wrapper });
+
     await act(async () => {
       await first.result.current.copy(exact);
     });
     const attempt = rpc.copy.mock.calls[0]![0];
+
     expect(attempt).toEqual({
       sourceId: source,
       sessionId: session,
@@ -55,6 +59,7 @@ testStable(
     });
     first.unmount();
     const reopened = renderHook(() => useSourceCopy(source, session), { wrapper });
+
     await act(async () => {
       await reopened.result.current.copy({
         name: 'Replacement',

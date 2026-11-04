@@ -1,4 +1,16 @@
-/** Source deletion and authored image acquisition use exact original byte revisions and immutable alternatives. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Source deletion and authored image acquisition use exact original byte revisions   │
+ * │ and immutable alternatives.                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies image saves validate the submitted exact image revision and retained editing  │
+ * │   identity before any write.                                                             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -16,11 +28,13 @@ import { documentTransformFixture } from '#testing/document-transform';
 import { deletionDocument } from '#testing/material-deletion';
 
 const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+
 for (const owner of ['none', 'draft', 'published'] as const)
   testStable(
     `image source deletion respects ${owner} authored ownership and rejects every acquisition after final release`,
     async () => {
       const f = await documentTransformFixture();
+
       try {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
@@ -60,8 +74,11 @@ for (const owner of ['none', 'draft', 'published'] as const)
                     inputs: [],
                     citations: []
                   });
+
             if (original) assert.ok(original.version);
+
             let draftId = null;
+
             if (owner === 'draft' && original?.version) {
               yield* docs.save({
                 documentId: original.id,
@@ -75,10 +92,13 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 key: 'image-conflict',
                 document: image()
               });
+
               assert.equal(alternative.outcome, 'conflict');
               draftId = alternative.submittedVersionId;
             }
+
             const preview = yield* sources.previewDeletion({ id: source.id });
+
             if (owner === 'none') assert.deepEqual(preview.blockedBy, []);
             else {
               assert.ok(preview.blockedBy.includes('image_assets'));
@@ -87,8 +107,10 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 'invalid_input'
               );
               const independent = yield* create();
+
               assert.ok(independent.version);
               const originalPreview = yield* docs.previewDeletion({ id: original!.id });
+
               yield* docs.delete({ documentId: original!.id, token: originalPreview.token });
               assert.ok(
                 (yield* sources.previewDeletion({ id: source.id })).blockedBy.includes(
@@ -100,19 +122,25 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 bytes
               );
               const independentPreview = yield* docs.previewDeletion({ id: independent.id });
+
               yield* docs.delete({ documentId: independent.id, token: independentPreview.token });
+
               if (draftId)
                 assert.equal((yield* Effect.flip(docs.version({ id: draftId }))).kind, 'not_found');
             }
+
             yield* sources.deleteSource({ id: source.id });
+
             return { source, image };
           }).pipe(Effect.provide(f.domain()))
         );
+
         f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
             const sources = yield* Sources;
+
             assert.equal(
               (yield* Effect.flip(
                 docs.create({
@@ -151,6 +179,7 @@ testStable(
   'image saves validate the submitted exact image revision and retained editing identity before any write',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
@@ -175,6 +204,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(document.version);
           const unrelated = yield* docs.create({
             createKey: randomUUID(),
@@ -183,7 +213,9 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(unrelated.version);
+
           return {
             source,
             body,
@@ -192,15 +224,18 @@ testStable(
           };
         }).pipe(Effect.provide(f.domain()))
       );
+
       f.reopen();
       const before = {
         assets: f.context.db.orm.select().from(s.document_assets).all(),
         versions: f.context.db.orm.select().from(s.study_document_versions).all(),
         blocks: f.context.db.orm.select().from(s.blocks).all()
       };
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
+
           for (const content of [
             {
               type: 'image' as const,
@@ -226,6 +261,7 @@ testStable(
               )).kind,
               'invalid_input'
             );
+
           assert.equal(
             (yield* Effect.flip(
               docs.save({

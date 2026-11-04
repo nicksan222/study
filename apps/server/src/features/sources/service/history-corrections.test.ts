@@ -1,4 +1,16 @@
-/** Source history retires extraction bodies independently from original bytes and in-flight corrections. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Source history retires extraction bodies independently from original bytes and     │
+ * │ in-flight corrections.                                                                   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies unchanged original bytes survive obsolete extraction pruning while current    │
+ * │   and in-flight correction roots remain usable.                                          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 
@@ -21,6 +33,7 @@ testStable(
   'unchanged original bytes survive obsolete extraction pruning while current and in-flight correction roots remain usable',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const bytes = new TextEncoder().encode('Original source evidence');
       const source = await Effect.runPromise(
@@ -30,11 +43,13 @@ testStable(
       );
       const first = await processSource(f);
       const corrected: Awaited<ReturnType<typeof processSource>>[] = [];
+
       for (const after of ['First corrected evidence', 'Current corrected evidence']) {
         await Effect.runPromise(
           Effect.gen(function* () {
             const sources = yield* Sources;
             const before = yield* sources.sourceDocument(source.id);
+
             yield* sources.correctBlock({
               id: source.id,
               documentId: before.id,
@@ -55,15 +70,18 @@ testStable(
         );
         corrected.push(await processSource(f, true));
       }
+
       const correctionEvents = f.context.db.orm
         .all<{ payload: string }>(
           sql`SELECT payload FROM workflow_events WHERE type='SourceCorrectionRequested' ORDER BY rowid`
         )
         .map((row) => decodeEvent(row.payload));
       const current = corrected[1]!.documentId;
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
+
           yield* sources.correctBlock({
             id: source.id,
             documentId: current,
@@ -73,6 +91,7 @@ testStable(
           });
           const scope = { sourceId: source.id, keepLatest: 1 };
           const preview = yield* sources.previewHistory(scope);
+
           assert.deepEqual(
             preview.candidates.map((item) => item.snapshotId),
             [first.documentId, corrected[0]!.documentId]
@@ -117,6 +136,7 @@ testStable(
           );
           assertScrubbed(f, 'First corrected evidence', false);
           const currentEvent = correctionEvents.at(-1)!;
+
           assert.equal(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_retired_correlations WHERE correlation_id=${currentEvent.correlationId} AND event_type='SourceIndexed'`
@@ -134,6 +154,7 @@ testStable(
             )?.n,
             1n
           );
+
           for (const snapshotId of [first.documentId, corrected[0]!.documentId])
             assert.equal(
               (yield* Effect.flip(
@@ -141,6 +162,7 @@ testStable(
               )).kind,
               'not_found'
             );
+
           assert.equal(
             (yield* sources.extraction({ sourceId: source.id, revision: 1n, snapshotId: current }))
               .document.blocks[0]?.text,
@@ -153,15 +175,20 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
       f.reopen();
+
       for (const event of correctionEvents) {
         assert.equal(event.type, 'SourceCorrectionRequested');
+
         if (event.type !== 'SourceCorrectionRequested') throw new Error('Unexpected fixture event');
+
         await assert.rejects(
           Effect.runPromise(
             Effect.scoped(
               Effect.gen(function* () {
                 const engine = yield* WorkflowEngine.WorkflowEngine;
+
                 yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
+
                 return yield* engine.execute(sourceCorrectionWorkflow, {
                   executionId: `retired-replay/${event.eventId}`,
                   payload: { event }
@@ -171,12 +198,15 @@ testStable(
           )
         );
       }
+
       const pending = await processSource(f, true);
+
       assert.notEqual(pending.documentId, current);
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
           const history = yield* sources.extractions({ sourceId: source.id, limit: 10 });
+
           assert.deepEqual(
             history.items.map((item) => item.snapshotId),
             [pending.documentId, current]
@@ -192,6 +222,7 @@ testStable(
           // Retiring a correction input must keep its retained output's ownership identity.
           const scope = { sourceId: source.id, keepLatest: 1 };
           const preview = yield* sources.previewHistory(scope);
+
           yield* sources.retireHistory({ ...scope, token: preview.token });
           assertScrubbed(f, 'Current corrected evidence', false);
           assert.equal(

@@ -130,6 +130,7 @@ export const SystemStore = defineStore({
         .from(schema.study_documents)
         .where(eq(schema.study_documents.id, target.id))
         .get();
+
       return row
         ? [
             {

@@ -363,3 +363,32 @@ export function scrubRetiredExecution(db: Db, executionId: string) {
     .where(eq(workflow_executions.execution_id, executionId))
     .run();
 }
+
+/** Preserve successful correction output activities while scrubbing retired private inputs. */
+export function scrubRetiredCorrectionExecution(db: Db, executionId: string) {
+  if (
+    !db.orm
+      .select()
+      .from(workflow_retired_executions)
+      .where(eq(workflow_retired_executions.execution_id, executionId))
+      .get()
+  )
+    return;
+
+  db.orm
+    .update(workflow_executions)
+    .set({ payload: '{}', result: null, owner_token: null })
+    .where(eq(workflow_executions.execution_id, executionId))
+    .run();
+  db.orm
+    .delete(workflow_activities)
+    .where(
+      and(
+        eq(workflow_activities.execution_id, executionId),
+        sql`${workflow_activities.name} NOT IN ('correct-source','publish-source')`
+      )
+    )
+    .run();
+  db.orm.delete(workflow_deferreds).where(eq(workflow_deferreds.execution_id, executionId)).run();
+  db.orm.delete(workflow_clocks).where(eq(workflow_clocks.execution_id, executionId)).run();
+}

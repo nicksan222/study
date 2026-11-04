@@ -7,7 +7,7 @@
  * │ - Reads retained captures separately from availability-checked resume inputs.            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Conversations owns these private records; public content owners resolve canonical                   │
+ * │ Conversations owns these private records; public content owners resolve canonical        │
  * │ selected content.                                                                        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
@@ -249,6 +249,7 @@ export const SessionContextIntentStore = defineStore({
                 .get()
             )
               throw new StudyError('not_found', 'Captured input history is unavailable');
+
             const row = db.orm
               .select()
               .from(session_run_contexts)
@@ -291,6 +292,7 @@ export const SessionContextStore = defineStore({
       makeContextReads(resources);
 
     const { conversationHistory, conversationRoot } = makeHistory(resources);
+
     function captureHistory(input: typeof sessionContextIntentSchema.Type) {
       let history = conversationHistory(
         input.sessionId,
@@ -298,20 +300,28 @@ export const SessionContextStore = defineStore({
         input.threadRoot,
         true
       );
+
       if (input.threadRoot !== undefined) {
         const part = db.orm
           .select()
           .from(message_parts)
           .where(eq(message_parts.id, input.threadRoot))
           .get();
+
         if (!part) throw new StudyError('not_found', 'Thread root is unavailable');
+
         const root = conversationRoot(input.sessionId, part.message_id);
         let size = root.text.length + history.reduce((n, item) => n + item.text.length, 0);
+
         while (size > 200000 && history.length > 1) size -= history.shift()!.text.length;
+
         if (size > 200000) throw new StudyError('invalid_input', 'Thread context exceeds limit');
+
         history = [root, ...history];
       }
+
       assertHistoryBoundary(history, input.throughMessageId);
+
       return history;
     }
 
@@ -357,7 +367,9 @@ export const SessionContextStore = defineStore({
 
             const includedSessions = input.additionalSessionIds?.map((sessionId) => {
               const included = session(sessionId);
+
               history = [...history, ...conversationHistory(sessionId, undefined, undefined, true)];
+
               return {
                 sessionId,
                 title: included.title,
@@ -416,6 +428,7 @@ export const SessionContextStore = defineStore({
 
             for (const selected of input.inputs) {
               const reference = selected.input;
+
               if (reference.kind === 'document')
                 db.orm
                   .insert(session_context_documents)
@@ -434,6 +447,7 @@ export const SessionContextStore = defineStore({
                   .onConflictDoNothing()
                   .run();
             }
+
             return snapshot;
           }
         })

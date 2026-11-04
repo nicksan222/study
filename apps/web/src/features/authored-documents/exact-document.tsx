@@ -10,6 +10,7 @@ import { documentVersionOptions } from '#web/lib/study-client/documents.queries.
 import { RetainedDocumentReader } from '../document-presentation';
 
 /** An unavailable exact version never falls back to the current authored head. */
+
 export function ExactAuthoredDocument({
   id,
   documentId
@@ -19,7 +20,9 @@ export function ExactAuthoredDocument({
 }) {
   const { t } = useI18n();
   const state = useQuery(documentVersionOptions(id));
+
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
+
   if (state.isError || state.data.documentId !== documentId)
     return (
       <ErrorState
@@ -27,6 +30,7 @@ export function ExactAuthoredDocument({
         action={<Button onClick={() => void state.refetch()}>{t('LibraryRefresh')}</Button>}
       />
     );
+
   return (
     <RetainedDocumentReader snapshotId={state.data.snapshotId} document={state.data.document} />
   );

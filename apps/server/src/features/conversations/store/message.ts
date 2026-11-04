@@ -62,9 +62,11 @@ function textOf(value: string, allowEmpty = false) {
 }
 
 type CitationRow = typeof citations.$inferSelect;
+
 function citationInput(row: CitationRow) {
   if (row.authored_version_id !== null)
     return { kind: 'document' as const, versionId: row.authored_version_id };
+
   if (row.source_id !== null && row.source_revision !== null && row.document_id !== null)
     return {
       kind: 'source' as const,
@@ -72,8 +74,10 @@ function citationInput(row: CitationRow) {
       revision: row.source_revision,
       snapshotId: row.document_id
     };
+
   return null;
 }
+
 function citationPrecision(row: CitationRow) {
   return citationInput(row) !== null &&
     row.document_id !== null &&
@@ -83,6 +87,7 @@ function citationPrecision(row: CitationRow) {
     ? ('exact' as const)
     : ('approximate' as const);
 }
+
 function makeHelpers({ db, clock }: StoreResources) {
   const { assertThreadRoot } = makeThread({ db, clock });
 

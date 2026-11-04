@@ -20,19 +20,24 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const migrations =
       process.env.STUDY_FINAL_MIGRATIONS ?? process.env.STUDY_REPLY_MIGRATIONS ?? official;
     const before = join(folder, 'before');
+
     mkdirSync(before);
     let db: Db | undefined;
+
     try {
       for (const name of readdirSync(official))
         if (name < '20261104014018')
           cpSync(join(official, name), join(before, name), { recursive: true });
+
       const path = join(folder, 'study.db');
+
       db = Db.open(path, before);
       db.exec(`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
       INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,'import','text','text/plain','Input',1,zeroblob(32),1);
       INSERT INTO source_snapshots(source_id,revision,bytes) VALUES(1,1,x'61'),(1,2,x'62'),(1,3,x'63');
       INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at) VALUES(1,1,0,'{}',1),(2,1,0,'{}',1);
       INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(1,1,1),(1,2,2),(1,3,2);`);
+
       for (const [id, requestId, attachments, pendingAttachments] of [
         [
           1,
@@ -80,6 +85,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           ],
           pendingAttachments
         });
+
         db.exec(`INSERT INTO messages(id,session_id,role,created_at) VALUES(${id},1,'assistant',1);
         INSERT INTO message_versions(id,message_id,number,origin,status,text,created_at) VALUES(${id},${id},1,'answer','complete','Completed answer',1);
         UPDATE messages SET active_version_id=${id} WHERE id=${id};`);
@@ -95,10 +101,12 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           messages: [],
           excludedMessages: 0
         });
+
         db.orm.run(
           sql`INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot) VALUES(${requestId},1,${requestId},${JSON.stringify(intent)},${context})`
         );
       }
+
       db.exec(`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,owner_token,created_at,updated_at)
       VALUES('retire','ConversationReplyWorkflow',1,'{"event":{"type":"ConversationGenerationRequested","correlationId":"ambiguous"},"private":"body"}','running','owner',1,1);
       INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('retire','capture',0,'{"private":"body"}');`);
@@ -124,6 +132,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           ).snapshot
         )
       );
+
       assert.deepEqual(ready.messages[0].attachments[0], {
         partId: '11',
         sourceId: '1',
@@ -188,6 +197,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       );
       assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
       const identity = db.schemaIdentity();
+
       db.close();
       db = Db.open(path, migrations);
       assert.equal(db.schemaIdentity(), identity);
@@ -205,6 +215,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const migrations =
       process.env.STUDY_REPLY_MIGRATIONS ?? fileURLToPath(new URL('../drizzle', import.meta.url));
     const db = Db.open(':memory:', migrations);
+
     try {
       assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
       assert.ok(

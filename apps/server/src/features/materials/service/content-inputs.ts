@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Resolves exact readable evidence through its public source and Document owners.    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Resolves exact readable evidence through its public source and Document owners.        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Feature policy coordinates public services and private stores within caller-owned        │
+ * │ transactions.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { isDeepStrictEqual } from 'node:util';
 
 import { StudyError } from '@study/contracts/errors';
@@ -22,23 +35,31 @@ export function readContentInput(
 ) {
   if (input.kind === 'source') {
     const source = Sources.sourceInTransaction(tx, input.sourceId);
+
     if (projectId !== undefined && source.projectId !== projectId)
       throw new StudyError('invalid_input', 'Source is outside the requested project');
+
     const exact = Sources.extractionInTransaction(tx, input);
+
     return Schema.decodeUnknownSync(resolvedContentInputSchema)({ input, ...exact });
   }
+
   const version = Documents.versionInTransaction(tx, input.versionId);
   const document = Documents.documentInTransaction(tx, { id: version.documentId });
+
   if (version.status !== 'published' || (!allowArchived && document.archivedAt !== null))
     throw new StudyError('invalid_input', 'Learning requires a published authored version');
+
   if (projectId !== undefined && !document.projectIds.includes(projectId))
     throw new StudyError('invalid_input', 'Document is outside the requested project');
+
   return Schema.decodeUnknownSync(resolvedContentInputSchema)({
     input,
     ...version,
     name: document.title
   });
 }
+
 export function assertContentInputs(
   tx: Transaction,
   inputs: readonly ContentInput[],
@@ -47,8 +68,10 @@ export function assertContentInputs(
 ) {
   return inputs.map((input) => {
     const exact = readContentInput(tx, input, projectId);
+
     if (textual && !exact.document.blocks.some((block) => hasTextualContent(block.content)))
       throw new StudyError('invalid_input', 'Learning requires captured textual evidence');
+
     return exact;
   });
 }
@@ -66,9 +89,12 @@ export function assertContentCitation(
       (citation.target === undefined || block.id === citation.target.blockId) &&
       block.text.includes(citation.quote)
   );
+
   if (!block || !block.text.includes(citation.quote))
     throw new StudyError('invalid_input', 'Citation does not match its exact source block');
+
   const range = citation.target;
+
   if (
     range &&
     (range.blockId !== block.id ||

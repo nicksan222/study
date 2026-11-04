@@ -55,6 +55,7 @@ function MessageToolbar({
   onVersionChange?: (id: VersionId) => void;
 }) {
   const { message, t, active, draft } = model;
+
   return (
     <ChatMessageActionToolbar
       aria-label={t('SessionItemActions')}
@@ -110,6 +111,7 @@ function MessageToolbar({
     </ChatMessageActionToolbar>
   );
 }
+
 function MessageActionButton({
   model,
   mode,
@@ -163,6 +165,7 @@ function MessageEditDialog({ model }: { model: MessageActionsModel }) {
     ask: 'SessionAsk',
     answer: 'SessionReply'
   } as const;
+
   return (
     <Dialog
       open={!!draft.mode}

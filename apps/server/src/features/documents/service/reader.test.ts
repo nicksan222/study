@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document reader behavior through real persistence boundaries.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies exact authored readers and source-owned image revisions retain independent    │
+ * │   identities across reopen.                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -31,9 +44,11 @@ const body = (blocks: ReturnType<typeof createBlock>[]) => ({
     omissions: []
   }
 });
+
 function fixture() {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
+
   return {
     get context() {
       return context;
@@ -58,6 +73,7 @@ testStable(
   'exact authored readers and source-owned image revisions retain independent identities across reopen',
   async () => {
     const f = fixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.scoped(
@@ -74,6 +90,7 @@ testStable(
               name: 'retained.png',
               bytes: new Uint8Array([...bytes, 1])
             });
+
             assert.notEqual(source.id, other.id);
             assert.equal((yield* rpc['sources.source']({ id: source.id })).id, source.id);
             const imageBlock = createBlock({
@@ -91,8 +108,10 @@ testStable(
               inputs: [],
               citations: []
             });
+
             assert.ok(authored.version);
             const original = yield* rpc['documents.version']({ id: authored.version.id });
+
             assert.deepEqual(original.document, document);
             const another = yield* rpc['documents.create']({
               createKey: randomUUID(),
@@ -101,6 +120,7 @@ testStable(
               inputs: [],
               citations: []
             });
+
             assert.ok(another.version);
             assert.notEqual(original.snapshotId, another.version.snapshotId);
             assert.notEqual(original.documentId, another.id);
@@ -109,6 +129,7 @@ testStable(
               sourceId: original.document.blocks[0].content.sourceId,
               revision: BigInt(original.document.blocks[0].content.revision)
             });
+
             assert.equal(image.mime, 'image/png');
             assert.deepEqual(image.bytes, bytes);
             const revised = yield* rpc['documents.save']({
@@ -118,21 +139,25 @@ testStable(
               document: body([empty])
             });
             const next = yield* rpc['documents.version']({ id: revised.submittedVersionId });
+
             assert.equal(
               next.document.blocks.some((block) => block.content.type === 'image'),
               false
             );
             assert.deepEqual(yield* rpc['documents.version']({ id: original.id }), original);
             assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+
             return { original, image, source };
           }).pipe(Effect.provide(f.handlers()))
         )
       );
+
       f.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(DocumentsRpc.merge(SourcesRpc));
+
             assert.deepEqual(
               yield* rpc['documents.version']({ id: saved.original.id }),
               saved.original
@@ -155,6 +180,7 @@ testStable(
   'authored history retirement removes its exact reader body while an independent version retains image bytes',
   async () => {
     const f = fixture();
+
     try {
       const saved = await Effect.runPromise(
         Effect.scoped(
@@ -179,6 +205,7 @@ testStable(
               inputs: [],
               citations: []
             });
+
             assert.ok(authored.version);
             const next = yield* rpc['documents.save']({
               documentId: authored.id,
@@ -192,6 +219,7 @@ testStable(
               documentId: authored.id,
               keepLatest: 1
             });
+
             yield* rpc['documents.retireHistory']({
               documentId: authored.id,
               keepLatest: 1,
@@ -212,15 +240,18 @@ testStable(
                 sql`SELECT 1 FROM document_assets WHERE document_id=${after.snapshotId}`
               )
             );
+
             return { before, after, source };
           }).pipe(Effect.provide(f.handlers()))
         )
       );
+
       f.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(DocumentsRpc.merge(SourcesRpc));
+
             assert.equal(
               (yield* Effect.flip(rpc['documents.version']({ id: saved.before.id }))).kind,
               'not_found'
@@ -230,6 +261,7 @@ testStable(
               sourceId: saved.source.id,
               revision: 1n
             });
+
             assert.equal(image.mime, 'image/png');
             assert.ok(image.bytes.length);
             assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);

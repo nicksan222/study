@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Hashes schema-encoded Document operation intents with stable object ordering.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Hashes schema-encoded Document operation intents with stable object ordering.          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Pure schema and content validation grants no persistence or publication authority.       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createHash } from 'node:crypto';
 
 import { Schema } from 'effect';
@@ -13,5 +25,6 @@ export function intentHash<S extends Schema.ConstraintEncoder<unknown>>(
       ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)))
       : item
   );
+
   return createHash('sha256').update(canonical).digest('hex');
 }

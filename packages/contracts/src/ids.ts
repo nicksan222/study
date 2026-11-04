@@ -75,4 +75,5 @@ export type StudyDocumentVersionId = typeof studyDocumentVersionIdSchema.Type;
 export const studyDocumentAnnotationIdSchema = positiveId.pipe(
   Schema.brand('StudyDocumentAnnotationId')
 );
+
 export type StudyDocumentAnnotationId = typeof studyDocumentAnnotationIdSchema.Type;

@@ -17,12 +17,11 @@ import { randomUUID, createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
-import type { MaterialVersionId, MaterialId, SourceId, SessionId } from '@study/contracts/ids';
+import type { MaterialVersionId, MaterialId } from '@study/contracts/ids';
 import type {
   requestMaterialDeletionSchema,
   materialDeletionSchema
 } from '@study/contracts/materials/deletion';
-import type { historyPreviewSchema } from '@study/contracts/materials/history';
 import { Context, Effect, Layer, Option } from 'effect';
 
 import {
@@ -34,8 +33,6 @@ import { MaterialGenerationCleanupStore } from '#server/features/materials/store
 import { Workflows } from '#server/features/workflows/index';
 import { transaction, publicationTransaction } from '#server/platform/definitions/define-store';
 import type { Transaction } from '#server/platform/definitions/define-store';
-
-type Scope = { materialIds: readonly MaterialId[]; sourceIds: readonly SourceId[] };
 
 type Inspect = { token: string; requestIds: readonly string[] };
 
@@ -91,6 +88,7 @@ function preview(tx: Transaction, materialId: MaterialId, participants: Particip
   const base = tx.store(MaterialDeletionPreviewStore).materialDeletionPreview(materialId);
 
   const learning = participants.Learning.inspectMaterialHistory(tx, base.versionIds);
+
   return {
     ...base,
     token: createHash('sha256')
@@ -130,11 +128,13 @@ export function materialDeletionOperations() {
           if (Option.isSome(previous)) return status;
 
           const ownership = tx.store(MaterialDeletionOwnershipStore);
+
           tx.store(MaterialGenerationCleanupStore).prepare({
             kind: 'deletion',
             id: status.materialId
           });
           const learningIds = participants.Learning.prepareMaterialDeletion(tx, status.materialIds);
+
           ownership.retain({
             deletionId: status.materialId,
             requestIds: learningIds,

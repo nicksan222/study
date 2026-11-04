@@ -305,6 +305,7 @@ testStable(
             'invalid_input'
           );
           const oldRevision = yield* sources.exportRevision({ sourceId: source.id, revision: 1n });
+
           assert.deepEqual(oldRevision.bytes, exported.bytes);
           assert.deepEqual((yield* documents.version({ id: undo.submittedVersionId })).inputs, [
             input

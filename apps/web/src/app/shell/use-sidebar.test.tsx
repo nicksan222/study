@@ -351,6 +351,7 @@ testStable('mixes sources and diagrams in Library while keeping Sessions separat
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
+
   await sidebar.findByRole('link', { name: 'Cell slides.pdf' });
   expect(sidebar.getByRole('link', { name: 'Cell map' })).toBeInTheDocument();
   expect(sidebar.getByRole('link', { name: 'Authored cell notes' })).toHaveAttribute(
@@ -386,7 +387,13 @@ testStable('lists flashcards and quizzes together and follows material paginatio
           }
         : {
             items: [
-              { id: 21n, title: 'Cell cards', projectIds: [1n], kind: 'flashcards', updated_at: 0n }
+              {
+                id: 21n,
+                title: 'Cell cards',
+                projectIds: [1n],
+                kind: 'flashcards',
+                updated_at: 0n
+              }
             ],
             nextCursor: 21n
           }

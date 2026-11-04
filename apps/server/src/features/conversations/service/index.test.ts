@@ -552,6 +552,7 @@ testStable(
             })
             .returning()
             .get();
+
           context.db.orm
             .insert(source_snapshots)
             .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
@@ -1013,6 +1014,7 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
           })
           .returning()
           .get();
+
         context.db.orm
           .insert(source_snapshots)
           .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
@@ -1210,6 +1212,7 @@ testStable(
       Sources.layer,
       Documents.layer
     ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -1233,6 +1236,7 @@ testStable(
             sourceIds: [source.id],
             requestReply: false
           });
+
           assert.equal(
             (yield* sources.sessionSources({ sessionId: session.id, limit: 100 }))[0].id,
             source.id
@@ -1245,6 +1249,7 @@ testStable(
             citations: [],
             sessionId: session.id
           });
+
           assert.deepEqual(authored.projectIds, [project.id]);
           yield* sessions.deleteMessage(message.id);
           assert.equal(

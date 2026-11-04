@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises conversation deletion receipts behavior through real persistence         │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies exact authored apply and keep receipts reject substituted intent across       │
+ * │   session deletion and reopen.                                                           │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { sql } from '@study/db';
@@ -22,8 +36,10 @@ testStable(
   async () => {
     const f = await documentTransformFixture();
     const marker = 'EXACT_RECEIPT_SESSION_PRIVATE_8';
+
     try {
       const saved = await setup(f, marker, true);
+
       f.replies.push(
         { kind: 'sources', query: 'independent' },
         { kind: 'output', output: validDocumentTransformOutput('Independent proposal [1]') }
@@ -44,9 +60,11 @@ testStable(
           const chats = yield* Conversations;
           const keep = yield* chats.keepDocumentProposal(keepValue);
           const apply = yield* chats.applyDocumentProposal(applyValue);
+
           assert.equal(apply.outcome, 'applied');
           assert.ok(keep.resultVersionId);
           assert.ok(apply.resultVersionId);
+
           return {
             keep,
             apply,
@@ -58,6 +76,7 @@ testStable(
         Effect.runPromise(
           Effect.gen(function* () {
             const chats = yield* Conversations;
+
             assert.deepEqual(yield* chats.keepDocumentProposal(keepValue), {
               ...retained.keep,
               replayed: true
@@ -67,6 +86,7 @@ testStable(
               replayed: true
             });
             const wrongVersion = retained.ids[0]!;
+
             for (const action of [
               chats.keepDocumentProposal({ ...keepValue, title: 'Substituted title' }),
               chats.keepDocumentProposal({ ...keepValue, requestId: 'different' }),
@@ -90,12 +110,15 @@ testStable(
           sql`INSERT OR IGNORE INTO study_document_proposal_receipts(key,request_id,operation,intent,outcome,current_version_id,result_version_id) SELECT key,request_id,operation,'{}',outcome,current_version_id,result_version_id FROM study_document_proposal_receipts`
         ])
           assert.throws(() => f.context.db.orm.run(mutation));
+
         assert.deepEqual(receipts(), beforeReceipts);
       };
+
       await checkReplay();
       rejectForged();
       await annotateLibrary(f, retained.ids);
       const before = await libraryState(f, retained.ids);
+
       await Effect.runPromise(
         Effect.flatMap(Conversations, (chats) => chats.deleteSession(saved.session.id)).pipe(
           Effect.provide(f.domain())
@@ -116,6 +139,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Conversations;
+
           for (const action of [
             chats.keepDocumentProposal({ ...keepValue, key: 'brand-new' }),
             chats.applyDocumentProposal({ ...applyValue, key: 'brand-new' })

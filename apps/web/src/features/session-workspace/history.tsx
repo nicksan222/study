@@ -18,13 +18,12 @@ import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { History as HistoryIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { CapturedInputLink } from '../source-library/input-link';
+import { CapturedInputLink } from '../source-library';
 import { AttachmentCards } from './attachment-cards';
 import { MessageActions } from './message-actions';
 import { NoteContent, NoteSummary } from './note-editor';
@@ -447,6 +446,7 @@ function ProvenanceFeedback({
 }
 
 /** Keeps immutable versions, evidence and existing note actions reachable from the document editor. */
+
 export function PageDetails({ message }: { message: Message }) {
   const { t } = useI18n();
 

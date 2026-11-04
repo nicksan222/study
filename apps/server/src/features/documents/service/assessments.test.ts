@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document assessments behavior through real persistence          │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies native authored assessments retain exact judgments, reject foreign passages,  │
+ * │   paginate and become stale independently of evidence availability.                      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
@@ -35,6 +49,7 @@ testStable(
     const services = Documents.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -46,6 +61,7 @@ testStable(
             inputs: [],
             citations: []
           });
+
           assert.ok(evidence.version);
           const exact = evidence.version;
           const input = { kind: 'document' as const, versionId: exact.id };
@@ -64,6 +80,7 @@ testStable(
             inputs: [input],
             citations: [citation]
           });
+
           assert.ok(claim.version);
           const version = claim.version;
           const value = {
@@ -83,6 +100,7 @@ testStable(
             judgment: 'contradicts' as const,
             note: 'My explicit reasoning'
           };
+
           assert.equal(
             (yield* Effect.flip(
               rpc['documents.assessCitation']({ ...value, evidenceRange: { ...target, end: 7 } })
@@ -95,6 +113,7 @@ testStable(
             judgment: 'uncertain'
           });
           const page = yield* rpc['documents.assessments']({ versionId: version.id, limit: 1 });
+
           assert.equal(page.items[0]!.id, second.id);
           assert.equal(page.items[0]!.state, 'assessed');
           assert.equal(page.items[0]!.assessment.independentVerification, false);
@@ -126,6 +145,7 @@ testStable(
             }
           });
           const stale = yield* rpc['documents.assessments']({ versionId: version.id, limit: 10 });
+
           assert.ok(stale.items.every((item) => item.state === 'stale'));
           assert.equal(stale.items[1]!.assessment.note, value.note);
           assert.equal(

@@ -1,4 +1,16 @@
-/** Append-only user judgments remain distinct from citation location and truth. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists append-only user judgments separately from citation locations and truth.  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists append-only user judgments separately from citation locations and truth.      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Documents ownership; callers own            │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as c from '@study/contracts/documents/evidence';
 import { and, desc, eq, lt } from '@study/db';
 import * as s from '@study/db/schema';
@@ -7,6 +19,7 @@ import { Schema } from 'effect';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 const codec = Schema.fromJsonString(Schema.toCodecJson(c.assessmentSchema));
+
 export const DocumentCitationAssessmentsStore = defineStore({
   name: 'study/DocumentCitationAssessmentsStore',
   entity: { singular: 'citationAssessment', plural: 'citationAssessments' },
@@ -34,6 +47,7 @@ export const DocumentCitationAssessmentsStore = defineStore({
             .orderBy(desc(t.id))
             .limit(value.limit + 1)
             .all();
+
           return {
             items: rows.slice(0, value.limit).map((row) => ({
               id: row.id,
@@ -58,6 +72,7 @@ export const DocumentCitationAssessmentsStore = defineStore({
             })
             .returning()
             .get();
+
           return { id: row.id, assessment };
         }
       })

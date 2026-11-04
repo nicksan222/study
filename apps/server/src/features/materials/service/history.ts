@@ -49,6 +49,7 @@ function preview(
   const base = tx.store(MaterialHistoryPreviewStore).materialHistoryPreview(input);
 
   const learning = participants.Learning.inspectMaterialHistory(tx, base.candidateIds);
+
   return {
     ...base,
     privateRequestIds: [...new Set([...base.privateRequestIds, ...learning.requestIds])],

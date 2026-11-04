@@ -6,7 +6,7 @@ import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { ContentReadError } from '../document-presentation/read-error';
+import { ContentReadError } from '../document-presentation';
 
 export function SourceLibrary({
   state,
@@ -16,6 +16,7 @@ export function SourceLibrary({
   rememberRow: (row: string) => void;
 }) {
   const { t } = useI18n();
+
   return (
     <section aria-label={t('AnswerSources')}>
       {state.isPending && <Loading label={t('LoadingStudy')} />}

@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document index behavior through real persistence boundaries.    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies native Documents RPC retains conflict alternatives and exact idempotent       │
+ * │   receipts across reopen.                                                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
@@ -41,6 +54,7 @@ const body = (text: string, id?: StudyDocumentVersion['document']['blocks'][numb
     omissions: []
   }
 });
+
 const creation = (createKey: string, text = 'Original') => ({
   createKey,
   title: 'Authored',
@@ -55,6 +69,7 @@ function fixture() {
   const services = Documents.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
+
   return {
     location,
     context,
@@ -71,11 +86,13 @@ testStable(
   async () => {
     const f = fixture();
     const input = creation('native-create');
+
     try {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const rpc = yield* RpcTest.makeClient(DocumentsRpc);
           const a = yield* rpc['documents.create'](input);
+
           assert.ok(a.version);
           assert.ok(a.createdAt < 100000000000n, 'SQLite authored timestamps use Unix seconds');
           assert.equal((yield* rpc['documents.create'](input)).id, a.id);
@@ -91,6 +108,7 @@ testStable(
             document: body('Saved 😀', base.document.blocks[0].id)
           };
           const saved = yield* rpc['documents.save'](edit);
+
           assert.equal(saved.outcome, 'saved');
           assert.equal((yield* rpc['documents.save'](edit)).replayed, true);
           const conflictInput = {
@@ -99,11 +117,14 @@ testStable(
             document: body('Retained conflict', base.document.blocks[0].id)
           };
           const conflict = yield* rpc['documents.save'](conflictInput);
+
           assert.equal(conflict.outcome, 'conflict');
           const replay = yield* rpc['documents.save'](conflictInput);
+
           assert.deepEqual(replay, { ...conflict, replayed: true });
           const old = yield* rpc['documents.version']({ id: base.id });
           const alternative = yield* rpc['documents.version']({ id: conflict.submittedVersionId });
+
           assert.equal(old.document.blocks[0].text, 'Original');
           assert.equal(alternative.status, 'draft');
           assert.equal(alternative.document.blocks[0].text, 'Retained conflict');
@@ -116,6 +137,7 @@ testStable(
             proposedVersionId: conflict.submittedVersionId,
             currentVersionId: saved.submittedVersionId
           });
+
           assert.equal(comparison.proposedChanges[0]?.kind, 'changed');
           assert.equal(comparison.currentChanges[0]?.kind, 'changed');
           assert.equal(
@@ -133,20 +155,25 @@ testStable(
             restoreVersionId: base.id,
             key: 'restore'
           });
+
           assert.equal(restored.outcome, 'saved');
           const latest = yield* rpc['documents.version']({ id: restored.submittedVersionId });
+
           assert.equal(latest.operation, 'restore');
           assert.deepEqual(latest.document, base.document);
           assert.deepEqual(new Set(latest.parents), new Set([base.id, saved.submittedVersionId]));
           const exported = yield* rpc['documents.exportVersion']({ id: latest.id });
+
           assert.equal(JSON.parse(exported.content).id, String(latest.id));
           assert.equal(
             (yield* rpc['documents.versions']({ documentId: a.id, limit: 2 })).items.length,
             2
           );
+
           return { id: a.id, latestId: latest.id, conflictInput, conflict };
         }).pipe(Effect.provide(DocumentsRpcLive.pipe(Layer.provide(f.services))), Effect.scoped)
       );
+
       assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);
       assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM material_versions`)?.n, 0n);
       assert.throws(() =>
@@ -156,10 +183,12 @@ testStable(
       );
       f.context.close();
       const context = new ServerContext(f.location.open());
+
       try {
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
+
             assert.equal((yield* docs.document({ id: result.id })).headVersionId, result.latestId);
             assert.deepEqual(yield* docs.save(result.conflictInput), {
               ...result.conflict,
@@ -185,6 +214,7 @@ testStable(
   'editing ownership, transactional rollback and independent session membership are enforced',
   async () => {
     const f = fixture();
+
     try {
       f.context.db.exec(
         `INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);`
@@ -194,6 +224,7 @@ testStable(
           const docs = yield* Documents;
           const a = yield* docs.create(creation('one'));
           const b = yield* docs.create(creation('two'));
+
           assert.ok(a.version && b.version);
           assert.equal(
             (yield* Effect.flip(
@@ -229,6 +260,7 @@ testStable(
             'invalid_input'
           );
           const missing = Schema.decodeUnknownSync(studyDocumentVersionIdSchema)(999999n);
+
           assert.equal(
             (yield* Effect.flip(
               docs.save({
@@ -266,10 +298,12 @@ testStable(
   'source copies and message provenance pin exact inputs without giving sessions ownership',
   async () => {
     const f = fixture();
+
     try {
       const sourceId = Schema.decodeUnknownSync(sourceIdSchema)(7n),
         messageVersionId = Schema.decodeUnknownSync(versionIdSchema)(11n);
       const source = body('Exact source 😀');
+
       f.context.db
         .exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(7,'attachment','text','text/plain','Source',1,zeroblob(32),1);
   INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(7,1,X'41','text','text/plain'),(7,2,X'42','text','text/plain');
@@ -282,6 +316,7 @@ testStable(
       const snapshotId = Schema.decodeUnknownSync(
         (await import('@study/contracts/ids')).contentSnapshotIdSchema
       )(70n);
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
@@ -293,6 +328,7 @@ testStable(
             snapshotId
           };
           const copy = yield* docs.copySource(copyInput);
+
           assert.ok(copy.version);
           assert.equal((yield* docs.copySource(copyInput)).id, copy.id);
           assert.equal(copy.version.document.blocks[0].text, 'Exact source 😀');
@@ -325,10 +361,12 @@ testStable(
               }
             ]
           });
+
           assert.ok(linked.version);
           assert.deepEqual(linked.version.inputs, [input]);
           f.context.db.exec('DELETE FROM sessions WHERE id=1');
           const retained = yield* docs.version({ id: linked.version.id });
+
           assert.deepEqual(retained.inputs, [input]);
           assert.equal(retained.citations[0]?.quote, 'Exact message');
           assert.equal(
@@ -353,11 +391,13 @@ testStable(
   'history and deletion require an exact preview, protect dependents, and retire bodies with backup integrity',
   async () => {
     const f = fixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
           const a = yield* docs.create(creation('history'));
+
           assert.ok(a.version);
           const edit = yield* docs.save({
             documentId: a.id,
@@ -366,6 +406,7 @@ testStable(
             document: body('Latest', a.version.document.blocks[0].id)
           });
           const old = yield* docs.previewHistory({ documentId: a.id, keepLatest: 1 });
+
           yield* docs.save({
             documentId: a.id,
             expectedVersionId: edit.submittedVersionId,
@@ -379,6 +420,7 @@ testStable(
             'invalid_input'
           );
           const fresh = yield* docs.previewHistory({ documentId: a.id, keepLatest: 1 });
+
           yield* docs.retireHistory({ documentId: a.id, keepLatest: 1, token: fresh.token });
           assert.equal((yield* Effect.flip(docs.version({ id: a.version.id }))).kind, 'not_found');
           assert.equal(
@@ -388,20 +430,24 @@ testStable(
             0n
           );
           const current = (yield* docs.document({ id: a.id })).version;
+
           assert.ok(current);
           const dependent = yield* docs.create({
             ...creation('dependent'),
             inputs: [{ kind: 'document', versionId: current.id }]
           });
           const blocked = yield* docs.previewDeletion({ id: a.id });
+
           assert.deepEqual(blocked.blockedVersionIds, [current.id]);
           assert.equal(
             (yield* Effect.flip(docs.delete({ documentId: a.id, token: blocked.token }))).kind,
             'invalid_input'
           );
           const deleteDependent = yield* docs.previewDeletion({ id: dependent.id });
+
           yield* docs.delete({ documentId: dependent.id, token: deleteDependent.token });
           const deletion = yield* docs.previewDeletion({ id: a.id });
+
           yield* docs.delete({ documentId: a.id, token: deletion.token });
           assert.equal((yield* Effect.flip(docs.document({ id: a.id }))).kind, 'not_found');
           assert.equal((yield* docs.documents({ limit: 10, archived: false })).items.length, 0);
@@ -410,8 +456,10 @@ testStable(
       assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
       assert.equal(f.context.db.orm.get(sql`PRAGMA integrity_check`)?.integrity_check, 'ok');
       const path = f.location.path + '.backup';
+
       await f.context.db.snapshot(path);
       const { Db } = await import('@study/db');
+
       if (process.env.STUDY_FINAL_MIGRATIONS)
         assert.throws(() => Db.validateSnapshot(path), TypeError);
       else assert.equal(Db.validateSnapshot(path), f.context.db.schemaIdentity());
@@ -425,11 +473,13 @@ testStable(
   'AI publication participant keeps one request intent and retains concurrent proposals',
   async () => {
     const f = fixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
           const a = yield* docs.create(creation('generation'));
+
           assert.ok(a.version);
           const input = {
             requestId: 'generation-1',
@@ -444,6 +494,7 @@ testStable(
             language: null
           };
           const result = yield* transaction((tx) => Documents.publishInTransaction(tx, input));
+
           assert.equal(result.outcome, 'saved');
           assert.equal(
             (yield* transaction((tx) => Documents.publishInTransaction(tx, input))).replayed,
@@ -457,6 +508,7 @@ testStable(
               document: body('Proposal', a.version!.document.blocks[0].id)
             })
           );
+
           assert.equal(conflict.outcome, 'conflict');
           assert.equal((yield* docs.version({ id: conflict.submittedVersionId })).status, 'draft');
           assert.equal(
@@ -487,6 +539,7 @@ testStable(
   'exact citations, Unicode annotation history, image pins and inherited retired message identities are validated',
   async () => {
     const f = fixture();
+
     try {
       f.context.db
         .exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(8,'attachment','image','image/png','Image',1,zeroblob(32),1);
@@ -495,10 +548,12 @@ testStable(
    INSERT INTO messages(id,session_id,role,created_at) VALUES(10,1,'user',1);
    INSERT INTO message_versions(id,message_id,number,origin,status,text,created_at) VALUES(11,10,1,'typed','complete','Exact raw',1);`);
       const ids = await import('@study/contracts/ids');
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
           const base = creation('rich-evidence', 'A😀B');
+
           base.document.blocks.push(
             createBlock({
               type: 'image',
@@ -508,6 +563,7 @@ testStable(
             }) as never
           );
           const a = yield* docs.create(base);
+
           assert.ok(a.version);
           assert.equal(
             f.context.db.orm.get(
@@ -530,6 +586,7 @@ testStable(
             kind: 'highlight',
             note: 'Exact 😀'
           });
+
           assert.equal(annotation.outcome, 'saved');
           const invalid = yield* Effect.flip(
             docs.createAnnotation({
@@ -538,6 +595,7 @@ testStable(
               note: 'Split surrogate'
             })
           );
+
           assert.equal(invalid.kind, 'invalid_input');
           const updated = yield* docs.reviseAnnotation({
             id: annotation.annotation.id,
@@ -547,6 +605,7 @@ testStable(
             note: 'Revised',
             deleted: false
           });
+
           assert.equal(updated.annotation.revision, 2n);
           const stale = yield* docs.reviseAnnotation({
             id: annotation.annotation.id,
@@ -556,6 +615,7 @@ testStable(
             note: 'Stale',
             deleted: false
           });
+
           assert.equal(stale.outcome, 'conflict');
           assert.equal(
             (yield* docs.annotationHistory({ id: annotation.annotation.id, limit: 10 })).items
@@ -573,6 +633,7 @@ testStable(
             limit: 1,
             includeDeleted: false
           });
+
           assert.equal(firstAnnotations.items[0].id, extra.annotation.id);
           assert.equal(firstAnnotations.nextCursor, extra.annotation.id);
           const nextAnnotations = yield* docs.annotations({
@@ -581,6 +642,7 @@ testStable(
             cursor: firstAnnotations.nextCursor!,
             includeDeleted: false
           });
+
           assert.equal(nextAnnotations.items[0].note, 'Revised');
           assert.equal(nextAnnotations.items[0].revision, 2n);
           assert.equal(nextAnnotations.nextCursor, null);
@@ -616,6 +678,7 @@ testStable(
               }
             ]
           });
+
           assert.ok(cited.version);
           assert.equal(
             (yield* Effect.flip(
@@ -643,6 +706,7 @@ testStable(
             ...creation('raw-derived'),
             inputs: [messageInput]
           });
+
           assert.ok(derived.version);
           f.context.db.exec('DELETE FROM sessions WHERE id=1');
           const changed = yield* docs.save({
@@ -651,6 +715,7 @@ testStable(
             key: 'after-session',
             document: body('Still editable', derived.version.document.blocks[0].id)
           });
+
           assert.equal(changed.outcome, 'saved');
           assert.deepEqual((yield* docs.version({ id: changed.submittedVersionId })).inputs, [
             messageInput
@@ -673,6 +738,7 @@ testStable(
   'independent generated publication owns the first authored version and replays one typed request',
   async () => {
     const f = fixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -687,6 +753,7 @@ testStable(
             language: 'en'
           };
           const a = yield* transaction((tx) => Documents.createGeneratedInTransaction(tx, request));
+
           assert.ok(a.version);
           assert.equal(a.version.creator, 'agent');
           assert.equal(a.version.operation, 'generate');
@@ -694,6 +761,7 @@ testStable(
           assert.deepEqual(a.version.parents, []);
           assert.equal(a.version.instruction, request.instruction);
           const docs = yield* Documents;
+
           yield* docs.save({
             documentId: a.documentId,
             expectedVersionId: a.version.id,
@@ -703,6 +771,7 @@ testStable(
           const replay = yield* transaction((tx) =>
             Documents.createGeneratedInTransaction(tx, request)
           );
+
           assert.equal(replay.documentId, a.documentId);
           assert.equal(replay.version.id, a.version.id);
           assert.equal(replay.replayed, true);
@@ -720,6 +789,7 @@ testStable(
           const receipt = f.context.db.orm.get(
             sql`SELECT expected_version_id,result_version_id FROM study_document_generation_requests WHERE id='independent-generation'`
           );
+
           assert.equal(receipt?.expected_version_id, null);
           assert.equal(receipt?.result_version_id, a.version.id);
         }).pipe(Effect.provide(f.services))
@@ -740,6 +810,7 @@ testStable(
   'authored metadata and target proposals retain independent histories and exact replay',
   async () => {
     const f = fixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -753,6 +824,7 @@ testStable(
             expectedTitle: created.title,
             expectedDescription: created.description
           });
+
           assert.equal(metadata.title, 'Renamed document');
           assert.equal(metadata.description, 'Private description');
           assert.equal(metadata.headVersionId, base.id);
@@ -771,6 +843,7 @@ testStable(
           const proposed = yield* transaction((tx) =>
             Documents.proposeGeneratedInTransaction(tx, proposalInput)
           );
+
           assert.equal(proposed.baseVersionId, base.id);
           assert.equal((yield* docs.document({ id: created.id })).headVersionId, base.id);
           assert.equal((yield* docs.version({ id: proposed.proposedVersionId })).status, 'draft');
@@ -789,6 +862,7 @@ testStable(
             key: 'apply-stale',
             expectedVersionId: base.id
           });
+
           assert.equal(conflict.outcome, 'conflict');
           assert.equal(conflict.currentVersionId, changed.submittedVersionId);
           const keepInput = {
@@ -797,9 +871,11 @@ testStable(
             title: 'Alternative'
           };
           const kept = yield* docs.keepProposal(keepInput);
+
           assert.equal(kept.outcome, 'kept');
           assert.equal((yield* docs.keepProposal(keepInput)).replayed, true);
           const alternative = yield* docs.version({ id: kept.resultVersionId! });
+
           assert.notEqual(alternative.documentId, created.id);
           assert.equal(alternative.document.blocks[0].text, 'Proposed text');
           assert.notEqual(alternative.document.blocks[0].id, base.document.blocks[0].id);
@@ -833,6 +909,7 @@ testStable(
             expectedVersionId: target.version!.id
           };
           const applied = yield* docs.applyProposal(applyInput);
+
           assert.equal(applied.outcome, 'applied');
           assert.equal(
             (yield* docs.document({ id: target.id })).headVersionId,
@@ -843,9 +920,11 @@ testStable(
             'Accepted proposal'
           );
           const replay = yield* docs.applyProposal(applyInput);
+
           assert.equal(replay.replayed, true);
           assert.equal(replay.resultVersionId, applied.resultVersionId);
           const retirement = yield* docs.previewDeletion({ id: target.id });
+
           assert.deepEqual(
             retirement.blockedVersionIds,
             [],
@@ -880,14 +959,17 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Documents;
           const owner = yield* docs.create(creation('logical-order'));
+
           assert.ok(owner.version);
           // Late imported histories can have IDs in a different order from logical numbers.
           // Create valid draft snapshots without changing any published version or SQL guard.
+
           for (const [id, number] of [
             [100n, 2n],
             [50n, 3n]
@@ -895,6 +977,7 @@ testStable(
             const snapshot = context.db.orm.get<{ id: bigint }>(
               sql`INSERT INTO content_snapshots(extractor_version,meta,created_at) SELECT extractor_version,meta,created_at FROM content_snapshots WHERE id=${owner.version.snapshotId} RETURNING id`
             )!;
+
             context.db.orm.run(
               sql`INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) SELECT ${snapshot.id},ordinal,kind,editing_id,content,text,anchor FROM blocks WHERE document_id=${owner.version.snapshotId}`
             );
@@ -902,7 +985,9 @@ testStable(
               sql`INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(${id},${owner.id},${number},${snapshot.id},1)`
             );
           }
+
           const first = yield* docs.versions({ documentId: owner.id, limit: 1 });
+
           assert.equal(first.items[0]?.number, 3n);
           assert.equal(first.items[0]?.id, 50n);
           assert.equal(first.nextCursor, 50n);
@@ -911,6 +996,7 @@ testStable(
             limit: 1,
             cursor: first.nextCursor!
           });
+
           assert.equal(second.items[0]?.number, 2n);
           assert.equal(second.items[0]?.id, 100n);
           const last = yield* docs.versions({
@@ -918,6 +1004,7 @@ testStable(
             limit: 1,
             cursor: second.nextCursor!
           });
+
           assert.equal(last.items[0]?.id, owner.version.id);
           assert.equal(last.nextCursor, null);
         }).pipe(

@@ -78,7 +78,10 @@ function capture(blocks: Block[]) {
       sessionId: session.id,
       expectedRevision: 0n,
       targets: [
-        { input: { kind: 'document', versionId: original.version.id }, scope: { kind: 'document' } }
+        {
+          input: { kind: 'document', versionId: original.version.id },
+          scope: { kind: 'document' }
+        }
       ]
     });
     const snapshot = yield* chats.captureSessionContext({
@@ -403,6 +406,7 @@ testStable(
       const regenerated = await Effect.runPromise(
         Effect.gen(function* () {
           const head = (yield* (yield* Documents).document({ id: setup.original.id })).version;
+
           assert.ok(head);
           const chats = yield* Conversations;
 
@@ -433,7 +437,10 @@ testStable(
 
       fixture.replies.push(
         { kind: 'sources', query: 'LATEST' },
-        { kind: 'output', output: { blocks: [providerParagraph('Latest explanation [1]')], notes } }
+        {
+          kind: 'output',
+          output: { blocks: [providerParagraph('Latest explanation [1]')], notes }
+        }
       );
       const second = await fixture.executeAuthored(
         fixture.authoredEvent(regenerated.request.id),
@@ -700,6 +707,7 @@ testStable(
         Effect.gen(function* () {
           const materials = yield* Documents;
           const saved = (yield* materials.version({ id: result })).citations;
+
           assert.deepEqual(
             saved.map((citation) => citation.target),
             [
@@ -744,7 +752,11 @@ testStable('provider report ordinals cannot reference an unavailable output bloc
         output: {
           blocks: [providerParagraph('alpha [1]')],
           notes: [
-            { kind: 'correction_proposal', explanation: 'Proposed change [1]', blockOrdinals: [99] }
+            {
+              kind: 'correction_proposal',
+              explanation: 'Proposed change [1]',
+              blockOrdinals: [99]
+            }
           ]
         }
       }

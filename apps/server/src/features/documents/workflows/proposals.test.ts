@@ -1,8 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises authored Document proposals behavior through real persistence            │
+ * │ boundaries.                                                                              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies a captured block or passage cannot broaden into a whole authored target edit. │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import type { documentGenerationRequestedSchema } from '@study/contracts/events';
+import type { messageIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/node';
@@ -19,6 +33,7 @@ import { cleanup } from '#testing/session-deletion';
 
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
+
 const meta = {
   extractor: null,
   extractorVersion: 1,
@@ -30,7 +45,9 @@ const meta = {
   corrected: false,
   omissions: []
 };
+
 type Fixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+
 function generationEvent(
   f: Fixture,
   requestId: string
@@ -38,11 +55,15 @@ function generationEvent(
   const row = f.context.db.orm.get(
     sql`SELECT payload FROM workflow_events WHERE type='DocumentGenerationRequested' AND correlation_id=${requestId} ORDER BY rowid DESC LIMIT 1`
   );
+
   assert.ok(row);
   const event = decodeEvent(String(row.payload));
+
   assert.equal(event.type, 'DocumentGenerationRequested');
+
   return event;
 }
+
 function create(title: string, blocks = [paragraph('alpha evidence')]) {
   return Effect.flatMap(Documents, (docs) =>
     docs.create({
@@ -55,19 +76,23 @@ function create(title: string, blocks = [paragraph('alpha evidence')]) {
   ).pipe(
     Effect.map((value) => {
       assert.ok(value.version);
+
       return { ...value, version: value.version };
     })
   );
 }
+
 function assertIndependentImage(independent: StudyDocumentVersion, proposal: StudyDocumentVersion) {
   assert.notEqual(independent.documentId, proposal.documentId);
   assert.deepEqual(independent.document.blocks[1]!.content, proposal.document.blocks[1]!.content);
   assert.notEqual(independent.document.blocks[1]!.id, proposal.document.blocks[1]!.id);
 }
+
 function assessApplied(version: StudyDocumentVersion) {
   return Effect.gen(function* () {
     const docs = yield* Documents;
     const cited = version.citations[0];
+
     assert.ok(cited?.target);
     const claimBlock = version.document.blocks[0]!;
     const assessment = yield* docs.assessCitation({
@@ -87,11 +112,14 @@ function assessApplied(version: StudyDocumentVersion) {
       judgment: 'uncertain',
       note: 'Manual judgment'
     });
+
     assert.equal(assessment.assessment.suppliedBy, 'user');
     assert.equal(assessment.assessment.independentVerification, false);
+
     return assessment;
   });
 }
+
 function assertSupport(
   docs: Context.Service.Shape<typeof Documents>,
   versionId: StudyDocumentVersion['id'],
@@ -101,27 +129,31 @@ function assertSupport(
     .assessments({ versionId, marker: 1, limit: 10 })
     .pipe(Effect.map((page) => assert.equal(page.items[0]?.state, state)));
 }
+
 type Scenario =
   | 'apply'
   | 'target_changed'
   | 'input_changed'
   | 'selection_changed'
   | 'message_changed';
+
 function changeRelevantContext(
   scenario: Scenario,
   target: StudyDocumentVersion,
   input: StudyDocumentVersion,
   context: {
-    sessionId: typeof import('@study/contracts/ids').sessionIdSchema.Type;
+    sessionId: typeof sessionIdSchema.Type;
     selectionRevision: bigint;
-    messageId: typeof import('@study/contracts/ids').messageIdSchema.Type;
+    messageId: typeof messageIdSchema.Type;
   }
 ) {
   return Effect.gen(function* () {
     const docs = yield* Documents;
     const chats = yield* Conversations;
+
     if (scenario === 'target_changed' || scenario === 'input_changed') {
       const version = scenario === 'target_changed' ? target : input;
+
       yield* docs.save({
         documentId: version.documentId,
         expectedVersionId: version.id,
@@ -129,16 +161,19 @@ function changeRelevantContext(
         document: { blocks: [paragraph('Concurrent content')], meta }
       });
     }
+
     if (scenario === 'selection_changed')
       yield* chats.updateSessionSelection({
         sessionId: context.sessionId,
         expectedRevision: context.selectionRevision,
         targets: []
       });
+
     if (scenario === 'message_changed')
       yield* chats.editMessage({ messageId: context.messageId, text: 'Concurrent qualification' });
   });
 }
+
 for (const scenario of [
   'apply',
   'target_changed',
@@ -150,6 +185,7 @@ for (const scenario of [
     `native authored proposal ${scenario} preserves exact receipts, alternatives, citations and independent retention`,
     async () => {
       const f = await documentTransformFixture();
+
       try {
         const setup = await Effect.runPromise(
           Effect.gen(function* () {
@@ -173,6 +209,7 @@ for (const scenario of [
             });
             const target = yield* create('Target', [paragraph('alpha target'), imageBlock]);
             const input = yield* create('Evidence');
+
             yield* chats.updateSessionSelection({
               sessionId: session.id,
               expectedRevision: 0n,
@@ -193,9 +230,11 @@ for (const scenario of [
               operations: ['clarity'],
               editTargetVersionId: target.version.id
             });
+
             return { session, message, image, target, input, context, request, imageBlock };
           }).pipe(Effect.provide(f.domain()))
         );
+
         f.replies.push(
           { kind: 'sources', query: 'alpha target' },
           {
@@ -220,6 +259,7 @@ for (const scenario of [
         );
         const event = generationEvent(f, setup.request.id);
         const proposalId = await f.executeAuthored(event, `proposal-${scenario}`);
+
         assert.equal(
           f.context.db.orm.get(
             sql`SELECT result_version_id FROM study_document_transform_requests WHERE id=${setup.request.id}`
@@ -234,6 +274,7 @@ for (const scenario of [
             const docs = yield* Documents;
             const chats = yield* Conversations;
             const proposal = yield* docs.version({ id: proposalId });
+
             assert.equal(proposal.status, 'draft');
             assert.equal(proposal.documentId, setup.target.id);
             assert.equal(proposal.document.blocks[1]!.id, setup.imageBlock.id);
@@ -246,12 +287,14 @@ for (const scenario of [
               kind: 'document',
               versionId: setup.target.version.id
             });
+
             for (const mutation of [
               sql`DELETE FROM document_assets WHERE document_id=${proposal.snapshotId}`,
               sql`DELETE FROM study_document_citations WHERE version_id=${proposalId}`,
               sql`UPDATE blocks SET text='forged' WHERE document_id=${proposal.snapshotId}`
             ])
               assert.throws(() => f.context.db.orm.run(mutation));
+
             yield* changeRelevantContext(scenario, setup.target.version, setup.input.version, {
               sessionId: setup.session.id,
               selectionRevision: setup.context.selectionRevision,
@@ -264,6 +307,7 @@ for (const scenario of [
             };
             const output = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
             const before = output();
+
             for (const invalid of [
               { ...value, key: 'wrong-expected', expectedVersionId: setup.input.version.id }
             ]) {
@@ -273,6 +317,7 @@ for (const scenario of [
               );
               assert.deepEqual(output(), before);
             }
+
             if (scenario === 'apply') {
               f.context.db.exec(
                 "CREATE TRIGGER reject_proposal_event BEFORE INSERT ON workflow_events WHEN NEW.type='DocumentPublished' BEGIN SELECT RAISE(ABORT,'injected apply failure'); END"
@@ -281,9 +326,12 @@ for (const scenario of [
               assert.deepEqual(output(), before);
               f.context.db.exec('DROP TRIGGER reject_proposal_event');
             }
+
             const result = yield* chats.applyDocumentProposal(value);
+
             assert.equal(result.outcome, scenario === 'apply' ? 'applied' : 'conflict');
             const after = output();
+
             assert.equal((yield* chats.applyDocumentProposal(value)).replayed, true);
             assert.deepEqual(output(), after);
             assert.equal(
@@ -298,16 +346,22 @@ for (const scenario of [
             );
             assert.equal(
               (yield* Effect.flip(
-                chats.applyDocumentProposal({ ...value, expectedVersionId: setup.input.version.id })
+                chats.applyDocumentProposal({
+                  ...value,
+                  expectedVersionId: setup.input.version.id
+                })
               )).kind,
               'invalid_input'
             );
             const compare = yield* docs.compareProposal({ requestId: setup.request.id });
+
             assert.equal(compare.beforeVersionId, setup.target.version.id);
             assert.equal(compare.proposedVersionId, proposalId);
             assert.equal(compare.evidence, 'structural_only');
+
             if (scenario === 'apply') {
               const beforeKeep = output();
+
               f.context.db.exec(
                 "CREATE TRIGGER reject_keep_event BEFORE INSERT ON workflow_events WHEN NEW.type='DocumentPublished' BEGIN SELECT RAISE(ABORT,'injected keep failure'); END"
               );
@@ -326,14 +380,17 @@ for (const scenario of [
                 'invalid_input'
               );
             }
+
             const kept = yield* chats.keepDocumentProposal({
               requestId: setup.request.id,
               key: 'keep',
               title: 'Independent'
             });
+
             assert.equal(kept.outcome, 'kept');
             assert.ok(kept.resultVersionId);
             const independent = yield* docs.version({ id: kept.resultVersionId });
+
             assertIndependentImage(independent, proposal);
             assert.deepEqual(independent.inputs, proposal.inputs);
             assert.deepEqual(independent.citations, proposal.citations);
@@ -362,12 +419,15 @@ for (const scenario of [
               )
             );
             const cited = independent.citations[0]!;
+
             assert.ok(cited.input.kind === 'document');
             const exact = yield* docs.version({ id: cited.input.versionId });
+
             assert.ok(exact.document.blocks.some((block) => block.text.includes(cited.quote)));
 
             if (result.resultVersionId) {
               const applied = yield* docs.version({ id: result.resultVersionId });
+
               assert.equal(applied.document.blocks[1]!.id, setup.imageBlock.id);
               assert.deepEqual(applied.citations, proposal.citations);
               assert.deepEqual(applied.parents, [setup.target.version.id]);
@@ -380,19 +440,23 @@ for (const scenario of [
                 key: 'restore'
               };
               const restored = yield* docs.restore(restore);
+
               assert.equal(restored.outcome, 'saved');
               yield* assertSupport(docs, restored.submittedVersionId, undefined);
               yield* assertSupport(docs, applied.id, 'stale');
               assert.equal((yield* docs.restore(restore)).replayed, true);
             }
+
             return { independentId: independent.id, resultVersionId: result.resultVersionId };
           }).pipe(Effect.provide(f.domain()))
         );
+
         f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
             const chats = yield* Conversations;
+
             assert.equal((yield* docs.version({ id: outcomes.independentId })).status, 'published');
             assert.equal(
               (yield* chats.keepDocumentProposal({
@@ -402,6 +466,7 @@ for (const scenario of [
               })).replayed,
               true
             );
+
             if (outcomes.resultVersionId)
               yield* assertSupport(docs, outcomes.resultVersionId, 'stale');
           }).pipe(Effect.provide(f.domain()))
@@ -413,11 +478,13 @@ for (const scenario of [
         );
         await cleanup(f, setup.session.id);
         const calls = f.bodies.length;
+
         await assert.rejects(f.executeAuthored(event, `retired-${scenario}`));
         assert.equal(f.bodies.length, calls);
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
+
             assert.equal((yield* docs.version({ id: outcomes.independentId })).status, 'published');
           }).pipe(Effect.provide(f.domain()))
         );
@@ -433,6 +500,7 @@ for (const barrier of ['cancel', 'delete'] as const)
     `authored proposal ${barrier} before native execution fences late publication`,
     async () => {
       const f = await documentTransformFixture();
+
       try {
         const request = await Effect.runPromise(
           Effect.gen(function* () {
@@ -440,6 +508,7 @@ for (const barrier of ['cancel', 'delete'] as const)
             const docs = yield* Documents;
             const session = yield* chats.createSession({ title: 'Fence' });
             const target = yield* create('Target');
+
             yield* chats.updateSessionSelection({
               sessionId: session.id,
               expectedRevision: 0n,
@@ -462,11 +531,14 @@ for (const barrier of ['cancel', 'delete'] as const)
               operations: ['structure'],
               editTargetVersionId: target.version.id
             });
+
             if (barrier === 'delete') yield* chats.deleteSession(session.id);
             else yield* docs.cancelTransform({ requestId: request.id });
+
             return request;
           }).pipe(Effect.provide(f.domain()))
         );
+
         await assert.rejects(
           f.executeAuthored(generationEvent(f, request.id), `barrier-${barrier}`)
         );
@@ -487,6 +559,7 @@ testStable(
   'a captured block or passage cannot broaden into a whole authored target edit',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -495,6 +568,7 @@ testStable(
           const block = paragraph('alpha selected omega');
           const target = yield* create('Target', [block]);
           const input = { kind: 'document' as const, versionId: target.version.id };
+
           yield* chats.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 0n,
@@ -504,6 +578,7 @@ testStable(
             { kind: 'ranges', ranges: [{ blockId: block.id, start: 6, end: 14 }] },
             { kind: 'blocks', blockIds: [block.id] }
           ] as const;
+
           for (const [index, scope] of scopes.entries()) {
             yield* chats.updateSessionSelection({
               sessionId: session.id,
@@ -516,6 +591,7 @@ testStable(
               instruction: 'Clarify',
               preferences: {}
             });
+
             assert.equal(
               (yield* Effect.flip(
                 chats.requestDocumentTransform({
@@ -528,6 +604,7 @@ testStable(
               'invalid_input'
             );
           }
+
           assert.equal(
             f.context.db.orm.get(sql`SELECT count(*) n FROM study_document_transform_requests`)?.n,
             0n

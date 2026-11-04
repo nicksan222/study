@@ -519,6 +519,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
                   .get(),
                 undefined
               );
+
               return;
             }
 
@@ -667,6 +668,7 @@ testStable(
             )
         }))
       ).pipe(Layer.provideMerge(engine));
+
       return Layer.mergeAll(
         database,
         Layer.merge(Conversations.layer, Sources.layer).pipe(Layer.provideMerge(database)),
@@ -769,6 +771,7 @@ testStable(
               'invalid_input'
             );
             const conversations = yield* Conversations;
+
             assert.ok(
               yield* conversations.inspectReplySnapshot({ requestId: saved.request.requestId })
             );
@@ -784,6 +787,7 @@ testStable(
                 (event) =>
                   event.type === 'SessionDeletionRequested' && event.sessionId === saved.sessionId
               );
+
             assertEventType(cleanup, 'SessionDeletionRequested', 'missing cleanup event');
             yield* engine.execute(sessionDeletionWorkflow, {
               executionId: 'reopen-cleanup',

@@ -13,7 +13,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import { materialIdSchema, sourceIdSchema } from '@study/contracts/ids';
+import { materialIdSchema } from '@study/contracts/ids';
 import { eq, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';

@@ -1,4 +1,16 @@
-/** Exact authored transform publication keeps selected ranges, immutable receipts and atomic alternatives. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exact authored transform publication keeps selected ranges, immutable receipts and │
+ * │ atomic alternatives.                                                                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies only selected duplicate ranges publish and exact citation identities and      │
+ * │   report hashes remain immutable across reopen.                                          │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -29,10 +41,14 @@ const meta = {
   corrected: false,
   omissions: []
 };
+
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
+
 type Fixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+
 type Publication = typeof transformPublicationSchema.Type;
+
 function state(f: Fixture) {
   return {
     ...makeMaterialOutput({ db: f.context.db, clock: f.context.clock })(),
@@ -40,15 +56,18 @@ function state(f: Fixture) {
     transforms: f.context.db.orm.select().from(s.study_document_transform_requests).all()
   };
 }
+
 function publish(f: Fixture, value: Publication) {
   return Effect.gen(function* () {
     const chats = yield* Conversations;
+
     yield* withTestPublication(
       f.context,
       chats.publishDocumentTransform(value).pipe(Effect.asVoid)
     );
   }).pipe(Effect.provide(f.domain()));
 }
+
 function create(title: string, blocks = [paragraph('alpha evidence')]) {
   return Effect.flatMap(Documents, (docs) =>
     docs.create({
@@ -61,10 +80,12 @@ function create(title: string, blocks = [paragraph('alpha evidence')]) {
   ).pipe(
     Effect.map((value) => {
       assert.ok(value.version);
+
       return { ...value, version: value.version };
     })
   );
 }
+
 function capture(exactTarget: boolean) {
   return Effect.gen(function* () {
     const chats = yield* Conversations;
@@ -78,6 +99,7 @@ function capture(exactTarget: boolean) {
       start: exactTarget ? 0 : 11,
       end: exactTarget ? block.text.length : 15
     };
+
     yield* chats.updateSessionSelection({
       sessionId: session.id,
       expectedRevision: 0n,
@@ -112,6 +134,7 @@ function capture(exactTarget: boolean) {
       })),
       report: { notes: [{ kind: 'limit', explanation: 'Selected only', blockIds: [output.id] }] }
     };
+
     return { original, session, input, target, unselected, request, publication };
   });
 }
@@ -120,6 +143,7 @@ testStable(
   'only selected duplicate ranges publish and exact citation identities and report hashes remain immutable across reopen',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       const saved = await Effect.runPromise(capture(false).pipe(Effect.provide(f.domain())));
       const cited = saved.publication.citations[0]!;
@@ -139,14 +163,17 @@ testStable(
         { ...cited, quote: '😀' }
       ];
       const before = state(f);
+
       for (const citation of forged) {
         await assert.rejects(
           Effect.runPromise(publish(f, { ...saved.publication, citations: [citation] }))
         );
         assert.deepEqual(state(f), before);
       }
+
       await Effect.runPromise(publish(f, saved.publication));
       const after = state(f);
+
       await Effect.runPromise(
         publish(f, {
           ...saved.publication,
@@ -161,6 +188,7 @@ testStable(
         })
       );
       assert.deepEqual(state(f), after);
+
       for (const changed of [
         { ...saved.publication, language: 'italian' },
         {
@@ -175,10 +203,13 @@ testStable(
         await assert.rejects(Effect.runPromise(publish(f, changed)));
         assert.deepEqual(state(f), after);
       }
+
       const versionId = after.transforms.find(
         (row) => row.id === saved.request.id
       )?.result_version_id;
+
       assert.ok(versionId);
+
       for (const mutation of [
         sql`UPDATE study_document_citations SET target=NULL WHERE version_id=${versionId}`,
         sql`UPDATE study_document_citations SET target='{}' WHERE version_id=${versionId}`,
@@ -189,6 +220,7 @@ testStable(
         assert.throws(() => f.context.db.orm.run(mutation));
         assert.deepEqual(state(f), after);
       }
+
       f.reopen();
       await Effect.runPromise(publish(f, saved.publication));
       assert.deepEqual(state(f), after);
@@ -198,12 +230,14 @@ testStable(
         )
       );
       const retired = state(f);
+
       await Effect.runPromise(publish(f, saved.publication));
       assert.deepEqual(state(f), retired);
       const docs = await Effect.runPromise(Documents.pipe(Effect.provide(f.domain())));
       const version = await Effect.runPromise(
         docs.version({ id: versionId }).pipe(Effect.provide(f.domain()))
       );
+
       assert.deepEqual(version.citations, saved.publication.citations);
       assert.deepEqual(version.inputs, [saved.input]);
     } finally {
@@ -216,6 +250,7 @@ testStable(
   'canonical authored citations reject fabricated exact inputs and UTF16 splits while anchor-only provenance stays explicitly inexact',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -239,10 +274,13 @@ testStable(
               citations: [value]
             });
           const exact = yield* write(citation);
+
           assert.deepEqual(exact.version?.citations, [citation]);
           const approximate = yield* write({ ...citation, target: null });
+
           assert.equal(approximate.version?.citations[0]?.target, null);
           const before = state(f);
+
           for (const target of [
             { ...citation.target, start: 1 },
             { ...citation.target, end: 100 },
@@ -255,6 +293,7 @@ testStable(
             );
             assert.deepEqual(state(f), before);
           }
+
           assert.equal(
             (yield* Effect.flip(
               write({
@@ -282,11 +321,13 @@ testStable(
   'conversation-only publication rejects separator-only tables without outputs, receipts, memberships or events',
   async () => {
     const f = await documentTransformFixture();
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Conversations;
           const session = yield* chats.createUntitledSession({});
+
           yield* chats.postMessage({
             sessionId: session.id,
             text: 'Explain this',
@@ -324,6 +365,7 @@ testStable(
               report: { notes: [{ kind: 'limit', explanation: 'No text', blockIds: [table.id] }] }
             })
           );
+
           assert.equal(failure.kind, 'invalid_input');
           assert.deepEqual(state(f), before);
         }).pipe(Effect.provide(f.domain()))
@@ -339,9 +381,11 @@ for (const table of ['study_document_proposals', 'study_document_transform_reque
     `proposal publication rolls back ${table} failure before same-key retry and reopen`,
     async () => {
       const f = await documentTransformFixture();
+
       try {
         const saved = await Effect.runPromise(capture(true).pipe(Effect.provide(f.domain())));
         const before = state(f);
+
         f.context.db.exec(
           table === 'study_document_proposals'
             ? "CREATE TRIGGER reject_publication BEFORE INSERT ON study_document_proposals BEGIN SELECT RAISE(ABORT,'fixture rollback'); END"
@@ -355,6 +399,7 @@ for (const table of ['study_document_proposals', 'study_document_transform_reque
         const versionId = after.transforms.find(
           (row) => row.id === saved.request.id
         )?.result_version_id;
+
         assert.ok(versionId);
         assert.equal(after.proposals[0]?.proposed_version_id, versionId);
         assert.equal(after.proposals[0]?.base_version_id, saved.original.version.id);

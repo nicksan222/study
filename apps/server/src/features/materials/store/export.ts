@@ -14,7 +14,6 @@
 import { StudyError } from '@study/contracts/errors';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import { MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
-import { materialVersionInputSchema } from '@study/contracts/materials/rpc';
 import { materialCitationSchema } from '@study/contracts/materials/schemas';
 import { and, asc, eq, gt } from '@study/db';
 import * as s from '@study/db/schema';

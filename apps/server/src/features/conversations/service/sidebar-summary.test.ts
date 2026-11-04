@@ -118,6 +118,7 @@ testStable(
             limit: 10,
             archived: false
           })).items.find((item) => item.title === 'Generated');
+
           assert.ok(generated);
           const summary = (yield* conversations.sessionSummaries({})).items[0];
 

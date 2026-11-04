@@ -196,7 +196,9 @@ export function assertScrubbed(
           if (!retainAuthoredMetadata) return row;
           // Authored versions and requests intentionally retain their instructions; session cleanup
           // removes raw captures, not independent document generation metadata.
+
           if (table.name === 'study_document_versions') return { ...row, instruction: null };
+
           if (table.name === 'study_document_transform_requests')
             return {
               ...row,
@@ -206,6 +208,7 @@ export function assertScrubbed(
                   ? JSON.stringify({ ...JSON.parse(row.request), instruction: null })
                   : row.request
             };
+
           return row;
         }),
       (_, value) => (typeof value === 'bigint' ? String(value) : value)
@@ -224,6 +227,7 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly StudyDoc
       for (const id of ids) {
         const version = yield* documents.version({ id });
         const block = version.document.blocks[0];
+
         assert.ok(block);
 
         const created = yield* documents.createAnnotation({

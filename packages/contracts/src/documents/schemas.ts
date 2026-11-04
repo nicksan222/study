@@ -14,6 +14,7 @@ import { documentSchema, anchorSchema, blockIdSchema } from '../sources/schemas.
 export const authoredContentSchema = documentSchema.check(
   Schema.makeFilter((d) => d.blocks.length > 0)
 );
+
 export const exactInputSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('document'), versionId: studyDocumentVersionIdSchema }),
   Schema.Struct({
@@ -24,6 +25,7 @@ export const exactInputSchema = Schema.Union([
   }),
   Schema.Struct({ kind: Schema.Literal('message'), versionId: versionIdSchema })
 ]);
+
 export const citationSchema = Schema.Struct({
   marker: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4294967295 })),
   input: exactInputSchema,
@@ -33,6 +35,7 @@ export const citationSchema = Schema.Struct({
   ),
   quote: Schema.String.check(Schema.isMinLength(1))
 });
+
 export const versionSchema = Schema.Struct({
   id: studyDocumentVersionIdSchema,
   documentId: studyDocumentIdSchema,
@@ -50,6 +53,7 @@ export const versionSchema = Schema.Struct({
   citations: Schema.Array(citationSchema),
   document: documentSchema
 });
+
 export const summarySchema = Schema.Struct({
   projectIds: Schema.Array(projectIdSchema),
   id: studyDocumentIdSchema,
@@ -60,14 +64,17 @@ export const summarySchema = Schema.Struct({
   archivedAt: Schema.NullOr(Schema.BigInt),
   headVersionId: Schema.NullOr(studyDocumentVersionIdSchema)
 });
+
 export const detailSchema = Schema.Struct({
   ...summarySchema.fields,
   version: Schema.NullOr(versionSchema)
 });
+
 export const documentPageSchema = Schema.Struct({
   items: Schema.Array(summarySchema),
   nextCursor: Schema.NullOr(studyDocumentIdSchema)
 });
+
 export const versionPageSchema = Schema.Struct({
   items: Schema.Array(versionSchema),
   nextCursor: Schema.NullOr(studyDocumentVersionIdSchema)

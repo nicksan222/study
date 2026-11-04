@@ -32,7 +32,11 @@ testStable(
         Schema.encodeSync(Schema.toCodecJson(blockContentSchema))(block.content)
       ),
       notes: [
-        { kind: 'limit' as const, explanation: 'No factual verification', blockOrdinals: [0, 1, 2] }
+        {
+          kind: 'limit' as const,
+          explanation: 'No factual verification',
+          blockOrdinals: [0, 1, 2]
+        }
       ]
     };
     const proposed = canonicalDocumentTransformOutput(output, [first, second, code]);

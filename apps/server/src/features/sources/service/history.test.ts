@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises source history behavior through real persistence boundaries.             │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies source history respects authored and raw citation pins even after private     │
+ * │   reply captures have gone.                                                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
@@ -32,6 +45,7 @@ const document = (text: string) => ({
     omissions: []
   }
 });
+
 function fixture() {
   const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   const context = new ServerContext(location.open());
@@ -39,6 +53,7 @@ function fixture() {
     Layer.provideMerge(Layer.mergeAll(Documents.layer, Sources.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
+
   return {
     context,
     handlers,
@@ -48,12 +63,14 @@ function fixture() {
     }
   };
 }
+
 function setup() {
   return Effect.gen(function* () {
     const sources = yield* Sources;
     const bytes = new TextEncoder().encode('Original bytes');
     const source = yield* sources.createSource({ name: 'history.txt', bytes, projectId: null });
     const snapshots = [];
+
     for (const text of ['First extraction', 'Corrected extraction', 'Current extraction']) {
       const state = yield* sources.requestSourceProcessing({ id: source.id, expectedRevision: 1 });
       const result = yield* transaction((tx) =>
@@ -64,8 +81,10 @@ function setup() {
           document: document(text)
         })
       );
+
       snapshots.push(result.documentId);
     }
+
     return { source, bytes, snapshots };
   });
 }
@@ -74,6 +93,7 @@ testStable(
   'source history respects authored and raw citation pins even after private reply captures have gone',
   async () => {
     const f = fixture();
+
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -81,6 +101,7 @@ testStable(
             const rpc = yield* RpcTest.makeClient(SourcesRpc.merge(DocumentsRpc));
             const saved = yield* setup();
             const [first, second] = saved.snapshots;
+
             assert.ok(first && second);
             const copy = yield* rpc['documents.copySource']({
               createKey: 'history-copy',
@@ -89,6 +110,7 @@ testStable(
               revision: 1n,
               snapshotId: first
             });
+
             f.context.db.exec(
               "INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Raw copy','user',1,1); INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'assistant',1); INSERT INTO message_versions(id,message_id,number,origin,status,text,created_at) VALUES(1,1,1,'typed','complete','Historic [1]',1)"
             );
@@ -99,6 +121,7 @@ testStable(
               sourceId: saved.source.id,
               keepLatest: 1
             });
+
             assert.deepEqual(
               preview.candidates.map((item) => item.snapshotId),
               [first, second]
@@ -125,6 +148,7 @@ testStable(
               )
             );
             const deletion = yield* rpc['documents.previewDeletion']({ id: copy.id });
+
             yield* rpc['documents.delete']({ documentId: copy.id, token: deletion.token });
             f.context.db.exec('DELETE FROM sessions WHERE id=1');
             assert.equal(
@@ -141,6 +165,7 @@ testStable(
               sourceId: saved.source.id,
               keepLatest: 1
             });
+
             assert.deepEqual(fresh.blockedSnapshotIds, []);
             yield* rpc['sources.retireHistory']({
               sourceId: saved.source.id,
@@ -173,6 +198,7 @@ testStable(
   'source history preview fences new publication and rolls body removal back with its outbox',
   async () => {
     const f = fixture();
+
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -188,6 +214,7 @@ testStable(
               id: saved.source.id,
               expectedRevision: 1
             });
+
             assert.equal(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({
@@ -211,6 +238,7 @@ testStable(
               keepLatest: 1
             });
             const before = f.context.db.orm.all(sql`SELECT * FROM content_snapshots ORDER BY id`);
+
             f.context.db.exec(
               "CREATE TRIGGER reject_history_event BEFORE INSERT ON workflow_events WHEN NEW.type='SourceHistoryPruned' BEGIN SELECT RAISE(ABORT,'injected history failure'); END"
             );
@@ -236,6 +264,7 @@ testStable(
               keepLatest: 1,
               token: fresh.token
             });
+
             assert.equal(retired.candidates.length, 3);
             assert.equal(
               (yield* rpc['sources.currentExtraction']({ id: saved.source.id }))?.snapshotId,

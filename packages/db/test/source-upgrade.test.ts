@@ -2,15 +2,11 @@ import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 import { workflowEventSchema } from '@study/contracts/events';
-/* eslint-disable study/database-ownership -- Upgrade fixture must open the old schema with the official migrator. */
 import { testMigration } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-sqlite';
-import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 import { Schema } from 'effect';
 
 import { Db } from '../src/index.ts';
@@ -32,12 +28,11 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
           cpSync(join(migrations, entry), join(oldMigrations, entry), { recursive: true });
       }
 
-      const sqlite = new DatabaseSync(path, { readBigInts: true });
+      const sqlite = Db.open(path, oldMigrations);
 
       try {
-        const old = drizzle({ client: sqlite });
+        const old = sqlite.orm;
 
-        migrate(old, { migrationsFolder: oldMigrations });
         old.run(
           sql`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (1,'attachment','text','text/plain','Existing notes',${BigInt(input.length)},${Buffer.alloc(32)},1)`
         );
@@ -75,6 +70,7 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
         assert.equal(state.published_request_id, state.request_id);
         assert.deepEqual(snapshot.bytes, input);
         const pin = upgraded.orm.select().from(source_extraction_revisions).get();
+
         assert.ok(pin);
         assert.equal(pin.source_id, 1n);
         assert.equal(pin.revision, 1n);
@@ -124,12 +120,9 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
           cpSync(join(migrations, entry), join(oldMigrations, entry), { recursive: true });
       }
 
-      const sqlite = new DatabaseSync(path, { readBigInts: true });
+      const sqlite = Db.open(path, oldMigrations);
 
       try {
-        const old = drizzle({ client: sqlite });
-
-        migrate(old, { migrationsFolder: oldMigrations });
         sqlite.exec(`
         INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
         INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,1,'attachment','text','text/plain','current.txt',1,zeroblob(32),1);
@@ -203,10 +196,9 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
           cpSync(join(migrations, entry), join(oldMigrations, entry), { recursive: true });
       }
 
-      const sqlite = new DatabaseSync(path, { readBigInts: true });
+      const sqlite = Db.open(path, oldMigrations);
 
       try {
-        migrate(drizzle({ client: sqlite }), { migrationsFolder: oldMigrations });
         sqlite.exec(`
         INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,'attachment','image','image/png','current.png',1,zeroblob(32),1);
         INSERT INTO source_blobs(source_id,bytes) VALUES(1,X'01');
@@ -264,12 +256,10 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
           cpSync(join(migrations, entry), join(oldMigrations, entry), { recursive: true });
       }
 
-      const old = new DatabaseSync(path, { readBigInts: true });
+      const old = Db.open(path, oldMigrations);
 
       try {
         old.exec('PRAGMA foreign_keys=OFF');
-
-        migrate(drizzle({ client: old }), { migrationsFolder: oldMigrations });
 
         old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
         old.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','Upgrade history',1,1);

@@ -1,4 +1,3 @@
-import { selectionReferenceKey } from '@study/contracts/conversations/context';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Persists reply-generation state and its resulting assistant message.               │
@@ -12,6 +11,8 @@ import { selectionReferenceKey } from '@study/contracts/conversations/context';
  * │ composes these private operations.                                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
+
+import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import {
   anchorSchema,
@@ -63,10 +64,14 @@ import { makeReplySourceInputs } from './reply-source-inputs.ts';
 import { makeThread } from './thread.ts';
 
 type ReplyCitation = (typeof publishReplyInputSchema.Type.citations)[number];
+
 type SelectedInput = (typeof runSelectionContextSchema.Type.inputs)[number];
+
 function citationExcerpt(selected: SelectedInput, citation: ReplyCitation) {
   const range = citation.selectedRange;
+
   if (!range) return undefined;
+
   return selected.excerpts.find(
     (item) =>
       item.blockOrdinal === citation.blockOrdinal &&
@@ -76,11 +81,13 @@ function citationExcerpt(selected: SelectedInput, citation: ReplyCitation) {
       item.text.includes(citation.quote)
   );
 }
+
 function selectedCitationIdentity(input: SelectedInput['input']) {
   return input.kind === 'source'
     ? { source_id: input.sourceId, authored_version_id: null, source_revision: input.revision }
     : { source_id: null, authored_version_id: input.versionId, source_revision: null };
 }
+
 const receiptCitationFields = [
   'marker',
   'source_id',
@@ -94,10 +101,13 @@ const receiptCitationFields = [
   'anchor',
   'quote'
 ] as const;
+
 type ReceiptCitation = Pick<typeof citations.$inferSelect, (typeof receiptCitationFields)[number]>;
+
 function sameReceiptCitation(actual: ReceiptCitation, expected: ReceiptCitation) {
   return receiptCitationFields.every((key) => actual[key] === expected[key]);
 }
+
 const codec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
 
 const persistedCodec = Schema.fromJsonString(
@@ -124,6 +134,7 @@ function makeHelpers({ db, clock }: StoreResources) {
   const { assertThreadRoot } = makeThread({ db, clock });
 
   const sourceInputs = makeReplySourceInputs({ db, clock });
+
   function snapshot(
     input: typeof requestInput.Type,
     target?: {
@@ -410,6 +421,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     sourceId: typeof sources.$inferSelect.id
   ) {
     if (processing?.document_id == null) return undefined;
+
     if (
       !db.orm
         .select()
@@ -864,6 +876,7 @@ export const ReplyStore = defineStore({
               .run();
 
             makeReplySourceInputs({ db, clock }).retain(sealed);
+
             return sealed;
           }
         }),

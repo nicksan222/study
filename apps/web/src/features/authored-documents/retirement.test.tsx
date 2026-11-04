@@ -11,6 +11,7 @@ import { releaseBodyPreviews } from '../document-presentation/body-cache';
 import { useDocumentRetirement } from './retirement.queries';
 
 const rpc = vi.hoisted(() => ({ preview: vi.fn(), retire: vi.fn(), navigate: vi.fn() }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (client: Record<string, unknown>) => unknown) =>
     invoke({
@@ -33,9 +34,11 @@ for (const uncertain of [false, true])
       const relatedHistory = ['documents', 'history', '10'];
       const sourceCopy = ['source-copy', '7', '8'];
       const unrelated = ['document-editor', '20', '201'];
+
       cache.setQueryData(relatedHistory, { pages: [{ items: [document.version] }] });
       cache.setQueryData(sourceCopy, { pending: false, document });
       const comparisonKey = ['documents', 'proposal-comparison', 'delete-target'];
+
       cache.setQueryData(
         comparisonKey,
         Schema.decodeUnknownSync(comparisonSchema)({
@@ -58,13 +61,16 @@ for (const uncertain of [false, true])
         blockedVersionIds: [],
         semantics: 'retire_bodies_retain_identities'
       });
+
       if (uncertain) rpc.retire.mockRejectedValue(new Error('Lost response'));
       else rpc.retire.mockResolvedValue(undefined);
+
       const view = renderHook(() => useDocumentRetirement(document), {
         wrapper: ({ children }: { children: ReactNode }) => (
           <QueryClientProvider client={cache}>{children}</QueryClientProvider>
         )
       });
+
       act(() => view.result.current.open('deletion'));
       await act(async () => {
         await view.result.current.inspect.mutateAsync();
@@ -101,11 +107,16 @@ testStable(
       ['documents', 'annotations', '10'],
       ['document-editor', '20', '201']
     ];
+
     for (const key of [...retired, ...retained])
       cache.setQueryData(key, 'Body or deliberately retained metadata');
+
     await releaseBodyPreviews(cache, { kind: 'document', documentId: '10', versionIds: ['101'] });
+
     for (const key of retired) expect(cache.getQueryData(key)).toBeUndefined();
+
     for (const key of retained) expect(cache.getQueryData(key)).toBeDefined();
+
     cache.setQueryData(['sources', 'selected-input', 'source:7:1:501'], 'Old extraction');
     cache.setQueryData(['sources', 'selected-input', 'source:7:1:502'], 'Current extraction');
     await releaseBodyPreviews(cache, { kind: 'source', sourceId: '7', snapshotIds: ['501'] });

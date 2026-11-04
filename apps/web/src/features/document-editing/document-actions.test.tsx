@@ -13,11 +13,14 @@ import { createStudyQueryClient } from '#web/lib/query-client.ts';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 
 import { authoredDocument } from './test-support';
+
 const material = (id = 41n) => ({
   ...authoredDocument(id, 'Historical extraction', 101n),
   title: `Material ${id}`
 });
+
 const versionId = (id: string) => studyDocumentVersionIdSchema.make(BigInt(id));
+
 import { deferred, materialRpc, mountLibraryRoute } from '../material-library/test/support';
 import { DocumentActions } from './document-actions';
 
@@ -392,6 +395,7 @@ testStable('retains the in-flight creation fence and known receipt across remoun
     .closest('form')!;
 
   // Repeated native submits must hit the synchronous fence before Query notifications render.
+
   act(() => {
     fireEvent.submit(form);
     fireEvent.submit(form);
