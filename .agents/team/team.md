@@ -35,6 +35,10 @@ aspects of the result. There is no required seven-step approval chain.
   question, permitted files, required evidence, and stopping point in each assignment.
 - Browser consumer E2E owns an isolated RPC server/database for each test. No test mocks
   transport; native desktop checks cover OS capabilities separately.
+- Use local web in the browser for roughly 99% of app work. First check localhost:5173
+  and reuse the working app; only run `bun dev` inside the devcontainer if needed.
+  Never start duplicate servers. Native desktop/noVNC helpers are opt-in for
+  Tauri-specific checks, not routine UI inspection.
 - Everyone shares one checkout, one `target/devcontainer` and one desktop. Every save
   leaves the crate building warning-free; write a function and its caller in one edit.
   Never revert, stash, reset or check out files you do not own, and never mutate the

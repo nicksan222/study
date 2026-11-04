@@ -46,11 +46,4 @@ identity="$HOME/.config/study-devcontainer/git-identity"
   fi
   mv "$identity.new" "$identity"
 )
-# Step 4: open the desktop viewer in the host browser once the container serves it.
-# Detached, so the container starts without waiting for it.
-if command -v setsid >/dev/null 2>&1; then
-  setsid bash .devcontainer/open-desktop.sh >/dev/null 2>&1 </dev/null &
-else
-  nohup bash .devcontainer/open-desktop.sh >/dev/null 2>&1 </dev/null &
-fi
 exit 0

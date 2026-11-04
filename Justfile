@@ -6,7 +6,7 @@ set positional-arguments
 default:
     @just --list
 
-# Run the native app on the browser desktop; Ctrl+C stops it.
+# Run the native app without starting noVNC; Ctrl+C stops it.
 run:
     bash .devcontainer/desktop/run.sh
 
@@ -22,8 +22,6 @@ desktop screen="display":
     fi
     bash .devcontainer/desktop/stop.sh
     bash .devcontainer/desktop/screen.sh "$1"
-    bash .devcontainer/desktop/attach.sh --serve-only >/dev/null
-    bash .devcontainer/desktop/open.sh
     echo "Building and starting Study; log: target/desktop/app.log"
     bash .devcontainer/desktop/app.sh
 
@@ -104,7 +102,7 @@ desktop-record seconds="5" path=(desk / "clip.mp4"):
     fi
     echo "$2"
 
-# Start the app and attach from any host browser; prints the local desktop URL.
+# Explicitly opt in to noVNC; forward port 5900 manually to view it from the host.
 desktop-attach:
     bash .devcontainer/desktop/attach.sh
 

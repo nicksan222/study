@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# `just run` is the human entry point: show the desktop, then run the app in this
-# terminal. Keep the host browser (the viewer) separate from container Chromium
-# (OAuth sign-in); localhost means a different machine in each of those browsers.
+# Explicit native launch: prepare Wayland and run Tauri in this terminal.
+# noVNC is opt-in through `just desktop-attach`.
 set -euo pipefail
 script_dir=$(dirname "${BASH_SOURCE[0]}")
 repo=$(realpath "$script_dir/../..")
@@ -19,19 +18,18 @@ if ! flock -s -n 7; then
 fi
 
 if [ -f /.dockerenv ] || [ -f /run/.containerenv ] || [ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
-  # A direct run prepares the desktop. desktop-attach already did this before
-  # starting the background app, so it passes an internal marker.
-  if [ "${STUDY_DESKTOP_ATTACHED:-0}" != 1 ]; then
-    bash "$repo/.devcontainer/desktop/attach.sh" --serve-only 7>&-
+  if [ -f "$repo/target/desktop.env" ]; then
+    # shellcheck source=/dev/null
+    . "$repo/target/desktop.env"
+  fi
+  if [ -z "${SWAYSOCK:-}" ] || ! timeout 2 swaymsg -t get_version >/dev/null 2>&1; then
+    bash "$repo/.devcontainer/desktop/screen.sh" 7>&-
   fi
   # shellcheck source=/dev/null
   . "$repo/target/desktop.env"
+  export DBUS_SESSION_BUS_ADDRESS
+  DBUS_SESSION_BUS_ADDRESS=$(python3 "$repo/.devcontainer/desktop/lifecycle.py" dbus ensure --env-file "$repo/target/desktop.env" --address-only)
   unset DISPLAY WAYLAND_SOCKET
-
-  # Open the viewer on the host when a VS Code remote terminal provides its
-  # IPC bridge. Plain docker/devcontainer CLI shells cannot open a host browser;
-  # the printed URL is the portable fallback. Background agent runs opt out.
-  bash "$repo/.devcontainer/desktop/open.sh" 7>&-
 
   # Send Study's HTTP links to persistent Chromium inside the container. It
   # shares localhost with Study, so OAuth can finish its callback. xdg-open tries

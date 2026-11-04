@@ -47,7 +47,13 @@ requested for marketing or landing-page art direction, as an alternative to Impe
 Use one visual-design workflow per task; do not combine their aesthetic rules or run Taste
 on the desktop app. Vercel's `vercel-react-best-practices` and
 `vercel-composition-patterns` cover React performance and component APIs, respectively;
-they do not choose the visual direction. Use `see-the-app` to inspect the real desktop app.
+they do not choose the visual direction. Use `see-the-app` for the browser-first inspection
+workflow: use local web for roughly 99% of app work. Check the existing app at
+`http://localhost:5173` first; only run `bun dev` inside the devcontainer if it is not
+already working locally. Reuse the running server; do not start duplicate dev servers.
+Use native Tauri inspection only for OS-specific behavior such as file dialogs, microphone,
+window management and updater. Desktop/noVNC tooling stays installed but never starts
+automatically; do not launch it for routine UI work.
 
 These skills are advisory: Study's architecture, existing `@study/ui` components, design
 tokens, localization and devcontainer rules take precedence over upstream stack defaults,
@@ -92,9 +98,10 @@ Bilingual copy lives in `packages/localization`.
 - `bun gen` / `bun gen:check`: generate/check database schema; generation also
   refreshes web routes. Feature and platform behavior has real SQLite and native RPC tests.
 - `bun dev`: start the web app and native Effect RPC server at localhost:5173.
-- `just run` / `just desktop`: native shell launchers using the shared web app.
+- `just run` / `just desktop`: opt-in native shell launchers for Tauri-specific checks; no noVNC startup.
+- `just desktop-attach`: explicit noVNC opt-in; manually forward port 5900 if needed.
 - `just desktop-status` / `just desktop-wait`: inspect/wait for the native window.
-- `just desktop-shot`, `just desktop-click`, `just desktop-record`: native desktop inspection;
+- `just desktop-shot`, `just desktop-click`, `just desktop-record`: opt-in native desktop inspection;
   follow `.agents/skills/see-the-app` and coordinate access to the shared desktop.
 - `just landing`, `just landing-check`, `just landing-build`: website development and checks.
   Existing demo/still/clip assets remain committed; capture generation is unavailable.

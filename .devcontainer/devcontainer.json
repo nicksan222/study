@@ -12,8 +12,11 @@
       "moby": false
     }
   },
-  // Browser desktop (noVNC), reachable only from the host loopback interface.
-  "appPort": ["127.0.0.1:5900:5900"],
+  // Shared web app; forwarding never opens a browser or starts a server.
+  "appPort": ["127.0.0.1:5173:5173"],
+  "portsAttributes": {
+    "5173": { "label": "Study web", "onAutoForward": "silent" }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -71,11 +74,9 @@
   ],
   "initializeCommand": "bash .devcontainer/initialize.sh",
   "postCreateCommand": "python3 .devcontainer/post-create.py",
-  // Every start serves the browser desktop (without the app: `just run` builds and starts
-  // it); initialize.sh opens it in the host browser.
+  // Desktop/noVNC tooling stays installed and starts only when explicitly requested.
   "postStartCommand": {
-    "graphify": "graphify extract . --code-only --cargo --no-cluster --max-workers 4",
-    "desktop": "bash .devcontainer/desktop/attach.sh --serve-only || echo 'desktop: not started; run just desktop'"
+    "graphify": "graphify extract . --code-only --cargo --no-cluster --max-workers 4"
   },
   "containerEnv": {
     "RUST_BACKTRACE": "1"

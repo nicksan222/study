@@ -59,11 +59,19 @@ image independently of its path filters.
 
 ### Everyday commands
 
-Run `bun dev` from the repository root to start the web app and Effect RPC server at
-`http://localhost:5173`. Vite updates frontend modules; Node watch restarts the backend when
+Use the local web app in a browser for routine development and UI verification. First
+check `http://localhost:5173` and reuse it if Study is already working. Only otherwise
+run `bun dev` from the repository root inside the devcontainer to start the web app and
+Effect RPC server. Vite updates frontend modules; Node watch restarts the backend when
 its imported source changes. The native Vite config loader avoids temporary bundled-config
 restart loops. Development data lives in `target/web/study.sqlite`; set
-`STUDY_DATABASE` to use another database. `just run` starts the desktop host of the same app.
+`STUDY_DATABASE` to use another database.
+
+The devcontainer forwards web port 5173 without opening a browser. Native desktop and
+noVNC packages stay installed but do not start automatically. Reserve `just run` or
+`just desktop` for Tauri-specific checks; neither starts noVNC. To explicitly use the
+remote native viewer, run `just desktop-attach` and manually forward container port 5900.
+Routine browser work needs none of these native helpers.
 
 The root scripts and Just recipes share the project commands; `just --list` lists all tasks. Web Vite, router and TypeScript
 configs live in `apps/web`; shared TypeScript settings live in `tooling/typescript`.

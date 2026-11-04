@@ -13,8 +13,7 @@ repo=$(realpath "$script_dir/../..")
 desk="$repo/target/desktop"
 desktop_env="$repo/target/desktop.env"
 url='http://127.0.0.1:5900/vnc.html?autoconnect=1&reconnect=1&resize=scale'
-# `just run` needs the display/transport before launching Study itself. This internal
-# mode avoids the cycle run -> attach -> desktop-run -> run.
+# The internal --serve-only mode serves the viewer without launching the app.
 start_app=1
 case "${1:-}" in
   "") ;;
@@ -194,7 +193,7 @@ fi
 flock -u 9
 if ((start_app)); then
   # The transport was just checked. Reuse it when starting the app.
-  if ! STUDY_DESKTOP_ATTACHED=1 just --justfile "$repo/Justfile" desktop-run 9>&-; then
+  if ! just --justfile "$repo/Justfile" desktop-run 9>&-; then
     fail "could not start Study; see $desk/app.log"
   fi
 fi

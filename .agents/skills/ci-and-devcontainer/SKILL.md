@@ -7,7 +7,8 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 
 - One devcontainer installs every tool. Add system dependencies to `.devcontainer/Dockerfile`,
   never inside recipes: GTK3, WebKitGTK 4.1, libsoup3, dbus, ALSA, compiler/linker and the
-  sway/noVNC desktop. Node is pinned for Vite/Tauri; Bun is pinned for landing only.
+  optional sway/noVNC desktop. Keep it installed, but never auto-start it or its viewer.
+  Node is pinned for Vite/Tauri; Bun runs the root development script and landing.
 - Root frontend dependencies use `npm ci` and the committed `package-lock.json`. Landing
   uses Bun and its own lock. Vite+ supplies the local `vp` CLI, Oxfmt, Oxlint, Vite and
   frontend Vitest; keep its Vite alias and Vitest override aligned with the installed bundle.
@@ -21,9 +22,12 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   landing Bun check. CI runs equivalent gates; `Test and build` is the required aggregate.
 - The Rust browser bridge and its E2E/capture runners are retired. Use package tests for
   available behavior; do not claim full application parity during server integration.
-- `just run` launches Tauri/Vite on the virtual desktop. `desktop-status`, `desktop-wait`,
-  `desktop-shot`, `desktop-click`, `desktop-record` work for agents. Never stop another
-  agent's build or desktop without coordination. Keep host viewer and OAuth browser apart.
+- Use local web in the browser for roughly 99% of app work. Check localhost:5173 first;
+  only start `bun dev` if Study is not already working locally. Reuse running servers.
+  Forward port 5173 without opening tabs. Reserve `just run` and native desktop helpers
+  for Tauri-specific behavior. noVNC starts only through explicit `just desktop-attach`;
+  forward port 5900 manually when needed. Never stop another agent's server or desktop
+  without coordination.
 - Existing website captures are committed assets. Capture generation is unavailable.
 - Release uses Tauri bundling and tauri-action on native Linux/macOS/Windows runners.
   `apps/desktop/src-tauri/tauri.conf.json` owns packaging; `createUpdaterArtifacts` produces

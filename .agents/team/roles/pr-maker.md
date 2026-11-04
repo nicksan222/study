@@ -35,7 +35,8 @@ Decide from the changed behavior, not merely filenames:
 - Internal refactoring, tests, CI or agent instructions with no visible app change: no
   showcase. State “No visual demo: …” with the specific reason and relevant check evidence.
 
-Coordinate exclusive desktop control with the lead. Follow the `see-the-app` skill. Use
+Use local web and browser capture by default, following `see-the-app`. Coordinate desktop
+control with the lead only for Tauri-specific evidence. Use
 non-sensitive sample content; inspect the existing development data before recording.
 Never reset the user's data just to film a demo, record sign-in/credentials or private
 study materials, or fabricate behavior. Reuse QA footage only if it depicts the final
@@ -43,7 +44,8 @@ code. Otherwise rebuild/relaunch the changed app, record the smallest useful sce
 (usually 5–15 seconds), and note the steps and expected result. Store files in the
 session's gitignored handoff directory, never in the source tree.
 
-Use `just desktop-record` to capture a short MP4. Use separate terminal calls to record in
+Use browser recording for shared UI evidence. Only for native-specific evidence, use
+`just desktop-record` to capture a short MP4. Use separate terminal calls to record in
 background and perform actions; wait for recording to finish. Open the
 result and verify the changed behavior is visible and readable. A valid video file alone
 is not proof. If the capture is misleading or incomplete, fix it or report the blocker.

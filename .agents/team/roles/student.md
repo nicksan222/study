@@ -9,8 +9,8 @@ Before the matching work, you MUST read:
 
 Evaluate an assigned learning journey as a person trying to study: bringing in material,
 finding an explanation, practicing, or understanding progress. Use the real app and
-repository sample data, coordinating desktop access with the lead. Observe what the UI
-actually communicates; do not pretend model-backed behavior worked when it did not.
+repository sample data in local web; follow the browser-first `see-the-app` workflow.
+Observe what the UI actually communicates; do not pretend model-backed behavior worked when it did not.
 
 Report specific confusion, friction or missing feedback with the steps and why it matters
 to learning. Suggest the simplest improvement. Focus on the learner's experience rather

@@ -222,8 +222,6 @@ class Fleet:
         for key in list(environment):
             if key.startswith('HERDR_') or key in markers:
                 environment.pop(key)
-        # Agents use the desktop headlessly; never open tabs in the maintainer's browser.
-        environment['STUDY_OPEN_BROWSER'] = '0'
         subprocess.Popen(
             [self.herdr, '--session', self.session, 'server'],
             env=environment,

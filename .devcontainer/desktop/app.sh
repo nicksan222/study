@@ -24,9 +24,8 @@ if window_exists; then
 fi
 
 unset DISPLAY
-# attach.sh has already served the desktop when it calls this script. A direct
-# desktop-run still goes through run.sh's normal transport setup.
-STUDY_OPEN_BROWSER=0 setsid nohup just run >"$desk/app.log" 2>&1 </dev/null 8>&- &
+# Native launches prepare Wayland without starting the optional noVNC viewer.
+setsid nohup just run >"$desk/app.log" 2>&1 </dev/null 8>&- &
 app_pid=$!
 echo "$app_pid" >"$desk/app.pid"
 start=$SECONDS
