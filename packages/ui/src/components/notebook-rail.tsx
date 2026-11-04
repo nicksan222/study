@@ -45,6 +45,7 @@ function Marker({
 
 function Root({ label, children }: { label: string; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
+
   useEffect(() => {
     const rail = root.current;
 
