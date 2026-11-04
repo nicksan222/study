@@ -62,6 +62,7 @@ testStable('saves a canonical model change while preserving the other tiers', as
 function browserWindow() {
   const popup = { location: { replace: vi.fn() }, close: vi.fn(), closed: false, opener: window };
   const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+
   return { popup, open };
 }
 
@@ -81,8 +82,10 @@ function pendingSignIn(attemptId: string) {
 
 testStable('opens ChatGPT immediately and waits automatically with only a spinner', async () => {
   const { popup, open } = browserWindow();
+
   pendingSignIn('owned-attempt');
   const view = mount();
+
   fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
   expect(open).toHaveBeenCalledWith('about:blank', '_blank');
   await waitFor(() =>
@@ -123,6 +126,7 @@ testStable('offers a recovery link when the browser blocks the sign-in tab', asy
 
 testStable('closes the sign-in tab when starting authorization fails', async () => {
   const { popup } = browserWindow();
+
   vi.mocked(operations.startChatGptSignIn).mockRejectedValue(new Error('Unavailable'));
   mount();
   fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
@@ -134,12 +138,14 @@ testStable(
   'finishes automatically, refreshes the account, and closes the browser tab',
   async () => {
     const { popup } = browserWindow();
+
     pendingSignIn('completed-attempt');
     vi.mocked(operations.finishChatGptSignIn).mockImplementation(async () => {
       vi.mocked(operations.loadAiSettings).mockResolvedValue({
         settings,
         status: { signedIn: true, email: 'learner@example.com', sharing: true }
       });
+
       return { signedIn: true, email: 'learner@example.com', sharing: true };
     });
     mount();
@@ -152,6 +158,7 @@ testStable(
 
 testStable('a failed sign-in clears the spinner and allows another attempt', async () => {
   const { popup } = browserWindow();
+
   pendingSignIn('failed-attempt');
   vi.mocked(operations.finishChatGptSignIn).mockRejectedValue(new Error('Declined'));
   mount();
@@ -165,6 +172,7 @@ testStable('a failed sign-in clears the spinner and allows another attempt', asy
 
 testStable('a cancelled completion cannot clear or close its replacement sign-in', async () => {
   const { popup, open } = browserWindow();
+
   open.mockReturnValueOnce(null);
   pendingSignIn('replacement-attempt');
   vi.mocked(operations.startChatGptSignIn).mockResolvedValueOnce({
@@ -172,6 +180,7 @@ testStable('a cancelled completion cannot clear or close its replacement sign-in
     attemptId: 'old-attempt'
   });
   let rejectOld!: (error: Error) => void;
+
   vi.mocked(operations.finishChatGptSignIn).mockImplementationOnce(
     () =>
       new Promise((_resolve, reject) => {

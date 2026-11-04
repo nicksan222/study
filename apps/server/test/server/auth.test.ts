@@ -443,7 +443,9 @@ testStable('ChatGPT host identity is valid, distinct, and survives server restar
           const client = yield* makeStudyClient(StudyRpc, { baseUrl });
           const attempt = yield* client['auth.startSignIn']({});
           const hostId = new URL(attempt.url).searchParams.get('ext_agent_host_id');
+
           yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId });
+
           return hostId;
         })
       )
@@ -460,7 +462,9 @@ testStable('ChatGPT host identity is valid, distinct, and survives server restar
   } finally {
     await first.close();
   }
+
   const second = await fixture();
+
   try {
     expect(await start(second.url)).not.toBe(hostId);
   } finally {
