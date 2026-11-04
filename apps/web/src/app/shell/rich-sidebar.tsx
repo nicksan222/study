@@ -198,7 +198,6 @@ function SettledSessions(
     <SidebarUI.SessionGroup
       title={t('SidebarSettled')}
       count={sessions.length}
-      defaultOpen
       variant="settled"
     >
       <SidebarUI.SettledRows ref={rows}>
@@ -263,6 +262,7 @@ function useSettledPreview(rows: { current: HTMLDivElement | null }, count: numb
     const observer = new ResizeObserver(measure);
 
     observer.observe(available);
+    observer.observe(list);
     measure();
 
     return () => observer.disconnect();

@@ -89,9 +89,10 @@ testStable(
     expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 1' })).toBeVisible();
     expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 3' })).toBeVisible();
     expect(within(groups[0] as HTMLElement).queryByRole('link', { name: 'Session 2' })).toBeNull();
-    expect(groups[1]).toHaveAttribute('open');
+    expect(groups[1]).not.toHaveAttribute('open');
+    fireEvent.click(within(groups[1] as HTMLElement).getByText('SidebarSettled'));
     expect(
-      within(groups[1] as HTMLElement).getByRole('link', { name: 'Session 2' })
+      await within(groups[1] as HTMLElement).findByRole('link', { name: 'Session 2' })
     ).toBeInTheDocument();
     expect(api.summaries).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -178,6 +179,10 @@ testStable(
     );
     const group = view.container.querySelector('.study-session-group:last-child') as HTMLElement;
 
+    fireEvent.click(within(group).getByText('SidebarSettled'));
+    await waitFor(() =>
+      expect(within(group).getByRole('button', { name: 'SidebarReopen' })).toBeVisible()
+    );
     fireEvent.click(within(group).getByRole('button', { name: 'SidebarReopen' }));
     await waitFor(() => expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false }));
     await waitFor(() =>
@@ -232,6 +237,11 @@ testStable(
       </QueryClientProvider>
     );
 
+    const summary = await screen.findByText('SidebarSettled');
+    const group = summary.closest('details')!;
+
+    expect(group).not.toHaveAttribute('open');
+    fireEvent.click(summary);
     await waitFor(() =>
       expect(screen.getByRole('link', { name: 'Settled 1' })).toHaveAttribute(
         'data-layout',
@@ -239,7 +249,6 @@ testStable(
       )
     );
     const first = screen.getByRole('link', { name: 'Settled 1' });
-    const group = first.closest('details')!;
 
     expect(group).toHaveAttribute('open');
     expect(group).toHaveAttribute('data-variant', 'settled');
@@ -459,6 +468,7 @@ testStable('offers more when seven settled rows exceed the bottom-half preview',
         <RouterProvider router={router} />
       </QueryClientProvider>
     );
+    fireEvent.click(await screen.findByText('SidebarSettled'));
     await waitFor(() =>
       expect(screen.getByRole('link', { name: 'Recent 1' })).toHaveAttribute(
         'data-layout',
