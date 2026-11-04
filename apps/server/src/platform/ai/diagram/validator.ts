@@ -34,7 +34,12 @@ export const diagramFeedback = (source: string) => {
     Effect.gen(function* () {
       const worker = yield* Effect.acquireRelease(
         Effect.try({
-          try: () => new Worker(new URL('./worker.ts', import.meta.url), { workerData: source }),
+          // Parsing must not rerun application/test preloads inside its bounded lifetime.
+          try: () =>
+            new Worker(new URL('./worker.ts', import.meta.url), {
+              workerData: source,
+              execArgv: []
+            }),
           catch: (cause) => new StudyError('internal', 'Diagram validation failed', { cause })
         }),
         (worker) =>
