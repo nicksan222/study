@@ -4,8 +4,9 @@ import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/session-workspace';
 import { useQuery } from '@tanstack/react-query';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+
 import { executionOptions } from './session-workspace.queries';
 
 export function SessionError({ error, retry }: { error: unknown; retry?: () => void }) {

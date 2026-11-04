@@ -18,8 +18,8 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
@@ -104,7 +104,7 @@ async function withServer(
   }
 }
 
-test('serves unary values, typed failures and binary codecs over HTTP', async () => {
+testStable('serves unary values, typed failures and binary codecs over HTTP', async () => {
   await withServer(async (url) => {
     await Effect.runPromise(
       Effect.scoped(
@@ -122,7 +122,7 @@ test('serves unary values, typed failures and binary codecs over HTTP', async ()
   });
 });
 
-test('cancels a streaming handler when its client scope closes', async () => {
+testStable('cancels a streaming handler when its client scope closes', async () => {
   await withServer(async (url, ended) => {
     const values = await Effect.runPromise(
       Effect.scoped(
@@ -144,28 +144,31 @@ test('cancels a streaming handler when its client scope closes', async () => {
   });
 });
 
-test('allows desktop origins and rejects other origins before handling requests', async () => {
-  await withServer(async (url) => {
-    const allowed = await fetch(`${url}/rpc`, {
-      method: 'OPTIONS',
-      headers: {
-        origin: 'tauri://localhost',
-        'access-control-request-method': 'POST',
-        'access-control-request-headers': 'content-type'
-      }
+testStable(
+  'allows desktop origins and rejects other origins before handling requests',
+  async () => {
+    await withServer(async (url) => {
+      const allowed = await fetch(`${url}/rpc`, {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'tauri://localhost',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type'
+        }
+      });
+
+      assert.equal(allowed.headers.get('access-control-allow-origin'), 'tauri://localhost');
+      const denied = await fetch(`${url}/rpc`, {
+        method: 'POST',
+        headers: { origin: 'https://evil.example' }
+      });
+
+      assert.equal(denied.status, 403);
     });
+  }
+);
 
-    assert.equal(allowed.headers.get('access-control-allow-origin'), 'tauri://localhost');
-    const denied = await fetch(`${url}/rpc`, {
-      method: 'POST',
-      headers: { origin: 'https://evil.example' }
-    });
-
-    assert.equal(denied.status, 403);
-  });
-});
-
-test('retries discovery on a later call without replaying the failed call', async () => {
+testStable('retries discovery on a later call without replaying the failed call', async () => {
   await withServer(async (url, _ended, calls) => {
     let discoveries = 0;
 
@@ -193,7 +196,7 @@ test('retries discovery on a later call without replaying the failed call', asyn
   });
 });
 
-test('disposes active handlers when the server shuts down', async () => {
+testStable('disposes active handlers when the server shuts down', async () => {
   await withServer(async (url, ended, _calls, shutdown) => {
     let started!: () => void;
     const first = new Promise<void>((resolve) => {

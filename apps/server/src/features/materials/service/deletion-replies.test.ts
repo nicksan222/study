@@ -11,10 +11,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { testStable } from '@study/testing/node';
 import { Effect, Exit, Schema } from 'effect';
 import { Activity, DurableDeferred, WorkflowEngine } from 'effect/workflow';
 
@@ -157,206 +157,215 @@ async function pendingReply(f: MaterialDeletionFixture, rewrite: boolean) {
 }
 
 for (const rewrite of [false, true]) {
-  test(`Material cleanup retires a suspended ${rewrite ? 'instruction rewrite' : 'initial reply'} and leaves the session usable`, async () => {
-    const f = await documentTransformFixture();
+  testStable(
+    `Material cleanup retires a suspended ${rewrite ? 'instruction rewrite' : 'initial reply'} and leaves the session usable`,
+    async () => {
+      const f = await documentTransformFixture();
 
-    try {
-      const saved = await pendingReply(f, rewrite);
+      try {
+        const saved = await pendingReply(f, rewrite);
 
-      const citations = f.context.db.orm.select().from(s.citations).all();
+        const citations = f.context.db.orm.select().from(s.citations).all();
 
-      const events = f.context.db.orm
-        .select()
-        .from(s.workflowEvents)
-        .where(eq(s.workflowEvents.type, 'ConversationGenerationRequested'))
-        .all()
-        .map((row) => decodeEvent(row.payload));
+        const events = f.context.db.orm
+          .select()
+          .from(s.workflowEvents)
+          .where(eq(s.workflowEvents.type, 'ConversationGenerationRequested'))
+          .all()
+          .map((row) => decodeEvent(row.payload));
 
-      const affected = events.find(
-        (event) =>
-          event.type === 'ConversationGenerationRequested' &&
-          event.requestId === saved.pending.requestId
-      );
+        const affected = events.find(
+          (event) =>
+            event.type === 'ConversationGenerationRequested' &&
+            event.requestId === saved.pending.requestId
+        );
 
-      const unrelated = events.find(
-        (event) =>
-          event.type === 'ConversationGenerationRequested' &&
-          event.requestId === saved.unrelated.requestId
-      );
+        const unrelated = events.find(
+          (event) =>
+            event.type === 'ConversationGenerationRequested' &&
+            event.requestId === saved.unrelated.requestId
+        );
 
-      assert.ok(affected?.type === 'ConversationGenerationRequested');
+        assert.ok(affected?.type === 'ConversationGenerationRequested');
 
-      assert.ok(unrelated?.type === 'ConversationGenerationRequested');
+        assert.ok(unrelated?.type === 'ConversationGenerationRequested');
 
-      const gate = DurableDeferred.make('affected-reply-gate');
+        const gate = DurableDeferred.make('affected-reply-gate');
 
-      const otherGate = DurableDeferred.make('unrelated-reply-gate');
+        const otherGate = DurableDeferred.make('unrelated-reply-gate');
 
-      const pausedReply = ({ event }: typeof conversationReplyWorkflow.payloadSchema.Type) =>
-        Effect.gen(function* () {
-          if (event.requestId === saved.pending.requestId) {
-            yield* Activity.make({
-              name: 'private-reply-checkpoint',
-              success: Schema.String,
-              execute: Effect.succeed('PRIVATE_REPLY_CHECKPOINT_ONLY')
-            });
-
-            yield* DurableDeferred.await(gate);
-          } else yield* DurableDeferred.await(otherGate);
-
-          return event.versionId;
-        });
-
-      await Effect.runPromise(
-        Effect.scoped(
+        const pausedReply = ({ event }: typeof conversationReplyWorkflow.payloadSchema.Type) =>
           Effect.gen(function* () {
-            const engine = yield* WorkflowEngine.WorkflowEngine;
+            if (event.requestId === saved.pending.requestId) {
+              yield* Activity.make({
+                name: 'private-reply-checkpoint',
+                success: Schema.String,
+                execute: Effect.succeed('PRIVATE_REPLY_CHECKPOINT_ONLY')
+              });
 
-            const m = yield* Materials;
+              yield* DurableDeferred.await(gate);
+            } else yield* DurableDeferred.await(otherGate);
 
-            yield* engine.register(conversationReplyWorkflow, pausedReply);
+            return event.versionId;
+          });
 
-            yield* engine.register(materialDeletionWorkflow, materialDeletionHandler);
+        await Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine;
 
-            yield* engine.execute(conversationReplyWorkflow, {
-              executionId: 'affected-reply',
-              payload: { event: affected },
-              discard: true
-            });
+              const m = yield* Materials;
 
-            yield* engine.execute(conversationReplyWorkflow, {
-              executionId: 'unrelated-reply',
-              payload: { event: unrelated },
-              discard: true
-            });
+              yield* engine.register(conversationReplyWorkflow, pausedReply);
 
-            yield* awaitNativeStatus(f, 'affected-reply', 'suspended');
+              yield* engine.register(materialDeletionWorkflow, materialDeletionHandler);
 
-            yield* awaitNativeStatus(f, 'unrelated-reply', 'suspended');
+              yield* engine.execute(conversationReplyWorkflow, {
+                executionId: 'affected-reply',
+                payload: { event: affected },
+                discard: true
+              });
 
-            const preview = yield* m.previewDeletion({ materialId: saved.library.id });
+              yield* engine.execute(conversationReplyWorkflow, {
+                executionId: 'unrelated-reply',
+                payload: { event: unrelated },
+                discard: true
+              });
 
-            yield* m.requestDeletion({
-              materialId: saved.library.id,
-              descendantIds: [],
-              token: preview.token
-            });
+              yield* awaitNativeStatus(f, 'affected-reply', 'suspended');
 
-            yield* engine.execute(materialDeletionWorkflow, {
-              executionId: 'reply-cleanup',
-              payload: { event: materialDeletionEvent(f, saved.library.id) }
-            });
+              yield* awaitNativeStatus(f, 'unrelated-reply', 'suspended');
 
-            yield* awaitNativeStatus(f, 'affected-reply', 'cancelled');
+              const preview = yield* m.previewDeletion({ materialId: saved.library.id });
 
-            assert.equal(
-              workflowStore(f.context).execution('unrelated-reply')?.status,
-              'suspended'
-            );
+              yield* m.requestDeletion({
+                materialId: saved.library.id,
+                descendantIds: [],
+                token: preview.token
+              });
 
-            yield* engine.deferredDone(gate, {
-              workflowName: conversationReplyWorkflow._tag,
-              executionId: 'affected-reply',
-              deferredName: gate.name,
-              exit: Exit.void
-            });
+              yield* engine.execute(materialDeletionWorkflow, {
+                executionId: 'reply-cleanup',
+                payload: { event: materialDeletionEvent(f, saved.library.id) }
+              });
 
-            assert.equal(workflowStore(f.context).deferred('affected-reply', gate.name), undefined);
+              yield* awaitNativeStatus(f, 'affected-reply', 'cancelled');
 
-            assert.equal((yield* m.deletion({ materialId: saved.library.id })).status, 'completed');
-          }).pipe(Effect.provide(f.services()))
-        )
-      );
+              assert.equal(
+                workflowStore(f.context).execution('unrelated-reply')?.status,
+                'suspended'
+              );
 
-      assert.equal(
-        f.context.db.orm
-          .select()
-          .from(s.message_versions)
-          .where(eq(s.message_versions.id, saved.pending.versionId))
-          .get(),
-        undefined
-      );
+              yield* engine.deferredDone(gate, {
+                workflowName: conversationReplyWorkflow._tag,
+                executionId: 'affected-reply',
+                deferredName: gate.name,
+                exit: Exit.void
+              });
 
-      assert.equal(
-        f.context.db.orm
-          .select()
-          .from(s.conversation_reply_requests)
-          .where(eq(s.conversation_reply_requests.request_id, saved.pending.requestId))
-          .get(),
-        undefined
-      );
+              assert.equal(
+                workflowStore(f.context).deferred('affected-reply', gate.name),
+                undefined
+              );
 
-      if (!rewrite)
+              assert.equal(
+                (yield* m.deletion({ materialId: saved.library.id })).status,
+                'completed'
+              );
+            }).pipe(Effect.provide(f.services()))
+          )
+        );
+
         assert.equal(
           f.context.db.orm
             .select()
-            .from(s.messages)
-            .where(eq(s.messages.id, saved.pending.messageId))
+            .from(s.message_versions)
+            .where(eq(s.message_versions.id, saved.pending.versionId))
             .get(),
           undefined
         );
 
-      assert.deepEqual(
-        f.context.db.orm.select().from(s.citations).all(),
-        citations.map((citation) => ({ ...citation, document_id: null }))
-      );
+        assert.equal(
+          f.context.db.orm
+            .select()
+            .from(s.conversation_reply_requests)
+            .where(eq(s.conversation_reply_requests.request_id, saved.pending.requestId))
+            .get(),
+          undefined
+        );
 
-      assertScrubbed(
-        f,
-        rewrite ? 'PRIVATE_UNFINISHED_REWRITE_ONLY' : 'PRIVATE_UNFINISHED_INITIAL_ONLY'
-      );
-
-      assertScrubbed(f, 'PRIVATE_REPLY_CHECKPOINT_ONLY');
-
-      f.reopen();
-
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          const c = yield* Conversations;
-
-          const message = yield* c.message(saved.completed.messageId);
-
-          assert.equal(message.activeVersionId, saved.before.activeVersionId);
-
-          assert.deepEqual(message.versions, saved.before.versions);
-
-          assert.equal(message.citations[0]?.quote, 'Published exact evidence');
-
-          assert.equal(message.citations[0]?.materialVersionId, saved.library.version.id);
-
-          assert.equal(message.citations[0]?.evidence?.availability, 'unavailable');
-
-          assert.deepEqual(
-            yield* c.replySnapshot({ requestId: saved.unrelated.requestId }),
-            saved.otherSnapshot
-          );
-
-          assert.deepEqual(
-            yield* c.thread({ sessionId: saved.unrelated.sessionId, limit: 20 }),
-            saved.otherThread
-          );
-
-          yield* c.postMessage({
-            sessionId: saved.session.id,
-            text: 'Continue after cleanup',
-            requestReply: false
-          });
-
-          const next = yield* c.requestReply({
-            sessionId: saved.session.id,
-            intentKey: 'after-cleanup'
-          });
-
-          assert.notEqual(next.versionId, saved.pending.versionId);
-
+        if (!rewrite)
           assert.equal(
-            (yield* c.replySnapshot({ requestId: next.requestId })).context?.inputs.length,
-            0
+            f.context.db.orm
+              .select()
+              .from(s.messages)
+              .where(eq(s.messages.id, saved.pending.messageId))
+              .get(),
+            undefined
           );
-        }).pipe(Effect.provide(f.domain()))
-      );
-    } finally {
-      await f.close();
+
+        assert.deepEqual(
+          f.context.db.orm.select().from(s.citations).all(),
+          citations.map((citation) => ({ ...citation, document_id: null }))
+        );
+
+        assertScrubbed(
+          f,
+          rewrite ? 'PRIVATE_UNFINISHED_REWRITE_ONLY' : 'PRIVATE_UNFINISHED_INITIAL_ONLY'
+        );
+
+        assertScrubbed(f, 'PRIVATE_REPLY_CHECKPOINT_ONLY');
+
+        f.reopen();
+
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const c = yield* Conversations;
+
+            const message = yield* c.message(saved.completed.messageId);
+
+            assert.equal(message.activeVersionId, saved.before.activeVersionId);
+
+            assert.deepEqual(message.versions, saved.before.versions);
+
+            assert.equal(message.citations[0]?.quote, 'Published exact evidence');
+
+            assert.equal(message.citations[0]?.materialVersionId, saved.library.version.id);
+
+            assert.equal(message.citations[0]?.evidence?.availability, 'unavailable');
+
+            assert.deepEqual(
+              yield* c.replySnapshot({ requestId: saved.unrelated.requestId }),
+              saved.otherSnapshot
+            );
+
+            assert.deepEqual(
+              yield* c.thread({ sessionId: saved.unrelated.sessionId, limit: 20 }),
+              saved.otherThread
+            );
+
+            yield* c.postMessage({
+              sessionId: saved.session.id,
+              text: 'Continue after cleanup',
+              requestReply: false
+            });
+
+            const next = yield* c.requestReply({
+              sessionId: saved.session.id,
+              intentKey: 'after-cleanup'
+            });
+
+            assert.notEqual(next.versionId, saved.pending.versionId);
+
+            assert.equal(
+              (yield* c.replySnapshot({ requestId: next.requestId })).context?.inputs.length,
+              0
+            );
+          }).pipe(Effect.provide(f.domain()))
+        );
+      } finally {
+        await f.close();
+      }
     }
-  });
+  );
 }

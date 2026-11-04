@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 
 import { Db } from '../src/index.ts';
 
-test('learning tables enforce typed content and ownership', (t) => {
+testStable('learning tables enforce typed content and ownership', (t) => {
   const folder = mkdtempSync(join(tmpdir(), 'study-learning-'));
   const db = Db.open(join(folder, 'study.db'));
 

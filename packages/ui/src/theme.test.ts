@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { test } from 'vite-plus/test';
+import { testStable } from '@study/testing/vitest';
 
 import {
   createThemeStore,
@@ -9,7 +9,7 @@ import {
   observeSystemAppearance
 } from './theme.ts';
 
-test('resolves appearance and merges common and variant overrides', () => {
+testStable('resolves appearance and merges common and variant overrides', () => {
   const theme = {
     colors: { background: 'red', foreground: 'white' },
     dark: { background: 'black' }
@@ -22,7 +22,7 @@ test('resolves appearance and merges common and variant overrides', () => {
   assert.equal(resolveTheme(theme, 'light', 'dark').appearance, 'light');
 });
 
-test('store snapshots are immutable, stable, and notify only on changes', () => {
+testStable('store snapshots are immutable, stable, and notify only on changes', () => {
   const colors = { background: 'red' };
   const store = createThemeStore({
     theme: { colors },
@@ -47,7 +47,7 @@ test('store snapshots are immutable, stable, and notify only on changes', () => 
   assert.equal(calls, 1);
 });
 
-test('DOM adapter removes stale variables when themes change and cleans up', () => {
+testStable('DOM adapter removes stale variables when themes change and cleans up', () => {
   const element = document.documentElement;
   const store = createThemeStore({
     theme: { light: { background: 'red', foreground: 'white' }, dark: { background: 'black' } },
@@ -66,7 +66,7 @@ test('DOM adapter removes stale variables when themes change and cleans up', () 
   assert.equal(element.style.getPropertyValue('--background'), '');
 });
 
-test('system appearance observer updates store and removes listener', () => {
+testStable('system appearance observer updates store and removes listener', () => {
   let listener: ((event: { matches: boolean }) => void) | undefined;
   const media = {
     matches: true,
@@ -87,7 +87,7 @@ test('system appearance observer updates store and removes listener', () => {
   assert.equal(listener, undefined);
 });
 
-test('undefined overrides inherit common colors or release the previous override', () => {
+testStable('undefined overrides inherit common colors or release the previous override', () => {
   assert.deepEqual(
     resolveTheme({ colors: { background: 'red' }, dark: { background: undefined } }, 'dark').colors,
     { background: 'red' }
@@ -102,7 +102,7 @@ test('undefined overrides inherit common colors or release the previous override
   cleanup();
 });
 
-test('document adapter restores existing inline declarations and priorities', () => {
+testStable('document adapter restores existing inline declarations and priorities', () => {
   const element = document.documentElement;
 
   element.style.setProperty('--background', 'blue', 'important');

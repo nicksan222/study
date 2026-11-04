@@ -6,7 +6,8 @@ import { Loading } from '@study/ui/loading';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { DocumentReader } from '../document-presentation';
 import { exactImageOptions, exactDocumentOptions } from './material-library.queries';
 

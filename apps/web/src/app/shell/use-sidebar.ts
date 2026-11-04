@@ -3,17 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
-import type { ItemFilter } from '../../features/library';
-import { sessionOptions } from '../../features/session-workspace';
-import type { PageMetadata } from '../../lib/navigation/route-contract';
-import type { Sessions, Subjects } from '../../lib/study-client/operations';
+import type { ItemFilter } from '#web/features/library/index.ts';
+import { sessionOptions } from '#web/features/session-workspace/index.ts';
+import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
+import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
 import {
   createProjectMutationOptions,
   createSessionMutationOptions,
   projectsQueryOptions,
   sessionsQueryOptions,
   searchQueryOptions
-} from '../../lib/study-client/study.queries';
+} from '#web/lib/study-client/study.queries.ts';
+
 import { filterSearchHits } from './sidebar.logic';
 
 const noSubjects: Subjects = [];

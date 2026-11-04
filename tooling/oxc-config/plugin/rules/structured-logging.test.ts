@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRulePaths } from '../test/utils.ts';
 
@@ -7,7 +8,7 @@ function lint(files: Record<string, string>) {
   return lintRulePaths('structured-logging', files);
 }
 
-test('centralizes effect logging and requires safe annotations', () => {
+testStable('centralizes effect logging and requires safe annotations', () => {
   assert.deepEqual(
     lint({
       'apps/server/src/domains/a/service.ts': `import { Effect as E } from 'effect'; const log = E.logInfo; log(input); E.annotateLogs({prompt: input}); E.annotateLogs({requestId: input}); E.annotateLogs('prompt', 'text'); E.withSpan('x', {attributes: {input: 'static'}});`,
@@ -27,7 +28,7 @@ test('centralizes effect logging and requires safe annotations', () => {
   );
 });
 
-test('the worker terminal owner can log static failures without raw causes', () => {
+testStable('the worker terminal owner can log static failures without raw causes', () => {
   assert.deepEqual(
     lint({
       'apps/server/src/runtime/workers.ts':

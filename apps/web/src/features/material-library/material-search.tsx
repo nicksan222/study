@@ -7,7 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { librarySearches, libraryEntries, libraryReturn } from './browse-state';
 import { materialSearchOptions } from './material-library.queries';
 

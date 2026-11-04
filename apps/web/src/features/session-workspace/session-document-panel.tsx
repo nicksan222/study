@@ -6,7 +6,8 @@ import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Cloud, CloudOff } from 'lucide-react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { CanonicalDocumentEditor } from './canonical-document-editor';
 import { SaveRecoveryNotice } from './save-recovery';
 import { DocumentMetadata } from './session-document-metadata';

@@ -15,10 +15,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { SessionId } from '@study/contracts/ids';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 
 import { Projects } from '#server/features/projects/index';
@@ -28,74 +28,85 @@ import { withTestPublication } from '#testing/publication';
 
 import { Conversations } from './index.ts';
 
-test('sessions support normalized creation, bounded pagination and missing reads', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const database = Layer.succeed(Database, { store: context });
-  const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(Layer.provideMerge(database));
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const conversations = yield* Conversations;
-        const project = yield* projects.createProject({ name: 'Test' });
-        const first = yield* conversations.createSession({ project: project.id, title: ' First ' });
-        const second = yield* conversations.createSession({ project: project.id, title: 'Second' });
-
-        assert.equal(first.title, 'First');
-        assert.equal(first.titleSource, 'user');
-        const page = yield* conversations.sessions({ limit: 1 });
-
-        assert.equal(page.items[0]?.id, second.id);
-        assert.deepEqual(page.next, { updatedAt: second.updatedAt, id: second.id });
-        assert.equal(
-          (yield* conversations.sessions({ limit: 1, before: page.next! })).items[0]?.id,
-          first.id
-        );
-        const global = yield* conversations.createSession({ title: 'Projectless' });
-
-        assert.deepEqual(
-          (yield* conversations.sessions({ limit: 1, project: project.id })).items.map(
-            (item) => item.id
-          ),
-          [second.id]
-        );
-        const scoped = yield* conversations.sessions({ limit: 1, project: project.id });
-
-        assert.deepEqual(
-          (yield* conversations.sessions({
-            limit: 1,
-            project: project.id,
-            before: scoped.next!
-          })).items.map((item) => item.id),
-          [first.id]
-        );
-        assert.deepEqual(
-          (yield* conversations.sessions({ limit: 100, project: null })).items.map(
-            (item) => item.id
-          ),
-          [global.id]
-        );
-        assert.equal((yield* conversations.sessions({ limit: 1 })).items[0]?.id, global.id);
-        const absent = 999n as SessionId;
-
-        assert.ok(Option.isNone(yield* conversations.findSession(absent)));
-        assert.equal((yield* Effect.flip(conversations.session(absent))).kind, 'not_found');
-        assert.equal(
-          (yield* Effect.flip(conversations.createSession({ project: project.id, title: ' ' })))
-            .kind,
-          'invalid_input'
-        );
-      }).pipe(Effect.provide(layer))
+testStable(
+  'sessions support normalized creation, bounded pagination and missing reads',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const database = Layer.succeed(Database, { store: context });
+    const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
+      Layer.provideMerge(database)
     );
-  } finally {
-    context.close();
-    location.cleanup();
-  }
-});
 
-test('messages retain immutable versions and paginate in chronological order', async () => {
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const conversations = yield* Conversations;
+          const project = yield* projects.createProject({ name: 'Test' });
+          const first = yield* conversations.createSession({
+            project: project.id,
+            title: ' First '
+          });
+          const second = yield* conversations.createSession({
+            project: project.id,
+            title: 'Second'
+          });
+
+          assert.equal(first.title, 'First');
+          assert.equal(first.titleSource, 'user');
+          const page = yield* conversations.sessions({ limit: 1 });
+
+          assert.equal(page.items[0]?.id, second.id);
+          assert.deepEqual(page.next, { updatedAt: second.updatedAt, id: second.id });
+          assert.equal(
+            (yield* conversations.sessions({ limit: 1, before: page.next! })).items[0]?.id,
+            first.id
+          );
+          const global = yield* conversations.createSession({ title: 'Projectless' });
+
+          assert.deepEqual(
+            (yield* conversations.sessions({ limit: 1, project: project.id })).items.map(
+              (item) => item.id
+            ),
+            [second.id]
+          );
+          const scoped = yield* conversations.sessions({ limit: 1, project: project.id });
+
+          assert.deepEqual(
+            (yield* conversations.sessions({
+              limit: 1,
+              project: project.id,
+              before: scoped.next!
+            })).items.map((item) => item.id),
+            [first.id]
+          );
+          assert.deepEqual(
+            (yield* conversations.sessions({ limit: 100, project: null })).items.map(
+              (item) => item.id
+            ),
+            [global.id]
+          );
+          assert.equal((yield* conversations.sessions({ limit: 1 })).items[0]?.id, global.id);
+          const absent = 999n as SessionId;
+
+          assert.ok(Option.isNone(yield* conversations.findSession(absent)));
+          assert.equal((yield* Effect.flip(conversations.session(absent))).kind, 'not_found');
+          assert.equal(
+            (yield* Effect.flip(conversations.createSession({ project: project.id, title: ' ' })))
+              .kind,
+            'invalid_input'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable('messages retain immutable versions and paginate in chronological order', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
@@ -200,203 +211,224 @@ test('messages retain immutable versions and paginate in chronological order', a
   }
 });
 
-test('explicit attachment snapshots share sources across collections and survive source deletion', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+testStable(
+  'explicit attachment snapshots share sources across collections and survive source deletion',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const conversations = yield* Conversations;
-        const project = yield* projects.createProject({ name: 'One' });
-        const other = yield* projects.createProject({ name: 'Two' });
-        const session = yield* conversations.createSession({ project: project.id, title: 'Chat' });
-        const { sources } = yield* Effect.promise(() => import('@study/db/schema'));
-        const { eq } = yield* Effect.promise(() => import('@study/db'));
-        const source = (projectId: typeof project.id, name: string) =>
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const conversations = yield* Conversations;
+          const project = yield* projects.createProject({ name: 'One' });
+          const other = yield* projects.createProject({ name: 'Two' });
+          const session = yield* conversations.createSession({
+            project: project.id,
+            title: 'Chat'
+          });
+          const { sources } = yield* Effect.promise(() => import('@study/db/schema'));
+          const { eq } = yield* Effect.promise(() => import('@study/db'));
+          const source = (projectId: typeof project.id, name: string) =>
+            context.db.orm
+              .insert(sources)
+              .values({
+                project_id: projectId,
+                origin: 'attachment',
+                kind: 'text',
+                mime: 'text/plain',
+                name,
+                size_bytes: 1n,
+                sha256: Buffer.alloc(32),
+                created_at: 1n
+              })
+              .returning()
+              .get();
+          const a = source(project.id, 'a.txt');
+          const b = source(project.id, 'b.txt');
+          const foreign = source(other.id, 'foreign.txt');
+
+          const shared = yield* conversations.postMessage({
+            sessionId: session.id,
+            text: 'x',
+            sourceIds: [foreign.id]
+          });
+
+          assert.equal(shared.parts[0]?.sourceId, foreign.id);
+          assert.equal(
+            (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.length,
+            1
+          );
+          const message = yield* conversations.postMessage({
+            sessionId: session.id,
+            text: '',
+            sourceIds: [b.id, a.id]
+          });
+
+          assert.deepEqual(
+            message.parts.map((p) => p.sourceName),
+            ['b.txt', 'a.txt']
+          );
+          context.db.orm.delete(sources).where(eq(sources.id, b.id)).run();
+          const edited = yield* conversations.editMessage({
+            messageId: message.id,
+            text: 'edited'
+          });
+
+          assert.deepEqual(
+            edited.parts.map((p) => [p.sourceId, p.sourceName]),
+            [
+              [null, 'b.txt'],
+              [a.id, 'a.txt']
+            ]
+          );
+          assert.equal((yield* conversations.deleteSession(session.id)).status, 'pending');
+          assert.equal((yield* Effect.flip(conversations.message(message.id))).kind, 'not_found');
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'editing and deleting messages update session ordering with a composite cursor',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const conversations = yield* Conversations;
+          const project = yield* projects.createProject({ name: 'Order' });
+          const first = yield* conversations.createSession({ project: project.id, title: 'First' });
+          const second = yield* conversations.createSession({
+            project: project.id,
+            title: 'Second'
+          });
+          const message = yield* conversations.postMessage({ sessionId: first.id, text: 'hello' });
+          const { sessions } = yield* Effect.promise(() => import('@study/db/schema'));
+          const { eq } = yield* Effect.promise(() => import('@study/db'));
+
           context.db.orm
-            .insert(sources)
+            .update(sessions)
+            .set({ updated_at: 1n })
+            .where(eq(sessions.id, first.id))
+            .run();
+          context.db.orm
+            .update(sessions)
+            .set({ updated_at: 2n })
+            .where(eq(sessions.id, second.id))
+            .run();
+          yield* conversations.editMessage({ messageId: message.id, text: 'new' });
+          const page = yield* conversations.sessions({ limit: 1 });
+
+          assert.equal(page.items[0]?.id, first.id);
+          assert.equal(
+            (yield* conversations.sessions({ limit: 1, before: page.next! })).items[0]?.id,
+            second.id
+          );
+          context.db.orm
+            .update(sessions)
+            .set({ updated_at: 1n })
+            .where(eq(sessions.id, first.id))
+            .run();
+          yield* conversations.deleteMessage(message.id);
+          assert.equal((yield* conversations.sessions({ limit: 1 })).items[0]?.id, first.id);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'message validation rejects invalid text, incomplete versions, and foreign versions',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const conversations = yield* Conversations;
+          const project = yield* projects.createProject({ name: 'Validation' });
+          const session = yield* conversations.createSession({
+            project: project.id,
+            title: 'Chat'
+          });
+
+          assert.equal(
+            (yield* Effect.flip(conversations.postMessage({ sessionId: session.id, text: '  ' })))
+              .kind,
+            'invalid_input'
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              conversations.postMessage({ sessionId: session.id, text: '😀'.repeat(100001) })
+            )).kind,
+            'invalid_input'
+          );
+          const message = yield* conversations.postMessage({
+            sessionId: session.id,
+            text: '😀'.repeat(100000)
+          });
+          const { message_versions } = yield* Effect.promise(() => import('@study/db/schema'));
+          const unfinished = context.db.orm
+            .insert(message_versions)
             .values({
-              project_id: projectId,
-              origin: 'attachment',
-              kind: 'text',
-              mime: 'text/plain',
-              name,
-              size_bytes: 1n,
-              sha256: Buffer.alloc(32),
+              message_id: message.id,
+              number: 2n,
+              origin: 'answer',
+              status: 'pending',
+              text: '',
               created_at: 1n
             })
             .returning()
             .get();
-        const a = source(project.id, 'a.txt');
-        const b = source(project.id, 'b.txt');
-        const foreign = source(other.id, 'foreign.txt');
 
-        const shared = yield* conversations.postMessage({
-          sessionId: session.id,
-          text: 'x',
-          sourceIds: [foreign.id]
-        });
-
-        assert.equal(shared.parts[0]?.sourceId, foreign.id);
-        assert.equal(
-          (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.length,
-          1
-        );
-        const message = yield* conversations.postMessage({
-          sessionId: session.id,
-          text: '',
-          sourceIds: [b.id, a.id]
-        });
-
-        assert.deepEqual(
-          message.parts.map((p) => p.sourceName),
-          ['b.txt', 'a.txt']
-        );
-        context.db.orm.delete(sources).where(eq(sources.id, b.id)).run();
-        const edited = yield* conversations.editMessage({ messageId: message.id, text: 'edited' });
-
-        assert.deepEqual(
-          edited.parts.map((p) => [p.sourceId, p.sourceName]),
-          [
-            [null, 'b.txt'],
-            [a.id, 'a.txt']
-          ]
-        );
-        assert.equal((yield* conversations.deleteSession(session.id)).status, 'pending');
-        assert.equal((yield* Effect.flip(conversations.message(message.id))).kind, 'not_found');
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+          assert.equal(
+            (yield* Effect.flip(
+              conversations.setActiveVersion({ messageId: message.id, versionId: unfinished.id })
+            )).kind,
+            'invalid_input'
+          );
+          assert.equal(
+            (yield* conversations.message(message.id)).activeVersionId,
+            message.activeVersionId
+          );
+          assert.equal(
+            (yield* Effect.flip(conversations.editMessage({ messageId: message.id, text: ' ' })))
+              .kind,
+            'invalid_input'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('editing and deleting messages update session ordering with a composite cursor', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const conversations = yield* Conversations;
-        const project = yield* projects.createProject({ name: 'Order' });
-        const first = yield* conversations.createSession({ project: project.id, title: 'First' });
-        const second = yield* conversations.createSession({ project: project.id, title: 'Second' });
-        const message = yield* conversations.postMessage({ sessionId: first.id, text: 'hello' });
-        const { sessions } = yield* Effect.promise(() => import('@study/db/schema'));
-        const { eq } = yield* Effect.promise(() => import('@study/db'));
-
-        context.db.orm
-          .update(sessions)
-          .set({ updated_at: 1n })
-          .where(eq(sessions.id, first.id))
-          .run();
-        context.db.orm
-          .update(sessions)
-          .set({ updated_at: 2n })
-          .where(eq(sessions.id, second.id))
-          .run();
-        yield* conversations.editMessage({ messageId: message.id, text: 'new' });
-        const page = yield* conversations.sessions({ limit: 1 });
-
-        assert.equal(page.items[0]?.id, first.id);
-        assert.equal(
-          (yield* conversations.sessions({ limit: 1, before: page.next! })).items[0]?.id,
-          second.id
-        );
-        context.db.orm
-          .update(sessions)
-          .set({ updated_at: 1n })
-          .where(eq(sessions.id, first.id))
-          .run();
-        yield* conversations.deleteMessage(message.id);
-        assert.equal((yield* conversations.sessions({ limit: 1 })).items[0]?.id, first.id);
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
-  }
-});
-
-test('message validation rejects invalid text, incomplete versions, and foreign versions', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const conversations = yield* Conversations;
-        const project = yield* projects.createProject({ name: 'Validation' });
-        const session = yield* conversations.createSession({ project: project.id, title: 'Chat' });
-
-        assert.equal(
-          (yield* Effect.flip(conversations.postMessage({ sessionId: session.id, text: '  ' })))
-            .kind,
-          'invalid_input'
-        );
-        assert.equal(
-          (yield* Effect.flip(
-            conversations.postMessage({ sessionId: session.id, text: '😀'.repeat(100001) })
-          )).kind,
-          'invalid_input'
-        );
-        const message = yield* conversations.postMessage({
-          sessionId: session.id,
-          text: '😀'.repeat(100000)
-        });
-        const { message_versions } = yield* Effect.promise(() => import('@study/db/schema'));
-        const unfinished = context.db.orm
-          .insert(message_versions)
-          .values({
-            message_id: message.id,
-            number: 2n,
-            origin: 'answer',
-            status: 'pending',
-            text: '',
-            created_at: 1n
-          })
-          .returning()
-          .get();
-
-        assert.equal(
-          (yield* Effect.flip(
-            conversations.setActiveVersion({ messageId: message.id, versionId: unfinished.id })
-          )).kind,
-          'invalid_input'
-        );
-        assert.equal(
-          (yield* conversations.message(message.id)).activeVersionId,
-          message.activeVersionId
-        );
-        assert.equal(
-          (yield* Effect.flip(conversations.editMessage({ messageId: message.id, text: ' ' })))
-            .kind,
-          'invalid_input'
-        );
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
-  }
-});
-
-test('reply request persists its context and rejects another pending request', async () => {
+testStable('reply request persists its context and rejects another pending request', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
@@ -480,111 +512,119 @@ test('reply request persists its context and rejects another pending request', a
   }
 });
 
-test('reply snapshots retain historical attachments after reopen and reprocessing', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
-  const { sources, documents, source_processing } = await import('@study/db/schema');
-  const { eq } = await import('@study/db');
-  const layer = () =>
-    Layer.merge(Projects.layer, Conversations.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
+testStable(
+  'reply snapshots retain historical attachments after reopen and reprocessing',
+  async () => {
+    const location = createTestDatabase();
+    let context = new ServerContext(location.open());
+    const { sources, documents, source_processing } = await import('@study/db/schema');
+    const { eq } = await import('@study/db');
+    const layer = () =>
+      Layer.merge(Projects.layer, Conversations.layer).pipe(
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
+      );
 
-  try {
-    const saved = await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'History' });
-        const conversations = yield* Conversations;
-        const session = yield* conversations.createSession({ project: project.id, title: 'Chat' });
-        const source = context.db.orm
-          .insert(sources)
-          .values({
-            project_id: project.id,
-            origin: 'attachment',
-            kind: 'text',
-            mime: 'text/plain',
-            name: 'a.txt',
-            size_bytes: 1n,
-            sha256: Buffer.alloc(32),
-            created_at: 1n
-          })
-          .returning()
-          .get();
-        const document = context.db.orm
-          .insert(documents)
-          .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
-          .returning()
-          .get();
+    try {
+      const saved = await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'History' });
+          const conversations = yield* Conversations;
+          const session = yield* conversations.createSession({
+            project: project.id,
+            title: 'Chat'
+          });
+          const source = context.db.orm
+            .insert(sources)
+            .values({
+              project_id: project.id,
+              origin: 'attachment',
+              kind: 'text',
+              mime: 'text/plain',
+              name: 'a.txt',
+              size_bytes: 1n,
+              sha256: Buffer.alloc(32),
+              created_at: 1n
+            })
+            .returning()
+            .get();
+          const document = context.db.orm
+            .insert(documents)
+            .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
+            .returning()
+            .get();
 
-        context.db.orm
-          .insert(source_processing)
-          .values({
-            source_id: source.id,
-            revision: 1n,
-            request_id: 'one',
-            published_request_id: 'one',
-            document_id: document.id
-          })
-          .run();
-        const message = yield* conversations.postMessage({
-          sessionId: session.id,
-          text: 'hello',
-          sourceIds: [source.id]
-        });
-        const edited = yield* conversations.editMessage({ messageId: message.id, text: 'new' });
+          context.db.orm
+            .insert(source_processing)
+            .values({
+              source_id: source.id,
+              revision: 1n,
+              request_id: 'one',
+              published_request_id: 'one',
+              document_id: document.id
+            })
+            .run();
+          const message = yield* conversations.postMessage({
+            sessionId: session.id,
+            text: 'hello',
+            sourceIds: [source.id]
+          });
+          const edited = yield* conversations.editMessage({ messageId: message.id, text: 'new' });
 
-        yield* conversations.setActiveVersion({
-          messageId: message.id,
-          versionId: message.activeVersionId!
-        });
-        const request = yield* conversations.requestReply({ sessionId: session.id });
+          yield* conversations.setActiveVersion({
+            messageId: message.id,
+            versionId: message.activeVersionId!
+          });
+          const request = yield* conversations.requestReply({ sessionId: session.id });
 
-        return { request, source, document, message, edited };
-      }).pipe(Effect.provide(layer()))
-    );
+          return { request, source, document, message, edited };
+        }).pipe(Effect.provide(layer()))
+      );
 
-    context.close();
-    context = new ServerContext(location.open());
-    const newer = context.db.orm
-      .insert(documents)
-      .values({ source_id: saved.source.id, extractor_version: 1n, meta: '{}', created_at: 2n })
-      .returning()
-      .get();
+      context.close();
+      context = new ServerContext(location.open());
+      const newer = context.db.orm
+        .insert(documents)
+        .values({ source_id: saved.source.id, extractor_version: 1n, meta: '{}', created_at: 2n })
+        .returning()
+        .get();
 
-    context.db.orm
-      .update(source_processing)
-      .set({ document_id: newer.id })
-      .where(eq(source_processing.source_id, saved.source.id))
-      .run();
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const conversations = yield* Conversations;
-        const snapshot = yield* conversations.replySnapshot({ requestId: saved.request.requestId });
+      context.db.orm
+        .update(source_processing)
+        .set({ document_id: newer.id })
+        .where(eq(source_processing.source_id, saved.source.id))
+        .run();
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const conversations = yield* Conversations;
+          const snapshot = yield* conversations.replySnapshot({
+            requestId: saved.request.requestId
+          });
 
-        assert.equal(snapshot.messages[0]?.versionId, saved.message.activeVersionId);
-        assert.equal(snapshot.messages[0]?.attachments[0]?.documentId, saved.document.id);
-        assert.equal(snapshot.messages[0]?.attachments[0]?.sourceName, 'a.txt');
-        yield* conversations.setActiveVersion({
-          messageId: saved.message.id,
-          versionId: saved.edited.activeVersionId!
-        });
-        yield* conversations.setActiveVersion({
-          messageId: saved.message.id,
-          versionId: saved.message.activeVersionId!
-        });
-        assert.deepEqual(
-          yield* conversations.replySnapshot({ requestId: saved.request.requestId }),
-          snapshot
-        );
-      }).pipe(Effect.provide(layer()))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+          assert.equal(snapshot.messages[0]?.versionId, saved.message.activeVersionId);
+          assert.equal(snapshot.messages[0]?.attachments[0]?.documentId, saved.document.id);
+          assert.equal(snapshot.messages[0]?.attachments[0]?.sourceName, 'a.txt');
+          yield* conversations.setActiveVersion({
+            messageId: saved.message.id,
+            versionId: saved.edited.activeVersionId!
+          });
+          yield* conversations.setActiveVersion({
+            messageId: saved.message.id,
+            versionId: saved.message.activeVersionId!
+          });
+          assert.deepEqual(
+            yield* conversations.replySnapshot({ requestId: saved.request.requestId }),
+            snapshot
+          );
+        }).pipe(Effect.provide(layer()))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('outbox failure rolls back reply request and pending message', async () => {
+testStable('outbox failure rolls back reply request and pending message', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const { sql } = await import('@study/db');
@@ -619,7 +659,7 @@ test('outbox failure rolls back reply request and pending message', async () => 
   }
 });
 
-test('reply captures pending attachments and invalidates deleted context', async () => {
+testStable('reply captures pending attachments and invalidates deleted context', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const { sources, documents, source_processing } = await import('@study/db/schema');
@@ -716,7 +756,7 @@ test('reply captures pending attachments and invalidates deleted context', async
   }
 });
 
-test('reply history captures a bounded recent window and total text budget', async () => {
+testStable('reply history captures a bounded recent window and total text budget', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
@@ -766,7 +806,7 @@ test('reply history captures a bounded recent window and total text budget', asy
   }
 });
 
-test('untitled sessions capture title requests and reject stale context', async () => {
+testStable('untitled sessions capture title requests and reject stale context', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
@@ -831,7 +871,7 @@ test('untitled sessions capture title requests and reject stale context', async 
   }
 });
 
-test('title context selects the latest fifty messages within its text budget', async () => {
+testStable('title context selects the latest fifty messages within its text budget', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const { Settings } = await import('#server/features/settings/index');
@@ -863,67 +903,73 @@ test('title context selects the latest fifty messages within its text budget', a
   }
 });
 
-test('titles respect the aggregate text budget and do not require ready attachment documents', async () => {
-  const { Settings } = await import('#server/features/settings/index');
-  const { Sources } = await import('#server/features/sources/index');
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const services = Layer.mergeAll(
-    Projects.layer,
-    Conversations.layer,
-    Settings.layer,
-    Sources.layer
-  ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+testStable(
+  'titles respect the aggregate text budget and do not require ready attachment documents',
+  async () => {
+    const { Settings } = await import('#server/features/settings/index');
+    const { Sources } = await import('#server/features/sources/index');
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Conversations.layer,
+      Settings.layer,
+      Sources.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Title limits' });
-        const conversations = yield* Conversations;
-        const sources = yield* Sources;
-        const source = yield* sources.createSource({
-          name: 'notes.txt',
-          bytes: new TextEncoder().encode('not indexed'),
-          projectId: project.id
-        });
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Title limits' });
+          const conversations = yield* Conversations;
+          const sources = yield* Sources;
+          const source = yield* sources.createSource({
+            name: 'notes.txt',
+            bytes: new TextEncoder().encode('not indexed'),
+            projectId: project.id
+          });
 
-        assert.equal((yield* sources.sourceProcessing(source.id)).documentId, null);
-        const session = yield* conversations.createUntitledSession({ project: project.id });
+          assert.equal((yield* sources.sourceProcessing(source.id)).documentId, null);
+          const session = yield* conversations.createUntitledSession({ project: project.id });
 
-        yield* conversations.postMessage({
-          sessionId: session.id,
-          text: 'Study this attachment',
-          sourceIds: [source.id]
-        });
-        const pending = yield* conversations.requestTitle({ sessionId: session.id });
+          yield* conversations.postMessage({
+            sessionId: session.id,
+            text: 'Study this attachment',
+            sourceIds: [source.id]
+          });
+          const pending = yield* conversations.requestTitle({ sessionId: session.id });
 
-        assert.equal(
-          (yield* conversations.titleSnapshot({ requestId: pending.requestId })).messages.length,
-          1
-        );
-        const large = yield* conversations.createUntitledSession({ project: project.id });
+          assert.equal(
+            (yield* conversations.titleSnapshot({ requestId: pending.requestId })).messages.length,
+            1
+          );
+          const large = yield* conversations.createUntitledSession({ project: project.id });
 
-        for (let i = 0; i < 3; i++)
-          yield* conversations.postMessage({ sessionId: large.id, text: String(i).repeat(80000) });
+          for (let i = 0; i < 3; i++)
+            yield* conversations.postMessage({
+              sessionId: large.id,
+              text: String(i).repeat(80000)
+            });
 
-        const request = yield* conversations.requestTitle({ sessionId: large.id });
-        const captured = yield* conversations.titleSnapshot({ requestId: request.requestId });
+          const request = yield* conversations.requestTitle({ sessionId: large.id });
+          const captured = yield* conversations.titleSnapshot({ requestId: request.requestId });
 
-        assert.equal(captured.messages.length, 2);
-        assert.equal(captured.messages[0]?.text[0], '1');
-        assert.equal(
-          captured.messages.reduce((n, m) => n + m.text.length, 0),
-          160000
-        );
-      }).pipe(Effect.provide(services))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+          assert.equal(captured.messages.length, 2);
+          assert.equal(captured.messages[0]?.text[0], '1');
+          assert.equal(
+            captured.messages.reduce((n, m) => n + m.text.length, 0),
+            160000
+          );
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('attachment threads are isolated, owned and paginated', async () => {
+testStable('attachment threads are isolated, owned and paginated', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const { sources, documents, source_processing } = await import('@study/db/schema');
@@ -1072,7 +1118,7 @@ test('attachment threads are isolated, owned and paginated', async () => {
   }
 });
 
-test('posting a message can request a reply explicitly or by assistant mention', async () => {
+testStable('posting a message can request a reply explicitly or by assistant mention', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(

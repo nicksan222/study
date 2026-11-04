@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-test('workflow pagination queries can use the matching SQLite indexes', () => {
+testStable('workflow pagination queries can use the matching SQLite indexes', () => {
   const location = createTestDatabase();
   const db = location.open();
 

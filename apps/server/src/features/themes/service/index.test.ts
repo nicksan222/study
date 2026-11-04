@@ -14,17 +14,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 
 import { Themes } from '#server/features/themes/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-test('themes catalog, mutations and selection preserve transactional rules', async () => {
+testStable('themes catalog, mutations and selection preserve transactional rules', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Themes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));

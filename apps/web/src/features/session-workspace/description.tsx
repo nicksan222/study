@@ -12,7 +12,8 @@ import { WorkspaceSurface } from '@study/ui/workspace';
 import { Text } from 'lucide-react';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { DescriptionField } from './description-field';
 import { DescriptionFooter } from './description-footer';
 import { useDescription } from './description.queries';

@@ -19,9 +19,10 @@ import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+
+import { testStable } from '@study/testing/node';
 
 const preload = fileURLToPath(new URL('./testing/preload.ts', import.meta.url));
 
@@ -41,7 +42,7 @@ for (const mode of [
   'retry-async',
   'api-reuse'
 ] as const) {
-  test(`automatic fixture cleans databases after ${mode}`, () => {
+  testStable(`automatic fixture cleans databases after ${mode}`, () => {
     const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: mode };
 
     delete env.NODE_TEST_CONTEXT;
@@ -95,7 +96,7 @@ for (const mode of [
 
 const exec = promisify(execFile);
 
-test('concurrent test files use separate databases and remove them', async () => {
+testStable('concurrent test files use separate databases and remove them', async () => {
   const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
 
   delete env.NODE_TEST_CONTEXT;

@@ -26,12 +26,12 @@ import {
 } from 'node:fs';
 import { createServer } from 'node:net';
 import { basename, join, relative } from 'node:path';
-import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { StudyError } from '@study/contracts/errors';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import { App } from '#server/runtime/index';
@@ -60,58 +60,64 @@ async function childOwner(path: string) {
   return { child, exited, message };
 }
 
-test('same-path startup rejects before touching an active backup scratch or restore journal', async () => {
-  const f = await backupFixture();
+testStable(
+  'same-path startup rejects before touching an active backup scratch or restore journal',
+  async () => {
+    const f = await backupFixture();
 
-  try {
-    const root = f.location.path + '.backups';
+    try {
+      const root = f.location.path + '.backups';
 
-    mkdirSync(root);
+      mkdirSync(root);
 
-    const scratch = join(root, 'scratch.sqlite');
+      const scratch = join(root, 'scratch.sqlite');
 
-    const journal = join(root, 'restore.json');
+      const journal = join(root, 'restore.json');
 
-    writeFileSync(scratch, 'active snapshot');
-    writeFileSync(journal, 'active journal');
-    await assert.rejects(
-      App.open({ path: f.location.path }),
-      (error: unknown) => error instanceof StudyError && error.kind === 'transient'
-    );
-    assert.equal(readFileSync(scratch, 'utf8'), 'active snapshot');
-    assert.equal(readFileSync(journal, 'utf8'), 'active journal');
-  } finally {
-    await f.close();
-  }
-});
-
-test('canonical relative and symlink aliases share ownership and hardlinks are rejected', async () => {
-  const f = await backupFixture();
-
-  try {
-    const alias = join(f.location.dir, 'alias.sqlite');
-
-    symlinkSync(f.location.path, alias);
-
-    for (const path of [alias, relative(process.cwd(), f.location.path)])
+      writeFileSync(scratch, 'active snapshot');
+      writeFileSync(journal, 'active journal');
       await assert.rejects(
-        acquireDatabaseOwnership(path),
+        App.open({ path: f.location.path }),
         (error: unknown) => error instanceof StudyError && error.kind === 'transient'
       );
-
-    const hard = join(f.location.dir, 'hard.sqlite');
-
-    linkSync(f.location.path, hard);
-    await assert.rejects(
-      acquireDatabaseOwnership(hard),
-      (error: unknown) => error instanceof StudyError && error.kind === 'unsupported'
-    );
-  } finally {
-    await f.close();
+      assert.equal(readFileSync(scratch, 'utf8'), 'active snapshot');
+      assert.equal(readFileSync(journal, 'utf8'), 'active journal');
+    } finally {
+      await f.close();
+    }
   }
-});
+);
 
-test('distinct paths and in-memory instances have independent path leases', async () => {
+testStable(
+  'canonical relative and symlink aliases share ownership and hardlinks are rejected',
+  async () => {
+    const f = await backupFixture();
+
+    try {
+      const alias = join(f.location.dir, 'alias.sqlite');
+
+      symlinkSync(f.location.path, alias);
+
+      for (const path of [alias, relative(process.cwd(), f.location.path)])
+        await assert.rejects(
+          acquireDatabaseOwnership(path),
+          (error: unknown) => error instanceof StudyError && error.kind === 'transient'
+        );
+
+      const hard = join(f.location.dir, 'hard.sqlite');
+
+      linkSync(f.location.path, hard);
+      await assert.rejects(
+        acquireDatabaseOwnership(hard),
+        (error: unknown) => error instanceof StudyError && error.kind === 'unsupported'
+      );
+    } finally {
+      await f.close();
+    }
+  }
+);
+
+testStable('distinct paths and in-memory instances have independent path leases', async () => {
   const location = createTestDatabase();
 
   const leases: Awaited<ReturnType<typeof acquireDatabaseOwnership>>[] = [];
@@ -127,31 +133,34 @@ test('distinct paths and in-memory instances have independent path leases', asyn
   }
 });
 
-test('failed activation releases ownership so the same canonical target can retry', async () => {
-  const location = createTestDatabase();
+testStable(
+  'failed activation releases ownership so the same canonical target can retry',
+  async () => {
+    const location = createTestDatabase();
 
-  try {
-    const root = location.path + '.backups';
+    try {
+      const root = location.path + '.backups';
 
-    mkdirSync(root);
-    writeFileSync(join(root, 'restore.json'), '{');
-    await assert.rejects(App.open({ path: location.path }));
-    rmSync(join(root, 'restore.json'));
+      mkdirSync(root);
+      writeFileSync(join(root, 'restore.json'), '{');
+      await assert.rejects(App.open({ path: location.path }));
+      rmSync(join(root, 'restore.json'));
 
-    const app = await App.open({ path: location.path });
+      const app = await App.open({ path: location.path });
 
-    await app.close();
+      await app.close();
 
-    const reopened = await App.open({ path: location.path });
+      const reopened = await App.open({ path: location.path });
 
-    await reopened.close();
-  } finally {
-    location.cleanup();
+      await reopened.close();
+    } finally {
+      location.cleanup();
+    }
   }
-});
+);
 
 for (const termination of ['close', 'SIGKILL'] as const)
-  test(
+  testStable(
     `supported private/development App overlap rejects and ${termination} releases ownership`,
     { timeout: 15000 },
     async () => {
@@ -187,85 +196,94 @@ for (const termination of ['close', 'SIGKILL'] as const)
     }
   );
 
-test('occupied deterministic endpoint fails closed without acquiring an alternate lease', async () => {
-  const location = createTestDatabase();
+testStable(
+  'occupied deterministic endpoint fails closed without acquiring an alternate lease',
+  async () => {
+    const location = createTestDatabase();
 
-  const canonical = join(realpathSync(location.dir), basename(location.path));
+    const canonical = join(realpathSync(location.dir), basename(location.path));
 
-  const identity = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
+    const identity = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
 
-  const port = 1024 + (createHash('sha256').update(identity).digest().readUInt32BE(0) % 64512);
+    const port = 1024 + (createHash('sha256').update(identity).digest().readUInt32BE(0) % 64512);
 
-  const listener = createServer();
-
-  try {
-    await new Promise<void>((resolve, reject) => {
-      listener.once('error', reject);
-      listener.listen({ host: '127.0.0.1', port, exclusive: true }, resolve);
-    });
-    await assert.rejects(
-      App.open({ path: location.path }),
-      (error: unknown) => error instanceof StudyError && error.kind === 'transient'
-    );
-  } finally {
-    await new Promise<void>((resolve) => listener.close(() => resolve()));
-    location.cleanup();
-  }
-});
-
-test('a second supported App cannot acquire a target while its restart owner is active', async () => {
-  const f = await backupFixture();
-
-  try {
-    await createDocument(f.app, 'Backup');
-
-    const api = await f.api();
-
-    const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
-
-    await createDocument(f.app, 'Current target');
-
-    const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
-
-    await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
-    await f.suspend();
-
-    const opening = App.open({ path: f.location.path });
-
-    const contender = await childOwner(f.location.path);
-
-    const restored = await opening;
+    const listener = createServer();
 
     try {
-      assert.deepEqual(contender.message, { state: 'rejected', kind: 'transient' });
-      await contender.exited;
-      assert.equal(restored.store.db.orm.select().from(s.materials).all().length, 1);
+      await new Promise<void>((resolve, reject) => {
+        listener.once('error', reject);
+        listener.listen({ host: '127.0.0.1', port, exclusive: true }, resolve);
+      });
+      await assert.rejects(
+        App.open({ path: location.path }),
+        (error: unknown) => error instanceof StudyError && error.kind === 'transient'
+      );
     } finally {
-      contender.child.kill('SIGKILL');
-      await restored.close();
+      await new Promise<void>((resolve) => listener.close(() => resolve()));
+      location.cleanup();
     }
-  } finally {
-    await f.close();
   }
-});
+);
 
-test('failed ordinary database acquisition releases its lease and auth owner for retry', async () => {
-  const location = createTestDatabase();
+testStable(
+  'a second supported App cannot acquire a target while its restart owner is active',
+  async () => {
+    const f = await backupFixture();
 
-  try {
-    writeFileSync(location.path, 'not a SQLite database');
-    await assert.rejects(App.open({ path: location.path }));
-    rmSync(location.path);
+    try {
+      await createDocument(f.app, 'Backup');
 
-    const app = await App.open({ path: location.path });
+      const api = await f.api();
 
-    await app.close();
-  } finally {
-    location.cleanup();
+      const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+
+      await createDocument(f.app, 'Current target');
+
+      const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
+
+      await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
+      await f.suspend();
+
+      const opening = App.open({ path: f.location.path });
+
+      const contender = await childOwner(f.location.path);
+
+      const restored = await opening;
+
+      try {
+        assert.deepEqual(contender.message, { state: 'rejected', kind: 'transient' });
+        await contender.exited;
+        assert.equal(restored.store.db.orm.select().from(s.materials).all().length, 1);
+      } finally {
+        contender.child.kill('SIGKILL');
+        await restored.close();
+      }
+    } finally {
+      await f.close();
+    }
   }
-});
+);
 
-test(
+testStable(
+  'failed ordinary database acquisition releases its lease and auth owner for retry',
+  async () => {
+    const location = createTestDatabase();
+
+    try {
+      writeFileSync(location.path, 'not a SQLite database');
+      await assert.rejects(App.open({ path: location.path }));
+      rmSync(location.path);
+
+      const app = await App.open({ path: location.path });
+
+      await app.close();
+    } finally {
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
   'a competing process cannot remove the real scratch of an in-progress backup',
   // Real App startup and owned backup cleanup use the runner's integration deadline.
   // IPC state and exact scratch bytes establish ownership, not subprocess startup speed.

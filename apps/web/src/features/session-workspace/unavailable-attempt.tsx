@@ -5,7 +5,8 @@ import { Notebook } from '@study/ui/session-workspace';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import {
   selectionOptions,
   sessionGenerationsOptions,

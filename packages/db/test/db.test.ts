@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { eq, sql } from 'drizzle-orm';
 
 import { Db } from '../src/index.ts';
@@ -182,10 +182,12 @@ function assertExpiredScope(db: Db) {
   );
 }
 
-test('opens a private WAL connection with foreign keys and a busy timeout, and persists across reopen', () =>
-  fixture(privateConnection));
+testStable(
+  'opens a private WAL connection with foreign keys and a busy timeout, and persists across reopen',
+  () => fixture(privateConnection)
+);
 
-test('opens an in-memory database and closes the underlying connection', () => {
+testStable('opens an in-memory database and closes the underlying connection', () => {
   const db = Db.open(':memory:');
 
   assert.equal(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
@@ -193,14 +195,18 @@ test('opens an in-memory database and closes the underlying connection', () => {
   assert.throws(() => db.exec('SELECT 1'), /not open/);
 });
 
-test('nested commits return callback values and roll back with the outer transaction', () =>
-  fixture(nestedCommits));
+testStable('nested commits return callback values and roll back with the outer transaction', () =>
+  fixture(nestedCommits)
+);
 
-test('a caught nested failure rolls back its savepoint and preserves outer writes', () =>
-  fixture(caughtNestedFailure));
+testStable('a caught nested failure rolls back its savepoint and preserves outer writes', () =>
+  fixture(caughtNestedFailure)
+);
 
-test('rejects native async callbacks before invocation and rolls back thenable callbacks', () =>
-  fixture(rejectedAsyncCallbacks));
+testStable(
+  'rejects native async callbacks before invocation and rolls back thenable callbacks',
+  () => fixture(rejectedAsyncCallbacks)
+);
 
 async function expiredAsyncScopes() {
   const db = Db.open(':memory:');
@@ -232,63 +238,66 @@ async function expiredAsyncScopes() {
   }
 }
 
-test(
+testStable(
   'expired async scopes cannot use orm, start transactions, or close the database',
   expiredAsyncScopes
 );
 
-test('boolean columns retain true and false alongside bigint integers across transactions and reopen', () =>
-  fixture((path) => {
-    const db = Db.open(path);
+testStable(
+  'boolean columns retain true and false alongside bigint integers across transactions and reopen',
+  () =>
+    fixture((path) => {
+      const db = Db.open(path);
 
-    try {
-      db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1);
+      try {
+        db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1);
         INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at)
         VALUES('open',1,1,1,1),('closed',1,0,1,1),('retained',1,1,1,1)`);
-      assert.equal(
-        db.orm
-          .select()
-          .from(material_generation_scopes)
-          .where(eq(material_generation_scopes.id, 'open'))
-          .get()?.enabled,
-        true
-      );
-      assert.equal(
-        db.orm
-          .select()
-          .from(material_generation_scopes)
-          .where(eq(material_generation_scopes.id, 'closed'))
-          .get()?.enabled,
-        false
-      );
-      db.transaction(() => {
-        const row = db.orm
-          .update(material_generation_scopes)
-          .set({ enabled: false, updated_at: 2n })
-          .where(eq(material_generation_scopes.id, 'open'))
-          .returning()
-          .get();
+        assert.equal(
+          db.orm
+            .select()
+            .from(material_generation_scopes)
+            .where(eq(material_generation_scopes.id, 'open'))
+            .get()?.enabled,
+          true
+        );
+        assert.equal(
+          db.orm
+            .select()
+            .from(material_generation_scopes)
+            .where(eq(material_generation_scopes.id, 'closed'))
+            .get()?.enabled,
+          false
+        );
+        db.transaction(() => {
+          const row = db.orm
+            .update(material_generation_scopes)
+            .set({ enabled: false, updated_at: 2n })
+            .where(eq(material_generation_scopes.id, 'open'))
+            .returning()
+            .get();
 
-        assert.equal(row?.enabled, false);
-        assert.equal(row?.project_id, 1n);
-      });
-    } finally {
-      db.close();
-    }
+          assert.equal(row?.enabled, false);
+          assert.equal(row?.project_id, 1n);
+        });
+      } finally {
+        db.close();
+      }
 
-    const reopened = Db.open(path);
+      const reopened = Db.open(path);
 
-    try {
-      const rows = reopened.orm.select().from(material_generation_scopes).all();
+      try {
+        const rows = reopened.orm.select().from(material_generation_scopes).all();
 
-      assert.equal(rows.length, 3);
-      assert.deepEqual(Object.fromEntries(rows.map((row) => [row.id, row.enabled])), {
-        open: false,
-        closed: false,
-        retained: true
-      });
-      assert.ok(rows.every((row) => row.project_id === 1n));
-    } finally {
-      reopened.close();
-    }
-  }));
+        assert.equal(rows.length, 3);
+        assert.deepEqual(Object.fromEntries(rows.map((row) => [row.id, row.enabled])), {
+          open: false,
+          closed: false,
+          retained: true
+        });
+        assert.ok(rows.every((row) => row.project_id === 1n));
+      } finally {
+        reopened.close();
+      }
+    })
+);

@@ -15,11 +15,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { sql } from '@study/db';
 import { preferences } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Fiber, Layer } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
@@ -28,7 +28,7 @@ import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-test('auth uses private SQLite account and guards refresh rotation', async () => {
+testStable('auth uses private SQLite account and guards refresh rotation', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
@@ -77,7 +77,7 @@ test('auth uses private SQLite account and guards refresh rotation', async () =>
   }
 });
 
-test('persisted account is public-safe and refresh rotation is atomic', async () => {
+testStable('persisted account is public-safe and refresh rotation is atomic', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const account = {
@@ -133,7 +133,7 @@ test('persisted account is public-safe and refresh rotation is atomic', async ()
   }
 });
 
-test('concurrent finish rejects and cancelling closes the real listener', async () => {
+testStable('concurrent finish rejects and cancelling closes the real listener', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
@@ -177,7 +177,7 @@ test('concurrent finish rejects and cancelling closes the real listener', async 
   }
 });
 
-test('failed sign-out persistence restores the account and session', async () => {
+testStable('failed sign-out persistence restores the account and session', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const account = { subject: 'person', clientId: 'client', refreshToken: 'secret', sharing: true };
@@ -221,7 +221,7 @@ test('failed sign-out persistence restores the account and session', async () =>
   }
 });
 
-test('closing the service scope closes an unfinished listener', async () => {
+testStable('closing the service scope closes an unfinished listener', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
@@ -254,7 +254,7 @@ test('closing the service scope closes an unfinished listener', async () => {
   }
 });
 
-test('cancelling during listener acquisition releases the acquired listener', async () => {
+testStable('cancelling during listener acquisition releases the acquired listener', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });

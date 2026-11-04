@@ -4,30 +4,34 @@ import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
 import { Db } from '../src/index.ts';
 
-test('retirement upgrades populated canonical state, references, sequences and search', () => {
-  const folder = mkdtempSync(join(tmpdir(), 'study-retirement-'));
-  const path = join(folder, 'study.db');
-  const migrations = join(folder, 'migrations');
+testStable(
+  'retirement upgrades populated canonical state, references, sequences and search',
+  () => {
+    const folder = mkdtempSync(join(tmpdir(), 'study-retirement-'));
+    const path = join(folder, 'study.db');
+    const migrations = join(folder, 'migrations');
 
-  try {
-    cpSync(fileURLToPath(new URL('../drizzle', import.meta.url)), migrations, { recursive: true });
+    try {
+      cpSync(fileURLToPath(new URL('../drizzle', import.meta.url)), migrations, {
+        recursive: true
+      });
 
-    retainPrecedingMigrations(migrations);
+      retainPrecedingMigrations(migrations);
 
-    const old = new DatabaseSync(path, { readBigInts: true });
+      const old = new DatabaseSync(path, { readBigInts: true });
 
-    old.exec('PRAGMA foreign_keys=OFF');
-    migrate(drizzle({ client: old }), { migrationsFolder: migrations });
-    old.exec(`PRAGMA foreign_keys=ON;
+      old.exec('PRAGMA foreign_keys=OFF');
+      migrate(drizzle({ client: old }), { migrationsFolder: migrations });
+      old.exec(`PRAGMA foreign_keys=ON;
       INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
       INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,1,'note','note','text/plain','Source',1,zeroblob(32),1);
       INSERT INTO documents(id,source_id,extractor_version,meta,created_at) VALUES(1,1,0,'{}',1);
@@ -56,114 +60,122 @@ test('retirement upgrades populated canonical state, references, sequences and s
       INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at) VALUES('exec','test',1,'{}','running',1,1);
       INSERT INTO workflow_job_bindings(execution_id,activity_name,activity_attempt,job_id,owner_token,snapshot) VALUES('exec','fetch',0,1,'owner','{}');
     `);
-    const triggerSql = old
-      .prepare(
-        "SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') ORDER BY name"
-      )
-      .all()
-      .map((row) => ({ ...row }));
-
-    old.close();
-    const connection = Db.open(path);
-
-    try {
-      const db = connection.orm;
-
-      assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
-      assert.deepEqual(
-        db.all(
-          sql`SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') AND name LIKE 'message_fts_%' ORDER BY name`
-        ),
-        triggerSql
-      );
-
-      assert.ok(
-        db.get(
-          sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='material_deletion_reply_publication'`
+      const triggerSql = old
+        .prepare(
+          "SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') ORDER BY name"
         )
-      );
+        .all()
+        .map((row) => ({ ...row }));
 
-      assert.ok(
-        db.get(
-          sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='history_reply_publication'`
-        )
-      );
+      old.close();
+      const connection = Db.open(path);
 
-      for (const table of [
-        'jobs',
-        'job_deps',
-        'workflow_job_bindings',
-        'artifacts',
-        'cards',
-        'reviews',
-        'practices',
-        'practice_questions',
-        'artifact_sources',
-        'artifact_citations',
-        'artifact_note_snapshots',
-        'question_citations'
-      ])
-        assert.equal(
-          db.get(sql`SELECT name FROM sqlite_schema WHERE type='table' AND name=${table}`),
-          undefined
+      try {
+        const db = connection.orm;
+
+        assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
+        assert.deepEqual(
+          db.all(
+            sql`SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') AND name LIKE 'message_fts_%' ORDER BY name`
+          ),
+          triggerSql
         );
 
-      assert.equal(
-        db
-          .all(sql`PRAGMA table_info(message_versions)`)
-          .some((c) => c.name === 'owner_job_id' || c.name === 'owner_attempt'),
-        false
-      );
-      assert.equal(
-        db.get(sql`SELECT active_version_id FROM messages WHERE id=1`)?.active_version_id,
-        1n
-      );
-      assert.equal(db.get(sql`SELECT source_id FROM citations WHERE version_id=1`)?.source_id, 1n);
-      assert.equal(db.get(sql`SELECT source_id FROM documents WHERE id=1`)?.source_id, 1n);
-      assert.equal(db.get(sql`SELECT due FROM material_card_schedules WHERE card_id=1`)?.due, 99n);
-      assert.equal(
-        db.get(sql`SELECT rating FROM material_card_reviews WHERE card_id=1`)?.rating,
-        'good'
-      );
-      assert.equal(
-        db.get(sql`SELECT status FROM workflow_executions WHERE execution_id='exec'`)?.status,
-        'running'
-      );
-      assert.equal(
-        db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'photosynthesis'`)?.rowid,
-        1n
-      );
-      assert.equal(
-        db.get(sql`SELECT rowid FROM catalog_fts WHERE catalog_fts MATCH 'Retired'`),
-        undefined
-      );
-      connection.exec(
-        "INSERT INTO message_versions(message_id,number,origin,status,text,created_at) VALUES(1,3,'answer','complete','mitochondria',1)"
-      );
-      assert.equal(
-        db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`)?.rowid,
-        9007199254740994n
-      );
-      connection.exec(
-        "INSERT INTO message_versions(message_id,number,origin,status,created_at) VALUES(1,4,'answer','pending',1)"
-      );
-      connection.exec(
-        "UPDATE message_versions SET status='complete',text='chlorophyll' WHERE number=4"
-      );
-      assert.ok(db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`));
-      connection.exec('DELETE FROM message_versions WHERE number=4');
-      assert.equal(
-        db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`),
-        undefined
-      );
-      assertLibraryRetention(connection);
+        assert.ok(
+          db.get(
+            sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='material_deletion_reply_publication'`
+          )
+        );
+
+        assert.ok(
+          db.get(
+            sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='history_reply_publication'`
+          )
+        );
+
+        for (const table of [
+          'jobs',
+          'job_deps',
+          'workflow_job_bindings',
+          'artifacts',
+          'cards',
+          'reviews',
+          'practices',
+          'practice_questions',
+          'artifact_sources',
+          'artifact_citations',
+          'artifact_note_snapshots',
+          'question_citations'
+        ])
+          assert.equal(
+            db.get(sql`SELECT name FROM sqlite_schema WHERE type='table' AND name=${table}`),
+            undefined
+          );
+
+        assert.equal(
+          db
+            .all(sql`PRAGMA table_info(message_versions)`)
+            .some((c) => c.name === 'owner_job_id' || c.name === 'owner_attempt'),
+          false
+        );
+        assert.equal(
+          db.get(sql`SELECT active_version_id FROM messages WHERE id=1`)?.active_version_id,
+          1n
+        );
+        assert.equal(
+          db.get(sql`SELECT source_id FROM citations WHERE version_id=1`)?.source_id,
+          1n
+        );
+        assert.equal(db.get(sql`SELECT source_id FROM documents WHERE id=1`)?.source_id, 1n);
+        assert.equal(
+          db.get(sql`SELECT due FROM material_card_schedules WHERE card_id=1`)?.due,
+          99n
+        );
+        assert.equal(
+          db.get(sql`SELECT rating FROM material_card_reviews WHERE card_id=1`)?.rating,
+          'good'
+        );
+        assert.equal(
+          db.get(sql`SELECT status FROM workflow_executions WHERE execution_id='exec'`)?.status,
+          'running'
+        );
+        assert.equal(
+          db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'photosynthesis'`)
+            ?.rowid,
+          1n
+        );
+        assert.equal(
+          db.get(sql`SELECT rowid FROM catalog_fts WHERE catalog_fts MATCH 'Retired'`),
+          undefined
+        );
+        connection.exec(
+          "INSERT INTO message_versions(message_id,number,origin,status,text,created_at) VALUES(1,3,'answer','complete','mitochondria',1)"
+        );
+        assert.equal(
+          db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`)?.rowid,
+          9007199254740994n
+        );
+        connection.exec(
+          "INSERT INTO message_versions(message_id,number,origin,status,created_at) VALUES(1,4,'answer','pending',1)"
+        );
+        connection.exec(
+          "UPDATE message_versions SET status='complete',text='chlorophyll' WHERE number=4"
+        );
+        assert.ok(db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`));
+        connection.exec('DELETE FROM message_versions WHERE number=4');
+        assert.equal(
+          db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`),
+          undefined
+        );
+        assertLibraryRetention(connection);
+      } finally {
+        connection.close();
+      }
     } finally {
-      connection.close();
+      rmSync(folder, { recursive: true, force: true });
     }
-  } finally {
-    rmSync(folder, { recursive: true, force: true });
   }
-});
+);
 
 function retainPrecedingMigrations(migrations: string) {
   for (const entry of readdirSync(migrations))

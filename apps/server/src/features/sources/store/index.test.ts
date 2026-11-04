@@ -14,11 +14,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Option } from 'effect';
 
 import { ServerContext } from '#server/platform/database/context';
@@ -53,7 +53,7 @@ const document = {
   }
 };
 
-test('snapshots survive replacement and stale publications leave no document', async () => {
+testStable('snapshots survive replacement and stale publications leave no document', async () => {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
 
@@ -288,7 +288,7 @@ test('snapshots survive replacement and stale publications leave no document', a
   }
 });
 
-test('source reads distinguish absence and enforce bounded pagination', async () => {
+testStable('source reads distinguish absence and enforce bounded pagination', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
 

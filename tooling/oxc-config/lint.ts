@@ -81,6 +81,7 @@ export const lint = {
     'study/workflow-persistence-boundary': 'error',
     'study/feature-persistence-boundary': 'error',
     'study/harness-boundary': 'error',
+    'study/test-classification': 'error',
     'study/feature-layout': 'error',
     'study/server-layer-boundary': 'error',
     'study/ai-boundary': 'error',
@@ -90,6 +91,7 @@ export const lint = {
     'study/no-double-assertion': 'error',
     'study/effect-lazy-boundary': 'error',
     'study/environment-boundary': 'error',
+    'study/no-deep-relative-imports': 'error',
     'study/application-transactions': 'error',
     'study/guarded-mutations': 'error',
     'study/executed-query': 'error',
@@ -169,6 +171,19 @@ export const lint = {
       }
     ],
     'vitest/padding-around-test-blocks': 'error',
+    'vitest/no-standalone-expect': [
+      'error',
+      {
+        additionalTestBlockFunctions: [
+          'testStable',
+          'testStable.each',
+          'testStable.for',
+          'testRegression',
+          'testMigration',
+          'testCharacterization'
+        ]
+      }
+    ],
     // Keep the same explicit exceptions as Groam's shared Oxlint policy.
     'vitest/require-mock-type-parameters': 'off',
     'typescript/no-misused-spread': 'off',

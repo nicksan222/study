@@ -1,4 +1,5 @@
-import { LibraryList } from '../../features/library';
+import { LibraryList } from '#web/features/library/index.ts';
+
 import { SidebarView } from './sidebar.view';
 import { useSidebar } from './use-sidebar';
 import type { SidebarProps } from './use-sidebar';

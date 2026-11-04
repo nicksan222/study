@@ -1,11 +1,10 @@
 import { fileURLToPath } from 'node:url';
 
+import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite-plus';
-
-import { studyRpcProxy } from '../../tooling/development/rpc-proxy.ts';
 
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),

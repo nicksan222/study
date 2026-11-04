@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('requires page presentation and behavioral tests beside each page', () => {
+testStable('requires page presentation and behavioral tests beside each page', () => {
   const diagnostics = lintRule(
     'web-page-contract',
     {
@@ -17,7 +18,7 @@ test('requires page presentation and behavioral tests beside each page', () => {
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test('accepts tested static pages without inventing asynchronous logic', () => {
+testStable('accepts tested static pages without inventing asynchronous logic', () => {
   assert.deepEqual(
     lintRule(
       'web-page-contract',
@@ -33,7 +34,7 @@ test('accepts tested static pages without inventing asynchronous logic', () => {
   );
 });
 
-test('keeps route modules declarative and page composition free of state', () => {
+testStable('keeps route modules declarative and page composition free of state', () => {
   const diagnostics = lintRule(
     'web-page-contract',
     {
@@ -49,39 +50,45 @@ test('keeps route modules declarative and page composition free of state', () =>
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('route components cannot hide lifecycle ownership behind imported hooks or inline functions', () => {
-  const diagnostics = lintRule(
-    'web-page-contract',
-    {
-      'apps/web/src/routes/Home.tsx': `
+testStable(
+  'route components cannot hide lifecycle ownership behind imported hooks or inline functions',
+  () => {
+    const diagnostics = lintRule(
+      'web-page-contract',
+      {
+        'apps/web/src/routes/Home.tsx': `
       import { createFileRoute } from '@tanstack/react-router';
       import { useSidebar } from '../app/shell/use-sidebar';
       export const Route = createFileRoute('/Home')({
         component: function Page() { useSidebar({}); return null; }
       });
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-test('route boundaries reference imported components and may validate or redirect inline', () => {
-  assert.deepEqual(
-    lintRule(
-      'web-page-contract',
-      {
-        'apps/web/src/routes/Home.tsx': `
+testStable(
+  'route boundaries reference imported components and may validate or redirect inline',
+  () => {
+    assert.deepEqual(
+      lintRule(
+        'web-page-contract',
+        {
+          'apps/web/src/routes/Home.tsx': `
       import { createFileRoute, redirect } from '@tanstack/react-router';
       import { Page } from '../pages/home/page';
       export const Route = createFileRoute('/Home')({
         component: Page, beforeLoad: () => { throw redirect({ to: '/Settings' }); }
       });
     `
-      },
-      true
-    ),
-    []
-  );
-});
+        },
+        true
+      ),
+      []
+    );
+  }
+);

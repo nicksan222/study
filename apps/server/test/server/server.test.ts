@@ -17,7 +17,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createConnection } from 'node:net';
-import { test } from 'node:test';
 
 import { projectIdSchema } from '@study/contracts/ids';
 import { StudyRpc } from '@study/contracts/rpc';
@@ -25,6 +24,7 @@ import { Appearance, Language } from '@study/contracts/settings';
 import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Option, Schema } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
@@ -53,7 +53,7 @@ async function fixture() {
   };
 }
 
-test('native HTTP RPC preserves int64 IDs, bytes, typed failures and settings', async () => {
+testStable('native HTTP RPC preserves int64 IDs, bytes, typed failures and settings', async () => {
   const f = await fixture();
 
   try {
@@ -122,7 +122,7 @@ test('native HTTP RPC preserves int64 IDs, bytes, typed failures and settings', 
   }
 });
 
-test('native listener enforces browser origins and exposes the RPC endpoint', async () => {
+testStable('native listener enforces browser origins and exposes the RPC endpoint', async () => {
   const f = await fixture();
 
   try {
@@ -167,7 +167,7 @@ test('native listener enforces browser origins and exposes the RPC endpoint', as
   }
 });
 
-test(
+testStable(
   'closing the listener terminates an incomplete request and rejects new connections',
   { timeout: 5000 },
   async () => {
@@ -194,54 +194,57 @@ test(
   }
 );
 
-test('HTTP message attachments retain explicit source identity across collections', async () => {
-  const f = await fixture();
+testStable(
+  'HTTP message attachments retain explicit source identity across collections',
+  async () => {
+    const f = await fixture();
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
-          const one = yield* client['projects.createProject']({ name: 'One' });
-          const two = yield* client['projects.createProject']({ name: 'Two' });
-          const session = yield* client['conversations.createSession']({
-            project: one.id,
-            title: 'Notes'
-          });
-          const source = yield* client['sources.createSource']({
-            projectId: one.id,
-            name: 'notes.txt',
-            bytes: new TextEncoder().encode('Physics')
-          });
-          const foreign = yield* client['sources.createSource']({
-            projectId: two.id,
-            name: 'other.txt',
-            bytes: new TextEncoder().encode('Other')
-          });
-          const message = yield* client['conversations.postMessage']({
-            sessionId: session.id,
-            text: '',
-            sourceIds: [source.id]
-          });
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
+            const one = yield* client['projects.createProject']({ name: 'One' });
+            const two = yield* client['projects.createProject']({ name: 'Two' });
+            const session = yield* client['conversations.createSession']({
+              project: one.id,
+              title: 'Notes'
+            });
+            const source = yield* client['sources.createSource']({
+              projectId: one.id,
+              name: 'notes.txt',
+              bytes: new TextEncoder().encode('Physics')
+            });
+            const foreign = yield* client['sources.createSource']({
+              projectId: two.id,
+              name: 'other.txt',
+              bytes: new TextEncoder().encode('Other')
+            });
+            const message = yield* client['conversations.postMessage']({
+              sessionId: session.id,
+              text: '',
+              sourceIds: [source.id]
+            });
 
-          assert.equal(message.parts[0]?.sourceId, source.id);
-          assert.equal(message.parts[0]?.sourceName, 'notes.txt');
-          const shared = yield* client['conversations.postMessage']({
-            sessionId: session.id,
-            text: '',
-            sourceIds: [foreign.id]
-          });
+            assert.equal(message.parts[0]?.sourceId, source.id);
+            assert.equal(message.parts[0]?.sourceName, 'notes.txt');
+            const shared = yield* client['conversations.postMessage']({
+              sessionId: session.id,
+              text: '',
+              sourceIds: [foreign.id]
+            });
 
-          assert.equal(shared.parts[0]?.sourceId, foreign.id);
-          assert.equal(
-            (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items
-              .length,
-            2
-          );
-        })
-      )
-    );
-  } finally {
-    await f.close();
+            assert.equal(shared.parts[0]?.sourceId, foreign.id);
+            assert.equal(
+              (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items
+                .length,
+              2
+            );
+          })
+        )
+      );
+    } finally {
+      await f.close();
+    }
   }
-});
+);

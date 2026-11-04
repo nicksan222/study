@@ -1,6 +1,6 @@
 import type { SourceId } from '@study/contracts/ids';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 export const retrySourceProcessing = (processing: { sourceId: SourceId; revision: number }) =>
   request((client) =>

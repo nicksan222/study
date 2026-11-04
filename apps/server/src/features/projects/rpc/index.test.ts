@@ -14,11 +14,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { ProjectId } from '@study/contracts/ids';
 import { ProjectsRpc } from '@study/contracts/projects/rpc';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
@@ -28,7 +28,7 @@ import { Database } from '#server/platform/database/database';
 
 import { ProjectsRpcLive } from './index.ts';
 
-test('native RPC handlers return projects and typed failures', async () => {
+testStable('native RPC handlers return projects and typed failures', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const handlers = ProjectsRpcLive.pipe(

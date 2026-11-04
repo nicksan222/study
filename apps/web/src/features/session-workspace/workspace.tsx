@@ -5,8 +5,9 @@ import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { projectsQueryOptions } from '../../lib/study-client/study.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+
 import { useAttachments } from './attachments';
 import { SessionDeletion, SessionDeleteDialog } from './deletion';
 import type { Draft } from './draft';

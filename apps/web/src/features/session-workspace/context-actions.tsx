@@ -13,7 +13,8 @@ import { WorkspaceCard, WorkspaceSurface, WorkspaceChanges } from '@study/ui/wor
 import { ArrowUpRight, FileInput, WandSparkles, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { SelectionPanel } from './selection';
 import { Transformation } from './transformation';
 

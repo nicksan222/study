@@ -6,7 +6,8 @@ import { WorkspaceSurface } from '@study/ui/workspace';
 import { useQuery } from '@tanstack/react-query';
 import { FilePlus2, PanelRightOpen } from 'lucide-react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { Composer } from './composer';
 import { SessionContextActions } from './context-actions';
 import { History } from './history';

@@ -10,7 +10,8 @@ import { Schema } from 'effect';
 import { Archive, Download, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { useDataSettings } from './use-data';
 
 type BackupDeletion = { id: BackupId } | 'recovery';

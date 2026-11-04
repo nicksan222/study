@@ -15,8 +15,8 @@
 
 import { strict as assert } from 'node:assert';
 import { createServer } from 'node:http';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { fetchPage as fetchPageEffect, requestBytes, streamingFetch } from './index.ts';
@@ -31,7 +31,7 @@ const fetchPage = (
   } = {}
 ) => Effect.runPromise(fetchPageEffect(url, options), { signal: options.signal });
 
-test('HTTP transport failures preserve their private cause', async () => {
+testStable('HTTP transport failures preserve their private cause', async () => {
   await assert.rejects(
     fetchPage('http://127.0.0.1:0'),
     (error: unknown) =>
@@ -42,7 +42,7 @@ test('HTTP transport failures preserve their private cause', async () => {
   );
 });
 
-test('HTTP redirects, response size, timeout and cancellation are bounded', async () => {
+testStable('HTTP redirects, response size, timeout and cancellation are bounded', async () => {
   const server = createServer((req, res) => {
     if (req.url === '/redirect') {
       res.writeHead(302, { location: '/page' }).end();
@@ -104,55 +104,60 @@ test('HTTP redirects, response size, timeout and cancellation are bounded', asyn
   }
 });
 
-test('HTTP status failures are typed and interruption closes an in-flight request', async () => {
-  let closed!: () => void;
-  let started!: () => void;
-  const closedPromise = new Promise<void>((resolve) => {
-    closed = resolve;
-  });
-  const startedPromise = new Promise<void>((resolve) => {
-    started = resolve;
-  });
-  const server = createServer((request, response) => {
-    if (request.url === '/slow') {
-      request.on('close', closed);
-      started();
+testStable(
+  'HTTP status failures are typed and interruption closes an in-flight request',
+  async () => {
+    let closed!: () => void;
+    let started!: () => void;
+    const closedPromise = new Promise<void>((resolve) => {
+      closed = resolve;
+    });
+    const startedPromise = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const server = createServer((request, response) => {
+      if (request.url === '/slow') {
+        request.on('close', closed);
+        started();
 
-      return;
+        return;
+      }
+
+      response
+        .writeHead(request.url === '/rate' ? 429 : request.url === '/server' ? 503 : 404)
+        .end();
+    });
+
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+
+    if (!address || typeof address === 'string') throw new Error('missing address');
+
+    const base = `http://127.0.0.1:${address.port}`;
+
+    try {
+      for (const [path, kind] of [
+        ['/rate', 'rate_limited'],
+        ['/server', 'transient'],
+        ['/missing', 'invalid_input']
+      ])
+        await assert.rejects(fetchPage(base + path), { kind });
+
+      const controller = new AbortController();
+      const pending = fetchPage(base + '/slow', { signal: controller.signal });
+
+      await startedPromise;
+      controller.abort();
+      await assert.rejects(pending);
+      await closedPromise;
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
-
-    response.writeHead(request.url === '/rate' ? 429 : request.url === '/server' ? 503 : 404).end();
-  });
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  if (!address || typeof address === 'string') throw new Error('missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
-
-  try {
-    for (const [path, kind] of [
-      ['/rate', 'rate_limited'],
-      ['/server', 'transient'],
-      ['/missing', 'invalid_input']
-    ])
-      await assert.rejects(fetchPage(base + path), { kind });
-
-    const controller = new AbortController();
-    const pending = fetchPage(base + '/slow', { signal: controller.signal });
-
-    await startedPromise;
-    controller.abort();
-    await assert.rejects(pending);
-    await closedPromise;
-  } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
-});
+);
 
-test('bounded POST reads token responses and times out while reading the body', async () => {
+testStable('bounded POST reads token responses and times out while reading the body', async () => {
   const server = createServer((request, response) => {
     response.writeHead(200, { 'content-type': 'application/json' });
 
@@ -185,7 +190,7 @@ test('bounded POST reads token responses and times out while reading the body', 
   }
 });
 
-test('streaming fetch keeps its scoped request alive until cancellation', async () => {
+testStable('streaming fetch keeps its scoped request alive until cancellation', async () => {
   let closed!: () => void;
   const closedPromise = new Promise<void>((resolve) => {
     closed = resolve;
@@ -218,7 +223,7 @@ test('streaming fetch keeps its scoped request alive until cancellation', async 
   }
 });
 
-test('streaming fetch enforces byte limits without a content length', async () => {
+testStable('streaming fetch enforces byte limits without a content length', async () => {
   const server = createServer((_request, response) => {
     response.writeHead(200);
     response.write('first');
@@ -244,7 +249,7 @@ test('streaming fetch enforces byte limits without a content length', async () =
   }
 });
 
-test('streaming fetch body deadline follows the native clock', async () => {
+testStable('streaming fetch body deadline follows the native clock', async () => {
   const { Clock } = await import('effect');
   const { TestClock } = await import('effect/testing');
   let closed!: () => void;

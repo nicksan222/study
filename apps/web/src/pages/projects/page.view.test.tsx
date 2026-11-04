@@ -1,18 +1,19 @@
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { PageView } from './page.view';
 
-vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 
 const rpc = vi.hoisted(() => vi.fn());
 
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (...args: unknown[]) => rpc(...args)
 }));
 
-it('shows a failed read and allows explicit retry', async () => {
+testStable('shows a failed read and allows explicit retry', async () => {
   rpc.mockRejectedValue(new Error('offline'));
   render(
     <QueryClientProvider
@@ -28,7 +29,7 @@ it('shows a failed read and allows explicit retry', async () => {
   await waitFor(() => expect(rpc).toHaveBeenCalledTimes(callsBeforeRetry + 1));
 });
 
-it('does not submit a blank collection name or duplicate the global heading', () => {
+testStable('does not submit a blank collection name or duplicate the global heading', () => {
   rpc.mockResolvedValue({ items: [], next: null });
   render(
     <QueryClientProvider client={new QueryClient()}>

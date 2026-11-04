@@ -9,7 +9,8 @@ import type { documentTextRangeSchema } from '@study/contracts/sources/schemas';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { retainAnnotations } from './annotation-state';
 
 function matchesCreation(

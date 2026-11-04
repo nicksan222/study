@@ -15,13 +15,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { createServerTest } from '#testing/server-test';
 
-test('a start queued behind stop restarts the worker', async (t) => {
+testStable('a start queued behind stop restarts the worker', async (t) => {
   const { app } = await createServerTest(t);
 
   await app.workers.start();
@@ -34,7 +34,7 @@ test('a start queued behind stop restarts the worker', async (t) => {
   assert.equal(app.workers.started, false);
 });
 
-test('close rejects a queued start and leaves the worker stopped', async (t) => {
+testStable('close rejects a queued start and leaves the worker stopped', async (t) => {
   const { app } = await createServerTest(t);
 
   await app.workers.start();
@@ -48,7 +48,7 @@ test('close rejects a queued start and leaves the worker stopped', async (t) => 
   await assert.rejects(app.workers.start());
 });
 
-test('concurrent native fibers share one worker and stop idempotently', async (t) => {
+testStable('concurrent native fibers share one worker and stop idempotently', async (t) => {
   const { app } = await createServerTest(t);
 
   function* verifySharedWorkerLifecycle() {

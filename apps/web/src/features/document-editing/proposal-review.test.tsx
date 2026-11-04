@@ -4,12 +4,13 @@ import {
   documentProposalOutcomeSchema
 } from '@study/contracts/materials/editing';
 import { materialVersionDetailSchema } from '@study/contracts/materials/schemas';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as MockModule0 from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { ProposalReview } from './proposal-review';
 
@@ -20,8 +21,8 @@ const rpc = vi.hoisted(() => ({
   version: vi.fn()
 }));
 
-vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (fn: (client: unknown) => unknown) =>
     fn({
       'materials.compareDocumentProposal': rpc.compare,
@@ -29,7 +30,7 @@ vi.mock('../../lib/study-client/request', () => ({
       'materials.keepDocumentProposal': rpc.keep
     })
 }));
-vi.mock('../../lib/study-client/materials.queries', () => ({
+vi.mock('#web/lib/study-client/materials.queries.ts', () => ({
   versionOptions: (id: unknown) => ({
     queryKey: ['materials', 'version', String(id)],
     queryFn: () => rpc.version(id)
@@ -136,7 +137,7 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear());
 });
 
-it.each(['apply', 'keep'] as const)(
+testStable.each(['apply', 'keep'] as const)(
   'retries the exact %s payload after comparison refresh and remount',
   async (kind) => {
     const operation = rpc[kind];
@@ -177,65 +178,74 @@ it.each(['apply', 'keep'] as const)(
   }
 );
 
-it('excludes duplicate mounts synchronously and retains a late receipt before invalidation finishes', async () => {
-  const response = deferred<ReturnType<typeof receipt>>();
+testStable(
+  'excludes duplicate mounts synchronously and retains a late receipt before invalidation finishes',
+  async () => {
+    const response = deferred<ReturnType<typeof receipt>>();
 
-  rpc.apply.mockReturnValue(response.promise);
-  const first = mount(undefined, 2);
+    rpc.apply.mockReturnValue(response.promise);
+    const first = mount(undefined, 2);
 
-  await screen.findAllByRole('button', { name: 'DocumentApply' });
-  const buttons = screen.getAllByRole('button', { name: 'DocumentApply' });
+    await screen.findAllByRole('button', { name: 'DocumentApply' });
+    const buttons = screen.getAllByRole('button', { name: 'DocumentApply' });
 
-  act(() => {
-    fireEvent.click(buttons[0]!);
-    fireEvent.click(buttons[1]!);
-  });
-  await waitFor(() => expect(rpc.apply).toHaveBeenCalledTimes(1));
-  first.unmount();
-  const refresh = deferred<void>();
-  const invalidate = vi.spyOn(first.client, 'invalidateQueries').mockReturnValue(refresh.promise);
+    act(() => {
+      fireEvent.click(buttons[0]!);
+      fireEvent.click(buttons[1]!);
+    });
+    await waitFor(() => expect(rpc.apply).toHaveBeenCalledTimes(1));
+    first.unmount();
+    const refresh = deferred<void>();
+    const invalidate = vi.spyOn(first.client, 'invalidateQueries').mockReturnValue(refresh.promise);
 
-  await act(async () => {
-    response.resolve(receipt());
-    await response.promise;
-  });
-  const reopened = mount(first.client);
+    await act(async () => {
+      response.resolve(receipt());
+      await response.promise;
+    });
+    const reopened = mount(first.client);
 
-  await screen.findByText('DocumentProposalSaved');
-  expect(rpc.version).toHaveBeenCalledWith(103n);
-  expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
-  expect(screen.queryByRole('button', { name: 'DocumentRetryProposal' })).toBeNull();
-  await act(async () => {
-    refresh.resolve(undefined);
-    await refresh.promise;
-  });
-  invalidate.mockRestore();
-  reopened.unmount();
-  mount(first.client);
-  await screen.findByText('DocumentProposalSaved');
-  expect(screen.getByRole('button', { name: 'DocumentApply' })).toBeDisabled();
-  expect(rpc.apply).toHaveBeenCalledTimes(1);
-  expect(rpc.keep).not.toHaveBeenCalled();
-});
+    await screen.findByText('DocumentProposalSaved');
+    expect(rpc.version).toHaveBeenCalledWith(103n);
+    expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'DocumentRetryProposal' })).toBeNull();
+    await act(async () => {
+      refresh.resolve(undefined);
+      await refresh.promise;
+    });
+    invalidate.mockRestore();
+    reopened.unmount();
+    mount(first.client);
+    await screen.findByText('DocumentProposalSaved');
+    expect(screen.getByRole('button', { name: 'DocumentApply' })).toBeDisabled();
+    expect(rpc.apply).toHaveBeenCalledTimes(1);
+    expect(rpc.keep).not.toHaveBeenCalled();
+  }
+);
 
-it('requires deliberate Keep after conflict and gives it a distinct operation key', async () => {
-  rpc.apply.mockResolvedValue(receipt('conflict'));
-  rpc.keep.mockResolvedValue(receipt('kept'));
-  const first = mount();
+testStable(
+  'requires deliberate Keep after conflict and gives it a distinct operation key',
+  async () => {
+    rpc.apply.mockResolvedValue(receipt('conflict'));
+    rpc.keep.mockResolvedValue(receipt('kept'));
+    const first = mount();
 
-  fireEvent.click(await screen.findByRole('button', { name: 'DocumentApply' }));
-  await screen.findByText('DocumentConflict');
-  expect(rpc.keep).not.toHaveBeenCalled();
-  first.unmount();
-  mount(first.client);
-  expect(screen.getByRole('button', { name: 'DocumentApply' })).toBeDisabled();
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeEnabled()
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'DocumentKeepNew' }));
-  await screen.findByText('DocumentProposalSaved');
-  expect(rpc.keep).toHaveBeenCalledTimes(1);
-  expect(rpc.keep.mock.calls[0]![0]).toEqual({ requestId: 'proposal-1', key: expect.any(String) });
-  expect(rpc.keep.mock.calls[0]![0].key).not.toBe(rpc.apply.mock.calls[0]![0].key);
-  expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
-});
+    fireEvent.click(await screen.findByRole('button', { name: 'DocumentApply' }));
+    await screen.findByText('DocumentConflict');
+    expect(rpc.keep).not.toHaveBeenCalled();
+    first.unmount();
+    mount(first.client);
+    expect(screen.getByRole('button', { name: 'DocumentApply' })).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'DocumentKeepNew' }));
+    await screen.findByText('DocumentProposalSaved');
+    expect(rpc.keep).toHaveBeenCalledTimes(1);
+    expect(rpc.keep.mock.calls[0]![0]).toEqual({
+      requestId: 'proposal-1',
+      key: expect.any(String)
+    });
+    expect(rpc.keep.mock.calls[0]![0].key).not.toBe(rpc.apply.mock.calls[0]![0].key);
+    expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
+  }
+);

@@ -2,24 +2,25 @@ import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, cleanup } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { usePageAutosave } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
 
 const preferences = vi.hoisted(() => ({ autosaveIntervalSeconds: 3 }));
 
-vi.mock('../../lib/study-client/workspace-preferences.queries', () => ({
+vi.mock('#web/lib/study-client/workspace-preferences.queries.ts', () => ({
   useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
 }));
 
 const api = vi.hoisted(() => ({ post: vi.fn(), edit: vi.fn(), message: vi.fn() }));
 
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
     invoke({
       'conversations.postMessage': api.post,
@@ -86,73 +87,79 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it('autosaves every three seconds, serializes writes and preserves typing during a pending save', async () => {
-  let accept!: (value: ReturnType<typeof message>) => void;
+testStable(
+  'autosaves every three seconds, serializes writes and preserves typing during a pending save',
+  async () => {
+    let accept!: (value: ReturnType<typeof message>) => void;
 
-  api.post.mockReturnValue(
-    new Promise((resolve) => {
-      accept = resolve;
-    })
-  );
-  api.edit.mockResolvedValue(message('Later typing', 11n, 10n));
-  const view = mount();
+    api.post.mockReturnValue(
+      new Promise((resolve) => {
+        accept = resolve;
+      })
+    );
+    api.edit.mockResolvedValue(message('Later typing', 11n, 10n));
+    const view = mount();
 
-  act(() => view.result.current.setText('# First page'));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
-  });
-  expect(api.post).toHaveBeenCalledExactlyOnceWith({
-    sessionId: id,
-    captureKey: 'page-test-capture',
-    text: '# First page',
-    format: 'document',
-    requestReply: false
-  });
-  act(() => view.result.current.setText('Later typing'));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(6000);
-  });
-  expect(api.post).toHaveBeenCalledTimes(1);
-  await act(async () => {
-    accept(message('# First page'));
-  });
-  expect(view.result.current.draft.text).toBe('Later typing');
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
-  });
-  expect(api.edit).toHaveBeenCalledExactlyOnceWith({
-    messageId: 2n,
-    text: 'Later typing',
-    expectedActiveVersionId: 10n
-  });
-});
+    act(() => view.result.current.setText('# First page'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(api.post).toHaveBeenCalledExactlyOnceWith({
+      sessionId: id,
+      captureKey: 'page-test-capture',
+      text: '# First page',
+      format: 'document',
+      requestReply: false
+    });
+    act(() => view.result.current.setText('Later typing'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(api.post).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      accept(message('# First page'));
+    });
+    expect(view.result.current.draft.text).toBe('Later typing');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(api.edit).toHaveBeenCalledExactlyOnceWith({
+      messageId: 2n,
+      text: 'Later typing',
+      expectedActiveVersionId: 10n
+    });
+  }
+);
 
-it('retains an uncertain creation across remounts and retries its exact capture identity only on request', async () => {
-  api.post
-    .mockRejectedValueOnce(new StudyError('transient', 'offline'))
-    .mockResolvedValueOnce(message('Original'));
-  const first = mount();
+testStable(
+  'retains an uncertain creation across remounts and retries its exact capture identity only on request',
+  async () => {
+    api.post
+      .mockRejectedValueOnce(new StudyError('transient', 'offline'))
+      .mockResolvedValueOnce(message('Original'));
+    const first = mount();
 
-  act(() => first.result.current.setText('Original'));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
-  });
-  first.unmount();
-  const next = mount(target, first.client);
+    act(() => first.result.current.setText('Original'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    first.unmount();
+    const next = mount(target, first.client);
 
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(9000);
-  });
-  expect(api.post).toHaveBeenCalledTimes(1);
-  await act(async () => {
-    await next.result.current.save();
-    await vi.advanceTimersByTimeAsync(1);
-  });
-  expect(api.post.mock.calls[1]).toEqual(api.post.mock.calls[0]);
-  expect(next.result.current.draft.error).toBeUndefined();
-});
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
+    });
+    expect(api.post).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await next.result.current.save();
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(api.post.mock.calls[1]).toEqual(api.post.mock.calls[0]);
+    expect(next.result.current.draft.error).toBeUndefined();
+  }
+);
 
-it('keeps local changes when another writer advances the active version', async () => {
+testStable('keeps local changes when another writer advances the active version', async () => {
   api.edit.mockRejectedValue(new StudyError('invalid_input', 'conflict'));
   api.message.mockResolvedValue(message('Other writer', 11n, 10n));
   const view = mount({ kind: 'message', message: message('Original') });
@@ -172,7 +179,7 @@ it('keeps local changes when another writer advances the active version', async 
   expect(api.edit).toHaveBeenCalledTimes(1);
 });
 
-it('flushes edits typed during a save when their document tab closes', async () => {
+testStable('flushes edits typed during a save when their document tab closes', async () => {
   let accept!: (value: ReturnType<typeof message>) => void;
 
   api.post.mockReturnValue(
@@ -200,7 +207,7 @@ it('flushes edits typed during a save when their document tab closes', async () 
   });
 });
 
-it('reconciles a lost edit receipt without creating a duplicate version', async () => {
+testStable('reconciles a lost edit receipt without creating a duplicate version', async () => {
   api.edit.mockRejectedValue(new StudyError('transient', 'Lost receipt'));
   api.message.mockResolvedValue(message('Updated text', 11n, 10n));
   const view = mount({ kind: 'message', message: message('Original') });
@@ -217,7 +224,7 @@ it('reconciles a lost edit receipt without creating a duplicate version', async 
   expect(api.edit).toHaveBeenCalledTimes(1);
 });
 
-it('waits for the configured autosave interval before creating a page', async () => {
+testStable('waits for the configured autosave interval before creating a page', async () => {
   preferences.autosaveIntervalSeconds = 8;
   api.post.mockResolvedValue(message('Longer pause'));
   const view = mount();

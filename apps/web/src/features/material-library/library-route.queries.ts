@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 
-import { projectsQueryOptions } from '../../lib/study-client/study.queries';
+import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+
 import { collectionId } from './identity';
 import { materialsOptions } from './material-library.queries';
 

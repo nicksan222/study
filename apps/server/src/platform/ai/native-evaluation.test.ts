@@ -16,9 +16,9 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { test } from 'node:test';
 
 import { sourcesOutputSchema } from '@study/contracts/ai/sources';
+import { testStable } from '@study/testing/node';
 import { Effect, Schema, Stream } from 'effect';
 import type { Response } from 'effect/ai';
 import { AiError, LanguageModel, Tool, Toolkit } from 'effect/ai';
@@ -30,7 +30,7 @@ import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 // This deliberately narrow, test-only bridge handles the single initial prompt
 // needed to measure Effect's object-with-tools behavior, not production traffic.
-test('native structured generation stops after a grounded tool call', async () => {
+testStable('native structured generation stops after a grounded tool call', async () => {
   let requests = 0;
   let body = '';
   let output: string | undefined;

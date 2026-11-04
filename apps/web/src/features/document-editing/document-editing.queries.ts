@@ -12,9 +12,10 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
-import { request } from '../../lib/study-client/request';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { blankDocument } from './block-editor';
 
 type Comparison = typeof documentComparisonSchema.Type;

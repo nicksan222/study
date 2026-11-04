@@ -26,7 +26,8 @@ import { Schema } from 'effect';
 import { Pencil } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { subjectIconMutationOptions } from './subject-icon-editor.queries';
 import { subjectColors, subjectSymbols } from './subject-icon-options';
 import { SubjectIdentity } from './subject-identity';

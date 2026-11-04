@@ -8,7 +8,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
 import { useEffect } from 'react';
 
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { backupMutationKeys } from './data.queries';
 
 const manifestReceived = (data: unknown) => Schema.is(backupManifestSchema)(data);

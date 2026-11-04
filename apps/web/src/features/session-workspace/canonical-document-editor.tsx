@@ -2,8 +2,9 @@ import { StructuredEditor } from '@study/ui/structured-editor';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
+
 import { documentToEditor, editorToDocument } from './document-editor-content';
 import type { EditableDocument } from './document-editor-content';
 import { useNoteLabels } from './note-editor';

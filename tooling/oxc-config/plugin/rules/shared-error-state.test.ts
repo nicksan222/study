@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -7,7 +8,7 @@ function lint(source: string) {
   return lintRule('shared-error-state', { 'apps/web/src/features/example/view.tsx': source }, true);
 }
 
-test('rejects custom alert prose and retry controls', () => {
+testStable('rejects custom alert prose and retry controls', () => {
   const diagnostics = lint(`
     export function View() {
       return <div role="alert"><p>Could not load</p><button>Retry</button></div>;
@@ -17,7 +18,7 @@ test('rejects custom alert prose and retry controls', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('checks boolean error branches, early returns, and status comparisons', () => {
+testStable('checks boolean error branches, early returns, and status comparisons', () => {
   const diagnostics = lint(`
     export function View({ error, state }) {
       if (state.isError) return <p>Could not load</p>;
@@ -31,7 +32,7 @@ test('checks boolean error branches, early returns, and status comparisons', () 
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('handles negation, compound guards, and error branches passed as props', () => {
+testStable('handles negation, compound guards, and error branches passed as props', () => {
   const diagnostics = lint(`
     export function View({ error, enabled, result }) {
       return <>{!error ? <Content /> : <p>Failed</p>}
@@ -44,7 +45,7 @@ test('handles negation, compound guards, and error branches passed as props', ()
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test('accepts canonical imports, aliases, namespaces, and feature wrappers', () => {
+testStable('accepts canonical imports, aliases, namespaces, and feature wrappers', () => {
   assert.deepEqual(
     lint(`
     import { ErrorState as Failure } from '@study/ui/error-state';
@@ -60,7 +61,7 @@ test('accepts canonical imports, aliases, namespaces, and feature wrappers', () 
   );
 });
 
-test('does not trust a same-named local implementation or a shadowed import', () => {
+testStable('does not trust a same-named local implementation or a shadowed import', () => {
   const diagnostics = lint(`
     import { ErrorState } from '@study/ui/error-state';
     function LocalErrorState() { return <p role="alert">Failed</p>; }
@@ -72,7 +73,7 @@ test('does not trust a same-named local implementation or a shadowed import', ()
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('does not let the success branch supply the canonical error presentation', () => {
+testStable('does not let the success branch supply the canonical error presentation', () => {
   const diagnostics = lint(`
     import { ErrorState } from '@study/ui/error-state';
     export function View({ error }) {
@@ -83,7 +84,7 @@ test('does not let the success branch supply the canonical error presentation', 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('accepts ordinary field validation, live statuses, and non-render error guards', () => {
+testStable('accepts ordinary field validation, live statuses, and non-render error guards', () => {
   assert.deepEqual(
     lint(`
     export function View({ fieldError, state, error }) {
@@ -100,7 +101,7 @@ test('accepts ordinary field validation, live statuses, and non-render error gua
   );
 });
 
-test('checks aliases of custom error markup and skips null recovery branches', () => {
+testStable('checks aliases of custom error markup and skips null recovery branches', () => {
   const diagnostics = lint(`
     const failure = <p>Failed</p>;
     export function View({ error }) { return error ? failure : null; }
@@ -113,7 +114,7 @@ test('checks aliases of custom error markup and skips null recovery branches', (
   );
 });
 
-test('checks custom component alerts but accepts the canonical component itself', () => {
+testStable('checks custom component alerts but accepts the canonical component itself', () => {
   const diagnostics = lint(`
     import { ErrorState } from '@study/ui/error-state';
     export function View() {
@@ -124,7 +125,7 @@ test('checks custom component alerts but accepts the canonical component itself'
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('ignores tests, server code and canonical UI implementations', () => {
+testStable('ignores tests, server code and canonical UI implementations', () => {
   assert.deepEqual(
     lintRule(
       'shared-error-state',
@@ -139,7 +140,7 @@ test('ignores tests, server code and canonical UI implementations', () => {
   );
 });
 
-test('checks shared button aliases used as a whole error presentation', () => {
+testStable('checks shared button aliases used as a whole error presentation', () => {
   const diagnostics = lint(`
     import { Button as RetryButton } from '@study/ui/button';
     export function View({ error }) { return error && <RetryButton>{t('Retry')}</RetryButton>; }
@@ -148,24 +149,27 @@ test('checks shared button aliases used as a whole error presentation', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('retains canonical Sidebar.Message alerts without allowing raw sidebar implementations', () => {
-  assert.deepEqual(
-    lint(`
+testStable(
+  'retains canonical Sidebar.Message alerts without allowing raw sidebar implementations',
+  () => {
+    assert.deepEqual(
+      lint(`
     import { Sidebar as AppSidebar } from '@study/ui/sidebar';
     import * as UI from '@study/ui/sidebar';
     export function View({ error }) { return <>{error && <AppSidebar.Message role="alert">Failed</AppSidebar.Message>}<UI.Sidebar.Message role="alert">Failed</UI.Sidebar.Message></>; }
   `),
-    []
-  );
-  const diagnostics = lint(`
+      []
+    );
+    const diagnostics = lint(`
     import { Sidebar } from '@study/ui/sidebar';
     export function View({ error, Sidebar }) { return <>{error && <Sidebar.Message role="alert">Failed</Sidebar.Message>}<p role="alert">Failed</p></>; }
   `);
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-test('checks named error presenters even when they omit alert semantics', () => {
+testStable('checks named error presenters even when they omit alert semantics', () => {
   const diagnostics = lint(`
     function ErrorState() { return <p>Failed</p>; }
     const RouteError = () => <section>{t('Failure')}</section>;
@@ -175,6 +179,6 @@ test('checks named error presenters even when they omit alert semantics', () => 
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test('declared error presenters without function bodies do not crash traversal', () => {
+testStable('declared error presenters without function bodies do not crash traversal', () => {
   assert.deepEqual(lint('declare function SessionError(): JSX.Element;'), []);
 });

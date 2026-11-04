@@ -1,11 +1,11 @@
-import { test } from 'node:test';
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Server tests must use real dependencies, not mock APIs or fabricated database contexts.';
 
-test('server tests reject mock module access and fabricated database contexts', () => {
+testStable('server tests reject mock module access and fabricated database contexts', () => {
   const diagnostics = lintRule('server-no-mocks', {
     'test/namespace.ts': "import * as vitest from 'vitest';\n",
     'test/node-dynamic.ts': "const runner = import('node:test');\n",
@@ -25,7 +25,7 @@ test('server tests reject mock module access and fabricated database contexts', 
       "import type { App } from '@study/server/runtime';\nfunction example() { type App = { name: string }; return {} as App; }\n",
     'test/local-type.ts': 'type App = { name: string };\nconst value = {} as App;\n',
     'test/good.ts':
-      "import { test } from 'node:test';\nimport { createTestDatabase } from '@study/db/testing';\nconst db = createTestDatabase();\n",
+      "import { testStable } from '@study/testing/node';\nimport { createTestDatabase } from '@study/db/testing';\nconst db = createTestDatabase();\n",
     'src/runtime/production.ts': "import * as vitest from 'vitest';\n"
   });
 

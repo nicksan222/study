@@ -2,7 +2,8 @@ import type { ProjectId } from '@study/contracts/ids';
 import { useQuery } from '@tanstack/react-query';
 import { useSearch } from '@tanstack/react-router';
 
-import type { Subjects } from '../../lib/study-client/operations';
+import type { Subjects } from '#web/lib/study-client/operations.ts';
+
 import { LibraryListView } from './library-list.view';
 import type { ItemFilter } from './library.logic';
 import { libraryQueryOptions } from './library.queries';

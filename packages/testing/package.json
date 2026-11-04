@@ -1,0 +1,14 @@
+{
+  "name": "@study/testing",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./node": "./src/node.ts",
+    "./vitest": "./src/vitest.ts",
+    "./catalog": "./src/catalog.ts",
+    "./classification": "./src/classification.ts"
+  },
+  "devDependencies": {
+    "vite-plus": "1.4.0"
+  }
+}

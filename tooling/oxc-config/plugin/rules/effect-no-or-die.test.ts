@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Preserve typed failures instead of converting them to defects with Effect.orDie or Effect.orDieWith.';
 
-test('reports misuse and accepts scoped alternatives', () => {
+testStable('reports misuse and accepts scoped alternatives', () => {
   assertDiagnostics(
     'effect-no-or-die',
     lintRule('effect-no-or-die', {
@@ -20,7 +21,7 @@ test('reports misuse and accepts scoped alternatives', () => {
     [['src/procedures/bad.ts', message]]
   );
 });
-test('resolves imported namespaces, named imports, const aliases and shadowing', () => {
+testStable('resolves imported namespaces, named imports, const aliases and shadowing', () => {
   assertDiagnostics(
     'effect-no-or-die',
     lintRule('effect-no-or-die', {
@@ -34,7 +35,7 @@ test('resolves imported namespaces, named imports, const aliases and shadowing',
   );
 });
 
-test('enforces the Effect contract in browser operations', () => {
+testStable('enforces the Effect contract in browser operations', () => {
   const diagnostics = lintRule(
     'effect-no-or-die',
     {

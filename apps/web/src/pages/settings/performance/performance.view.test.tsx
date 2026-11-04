@@ -1,5 +1,6 @@
+import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { PerformanceSettingsView } from './performance.view';
 
@@ -31,7 +32,7 @@ function model() {
   };
 }
 
-it('exposes both limits with bounds and disables unchanged saves', () => {
+testStable('exposes both limits with bounds and disables unchanged saves', () => {
   render(<PerformanceSettingsView model={model()} />);
   const active = screen.getByRole('spinbutton', { name: 'Concurrent AI requests' });
   const queued = screen.getByRole('spinbutton', { name: 'Waiting AI requests' });
@@ -47,7 +48,7 @@ it('exposes both limits with bounds and disables unchanged saves', () => {
   ).toBe(true);
 });
 
-it('submits a changed setting through its form and links validation to the input', () => {
+testStable('submits a changed setting through its form and links validation to the input', () => {
   const state = model();
 
   state.active.changed = true;
@@ -65,7 +66,7 @@ it('submits a changed setting through its form and links validation to the input
   expect(input).toHaveAttribute('aria-describedby', screen.getByRole('alert').id);
 });
 
-it('offers retry after a load failure', () => {
+testStable('offers retry after a load failure', () => {
   const state = { ...model(), data: undefined, error: true };
 
   render(<PerformanceSettingsView model={state} />);

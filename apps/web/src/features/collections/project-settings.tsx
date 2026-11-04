@@ -14,9 +14,10 @@ import { useIsMutating, useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
-import { projectsQueryOptions } from '../../lib/study-client/study.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { request } from '#web/lib/study-client/request.ts';
+import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+
 import { SubjectIconEditor, SubjectIdentity } from '../subjects';
 import { useCollectionState, validCollectionName } from './collection-state.queries';
 

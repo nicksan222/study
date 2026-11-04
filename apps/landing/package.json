@@ -2,6 +2,9 @@
   "name": "study-landing",
   "private": true,
   "type": "module",
+  "imports": {
+    "#landing/*": "./src/*"
+  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

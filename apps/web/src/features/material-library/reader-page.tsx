@@ -8,7 +8,8 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { DocumentActions } from '../document-editing';
 import { libraryReturn } from './browse-state';
 import { ExactDocument } from './exact-document';

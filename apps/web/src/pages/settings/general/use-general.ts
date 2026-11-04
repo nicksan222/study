@@ -1,8 +1,9 @@
 import { Language } from '@study/contracts/settings/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useLanguage } from '../../../lib/i18n';
-import { appSettingsQueryOptions } from '../../../lib/study-client/preferences.queries';
+import { useLanguage } from '#web/lib/i18n.tsx';
+import { appSettingsQueryOptions } from '#web/lib/study-client/preferences.queries.ts';
+
 import { languageMutationOptions } from './general.queries';
 
 export function useGeneralSettings() {

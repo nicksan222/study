@@ -13,7 +13,6 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import type { MaterialVersionId } from '@study/contracts/ids';
@@ -22,6 +21,7 @@ import type { Block } from '@study/contracts/sources/document';
 import { blockContentSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { testStable } from '@study/testing/node';
 import { Deferred, Effect, Exit, Fiber, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
@@ -213,7 +213,7 @@ function assertGeneratedIdentity(value: {
   });
 }
 
-test(
+testStable(
   'A-target, B-target and no-target requests discriminate exact rich captures and preserve only target IDs',
   { timeout: 20000 },
   async () => {
@@ -433,7 +433,7 @@ test(
 );
 
 for (const barrier of ['cancel', 'delete'] as const) {
-  test(
+  testStable(
     `target proposal ${barrier} during the native output Activity fences all late publication`,
     { timeout: 15000 },
     async () => {

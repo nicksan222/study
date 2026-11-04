@@ -1,12 +1,13 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { attachmentKey } from './attachments';
 import { Composer } from './composer';
@@ -25,10 +26,10 @@ import { SessionRuns } from './transformation';
 
 const rpc = vi.hoisted(() => ({ message: vi.fn(), pages: vi.fn() }));
 
-vi.mock('../../lib/i18n', () => ({
+vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (fn: (client: { 'conversations.message': typeof rpc.message }) => unknown) =>
     fn({ 'conversations.message': rpc.message })
 }));
@@ -142,50 +143,56 @@ afterEach(() => {
   for (const client of clients.splice(0)) client.clear();
 });
 
-it('keeps an uncertain upload across remount and never automatically creates it twice', async () => {
-  vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-  const first = mount(<Composer id={id} />);
+testStable(
+  'keeps an uncertain upload across remount and never automatically creates it twice',
+  async () => {
+    vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
+    const first = mount(<Composer id={id} />);
 
-  await act(async () => {
-    fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-      target: { files: [new File(['notes'], 'notes.txt')] }
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+        target: { files: [new File(['notes'], 'notes.txt')] }
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByText('SessionUploadUncertain');
-  expect(uploadSource).toHaveBeenCalledTimes(1);
-  first.unmount();
-  mount(<Composer id={id} />, first.client);
-  expect(screen.getByText('notes.txt')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
-  expect(uploadSource).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-});
+    await screen.findByText('SessionUploadUncertain');
+    expect(uploadSource).toHaveBeenCalledTimes(1);
+    first.unmount();
+    mount(<Composer id={id} />, first.client);
+    expect(screen.getByText('notes.txt')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
+    expect(uploadSource).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  }
+);
 
-it('sends attachment-only notes with accepted source IDs and does not upload again on send', async () => {
-  vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
-    ReturnType<typeof uploadSource>
-  >);
-  vi.mocked(saveNote).mockResolvedValue(message);
-  mount(<Composer id={id} />);
-  await act(async () => {
-    fireEvent.drop(screen.getByRole('region', { name: 'SessionCompose' }), {
-      dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
+testStable(
+  'sends attachment-only notes with accepted source IDs and does not upload again on send',
+  async () => {
+    vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
+      ReturnType<typeof uploadSource>
+    >);
+    vi.mocked(saveNote).mockResolvedValue(message);
+    mount(<Composer id={id} />);
+    await act(async () => {
+      fireEvent.drop(screen.getByRole('region', { name: 'SessionCompose' }), {
+        dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByText('SessionFileAccepted');
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, '', [44n]));
-  await waitFor(() => expect(screen.queryByText('notes.txt')).not.toBeInTheDocument());
-  expect(uploadSource).toHaveBeenCalledTimes(1);
-  expect(ask).not.toHaveBeenCalled();
-});
+    await screen.findByText('SessionFileAccepted');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, '', [44n]));
+    await waitFor(() => expect(screen.queryByText('notes.txt')).not.toBeInTheDocument());
+    expect(uploadSource).toHaveBeenCalledTimes(1);
+    expect(ask).not.toHaveBeenCalled();
+  }
+);
 
-it('keeps upload ownership while a receipt arrives after unmount', async () => {
+testStable('keeps upload ownership while a receipt arrives after unmount', async () => {
   let accept!: (value: Awaited<ReturnType<typeof uploadSource>>) => void;
 
   vi.mocked(uploadSource).mockImplementation(
@@ -213,7 +220,7 @@ it('keeps upload ownership while a receipt arrives after unmount', async () => {
   expect(uploadSource).toHaveBeenCalledTimes(1);
 });
 
-it('retains a definite rejection and only retries after a deliberate click', async () => {
+testStable('retains a definite rejection and only retries after a deliberate click', async () => {
   vi.mocked(uploadSource)
     .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported'))
     .mockResolvedValueOnce({ id: 46n } as Awaited<ReturnType<typeof uploadSource>>);
@@ -233,7 +240,7 @@ it('retains a definite rejection and only retries after a deliberate click', asy
   expect(uploadSource).toHaveBeenCalledTimes(2);
 });
 
-it.each([
+testStable.each([
   ['SessionImprove', 'improve'],
   ['SessionSummarize', 'summarize']
 ] as const)(
@@ -265,79 +272,88 @@ it.each([
   }
 );
 
-it('keeps the edit payload and write fence across remounts until the original receipt', async () => {
-  let accept!: (value: typeof message) => void;
+testStable(
+  'keeps the edit payload and write fence across remounts until the original receipt',
+  async () => {
+    let accept!: (value: typeof message) => void;
 
-  vi.mocked(editNote).mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        accept = resolve;
+    vi.mocked(editNote).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          accept = resolve;
+        })
+    );
+    const first = mount(actions());
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      const input = screen.getByRole('textbox');
+
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Edited note', { skipClick: true });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() =>
+      expect(editNote).toHaveBeenCalledWith({ messageId: message.id, text: 'Edited note' })
+    );
+    first.unmount();
+    mount(actions(), first.client);
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
+    await act(async () => accept(message));
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
+    expect(editNote).toHaveBeenCalledTimes(1);
+  }
+);
+
+testStable(
+  'does not rewrite a changed active version or silently use a historical version',
+  async () => {
+    rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
+    mount(actions());
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await screen.findByRole('alert');
+    expect(rewriteNote).not.toHaveBeenCalled();
+  }
+);
+
+testStable(
+  'offers explicit historical activation and sends setActiveVersion with its exact identity',
+  async () => {
+    vi.mocked(activateVersion).mockResolvedValue(message);
+    mount(actions(message.versions[0]!.id));
+    expect(screen.queryByRole('button', { name: 'SessionImprove' })).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionUseVersion' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() =>
+      expect(activateVersion).toHaveBeenCalledWith({
+        messageId: message.id,
+        versionId: message.versions[0]!.id
       })
-  );
-  const first = mount(actions());
+    );
+  }
+);
 
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    const input = screen.getByRole('textbox');
-
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Edited note', { skipClick: true });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() =>
-    expect(editNote).toHaveBeenCalledWith({ messageId: message.id, text: 'Edited note' })
-  );
-  first.unmount();
-  mount(actions(), first.client);
-  expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
-  await act(async () => accept(message));
-  await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
-  expect(editNote).toHaveBeenCalledTimes(1);
-});
-
-it('does not rewrite a changed active version or silently use a historical version', async () => {
-  rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
-  mount(actions());
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByRole('alert');
-  expect(rewriteNote).not.toHaveBeenCalled();
-});
-
-it('offers explicit historical activation and sends setActiveVersion with its exact identity', async () => {
-  vi.mocked(activateVersion).mockResolvedValue(message);
-  mount(actions(message.versions[0]!.id));
-  expect(screen.queryByRole('button', { name: 'SessionImprove' })).not.toBeInTheDocument();
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionUseVersion' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionApplyAction' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() =>
-    expect(activateVersion).toHaveBeenCalledWith({
-      messageId: message.id,
-      versionId: message.versions[0]!.id
-    })
-  );
-});
-
-it('never replays a rewrite after uncertain acceptance and remount', async () => {
+testStable('never replays a rewrite after uncertain acceptance and remount', async () => {
   vi.mocked(rewriteNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
   const first = mount(actions());
 
@@ -357,7 +373,7 @@ it('never replays a rewrite after uncertain acceptance and remount', async () =>
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
 });
 
-it('sends custom instructions only to the chosen message', async () => {
+testStable('sends custom instructions only to the chosen message', async () => {
   vi.mocked(rewriteNote).mockResolvedValue({
     requestId: 'custom',
     sessionId: id,
@@ -386,7 +402,7 @@ it('sends custom instructions only to the chosen message', async () => {
   );
 });
 
-it('offers editing actions without Ask or Reanswer for existing entries', () => {
+testStable('offers editing actions without Ask or Reanswer for existing entries', () => {
   const assistant = { ...message, role: 'assistant' as const, replyTo: message.id };
 
   mount(actions(message.activeVersionId!, assistant));
@@ -397,187 +413,210 @@ it('offers editing actions without Ask or Reanswer for existing entries', () => 
   expect(ask).not.toHaveBeenCalled();
 });
 
-it('retains exact retry identity for an Ask operation already stored before the capture-only UI', async () => {
-  vi.mocked(ask).mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
-  const input = {
-    sessionId: id,
-    expectedSelectionRevision: 8n,
-    intentKey: 'retained-quoted-ask',
-    text: 'Why is this true?',
-    instruction: JSON.stringify({
-      targetMessageId: '71',
-      targetVersionId: '81',
-      targetText: 'Current note'
-    })
-  };
+testStable(
+  'retains exact retry identity for an Ask operation already stored before the capture-only UI',
+  async () => {
+    vi.mocked(ask).mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+    });
+    const input = {
+      sessionId: id,
+      expectedSelectionRevision: 8n,
+      intentKey: 'retained-quoted-ask',
+      text: 'Why is this true?',
+      instruction: JSON.stringify({
+        targetMessageId: '71',
+        targetVersionId: '81',
+        targetText: 'Current note'
+      })
+    };
 
-  client.setQueryData(['session-drafts', String(id), 'message-action', String(message.id)], {
-    text: '',
-    instruction: '',
-    error: new StudyError('transient', 'Unconfirmed'),
-    attempt: {
-      action: 'ask',
-      versionId: message.activeVersionId,
+    client.setQueryData(['session-drafts', String(id), 'message-action', String(message.id)], {
       text: '',
       instruction: '',
-      askInput: input
-    }
-  });
-  const first = mount(actions(), client);
+      error: new StudyError('transient', 'Unconfirmed'),
+      attempt: {
+        action: 'ask',
+        versionId: message.activeVersionId,
+        text: '',
+        instruction: '',
+        askInput: input
+      }
+    });
+    const first = mount(actions(), client);
 
-  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
-  first.unmount();
-  mount(actions(), client);
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(ask).toHaveBeenCalledExactlyOnceWith(input));
-  expect(saveNote).not.toHaveBeenCalled();
-});
+    expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
+    first.unmount();
+    mount(actions(), client);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(ask).toHaveBeenCalledExactlyOnceWith(input));
+    expect(saveNote).not.toHaveBeenCalled();
+  }
+);
 
-it('discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals', async () => {
-  const run = {
-    requestId: 'request-z',
-    contextRequestId: null,
-    state: 'available',
-    cancelled: false,
-    resultVersionId: null,
-    proposedVersionId: 90n,
-    baseVersionId: 89n
-  };
+testStable(
+  'discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals',
+  async () => {
+    const run = {
+      requestId: 'request-z',
+      contextRequestId: null,
+      state: 'available',
+      cancelled: false,
+      resultVersionId: null,
+      proposedVersionId: 90n,
+      baseVersionId: 89n
+    };
 
-  rpc.pages.mockImplementation((before) =>
-    Promise.resolve(
-      before
-        ? {
-            items: [
-              {
-                ...run,
-                requestId: 'retired-a',
-                state: 'retired',
-                proposedVersionId: null,
-                baseVersionId: null
-              }
-            ],
-            next: null
-          }
-        : {
-            items: [
-              run,
-              { ...run, requestId: 'unavailable-b', state: 'unavailable', proposedVersionId: null }
-            ],
-            next: 'request-z'
-          }
-    )
-  );
-  mount(<SessionRuns id={id} />);
-  expect(await screen.findByTestId('proposal')).toHaveTextContent('request-z');
-  expect(screen.getAllByText('SessionContextUnavailable')[0]).toBeVisible();
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findAllByText('SessionRunRetired');
-  expect(rpc.pages).toHaveBeenCalledWith('request-z');
-  expect(screen.getAllByTestId('proposal')).toHaveLength(1);
-});
+    rpc.pages.mockImplementation((before) =>
+      Promise.resolve(
+        before
+          ? {
+              items: [
+                {
+                  ...run,
+                  requestId: 'retired-a',
+                  state: 'retired',
+                  proposedVersionId: null,
+                  baseVersionId: null
+                }
+              ],
+              next: null
+            }
+          : {
+              items: [
+                run,
+                {
+                  ...run,
+                  requestId: 'unavailable-b',
+                  state: 'unavailable',
+                  proposedVersionId: null
+                }
+              ],
+              next: 'request-z'
+            }
+      )
+    );
+    mount(<SessionRuns id={id} />);
+    expect(await screen.findByTestId('proposal')).toHaveTextContent('request-z');
+    expect(screen.getAllByText('SessionContextUnavailable')[0]).toBeVisible();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await screen.findAllByText('SessionRunRetired');
+    expect(rpc.pages).toHaveBeenCalledWith('request-z');
+    expect(screen.getAllByTestId('proposal')).toHaveLength(1);
+  }
+);
 
-it('captures accepted files and plain text together without requesting a reply', async () => {
-  vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
-    ReturnType<typeof uploadSource>
-  >);
-  vi.mocked(saveNote).mockResolvedValue(message);
-  mount(<Composer id={id} />);
-  fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
-    target: { files: [new File(['n'], 'n.txt')] }
-  });
-  await screen.findByText('SessionFileAccepted');
-  fireEvent.change(screen.getByRole('textbox'), {
-    target: { value: 'Keep this with the lecture' }
-  });
-  expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
-  await waitFor(() =>
-    expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Keep this with the lecture', [47n])
-  );
-  expect(ask).not.toHaveBeenCalled();
-  expect(uploadSource).toHaveBeenCalledTimes(1);
-});
-
-it('keeps the original note and source payload after an uncertain post without replay', async () => {
-  vi.mocked(uploadSource).mockResolvedValue({ id: 48n } as Awaited<
-    ReturnType<typeof uploadSource>
-  >);
-  vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-  const first = mount(<Composer id={id} />);
-
-  await act(async () => {
+testStable(
+  'captures accepted files and plain text together without requesting a reply',
+  async () => {
+    vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
+      ReturnType<typeof uploadSource>
+    >);
+    vi.mocked(saveNote).mockResolvedValue(message);
+    mount(<Composer id={id} />);
     fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
       target: { files: [new File(['n'], 'n.txt')] }
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByText('SessionFileAccepted');
-  await act(async () => {
+    await screen.findByText('SessionFileAccepted');
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Keep this with the lecture' }
+    });
+    expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByText('SessionNoteUncertain');
-  first.unmount();
-  mount(<Composer id={id} />, first.client);
-  expect(first.client.getQueryData(['session-drafts', String(id), 'note'])).toMatchObject({
-    noteAttempt: '',
-    noteSourceIds: [48n]
-  });
-  expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
-  expect(saveNote).toHaveBeenCalledTimes(1);
-  expect(uploadSource).toHaveBeenCalledTimes(1);
-});
+    await waitFor(() =>
+      expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Keep this with the lecture', [47n])
+    );
+    expect(ask).not.toHaveBeenCalled();
+    expect(uploadSource).toHaveBeenCalledTimes(1);
+  }
+);
 
-it('hands focus to the item editor and restores the invoking action on cancel', async () => {
-  mount(actions());
-  const trigger = screen.getByRole('button', { name: 'SessionEditNote' });
+testStable(
+  'keeps the original note and source payload after an uncertain post without replay',
+  async () => {
+    vi.mocked(uploadSource).mockResolvedValue({ id: 48n } as Awaited<
+      ReturnType<typeof uploadSource>
+    >);
+    vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
+    const first = mount(<Composer id={id} />);
 
-  trigger.focus();
-  await act(async () => {
-    fireEvent.click(trigger);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  expect(await screen.findByRole('textbox', { name: 'SessionEditNote' })).toHaveFocus();
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  expect(trigger).toHaveFocus();
-  expect(screen.queryByRole('button', { name: 'SessionVersions' })).toBeNull();
-});
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('SessionAttachFiles'), {
+        target: { files: [new File(['n'], 'n.txt')] }
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await screen.findByText('SessionFileAccepted');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await screen.findByText('SessionNoteUncertain');
+    first.unmount();
+    mount(<Composer id={id} />, first.client);
+    expect(first.client.getQueryData(['session-drafts', String(id), 'note'])).toMatchObject({
+      noteAttempt: '',
+      noteSourceIds: [48n]
+    });
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
+    expect(saveNote).toHaveBeenCalledTimes(1);
+    expect(uploadSource).toHaveBeenCalledTimes(1);
+  }
+);
 
-it('does not expose editing actions on an historical version', () => {
+testStable(
+  'hands focus to the item editor and restores the invoking action on cancel',
+  async () => {
+    mount(actions());
+    const trigger = screen.getByRole('button', { name: 'SessionEditNote' });
+
+    trigger.focus();
+    await act(async () => {
+      fireEvent.click(trigger);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(await screen.findByRole('textbox', { name: 'SessionEditNote' })).toHaveFocus();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'SessionVersions' })).toBeNull();
+  }
+);
+
+testStable('does not expose editing actions on an historical version', () => {
   mount(actions(message.versions[0]!.id));
   expect(screen.queryByRole('button', { name: 'SessionEditNote' })).toBeNull();
   expect(screen.getByRole('button', { name: 'SessionUseVersion' })).toBeEnabled();
 });
 
-it('puts the saved task title above technical run details without inventing a date', async () => {
-  rpc.pages.mockResolvedValue({
-    items: [
-      {
-        requestId: 'technical-request-identity',
-        contextRequestId: null,
-        state: 'available',
-        cancelled: true,
-        resultVersionId: null,
-        proposedVersionId: null,
-        baseVersionId: null
-      }
-    ],
-    next: null
-  });
-  mount(<SessionRuns id={id} />);
-  expect(await screen.findByText('Retained generation title')).toBeVisible();
-  const identity = screen.getByText('technical-request-identity');
+testStable(
+  'puts the saved task title above technical run details without inventing a date',
+  async () => {
+    rpc.pages.mockResolvedValue({
+      items: [
+        {
+          requestId: 'technical-request-identity',
+          contextRequestId: null,
+          state: 'available',
+          cancelled: true,
+          resultVersionId: null,
+          proposedVersionId: null,
+          baseVersionId: null
+        }
+      ],
+      next: null
+    });
+    mount(<SessionRuns id={id} />);
+    expect(await screen.findByText('Retained generation title')).toBeVisible();
+    const identity = screen.getByText('technical-request-identity');
 
-  expect(identity.closest('details')).not.toHaveAttribute('open');
-  expect(identity.closest('section')?.querySelector('time')).toBeNull();
-});
+    expect(identity.closest('details')).not.toHaveAttribute('open');
+    expect(identity.closest('section')?.querySelector('time')).toBeNull();
+  }
+);

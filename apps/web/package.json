@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#web/*": "./src/*"
+  },
   "scripts": {
     "dev": "vp dev",
     "build": "vp build",
@@ -23,5 +26,9 @@
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@study/testing": "*",
+    "@study/tooling": "*"
   }
 }

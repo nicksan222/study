@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { request } from '../../../lib/study-client/request';
-import { sidebarSettingsOptions } from '../../../lib/study-client/sidebar.queries';
+import { request } from '#web/lib/study-client/request.ts';
+import { sidebarSettingsOptions } from '#web/lib/study-client/sidebar.queries.ts';
 
 /** Validates and saves the threshold, preserving failed input for retry. */
 export function useSidebarSettings() {

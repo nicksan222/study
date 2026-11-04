@@ -1,7 +1,7 @@
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
 
 export function SessionDocumentCard({
   material,

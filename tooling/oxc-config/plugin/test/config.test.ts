@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { header } from './file-description.ts';
 import { lintFiles as lintSources, root } from './utils.ts';
@@ -15,34 +16,40 @@ const lintFiles: typeof lintSources = (files, ...options) =>
     ...options
   );
 
-test('whole import type remains enforced by built-in rules without a boundary false positive', () => {
-  const diagnostics = lintFiles({
-    'src/shared/inline-type.ts':
-      "import { type Project } from '@study/contracts';\n\nexport type Entity = Project;\n"
-  });
+testStable(
+  'whole import type remains enforced by built-in rules without a boundary false positive',
+  () => {
+    const diagnostics = lintFiles({
+      'src/shared/inline-type.ts':
+        "import { type Project } from '@study/contracts';\n\nexport type Entity = Project;\n"
+    });
 
-  assert.ok(diagnostics.length > 0);
-  assert.ok(diagnostics.every(({ code }) => !code.includes('browser-boundary')));
-  assert.ok(diagnostics.some(({ code }) => code.includes('consistent-type-specifier-style')));
-});
+    assert.ok(diagnostics.length > 0);
+    assert.ok(diagnostics.every(({ code }) => !code.includes('browser-boundary')));
+    assert.ok(diagnostics.some(({ code }) => code.includes('consistent-type-specifier-style')));
+  }
+);
 
-test('server cross-directory imports use package aliases and sibling imports stay legal', () => {
-  const diagnostics = lintFiles({
-    'src/runtime/bad-import.ts':
-      "import type { Value } from '../shared/safe.ts';\n\nexport type Next = Value;\n",
-    'src/runtime/bad-export.ts': "export * from '../shared/safe.ts';\n",
-    'src/runtime/bad-dynamic.ts': "export const value = import('../shared/safe.ts');\n",
-    'src/runtime/good-server.ts': "export { value } from '#server/shared/safe';\n",
-    'test/good-testing.ts': "export { helper } from '#testing/procedures';\n",
-    'src/shared/safe.ts': 'export const value = 1;\n\nexport type Value = number;\n',
-    'src/shared/sibling.ts': "export { value } from './safe.ts';\n"
-  });
+testStable(
+  'server cross-directory imports use package aliases and sibling imports stay legal',
+  () => {
+    const diagnostics = lintFiles({
+      'src/runtime/bad-import.ts':
+        "import type { Value } from '../shared/safe.ts';\n\nexport type Next = Value;\n",
+      'src/runtime/bad-export.ts': "export * from '../shared/safe.ts';\n",
+      'src/runtime/bad-dynamic.ts': "export const value = import('../shared/safe.ts');\n",
+      'src/runtime/good-server.ts': "export { value } from '#server/shared/safe';\n",
+      'test/good-testing.ts': "export { helper } from '#testing/procedures';\n",
+      'src/shared/safe.ts': 'export const value = 1;\n\nexport type Value = number;\n',
+      'src/shared/sibling.ts': "export { value } from './safe.ts';\n"
+    });
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ code }) => code.includes('no-restricted-imports')));
-});
+    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ code }) => code.includes('no-restricted-imports')));
+  }
+);
 
-test('Node resolves and loads extensionless nested server and testing aliases', () => {
+testStable('Node resolves and loads extensionless nested server and testing aliases', () => {
   const result = spawnSync(
     process.execPath,
     [
@@ -68,28 +75,34 @@ test('Node resolves and loads extensionless nested server and testing aliases', 
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
-test('server tests reject Node mock imports and context mocking through built-in rules', () => {
-  const diagnostics = lintFiles({
-    'test/mock-context.test.ts':
-      "import { test } from 'node:test';\n\ntest('mocked method', (t) => { t.mock.method(Math, 'random', () => 0.5); });\n",
-    'test/mock-import.ts':
-      "import { mock as tracker } from 'node:test';\n\nexport const mocking = tracker;\n",
-    'test/mock-destructure.ts':
-      'export function tracker(context: { mock: unknown }) { const { mock: tracker } = context;\n\nreturn tracker; }\n',
-    'test/real.test.ts':
-      "import assert from 'node:assert/strict';\nimport { test } from 'node:test';\n\ntest('real value', (t) => { t.after(() => {}); assert.equal(Math.max(1, 2), 2); });\n"
-  });
+testStable(
+  'server tests reject Node mock imports and context mocking through built-in rules',
+  () => {
+    const diagnostics = lintFiles({
+      'test/mock-context.test.ts':
+        "import { testStable } from '@study/testing/node';\n\ntestStable('mocked method', (t) => { t.mock.method(Math, 'random', () => 0.5); });\n",
+      'test/mock-import.ts':
+        "import { mock as tracker } from 'node:test';\n\nexport const mocking = tracker;\n",
+      'test/mock-destructure.ts':
+        'export function tracker(context: { mock: unknown }) { const { mock: tracker } = context;\n\nreturn tracker; }\n',
+      'test/real.test.ts':
+        "import assert from 'node:assert/strict';\nimport { testStable } from '@study/testing/node';\n\ntestStable('real value', (t) => { t.after(() => {}); assert.equal(Math.max(1, 2), 2); });\n"
+    });
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.equal(
-    diagnostics.filter(({ code }) => code.includes('no-restricted-properties')).length,
-    2
-  );
-  assert.equal(diagnostics.filter(({ code }) => code.includes('no-restricted-imports')).length, 1);
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/real.test.ts')));
-});
+    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.equal(
+      diagnostics.filter(({ code }) => code.includes('no-restricted-properties')).length,
+      2
+    );
+    assert.equal(
+      diagnostics.filter(({ code }) => code.includes('no-restricted-imports')).length,
+      1
+    );
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/real.test.ts')));
+  }
+);
 
-test('server tests reject Vitest and Jest mocking imports', () => {
+testStable('server tests reject Vitest and Jest mocking imports', () => {
   const diagnostics = lintFiles({
     'test/vitest.ts': "export { vi as mocking } from 'vitest';\n",
     'test/vite-plus.ts': "export { vi as mocking } from 'vite-plus/test';\n",
@@ -112,7 +125,7 @@ test('server tests reject Vitest and Jest mocking imports', () => {
   );
 });
 
-test('production config loads the Study plugin', () => {
+testStable('production config loads the Study plugin', () => {
   const diagnostics = lintFiles({
     'src/shared/boundary-smoke.ts': "export * from '#server/runtime/context';\n"
   });
@@ -125,7 +138,7 @@ test('production config loads the Study plugin', () => {
   );
 });
 
-test('production config enforces package boundaries', () => {
+testStable('production config enforces package boundaries', () => {
   const diagnostics = lintFiles({
     'src/package-smoke.ts': "import '@study/ui/button';\n"
   });
@@ -138,7 +151,7 @@ test('production config enforces package boundaries', () => {
   );
 });
 
-test('production config enforces database ownership', () => {
+testStable('production config enforces database ownership', () => {
   const diagnostics = lintFiles({
     'src/database-smoke.ts': "import { DatabaseSync } from 'node:sqlite';\n"
   });
@@ -146,7 +159,7 @@ test('production config enforces database ownership', () => {
   assert.ok(diagnostics.some(({ code }) => code === 'study(database-ownership)'));
 });
 
-test('Effect v4 rejects obsolete package paths in global and server config', () => {
+testStable('Effect v4 rejects obsolete package paths in global and server config', () => {
   const diagnostics = lintFiles(
     {
       'apps/server/src/old.ts': "export * from '@effect/platform/HttpClient';\n",
@@ -167,7 +180,7 @@ test('Effect v4 rejects obsolete package paths in global and server config', () 
   assert.ok(restricted.every(({ filename }) => !filename.endsWith('/modern.ts')));
 });
 
-test('production config enables Effect v4 renamed API guard', () => {
+testStable('production config enables Effect v4 renamed API guard', () => {
   const diagnostics = lintFiles({
     'src/old-effect.ts': "import { Effect } from 'effect';\n\nexport const old = Effect.catchAll;\n"
   });
@@ -178,7 +191,7 @@ test('production config enables Effect v4 renamed API guard', () => {
   );
 });
 
-test('production config rejects direct Drizzle imports outside the database package', () => {
+testStable('production config rejects direct Drizzle imports outside the database package', () => {
   const diagnostics = lintFiles({
     'src/drizzle-smoke.ts': "import { sql } from 'drizzle-orm'; export { sql };"
   });
@@ -186,7 +199,7 @@ test('production config rejects direct Drizzle imports outside the database pack
   assert.ok(diagnostics.some(({ code }) => code === 'study(drizzle-boundary)'));
 });
 
-test('the database package alone owns Drizzle dependencies', async () => {
+testStable('the database package alone owns Drizzle dependencies', async () => {
   const { readdirSync, readFileSync, existsSync } = await import('node:fs');
   const manifests = [join(root, 'package.json')];
 
@@ -220,7 +233,7 @@ test('the database package alone owns Drizzle dependencies', async () => {
   }
 });
 
-test('future contracts subpaths are checked against explicit manifest exports', () => {
+testStable('future contracts subpaths are checked against explicit manifest exports', () => {
   const diagnostics = lintFiles(
     {
       'src/domains/projects/schema.ts':
@@ -236,15 +249,18 @@ test('future contracts subpaths are checked against explicit manifest exports', 
   assert.ok(diagnostics[0]?.filename.endsWith('/src/domains/sources/schema.ts'));
 });
 
-test('production config enables feature orchestration, native clock and metric cardinality', () => {
-  const diagnostics = lintFiles({
-    'src/features/example/service.ts':
-      "import { Metric } from 'effect'; async function operation() {} Date.now(); Metric.withAttributes({ requestId: 'id' });"
-  });
+testStable(
+  'production config enables feature orchestration, native clock and metric cardinality',
+  () => {
+    const diagnostics = lintFiles({
+      'src/features/example/service.ts':
+        "import { Metric } from 'effect'; async function operation() {} Date.now(); Metric.withAttributes({ requestId: 'id' });"
+    });
 
-  for (const rule of ['feature-orchestration', 'native-clock', 'metric-cardinality'])
-    assert.ok(
-      diagnostics.some(({ code }) => code === `study(${rule})`),
-      rule
-    );
-});
+    for (const rule of ['feature-orchestration', 'native-clock', 'metric-cardinality'])
+      assert.ok(
+        diagnostics.some(({ code }) => code === `study(${rule})`),
+        rule
+      );
+  }
+);

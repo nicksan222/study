@@ -2,7 +2,8 @@ import { defaultAppearancePreferences } from '@study/contracts/settings/types';
 import { RangeControl } from '@study/ui/range-control';
 import { Settings } from '@study/ui/settings';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import type { AppearanceModel } from './use-page';
 
 /** Edits appearance, language and zoom through persisted preference actions. */

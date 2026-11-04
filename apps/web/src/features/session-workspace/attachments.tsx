@@ -8,7 +8,8 @@ import { ComposerSurface } from '@study/ui/composer';
 import { Notebook } from '@study/ui/session-workspace';
 import { Paperclip, RotateCcw, X } from 'lucide-react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { appearances, attachmentPreviewKind } from './attachment-appearance';
 import { useAttachments } from './attachments.queries';
 import type { Attachment } from './attachments.queries';

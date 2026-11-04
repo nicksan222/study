@@ -8,7 +8,7 @@ import {
   cancelChatGptSignIn,
   signOutChatGpt,
   saveAiSettings
-} from '../../../lib/study-client/ai-settings';
+} from '#web/lib/study-client/ai-settings.ts';
 
 export type SignInAttempt = Awaited<ReturnType<typeof startChatGptSignIn>>;
 

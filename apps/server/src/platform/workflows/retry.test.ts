@@ -13,13 +13,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyError } from '@study/contracts/errors';
+import { testStable } from '@study/testing/node';
 
 import { retryDisposition } from '#server/platform/workflows/retry';
 
-test('classifies workflow failures without retrying terminal errors', () => {
+testStable('classifies workflow failures without retrying terminal errors', () => {
   for (const kind of ['auth', 'config', 'model_unavailable'] as const)
     assert.equal(retryDisposition(new StudyError(kind, 'test')), 'configuration');
 

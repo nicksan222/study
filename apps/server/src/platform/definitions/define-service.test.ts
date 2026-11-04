@@ -15,16 +15,16 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyError } from '@study/contracts/errors';
+import { testStable } from '@study/testing/node';
 import { Cause, Context, Effect, Exit, Fiber, Layer } from 'effect';
 
 import { defineService } from '#server/platform/definitions/define-service';
 
 class Greeting extends Context.Service<Greeting, string>()('test/Greeting') {}
 
-test('service acquires dependencies and runs operations', async () => {
+testStable('service acquires dependencies and runs operations', async () => {
   const service = defineService(
     'test/Greeter',
     Effect.gen(function* () {
@@ -50,7 +50,7 @@ test('service acquires dependencies and runs operations', async () => {
   assert.equal(await result, 'Hello, Ada');
 });
 
-test('service preserves typed failure identity and fields', async () => {
+testStable('service preserves typed failure identity and fields', async () => {
   const failure = { _tag: 'Conflict' as const, revision: 42 };
   const service = defineService(
     'test/Failure',
@@ -68,7 +68,7 @@ test('service preserves typed failure identity and fields', async () => {
   assert.deepEqual(result, { _tag: 'Conflict', revision: 42 });
 });
 
-test('service preserves a StudyError and its cause', async () => {
+testStable('service preserves a StudyError and its cause', async () => {
   const cause = new Error('underlying');
   const failure = new StudyError('transient', 'unavailable', { cause, retryAfterMs: 123 });
   const service = defineService(
@@ -86,7 +86,7 @@ test('service preserves a StudyError and its cause', async () => {
   assert.equal(result.retryAfterMs, 123);
 });
 
-test('service suspends and normalizes synchronous construction throws', async () => {
+testStable('service suspends and normalizes synchronous construction throws', async () => {
   const cause = new Error('private');
   const service = defineService(
     'test/Throw',
@@ -127,7 +127,7 @@ function serviceTypeAssertions() {
 
 void serviceTypeAssertions;
 
-test('service operations remain lazy and cancellable', async () => {
+testStable('service operations remain lazy and cancellable', async () => {
   let started = 0;
   let constructed = 0;
   let cancelled = 0;
@@ -224,7 +224,7 @@ function errorAndLayerTypeAssertions() {
 
 void errorAndLayerTypeAssertions;
 
-test('service methods retain their individual capability requirements', async () => {
+testStable('service methods retain their individual capability requirements', async () => {
   const guarded = defineService(
     'test/Guarded',
     Effect.succeed({ publish: () => Effect.map(Publication, (owner) => `published:${owner}`) })

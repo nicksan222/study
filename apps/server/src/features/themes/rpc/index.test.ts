@@ -14,10 +14,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { ThemesRpc } from '@study/contracts/themes/rpc';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
@@ -27,7 +27,7 @@ import { Database } from '#server/platform/database/database';
 
 import { ThemesRpcLive } from './index.ts';
 
-test('native themes RPC exposes the catalog and typed failures', async () => {
+testStable('native themes RPC exposes the catalog and typed failures', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const handlers = ThemesRpcLive.pipe(

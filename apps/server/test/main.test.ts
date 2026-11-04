@@ -17,18 +17,18 @@ import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createInterface } from 'node:readline';
-import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { createServerTest } from '#testing/server-test';
 
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
-  test(
+  testStable(
     `server entry serves native RPC and shuts down on ${shutdown}`,
     { timeout: 30_000 },
     async (t) => {

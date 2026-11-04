@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
-import { applyAppearance } from '../../lib/appearance';
+import { applyAppearance } from '#web/lib/appearance.ts';
+
 import { appearanceQueryOptions, appearanceMutationOptions } from './appearance.queries';
 import type { AppearanceData } from './appearance.queries';
 import type { SettingsSectionId } from './page.view';

@@ -21,7 +21,8 @@ import { Link } from '@tanstack/react-router';
 import { History as HistoryIcon } from 'lucide-react';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { versionOptions } from '../material-library';
 import { AttachmentCards } from './attachment-cards';
 import { MessageActions } from './message-actions';

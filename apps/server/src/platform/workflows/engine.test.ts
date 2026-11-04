@@ -16,12 +16,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { failureSchema } from '@study/contracts/errors';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Deferred, Effect, Exit, Option, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
 
@@ -29,175 +29,181 @@ import { ServerContext } from '#server/platform/database/context';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { workflowStore } from '#server/platform/workflows/store';
 
-test('duplicate deferred delivery does not restart an activity after the wait has completed', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  let calls = 0;
-  let interruptions = 0;
-  const workflow = Workflow.make('duplicate-wake', {
-    payload: { id: Schema.String },
-    idempotencyKey: ({ id }) => id,
-    success: Schema.Number
-  });
-  const gate = DurableDeferred.make('gate');
-
-  try {
-    function* verifyDuplicateDelivery() {
-      const engine = yield* WorkflowEngine.WorkflowEngine;
-      const started = yield* Deferred.make<void>();
-      const finish = yield* Deferred.make<void>();
-
-      function recordInterruption() {
-        return Effect.sync(() => {
-          interruptions++;
-        });
-      }
-
-      function runWorkflow() {
-        return Effect.gen(function* () {
-          yield* DurableDeferred.await(gate);
-
-          return yield* Activity.make({
-            name: 'paid-operation',
-            success: Schema.Number,
-            execute: Effect.gen(function* () {
-              calls++;
-              yield* Deferred.succeed(started, undefined);
-              yield* Deferred.await(finish);
-
-              return calls;
-            }).pipe(Effect.onInterrupt(recordInterruption))
-          });
-        });
-      }
-
-      yield* engine.register(workflow, runWorkflow);
-      yield* engine.execute(workflow, {
-        executionId: 'one',
-        payload: { id: 'one' },
-        discard: true
-      });
-      let state = yield* engine.poll(workflow, 'one');
-
-      while (Option.isNone(state)) {
-        yield* Effect.sleep('5 millis');
-        state = yield* engine.poll(workflow, 'one');
-      }
-
-      const delivery = {
-        workflowName: workflow._tag,
-        executionId: 'one',
-        deferredName: gate.name,
-        exit: Exit.void
-      };
-
-      yield* engine.deferredDone(gate, delivery);
-      yield* Deferred.await(started);
-      yield* engine.deferredDone(gate, delivery);
-      yield* Deferred.succeed(finish, undefined);
-
-      for (let i = 0; i < 100; i++) {
-        state = yield* engine.poll(workflow, 'one');
-
-        if (Option.isSome(state) && state.value._tag === 'Complete') break;
-
-        yield* Effect.sleep('5 millis');
-      }
-
-      assert.ok(Option.isSome(state) && state.value._tag === 'Complete');
-      assert.equal(interruptions, 0);
-      assert.equal(calls, 1);
-    }
-
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(verifyDuplicateDelivery).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-  } finally {
-    context.close();
-    location.cleanup();
-  }
-});
-
-test('replays a completed native activity after suspension and reopening SQLite', async () => {
-  const location = createTestDatabase();
-  let calls = 0;
-  const workflow = Workflow.make('replay-test', {
-    payload: { id: Schema.String },
-    idempotencyKey: ({ id }) => id,
-    success: Schema.Number
-  });
-  const activity = Activity.make({
-    name: 'count',
-    success: Schema.Number,
-    execute: Effect.sync(() => ++calls)
-  });
-  const gate = DurableDeferred.make('gate');
-  const handler = () =>
-    Effect.gen(function* () {
-      const value = yield* activity;
-
-      yield* DurableDeferred.await(gate);
-
-      return value;
+testStable(
+  'duplicate deferred delivery does not restart an activity after the wait has completed',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    let calls = 0;
+    let interruptions = 0;
+    const workflow = Workflow.make('duplicate-wake', {
+      payload: { id: Schema.String },
+      idempotencyKey: ({ id }) => id,
+      success: Schema.Number
     });
-  const first = (context: ServerContext) =>
-    Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+    const gate = DurableDeferred.make('gate');
 
-          yield* engine.register(workflow, handler);
-          yield* engine.execute(workflow, {
-            executionId: 'one',
-            payload: { id: 'one' },
-            discard: true
+    try {
+      function* verifyDuplicateDelivery() {
+        const engine = yield* WorkflowEngine.WorkflowEngine;
+        const started = yield* Deferred.make<void>();
+        const finish = yield* Deferred.make<void>();
+
+        function recordInterruption() {
+          return Effect.sync(() => {
+            interruptions++;
           });
-          let result = yield* engine.poll(workflow, 'one');
+        }
 
-          while (Option.isNone(result)) {
-            yield* Effect.sleep('10 millis');
-            result = yield* engine.poll(workflow, 'one');
-          }
+        function runWorkflow() {
+          return Effect.gen(function* () {
+            yield* DurableDeferred.await(gate);
 
-          assert.equal(result.value._tag, 'Suspended');
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-  const second = (context: ServerContext) =>
-    Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+            return yield* Activity.make({
+              name: 'paid-operation',
+              success: Schema.Number,
+              execute: Effect.gen(function* () {
+                calls++;
+                yield* Deferred.succeed(started, undefined);
+                yield* Deferred.await(finish);
 
-          yield* engine.register(workflow, handler);
-          yield* engine.deferredDone(gate, {
-            workflowName: workflow._tag,
-            executionId: 'one',
-            deferredName: gate.name,
-            exit: Exit.void
+                return calls;
+              }).pipe(Effect.onInterrupt(recordInterruption))
+            });
           });
+        }
 
-          return yield* engine.execute(workflow, { executionId: 'one', payload: { id: 'one' } });
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-  let context = new ServerContext(location.open());
+        yield* engine.register(workflow, runWorkflow);
+        yield* engine.execute(workflow, {
+          executionId: 'one',
+          payload: { id: 'one' },
+          discard: true
+        });
+        let state = yield* engine.poll(workflow, 'one');
 
-  try {
-    await first(context);
-    context.close();
-    context = new ServerContext(location.open());
-    assert.equal(await second(context), 1);
-    assert.equal(calls, 1);
-  } finally {
-    context.close();
-    location.cleanup();
+        while (Option.isNone(state)) {
+          yield* Effect.sleep('5 millis');
+          state = yield* engine.poll(workflow, 'one');
+        }
+
+        const delivery = {
+          workflowName: workflow._tag,
+          executionId: 'one',
+          deferredName: gate.name,
+          exit: Exit.void
+        };
+
+        yield* engine.deferredDone(gate, delivery);
+        yield* Deferred.await(started);
+        yield* engine.deferredDone(gate, delivery);
+        yield* Deferred.succeed(finish, undefined);
+
+        for (let i = 0; i < 100; i++) {
+          state = yield* engine.poll(workflow, 'one');
+
+          if (Option.isSome(state) && state.value._tag === 'Complete') break;
+
+          yield* Effect.sleep('5 millis');
+        }
+
+        assert.ok(Option.isSome(state) && state.value._tag === 'Complete');
+        assert.equal(interruptions, 0);
+        assert.equal(calls, 1);
+      }
+
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(verifyDuplicateDelivery).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('SQLite leases prevent concurrent claims and fence expired owners', () => {
+testStable(
+  'replays a completed native activity after suspension and reopening SQLite',
+  async () => {
+    const location = createTestDatabase();
+    let calls = 0;
+    const workflow = Workflow.make('replay-test', {
+      payload: { id: Schema.String },
+      idempotencyKey: ({ id }) => id,
+      success: Schema.Number
+    });
+    const activity = Activity.make({
+      name: 'count',
+      success: Schema.Number,
+      execute: Effect.sync(() => ++calls)
+    });
+    const gate = DurableDeferred.make('gate');
+    const handler = () =>
+      Effect.gen(function* () {
+        const value = yield* activity;
+
+        yield* DurableDeferred.await(gate);
+
+        return value;
+      });
+    const first = (context: ServerContext) =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            yield* engine.register(workflow, handler);
+            yield* engine.execute(workflow, {
+              executionId: 'one',
+              payload: { id: 'one' },
+              discard: true
+            });
+            let result = yield* engine.poll(workflow, 'one');
+
+            while (Option.isNone(result)) {
+              yield* Effect.sleep('10 millis');
+              result = yield* engine.poll(workflow, 'one');
+            }
+
+            assert.equal(result.value._tag, 'Suspended');
+          }).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+    const second = (context: ServerContext) =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            yield* engine.register(workflow, handler);
+            yield* engine.deferredDone(gate, {
+              workflowName: workflow._tag,
+              executionId: 'one',
+              deferredName: gate.name,
+              exit: Exit.void
+            });
+
+            return yield* engine.execute(workflow, { executionId: 'one', payload: { id: 'one' } });
+          }).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+    let context = new ServerContext(location.open());
+
+    try {
+      await first(context);
+      context.close();
+      context = new ServerContext(location.open());
+      assert.equal(await second(context), 1);
+      assert.equal(calls, 1);
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable('SQLite leases prevent concurrent claims and fence expired owners', () => {
   const location = createTestDatabase();
   const first = new ServerContext(location.open());
   const second = new ServerContext(location.open());
@@ -224,7 +230,7 @@ test('SQLite leases prevent concurrent claims and fence expired owners', () => {
   }
 });
 
-test('a cancelled suspended execution stays cancelled after reopening SQLite', async () => {
+testStable('a cancelled suspended execution stays cancelled after reopening SQLite', async () => {
   const location = createTestDatabase();
   let calls = 0;
   let finalizers = 0;
@@ -297,47 +303,50 @@ test('a cancelled suspended execution stays cancelled after reopening SQLite', a
   }
 });
 
-test('a pending interruption is recovered after reopening without starting another activity', async () => {
-  const location = createTestDatabase();
-  let calls = 0;
-  const workflow = Workflow.make('pending-cancel', {
-    payload: { id: Schema.String },
-    idempotencyKey: ({ id }) => id
-  });
-  const activity = Activity.make({
-    name: 'new-work',
-    execute: Effect.sync(() => {
-      calls++;
-    })
-  });
-  let context = new ServerContext(location.open());
+testStable(
+  'a pending interruption is recovered after reopening without starting another activity',
+  async () => {
+    const location = createTestDatabase();
+    let calls = 0;
+    const workflow = Workflow.make('pending-cancel', {
+      payload: { id: Schema.String },
+      idempotencyKey: ({ id }) => id
+    });
+    const activity = Activity.make({
+      name: 'new-work',
+      execute: Effect.sync(() => {
+        calls++;
+      })
+    });
+    let context = new ServerContext(location.open());
 
-  try {
-    workflowStore(context).start('pending', workflow._tag, '{"id":"pending"}', undefined);
-    workflowStore(context).interrupt('pending', 'safe');
-    context.close();
-    context = new ServerContext(location.open());
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+    try {
+      workflowStore(context).start('pending', workflow._tag, '{"id":"pending"}', undefined);
+      workflowStore(context).interrupt('pending', 'safe');
+      context.close();
+      context = new ServerContext(location.open());
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
 
-          yield* engine.register(workflow, () => activity);
-          yield* engine.resume(workflow, 'pending');
+            yield* engine.register(workflow, () => activity);
+            yield* engine.resume(workflow, 'pending');
 
-          while (workflowStore(context).execution('pending')?.status !== 'cancelled')
-            yield* Effect.sleep('10 millis');
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-    assert.equal(calls, 0);
-  } finally {
-    context.close();
-    location.cleanup();
+            while (workflowStore(context).execution('pending')?.status !== 'cancelled')
+              yield* Effect.sleep('10 millis');
+          }).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+      assert.equal(calls, 0);
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('two engines sharing SQLite do not run an activity concurrently', async () => {
+testStable('two engines sharing SQLite do not run an activity concurrently', async () => {
   const location = createTestDatabase();
   const first = new ServerContext(location.open());
   const second = new ServerContext(location.open());
@@ -397,133 +406,139 @@ test('two engines sharing SQLite do not run an activity concurrently', async () 
   }
 });
 
-test('unsafe interruption preempts a running activity and persists cancellation', async () => {
-  const location = createTestDatabase();
-  let calls = 0;
-  const workflow = Workflow.make('unsafe-cancel', {
-    payload: { id: Schema.String },
-    idempotencyKey: ({ id }) => id
-  });
-  const activity = Activity.make({
-    name: 'blocked',
-    execute: Effect.sync(() => {
-      calls++;
-    }).pipe(Effect.andThen(Effect.never))
-  });
-  let context = new ServerContext(location.open());
+testStable(
+  'unsafe interruption preempts a running activity and persists cancellation',
+  async () => {
+    const location = createTestDatabase();
+    let calls = 0;
+    const workflow = Workflow.make('unsafe-cancel', {
+      payload: { id: Schema.String },
+      idempotencyKey: ({ id }) => id
+    });
+    const activity = Activity.make({
+      name: 'blocked',
+      execute: Effect.sync(() => {
+        calls++;
+      }).pipe(Effect.andThen(Effect.never))
+    });
+    let context = new ServerContext(location.open());
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
 
-          yield* engine.register(workflow, () => activity);
-          yield* engine.execute(workflow, {
-            executionId: 'unsafe',
-            payload: { id: 'unsafe' },
-            discard: true
-          });
+            yield* engine.register(workflow, () => activity);
+            yield* engine.execute(workflow, {
+              executionId: 'unsafe',
+              payload: { id: 'unsafe' },
+              discard: true
+            });
 
-          while (calls === 0) yield* Effect.sleep('10 millis');
+            while (calls === 0) yield* Effect.sleep('10 millis');
 
-          yield* engine.interruptUnsafe(workflow, 'unsafe');
+            yield* engine.interruptUnsafe(workflow, 'unsafe');
 
-          while (workflowStore(context).execution('unsafe')?.status !== 'cancelled')
-            yield* Effect.sleep('10 millis');
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-    context.close();
-    context = new ServerContext(location.open());
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+            while (workflowStore(context).execution('unsafe')?.status !== 'cancelled')
+              yield* Effect.sleep('10 millis');
+          }).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+      context.close();
+      context = new ServerContext(location.open());
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
 
-          yield* engine.register(workflow, () => activity);
-          yield* engine.resume(workflow, 'unsafe');
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-    assert.equal(calls, 1);
-    assert.equal(workflowStore(context).execution('unsafe')?.status, 'cancelled');
-  } finally {
-    context.close();
-    location.cleanup();
+            yield* engine.register(workflow, () => activity);
+            yield* engine.resume(workflow, 'unsafe');
+          }).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+      assert.equal(calls, 1);
+      assert.equal(workflowStore(context).execution('unsafe')?.status, 'cancelled');
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('an activity receives its captured engine lease and cannot adopt a replacement owner', async () => {
-  const { currentWorkflowActivityOwner } = await import('#server/platform/workflows/ownership');
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const workflow = Workflow.make('ownership-capability-test', {
-    payload: { id: Schema.String },
-    idempotencyKey: ({ id }) => id,
-    success: Schema.String,
-    error: failureSchema
-  });
+testStable(
+  'an activity receives its captured engine lease and cannot adopt a replacement owner',
+  async () => {
+    const { currentWorkflowActivityOwner } = await import('#server/platform/workflows/ownership');
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const workflow = Workflow.make('ownership-capability-test', {
+      payload: { id: Schema.String },
+      idempotencyKey: ({ id }) => id,
+      success: Schema.String,
+      error: failureSchema
+    });
 
-  try {
-    function* verifyCapturedLease() {
-      const engine = yield* WorkflowEngine.WorkflowEngine;
+    try {
+      function* verifyCapturedLease() {
+        const engine = yield* WorkflowEngine.WorkflowEngine;
 
-      function runWorkflow() {
-        return Activity.make({
-          name: 'capture-owner',
-          success: Schema.String,
-          error: failureSchema,
-          execute: Effect.gen(function* () {
-            const owner = yield* currentWorkflowActivityOwner;
+        function runWorkflow() {
+          return Activity.make({
+            name: 'capture-owner',
+            success: Schema.String,
+            error: failureSchema,
+            execute: Effect.gen(function* () {
+              const owner = yield* currentWorkflowActivityOwner;
 
-            assert.equal(owner.executionId, 'captured');
-            assert.equal(owner.activityName, 'capture-owner');
-            assert.ok(owner.ownerToken.length > 0);
-            const store = workflowStore(context);
+              assert.equal(owner.executionId, 'captured');
+              assert.equal(owner.activityName, 'capture-owner');
+              assert.ok(owner.ownerToken.length > 0);
+              const store = workflowStore(context);
 
-            assert.equal(store.execution(owner.executionId)?.owner_token, owner.ownerToken);
-            // A newer lease in SQLite cannot change the granted identity.
-            context.db.orm
-              .update(workflow_executions)
-              .set({ owner_token: 'replacement' })
-              .where(eq(workflow_executions.execution_id, owner.executionId))
-              .run();
-            assert.equal((yield* currentWorkflowActivityOwner).ownerToken, owner.ownerToken);
-            assert.throws(() => store.assertOwner(owner.executionId, owner.ownerToken), /fenced/);
-            context.db.orm
-              .update(workflow_executions)
-              .set({ owner_token: owner.ownerToken })
-              .where(eq(workflow_executions.execution_id, owner.executionId))
-              .run();
+              assert.equal(store.execution(owner.executionId)?.owner_token, owner.ownerToken);
+              // A newer lease in SQLite cannot change the granted identity.
+              context.db.orm
+                .update(workflow_executions)
+                .set({ owner_token: 'replacement' })
+                .where(eq(workflow_executions.execution_id, owner.executionId))
+                .run();
+              assert.equal((yield* currentWorkflowActivityOwner).ownerToken, owner.ownerToken);
+              assert.throws(() => store.assertOwner(owner.executionId, owner.ownerToken), /fenced/);
+              context.db.orm
+                .update(workflow_executions)
+                .set({ owner_token: owner.ownerToken })
+                .where(eq(workflow_executions.execution_id, owner.executionId))
+                .run();
 
-            return owner.executionId;
-          })
+              return owner.executionId;
+            })
+          });
+        }
+
+        yield* engine.register(workflow, runWorkflow);
+
+        return yield* engine.execute(workflow, {
+          executionId: 'captured',
+          payload: { id: 'captured' }
         });
       }
 
-      yield* engine.register(workflow, runWorkflow);
+      const result = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(verifyCapturedLease).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
 
-      return yield* engine.execute(workflow, {
-        executionId: 'captured',
-        payload: { id: 'captured' }
-      });
+      assert.equal(result, 'captured');
+    } finally {
+      context.close();
+      location.cleanup();
     }
-
-    const result = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(verifyCapturedLease).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-
-    assert.equal(result, 'captured');
-  } finally {
-    context.close();
-    location.cleanup();
   }
-});
+);
 
-test('closing an expired engine cannot release a replacement engine claim', async () => {
+testStable('closing an expired engine cannot release a replacement engine claim', async () => {
   const location = createTestDatabase();
   const first = new ServerContext(location.open());
   const second = new ServerContext(location.open());
@@ -598,7 +613,7 @@ test('closing an expired engine cannot release a replacement engine claim', asyn
   }
 });
 
-test('a suspended run can resume in the same engine after its fiber completes', async () => {
+testStable('a suspended run can resume in the same engine after its fiber completes', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const workflow = Workflow.make('same-engine-resume', {

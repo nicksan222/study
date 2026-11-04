@@ -2,7 +2,8 @@ import type { ChatMessage } from '@study/contracts/conversations/messages';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { sessionKey } from './session-workspace.queries';
 
 /** Saves optional card metadata without creating a new content version. */

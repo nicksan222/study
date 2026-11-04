@@ -1,7 +1,8 @@
 import type { SessionId, MaterialId } from '@study/contracts/ids';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
+
 import { pageIdentity } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
 import { threadOptions } from './session-workspace.queries';

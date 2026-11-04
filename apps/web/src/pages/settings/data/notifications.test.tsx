@@ -1,14 +1,15 @@
 import { acceptRestoreSchema, backupManifestSchema } from '@study/contracts/system/backups';
+import { testStable } from '@study/testing/vitest';
 import { toastManager } from '@study/ui/toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render } from '@testing-library/react';
 import { Schema } from 'effect';
-import { beforeEach, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { backupMutationKeys } from './data.queries';
 import { BackupNotifications } from './notifications';
 
-vi.mock('../../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 
 const backup = Schema.decodeUnknownSync(backupManifestSchema)({
   id: '11111111-1111-4111-8111-111111111111',
@@ -75,36 +76,42 @@ async function complete(
   });
 }
 
-it('toasts a newly committed operation once and never replays cached success on remount or refresh', async () => {
-  const client = new QueryClient();
-  const first = mount(client);
+testStable(
+  'toasts a newly committed operation once and never replays cached success on remount or refresh',
+  async () => {
+    const client = new QueryClient();
+    const first = mount(client);
 
-  await complete(client, backupMutationKeys.create, backup);
-  expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
-    title: 'DataBackupCreated',
-    type: 'success'
-  });
-  await client.invalidateQueries();
-  first.unmount();
-  const second = mount(client);
+    await complete(client, backupMutationKeys.create, backup);
+    expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
+      title: 'DataBackupCreated',
+      type: 'success'
+    });
+    await client.invalidateQueries();
+    first.unmount();
+    const second = mount(client);
 
-  expect(toastManager.add).toHaveBeenCalledTimes(1);
-  second.unmount();
-  client.clear();
-});
+    expect(toastManager.add).toHaveBeenCalledTimes(1);
+    second.unmount();
+    client.clear();
+  }
+);
 
-it('does not notify about success that completed before the provider subscribed', async () => {
-  const client = new QueryClient();
+testStable(
+  'does not notify about success that completed before the provider subscribed',
+  async () => {
+    const client = new QueryClient();
 
-  await complete(client, backupMutationKeys.create, backup);
-  const view = mount(client);
+    await complete(client, backupMutationKeys.create, backup);
+    const view = mount(client);
 
-  expect(toastManager.add).not.toHaveBeenCalled();
-  view.unmount();
-  client.clear();
-});
+    expect(toastManager.add).not.toHaveBeenCalled();
+    view.unmount();
+    client.clear();
+  }
+);
 
-it.each(['idle', 'applied', 'activation-failed', 'target-changed', 'pending', 'uncertain'])(
+testStable.each(['idle', 'applied', 'activation-failed', 'target-changed', 'pending', 'uncertain'])(
   'does not call a fulfilled %s restore outcome a successful staged restore',
   async (state) => {
     const client = new QueryClient();
@@ -122,7 +129,7 @@ it.each(['idle', 'applied', 'activation-failed', 'target-changed', 'pending', 'u
   }
 );
 
-it('only confirms a staged restore for the exact accepted backup', async () => {
+testStable('only confirms a staged restore for the exact accepted backup', async () => {
   const client = new QueryClient();
   const view = mount(client);
 
@@ -155,7 +162,7 @@ it('only confirms a staged restore for the exact accepted backup', async () => {
   client.clear();
 });
 
-it.each(
+testStable.each(
   [
     backupMutationKeys.create,
     backupMutationKeys.import,
@@ -172,7 +179,7 @@ it.each(
   client.clear();
 });
 
-it('does not turn a rejected request into successful feedback', async () => {
+testStable('does not turn a rejected request into successful feedback', async () => {
   const client = new QueryClient();
   const view = mount(client);
   const mutation = client.getMutationCache().build(client, {

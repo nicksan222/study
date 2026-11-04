@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('views cannot fetch, run page hooks or own application state', () => {
+testStable('views cannot fetch, run page hooks or own application state', () => {
   const diagnostics = lintRule(
     'web-presentation-purity',
     {
@@ -17,7 +18,7 @@ test('views cannot fetch, run page hooks or own application state', () => {
   assert.equal(diagnostics.length, 9, JSON.stringify(diagnostics));
 });
 
-test('views accept presentation hooks, declarative links and type-only contracts', () => {
+testStable('views accept presentation hooks, declarative links and type-only contracts', () => {
   assert.deepEqual(
     lintRule(
       'web-presentation-purity',
@@ -31,11 +32,13 @@ test('views accept presentation hooks, declarative links and type-only contracts
   );
 });
 
-test('presentation cannot access browser globals or hide DOM mutations behind aliases', () => {
-  const diagnostics = lintRule(
-    'web-presentation-purity',
-    {
-      'apps/web/src/pages/home/page.view.tsx': `
+testStable(
+  'presentation cannot access browser globals or hide DOM mutations behind aliases',
+  () => {
+    const diagnostics = lintRule(
+      'web-presentation-purity',
+      {
+        'apps/web/src/pages/home/page.view.tsx': `
       const storage = window.localStorage;
       export function PageView() {
         storage.setItem('key', 'value');
@@ -45,14 +48,15 @@ test('presentation cannot access browser globals or hide DOM mutations behind al
         return null;
       }
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
 
-test('presentation permits shadowed names and prop callbacks', () => {
+testStable('presentation permits shadowed names and prop callbacks', () => {
   assert.deepEqual(
     lintRule(
       'web-presentation-purity',
@@ -67,4 +71,18 @@ test('presentation permits shadowed names and prop callbacks', () => {
     ),
     []
   );
+});
+
+testStable('extension-correct localization aliases remain presentation-safe', () => {
+  const diagnostics = lintRule(
+    'web-presentation-purity',
+    {
+      'apps/web/src/pages/home/page.view.tsx': "import {useI18n} from '#web/lib/i18n.tsx';",
+      'apps/web/src/pages/settings/page.view.tsx':
+        "import {useSettings} from '#web/lib/use-settings.ts';"
+    },
+    true
+  );
+
+  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

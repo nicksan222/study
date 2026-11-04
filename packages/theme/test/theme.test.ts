@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import {
   parseTheme,
@@ -9,7 +10,7 @@ import {
   renderThemeCss
 } from '../src/index.ts';
 
-test('portable themes round trip and reject unsafe or unknown data', () => {
+testStable('portable themes round trip and reject unsafe or unknown data', () => {
   const theme = {
     version: 1 as const,
     id: 'ocean',
@@ -36,7 +37,7 @@ test('portable themes round trip and reject unsafe or unknown data', () => {
     assert.throws(() => parseTheme(input));
 });
 
-test('normalizes metadata and accepts supported CSS color spaces in every variant', () => {
+testStable('normalizes metadata and accepts supported CSS color spaces in every variant', () => {
   for (const color of [
     '#abc',
     '#12345678',
@@ -64,56 +65,62 @@ test('normalizes metadata and accepts supported CSS color spaces in every varian
   }
 });
 
-test('rejects invalid containers, metadata, palettes, and context-dependent colors with a typed error', () => {
-  const base = { version: 1, id: 'valid', name: 'Valid' };
-  const invalid = [
-    [],
-    true,
-    1,
-    'theme',
-    { ...base, id: '_invalid' },
-    { ...base, id: 'a'.repeat(129) },
-    { ...base, name: ' ' },
-    { ...base, name: 'a'.repeat(129) },
-    { ...base, name: 'bad\nname' },
-    { ...base, name: 1 },
-    { ...base, colors: null },
-    { ...base, light: [] },
-    { ...base, dark: 'red' },
-    { ...base, colors: { primary: 1 } },
-    { ...base, colors: { primary: '' } }
-  ];
+testStable(
+  'rejects invalid containers, metadata, palettes, and context-dependent colors with a typed error',
+  () => {
+    const base = { version: 1, id: 'valid', name: 'Valid' };
+    const invalid = [
+      [],
+      true,
+      1,
+      'theme',
+      { ...base, id: '_invalid' },
+      { ...base, id: 'a'.repeat(129) },
+      { ...base, name: ' ' },
+      { ...base, name: 'a'.repeat(129) },
+      { ...base, name: 'bad\nname' },
+      { ...base, name: 1 },
+      { ...base, colors: null },
+      { ...base, light: [] },
+      { ...base, dark: 'red' },
+      { ...base, colors: { primary: 1 } },
+      { ...base, colors: { primary: '' } }
+    ];
 
-  for (const value of invalid)
-    assert.throws(() => parseTheme(JSON.stringify(value)), ThemeFileError);
+    for (const value of invalid)
+      assert.throws(() => parseTheme(JSON.stringify(value)), ThemeFileError);
 
-  for (const color of [
-    'currentColor',
-    'var(--primary)',
-    'url(https://example.com)',
-    'red !important',
-    'rgb(1 2 3); color: red',
-    'red blue'
-  ]) {
-    assert.throws(
-      () => parseTheme(JSON.stringify({ ...base, colors: { primary: color } })),
-      ThemeFileError
-    );
+    for (const color of [
+      'currentColor',
+      'var(--primary)',
+      'url(https://example.com)',
+      'red !important',
+      'rgb(1 2 3); color: red',
+      'red blue'
+    ]) {
+      assert.throws(
+        () => parseTheme(JSON.stringify({ ...base, colors: { primary: color } })),
+        ThemeFileError
+      );
+    }
+
+    assert.throws(() => parseTheme(' '.repeat(65537)), ThemeFileError);
   }
+);
 
-  assert.throws(() => parseTheme(' '.repeat(65537)), ThemeFileError);
-});
+testStable(
+  'accepts boundary metadata and payload sizes and every registered semantic color role',
+  () => {
+    const colors = Object.fromEntries(themeColorKeys.map((key) => [key, '#123456']));
+    const file = { version: 1 as const, id: 'a'.repeat(128), name: 'A'.repeat(128), colors };
+    const json = JSON.stringify(file);
 
-test('accepts boundary metadata and payload sizes and every registered semantic color role', () => {
-  const colors = Object.fromEntries(themeColorKeys.map((key) => [key, '#123456']));
-  const file = { version: 1 as const, id: 'a'.repeat(128), name: 'A'.repeat(128), colors };
-  const json = JSON.stringify(file);
+    assert.deepEqual(parseTheme(json.padEnd(65536, ' ')), file);
+    assert.throws(() => parseTheme(json.padEnd(65537, ' ')), ThemeFileError);
+  }
+);
 
-  assert.deepEqual(parseTheme(json.padEnd(65536, ' ')), file);
-  assert.throws(() => parseTheme(json.padEnd(65537, ' ')), ThemeFileError);
-});
-
-test('export validates, normalizes and round trips without mutating its input', () => {
+testStable('export validates, normalizes and round trips without mutating its input', () => {
   const file = {
     version: 1 as const,
     id: 'export',
@@ -134,7 +141,7 @@ test('export validates, normalizes and round trips without mutating its input', 
   );
 });
 
-test('CSS rendering merges common colors before each appearance override', () => {
+testStable('CSS rendering merges common colors before each appearance override', () => {
   const css = renderThemeCss({
     version: 1,
     id: 'css',

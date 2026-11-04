@@ -14,13 +14,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { MaterialVersionId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import { material_document_versions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 
@@ -31,7 +31,7 @@ import { Database } from '#server/platform/database/database';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 
-test('guarded generation publishes once and replays its receipt', async () => {
+testStable('guarded generation publishes once and replays its receipt', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
@@ -404,7 +404,7 @@ test('guarded generation publishes once and replays its receipt', async () => {
   }
 });
 
-test('receipt persists across reopen and a new workflow execution', async () => {
+testStable('receipt persists across reopen and a new workflow execution', async () => {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   let requestId = '';

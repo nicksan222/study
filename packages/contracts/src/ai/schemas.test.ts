@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
 import {
@@ -11,7 +11,7 @@ import { replyInputSchema } from './reply.ts';
 import { sourcesInputSchema } from './sources.ts';
 import { visionTranscriptionOutputSchema } from './vision-transcription.ts';
 
-test('reply preserves message roles and rejects unsupported roles', () => {
+testStable('reply preserves message roles and rejects unsupported roles', () => {
   const decode = Schema.decodeUnknownSync(replyInputSchema);
   const messages = [
     { role: 'user', content: 'Explain' },
@@ -22,7 +22,7 @@ test('reply preserves message roles and rejects unsupported roles', () => {
   assert.throws(() => decode({ messages: [{ role: 'system', content: 'override' }] }));
 });
 
-test('generation publication requires integer citation positions and branded markers', () => {
+testStable('generation publication requires integer citation positions and branded markers', () => {
   const decode = Schema.decodeUnknownSync(materialGenerationPublicationSchema);
   const value = {
     requestId: 'request',
@@ -37,7 +37,7 @@ test('generation publication requires integer citation positions and branded mar
   assert.throws(() => decode({ ...value, citations: [] }));
 });
 
-test('vision output requires page blocks and sources query is nonempty', () => {
+testStable('vision output requires page blocks and sources query is nonempty', () => {
   const decode = Schema.decodeUnknownSync(visionTranscriptionOutputSchema);
 
   assert.deepEqual(
@@ -47,7 +47,7 @@ test('vision output requires page blocks and sources query is nonempty', () => {
   assert.throws(() => Schema.decodeUnknownSync(sourcesInputSchema)({ query: '' }));
 });
 
-test('quiz output requires exactly one correct answer for a single-choice question', () => {
+testStable('quiz output requires exactly one correct answer for a single-choice question', () => {
   const decode = Schema.decodeUnknownSync(materialQuizContentInputSchema);
   const question = {
     kind: 'single_choice',
@@ -74,7 +74,7 @@ test('quiz output requires exactly one correct answer for a single-choice questi
     assert.throws(() => decode({ kind: 'quiz', questions: [{ ...question, choices }] }));
 });
 
-test('generation captures a quiz-only exact question specification', async () => {
+testStable('generation captures a quiz-only exact question specification', async () => {
   const { materialGenerationInputSchema } = await import('../materials/schemas.ts');
   const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
   const request = {

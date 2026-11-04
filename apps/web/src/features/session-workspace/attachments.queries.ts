@@ -2,7 +2,8 @@ import type { SourceId, SessionId } from '@study/contracts/ids';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 
-import { toStudyError } from '../../lib/study-client/errors';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+
 import { uploadSource } from './session-workspace.queries';
 
 export type Attachment = {

@@ -7,8 +7,9 @@ import { SelectControl } from '@study/ui/select-control';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
+
 import { availableExportFormats, exportReaderVersion } from './reader-export.queries';
 
 type Format = typeof exportFormatSchema.Type;

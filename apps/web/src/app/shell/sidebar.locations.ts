@@ -1,6 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 
-import type { SearchResults } from '../../lib/study-client/operations';
+import type { SearchResults } from '#web/lib/study-client/operations.ts';
 
 export function resultLocation(hit: SearchResults['hits'][number], project?: ProjectId) {
   const projectSearch = project ? { project: String(project) } : {};

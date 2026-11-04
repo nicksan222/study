@@ -1,5 +1,6 @@
+import { testStable } from '@study/testing/vitest';
 import { waitFor } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { initializeAppearance } from './appearance';
 
@@ -25,7 +26,7 @@ let restore: (() => void) | undefined;
 
 afterEach(() => restore?.());
 
-it('applies the saved theme and appearance to the document', async () => {
+testStable('applies the saved theme and appearance to the document', async () => {
   api.settings.mockResolvedValue({ appearance: 1 });
   api.selected.mockResolvedValue('ocean');
   api.themes.mockResolvedValue({
@@ -39,7 +40,7 @@ it('applies the saved theme and appearance to the document', async () => {
   expect(document.documentElement).not.toHaveClass('dark');
 });
 
-it('keeps the default dark palette available when the server is unavailable', async () => {
+testStable('keeps the default dark palette available when the server is unavailable', async () => {
   api.settings.mockRejectedValue(new Error('offline'));
   api.selected.mockResolvedValue(null);
   api.themes.mockResolvedValue({ items: [], next: null });
@@ -48,7 +49,7 @@ it('keeps the default dark palette available when the server is unavailable', as
   expect(document.documentElement).toHaveClass('dark');
 });
 
-it('follows system appearance changes and removes the listener on disposal', async () => {
+testStable('follows system appearance changes and removes the listener on disposal', async () => {
   let change: ((event: { matches: boolean }) => void) | undefined;
   const remove = vi.fn();
 

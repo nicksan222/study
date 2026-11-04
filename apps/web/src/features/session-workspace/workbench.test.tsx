@@ -1,24 +1,25 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { sessionIdSchema, materialIdSchema } from '@study/contracts/ids';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { threadOptions } from './session-workspace.queries';
 import { useWorkbench, workbenchIdentity } from './workbench.queries';
 
 const preferences = vi.hoisted(() => ({ expandDocuments: false }));
 
-vi.mock('../../lib/study-client/workspace-preferences.queries', () => ({
+vi.mock('#web/lib/study-client/workspace-preferences.queries.ts', () => ({
   useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
 }));
 
 const api = vi.hoisted(() => ({ thread: vi.fn() }));
 
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
     invoke({ 'conversations.thread': api.thread })
 }));
@@ -86,106 +87,115 @@ afterEach(() => {
   caches.splice(0).forEach((cache) => cache.clear());
 });
 
-it('opens a persisted material once and refreshes a legacy page without converting a quick note', async () => {
-  const view = mount();
-  const target = {
-    kind: 'material' as const,
-    materialId: materialIdSchema.make(8n),
-    title: 'Document'
-  };
+testStable(
+  'opens a persisted material once and refreshes a legacy page without converting a quick note',
+  async () => {
+    const view = mount();
+    const target = {
+      kind: 'material' as const,
+      materialId: materialIdSchema.make(8n),
+      title: 'Document'
+    };
 
-  await waitFor(() => expect(view.client.isFetching()).toBe(0));
-  act(() => view.result.current.open(target));
-  await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
-  act(() => view.result.current.hide());
-  await waitFor(() => expect(view.result.current.visible).toBe(false));
-  act(() => view.result.current.open(target));
-  await waitFor(() => expect(view.result.current.visible).toBe(true));
-  expect(view.result.current.tabs).toHaveLength(1);
-  const message = persistedPage('legacy-page');
+    await waitFor(() => expect(view.client.isFetching()).toBe(0));
+    act(() => view.result.current.open(target));
+    await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
+    act(() => view.result.current.hide());
+    await waitFor(() => expect(view.result.current.visible).toBe(false));
+    act(() => view.result.current.open(target));
+    await waitFor(() => expect(view.result.current.visible).toBe(true));
+    expect(view.result.current.tabs).toHaveLength(1);
+    const message = persistedPage('legacy-page');
 
-  act(() => view.result.current.open({ kind: 'message', message }));
-  act(() =>
-    view.client.setQueryData(threadOptions(id).queryKey, {
-      pages: [{ items: [{ ...message, description: 'Updated' }], next: null }],
-      pageParams: [undefined]
-    })
-  );
-  await waitFor(() =>
-    expect(view.result.current.tabs[1]).toMatchObject({
-      kind: 'message',
-      message: { description: 'Updated' }
-    })
-  );
-  expect(view.result.current.tabs[0]).toEqual(target);
-});
+    act(() => view.result.current.open({ kind: 'message', message }));
+    act(() =>
+      view.client.setQueryData(threadOptions(id).queryKey, {
+        pages: [{ items: [{ ...message, description: 'Updated' }], next: null }],
+        pageParams: [undefined]
+      })
+    );
+    await waitFor(() =>
+      expect(view.result.current.tabs[1]).toMatchObject({
+        kind: 'message',
+        message: { description: 'Updated' }
+      })
+    );
+    expect(view.result.current.tabs[0]).toEqual(target);
+  }
+);
 
-it('keeps tabs while hidden and selects the adjacent document when the active tab closes', async () => {
-  const view = mount();
-  const identities: string[] = [];
+testStable(
+  'keeps tabs while hidden and selects the adjacent document when the active tab closes',
+  async () => {
+    const view = mount();
+    const identities: string[] = [];
 
-  for (const title of ['First', 'Second', 'Third']) {
+    for (const title of ['First', 'Second', 'Third']) {
+      act(() =>
+        view.result.current.open({
+          kind: 'material',
+          materialId: materialIdSchema.make(BigInt(identities.length + 1)),
+          title
+        })
+      );
+      await waitFor(() => expect(view.result.current.tabs).toHaveLength(identities.length + 1));
+      identities.push(view.result.current.active!);
+    }
+
+    act(() => view.result.current.select(identities[1]!));
+    await waitFor(() => expect(view.result.current.active).toBe(identities[1]));
+    act(() => view.result.current.hide());
+    await waitFor(() => expect(view.result.current.visible).toBe(false));
+    expect(view.result.current.tabs.map(workbenchIdentity)).toEqual(identities);
+    act(() => view.result.current.select(identities[1]!));
+    await waitFor(() => expect(view.result.current.visible).toBe(true));
+    act(() => view.result.current.close(identities[1]!));
+    await waitFor(() => expect(view.result.current.active).toBe(identities[2]));
+    act(() => view.result.current.close(identities[0]!));
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+    expect(view.result.current.active).toBe(identities[2]);
+    act(() => view.result.current.close(identities[2]!));
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(0));
+    expect(view.result.current.visible).toBe(false);
+    expect(view.result.current.active).toBeUndefined();
+  }
+);
+
+testStable(
+  'isolates document tabs by session and restores them when returning to the session',
+  async () => {
+    const view = mount();
+
     act(() =>
       view.result.current.open({
         kind: 'material',
-        materialId: materialIdSchema.make(BigInt(identities.length + 1)),
-        title
+        materialId: materialIdSchema.make(1n),
+        title: 'First session page'
       })
     );
-    await waitFor(() => expect(view.result.current.tabs).toHaveLength(identities.length + 1));
-    identities.push(view.result.current.active!);
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+    const firstIdentity = view.result.current.active;
+
+    view.rerender({ sessionId: otherId });
+    expect(view.result.current.tabs).toHaveLength(0);
+    expect(view.result.current.visible).toBe(false);
+    act(() =>
+      view.result.current.open({
+        kind: 'material',
+        materialId: materialIdSchema.make(2n),
+        title: 'Second session page'
+      })
+    );
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+    expect(view.result.current.active).not.toBe(firstIdentity);
+    view.rerender({ sessionId: id });
+    expect(view.result.current.active).toBe(firstIdentity);
+    expect(view.result.current.tabs).toHaveLength(1);
+    expect(view.result.current.visible).toBe(true);
   }
+);
 
-  act(() => view.result.current.select(identities[1]!));
-  await waitFor(() => expect(view.result.current.active).toBe(identities[1]));
-  act(() => view.result.current.hide());
-  await waitFor(() => expect(view.result.current.visible).toBe(false));
-  expect(view.result.current.tabs.map(workbenchIdentity)).toEqual(identities);
-  act(() => view.result.current.select(identities[1]!));
-  await waitFor(() => expect(view.result.current.visible).toBe(true));
-  act(() => view.result.current.close(identities[1]!));
-  await waitFor(() => expect(view.result.current.active).toBe(identities[2]));
-  act(() => view.result.current.close(identities[0]!));
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-  expect(view.result.current.active).toBe(identities[2]);
-  act(() => view.result.current.close(identities[2]!));
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(0));
-  expect(view.result.current.visible).toBe(false);
-  expect(view.result.current.active).toBeUndefined();
-});
-
-it('isolates document tabs by session and restores them when returning to the session', async () => {
-  const view = mount();
-
-  act(() =>
-    view.result.current.open({
-      kind: 'material',
-      materialId: materialIdSchema.make(1n),
-      title: 'First session page'
-    })
-  );
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-  const firstIdentity = view.result.current.active;
-
-  view.rerender({ sessionId: otherId });
-  expect(view.result.current.tabs).toHaveLength(0);
-  expect(view.result.current.visible).toBe(false);
-  act(() =>
-    view.result.current.open({
-      kind: 'material',
-      materialId: materialIdSchema.make(2n),
-      title: 'Second session page'
-    })
-  );
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-  expect(view.result.current.active).not.toBe(firstIdentity);
-  view.rerender({ sessionId: id });
-  expect(view.result.current.active).toBe(firstIdentity);
-  expect(view.result.current.tabs).toHaveLength(1);
-  expect(view.result.current.visible).toBe(true);
-});
-
-it('uses the configured initial width until the user manually changes it', async () => {
+testStable('uses the configured initial width until the user manually changes it', async () => {
   preferences.expandDocuments = true;
   const view = mount();
 

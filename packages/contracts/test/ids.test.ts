@@ -1,11 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
 import { projectIdSchema } from '../src/ids.ts';
 
-test('project IDs are positive signed 64-bit integers', () => {
+testStable('project IDs are positive signed 64-bit integers', () => {
   const decode = Schema.decodeUnknownSync(projectIdSchema);
 
   assert.equal(decode(1n), 1n);

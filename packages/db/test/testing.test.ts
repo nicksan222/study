@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-test('isolated fixtures use real migrated databases and remove their files', () => {
+testStable('isolated fixtures use real migrated databases and remove their files', () => {
   const first = createTestDatabase();
   const second = createTestDatabase();
   const db = first.open();

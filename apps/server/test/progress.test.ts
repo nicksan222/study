@@ -12,12 +12,13 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { testStable } from '@study/testing/node';
 
 import progress from '#testing/progress';
 
@@ -26,7 +27,7 @@ const reporter = fileURLToPath(new URL('./testing/progress.ts', import.meta.url)
 for (const mode of ['pass', 'fail', 'imported-fail']) {
   const fails = mode !== 'pass';
 
-  test(`progress keeps test results and filters diagnostics for ${mode}`, () => {
+  testStable(`progress keeps test results and filters diagnostics for ${mode}`, () => {
     const directory = mkdtempSync(join(tmpdir(), 'study-reporter-'));
     const fixture = join(directory, 'fixture.test.mjs');
     const passing = join(directory, 'passing.test.mjs');
@@ -36,18 +37,23 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
     delete env.NODE_TEST_CONTEXT;
 
     try {
+      symlinkSync(
+        fileURLToPath(new URL('../../../node_modules', import.meta.url)),
+        join(directory, 'node_modules'),
+        'dir'
+      );
       writeFileSync(
         passing,
         `
-        import { test } from 'node:test';
-        test('other passing result', () => console.log('other passing output'));
+        import { testStable } from '@study/testing/node';
+        testStable('other passing result', () => console.log('other passing output'));
       `
       );
       writeFileSync(
         definition,
         `
-        import { test } from 'node:test';
-        test('visible test result', (t) => {
+        import { testStable } from '@study/testing/node';
+        testStable('visible test result', (t) => {
           console.log('fixture stdout');
           console.error('fixture stderr');
           t.diagnostic('fixture diagnostic');
@@ -92,7 +98,7 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
   });
 }
 
-test('progress emits no debug output for an empty event stream', async () => {
+testStable('progress emits no debug output for an empty event stream', async () => {
   let output = '';
 
   for await (const chunk of progress(Readable.from([]))) output += chunk;

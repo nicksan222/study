@@ -1,5 +1,5 @@
-import type { ItemFilter } from '../../features/library';
-import type { SearchResults } from '../../lib/study-client/operations';
+import type { ItemFilter } from '#web/features/library/index.ts';
+import type { SearchResults } from '#web/lib/study-client/operations.ts';
 
 export function filterSearchHits(
   hits: readonly SearchResults['hits'][number][],

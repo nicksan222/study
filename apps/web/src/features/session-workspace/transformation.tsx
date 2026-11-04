@@ -11,8 +11,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+
 import { ProposalReview } from '../document-editing';
 import { versionOptions } from '../material-library';
 import { CapturedContext } from './history';

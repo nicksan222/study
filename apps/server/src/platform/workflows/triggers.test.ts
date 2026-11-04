@@ -16,11 +16,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { workflowEventSchema } from '@study/contracts/events';
 import { workflow_executions, workflowReceipts } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 
@@ -64,7 +64,7 @@ const trigger: Trigger = {
   enabled: () => true
 };
 
-test('automatic trigger cycles are rejected', () => {
+testStable('automatic trigger cycles are rejected', () => {
   assert.throws(
     () =>
       validateTriggerGraph([
@@ -75,7 +75,7 @@ test('automatic trigger cycles are rejected', () => {
   );
 });
 
-test('dispatch commits bounded executions and receipts and survives reopening', () => {
+testStable('dispatch commits bounded executions and receipts and survives reopening', () => {
   const location = createTestDatabase();
   let context = openContext(location);
 
@@ -96,7 +96,7 @@ test('dispatch commits bounded executions and receipts and survives reopening', 
   }
 });
 
-test('a disabled subscription does not starve an enabled subscription', () => {
+testStable('a disabled subscription does not starve an enabled subscription', () => {
   const location = createTestDatabase();
   const context = openContext(location);
 
@@ -117,7 +117,7 @@ test('a disabled subscription does not starve an enabled subscription', () => {
   }
 });
 
-test('a scheduling failure rolls back execution and receipt together', () => {
+testStable('a scheduling failure rolls back execution and receipt together', () => {
   const location = createTestDatabase();
   const context = openContext(location);
 
@@ -143,7 +143,7 @@ test('a scheduling failure rolls back execution and receipt together', () => {
   }
 });
 
-test('re-enabling a policy delivers its retained events', () => {
+testStable('re-enabling a policy delivers its retained events', () => {
   const location = createTestDatabase();
   const context = openContext(location);
   let enabled = false;
@@ -162,52 +162,58 @@ test('re-enabling a policy delivers its retained events', () => {
   }
 });
 
-test('committed outbox executions recover through the native engine after reopening', async () => {
-  const location = createTestDatabase();
-  let context = openContext(location);
-  let calls = 0;
+testStable(
+  'committed outbox executions recover through the native engine after reopening',
+  async () => {
+    const location = createTestDatabase();
+    let context = openContext(location);
+    let calls = 0;
 
-  try {
-    context.transaction(() => emitEvent(context, event('recover'), 1));
-    assert.equal(dispatchPending(context, [trigger], 2), 1);
-    context.close();
-    context = openContext(location);
+    try {
+      context.transaction(() => emitEvent(context, event('recover'), 1));
+      assert.equal(dispatchPending(context, [trigger], 2), 1);
+      context.close();
+      context = openContext(location);
 
-    function* resumeCommittedExecution() {
-      const engine = yield* WorkflowEngine.WorkflowEngine;
+      function* resumeCommittedExecution() {
+        const engine = yield* WorkflowEngine.WorkflowEngine;
 
-      yield* engine.register(testWorkflow, () =>
-        Effect.sync(() => {
-          calls++;
-        })
-      );
-      yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
+        yield* engine.register(testWorkflow, () =>
+          Effect.sync(() => {
+            calls++;
+          })
+        );
+        yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
 
-      for (let attempt = 0; attempt < 100; attempt++) {
-        if (context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed')
-          break;
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed')
+            break;
 
-        yield* Effect.sleep('5 millis');
+          yield* Effect.sleep('5 millis');
+        }
+
+        assert.equal(
+          context.db.orm.select().from(workflow_executions).all()[0]?.status,
+          'completed'
+        );
+        yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
       }
 
-      assert.equal(context.db.orm.select().from(workflow_executions).all()[0]?.status, 'completed');
-      yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(resumeCommittedExecution).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+      assert.equal(calls, 1);
+      assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 1);
+    } finally {
+      context.close();
+      location.cleanup();
     }
-
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(resumeCommittedExecution).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-    assert.equal(calls, 1);
-    assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 1);
-  } finally {
-    context.close();
-    location.cleanup();
   }
-});
+);
 
-test('subscription validation rejects duplicates and excessive automatic fanout', () => {
+testStable('subscription validation rejects duplicates and excessive automatic fanout', () => {
   const location = createTestDatabase();
   const context = openContext(location);
 
@@ -226,7 +232,7 @@ test('subscription validation rejects duplicates and excessive automatic fanout'
   }
 });
 
-test('material publication events identify a published material version', () => {
+testStable('material publication events identify a published material version', () => {
   const value = {
     type: 'MaterialPublished',
     eventId: 'material',
@@ -251,14 +257,14 @@ test('material publication events identify a published material version', () => 
   );
 });
 
-test('registered workflows accept canonical failure values', async () => {
+testStable('registered workflows accept canonical failure values', async () => {
   const { sourceIndexedWorkflow } = await import('#server/features/materials/workflows/index');
   const failure = { kind: 'cancelled', message: 'superseded', retryAfterMs: null };
 
   assert.deepEqual(Schema.decodeUnknownSync(sourceIndexedWorkflow.errorSchema)(failure), failure);
 });
 
-test('disabled subscriptions leave events unscheduled', () => {
+testStable('disabled subscriptions leave events unscheduled', () => {
   const location = createTestDatabase();
   const context = openContext(location);
 
@@ -273,7 +279,7 @@ test('disabled subscriptions leave events unscheduled', () => {
   }
 });
 
-test('trigger graph fanout counts every subscription with the same source event', () => {
+testStable('trigger graph fanout counts every subscription with the same source event', () => {
   const edges = Array.from({ length: 17 }, () => ({
     event: 'SourceIndexed' as const,
     emits: ['MaterialPublished' as const]

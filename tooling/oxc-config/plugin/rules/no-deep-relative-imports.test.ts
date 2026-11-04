@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+
+import { testStable } from '@study/testing/node';
+
+import { lintRule } from '../test/utils.ts';
+
+testStable(
+  'reports relative imports that ascend two or more levels across module edge forms',
+  () => {
+    const diagnostics = lintRule('no-deep-relative-imports', {
+      'src/a.ts':
+        "import '../x'; import '../../x'; export * from './../../../x'; type T = import('..\\\\..\\\\x').T; import x = require('./../../x'); const y = import('../folder/../../x'); require('../../x');"
+    });
+
+    assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
+    assert.ok(
+      diagnostics.every(
+        ({ message }) =>
+          message ===
+          'Define a package import alias instead of traversing two or more parent levels.'
+      )
+    );
+  }
+);
+
+testStable('allows shallow and non-import strings and respects shadowed require', () => {
+  const diagnostics = lintRule('no-deep-relative-imports', {
+    'src/a.ts':
+      "import './x'; import '../x'; const text = '../../x'; function f(require: (s: string) => void) { require('../../x'); }"
+  });
+
+  assert.deepEqual(diagnostics, []);
+});

@@ -17,12 +17,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { StudyError } from '@study/contracts/errors';
 import type { SourceId } from '@study/contracts/ids';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Option, Schema } from 'effect';
 
 import { ServerContext } from '#server/platform/database/context';
@@ -59,116 +59,122 @@ const items = defineStore({
   })
 });
 
-test('a store binds resources once per application without sharing database handles', async () => {
-  const first = createTestDatabase();
-  const second = createTestDatabase();
-  const a = new ServerContext(first.open());
-  const b = new ServerContext(second.open());
-  let bindings = 0;
-  const bound = defineStore({
-    name: 'test/Bound',
-    entity: { singular: 'value', plural: 'values' },
-    make: ({ db }) => {
-      bindings++;
+testStable(
+  'a store binds resources once per application without sharing database handles',
+  async () => {
+    const first = createTestDatabase();
+    const second = createTestDatabase();
+    const a = new ServerContext(first.open());
+    const b = new ServerContext(second.open());
+    let bindings = 0;
+    const bound = defineStore({
+      name: 'test/Bound',
+      entity: { singular: 'value', plural: 'values' },
+      make: ({ db }) => {
+        bindings++;
 
-      return {
-        queries: {
-          value: storeQuery({
-            role: 'required',
-            input: Schema.String,
-            output: Schema.String,
-            run: (key) =>
-              JSON.parse(
-                db.orm.get<{ value: string }>(
-                  sql`SELECT value FROM preferences WHERE scope='bound' AND key=${key}`
-                )?.value ?? 'null'
-              )
-          })
-        },
-        mutations: {
-          save: storeMutation({
-            input: Schema.String,
-            output: Schema.Void,
-            run: (value) => {
-              db.orm.run(
-                sql`INSERT INTO preferences(scope,key,value) VALUES('bound','key',${JSON.stringify(value)})`
-              );
-            }
-          })
-        }
-      };
+        return {
+          queries: {
+            value: storeQuery({
+              role: 'required',
+              input: Schema.String,
+              output: Schema.String,
+              run: (key) =>
+                JSON.parse(
+                  db.orm.get<{ value: string }>(
+                    sql`SELECT value FROM preferences WHERE scope='bound' AND key=${key}`
+                  )?.value ?? 'null'
+                )
+            })
+          },
+          mutations: {
+            save: storeMutation({
+              input: Schema.String,
+              output: Schema.Void,
+              run: (value) => {
+                db.orm.run(
+                  sql`INSERT INTO preferences(scope,key,value) VALUES('bound','key',${JSON.stringify(value)})`
+                );
+              }
+            })
+          }
+        };
+      }
+    });
+
+    try {
+      await Effect.runPromise(
+        transaction((tx) => tx.store(bound).save('first')).pipe(
+          Effect.provideService(Database, { store: a })
+        )
+      );
+      await Effect.runPromise(
+        transaction((tx) => tx.store(bound).save('second')).pipe(
+          Effect.provideService(Database, { store: b })
+        )
+      );
+      assert.equal(
+        await Effect.runPromise(
+          Effect.runSync(useStore(bound).pipe(Effect.provideService(Database, { store: a }))).value(
+            'key'
+          )
+        ),
+        'first'
+      );
+      assert.equal(
+        await Effect.runPromise(
+          Effect.runSync(useStore(bound).pipe(Effect.provideService(Database, { store: b }))).value(
+            'key'
+          )
+        ),
+        'second'
+      );
+      assert.equal(bindings, 2);
+    } finally {
+      a.close();
+      b.close();
+      first.cleanup();
+      second.cleanup();
     }
-  });
-
-  try {
-    await Effect.runPromise(
-      transaction((tx) => tx.store(bound).save('first')).pipe(
-        Effect.provideService(Database, { store: a })
-      )
-    );
-    await Effect.runPromise(
-      transaction((tx) => tx.store(bound).save('second')).pipe(
-        Effect.provideService(Database, { store: b })
-      )
-    );
-    assert.equal(
-      await Effect.runPromise(
-        Effect.runSync(useStore(bound).pipe(Effect.provideService(Database, { store: a }))).value(
-          'key'
-        )
-      ),
-      'first'
-    );
-    assert.equal(
-      await Effect.runPromise(
-        Effect.runSync(useStore(bound).pipe(Effect.provideService(Database, { store: b }))).value(
-          'key'
-        )
-      ),
-      'second'
-    );
-    assert.equal(bindings, 2);
-  } finally {
-    a.close();
-    b.close();
-    first.cleanup();
-    second.cleanup();
   }
-});
+);
 
-test('store runs decoded operations on the real database and rejects leaked transaction views', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+testStable(
+  'store runs decoded operations on the real database and rejects leaked transaction views',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
 
-  try {
-    assert.equal(
-      await Effect.runPromise(
-        Effect.runSync(
-          useStore(items).pipe(Effect.provideService(Database, { store: context }))
-        ).item(3)
-      ),
-      3
-    );
-    let leaked: { insert(value: string): string } | undefined;
+    try {
+      assert.equal(
+        await Effect.runPromise(
+          Effect.runSync(
+            useStore(items).pipe(Effect.provideService(Database, { store: context }))
+          ).item(3)
+        ),
+        3
+      );
+      let leaked: { insert(value: string): string } | undefined;
 
-    assert.equal(
-      await Effect.runPromise(
-        transaction((tx) => {
-          leaked = tx.store(items);
+      assert.equal(
+        await Effect.runPromise(
+          transaction((tx) => {
+            leaked = tx.store(items);
 
-          return leaked.insert('ok');
-        }).pipe(Effect.provideService(Database, { store: context }))
-      ),
-      'ok'
-    );
-    assert.throws(() => leaked!.insert('later'), /transaction.*active/i);
-  } finally {
-    context.close();
-    location.cleanup();
+            return leaked.insert('ok');
+          }).pipe(Effect.provideService(Database, { store: context }))
+        ),
+        'ok'
+      );
+      assert.throws(() => leaked!.insert('later'), /transaction.*active/i);
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('transaction rolls back a write when a later step throws', async () => {
+testStable('transaction rolls back a write when a later step throws', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const preferences = defineStore({
@@ -213,7 +219,7 @@ test('transaction rolls back a write when a later step throws', async () => {
   }
 });
 
-test('rejects invalid query names and decodes inputs before executing', async () => {
+testStable('rejects invalid query names and decodes inputs before executing', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
 
@@ -258,7 +264,7 @@ test('rejects invalid query names and decodes inputs before executing', async ()
   }
 });
 
-test('rejects asynchronous transaction results before committing', async () => {
+testStable('rejects asynchronous transaction results before committing', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
 
@@ -284,7 +290,7 @@ test('rejects asynchronous transaction results before committing', async () => {
   }
 });
 
-test('rejects invalid roles and duplicate operation names', () => {
+testStable('rejects invalid roles and duplicate operation names', () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
 
@@ -335,48 +341,51 @@ test('rejects invalid roles and duplicate operation names', () => {
   }
 });
 
-test('rejects asynchronous mutation values even with permissive output and rolls back', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const store = defineStore({
-    name: 'test/Async',
-    entity: { singular: 'item', plural: 'items' },
+testStable(
+  'rejects asynchronous mutation values even with permissive output and rolls back',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const store = defineStore({
+      name: 'test/Async',
+      entity: { singular: 'item', plural: 'items' },
 
-    make: ({ db }) => ({
-      queries: {},
-      mutations: {
-        insert: storeMutation({
-          input: Schema.String,
-          output: Schema.Unknown,
-          run: (value) => {
-            db.orm.run(
-              sql`INSERT INTO preferences (scope, key, value) VALUES ('test', ${value}, 'null')`
-            );
+      make: ({ db }) => ({
+        queries: {},
+        mutations: {
+          insert: storeMutation({
+            input: Schema.String,
+            output: Schema.Unknown,
+            run: (value) => {
+              db.orm.run(
+                sql`INSERT INTO preferences (scope, key, value) VALUES ('test', ${value}, 'null')`
+              );
 
-            return Promise.resolve(value);
-          }
-        })
-      }
-    })
-  });
+              return Promise.resolve(value);
+            }
+          })
+        }
+      })
+    });
 
-  try {
-    await assert.rejects(
-      Effect.runPromise(
-        transaction((tx) => tx.store(store).insert('bad')).pipe(
-          Effect.provideService(Database, { store: context })
+    try {
+      await assert.rejects(
+        Effect.runPromise(
+          transaction((tx) => tx.store(store).insert('bad')).pipe(
+            Effect.provideService(Database, { store: context })
+          )
         )
-      )
-    );
-    assert.equal(
-      context.db.orm.get(sql`SELECT key FROM preferences WHERE scope = 'test'`),
-      undefined
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+      );
+      assert.equal(
+        context.db.orm.get(sql`SELECT key FROM preferences WHERE scope = 'test'`),
+        undefined
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
 function transactionTypeAssertions(context: ServerContext) {
   // @ts-expect-error transaction callbacks cannot return a Promise
@@ -387,7 +396,7 @@ function transactionTypeAssertions(context: ServerContext) {
 
 void transactionTypeAssertions;
 
-test('transaction steps inherit the transaction span and emit safe timing', async () => {
+testStable('transaction steps inherit the transaction span and emit safe timing', async () => {
   const { Context, Logger, Option, References, Tracer } = await import('effect');
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
@@ -423,7 +432,7 @@ test('transaction steps inherit the transaction span and emit safe timing', asyn
   }
 });
 
-test('collection queries enforce cardinality even with a permissive schema', async () => {
+testStable('collection queries enforce cardinality even with a permissive schema', async () => {
   const store = defineStore({
     name: 'test/Collection',
     entity: { singular: 'item', plural: 'items' },
@@ -457,124 +466,137 @@ test('collection queries enforce cardinality even with a permissive schema', asy
   }
 });
 
-test('bounded pages are native query results and oversized arrays or pages are rejected', async () => {
-  let result: unknown = { items: [1], next: null };
-  const store = defineStore({
-    name: 'test/Pages',
-    entity: { singular: 'item', plural: 'items' },
+testStable(
+  'bounded pages are native query results and oversized arrays or pages are rejected',
+  async () => {
+    let result: unknown = { items: [1], next: null };
+    const store = defineStore({
+      name: 'test/Pages',
+      entity: { singular: 'item', plural: 'items' },
 
-    make: () => ({
-      queries: {
-        items: storeQuery({
-          role: 'collection',
-          input: Schema.Struct({ limit: Schema.Int }),
-          output: Schema.Unknown,
-          run: () => result
-        })
-      },
-      mutations: {}
-    })
-  });
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+      make: () => ({
+        queries: {
+          items: storeQuery({
+            role: 'collection',
+            input: Schema.Struct({ limit: Schema.Int }),
+            output: Schema.Unknown,
+            run: () => result
+          })
+        },
+        mutations: {}
+      })
+    });
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
 
-  try {
-    assert.deepEqual(
-      await Effect.runPromise(
-        Effect.runSync(
-          useStore(store).pipe(Effect.provideService(Database, { store: context }))
-        ).items({ limit: 1 })
-      ),
-      result
-    );
-
-    for (const value of [[1, 2], { items: [1, 2], nextCursor: null }, { items: [1] }]) {
-      result = value;
-      await assert.rejects(
-        Effect.runPromise(
+    try {
+      assert.deepEqual(
+        await Effect.runPromise(
           Effect.runSync(
             useStore(store).pipe(Effect.provideService(Database, { store: context }))
           ).items({ limit: 1 })
-        )
+        ),
+        result
       );
+
+      for (const value of [[1, 2], { items: [1, 2], nextCursor: null }, { items: [1] }]) {
+        result = value;
+        await assert.rejects(
+          Effect.runPromise(
+            Effect.runSync(
+              useStore(store).pipe(Effect.provideService(Database, { store: context }))
+            ).items({ limit: 1 })
+          )
+        );
+      }
+    } finally {
+      context.close();
+      location.cleanup();
     }
-  } finally {
-    context.close();
-    location.cleanup();
   }
-});
+);
 
-test('required queries normalize a typed missing row without non-null assertions', async () => {
-  const missing = defineStore({
-    name: 'test/MissingItem',
-    entity: { singular: 'item', plural: 'items' },
+testStable(
+  'required queries normalize a typed missing row without non-null assertions',
+  async () => {
+    const missing = defineStore({
+      name: 'test/MissingItem',
+      entity: { singular: 'item', plural: 'items' },
 
-    make: ({ db }) => ({
-      queries: {
-        item: storeQuery({
-          role: 'required',
-          input: Schema.Number,
-          output: Schema.Number,
-          run: (id) => {
-            const row = db.orm.get<{ n: bigint }>(sql`SELECT ${id} AS n WHERE 0`);
+      make: ({ db }) => ({
+        queries: {
+          item: storeQuery({
+            role: 'required',
+            input: Schema.Number,
+            output: Schema.Number,
+            run: (id) => {
+              const row = db.orm.get<{ n: bigint }>(sql`SELECT ${id} AS n WHERE 0`);
 
-            return row ? Number(row.n) : null;
-          }
-        })
-      },
-      mutations: {}
-    })
-  });
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+              return row ? Number(row.n) : null;
+            }
+          })
+        },
+        mutations: {}
+      })
+    });
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
 
-  try {
-    const read: Effect.Effect<number, StudyError> = Effect.runSync(
-      useStore(missing).pipe(Effect.provideService(Database, { store: context }))
-    ).item(1);
+    try {
+      const read: Effect.Effect<number, StudyError> = Effect.runSync(
+        useStore(missing).pipe(Effect.provideService(Database, { store: context }))
+      ).item(1);
 
-    assert.equal((await Effect.runPromise(Effect.flip(read))).kind, 'not_found');
-  } finally {
-    context.close();
-    location.cleanup();
+      assert.equal((await Effect.runPromise(Effect.flip(read))).kind, 'not_found');
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('store selection resolves Database only at execution and exposes only reads', async () => {
-  const first = createTestDatabase();
-  const second = createTestDatabase();
-  const a = new ServerContext(first.open());
-  const b = new ServerContext(second.open());
-  const read = useStore(items);
-  const write = transaction((tx) => tx.store(items).insert('selected'));
+testStable(
+  'store selection resolves Database only at execution and exposes only reads',
+  async () => {
+    const first = createTestDatabase();
+    const second = createTestDatabase();
+    const a = new ServerContext(first.open());
+    const b = new ServerContext(second.open());
+    const read = useStore(items);
+    const write = transaction((tx) => tx.store(items).insert('selected'));
 
-  try {
-    const left = await Effect.runPromise(read.pipe(Effect.provideService(Database, { store: a })));
-    const right = await Effect.runPromise(read.pipe(Effect.provideService(Database, { store: b })));
+    try {
+      const left = await Effect.runPromise(
+        read.pipe(Effect.provideService(Database, { store: a }))
+      );
+      const right = await Effect.runPromise(
+        read.pipe(Effect.provideService(Database, { store: b }))
+      );
 
-    assert.equal(await Effect.runPromise(left.item(7)), 7);
-    assert.equal(await Effect.runPromise(right.item(9)), 9);
-    assert.equal('insert' in left, false);
-    assert.equal(
-      await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: a }))),
-      'selected'
-    );
-    assert.equal(
-      await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: b }))),
-      'selected'
-    );
-    assert.equal('make' in items, false);
-    assert.equal('key' in items, false);
-    assert.equal('layer' in items, false);
-  } finally {
-    a.close();
-    b.close();
-    first.cleanup();
-    second.cleanup();
+      assert.equal(await Effect.runPromise(left.item(7)), 7);
+      assert.equal(await Effect.runPromise(right.item(9)), 9);
+      assert.equal('insert' in left, false);
+      assert.equal(
+        await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: a }))),
+        'selected'
+      );
+      assert.equal(
+        await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: b }))),
+        'selected'
+      );
+      assert.equal('make' in items, false);
+      assert.equal('key' in items, false);
+      assert.equal('layer' in items, false);
+    } finally {
+      a.close();
+      b.close();
+      first.cleanup();
+      second.cleanup();
+    }
   }
-});
+);
 
-test('a reusable read and write effect select each provided SQLite database', async () => {
+testStable('a reusable read and write effect select each provided SQLite database', async () => {
   const first = createTestDatabase(),
     second = createTestDatabase();
   const a = new ServerContext(first.open()),
@@ -632,133 +654,139 @@ test('a reusable read and write effect select each provided SQLite database', as
   }
 });
 
-test('events use the database clock, roll back with state, and reject escaped emitters', async () => {
-  const { Clock } = await import('effect');
-  const { TestClock } = await import('effect/testing');
-  const location = createTestDatabase();
+testStable(
+  'events use the database clock, roll back with state, and reject escaped emitters',
+  async () => {
+    const { Clock } = await import('effect');
+    const { TestClock } = await import('effect/testing');
+    const location = createTestDatabase();
 
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      yield* TestClock.setTime(123_456);
-      const context = new ServerContext(location.open(), yield* Clock.Clock);
-      const event = {
-        type: 'SourceDeleted' as const,
-        eventId: 'outbox-atomic',
-        causationId: null,
-        correlationId: 'outbox-atomic',
-        inputVersion: 1,
-        depth: 0,
-        sourceId: 1n as SourceId
-      };
-      let escaped: Transaction | undefined;
-      const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-        effect.pipe(Effect.provideService(Database, { store: context }));
-
-      try {
-        yield* Effect.flip(
-          run(
-            transaction((tx) => {
-              tx.emit(event);
-              context.db.orm.run(
-                sql`INSERT INTO preferences(scope,key,value) VALUES('atomic','key','null')`
-              );
-
-              throw new Error('rollback');
-            })
-          )
-        );
-        assert.equal(
-          context.db.orm.get(
-            sql`SELECT event_id FROM workflow_events WHERE event_id='outbox-atomic'`
-          ),
-          undefined
-        );
-        assert.equal(
-          context.db.orm.get(sql`SELECT key FROM preferences WHERE scope='atomic'`),
-          undefined
-        );
-        yield* run(
-          transaction((tx) => {
-            escaped = tx;
-            tx.emit(event);
-          })
-        );
-        assert.equal(
-          context.db.orm.get<{ created_at: bigint }>(
-            sql`SELECT created_at FROM workflow_events WHERE event_id='outbox-atomic'`
-          )?.created_at,
-          123_456n
-        );
-        assert.throws(() => escaped!.emit({ ...event, eventId: 'escaped' }), /no longer active/);
-        assert.throws(() => escaped!.store(items), /no longer active/);
-      } finally {
-        context.close();
-      }
-    }).pipe(Effect.provide(TestClock.layer()))
-  );
-  location.cleanup();
-});
-
-test('nested transactions use SQLite savepoints and expire only their own operations', async () => {
-  const location = createTestDatabase(),
-    context = new ServerContext(location.open());
-  const store = defineStore({
-    name: 'test/Nested',
-    entity: { singular: 'item', plural: 'items' },
-    make: ({ db }) => ({
-      queries: {},
-      mutations: {
-        save: storeMutation({
-          input: Schema.String,
-          output: Schema.Void,
-          run: (key) => {
-            db.orm.run(
-              sql`INSERT INTO preferences(scope,key,value) VALUES('nested',${key},'null')`
-            );
-          }
-        })
-      }
-    })
-  });
-  const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-    effect.pipe(Effect.provideService(Database, { store: context }));
-  let inner: { save(key: string): void } | undefined;
-
-  try {
     await Effect.runPromise(
-      provide(
-        transaction((outer) => {
-          const view = outer.store(store);
+      Effect.gen(function* () {
+        yield* TestClock.setTime(123_456);
+        const context = new ServerContext(location.open(), yield* Clock.Clock);
+        const event = {
+          type: 'SourceDeleted' as const,
+          eventId: 'outbox-atomic',
+          causationId: null,
+          correlationId: 'outbox-atomic',
+          inputVersion: 1,
+          depth: 0,
+          sourceId: 1n as SourceId
+        };
+        let escaped: Transaction | undefined;
+        const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
+          effect.pipe(Effect.provideService(Database, { store: context }));
 
-          view.save('before');
-          Effect.runSync(
-            Effect.flip(
-              provide(
-                transaction((tx) => {
-                  inner = tx.store(store);
-                  inner.save('rolled-back');
+        try {
+          yield* Effect.flip(
+            run(
+              transaction((tx) => {
+                tx.emit(event);
+                context.db.orm.run(
+                  sql`INSERT INTO preferences(scope,key,value) VALUES('atomic','key','null')`
+                );
 
-                  throw new Error('inner rollback');
-                })
-              )
+                throw new Error('rollback');
+              })
             )
           );
-          assert.throws(() => inner!.save('escaped'), /no longer active/);
-          view.save('after');
-        })
-      )
+          assert.equal(
+            context.db.orm.get(
+              sql`SELECT event_id FROM workflow_events WHERE event_id='outbox-atomic'`
+            ),
+            undefined
+          );
+          assert.equal(
+            context.db.orm.get(sql`SELECT key FROM preferences WHERE scope='atomic'`),
+            undefined
+          );
+          yield* run(
+            transaction((tx) => {
+              escaped = tx;
+              tx.emit(event);
+            })
+          );
+          assert.equal(
+            context.db.orm.get<{ created_at: bigint }>(
+              sql`SELECT created_at FROM workflow_events WHERE event_id='outbox-atomic'`
+            )?.created_at,
+            123_456n
+          );
+          assert.throws(() => escaped!.emit({ ...event, eventId: 'escaped' }), /no longer active/);
+          assert.throws(() => escaped!.store(items), /no longer active/);
+        } finally {
+          context.close();
+        }
+      }).pipe(Effect.provide(TestClock.layer()))
     );
-    assert.deepEqual(
-      context.db.orm
-        .all<{ key: string }>(sql`SELECT key FROM preferences WHERE scope='nested' ORDER BY key`)
-        .map((row) => row.key),
-      ['after', 'before']
-    );
-  } finally {
-    context.close();
     location.cleanup();
   }
-});
+);
+
+testStable(
+  'nested transactions use SQLite savepoints and expire only their own operations',
+  async () => {
+    const location = createTestDatabase(),
+      context = new ServerContext(location.open());
+    const store = defineStore({
+      name: 'test/Nested',
+      entity: { singular: 'item', plural: 'items' },
+      make: ({ db }) => ({
+        queries: {},
+        mutations: {
+          save: storeMutation({
+            input: Schema.String,
+            output: Schema.Void,
+            run: (key) => {
+              db.orm.run(
+                sql`INSERT INTO preferences(scope,key,value) VALUES('nested',${key},'null')`
+              );
+            }
+          })
+        }
+      })
+    });
+    const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
+      effect.pipe(Effect.provideService(Database, { store: context }));
+    let inner: { save(key: string): void } | undefined;
+
+    try {
+      await Effect.runPromise(
+        provide(
+          transaction((outer) => {
+            const view = outer.store(store);
+
+            view.save('before');
+            Effect.runSync(
+              Effect.flip(
+                provide(
+                  transaction((tx) => {
+                    inner = tx.store(store);
+                    inner.save('rolled-back');
+
+                    throw new Error('inner rollback');
+                  })
+                )
+              )
+            );
+            assert.throws(() => inner!.save('escaped'), /no longer active/);
+            view.save('after');
+          })
+        )
+      );
+      assert.deepEqual(
+        context.db.orm
+          .all<{ key: string }>(sql`SELECT key FROM preferences WHERE scope='nested' ORDER BY key`)
+          .map((row) => row.key),
+        ['after', 'before']
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
 
 function canonicalStoreTypeAssertions() {
   const reads: Effect.Effect<
@@ -821,7 +849,7 @@ function canonicalStoreTypeAssertions() {
 
 void canonicalStoreTypeAssertions;
 
-test('unbranded and role-swapped operation descriptors fail at binding', async () => {
+testStable('unbranded and role-swapped operation descriptors fail at binding', async () => {
   const location = createTestDatabase(),
     context = new ServerContext(location.open());
   const query = storeQuery({
@@ -870,42 +898,45 @@ test('unbranded and role-swapped operation descriptors fail at binding', async (
   }
 });
 
-test('async callbacks are rejected before their continuation can escape the transaction', async () => {
-  const location = createTestDatabase(),
-    context = new ServerContext(location.open());
-  let entered = false;
+testStable(
+  'async callbacks are rejected before their continuation can escape the transaction',
+  async () => {
+    const location = createTestDatabase(),
+      context = new ServerContext(location.open());
+    let entered = false;
 
-  try {
-    await assert.rejects(
-      Effect.runPromise(
-        transaction((async () => {
-          entered = true;
-          await Promise.resolve();
-          context.db.orm.run(
-            sql`INSERT INTO preferences(scope,key,value) VALUES('escaped-async','key','null')`
-          );
+    try {
+      await assert.rejects(
+        Effect.runPromise(
+          transaction((async () => {
+            entered = true;
+            await Promise.resolve();
+            context.db.orm.run(
+              sql`INSERT INTO preferences(scope,key,value) VALUES('escaped-async','key','null')`
+            );
 
-          return 'invalid';
-        }) as never).pipe(Effect.provideService(Database, { store: context }))
-      )
-    );
-    await Promise.resolve();
-    assert.equal(entered, false);
-    assert.equal(
-      context.db.orm.get(sql`SELECT key FROM preferences WHERE scope='escaped-async'`),
-      undefined
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+            return 'invalid';
+          }) as never).pipe(Effect.provideService(Database, { store: context }))
+        )
+      );
+      await Promise.resolve();
+      assert.equal(entered, false);
+      assert.equal(
+        context.db.orm.get(sql`SELECT key FROM preferences WHERE scope='escaped-async'`),
+        undefined
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
 for (const [role, name] of [
   ['required', 'selection'],
   ['optional', 'existing']
 ] as const)
-  test('rejects a noncanonical ' + role + ' read during store initialization', async () => {
+  testStable('rejects a noncanonical ' + role + ' read during store initialization', async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
     const operation =

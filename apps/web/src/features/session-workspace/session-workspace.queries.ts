@@ -21,8 +21,8 @@ import type {
 import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
 import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
 
-import { toStudyError } from '../../lib/study-client/errors';
-import { request } from '../../lib/study-client/request';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+import { request } from '#web/lib/study-client/request.ts';
 
 export type Selection = typeof sessionSelectionSchema.Type;
 

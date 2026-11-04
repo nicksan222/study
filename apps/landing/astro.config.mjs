@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import mdx from '@astrojs/mdx';
 // The Study website: the landing page and the docs, in English (/) and Italian (/it/),
 // built to static files for GitHub Pages under /study.
@@ -41,5 +43,10 @@ export default defineConfig({
   },
   integrations: [mdx({ remarkPlugins: [remarkDocsMedia] })],
   // The logo masters, fonts and icons are the app's own files, outside this folder.
-  vite: { server: { fs: { allow: ['../..'] } } }
+  vite: {
+    resolve: {
+      alias: { '#brand': fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)) }
+    },
+    server: { fs: { allow: ['../..'] } }
+  }
 });

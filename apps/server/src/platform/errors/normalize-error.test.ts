@@ -14,13 +14,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyError } from '@study/contracts/errors';
+import { testStable } from '@study/testing/node';
 
 import { normalizeError } from '#server/platform/errors/classify-error';
 
-test('normalization preserves domain failure identity and retry metadata', () => {
+testStable('normalization preserves domain failure identity and retry metadata', () => {
   const cause = new Error('provider');
   const failure = new StudyError('rate_limited', 'slow down', { cause, retryAfterMs: 42 });
 
@@ -28,7 +28,7 @@ test('normalization preserves domain failure identity and retry metadata', () =>
   assert.equal(normalizeError(failure).cause, cause);
 });
 
-test('normalization classifies unknown causes without exposing their messages', () => {
+testStable('normalization classifies unknown causes without exposing their messages', () => {
   const cause = Object.assign(new Error('private path'), { code: 'EACCES' });
   const failure = normalizeError(cause);
 

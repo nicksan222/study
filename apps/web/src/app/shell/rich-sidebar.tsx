@@ -6,9 +6,10 @@ import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
 import { FileText, MessagesSquare } from 'lucide-react';
 
-import { SubjectIdentity } from '../../features/subjects';
-import { useI18n } from '../../lib/i18n';
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { SubjectIdentity } from '#web/features/subjects/index.ts';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
+
 import { useSidebarProgress, useSessionSettlement } from './rich-sidebar.queries';
 import { SidebarSessionActions } from './sidebar-session-actions';
 import type { SidebarModel } from './use-sidebar';

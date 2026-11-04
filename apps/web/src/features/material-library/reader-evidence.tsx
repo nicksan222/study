@@ -8,7 +8,8 @@ import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
 import { Textarea } from '@study/ui/textarea';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { AnnotationControls } from './annotation-controls';
 import { EvidenceTarget, TargetPicker } from './annotation-target';
 import { useReaderEvidence } from './reader-evidence.queries';

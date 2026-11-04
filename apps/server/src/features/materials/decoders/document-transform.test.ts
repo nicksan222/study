@@ -12,7 +12,6 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
@@ -22,6 +21,7 @@ import {
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
 import { createBlock } from '@study/contracts/sources/document';
+import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
 import { standardSchema } from '#server/platform/ai/schema';
@@ -103,173 +103,185 @@ function fixture() {
   return { context, publication, image, output };
 }
 
-test('managed images require captured structured authorization; an alt-text range grants only text', () => {
-  const { context, publication, image } = fixture();
+testStable(
+  'managed images require captured structured authorization; an alt-text range grants only text',
+  () => {
+    const { context, publication, image } = fixture();
 
-  assert.equal(authorizedTransformAssets(context).length, 1);
-  const copied = createBlock(image.content);
-  const withImage = {
-    ...publication,
-    content: { kind: 'document' as const, blocks: [copied, paragraph('alpha [1]')], meta },
-    report: {
-      notes: [{ kind: 'limit' as const, explanation: 'No external verification', blockIds: [] }]
-    }
-  };
-
-  validateDocumentTransform(context, withImage);
-  const range = Schema.decodeUnknownSync(runSelectionContextSchema)({
-    ...context,
-    inputs: context.inputs.map((input) => ({
-      ...input,
-      scope: {
-        kind: 'ranges',
-        ranges: [
-          {
-            versionId: input.versionId,
-            documentId: input.documentId,
-            blockId: image.id,
-            start: 0,
-            end: 5
-          }
-        ]
-      },
-      excerpts: input.excerpts.map((excerpt) => ({
-        ...excerpt,
-        end: 5,
-        text: 'alpha',
-        content: undefined
-      }))
-    }))
-  });
-
-  assert.equal(authorizedTransformAssets(range).length, 0);
-  assert.throws(() => validateDocumentTransform(range, withImage));
-  assert.throws(() =>
-    validateDocumentTransform(context, {
-      ...withImage,
-      content: {
-        ...withImage.content,
-        blocks: [
-          createBlock({
-            type: 'image',
-            sourceId: Schema.decodeUnknownSync(sourceIdSchema)(99n),
-            revision: 1,
-            alt: 'fake'
-          })
-        ]
-      }
-    })
-  );
-  assert.throws(() =>
-    validateDocumentTransform(context, {
-      ...withImage,
-      content: {
-        ...withImage.content,
-        blocks: [
-          createBlock({
-            type: 'image',
-            sourceId: Schema.decodeUnknownSync(sourceIdSchema)(1n),
-            revision: 999,
-            alt: 'fake revision'
-          })
-        ]
-      }
-    })
-  );
-  assert.throws(() =>
-    validateDocumentTransform(range, {
+    assert.equal(authorizedTransformAssets(context).length, 1);
+    const copied = createBlock(image.content);
+    const withImage = {
       ...publication,
-      citations: [{ ...publication.citations[0]!, quote: 'image' }]
-    })
-  );
-});
+      content: { kind: 'document' as const, blocks: [copied, paragraph('alpha [1]')], meta },
+      report: {
+        notes: [{ kind: 'limit' as const, explanation: 'No external verification', blockIds: [] }]
+      }
+    };
 
-test('empty, malformed, reused identity, fabricated source anchor and unscoped citations reject', () => {
-  const { context, publication, image, output } = fixture();
+    validateDocumentTransform(context, withImage);
+    const range = Schema.decodeUnknownSync(runSelectionContextSchema)({
+      ...context,
+      inputs: context.inputs.map((input) => ({
+        ...input,
+        scope: {
+          kind: 'ranges',
+          ranges: [
+            {
+              versionId: input.versionId,
+              documentId: input.documentId,
+              blockId: image.id,
+              start: 0,
+              end: 5
+            }
+          ]
+        },
+        excerpts: input.excerpts.map((excerpt) => ({
+          ...excerpt,
+          end: 5,
+          text: 'alpha',
+          content: undefined
+        }))
+      }))
+    });
 
-  validateDocumentTransform(context, publication);
-
-  for (const blocks of [
-    [],
-    [paragraph('')],
-    [{ ...output, id: image.id }],
-    [{ ...output, text: 'mismatched projection' }],
-    [{ ...output, anchor: { type: 'page', page: 1 } }]
-  ]) {
+    assert.equal(authorizedTransformAssets(range).length, 0);
+    assert.throws(() => validateDocumentTransform(range, withImage));
     assert.throws(() =>
-      validateDocumentTransform(
-        context,
-        Schema.decodeUnknownSync(materialGenerationPublicationSchema)({
-          ...publication,
-          content: { kind: 'document', blocks, meta }
-        })
-      )
+      validateDocumentTransform(context, {
+        ...withImage,
+        content: {
+          ...withImage.content,
+          blocks: [
+            createBlock({
+              type: 'image',
+              sourceId: Schema.decodeUnknownSync(sourceIdSchema)(99n),
+              revision: 1,
+              alt: 'fake'
+            })
+          ]
+        }
+      })
+    );
+    assert.throws(() =>
+      validateDocumentTransform(context, {
+        ...withImage,
+        content: {
+          ...withImage.content,
+          blocks: [
+            createBlock({
+              type: 'image',
+              sourceId: Schema.decodeUnknownSync(sourceIdSchema)(1n),
+              revision: 999,
+              alt: 'fake revision'
+            })
+          ]
+        }
+      })
+    );
+    assert.throws(() =>
+      validateDocumentTransform(range, {
+        ...publication,
+        citations: [{ ...publication.citations[0]!, quote: 'image' }]
+      })
     );
   }
+);
 
-  assert.throws(() => validateDocumentTransform(context, { ...publication, citations: [] }));
-  assert.throws(() => validateDocumentTransform(context, { ...publication, report: undefined }));
-  assert.throws(() =>
-    validateDocumentTransform(context, {
-      ...publication,
-      report: { notes: [{ kind: 'limit', explanation: 'Unknown block', blockIds: [image.id] }] }
-    })
-  );
-});
+testStable(
+  'empty, malformed, reused identity, fabricated source anchor and unscoped citations reject',
+  () => {
+    const { context, publication, image, output } = fixture();
 
-test('collection generation still requires a project and Document generation requires explicit captured session scope', () => {
-  const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
+    validateDocumentTransform(context, publication);
 
-  assert.throws(() => decode({ title: 'Cards', kind: 'flashcards', inputVersionIds: [1n] }));
-  assert.throws(() =>
-    decode({ title: 'Doc', kind: 'document', inputVersionIds: [1n], projectId: 1n })
-  );
-  assert.throws(() =>
-    decode({
-      title: 'Doc',
-      kind: 'document',
-      inputVersionIds: [],
-      documentTransform: { contextRequestId: 'capture', operations: ['clarity', 'clarity'] }
-    })
-  );
-  assert.equal(
-    decode({
-      title: 'Doc',
-      kind: 'document',
-      inputVersionIds: [],
-      documentTransform: {
-        contextRequestId: 'capture',
-        operations: [
-          'clarity',
-          'grammar',
-          'structure',
-          'combine',
-          'deduplicate',
-          'summarize',
-          'explain',
-          'expand',
-          'translate',
-          'factual_correction'
-        ]
-      }
-    }).projectId,
-    undefined
-  );
-});
+    for (const blocks of [
+      [],
+      [paragraph('')],
+      [{ ...output, id: image.id }],
+      [{ ...output, text: 'mismatched projection' }],
+      [{ ...output, anchor: { type: 'page', page: 1 } }]
+    ]) {
+      assert.throws(() =>
+        validateDocumentTransform(
+          context,
+          Schema.decodeUnknownSync(materialGenerationPublicationSchema)({
+            ...publication,
+            content: { kind: 'document', blocks, meta }
+          })
+        )
+      );
+    }
 
-test('provider JSON accepts authorized image identifiers without native bigint values', async () => {
-  const output = {
-    blocks: [{ type: 'image', sourceId: '1', revision: 1, alt: 'alpha image' }],
-    notes: [{ kind: 'limit', explanation: 'No external verification', blockOrdinals: [] }]
-  };
-  const result = await standardSchema(documentTransformOutputSchema)['~standard'].validate(
-    JSON.parse(JSON.stringify(output))
-  );
+    assert.throws(() => validateDocumentTransform(context, { ...publication, citations: [] }));
+    assert.throws(() => validateDocumentTransform(context, { ...publication, report: undefined }));
+    assert.throws(() =>
+      validateDocumentTransform(context, {
+        ...publication,
+        report: { notes: [{ kind: 'limit', explanation: 'Unknown block', blockIds: [image.id] }] }
+      })
+    );
+  }
+);
 
-  assert.equal(result.issues, undefined);
-});
+testStable(
+  'collection generation still requires a project and Document generation requires explicit captured session scope',
+  () => {
+    const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
 
-test('separator-only tables are not completed conversation-only Documents', () => {
+    assert.throws(() => decode({ title: 'Cards', kind: 'flashcards', inputVersionIds: [1n] }));
+    assert.throws(() =>
+      decode({ title: 'Doc', kind: 'document', inputVersionIds: [1n], projectId: 1n })
+    );
+    assert.throws(() =>
+      decode({
+        title: 'Doc',
+        kind: 'document',
+        inputVersionIds: [],
+        documentTransform: { contextRequestId: 'capture', operations: ['clarity', 'clarity'] }
+      })
+    );
+    assert.equal(
+      decode({
+        title: 'Doc',
+        kind: 'document',
+        inputVersionIds: [],
+        documentTransform: {
+          contextRequestId: 'capture',
+          operations: [
+            'clarity',
+            'grammar',
+            'structure',
+            'combine',
+            'deduplicate',
+            'summarize',
+            'explain',
+            'expand',
+            'translate',
+            'factual_correction'
+          ]
+        }
+      }).projectId,
+      undefined
+    );
+  }
+);
+
+testStable(
+  'provider JSON accepts authorized image identifiers without native bigint values',
+  async () => {
+    const output = {
+      blocks: [{ type: 'image', sourceId: '1', revision: 1, alt: 'alpha image' }],
+      notes: [{ kind: 'limit', explanation: 'No external verification', blockOrdinals: [] }]
+    };
+    const result = await standardSchema(documentTransformOutputSchema)['~standard'].validate(
+      JSON.parse(JSON.stringify(output))
+    );
+
+    assert.equal(result.issues, undefined);
+  }
+);
+
+testStable('separator-only tables are not completed conversation-only Documents', () => {
   const { context, publication } = fixture();
   const table = createBlock({
     type: 'table',
@@ -297,26 +309,29 @@ test('separator-only tables are not completed conversation-only Documents', () =
   );
 });
 
-test('report-only evidence markers and captured target locations obey the same scope barrier', () => {
-  const { context, publication, output } = fixture();
-  const note = {
-    kind: 'correction_proposal' as const,
-    explanation: 'Proposal [1]',
-    blockIds: [output.id]
-  };
+testStable(
+  'report-only evidence markers and captured target locations obey the same scope barrier',
+  () => {
+    const { context, publication, output } = fixture();
+    const note = {
+      kind: 'correction_proposal' as const,
+      explanation: 'Proposal [1]',
+      blockIds: [output.id]
+    };
 
-  validateDocumentTransform(context, { ...publication, report: { notes: [note] } });
-  assert.throws(() =>
-    validateDocumentTransform(context, {
-      ...publication,
-      report: { notes: [{ ...note, explanation: 'Fabricated evidence [2]' }] }
-    })
-  );
-  assert.throws(() =>
-    validateDocumentTransform(context, {
-      ...publication,
-      report: { notes: [note] },
-      citations: [{ ...publication.citations[0]!, target: undefined }]
-    })
-  );
-});
+    validateDocumentTransform(context, { ...publication, report: { notes: [note] } });
+    assert.throws(() =>
+      validateDocumentTransform(context, {
+        ...publication,
+        report: { notes: [{ ...note, explanation: 'Fabricated evidence [2]' }] }
+      })
+    );
+    assert.throws(() =>
+      validateDocumentTransform(context, {
+        ...publication,
+        report: { notes: [note] },
+        citations: [{ ...publication.citations[0]!, target: undefined }]
+      })
+    );
+  }
+);

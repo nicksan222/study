@@ -2,7 +2,7 @@ import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 export function useDocumentMetadata(material: MaterialDetailDto) {
   const cache = useQueryClient();

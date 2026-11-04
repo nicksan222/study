@@ -5,7 +5,7 @@ import { Button } from '@study/ui/button';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { Textarea } from '@study/ui/textarea';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
 
 type Document = typeof documentSchema.Type;
 

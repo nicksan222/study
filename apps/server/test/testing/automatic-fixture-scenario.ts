@@ -16,10 +16,11 @@
 
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-import { beforeEach, test } from 'node:test';
+import { beforeEach } from 'node:test';
 import type { TestContext } from 'node:test';
 
 import { Db, sql } from '@study/db';
+import { subtests, testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { Projects } from '#server/features/projects/index';
@@ -46,7 +47,7 @@ if (
   mode !== 'retry-async' &&
   mode !== 'api-reuse'
 )
-  void test('first isolated database', async (t) => {
+  void testStable('first isolated database', async (t) => {
     const f = await createServerTest(t);
 
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
@@ -91,7 +92,7 @@ if (
   });
 
 if (mode === 'success') {
-  void test('second isolated database', async (t) => {
+  void testStable('second isolated database', async (t) => {
     const f = await createServerTest(t);
 
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
@@ -107,7 +108,7 @@ if (mode === 'success') {
 }
 
 if (mode === 'concurrent') {
-  void test('concurrent databases', { concurrency: true }, async (t) => {
+  void testStable('concurrent databases', { concurrency: true }, async (t) => {
     let arrived = 0;
     let release!: () => void;
     const ready = new Promise<void>((resolve) => {
@@ -117,7 +118,7 @@ if (mode === 'concurrent') {
 
     await Promise.all(
       ['a', 'b'].map((name) =>
-        t.test(name, async (child) => {
+        subtests(t).testStable(name, async (child) => {
           const { path, manage } = createServerTest(child, { app: false });
           const db = manage(Db.open(path));
 
@@ -144,7 +145,7 @@ if (mode === 'concurrent') {
 }
 
 if (mode === 'retry-sync' || mode === 'retry-async') {
-  void test('failed close is retried by teardown', async (t) => {
+  void testStable('failed close is retried by teardown', async (t) => {
     const database = createServerTest(t, { app: false });
     let attempts = 0;
 
@@ -183,22 +184,25 @@ if (mode === 'retry-sync' || mode === 'retry-async') {
 }
 
 if (mode === 'api-reuse') {
-  void test('canonical test helper reuses the app and supports low-level access', async (t) => {
-    const low = createServerTest(t, { app: false });
-    const extra = low.manage(await App.open({ path: low.path }));
+  void testStable(
+    'canonical test helper reuses the app and supports low-level access',
+    async (t) => {
+      const low = createServerTest(t, { app: false });
+      const extra = low.manage(await App.open({ path: low.path }));
 
-    await extra.close();
+      await extra.close();
 
-    const first = await createServerTest(t);
-    const again = await createServerTest(t);
+      const first = await createServerTest(t);
+      const again = await createServerTest(t);
 
-    assert.equal(first, again);
-    assert.equal(first.app, again.app);
-    assert.equal(first.app.nativeRuntime, again.app.nativeRuntime);
-    console.log('FIXTURE_PATH', JSON.stringify(first.path));
+      assert.equal(first, again);
+      assert.equal(first.app, again.app);
+      assert.equal(first.app.nativeRuntime, again.app.nativeRuntime);
+      console.log('FIXTURE_PATH', JSON.stringify(first.path));
 
-    assert.equal(low.path, first.path);
-    assert.equal(low.dir, first.dir);
-    assert.equal('app' in low, false);
-  });
+      assert.equal(low.path, first.path);
+      assert.equal(low.dir, first.dir);
+      assert.equal('app' in low, false);
+    }
+  );
 }

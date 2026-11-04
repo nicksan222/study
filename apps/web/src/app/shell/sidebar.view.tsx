@@ -22,9 +22,10 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { SubjectIdentity } from '../../features/subjects';
-import { useI18n } from '../../lib/i18n';
-import { Page as SettingsPage } from '../../pages/settings/page';
+import { SubjectIdentity } from '#web/features/subjects/index.ts';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { Page as SettingsPage } from '#web/pages/settings/page.tsx';
+
 import { RichSidebarSessions } from './rich-sidebar';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import { resultLocation } from './sidebar.locations';

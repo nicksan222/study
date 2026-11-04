@@ -12,9 +12,9 @@ import { toastManager } from '@study/ui/toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import type { StudyClient } from '../../lib/study-client/request';
-import { request } from '../../lib/study-client/request';
+import { useI18n } from '#web/lib/i18n.tsx';
+import type { StudyClient } from '#web/lib/study-client/request.ts';
+import { request } from '#web/lib/study-client/request.ts';
 
 type DeletePreview = typeof materialDeletionPreviewSchema.Type;
 

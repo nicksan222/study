@@ -1,11 +1,11 @@
-import { test } from 'node:test';
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Metric attributes must use bounded literal labels or safeMetricLabels from platform/observability.';
 
-test('checks Effect metric attributes with aliases and shadowing', () => {
+testStable('checks Effect metric attributes with aliases and shadowing', () => {
   assertDiagnostics(
     'metric-cardinality',
     lintRule('metric-cardinality', {
@@ -21,7 +21,7 @@ test('checks Effect metric attributes with aliases and shadowing', () => {
     ]
   );
 });
-test('checks tuple attributes, constructor options and namespace helper', () => {
+testStable('checks tuple attributes, constructor options and namespace helper', () => {
   assertDiagnostics(
     'metric-cardinality',
     lintRule('metric-cardinality', {
@@ -35,7 +35,7 @@ test('checks tuple attributes, constructor options and namespace helper', () => 
   );
 });
 
-test('allows bounded enum members and rejects computed identifiers', () => {
+testStable('allows bounded enum members and rejects computed identifiers', () => {
   assertDiagnostics(
     'metric-cardinality',
     lintRule('metric-cardinality', {
@@ -46,7 +46,7 @@ test('allows bounded enum members and rejects computed identifiers', () => {
   );
 });
 
-test('checks contextual Effect metric attributes', () => {
+testStable('checks contextual Effect metric attributes', () => {
   assertDiagnostics(
     'metric-cardinality',
     lintRule('metric-cardinality', {

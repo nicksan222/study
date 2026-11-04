@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Pass the Effect.tryPromise cancellation signal to fetch.';
 
-test('reports unsafe server lifecycle syntax and permits bounded operations', () => {
+testStable('reports unsafe server lifecycle syntax and permits bounded operations', () => {
   const diagnostics = lintRule('effect-abort-signal', {
     'src/workers/unsafe.ts':
       "import { Effect as E } from 'effect'; E.tryPromise(() => fetch(url));",
@@ -19,7 +20,7 @@ test('reports unsafe server lifecycle syntax and permits bounded operations', ()
   assertDiagnostics('effect-abort-signal', diagnostics, [['src/workers/unsafe.ts', message]]);
 });
 
-test('finds fetch aliases in object callbacks and return bodies', () => {
+testStable('finds fetch aliases in object callbacks and return bodies', () => {
   const diagnostics = lintRule('effect-abort-signal', {
     'src/workers/example.ts':
       "import { tryPromise as attempt } from 'effect/Effect'; import { fetch as request } from 'undici'; const native = fetch; attempt({ try: () => { return request(url); }, catch: error => error }); attempt(() => native(url));"
@@ -31,7 +32,7 @@ test('finds fetch aliases in object callbacks and return bodies', () => {
   ]);
 });
 
-test('accepts object callbacks and native fetch aliases with signal', () => {
+testStable('accepts object callbacks and native fetch aliases with signal', () => {
   const diagnostics = lintRule('effect-abort-signal', {
     'src/workers/example.ts':
       "import * as E from 'effect/Effect'; const request = globalThis.fetch; E.tryPromise({ try: signal => request(url, { signal }), catch: error => error });"
@@ -40,7 +41,7 @@ test('accepts object callbacks and native fetch aliases with signal', () => {
   assertDiagnostics('effect-abort-signal', diagnostics, []);
 });
 
-test('ignores unrelated or shadowed fetch APIs', () => {
+testStable('ignores unrelated or shadowed fetch APIs', () => {
   const diagnostics = lintRule('effect-abort-signal', {
     'src/workers/example.ts':
       "import { Effect } from 'effect'; function f(fetch) { return Effect.tryPromise(() => fetch(url)); } Effect.tryPromise(() => other.fetch(url));"
@@ -49,7 +50,7 @@ test('ignores unrelated or shadowed fetch APIs', () => {
   assertDiagnostics('effect-abort-signal', diagnostics, []);
 });
 
-test('rejects a signal from an unrelated variable', () => {
+testStable('rejects a signal from an unrelated variable', () => {
   const diagnostics = lintRule('effect-abort-signal', {
     'src/workers/example.ts':
       "import { Effect } from 'effect'; const other = new AbortController(); Effect.tryPromise(signal => fetch(url, { signal: other.signal }));"
@@ -58,7 +59,7 @@ test('rejects a signal from an unrelated variable', () => {
   assertDiagnostics('effect-abort-signal', diagnostics, [['src/workers/example.ts', message]]);
 });
 
-test('enforces the Effect contract in browser operations', () => {
+testStable('enforces the Effect contract in browser operations', () => {
   const diagnostics = lintRule(
     'effect-abort-signal',
     {
@@ -73,7 +74,7 @@ test('enforces the Effect contract in browser operations', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('propagates the signal from native callback bridges', () => {
+testStable('propagates the signal from native callback bridges', () => {
   assertDiagnostics(
     'effect-abort-signal',
     lintRule('effect-abort-signal', {
@@ -89,7 +90,7 @@ test('propagates the signal from native callback bridges', () => {
   );
 });
 
-test('retains cancellation checks for extracted bridge callbacks', () => {
+testStable('retains cancellation checks for extracted bridge callbacks', () => {
   assertDiagnostics(
     'effect-abort-signal',
     lintRule('effect-abort-signal', {
@@ -102,7 +103,7 @@ test('retains cancellation checks for extracted bridge callbacks', () => {
   );
 });
 
-test('attributes nested fetches to their nearest native cancellation bridge', () => {
+testStable('attributes nested fetches to their nearest native cancellation bridge', () => {
   assertDiagnostics(
     'effect-abort-signal',
     lintRule('effect-abort-signal', {

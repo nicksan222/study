@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { Db } from '../src/db.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
-test('snapshot checks build one trusted reference but inspect every candidate', async (t) => {
+testStable('snapshot checks build one trusted reference but inspect every candidate', async (t) => {
   const location = createTestDatabase();
   const db = location.open();
   const target = join(location.dir, 'snapshot.sqlite');

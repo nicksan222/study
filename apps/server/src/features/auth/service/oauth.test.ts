@@ -16,11 +16,11 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { test } from 'node:test';
 
 import { sql } from '@study/db';
 import { preferences } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import type { Context } from 'effect';
 import { Effect, Fiber, Layer } from 'effect';
 
@@ -171,51 +171,58 @@ async function withAuth(
   }
 }
 
-test('successful OAuth finish persists only a public-safe account and changes generation on repeated sign-in', async () => {
-  await withAuth(async (layer, context, oauth) => {
-    function* verifyRepeatedSignIn() {
-      const auth = yield* Auth;
-      const initial = yield* auth.credentialGeneration();
-      const attempt = yield* auth.startSignIn({});
-      const pending = yield* Effect.forkChild(auth.finishSignIn({ attemptId: attempt.attemptId }));
-      const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
+testStable(
+  'successful OAuth finish persists only a public-safe account and changes generation on repeated sign-in',
+  async () => {
+    await withAuth(async (layer, context, oauth) => {
+      function* verifyRepeatedSignIn() {
+        const auth = yield* Auth;
+        const initial = yield* auth.credentialGeneration();
+        const attempt = yield* auth.startSignIn({});
+        const pending = yield* Effect.forkChild(
+          auth.finishSignIn({ attemptId: attempt.attemptId })
+        );
+        const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
 
-      assert.equal(response.status, 200);
-      yield* Effect.promise(() => response.text());
-      assert.deepEqual(yield* Fiber.join(pending), {
-        signedIn: true,
-        email: 'p@example.test',
-        sharing: true
-      });
-      assert.deepEqual(yield* auth.publicAccount(), {
-        subject: 'person',
-        email: 'p@example.test',
-        sharing: true
-      });
-      const first = yield* auth.credentialGeneration();
+        assert.equal(response.status, 200);
+        yield* Effect.promise(() => response.text());
+        assert.deepEqual(yield* Fiber.join(pending), {
+          signedIn: true,
+          email: 'p@example.test',
+          sharing: true
+        });
+        assert.deepEqual(yield* auth.publicAccount(), {
+          subject: 'person',
+          email: 'p@example.test',
+          sharing: true
+        });
+        const first = yield* auth.credentialGeneration();
 
-      assert.notDeepEqual(first, initial);
-      const second = yield* auth.startSignIn({});
-      const finishing = yield* Effect.forkChild(auth.finishSignIn({ attemptId: second.attemptId }));
-      const result = yield* Effect.promise(() => fetch(oauth.callback(second.url)));
+        assert.notDeepEqual(first, initial);
+        const second = yield* auth.startSignIn({});
+        const finishing = yield* Effect.forkChild(
+          auth.finishSignIn({ attemptId: second.attemptId })
+        );
+        const result = yield* Effect.promise(() => fetch(oauth.callback(second.url)));
 
-      yield* Effect.promise(() => result.text());
-      yield* Fiber.join(finishing);
-      assert.notDeepEqual(yield* auth.credentialGeneration(), first);
-      const rows = context.db.orm.select().from(preferences).all();
-      const account = rows.find((row) => row.key === 'account');
+        yield* Effect.promise(() => result.text());
+        yield* Fiber.join(finishing);
+        assert.notDeepEqual(yield* auth.credentialGeneration(), first);
+        const rows = context.db.orm.select().from(preferences).all();
+        const account = rows.find((row) => row.key === 'account');
 
-      assert.equal(JSON.parse(account!.value).refreshToken, 'refresh-secret');
-      assert.ok(!JSON.stringify(yield* auth.publicAccount()).includes('secret'));
-    }
+        assert.equal(JSON.parse(account!.value).refreshToken, 'refresh-secret');
+        assert.ok(!JSON.stringify(yield* auth.publicAccount()).includes('secret'));
+      }
 
-    await Effect.runPromise(
-      Effect.scoped(Effect.gen(verifyRepeatedSignIn).pipe(Effect.provide(layer)))
-    );
-  });
-});
+      await Effect.runPromise(
+        Effect.scoped(Effect.gen(verifyRepeatedSignIn).pipe(Effect.provide(layer)))
+      );
+    });
+  }
+);
 
-test('failed OAuth persistence restores the previous account and session', async () => {
+testStable('failed OAuth persistence restores the previous account and session', async () => {
   await withAuth(async (layer, context, oauth, manager) => {
     const previous = {
       subject: 'old',
@@ -269,120 +276,126 @@ test('failed OAuth persistence restores the previous account and session', async
   });
 });
 
-test('refresh rotation settling during OAuth finish survives the sign-in commit', async () => {
-  const oauth = await peer();
+testStable(
+  'refresh rotation settling during OAuth finish survives the sign-in commit',
+  async () => {
+    const oauth = await peer();
 
-  oauth.startRotation();
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const previous = {
-    subject: 'person',
-    clientId: 'client',
-    refreshToken: 'refresh-secret',
-    sharing: true,
-    email: 'p@example.test'
-  };
+    oauth.startRotation();
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const previous = {
+      subject: 'person',
+      clientId: 'client',
+      refreshToken: 'refresh-secret',
+      sharing: true,
+      email: 'p@example.test'
+    };
 
-  context.db.orm
-    .insert(preferences)
-    .values({ scope: 'private.chatgpt', key: 'account', value: JSON.stringify(previous) })
-    .run();
-  let saveRefresh: (account: typeof previous, token: string) => Promise<void> = async () => {
-    throw new Error('not initialized');
-  };
-  let replacementStarted!: () => void;
-  const replacement = new Promise<void>((resolve) => {
-    replacementStarted = resolve;
-  });
+    context.db.orm
+      .insert(preferences)
+      .values({ scope: 'private.chatgpt', key: 'account', value: JSON.stringify(previous) })
+      .run();
+    let saveRefresh: (account: typeof previous, token: string) => Promise<void> = async () => {
+      throw new Error('not initialized');
+    };
+    let replacementStarted!: () => void;
+    const replacement = new Promise<void>((resolve) => {
+      replacementStarted = resolve;
+    });
 
-  class ObservedAuthManager extends AuthManager {
-    override replace(account: Account, seed?: AccessSeed) {
-      if (seed) replacementStarted();
+    class ObservedAuthManager extends AuthManager {
+      override replace(account: Account, seed?: AccessSeed) {
+        if (seed) replacementStarted();
 
-      return super.replace(account, seed);
+        return super.replace(account, seed);
+      }
     }
-  }
 
-  const manager = new ObservedAuthManager({
-    issuer: oauth.issuer,
-    saveRefresh: (account, token) => saveRefresh(account as typeof previous, token)
-  });
-  const layer = Auth.layer.pipe(
-    Layer.provideMerge(
-      Layer.merge(
-        Layer.succeed(Database, { store: context }),
-        Layer.succeed(ChatGptSession, { manager, issuer: oauth.issuer, hostId: 'test' })
+    const manager = new ObservedAuthManager({
+      issuer: oauth.issuer,
+      saveRefresh: (account, token) => saveRefresh(account as typeof previous, token)
+    });
+    const layer = Auth.layer.pipe(
+      Layer.provideMerge(
+        Layer.merge(
+          Layer.succeed(Database, { store: context }),
+          Layer.succeed(ChatGptSession, { manager, issuer: oauth.issuer, hostId: 'test' })
+        )
       )
-    )
-  );
+    );
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const auth = yield* Auth;
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const auth = yield* Auth;
 
-          saveRefresh = (account, token) =>
-            Effect.runPromise(
-              auth
-                .rotateRefreshToken({ previous: account, token })
-                .pipe(Effect.provideService(Database, { store: context }))
+            saveRefresh = (account, token) =>
+              Effect.runPromise(
+                auth
+                  .rotateRefreshToken({ previous: account, token })
+                  .pipe(Effect.provideService(Database, { store: context }))
+              );
+            const refresh = manager.token().catch(() => undefined);
+
+            yield* Effect.promise(() => oauth.refreshRequest);
+            const attempt = yield* auth.startSignIn({});
+            const finishing = yield* Effect.forkChild(
+              auth.finishSignIn({ attemptId: attempt.attemptId })
             );
-          const refresh = manager.token().catch(() => undefined);
+            const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
 
-          yield* Effect.promise(() => oauth.refreshRequest);
-          const attempt = yield* auth.startSignIn({});
-          const finishing = yield* Effect.forkChild(
-            auth.finishSignIn({ attemptId: attempt.attemptId })
-          );
-          const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
+            yield* Effect.promise(() => response.text());
+            yield* Effect.promise(() => replacement);
+            oauth.releaseRefresh();
+            yield* Effect.promise(() => refresh);
+            yield* Fiber.join(finishing);
+            const row = context.db.orm
+              .select()
+              .from(preferences)
+              .all()
+              .find((entry) => entry.key === 'account');
 
-          yield* Effect.promise(() => response.text());
-          yield* Effect.promise(() => replacement);
-          oauth.releaseRefresh();
-          yield* Effect.promise(() => refresh);
-          yield* Fiber.join(finishing);
-          const row = context.db.orm
-            .select()
-            .from(preferences)
-            .all()
-            .find((entry) => entry.key === 'account');
-
-          assert.equal(JSON.parse(row!.value).refreshToken, 'rotated-secret');
-        }).pipe(Effect.provide(layer))
-      )
-    );
-  } finally {
-    oauth.releaseRefresh();
-    await manager.dispose();
-    context.close();
-    location.cleanup();
-    await oauth.close();
-  }
-});
-
-test('interrupting finish aborts the token HTTP request and closes the listener', async () => {
-  await withAuth(async (layer, _context, oauth) => {
-    oauth.blockToken();
-
-    function* verifySignInInterruption() {
-      const auth = yield* Auth;
-      const attempt = yield* auth.startSignIn({});
-      const callback = oauth.callback(attempt.url);
-      const finishing = yield* Effect.forkChild(
-        auth.finishSignIn({ attemptId: attempt.attemptId })
+            assert.equal(JSON.parse(row!.value).refreshToken, 'rotated-secret');
+          }).pipe(Effect.provide(layer))
+        )
       );
-      const response = yield* Effect.promise(() => fetch(callback));
-
-      yield* Effect.promise(() => response.text());
-      yield* Effect.promise(() => oauth.tokenRequest);
-      yield* Fiber.interrupt(finishing);
-      yield* Effect.promise(() => oauth.tokenAbort);
-      yield* Effect.promise(() => assert.rejects(fetch(callback)));
+    } finally {
+      oauth.releaseRefresh();
+      await manager.dispose();
+      context.close();
+      location.cleanup();
+      await oauth.close();
     }
+  }
+);
 
-    await Effect.runPromise(
-      Effect.scoped(Effect.gen(verifySignInInterruption).pipe(Effect.provide(layer)))
-    );
-  });
-});
+testStable(
+  'interrupting finish aborts the token HTTP request and closes the listener',
+  async () => {
+    await withAuth(async (layer, _context, oauth) => {
+      oauth.blockToken();
+
+      function* verifySignInInterruption() {
+        const auth = yield* Auth;
+        const attempt = yield* auth.startSignIn({});
+        const callback = oauth.callback(attempt.url);
+        const finishing = yield* Effect.forkChild(
+          auth.finishSignIn({ attemptId: attempt.attemptId })
+        );
+        const response = yield* Effect.promise(() => fetch(callback));
+
+        yield* Effect.promise(() => response.text());
+        yield* Effect.promise(() => oauth.tokenRequest);
+        yield* Fiber.interrupt(finishing);
+        yield* Effect.promise(() => oauth.tokenAbort);
+        yield* Effect.promise(() => assert.rejects(fetch(callback)));
+      }
+
+      await Effect.runPromise(
+        Effect.scoped(Effect.gen(verifySignInInterruption).pipe(Effect.provide(layer)))
+      );
+    });
+  }
+);

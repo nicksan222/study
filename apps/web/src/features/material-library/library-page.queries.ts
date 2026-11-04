@@ -2,9 +2,10 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useSearch, useNavigate, useLocation, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
-import { projectsQueryOptions } from '../../lib/study-client/study.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { request } from '#web/lib/study-client/request.ts';
+import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+
 import { importReturn, libraryReturn, libraryEntries } from './browse-state';
 import type { BrowseSnapshot } from './browse-state';
 import { collectionId } from './identity';

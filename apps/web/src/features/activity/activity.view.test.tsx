@@ -1,13 +1,15 @@
 import { StudyError } from '@study/contracts/errors';
 import { executionSchema } from '@study/contracts/workflows/schemas';
 import { catalogs } from '@study/localization';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Effect, Schema } from 'effect';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { LanguageProvider } from '../../lib/i18n';
-import type { StudyClient } from '../../lib/study-client/client';
+import { LanguageProvider } from '#web/lib/i18n.tsx';
+import type { StudyClient } from '#web/lib/study-client/client.ts';
+
 import { Activity } from './activity';
 
 const rpc = vi.hoisted(() => ({
@@ -16,7 +18,7 @@ const rpc = vi.hoisted(() => ({
   'workflows.cancelExecution': vi.fn<StudyClient['workflows.cancelExecution']>()
 }));
 
-vi.mock('../../lib/study-client/client', async () => {
+vi.mock('#web/lib/study-client/client.ts', async () => {
   const { Effect } = await import('effect');
 
   return { studyClient: Effect.succeed(rpc) };
@@ -78,127 +80,142 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it('passes the full tied-timestamp cursor and preserves authoritative page order', async () => {
-  const cursor = { id: b.id, createdAtMs: 9007199254740993n };
-  const older = execution('older', 'conversation-reply');
+testStable(
+  'passes the full tied-timestamp cursor and preserves authoritative page order',
+  async () => {
+    const cursor = { id: b.id, createdAtMs: 9007199254740993n };
+    const older = execution('older', 'conversation-reply');
 
-  rpc['workflows.executions'].mockImplementation(({ before }) =>
-    Effect.succeed(before ? { items: [older], next: null } : { items: [a, b], next: cursor })
-  );
-  mount();
-  fireEvent.click(await screen.findByRole('button', { name: t['collections.more'] }));
-  await screen.findByRole('button', { name: new RegExp(t['workspace.task.conversation-reply']) });
-  expect(rpc['workflows.executions']).toHaveBeenNthCalledWith(1, { limit: 20, before: undefined });
-  expect(rpc['workflows.executions']).toHaveBeenNthCalledWith(2, {
-    limit: 20,
-    before: { id: b.id, createdAtMs: 9007199254740993n }
-  });
-  const rows = within(screen.getByRole('list')).getAllByRole('listitem');
+    rpc['workflows.executions'].mockImplementation(({ before }) =>
+      Effect.succeed(before ? { items: [older], next: null } : { items: [a, b], next: cursor })
+    );
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: t['collections.more'] }));
+    await screen.findByRole('button', { name: new RegExp(t['workspace.task.conversation-reply']) });
+    expect(rpc['workflows.executions']).toHaveBeenNthCalledWith(1, {
+      limit: 20,
+      before: undefined
+    });
+    expect(rpc['workflows.executions']).toHaveBeenNthCalledWith(2, {
+      limit: 20,
+      before: { id: b.id, createdAtMs: 9007199254740993n }
+    });
+    const rows = within(screen.getByRole('list')).getAllByRole('listitem');
 
-  expect(rows).toHaveLength(3);
-  expect(rows[0]).toHaveTextContent(t['workspace.task.source-ingestion']);
-  expect(rows[1]).toHaveTextContent(t['workspace.task.other']);
-  expect(rows[2]).toHaveTextContent(t['workspace.task.conversation-reply']);
-  expect(screen.queryByRole('button', { name: t['collections.more'] })).toBeNull();
-});
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent(t['workspace.task.source-ingestion']);
+    expect(rows[1]).toHaveTextContent(t['workspace.task.other']);
+    expect(rows[2]).toHaveTextContent(t['workspace.task.conversation-reply']);
+    expect(screen.queryByRole('button', { name: t['collections.more'] })).toBeNull();
+  }
+);
 
-it('uses friendly known names and a generic unknown name while retaining raw workflow identity in Details', async () => {
-  mount();
-  await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) });
-  expect(row(t['workspace.task.other'])).toBeInTheDocument();
-  expect(screen.queryByText('source-ingestion')).toBeNull();
-  fireEvent.click(row(t['workspace.task.source-ingestion']));
-  const summary = await screen.findByText(t['workspace.details']);
-  const details = summary.closest('details')!;
+testStable(
+  'uses friendly known names and a generic unknown name while retaining raw workflow identity in Details',
+  async () => {
+    mount();
+    await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) });
+    expect(row(t['workspace.task.other'])).toBeInTheDocument();
+    expect(screen.queryByText('source-ingestion')).toBeNull();
+    fireEvent.click(row(t['workspace.task.source-ingestion']));
+    const summary = await screen.findByText(t['workspace.details']);
+    const details = summary.closest('details')!;
 
-  expect(details).not.toHaveAttribute('open');
-  fireEvent.click(summary);
-  expect(within(details).getByText('source-ingestion')).toBeInTheDocument();
-  expect(within(details).getByText(a.id)).toBeInTheDocument();
-  fireEvent.click(row(t['workspace.task.other']));
-  await screen.findByText(t['workspace.details']);
-  expect(screen.getByText('unrecognized-task').closest('details')).toBeInTheDocument();
-});
+    expect(details).not.toHaveAttribute('open');
+    fireEvent.click(summary);
+    expect(within(details).getByText('source-ingestion')).toBeInTheDocument();
+    expect(within(details).getByText(a.id)).toBeInTheDocument();
+    fireEvent.click(row(t['workspace.task.other']));
+    await screen.findByText(t['workspace.details']);
+    expect(screen.getByText('unrecognized-task').closest('details')).toBeInTheDocument();
+  }
+);
 
-it('keeps cancellation bound to A when B is selected and excludes a second action until reconciliation settles', async () => {
-  const response = deferred<typeof a>();
-  const reconciliation = deferred<typeof b>();
+testStable(
+  'keeps cancellation bound to A when B is selected and excludes a second action until reconciliation settles',
+  async () => {
+    const response = deferred<typeof a>();
+    const reconciliation = deferred<typeof b>();
 
-  rpc['workflows.cancelExecution'].mockReturnValue(Effect.promise(() => response.promise));
-  mount();
-  fireEvent.click(
-    await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) })
-  );
-  fireEvent.click(await screen.findByRole('button', { name: t['collections.cancel'] }));
-  await waitFor(() => expect(rpc['workflows.cancelExecution']).toHaveBeenCalledTimes(1));
-  fireEvent.click(row(t['workspace.task.other']));
-  const cancelB = await screen.findByRole('button', { name: t['collections.cancel'] });
+    rpc['workflows.cancelExecution'].mockReturnValue(Effect.promise(() => response.promise));
+    mount();
+    fireEvent.click(
+      await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) })
+    );
+    fireEvent.click(await screen.findByRole('button', { name: t['collections.cancel'] }));
+    await waitFor(() => expect(rpc['workflows.cancelExecution']).toHaveBeenCalledTimes(1));
+    fireEvent.click(row(t['workspace.task.other']));
+    const cancelB = await screen.findByRole('button', { name: t['collections.cancel'] });
 
-  expect(cancelB).toBeDisabled();
-  fireEvent.click(cancelB);
-  const detailCalls = rpc['workflows.execution'].mock.calls.length;
+    expect(cancelB).toBeDisabled();
+    fireEvent.click(cancelB);
+    const detailCalls = rpc['workflows.execution'].mock.calls.length;
 
-  rpc['workflows.execution'].mockReturnValue(Effect.promise(() => reconciliation.promise));
-  await act(async () => {
-    response.resolve({ ...a, status: 'cancelling', canCancel: false });
-    await response.promise;
-  });
-  await waitFor(() =>
-    expect(rpc['workflows.execution'].mock.calls.length).toBeGreaterThan(detailCalls)
-  );
-  expect(rpc['workflows.execution']).toHaveBeenLastCalledWith({ id: b.id });
-  expect(screen.getByRole('button', { name: t['collections.cancel'] })).toBeDisabled();
-  await act(async () => {
-    reconciliation.resolve({ ...b, status: 'completed', canCancel: false, outcome: 'success' });
-    await reconciliation.promise;
-  });
-  await waitFor(() =>
-    expect(screen.queryByRole('button', { name: t['collections.cancel'] })).toBeNull()
-  );
-  expect(row(t['workspace.task.other'])).toHaveAttribute('aria-expanded', 'true');
-  expect(rpc['workflows.cancelExecution']).toHaveBeenCalledExactlyOnceWith({
-    id: a.id,
-    mode: 'safe'
-  });
-});
+    rpc['workflows.execution'].mockReturnValue(Effect.promise(() => reconciliation.promise));
+    await act(async () => {
+      response.resolve({ ...a, status: 'cancelling', canCancel: false });
+      await response.promise;
+    });
+    await waitFor(() =>
+      expect(rpc['workflows.execution'].mock.calls.length).toBeGreaterThan(detailCalls)
+    );
+    expect(rpc['workflows.execution']).toHaveBeenLastCalledWith({ id: b.id });
+    expect(screen.getByRole('button', { name: t['collections.cancel'] })).toBeDisabled();
+    await act(async () => {
+      reconciliation.resolve({ ...b, status: 'completed', canCancel: false, outcome: 'success' });
+      await reconciliation.promise;
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: t['collections.cancel'] })).toBeNull()
+    );
+    expect(row(t['workspace.task.other'])).toHaveAttribute('aria-expanded', 'true');
+    expect(rpc['workflows.cancelExecution']).toHaveBeenCalledExactlyOnceWith({
+      id: a.id,
+      mode: 'safe'
+    });
+  }
+);
 
-it('warns on a lost cancellation response and reconciles committed state without replay', async () => {
-  let cancelled = false;
+testStable(
+  'warns on a lost cancellation response and reconciles committed state without replay',
+  async () => {
+    let cancelled = false;
 
-  rpc['workflows.execution'].mockImplementation(() =>
-    Effect.succeed(cancelled ? { ...a, status: 'cancelled' as const, canCancel: false } : a)
-  );
-  rpc['workflows.executions'].mockImplementation(() =>
-    Effect.succeed({
-      items: [cancelled ? { ...a, status: 'cancelled' as const, canCancel: false } : a],
-      next: null
-    })
-  );
-  rpc['workflows.cancelExecution'].mockImplementation(() =>
-    Effect.sync(() => {
-      cancelled = true;
-    }).pipe(Effect.flatMap(() => Effect.fail(new StudyError('internal', 'response lost'))))
-  );
-  mount();
-  fireEvent.click(
-    await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) })
-  );
-  fireEvent.click(await screen.findByRole('button', { name: t['collections.cancel'] }));
-  await screen.findByRole('alert');
-  expect(screen.getByRole('alert')).toHaveTextContent(t['workspace.cancelError']);
-  await waitFor(() =>
-    expect(row(t['workspace.task.source-ingestion'])).toHaveTextContent(
-      t['workspace.state.cancelled']
-    )
-  );
-  expect(screen.queryByRole('button', { name: t['collections.cancel'] })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: t['collections.retry'] }));
-  await waitFor(() => expect(rpc['workflows.executions'].mock.calls.length).toBeGreaterThan(2));
-  expect(rpc['workflows.cancelExecution']).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole('alert')).toHaveTextContent(t['workspace.cancelError']);
-});
+    rpc['workflows.execution'].mockImplementation(() =>
+      Effect.succeed(cancelled ? { ...a, status: 'cancelled' as const, canCancel: false } : a)
+    );
+    rpc['workflows.executions'].mockImplementation(() =>
+      Effect.succeed({
+        items: [cancelled ? { ...a, status: 'cancelled' as const, canCancel: false } : a],
+        next: null
+      })
+    );
+    rpc['workflows.cancelExecution'].mockImplementation(() =>
+      Effect.sync(() => {
+        cancelled = true;
+      }).pipe(Effect.flatMap(() => Effect.fail(new StudyError('internal', 'response lost'))))
+    );
+    mount();
+    fireEvent.click(
+      await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) })
+    );
+    fireEvent.click(await screen.findByRole('button', { name: t['collections.cancel'] }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert')).toHaveTextContent(t['workspace.cancelError']);
+    await waitFor(() =>
+      expect(row(t['workspace.task.source-ingestion'])).toHaveTextContent(
+        t['workspace.state.cancelled']
+      )
+    );
+    expect(screen.queryByRole('button', { name: t['collections.cancel'] })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: t['collections.retry'] }));
+    await waitFor(() => expect(rpc['workflows.executions'].mock.calls.length).toBeGreaterThan(2));
+    expect(rpc['workflows.cancelExecution']).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveTextContent(t['workspace.cancelError']);
+  }
+);
 
-it('polls both list and selected detail to recover a missed status hint', async () => {
+testStable('polls both list and selected detail to recover a missed status hint', async () => {
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
   mount();
   fireEvent.click(
@@ -247,20 +264,23 @@ it('polls both list and selected detail to recover a missed status hint', async 
   expect(rpc['workflows.cancelExecution']).not.toHaveBeenCalled();
 });
 
-it('withholds cancellation when canonical detail disallows it despite a stale running row', async () => {
-  rpc['workflows.execution'].mockReturnValue(
-    Effect.succeed({ ...a, status: 'completed', canCancel: false, outcome: 'success' })
-  );
-  mount();
-  fireEvent.click(
-    await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) })
-  );
-  await screen.findByText(t['workspace.details']);
-  expect(screen.queryByRole('button', { name: t['collections.cancel'] })).toBeNull();
-  expect(rpc['workflows.cancelExecution']).not.toHaveBeenCalled();
-});
+testStable(
+  'withholds cancellation when canonical detail disallows it despite a stale running row',
+  async () => {
+    rpc['workflows.execution'].mockReturnValue(
+      Effect.succeed({ ...a, status: 'completed', canCancel: false, outcome: 'success' })
+    );
+    mount();
+    fireEvent.click(
+      await screen.findByRole('button', { name: new RegExp(t['workspace.task.source-ingestion']) })
+    );
+    await screen.findByText(t['workspace.details']);
+    expect(screen.queryByRole('button', { name: t['collections.cancel'] })).toBeNull();
+    expect(rpc['workflows.cancelExecution']).not.toHaveBeenCalled();
+  }
+);
 
-it('retries failed selected detail with a fresh exact read', async () => {
+testStable('retries failed selected detail with a fresh exact read', async () => {
   rpc['workflows.execution'].mockReturnValueOnce(
     Effect.fail(new StudyError('internal', 'offline'))
   );
@@ -280,7 +300,7 @@ it('retries failed selected detail with a fresh exact read', async () => {
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
-it.each(['auth', 'not_found', 'rate_limited', null] as const)(
+testStable.each(['auth', 'not_found', 'rate_limited', null] as const)(
   'explains a failed task with actionable guidance for %s',
   async (failureKind) => {
     const failed = {

@@ -9,8 +9,8 @@ import { SwitchControl } from '@study/ui/switch-control';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { useWorkspacePreferenceControls } from '../../lib/study-client/workspace-preferences.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { useWorkspacePreferenceControls } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
 const PreferenceContext = createContext<ReturnType<typeof useWorkspacePreferenceControls> | null>(
   null

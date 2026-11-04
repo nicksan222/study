@@ -1,9 +1,10 @@
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import type { WorkspacePreferences } from '@study/contracts/settings/types';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import {
   useWorkspacePreferences,
@@ -49,7 +50,7 @@ function wrapper() {
   );
 }
 
-it('uses canonical defaults when preferences cannot be loaded', async () => {
+testStable('uses canonical defaults when preferences cannot be loaded', async () => {
   api.read.mockRejectedValue(new Error('Disconnected'));
   const view = renderHook(() => useWorkspacePreferences(), { wrapper: wrapper() });
 
@@ -57,27 +58,30 @@ it('uses canonical defaults when preferences cannot be loaded', async () => {
   expect(view.result.current).toEqual(defaultWorkspacePreferences);
 });
 
-it('reads fresh preferences before a partial save and preserves another window’s changes', async () => {
-  const fresh = {
-    ...defaultWorkspacePreferences,
-    readerFontSize: 22,
-    sidebarDensity: 'compact' as const
-  };
+testStable(
+  'reads fresh preferences before a partial save and preserves another window’s changes',
+  async () => {
+    const fresh = {
+      ...defaultWorkspacePreferences,
+      readerFontSize: 22,
+      sidebarDensity: 'compact' as const
+    };
 
-  api.read.mockResolvedValueOnce(defaultWorkspacePreferences).mockResolvedValue(fresh);
-  api.save.mockImplementation(async (value) => {
-    api.read.mockResolvedValue(value);
+    api.read.mockResolvedValueOnce(defaultWorkspacePreferences).mockResolvedValue(fresh);
+    api.save.mockImplementation(async (value) => {
+      api.read.mockResolvedValue(value);
 
-    return value;
-  });
-  const view = renderHook(() => useWorkspacePreferenceControls(), { wrapper: wrapper() });
+      return value;
+    });
+    const view = renderHook(() => useWorkspacePreferenceControls(), { wrapper: wrapper() });
 
-  await waitFor(() => expect(view.result.current.query.isSuccess).toBe(true));
-  await act(async () => {
-    await view.result.current.mutation.mutateAsync({ spellcheck: false });
-  });
-  expect(api.save).toHaveBeenCalledWith({ ...fresh, spellcheck: false });
-  await waitFor(() =>
-    expect(view.result.current.query.data).toEqual({ ...fresh, spellcheck: false })
-  );
-});
+    await waitFor(() => expect(view.result.current.query.isSuccess).toBe(true));
+    await act(async () => {
+      await view.result.current.mutation.mutateAsync({ spellcheck: false });
+    });
+    expect(api.save).toHaveBeenCalledWith({ ...fresh, spellcheck: false });
+    await waitFor(() =>
+      expect(view.result.current.query.data).toEqual({ ...fresh, spellcheck: false })
+    );
+  }
+);

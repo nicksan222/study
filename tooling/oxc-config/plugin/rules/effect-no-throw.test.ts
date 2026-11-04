@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Yield a typed failure instead of throwing StudyError inside an Effect generator.';
 
-test('reports misuse and accepts scoped alternatives', () => {
+testStable('reports misuse and accepts scoped alternatives', () => {
   assertDiagnostics(
     'effect-no-throw',
     lintRule('effect-no-throw', {
@@ -20,7 +21,7 @@ test('reports misuse and accepts scoped alternatives', () => {
   );
 });
 
-test('limits domain throw checks to the nearest imported Effect generator', () => {
+testStable('limits domain throw checks to the nearest imported Effect generator', () => {
   assertDiagnostics(
     'effect-no-throw',
     lintRule('effect-no-throw', {
@@ -31,7 +32,7 @@ test('limits domain throw checks to the nearest imported Effect generator', () =
   );
 });
 
-test('canonical server error imports retain typed Effect failure enforcement', () => {
+testStable('canonical server error imports retain typed Effect failure enforcement', () => {
   const diagnostics = lintRule('effect-no-throw', {
     'src/bad.ts':
       "import { Effect } from 'effect'; import { StudyError } from '#server/shared/errors/index'; const operation = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
@@ -40,7 +41,7 @@ test('canonical server error imports retain typed Effect failure enforcement', (
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('public contracts error imports preserve the same typed Effect failure boundary', () => {
+testStable('public contracts error imports preserve the same typed Effect failure boundary', () => {
   const diagnostics = lintRule('effect-no-throw', {
     'src/domains/projects/service.ts':
       "import {Effect} from 'effect'; import {StudyError} from '@study/contracts/errors'; Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
@@ -49,7 +50,7 @@ test('public contracts error imports preserve the same typed Effect failure boun
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('enforces the Effect contract in browser operations', () => {
+testStable('enforces the Effect contract in browser operations', () => {
   const diagnostics = lintRule(
     'effect-no-throw',
     {
@@ -64,7 +65,7 @@ test('enforces the Effect contract in browser operations', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('keeps typed failures in native untraced generators', () => {
+testStable('keeps typed failures in native untraced generators', () => {
   assertDiagnostics(
     'effect-no-throw',
     lintRule('effect-no-throw', {

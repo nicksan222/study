@@ -3,5 +3,10 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["../../vite.config.ts", "../oxc-config/**/*.ts", "../development/*.ts"]
+  "include": [
+    "../../vite.config.ts",
+    "../oxc-config/**/*.ts",
+    "../development/*.ts",
+    "../../packages/testing/**/*.ts"
+  ]
 }

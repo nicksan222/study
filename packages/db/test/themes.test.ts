@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { parseTheme, themeColorKeys } from '@study/theme';
 import { and, eq } from 'drizzle-orm';
 
@@ -24,36 +24,39 @@ function contrast(a: string, b: string) {
   return (values[0]! + 0.05) / (values[1]! + 0.05);
 }
 
-test('the curated catalog includes complete accessible light and dark palettes without T3 Chat', () => {
-  const location = createTestDatabase();
-  const db = location.open();
+testStable(
+  'the curated catalog includes complete accessible light and dark palettes without T3 Chat',
+  () => {
+    const location = createTestDatabase();
+    const db = location.open();
 
-  try {
-    const catalog = db.orm.select().from(themes).all();
+    try {
+      const catalog = db.orm.select().from(themes).all();
 
-    assert.ok(!catalog.some((theme) => theme.id === 't3-chat'));
+      assert.ok(!catalog.some((theme) => theme.id === 't3-chat'));
 
-    for (const id of ['tokyo-night', 'catppuccin', 'rose-pine', 'nord']) {
-      const row = catalog.find((theme) => theme.id === id);
+      for (const id of ['tokyo-night', 'catppuccin', 'rose-pine', 'nord']) {
+        const row = catalog.find((theme) => theme.id === id);
 
-      assert.ok(row?.builtin, id);
-      const theme = parseTheme(JSON.stringify(row.definition));
+        assert.ok(row?.builtin, id);
+        const theme = parseTheme(JSON.stringify(row.definition));
 
-      for (const mode of ['light', 'dark'] as const) {
-        const colors = theme[mode]!;
+        for (const mode of ['light', 'dark'] as const) {
+          const colors = theme[mode]!;
 
-        assert.deepEqual(Object.keys(colors).sort(), [...themeColorKeys].sort(), `${id} ${mode}`);
+          assert.deepEqual(Object.keys(colors).sort(), [...themeColorKeys].sort(), `${id} ${mode}`);
 
-        verifyContrast(colors, id, mode);
+          verifyContrast(colors, id, mode);
+        }
       }
+    } finally {
+      db.close();
+      location.cleanup();
     }
-  } finally {
-    db.close();
-    location.cleanup();
   }
-});
+);
 
-test('upgrading retires T3 Chat while preserving custom themes and their identities', () => {
+testStable('upgrading retires T3 Chat while preserving custom themes and their identities', () => {
   const location = createTestDatabase();
   const before = location.open();
   const original = before.orm

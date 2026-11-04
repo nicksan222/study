@@ -4,7 +4,8 @@ import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import type { useGeneralSettings } from './use-general';
 
 export function GeneralSettingsView({ model }: { model: ReturnType<typeof useGeneralSettings> }) {

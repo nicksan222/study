@@ -1,7 +1,7 @@
 import type { ProjectId, SessionId } from '@study/contracts/ids';
 import { queryOptions } from '@tanstack/react-query';
 
-import { createSession } from '../../lib/study-client/operations';
+import { createSession } from '#web/lib/study-client/operations.ts';
 
 export type CreationFlow = { id?: SessionId; uncertain?: boolean; pending?: boolean };
 

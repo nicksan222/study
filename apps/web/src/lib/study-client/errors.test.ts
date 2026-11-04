@@ -1,15 +1,16 @@
 import { StudyError } from '@study/contracts/errors';
-import { expect, it } from 'vite-plus/test';
+import { testStable } from '@study/testing/vitest';
+import { expect } from 'vite-plus/test';
 
 import { toStudyError } from './errors';
 
-it('preserves canonical failures', () => {
+testStable('preserves canonical failures', () => {
   const error = new StudyError('auth', 'login');
 
   expect(toStudyError(error)).toBe(error);
 });
 
-it('decodes structured server failures and retry hints without matching messages', () => {
+testStable('decodes structured server failures and retry hints without matching messages', () => {
   const error = { message: 'limited', kind: 'rate_limited', retryAfterMs: 500 };
   const failure = toStudyError(error);
 
@@ -18,7 +19,7 @@ it('decodes structured server failures and retry hints without matching messages
   expect(failure.cause).toBe(error);
 });
 
-it('classifies transport failures and retains their original cause', () => {
+testStable('classifies transport failures and retains their original cause', () => {
   const cause = new TypeError('network');
   const failure = toStudyError(cause);
 

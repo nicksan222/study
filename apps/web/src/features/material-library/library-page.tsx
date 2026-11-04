@@ -8,7 +8,8 @@ import { SelectControl } from '@study/ui/select-control';
 import { Link } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { NewDocument } from '../document-editing';
 import { useImportOperation } from './import-operation';
 import { useLibraryPage } from './library-page.queries';

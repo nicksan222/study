@@ -9,7 +9,8 @@ import { ThemeSwatches, ThemeWireframe } from '@study/ui/theme-preview';
 import { Copy, Download, Paintbrush, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { ThemeEditor } from './theme-editor';
 import type { AppearanceModel } from './use-page';
 

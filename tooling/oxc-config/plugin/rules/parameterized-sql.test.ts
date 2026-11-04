@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('parameterized-sql guards production and accepts safe alternatives', () => {
+testStable('parameterized-sql guards production and accepts safe alternatives', () => {
   const diagnostics = lintRule('parameterized-sql', {
     'src/bad.ts': "import { sql as query } from 'drizzle-orm'; query.raw(input);",
     'src/good.ts':
@@ -15,7 +16,7 @@ test('parameterized-sql guards production and accepts safe alternatives', () => 
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test('parameterized-sql handles aliases and avoids unrelated bindings', () => {
+testStable('parameterized-sql handles aliases and avoids unrelated bindings', () => {
   const diagnostics = lintRule('parameterized-sql', {
     'src/bad.ts':
       "import { Db as Database } from '@study/db'; import { sql as query } from 'drizzle-orm'; const db = Database.open(':memory:'); db.exec('DELETE FROM items'); query.raw(`SELECT ${input}`);",
@@ -27,7 +28,7 @@ test('parameterized-sql handles aliases and avoids unrelated bindings', () => {
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test('constant database aliases do not permit connection-level SQL execution', () => {
+testStable('constant database aliases do not permit connection-level SQL execution', () => {
   const diagnostics = lintRule('parameterized-sql', {
     'src/bad.ts':
       "import type { ServerContext } from '#server/runtime/context'; function operation(ctx: ServerContext) { const db = ctx.db; db.exec('DROP TABLE jobs'); }"
@@ -36,7 +37,7 @@ test('constant database aliases do not permit connection-level SQL execution', (
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('facade sql aliases and namespaces retain parameter binding checks', () => {
+testStable('facade sql aliases and namespaces retain parameter binding checks', () => {
   const diagnostics = lintRule('parameterized-sql', {
     'src/bad.ts':
       "import { sql as query } from '@study/db'; import * as database from '@study/db'; query.raw(input); database.sql.raw(input);",

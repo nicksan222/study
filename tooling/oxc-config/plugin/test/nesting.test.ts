@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintFiles } from './utils.ts';
 
-test('production config rejects four nested control-flow blocks', () => {
+testStable('production config rejects four nested control-flow blocks', () => {
   const diagnostics = lintFiles(
     {
       'apps/web/src/lib/nesting.ts': `
@@ -33,7 +34,7 @@ test('production config rejects four nested control-flow blocks', () => {
   );
 });
 
-test('production config rejects four nested callbacks', () => {
+testStable('production config rejects four nested callbacks', () => {
   const diagnostics = lintFiles(
     {
       'apps/web/src/lib/callbacks.ts': `
@@ -59,7 +60,7 @@ test('production config rejects four nested callbacks', () => {
   );
 });
 
-test('production config accepts guard clauses and three callback levels', () => {
+testStable('production config accepts guard clauses and three callback levels', () => {
   const diagnostics = lintFiles(
     {
       'apps/web/src/lib/shallow.ts': `

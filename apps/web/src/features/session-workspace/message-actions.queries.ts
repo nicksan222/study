@@ -4,8 +4,9 @@ import type { VersionId } from '@study/contracts/ids';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { request } from '#web/lib/study-client/request.ts';
+
 import type { Draft } from './draft';
 import {
   activateVersion,

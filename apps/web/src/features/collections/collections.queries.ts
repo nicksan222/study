@@ -2,9 +2,10 @@ import type { ProjectId, MaterialId, SessionId } from '@study/contracts/ids';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
-import { request } from '../../lib/study-client/request';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { useCollectionState } from './collection-state';
 
 export function useCollectionsView() {

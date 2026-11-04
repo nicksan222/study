@@ -1,0 +1,20 @@
+{
+  "name": "@study/tooling",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#tooling/*": "./*.ts"
+  },
+  "exports": {
+    "./development/rpc-proxy": "./development/rpc-proxy.ts"
+  },
+  "devDependencies": {
+    "@study/contracts": "*",
+    "@study/db": "*",
+    "@study/server": "*",
+    "@study/testing": "*",
+    "@study/theme": "*",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "vite-plus": "1.4.0"
+  }
+}

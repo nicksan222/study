@@ -3,7 +3,8 @@ import { Loading } from '@study/ui/loading';
 import { NumberControl } from '@study/ui/number-control';
 import { Settings } from '@study/ui/settings';
 
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { useSidebarSettings } from './sidebar-settings.queries';
 
 /** Exposes the settlement threshold with bounded input and save recovery. */

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
@@ -15,7 +15,7 @@ const tag = 'Context.Tag was removed in Effect v4; use Context.Service.';
 
 const genericTag = 'Context.GenericTag was removed in Effect v4; use Context.Service.';
 
-test('reports renamed v3 APIs through imported bindings', () => {
+testStable('reports renamed v3 APIs through imported bindings', () => {
   const diagnostics = lintRule('effect-v4-api', {
     'src/root.ts':
       "import { Effect as E, Context as C } from 'effect';\nE.catchAll; E['catchAllCause']; E.catchAllDefect; E.catchSome; C.Tag; C.GenericTag;\n",
@@ -39,39 +39,45 @@ test('reports renamed v3 APIs through imported bindings', () => {
   ]);
 });
 
-test('ignores shadowed bindings, unrelated properties, modern APIs and type-only imports', () => {
-  const diagnostics = lintRule('effect-v4-api', {
-    'src/safe.ts':
-      "import { Effect as E, Context as C } from 'effect';\nimport type { catchAll as Old } from 'effect/Effect';\nE.catch; E.catchTag; C.Service;\nfunction f(E: { catchAll: number }, C: { Tag: number }) { return E.catchAll + C.Tag; }\nconst other = { catchAll: 1 }; other.catchAll;\nexport type T = Old;\nexport { f };\n"
-  });
+testStable(
+  'ignores shadowed bindings, unrelated properties, modern APIs and type-only imports',
+  () => {
+    const diagnostics = lintRule('effect-v4-api', {
+      'src/safe.ts':
+        "import { Effect as E, Context as C } from 'effect';\nimport type { catchAll as Old } from 'effect/Effect';\nE.catch; E.catchTag; C.Service;\nfunction f(E: { catchAll: number }, C: { Tag: number }) { return E.catchAll + C.Tag; }\nconst other = { catchAll: 1 }; other.catchAll;\nexport type T = Old;\nexport { f };\n"
+    });
 
-  assertDiagnostics('effect-v4-api', diagnostics, []);
-});
+    assertDiagnostics('effect-v4-api', diagnostics, []);
+  }
+);
 
-test('reports selected APIs through root namespaces, direct reexports and destructuring', () => {
-  const diagnostics = lintRule('effect-v4-api', {
-    'src/namespace.ts':
-      "import * as E from 'effect';\nE.Effect.catchAll; E['Context']['Tag'];\nconst { catchSome: recover } = E.Effect;\nconst { Context: { GenericTag: make } } = E;\n",
-    'src/destructure.ts':
-      "import { Effect as E } from 'effect';\nimport * as C from 'effect/Context';\nconst { ['catchAllCause']: recover } = E;\nconst { Tag: make } = C;\n",
-    'src/reexport.ts':
-      "export { catchAll as recover, catchSome } from 'effect/Effect';\nexport { GenericTag as make } from 'effect/Context';\n"
-  });
+testStable(
+  'reports selected APIs through root namespaces, direct reexports and destructuring',
+  () => {
+    const diagnostics = lintRule('effect-v4-api', {
+      'src/namespace.ts':
+        "import * as E from 'effect';\nE.Effect.catchAll; E['Context']['Tag'];\nconst { catchSome: recover } = E.Effect;\nconst { Context: { GenericTag: make } } = E;\n",
+      'src/destructure.ts':
+        "import { Effect as E } from 'effect';\nimport * as C from 'effect/Context';\nconst { ['catchAllCause']: recover } = E;\nconst { Tag: make } = C;\n",
+      'src/reexport.ts':
+        "export { catchAll as recover, catchSome } from 'effect/Effect';\nexport { GenericTag as make } from 'effect/Context';\n"
+    });
 
-  assertDiagnostics('effect-v4-api', diagnostics, [
-    ['src/namespace.ts', catchAll],
-    ['src/namespace.ts', tag],
-    ['src/namespace.ts', catchSome],
-    ['src/namespace.ts', genericTag],
-    ['src/destructure.ts', catchCause],
-    ['src/destructure.ts', tag],
-    ['src/reexport.ts', catchAll],
-    ['src/reexport.ts', catchSome],
-    ['src/reexport.ts', genericTag]
-  ]);
-});
+    assertDiagnostics('effect-v4-api', diagnostics, [
+      ['src/namespace.ts', catchAll],
+      ['src/namespace.ts', tag],
+      ['src/namespace.ts', catchSome],
+      ['src/namespace.ts', genericTag],
+      ['src/destructure.ts', catchCause],
+      ['src/destructure.ts', tag],
+      ['src/reexport.ts', catchAll],
+      ['src/reexport.ts', catchSome],
+      ['src/reexport.ts', genericTag]
+    ]);
+  }
+);
 
-test('ignores type-only reexports, unrelated and shadowed namespace destructures', () => {
+testStable('ignores type-only reexports, unrelated and shadowed namespace destructures', () => {
   const diagnostics = lintRule('effect-v4-api', {
     'src/safe.ts':
       "import * as E from 'effect';\nexport type { catchAll } from 'effect/Effect';\nexport { type GenericTag } from 'effect/Context';\nfunction f(E: { Effect: { catchAll: number } }) { const { catchAll } = E.Effect; return E.Effect.catchAll + catchAll; }\nconst other = { Effect: { catchAll: 1 } }; const { catchAll } = other.Effect;\nE.Effect.catch; E.Effect.toString;\n"
@@ -80,7 +86,7 @@ test('ignores type-only reexports, unrelated and shadowed namespace destructures
   assertDiagnostics('effect-v4-api', diagnostics, []);
 });
 
-test('reports destructuring assignments from tracked Effect namespaces', () => {
+testStable('reports destructuring assignments from tracked Effect namespaces', () => {
   const diagnostics = lintRule('effect-v4-api', {
     'src/assignment.ts':
       "import * as E from 'effect';\nimport * as C from 'effect/Context';\nlet recover, tag, generic;\n({ catchAll: recover } = E.Effect);\n({ Context: { ['Tag']: tag } } = E);\n({ GenericTag: generic } = C);\n",
@@ -95,7 +101,7 @@ test('reports destructuring assignments from tracked Effect namespaces', () => {
   ]);
 });
 
-test('rejects retired forking, nullable and scoped layer constructors', () => {
+testStable('rejects retired forking, nullable and scoped layer constructors', () => {
   const diagnostics = lintRule('effect-v4-api', {
     'src/old.ts':
       "import { Effect, Option, Layer } from 'effect'; Effect.fork(work); Effect.forkDaemon(work); Option.fromNullable(value); Layer.scoped(Tag, acquire);",

@@ -1,8 +1,8 @@
 ---
 import { render } from 'astro:content';
-import Media from '../../../components/Media.astro';
-import Docs from '../../../layouts/Docs.astro';
-import { docsIn, slug } from '../../../i18n/docs';
+import Media from '#landing/components/Media.astro';
+import Docs from '#landing/layouts/Docs.astro';
+import { docsIn, slug } from '#landing/i18n/docs.ts';
 
 export async function getStaticPaths() {
   const docs = await docsIn('it');

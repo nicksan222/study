@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
 import { materialSearchInputSchema } from '../src/system/rpc.ts';
 
-test('Material search trims queries and bounds work before dispatch', () => {
+testStable('Material search trims queries and bounds work before dispatch', () => {
   const decode = Schema.decodeUnknownSync(materialSearchInputSchema);
 
   assert.deepEqual(decode({ query: '  Evidence  ' }), { query: 'Evidence', limit: 30 });

@@ -5,7 +5,8 @@
     "apps/web",
     "apps/desktop",
     "apps/server",
-    "packages/*"
+    "packages/*",
+    "tooling"
   ],
   "type": "module",
   "scripts": {
@@ -28,10 +29,8 @@
     "fallow:check": "fallow --config tooling/fallow.jsonc --fail-on-issues"
   },
   "devDependencies": {
-    "@study/contracts": "*",
-    "@study/db": "*",
-    "@study/server": "*",
-    "@study/theme": "*",
+    "@study/testing": "*",
+    "@study/tooling": "*",
     "@stylistic/eslint-plugin": "5.10.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-cli": "^1.167.46",

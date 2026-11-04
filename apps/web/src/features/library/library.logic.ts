@@ -1,6 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 
-import type { Materials, Sources } from '../../lib/study-client/operations';
+import type { Materials, Sources } from '#web/lib/study-client/operations.ts';
 
 export type LibraryItem =
   | { type: 'source'; value: Sources[number] }

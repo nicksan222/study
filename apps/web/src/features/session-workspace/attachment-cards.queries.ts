@@ -3,7 +3,7 @@ import { useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
 import { useQuery, queryOptions } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 export const attachmentSourceOptions = (id: SourceId | null) =>
   queryOptions({

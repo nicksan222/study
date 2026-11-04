@@ -1,7 +1,8 @@
 import type { Source } from '@study/contracts/sources/schemas';
 import { useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 
-import { toStudyError } from '../../lib/study-client/errors';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+
 import {
   importMutationKey as mutationKey,
   importMutationOptions

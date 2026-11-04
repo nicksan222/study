@@ -17,7 +17,6 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import {
   sourceIndexedSchema,
@@ -26,6 +25,7 @@ import {
 } from '@study/contracts/events';
 import { workflow_executions, workflowReceipts } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Context, Effect, Schema } from 'effect';
 import type { Scope, Layer } from 'effect';
 import type { Workflow } from 'effect/workflow';
@@ -47,35 +47,38 @@ const workflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-test('registration retains native definition, derived version and independent subscriptions', () => {
-  let enabled = false;
-  let calls = 0;
-  const policy = () => {
-    calls++;
+testStable(
+  'registration retains native definition, derived version and independent subscriptions',
+  () => {
+    let enabled = false;
+    let calls = 0;
+    const policy = () => {
+      calls++;
 
-    return enabled;
-  };
-  const registration = defineWorkflowHandler(workflow, {
-    execute: () => Effect.void,
-    triggers: [
-      { subscription: 'test-a', event: 'SourceIndexed', emits: [], enabled: policy },
-      { subscription: 'test-b', event: 'SourceDeleted', emits: ['SourceIndexed'] }
-    ]
-  });
+      return enabled;
+    };
+    const registration = defineWorkflowHandler(workflow, {
+      execute: () => Effect.void,
+      triggers: [
+        { subscription: 'test-a', event: 'SourceIndexed', emits: [], enabled: policy },
+        { subscription: 'test-b', event: 'SourceDeleted', emits: ['SourceIndexed'] }
+      ]
+    });
 
-  assert.equal(registration.definition, workflow);
-  assert.equal(calls, 0);
-  assert.equal(registration.triggers[0]!.workflow, workflow);
-  assert.equal(registration.triggers[0]!.workflowVersion, 3);
-  assert.equal(registration.triggers[0]!.subscription, 'test-a');
-  assert.equal(registration.triggers[1]!.subscription, 'test-b');
-  assert.deepEqual(registration.triggers[1]!.emits, ['SourceIndexed']);
-  assert.equal(registration.triggers[0]!.enabled(), false);
-  enabled = true;
-  assert.equal(registration.triggers[0]!.enabled(), true);
-  assert.equal(calls, 2);
-  assert.equal(registration.triggers[1]!.enabled(), true);
-});
+    assert.equal(registration.definition, workflow);
+    assert.equal(calls, 0);
+    assert.equal(registration.triggers[0]!.workflow, workflow);
+    assert.equal(registration.triggers[0]!.workflowVersion, 3);
+    assert.equal(registration.triggers[0]!.subscription, 'test-a');
+    assert.equal(registration.triggers[1]!.subscription, 'test-b');
+    assert.deepEqual(registration.triggers[1]!.emits, ['SourceIndexed']);
+    assert.equal(registration.triggers[0]!.enabled(), false);
+    enabled = true;
+    assert.equal(registration.triggers[0]!.enabled(), true);
+    assert.equal(calls, 2);
+    assert.equal(registration.triggers[1]!.enabled(), true);
+  }
+);
 
 class Requirement extends Context.Service<Requirement, string>()('test/WorkflowRequirement') {}
 
@@ -224,135 +227,149 @@ const event = (id: string) =>
     documentId: 3n
   });
 
-test('registered subscriptions retain disabled events and recover native executions after reopen', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
-  let enabled = false;
-  let executions = 0;
-  const registration = defineWorkflowHandler(workflow, {
-    execute: () =>
-      Effect.sync(() => {
-        executions++;
-      }),
-    triggers: [
-      { subscription: 'test-recovery', event: 'SourceIndexed', emits: [], enabled: () => enabled }
-    ]
-  });
-
-  try {
-    context.transaction(() => emitEvent(context, event('recover'), 1));
-    assert.equal(dispatchPending(context, registration.triggers, 2), 0);
-    enabled = true;
-    assert.equal(dispatchPending(context, registration.triggers, 3), 1);
-    const [persisted] = context.db.orm.select().from(workflow_executions).all();
-
-    assert.equal(persisted!.version, 3n);
-    assert.equal(persisted!.workflow_tag, 'test-registration/v3');
-    assert.equal(context.db.orm.select().from(workflowReceipts).all()[0]!.workflowVersion, 3n);
-    context.close();
-    context = new ServerContext(location.open());
-
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          yield* recoverWorkflowEngine(context, engine, [registration.definition]);
-
-          for (let attempt = 0; attempt < 100; attempt++) {
-            if (context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed')
-              break;
-
-            yield* Effect.sleep('5 millis');
-          }
-
-          assert.equal(
-            context.db.orm.select().from(workflow_executions).all()[0]?.status,
-            'completed'
-          );
-          yield* recoverWorkflowEngine(context, engine, [registration.definition]);
-        }).pipe(Effect.provide(registration.layer), Effect.provide(workflowEngineLayer(context)))
-      )
-    );
-    assert.equal(executions, 1);
-    assert.equal(dispatchPending(context, registration.triggers, 4), 0);
-    assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 1);
-  } finally {
-    context.close();
-    location.cleanup();
-  }
-});
-
-test('registration preserves dispatch duplicate subscription and synchronous policy validation', () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const subscription = { subscription: 'duplicate', event: 'SourceIndexed', emits: [] } as const;
-  const duplicates = defineWorkflowHandler(workflow, {
-    execute: () => Effect.void,
-    triggers: [subscription, subscription]
-  });
-  const asynchronous = defineWorkflowHandler(workflow, {
-    execute: () => Effect.void,
-    triggers: [
-      {
-        ...subscription,
-        enabled: () => Promise.resolve(true) as unknown as boolean
-      }
-    ]
-  });
-
-  try {
-    assert.throws(() => dispatchPending(context, duplicates.triggers, 1), /duplicate subscription/);
-    assert.throws(
-      () => dispatchPending(context, asynchronous.triggers, 1),
-      /boolean synchronously/
-    );
-    assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 0);
-  } finally {
-    context.close();
-    location.cleanup();
-  }
-});
-
-test('reused registrations resolve each engine environment and preserve execution scopes', async () => {
-  const observed: string[] = [];
-  let releases = 0;
-  const release = Effect.sync(() => {
-    releases++;
-  });
-  const registration = defineWorkflowHandler(workflow, {
-    execute: () =>
-      Effect.gen(function* () {
-        const value = yield* Requirement;
-
-        yield* Effect.acquireRelease(Effect.void, () => release);
-        observed.push(value);
-      }),
-    triggers: []
-  });
-
-  for (const value of ['first', 'second']) {
+testStable(
+  'registered subscriptions retain disabled events and recover native executions after reopen',
+  async () => {
     const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    let context = new ServerContext(location.open());
+    let enabled = false;
+    let executions = 0;
+    const registration = defineWorkflowHandler(workflow, {
+      execute: () =>
+        Effect.sync(() => {
+          executions++;
+        }),
+      triggers: [
+        { subscription: 'test-recovery', event: 'SourceIndexed', emits: [], enabled: () => enabled }
+      ]
+    });
 
     try {
+      context.transaction(() => emitEvent(context, event('recover'), 1));
+      assert.equal(dispatchPending(context, registration.triggers, 2), 0);
+      enabled = true;
+      assert.equal(dispatchPending(context, registration.triggers, 3), 1);
+      const [persisted] = context.db.orm.select().from(workflow_executions).all();
+
+      assert.equal(persisted!.version, 3n);
+      assert.equal(persisted!.workflow_tag, 'test-registration/v3');
+      assert.equal(context.db.orm.select().from(workflowReceipts).all()[0]!.workflowVersion, 3n);
+      context.close();
+      context = new ServerContext(location.open());
+
       await Effect.runPromise(
         Effect.scoped(
-          workflow
-            .execute({ event: event(value) })
-            .pipe(
-              Effect.provide(registration.layer),
-              Effect.provideService(Requirement, value),
-              Effect.provide(workflowEngineLayer(context))
-            )
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            yield* recoverWorkflowEngine(context, engine, [registration.definition]);
+
+            for (let attempt = 0; attempt < 100; attempt++) {
+              if (
+                context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed'
+              )
+                break;
+
+              yield* Effect.sleep('5 millis');
+            }
+
+            assert.equal(
+              context.db.orm.select().from(workflow_executions).all()[0]?.status,
+              'completed'
+            );
+            yield* recoverWorkflowEngine(context, engine, [registration.definition]);
+          }).pipe(Effect.provide(registration.layer), Effect.provide(workflowEngineLayer(context)))
         )
       );
+      assert.equal(executions, 1);
+      assert.equal(dispatchPending(context, registration.triggers, 4), 0);
+      assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 1);
     } finally {
       context.close();
       location.cleanup();
     }
   }
+);
 
-  assert.deepEqual(observed, ['first', 'second']);
-  assert.equal(releases, 2);
-});
+testStable(
+  'registration preserves dispatch duplicate subscription and synchronous policy validation',
+  () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const subscription = { subscription: 'duplicate', event: 'SourceIndexed', emits: [] } as const;
+    const duplicates = defineWorkflowHandler(workflow, {
+      execute: () => Effect.void,
+      triggers: [subscription, subscription]
+    });
+    const asynchronous = defineWorkflowHandler(workflow, {
+      execute: () => Effect.void,
+      triggers: [
+        {
+          ...subscription,
+          enabled: () => Promise.resolve(true) as unknown as boolean
+        }
+      ]
+    });
+
+    try {
+      assert.throws(
+        () => dispatchPending(context, duplicates.triggers, 1),
+        /duplicate subscription/
+      );
+      assert.throws(
+        () => dispatchPending(context, asynchronous.triggers, 1),
+        /boolean synchronously/
+      );
+      assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 0);
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'reused registrations resolve each engine environment and preserve execution scopes',
+  async () => {
+    const observed: string[] = [];
+    let releases = 0;
+    const release = Effect.sync(() => {
+      releases++;
+    });
+    const registration = defineWorkflowHandler(workflow, {
+      execute: () =>
+        Effect.gen(function* () {
+          const value = yield* Requirement;
+
+          yield* Effect.acquireRelease(Effect.void, () => release);
+          observed.push(value);
+        }),
+      triggers: []
+    });
+
+    for (const value of ['first', 'second']) {
+      const location = createTestDatabase();
+      const context = new ServerContext(location.open());
+
+      try {
+        await Effect.runPromise(
+          Effect.scoped(
+            workflow
+              .execute({ event: event(value) })
+              .pipe(
+                Effect.provide(registration.layer),
+                Effect.provideService(Requirement, value),
+                Effect.provide(workflowEngineLayer(context))
+              )
+          )
+        );
+      } finally {
+        context.close();
+        location.cleanup();
+      }
+    }
+
+    assert.deepEqual(observed, ['first', 'second']);
+    assert.equal(releases, 2);
+  }
+);

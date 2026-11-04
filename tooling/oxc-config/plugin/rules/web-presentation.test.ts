@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('web markup cannot bypass shared presentation with native styles', () => {
+testStable('web markup cannot bypass shared presentation with native styles', () => {
   const diagnostics = lintRule(
     'web-presentation',
     {
@@ -17,7 +18,7 @@ test('web markup cannot bypass shared presentation with native styles', () => {
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test('only the web bootstrap imports approved global stylesheets', () => {
+testStable('only the web bootstrap imports approved global stylesheets', () => {
   const diagnostics = lintRule(
     'web-presentation',
     {
@@ -31,7 +32,7 @@ test('only the web bootstrap imports approved global stylesheets', () => {
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('web composition remains free to use semantic props and unstyled HTML', () => {
+testStable('web composition remains free to use semantic props and unstyled HTML', () => {
   assert.deepEqual(
     lintRule(
       'web-presentation',

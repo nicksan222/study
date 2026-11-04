@@ -1,9 +1,10 @@
+import { testStable } from '@study/testing/vitest';
 import { act, renderHook } from '@testing-library/react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { useRangeControl } from './use-range-control';
 
-it('restores the committed value after a failed save without resubmitting on blur', () => {
+testStable('restores the committed value after a failed save without resubmitting on blur', () => {
   const save = vi.fn();
   const { result, rerender } = renderHook(({ disabled }) => useRangeControl(100, disabled, save), {
     initialProps: { disabled: false }

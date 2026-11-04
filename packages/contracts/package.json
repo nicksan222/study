@@ -65,5 +65,8 @@
   },
   "dependencies": {
     "effect": "4.0.7"
+  },
+  "devDependencies": {
+    "@study/testing": "*"
   }
 }

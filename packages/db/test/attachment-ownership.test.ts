@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 
 import { createTestDatabase } from '../src/testing.ts';
@@ -29,21 +29,24 @@ function fixture(run: (db: ReturnType<ReturnType<typeof createTestDatabase>['ope
   }
 }
 
-test('explicit attachment selection crosses collections and still rejects missing sources', () =>
-  fixture((db) => {
-    db.exec(
-      "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,1,2,'Shared','text')"
-    );
-    assert.throws(() =>
+testStable(
+  'explicit attachment selection crosses collections and still rejects missing sources',
+  () =>
+    fixture((db) => {
       db.exec(
-        "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,2,999,'Missing','text')"
-      )
-    );
-    db.exec('UPDATE sources SET project_id=NULL WHERE id=1');
-    assert.equal(db.orm.get(sql`SELECT source_id FROM message_parts WHERE id=1`)?.source_id, 1n);
-  }));
+        "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,1,2,'Shared','text')"
+      );
+      assert.throws(() =>
+        db.exec(
+          "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,2,999,'Missing','text')"
+        )
+      );
+      db.exec('UPDATE sources SET project_id=NULL WHERE id=1');
+      assert.equal(db.orm.get(sql`SELECT source_id FROM message_parts WHERE id=1`)?.source_id, 1n);
+    })
+);
 
-test('source cleanup and session or project cascades remain possible', () => {
+testStable('source cleanup and session or project cascades remain possible', () => {
   fixture((db) => {
     db.exec('DELETE FROM sources WHERE id=1');
     assert.equal(

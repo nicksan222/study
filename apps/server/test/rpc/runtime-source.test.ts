@@ -15,18 +15,18 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { Sources } from '#server/features/sources/index';
 import { App, serve } from '#server/runtime/index';
 
-test(
+testStable(
   'runtime consumes source requests made over HTTP and recovers pending requests on reopen',
   { timeout: 15000 },
   async () => {
@@ -108,56 +108,60 @@ test(
   }
 );
 
-test('running worker processes a source created through HTTP', { timeout: 10000 }, async () => {
-  const location = createTestDatabase();
-  const app = await App.open({ path: location.path });
-  const server = await serve(app);
+testStable(
+  'running worker processes a source created through HTTP',
+  { timeout: 10000 },
+  async () => {
+    const location = createTestDatabase();
+    const app = await App.open({ path: location.path });
+    const server = await serve(app);
 
-  await app.workers.start();
+    await app.workers.start();
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-          const source = yield* client['sources.createSource']({
-            name: 'live.txt',
-            bytes: new TextEncoder().encode('Mitochondria generate ATP'),
-            projectId: null
-          });
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+            const source = yield* client['sources.createSource']({
+              name: 'live.txt',
+              bytes: new TextEncoder().encode('Mitochondria generate ATP'),
+              projectId: null
+            });
 
-          for (let attempt = 0; attempt < 100; attempt++) {
-            if (
-              (yield* client['sources.sourceProcessing']({ id: source.id })).documentId !== null
-            ) {
-              const search = yield* client['system.search']({ query: 'mitochondria', limit: 5 });
-              const hit = search.hits.find(
-                (item) => item.target.type === 'source' && item.target.sourceId === source.id
-              );
+            for (let attempt = 0; attempt < 100; attempt++) {
+              if (
+                (yield* client['sources.sourceProcessing']({ id: source.id })).documentId !== null
+              ) {
+                const search = yield* client['system.search']({ query: 'mitochondria', limit: 5 });
+                const hit = search.hits.find(
+                  (item) => item.target.type === 'source' && item.target.sourceId === source.id
+                );
 
-              assert.ok(hit);
-              assert.equal(hit.target.type, 'source');
+                assert.ok(hit);
+                assert.equal(hit.target.type, 'source');
 
-              if (hit.target.type === 'source') assert.equal(hit.target.anchor?.type, 'text');
+                if (hit.target.type === 'source') assert.equal(hit.target.anchor?.type, 'text');
 
-              return;
+                return;
+              }
+
+              yield* Effect.sleep('50 millis');
             }
 
-            yield* Effect.sleep('50 millis');
-          }
-
-          assert.fail('source was not processed');
-        })
-      )
-    );
-  } finally {
-    await server.close();
-    await app.close();
-    location.cleanup();
+            assert.fail('source was not processed');
+          })
+        )
+      );
+    } finally {
+      await server.close();
+      await app.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test(
+testStable(
   'HTTP import retains one Material with exact original and extracted revisions',
   { timeout: 15000 },
   async () => {
