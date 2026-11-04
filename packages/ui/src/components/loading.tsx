@@ -1,6 +1,6 @@
 import { Spinner } from '@study/ui/spinner';
 import { cn } from '@study/ui/utils';
-import type { ComponentPropsWithRef } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 
 type LoadingProps = Omit<ComponentPropsWithRef<'span'>, 'children' | 'role'> & {
   label: string;
@@ -26,11 +26,13 @@ function Loading({ label, layout = 'inline', className, ...props }: LoadingProps
 function LoadingSkeleton({
   label,
   layout = 'panel',
+  action,
   className,
   ...props
 }: Omit<ComponentPropsWithRef<'div'>, 'children' | 'role'> & {
   label: string;
   layout?: 'panel' | 'sidebar' | 'response';
+  action?: ReactNode;
 }) {
   return (
     <div
@@ -41,9 +43,12 @@ function LoadingSkeleton({
       data-layout={layout}
       className={cn('study-loading-skeleton', className)}
     >
-      <span className={layout === 'response' ? 'study-loading-response-label' : 'sr-only'}>
-        {label}
-      </span>
+      <div className="study-loading-skeleton-heading">
+        <span className={layout === 'response' ? 'study-loading-response-label' : 'sr-only'}>
+          {label}
+        </span>
+        {action}
+      </div>
       <div aria-hidden="true" data-slot="loading-placeholder" className="study-loading-placeholder">
         <span />
         <span />

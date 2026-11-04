@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose
 } from '@study/ui/dialog';
-import { Loading, LoadingSkeleton } from '@study/ui/loading';
+import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
@@ -32,6 +32,7 @@ import { MessageDeletion } from './message-deletion';
 import { NoteContent, NoteSummary } from './note-editor';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
 import { NotebookNavigation } from './notebook-navigation';
+import { PendingMessageWork } from './pending-message-work';
 import { SessionDocumentCard } from './session-document-card';
 import { citationsOptions, threadOptions } from './session-workspace.queries';
 import { SessionReadError } from './status';
@@ -245,7 +246,11 @@ function MessageEntry({
             )}
           </MessageActions>
           {version.status !== 'complete' && (
-            <LoadingSkeleton layout="response" label={t('SessionPending')} />
+            <PendingMessageWork
+              sessionId={message.sessionId}
+              messageId={message.id}
+              versionId={version.id}
+            />
           )}
         </>
       )}

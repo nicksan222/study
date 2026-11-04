@@ -124,3 +124,14 @@
     background: none;
   }
 }
+
+.study-loading-skeleton-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+.study-loading-skeleton-heading > [data-slot='button'] {
+  flex-shrink: 0;
+}
