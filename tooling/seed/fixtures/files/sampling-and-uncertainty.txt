@@ -1,0 +1,13 @@
+Statistics — Sampling and uncertainty
+
+A population is the group about which a study aims to make an inference. A sample is the subset actually observed. The sampling frame is the operational list or mechanism used to reach units. A large sample does not correct a sampling frame that systematically excludes part of the population.
+
+An estimator is a rule calculated from sample data. The sample mean estimates a population mean. Under independent observations with finite variance, the standard error of the sample mean is sigma divided by the square root of n; in practice sigma is often estimated by the sample standard deviation.
+
+Example: a sample of 100 independent observations has mean 72 and standard deviation 10. The estimated standard error is 10 / sqrt(100) = 1. A rough large-sample 95% confidence interval is 72 plus or minus 1.96, or approximately 70.04 to 73.96.
+
+A confidence level describes the long-run coverage of a procedure under its assumptions. If the same sampling and interval procedure were repeated many times, roughly 95% of the resulting 95% intervals would cover the fixed population parameter. This does not assign a 95% frequentist probability to the fixed parameter after observing one interval.
+
+Precision and bias are different. Increasing sample size can reduce random error while leaving systematic bias largely unchanged. Nonresponse, measurement error and confounding require design and analysis decisions beyond collecting more observations.
+
+Practice: compare a random sample of 400 students with an online poll of 4,000 volunteers. State which population each can reasonably describe, identify plausible selection effects and explain what information is needed before comparing their confidence intervals.

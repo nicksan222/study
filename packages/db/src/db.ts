@@ -68,6 +68,19 @@ export class Db {
     }
   }
 
+  /** Flush an exclusively owned file before replacement, without running migrations. */
+  static checkpointFile(path: string): void {
+    const sqlite = new DatabaseSync(path, { readBigInts: true });
+
+    try {
+      const result = sqlite.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get();
+
+      if (result?.busy !== 0n) throw new Error('Database checkpoint is busy');
+    } finally {
+      sqlite.close();
+    }
+  }
+
   /** SQLite's online backup includes committed WAL pages in one consistent snapshot. */
   snapshot(path: string, maximumBytes?: number): Promise<number> {
     this.assertActive();

@@ -1,0 +1,7 @@
+plot,habitat,area_m2,observed_species,effort_minutes
+A,meadow,25,14,20
+B,meadow,25,17,20
+C,woodland_edge,25,21,20
+D,woodland_edge,25,19,20
+E,paved_margin,25,6,20
+F,paved_margin,25,8,20

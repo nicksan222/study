@@ -1,0 +1,9 @@
+{
+  "title": "Illustrative energy budget exercise",
+  "unit": "W/m²",
+  "incomingSolarMean": 340,
+  "reflectedSolar": 100,
+  "absorbedSolar": 240,
+  "outgoingThermalAtBalance": 240,
+  "note": "Rounded teaching values; these are not a current observational dataset."
+}

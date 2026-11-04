@@ -7,6 +7,8 @@
     "../../vite.config.ts",
     "../oxc-config/**/*.ts",
     "../development/*.ts",
-    "../../packages/testing/**/*.ts"
-  ]
+    "../../packages/testing/**/*.ts",
+    "../seed/**/*.ts"
+  ],
+  "exclude": ["../seed/fixtures/files/**"]
 }

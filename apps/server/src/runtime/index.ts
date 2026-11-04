@@ -14,3 +14,5 @@
 
 export { App } from './service.ts';
 export { serve } from './server.ts';
+
+export { acquireDatabaseOwnership } from '#server/platform/database/ownership';

@@ -1,0 +1,13 @@
+Cell Biology — Organelles and protein trafficking
+
+A eukaryotic cell is compartmentalised by membranes. Each organelle provides a chemical environment suited to a particular set of reactions. Compartmentalisation allows processes that would interfere with one another to occur at the same time.
+
+The nucleus contains most of the cell's DNA. Transcription produces RNA from a DNA template. Messenger RNA is processed and exported through nuclear pores before ribosomes translate its coding sequence. The nucleolus is involved in ribosomal RNA production and ribosome assembly.
+
+A protein destined for secretion typically begins translation on a cytosolic ribosome. A signal sequence directs the translating complex to the rough endoplasmic reticulum. The new protein enters the ER, where folding, quality control and some modifications occur. Transport vesicles carry suitable cargo to the Golgi apparatus.
+
+The Golgi modifies and sorts proteins and lipids. Cargo may be sent to the plasma membrane, secretory vesicles or endosomal compartments. Sorting depends on molecular signals; it is not a random distribution of all proteins to every destination.
+
+Mitochondria support aerobic ATP production. Their inner membrane contains the electron transport chain and ATP synthase. A proton gradient couples electron transfer to ATP synthesis. Mitochondria also participate in metabolism and regulated cell death.
+
+Revision exercise: trace a secreted enzyme from its gene to release outside the cell. Identify the membrane crossed at each step and distinguish a transport vesicle from an organelle. Do not assume that every protein passes through the ER: many cytosolic proteins remain in the cytosol.

@@ -1775,5 +1775,11 @@ export const italian = Object.freeze({
   SearchShortcut: 'Ctrl/⌘ K',
   SettingsGroupApplication: 'Applicazione',
   SettingsGroupLearning: 'Studio',
-  SettingsGroupIntelligence: 'IA'
+  SettingsGroupIntelligence: 'IA',
+  SeedHelp:
+    'bun seed azzera il database di sviluppo e installa il materiale di esempio incluso. Elimina tutti i dati esistenti, comprese impostazioni e credenziali. Prima arresta Study. Usa STUDY_DATABASE per scegliere il database.',
+  SeedResetting:
+    'Sostituzione dei dati del database in {path} con materiale di esempio. Study deve essere arrestato.',
+  SeedComplete:
+    'Creati {projects} corsi, {sessions} sessioni, {sources} fonti, {documents} documenti e {materials} materiali di studio.'
 } as const satisfies Record<keyof typeof english, string>);
