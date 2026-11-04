@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -42,14 +41,17 @@ testStable(
         )
       );
       db.exec('UPDATE sources SET project_id=NULL WHERE id=1');
-      assert.equal(db.orm.get(sql`SELECT source_id FROM message_parts WHERE id=1`)?.source_id, 1n);
+      assert.strictEqual(
+        db.orm.get(sql`SELECT source_id FROM message_parts WHERE id=1`)?.source_id,
+        1n
+      );
     })
 );
 
 testStable('source cleanup and session or project cascades remain possible', () => {
   fixture((db) => {
     db.exec('DELETE FROM sources WHERE id=1');
-    assert.equal(
+    assert.strictEqual(
       db.orm.get<{ source_id: bigint | null }>(sql`SELECT source_id FROM message_parts WHERE id=1`)
         ?.source_id,
       null
@@ -57,11 +59,11 @@ testStable('source cleanup and session or project cascades remain possible', () 
   });
   fixture((db) => {
     db.exec('DELETE FROM sessions WHERE id=1');
-    assert.equal(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
+    assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
   });
   fixture((db) => {
     db.exec('DELETE FROM projects WHERE id=1');
-    assert.equal(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
-    assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   });
 });

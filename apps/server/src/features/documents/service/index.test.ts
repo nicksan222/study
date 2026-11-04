@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import {
@@ -23,9 +21,11 @@ import {
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -95,10 +95,10 @@ testStable(
 
           assert.ok(a.version);
           assert.ok(a.createdAt < 100000000000n, 'SQLite authored timestamps use Unix seconds');
-          assert.equal((yield* rpc['documents.create'](input)).id, a.id);
-          assert.equal(
-            (yield* Effect.flip(rpc['documents.create']({ ...input, title: 'Other' }))).kind,
-            'invalid_input'
+          assert.strictEqual((yield* rpc['documents.create'](input)).id, a.id);
+          assert.ok(
+            (yield* Effect.flip(rpc['documents.create']({ ...input, title: 'Other' }))).kind ===
+              'invalid_input'
           );
           const base = a.version;
           const edit = {
@@ -109,8 +109,8 @@ testStable(
           };
           const saved = yield* rpc['documents.save'](edit);
 
-          assert.equal(saved.outcome, 'saved');
-          assert.equal((yield* rpc['documents.save'](edit)).replayed, true);
+          assert.ok(saved.outcome === 'saved');
+          assert.ok((yield* rpc['documents.save'](edit)).replayed === true);
           const conflictInput = {
             ...edit,
             key: 'stale',
@@ -118,17 +118,17 @@ testStable(
           };
           const conflict = yield* rpc['documents.save'](conflictInput);
 
-          assert.equal(conflict.outcome, 'conflict');
+          assert.ok(conflict.outcome === 'conflict');
           const replay = yield* rpc['documents.save'](conflictInput);
 
-          assert.deepEqual(replay, { ...conflict, replayed: true });
+          expect(replay).toStrictEqual({ ...conflict, replayed: true });
           const old = yield* rpc['documents.version']({ id: base.id });
           const alternative = yield* rpc['documents.version']({ id: conflict.submittedVersionId });
 
-          assert.equal(old.document.blocks[0].text, 'Original');
-          assert.equal(alternative.status, 'draft');
-          assert.equal(alternative.document.blocks[0].text, 'Retained conflict');
-          assert.equal(
+          assert.ok(old.document.blocks[0].text === 'Original');
+          assert.ok(alternative.status === 'draft');
+          assert.ok(alternative.document.blocks[0].text === 'Retained conflict');
+          assert.strictEqual(
             (yield* rpc['documents.document']({ id: a.id })).headVersionId,
             saved.submittedVersionId
           );
@@ -138,16 +138,15 @@ testStable(
             currentVersionId: saved.submittedVersionId
           });
 
-          assert.equal(comparison.proposedChanges[0]?.kind, 'changed');
-          assert.equal(comparison.currentChanges[0]?.kind, 'changed');
-          assert.equal(
+          assert.ok(comparison.proposedChanges[0]?.kind === 'changed');
+          assert.ok(comparison.currentChanges[0]?.kind === 'changed');
+          assert.ok(
             (yield* Effect.flip(
               rpc['documents.save']({
                 ...edit,
                 document: body('Different', base.document.blocks[0].id)
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const restored = yield* rpc['documents.restore']({
             documentId: a.id,
@@ -156,16 +155,18 @@ testStable(
             key: 'restore'
           });
 
-          assert.equal(restored.outcome, 'saved');
+          assert.ok(restored.outcome === 'saved');
           const latest = yield* rpc['documents.version']({ id: restored.submittedVersionId });
 
-          assert.equal(latest.operation, 'restore');
-          assert.deepEqual(latest.document, base.document);
-          assert.deepEqual(new Set(latest.parents), new Set([base.id, saved.submittedVersionId]));
+          assert.ok(latest.operation === 'restore');
+          expect(latest.document).toStrictEqual(base.document);
+          expect(new Set(latest.parents)).toStrictEqual(
+            new Set([base.id, saved.submittedVersionId])
+          );
           const exported = yield* rpc['documents.exportVersion']({ id: latest.id });
 
-          assert.equal(JSON.parse(exported.content).id, String(latest.id));
-          assert.equal(
+          assert.strictEqual(JSON.parse(exported.content).id, String(latest.id));
+          assert.strictEqual(
             (yield* rpc['documents.versions']({ documentId: a.id, limit: 2 })).items.length,
             2
           );
@@ -174,8 +175,11 @@ testStable(
         }).pipe(Effect.provide(DocumentsRpcLive.pipe(Layer.provide(f.services))), Effect.scoped)
       );
 
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM material_versions`)?.n, 0n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);
+      assert.strictEqual(
+        f.context.db.orm.get(sql`SELECT count(*) AS n FROM material_versions`)?.n,
+        0n
+      );
       assert.throws(() =>
         f.context.db.exec(
           `UPDATE blocks SET text='tampered' WHERE document_id=(SELECT content_snapshot_id FROM study_document_versions WHERE id=${result.latestId})`
@@ -189,8 +193,11 @@ testStable(
           Effect.gen(function* () {
             const docs = yield* Documents;
 
-            assert.equal((yield* docs.document({ id: result.id })).headVersionId, result.latestId);
-            assert.deepEqual(yield* docs.save(result.conflictInput), {
+            assert.strictEqual(
+              (yield* docs.document({ id: result.id })).headVersionId,
+              result.latestId
+            );
+            expect(yield* docs.save(result.conflictInput)).toStrictEqual({
               ...result.conflict,
               replayed: true
             });
@@ -200,7 +207,7 @@ testStable(
             )
           )
         );
-        assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         context.close();
       }
@@ -226,7 +233,7 @@ testStable(
           const b = yield* docs.create(creation('two'));
 
           assert.ok(a.version && b.version);
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.save({
                 documentId: b.id,
@@ -234,10 +241,9 @@ testStable(
                 key: 'foreign-base',
                 document: body('Forged')
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.save({
                 documentId: b.id,
@@ -245,10 +251,9 @@ testStable(
                 key: 'foreign-block',
                 document: a.version.document
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.restore({
                 documentId: b.id,
@@ -256,12 +261,11 @@ testStable(
                 restoreVersionId: a.version.id,
                 key: 'foreign-restore'
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const missing = Schema.decodeUnknownSync(studyDocumentVersionIdSchema)(999999n);
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.save({
                 documentId: a.id,
@@ -269,25 +273,38 @@ testStable(
                 key: 'missing',
                 document: body('No')
               })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
           yield* docs.archive({ id: a.id, archived: true });
-          assert.equal((yield* docs.documents({ limit: 10, archived: false })).items.length, 1);
-          assert.equal((yield* docs.documents({ limit: 10, archived: true })).items[0]?.id, a.id);
-          assert.equal(
+          assert.strictEqual(
+            (yield* docs.documents({ limit: 10, archived: false })).items.length,
+            1
+          );
+          assert.strictEqual(
+            (yield* docs.documents({ limit: 10, archived: true })).items[0]?.id,
+            a.id
+          );
+          assert.ok(
             (yield* Effect.flip(docs.create({ ...creation('rollback'), sessionId: 999n as never })))
-              .kind,
-            'not_found'
+              .kind === 'not_found'
           );
         }).pipe(Effect.provide(f.services))
       );
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n, 2n);
+      assert.strictEqual(
+        f.context.db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n,
+        2n
+      );
       f.context.db.exec(
         `INSERT INTO session_documents(session_id,document_id,position) SELECT 1,id,id FROM study_documents; DELETE FROM sessions;`
       );
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n, 2n);
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM session_documents`)?.n, 0n);
+      assert.strictEqual(
+        f.context.db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n,
+        2n
+      );
+      assert.strictEqual(
+        f.context.db.orm.get(sql`SELECT count(*) AS n FROM session_documents`)?.n,
+        0n
+      );
     } finally {
       f.close();
     }
@@ -330,22 +347,20 @@ testStable(
           const copy = yield* docs.copySource(copyInput);
 
           assert.ok(copy.version);
-          assert.equal((yield* docs.copySource(copyInput)).id, copy.id);
-          assert.equal(copy.version.document.blocks[0].text, 'Exact source 😀');
-          assert.notEqual(copy.version.document.blocks[0].id, source.blocks[0].id);
-          assert.deepEqual(copy.version.inputs, [
+          assert.strictEqual((yield* docs.copySource(copyInput)).id, copy.id);
+          assert.ok(copy.version.document.blocks[0].text === 'Exact source 😀');
+          assert.notStrictEqual(copy.version.document.blocks[0].id, source.blocks[0].id);
+          expect(copy.version.inputs).toStrictEqual([
             { kind: 'source', sourceId, revision: 1n, snapshotId }
           ]);
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(transaction((tx) => tx.store(SourceStore).deleteSource(sourceId))))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.copySource({ ...copyInput, createKey: 'wrong-revision', revision: 2n })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
           const input = { kind: 'message' as const, versionId: messageVersionId };
           const linked = yield* docs.create({
@@ -363,24 +378,23 @@ testStable(
           });
 
           assert.ok(linked.version);
-          assert.deepEqual(linked.version.inputs, [input]);
+          expect(linked.version.inputs).toStrictEqual([input]);
           f.context.db.exec('DELETE FROM sessions WHERE id=1');
           const retained = yield* docs.version({ id: linked.version.id });
 
-          assert.deepEqual(retained.inputs, [input]);
-          assert.equal(retained.citations[0]?.quote, 'Exact message');
-          assert.equal(
+          expect(retained.inputs).toStrictEqual([input]);
+          assert.ok(retained.citations[0]?.quote === 'Exact message');
+          assert.ok(
             f.context.db.orm.get(
               sql`SELECT message_version_id FROM study_document_inputs WHERE exact_message_version_id=11`
-            )?.message_version_id,
-            null
+            )?.message_version_id === null
           );
         }).pipe(Effect.provide(f.services))
       );
       assert.throws(() =>
         f.context.db.exec(`DELETE FROM source_snapshots WHERE source_id=7 AND revision=1`)
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       f.close();
     }
@@ -413,17 +427,16 @@ testStable(
             key: 'another',
             document: body('Newest', a.version.document.blocks[0].id)
           });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.retireHistory({ documentId: a.id, keepLatest: 1, token: old.token })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const fresh = yield* docs.previewHistory({ documentId: a.id, keepLatest: 1 });
 
           yield* docs.retireHistory({ documentId: a.id, keepLatest: 1, token: fresh.token });
-          assert.equal((yield* Effect.flip(docs.version({ id: a.version.id }))).kind, 'not_found');
-          assert.equal(
+          assert.ok((yield* Effect.flip(docs.version({ id: a.version.id }))).kind === 'not_found');
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) AS n FROM blocks WHERE document_id=${a.version.snapshotId}`
             )?.n,
@@ -438,10 +451,10 @@ testStable(
           });
           const blocked = yield* docs.previewDeletion({ id: a.id });
 
-          assert.deepEqual(blocked.blockedVersionIds, [current.id]);
-          assert.equal(
-            (yield* Effect.flip(docs.delete({ documentId: a.id, token: blocked.token }))).kind,
-            'invalid_input'
+          expect(blocked.blockedVersionIds).toStrictEqual([current.id]);
+          assert.ok(
+            (yield* Effect.flip(docs.delete({ documentId: a.id, token: blocked.token }))).kind ===
+              'invalid_input'
           );
           const deleteDependent = yield* docs.previewDeletion({ id: dependent.id });
 
@@ -449,12 +462,15 @@ testStable(
           const deletion = yield* docs.previewDeletion({ id: a.id });
 
           yield* docs.delete({ documentId: a.id, token: deletion.token });
-          assert.equal((yield* Effect.flip(docs.document({ id: a.id }))).kind, 'not_found');
-          assert.equal((yield* docs.documents({ limit: 10, archived: false })).items.length, 0);
+          assert.ok((yield* Effect.flip(docs.document({ id: a.id }))).kind === 'not_found');
+          assert.strictEqual(
+            (yield* docs.documents({ limit: 10, archived: false })).items.length,
+            0
+          );
         }).pipe(Effect.provide(f.services))
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
-      assert.equal(f.context.db.orm.get(sql`PRAGMA integrity_check`)?.integrity_check, 'ok');
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      assert.ok(f.context.db.orm.get(sql`PRAGMA integrity_check`)?.integrity_check === 'ok');
       const path = f.location.path + '.backup';
 
       await f.context.db.snapshot(path);
@@ -462,7 +478,7 @@ testStable(
 
       if (process.env.STUDY_FINAL_MIGRATIONS)
         assert.throws(() => Db.validateSnapshot(path), TypeError);
-      else assert.equal(Db.validateSnapshot(path), f.context.db.schemaIdentity());
+      else assert.strictEqual(Db.validateSnapshot(path), f.context.db.schemaIdentity());
     } finally {
       f.close();
     }
@@ -495,10 +511,10 @@ testStable(
           };
           const result = yield* transaction((tx) => Documents.publishInTransaction(tx, input));
 
-          assert.equal(result.outcome, 'saved');
-          assert.equal(
-            (yield* transaction((tx) => Documents.publishInTransaction(tx, input))).replayed,
-            true
+          assert.ok(result.outcome === 'saved');
+          assert.ok(
+            (yield* transaction((tx) => Documents.publishInTransaction(tx, input))).replayed ===
+              true
           );
           const conflict = yield* transaction((tx) =>
             Documents.publishInTransaction(tx, {
@@ -509,23 +525,22 @@ testStable(
             })
           );
 
-          assert.equal(conflict.outcome, 'conflict');
-          assert.equal((yield* docs.version({ id: conflict.submittedVersionId })).status, 'draft');
-          assert.equal(
+          assert.ok(conflict.outcome === 'conflict');
+          assert.ok((yield* docs.version({ id: conflict.submittedVersionId })).status === 'draft');
+          assert.ok(
             (yield* Effect.flip(
               transaction((tx) =>
                 Documents.publishInTransaction(tx, { ...input, instruction: 'Different' })
               )
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(f.services))
       );
-      assert.equal(
+      assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) AS n FROM study_document_generation_requests`)?.n,
         2n
       );
-      assert.equal(
+      assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) AS n FROM study_document_proposals`)?.n,
         1n
       );
@@ -565,7 +580,7 @@ testStable(
           const a = yield* docs.create(base);
 
           assert.ok(a.version);
-          assert.equal(
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) AS n FROM document_assets WHERE document_id=${a.version.snapshotId}`
             )?.n,
@@ -587,7 +602,7 @@ testStable(
             note: 'Exact 😀'
           });
 
-          assert.equal(annotation.outcome, 'saved');
+          assert.ok(annotation.outcome === 'saved');
           const invalid = yield* Effect.flip(
             docs.createAnnotation({
               target: { ...target, range: { ...target.range, start: 2 } },
@@ -596,7 +611,7 @@ testStable(
             })
           );
 
-          assert.equal(invalid.kind, 'invalid_input');
+          assert.ok(invalid.kind === 'invalid_input');
           const updated = yield* docs.reviseAnnotation({
             id: annotation.annotation.id,
             expectedRevision: 1n,
@@ -606,7 +621,7 @@ testStable(
             deleted: false
           });
 
-          assert.equal(updated.annotation.revision, 2n);
+          assert.strictEqual(updated.annotation.revision, 2n);
           const stale = yield* docs.reviseAnnotation({
             id: annotation.annotation.id,
             expectedRevision: 1n,
@@ -616,8 +631,8 @@ testStable(
             deleted: false
           });
 
-          assert.equal(stale.outcome, 'conflict');
-          assert.equal(
+          assert.ok(stale.outcome === 'conflict');
+          assert.strictEqual(
             (yield* docs.annotationHistory({ id: annotation.annotation.id, limit: 10 })).items
               .length,
             2
@@ -634,8 +649,8 @@ testStable(
             includeDeleted: false
           });
 
-          assert.equal(firstAnnotations.items[0].id, extra.annotation.id);
-          assert.equal(firstAnnotations.nextCursor, extra.annotation.id);
+          assert.strictEqual(firstAnnotations.items[0].id, extra.annotation.id);
+          assert.strictEqual(firstAnnotations.nextCursor, extra.annotation.id);
           const nextAnnotations = yield* docs.annotations({
             documentId: a.id,
             limit: 1,
@@ -643,9 +658,9 @@ testStable(
             includeDeleted: false
           });
 
-          assert.equal(nextAnnotations.items[0].note, 'Revised');
-          assert.equal(nextAnnotations.items[0].revision, 2n);
-          assert.equal(nextAnnotations.nextCursor, null);
+          assert.ok(nextAnnotations.items[0].note === 'Revised');
+          assert.strictEqual(nextAnnotations.items[0].revision, 2n);
+          assert.ok(nextAnnotations.nextCursor === null);
           yield* docs.reviseAnnotation({
             id: extra.annotation.id,
             expectedRevision: 1n,
@@ -654,12 +669,12 @@ testStable(
             note: 'Retained tombstone',
             deleted: true
           });
-          assert.equal(
+          assert.strictEqual(
             (yield* docs.annotations({ documentId: a.id, limit: 10, includeDeleted: false })).items
               .length,
             1
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* docs.annotations({ documentId: a.id, limit: 10, includeDeleted: true })).items
               .length,
             2
@@ -680,7 +695,7 @@ testStable(
           });
 
           assert.ok(cited.version);
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 ...creation('bad-quote'),
@@ -695,8 +710,7 @@ testStable(
                   }
                 ]
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const messageInput = {
             kind: 'message' as const,
@@ -716,8 +730,8 @@ testStable(
             document: body('Still editable', derived.version.document.blocks[0].id)
           });
 
-          assert.equal(changed.outcome, 'saved');
-          assert.deepEqual((yield* docs.version({ id: changed.submittedVersionId })).inputs, [
+          assert.ok(changed.outcome === 'saved');
+          expect((yield* docs.version({ id: changed.submittedVersionId })).inputs).toStrictEqual([
             messageInput
           ]);
         }).pipe(Effect.provide(f.services))
@@ -727,7 +741,7 @@ testStable(
           `UPDATE source_snapshots SET bytes=X'42' WHERE source_id=8 AND revision=1`
         )
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       f.close();
     }
@@ -755,11 +769,11 @@ testStable(
           const a = yield* transaction((tx) => Documents.createGeneratedInTransaction(tx, request));
 
           assert.ok(a.version);
-          assert.equal(a.version.creator, 'agent');
-          assert.equal(a.version.operation, 'generate');
-          assert.equal(a.version.number, 1n);
-          assert.deepEqual(a.version.parents, []);
-          assert.equal(a.version.instruction, request.instruction);
+          assert.ok(a.version.creator === 'agent');
+          assert.ok(a.version.operation === 'generate');
+          assert.strictEqual(a.version.number, 1n);
+          expect(a.version.parents).toStrictEqual([]);
+          assert.strictEqual(a.version.instruction, request.instruction);
           const docs = yield* Documents;
 
           yield* docs.save({
@@ -772,10 +786,10 @@ testStable(
             Documents.createGeneratedInTransaction(tx, request)
           );
 
-          assert.equal(replay.documentId, a.documentId);
-          assert.equal(replay.version.id, a.version.id);
-          assert.equal(replay.replayed, true);
-          assert.equal(
+          assert.strictEqual(replay.documentId, a.documentId);
+          assert.strictEqual(replay.version.id, a.version.id);
+          assert.ok(replay.replayed === true);
+          assert.ok(
             (yield* Effect.flip(
               transaction((tx) =>
                 Documents.createGeneratedInTransaction(tx, {
@@ -783,23 +797,22 @@ testStable(
                   instruction: 'Different intent'
                 })
               )
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const receipt = f.context.db.orm.get(
             sql`SELECT expected_version_id,result_version_id FROM study_document_generation_requests WHERE id='independent-generation'`
           );
 
-          assert.equal(receipt?.expected_version_id, null);
-          assert.equal(receipt?.result_version_id, a.version.id);
+          assert.ok(receipt?.expected_version_id === null);
+          assert.strictEqual(receipt?.result_version_id, a.version.id);
         }).pipe(Effect.provide(f.services))
       );
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);
-      assert.equal(
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);
+      assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) AS n FROM study_document_versions`)?.n,
         2n
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       f.close();
     }
@@ -825,9 +838,9 @@ testStable(
             expectedDescription: created.description
           });
 
-          assert.equal(metadata.title, 'Renamed document');
-          assert.equal(metadata.description, 'Private description');
-          assert.equal(metadata.headVersionId, base.id);
+          assert.ok(metadata.title === 'Renamed document');
+          assert.ok(metadata.description === 'Private description');
+          assert.strictEqual(metadata.headVersionId, base.id);
           const proposalInput = {
             requestId: 'target-proposal',
             documentId: created.id,
@@ -844,13 +857,12 @@ testStable(
             Documents.proposeGeneratedInTransaction(tx, proposalInput)
           );
 
-          assert.equal(proposed.baseVersionId, base.id);
-          assert.equal((yield* docs.document({ id: created.id })).headVersionId, base.id);
-          assert.equal((yield* docs.version({ id: proposed.proposedVersionId })).status, 'draft');
-          assert.deepEqual(
-            yield* transaction((tx) => Documents.proposeGeneratedInTransaction(tx, proposalInput)),
-            proposed
-          );
+          assert.strictEqual(proposed.baseVersionId, base.id);
+          assert.strictEqual((yield* docs.document({ id: created.id })).headVersionId, base.id);
+          assert.ok((yield* docs.version({ id: proposed.proposedVersionId })).status === 'draft');
+          expect(
+            yield* transaction((tx) => Documents.proposeGeneratedInTransaction(tx, proposalInput))
+          ).toStrictEqual(proposed);
           const changed = yield* docs.save({
             documentId: created.id,
             expectedVersionId: base.id,
@@ -863,8 +875,8 @@ testStable(
             expectedVersionId: base.id
           });
 
-          assert.equal(conflict.outcome, 'conflict');
-          assert.equal(conflict.currentVersionId, changed.submittedVersionId);
+          assert.ok(conflict.outcome === 'conflict');
+          assert.strictEqual(conflict.currentVersionId, changed.submittedVersionId);
           const keepInput = {
             requestId: proposed.requestId,
             key: 'keep-separate',
@@ -872,26 +884,25 @@ testStable(
           };
           const kept = yield* docs.keepProposal(keepInput);
 
-          assert.equal(kept.outcome, 'kept');
-          assert.equal((yield* docs.keepProposal(keepInput)).replayed, true);
+          assert.ok(kept.outcome === 'kept');
+          assert.ok((yield* docs.keepProposal(keepInput)).replayed === true);
           const alternative = yield* docs.version({ id: kept.resultVersionId! });
 
-          assert.notEqual(alternative.documentId, created.id);
-          assert.equal(alternative.document.blocks[0].text, 'Proposed text');
-          assert.notEqual(alternative.document.blocks[0].id, base.document.blocks[0].id);
-          assert.equal(
+          assert.notStrictEqual(alternative.documentId, created.id);
+          assert.ok(alternative.document.blocks[0].text === 'Proposed text');
+          assert.notStrictEqual(alternative.document.blocks[0].id, base.document.blocks[0].id);
+          assert.strictEqual(
             (yield* docs.document({ id: created.id })).headVersionId,
             changed.submittedVersionId
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.applyProposal({
                 requestId: proposed.requestId,
                 key: 'apply-current',
                 expectedVersionId: changed.submittedVersionId
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const target = yield* docs.create(creation('fresh-proposal-target'));
           const fresh = yield* transaction((tx) =>
@@ -910,31 +921,30 @@ testStable(
           };
           const applied = yield* docs.applyProposal(applyInput);
 
-          assert.equal(applied.outcome, 'applied');
-          assert.equal(
+          assert.ok(applied.outcome === 'applied');
+          assert.strictEqual(
             (yield* docs.document({ id: target.id })).headVersionId,
             applied.resultVersionId
           );
-          assert.equal(
-            (yield* docs.version({ id: applied.resultVersionId! })).document.blocks[0].text,
-            'Accepted proposal'
+          assert.ok(
+            (yield* docs.version({ id: applied.resultVersionId! })).document.blocks[0].text ===
+              'Accepted proposal'
           );
           const replay = yield* docs.applyProposal(applyInput);
 
-          assert.equal(replay.replayed, true);
-          assert.equal(replay.resultVersionId, applied.resultVersionId);
+          assert.ok(replay.replayed === true);
+          assert.strictEqual(replay.resultVersionId, applied.resultVersionId);
           const retirement = yield* docs.previewDeletion({ id: target.id });
 
-          assert.deepEqual(
+          expect(
             retirement.blockedVersionIds,
-            [],
             'Own proposal identities do not retain deleted document bodies'
-          );
+          ).toStrictEqual([]);
           yield* docs.delete({ documentId: target.id, token: retirement.token });
-          assert.equal((yield* Effect.flip(docs.document({ id: target.id }))).kind, 'not_found');
-          assert.equal((yield* docs.applyProposal(applyInput)).replayed, true);
+          assert.ok((yield* Effect.flip(docs.document({ id: target.id }))).kind === 'not_found');
+          assert.ok((yield* docs.applyProposal(applyInput)).replayed === true);
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.updateMetadata({
                 id: created.id,
@@ -943,8 +953,7 @@ testStable(
                 expectedTitle: created.title,
                 expectedDescription: created.description
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(f.services))
       );
@@ -988,25 +997,25 @@ testStable(
 
           const first = yield* docs.versions({ documentId: owner.id, limit: 1 });
 
-          assert.equal(first.items[0]?.number, 3n);
-          assert.equal(first.items[0]?.id, 50n);
-          assert.equal(first.nextCursor, 50n);
+          assert.strictEqual(first.items[0]?.number, 3n);
+          assert.strictEqual(first.items[0]?.id, 50n);
+          assert.strictEqual(first.nextCursor, 50n);
           const second = yield* docs.versions({
             documentId: owner.id,
             limit: 1,
             cursor: first.nextCursor!
           });
 
-          assert.equal(second.items[0]?.number, 2n);
-          assert.equal(second.items[0]?.id, 100n);
+          assert.strictEqual(second.items[0]?.number, 2n);
+          assert.strictEqual(second.items[0]?.id, 100n);
           const last = yield* docs.versions({
             documentId: owner.id,
             limit: 1,
             cursor: second.nextCursor!
           });
 
-          assert.equal(last.items[0]?.id, owner.version.id);
-          assert.equal(last.nextCursor, null);
+          assert.strictEqual(last.items[0]?.id, owner.version.id);
+          assert.ok(last.nextCursor === null);
         }).pipe(
           Effect.provide(Documents.layer),
           Effect.provideService(Database, { store: context })

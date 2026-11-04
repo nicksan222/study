@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
@@ -165,7 +164,7 @@ testStable('only the browser runtime adapter may execute browser operations', ()
     true
   );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable(

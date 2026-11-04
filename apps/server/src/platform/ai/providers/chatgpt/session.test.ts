@@ -13,9 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
@@ -56,12 +55,11 @@ testStable('refresh is shared and persists the rotation before exposing access',
         }),
       /owner/i
     );
-    assert.deepEqual(
-      new Set(await Promise.all(Array.from({ length: 20 }, () => auth.token()))),
-      new Set(['access'])
-    );
-    assert.equal(saved, 'new');
-    assert.equal(calls, 1);
+    expect(
+      new Set(await Promise.all(Array.from({ length: 20 }, () => auth.token())))
+    ).toStrictEqual(new Set(['access']));
+    assert.ok(saved === 'new');
+    assert.strictEqual(calls, 1);
   } finally {
     await auth.dispose();
   }
@@ -73,8 +71,8 @@ testStable('failed persistence must be retried before any access or another refr
   const auth = new AuthManager({
     issuer: 'https://example.test',
     saveRefresh: async (previous, refresh) => {
-      assert.equal(previous.refreshToken, 'old');
-      assert.equal(refresh, 'rotated');
+      assert.ok(previous.refreshToken === 'old');
+      assert.ok(refresh === 'rotated');
 
       if (++saves === 1) throw Error('disk');
     },
@@ -91,10 +89,10 @@ testStable('failed persistence must be retried before any access or another refr
 
   try {
     await auth.replace(account);
-    await assert.rejects(auth.token(), /disk/);
-    assert.equal(await auth.token(), 'access');
-    assert.equal(calls, 1);
-    assert.equal(saves, 2);
+    await expect(auth.token()).rejects.toThrow(/disk/);
+    assert.ok((await auth.token()) === 'access');
+    assert.strictEqual(calls, 1);
+    assert.strictEqual(saves, 2);
   } finally {
     await auth.dispose();
   }
@@ -131,11 +129,11 @@ testStable('replacement invalidates in-flight refresh before it can return a tok
     );
 
     release();
-    await assert.rejects(stale, /invalidated/i);
+    await expect(stale).rejects.toThrow(/invalidated/i);
     await replacing;
-    assert.equal(await auth.token(), 'fresh');
+    assert.ok((await auth.token()) === 'fresh');
     await auth.signOut();
-    await assert.rejects(auth.token(), /signed in/i);
+    await expect(auth.token()).rejects.toThrow(/signed in/i);
   } finally {
     await auth.dispose();
   }
@@ -151,12 +149,12 @@ testStable('seeded access and stale refusals do not cause gratuitous refresh', a
 
   try {
     await auth.replace(account, { accessToken: 'seed', expiresIn: 3600 });
-    assert.equal(await auth.token(), 'seed');
-    assert.equal(calls, 0);
+    assert.ok((await auth.token()) === 'seed');
+    assert.strictEqual(calls, 0);
     auth.refused('seed');
-    assert.equal(await auth.token(), 'access1');
+    assert.ok((await auth.token()) === 'access1');
     auth.refused('seed');
-    assert.equal(await auth.token(), 'access1');
+    assert.ok((await auth.token()) === 'access1');
   } finally {
     await auth.dispose();
   }
@@ -171,7 +169,9 @@ testStable('token endpoint failures do not expose response secrets', async () =>
 
   try {
     await auth.replace(account);
-    await assert.rejects(auth.token(), (error) => !String(error).includes('secret-refresh-token'));
+    await expect(auth.token()).rejects.toSatisfy(
+      (error) => !String(error).includes('secret-refresh-token')
+    );
   } finally {
     await auth.dispose();
   }
@@ -200,7 +200,7 @@ testStable(
     try {
       await auth.replace(account);
       const token = auth.token();
-      const rejection = assert.rejects(token, /invalidated/i);
+      const rejection = expect(token).rejects.toThrow(/invalidated/i);
 
       await started;
       let signedOut = false;
@@ -209,11 +209,11 @@ testStable(
       });
 
       await Promise.resolve();
-      assert.equal(signedOut, false);
+      assert.ok(signedOut === false);
       release();
       await rejection;
       await signOut;
-      await assert.rejects(auth.token(), /signed in/i);
+      await expect(auth.token()).rejects.toThrow(/signed in/i);
     } finally {
       release();
       await auth.dispose();
@@ -237,7 +237,7 @@ testStable(
     const auth = new AuthManager({
       issuer: 'https://example.test',
       saveRefresh: async (previous, rotated) => {
-        assert.equal(previous.refreshToken, saved);
+        assert.strictEqual(previous.refreshToken, saved);
         saved = rotated;
       },
       fetch: async (_url, init) => {
@@ -266,7 +266,7 @@ testStable(
 
     try {
       await auth.replace(account);
-      const rejected = assert.rejects(auth.token(), /invalidated/i);
+      const rejected = expect(auth.token()).rejects.toThrow(/invalidated/i);
 
       await started;
       const replacing = auth.replace(account);
@@ -274,9 +274,9 @@ testStable(
       release();
       await rejected;
       await replacing;
-      assert.equal(saved, 'rotated');
-      assert.equal(await auth.token(), 'fresh');
-      assert.deepEqual(used, ['old', 'rotated']);
+      assert.ok(saved === 'rotated');
+      assert.ok((await auth.token()) === 'fresh');
+      expect(used).toStrictEqual(['old', 'rotated']);
     } finally {
       release();
       await auth.dispose();
@@ -291,7 +291,7 @@ testStable('replacement retries a dirty rotation before restoring the same accou
   const auth = new AuthManager({
     issuer: 'https://example.test',
     saveRefresh: async (previous, rotated) => {
-      assert.equal(previous.refreshToken, saved);
+      assert.strictEqual(previous.refreshToken, saved);
 
       if (++saves === 1) throw Error('storage unavailable');
 
@@ -310,11 +310,11 @@ testStable('replacement retries a dirty rotation before restoring the same accou
 
   try {
     await auth.replace(account);
-    await assert.rejects(auth.token(), /storage unavailable/);
+    await expect(auth.token()).rejects.toThrow(/storage unavailable/);
     await auth.replace(account);
-    assert.equal(saved, 'rotated');
-    assert.equal(await auth.token(), 'second');
-    assert.deepEqual(used, ['old', 'rotated']);
+    assert.ok(saved === 'rotated');
+    assert.ok((await auth.token()) === 'second');
+    expect(used).toStrictEqual(['old', 'rotated']);
   } finally {
     await auth.dispose();
   }
@@ -329,8 +329,7 @@ testStable('malformed refresh JSON never appears in the thrown error', async () 
 
   try {
     await auth.replace(account);
-    await assert.rejects(
-      auth.token(),
+    await expect(auth.token()).rejects.toSatisfy(
       (error) =>
         !String(error).includes('secret-from-refresh') &&
         error instanceof Error &&
@@ -353,9 +352,9 @@ testStable('a failed retirement keeps ownership and can be retried', async () =>
 
   try {
     await auth.replace(account);
-    await assert.rejects(auth.token(), /storage unavailable/);
-    await assert.rejects(auth.replace(account), /storage unavailable/);
-    await assert.rejects(auth.token(), /signed in/);
+    await expect(auth.token()).rejects.toThrow(/storage unavailable/);
+    await expect(auth.replace(account)).rejects.toThrow(/storage unavailable/);
+    await expect(auth.token()).rejects.toThrow(/signed in/);
     assert.throws(
       () =>
         new AuthManager({
@@ -365,7 +364,7 @@ testStable('a failed retirement keeps ownership and can be retried', async () =>
       /owner/i
     );
     await auth.replace(account, { accessToken: 'new', expiresIn: 3600 });
-    assert.equal(await auth.token(), 'new');
+    assert.ok((await auth.token()) === 'new');
   } finally {
     await auth.dispose();
   }
@@ -394,27 +393,26 @@ testStable(
 
     try {
       await auth.replace(account);
-      const token = assert.rejects(auth.token(), /invalidated/i);
+      const token = expect(auth.token()).rejects.toThrow(/invalidated/i);
 
       await started;
-      const replacing = assert.rejects(
+      const replacing = expect(
         auth.replace(
           { ...account, subject: 'new', refreshToken: 'new' },
           { accessToken: 'new', expiresIn: 3600 }
-        ),
-        /dispos/i
-      );
+        )
+      ).rejects.toThrow(/dispos/i);
       const disposing = auth.dispose();
 
-      await assert.rejects(auth.replace(account), /dispos/i);
-      await assert.rejects(auth.token(), /signed in/i);
+      await expect(auth.replace(account)).rejects.toThrow(/dispos/i);
+      await expect(auth.token()).rejects.toThrow(/signed in/i);
       assert.throws(() => new AuthManager(options), /owner/i);
       release();
       await token;
       await replacing;
       await disposing;
-      await assert.rejects(auth.token(), /signed in/i);
-      await assert.rejects(auth.replace(account), /dispos/i);
+      await expect(auth.token()).rejects.toThrow(/signed in/i);
+      await expect(auth.replace(account)).rejects.toThrow(/dispos/i);
       const next = new AuthManager(options);
 
       await next.dispose();
@@ -445,19 +443,18 @@ testStable('overlapping sign-out and replacement cannot both succeed', async () 
 
   try {
     await auth.replace(account);
-    const token = assert.rejects(auth.token(), /invalidated/i);
+    const token = expect(auth.token()).rejects.toThrow(/invalidated/i);
 
     await started;
     const signOut = auth.signOut();
 
-    await assert.rejects(
-      auth.replace(account, { accessToken: 'new', expiresIn: 3600 }),
+    await expect(auth.replace(account, { accessToken: 'new', expiresIn: 3600 })).rejects.toThrow(
       /transition/i
     );
     release();
     await token;
     await signOut;
-    await assert.rejects(auth.token(), /signed in/i);
+    await expect(auth.token()).rejects.toThrow(/signed in/i);
   } finally {
     release();
     await auth.dispose();
@@ -484,7 +481,7 @@ testStable('sign-out is rejected while replacement is pending', async () => {
 
   try {
     await auth.replace(account);
-    const token = assert.rejects(auth.token(), /invalidated/i);
+    const token = expect(auth.token()).rejects.toThrow(/invalidated/i);
 
     await started;
     const replace = auth.replace(
@@ -492,11 +489,11 @@ testStable('sign-out is rejected while replacement is pending', async () => {
       { accessToken: 'new', expiresIn: 3600 }
     );
 
-    await assert.rejects(auth.signOut(), /transition/i);
+    await expect(auth.signOut()).rejects.toThrow(/transition/i);
     release();
     await token;
     await replace;
-    assert.equal(await auth.token(), 'new');
+    assert.ok((await auth.token()) === 'new');
   } finally {
     release();
     await auth.dispose();
@@ -516,11 +513,11 @@ testStable('failed disposal retains ownership, blocks transitions and can be ret
 
   try {
     await auth.replace(account);
-    await assert.rejects(auth.token(), /disk/);
-    await assert.rejects(auth.dispose(), /disk/);
+    await expect(auth.token()).rejects.toThrow(/disk/);
+    await expect(auth.dispose()).rejects.toThrow(/disk/);
     assert.throws(() => new AuthManager(options), /owner/i);
-    await assert.rejects(auth.replace(account), /dispos/i);
-    await assert.rejects(auth.token(), /signed in/i);
+    await expect(auth.replace(account)).rejects.toThrow(/dispos/i);
+    await expect(auth.token()).rejects.toThrow(/signed in/i);
     await auth.dispose();
     const next = new AuthManager(options);
 
@@ -544,7 +541,7 @@ testStable('seed refresh follows the native clock against a loopback token endpo
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
 
-  if (!address || typeof address === 'string') throw new Error('No loopback address');
+  assert.ok(!(!address || typeof address === 'string'), 'No loopback address');
 
   try {
     await Effect.runPromise(
@@ -562,10 +559,10 @@ testStable('seed refresh follows the native clock against a loopback token endpo
             auth.replace(account, { accessToken: 'seed', expiresIn: 600 })
           );
           yield* TestClock.adjust('299 seconds');
-          assert.equal(yield* Effect.promise(() => auth.token()), 'seed');
+          assert.strictEqual(yield* Effect.promise(() => auth.token()), 'seed');
           yield* TestClock.adjust('1 second');
-          assert.equal(yield* Effect.promise(() => auth.token()), 'refreshed');
-          assert.equal(calls, 1);
+          assert.strictEqual(yield* Effect.promise(() => auth.token()), 'refreshed');
+          assert.strictEqual(calls, 1);
         } finally {
           yield* Effect.promise(() => auth.dispose());
         }

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -21,7 +20,7 @@ testStable(
       'src/domains/sources/pure.test.ts': 'const Db = { open() {} }; Db.open();'
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -35,7 +34,7 @@ testStable(
         "import {App} from '#server/runtime/service'; const Alias=App; Alias.open({path: ':memory:'});"
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -47,5 +46,5 @@ testStable('relative namespace imports cannot open applications outside the harn
       "import * as runtime from '../../runtime/service.ts'; runtime.App.open({});"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });

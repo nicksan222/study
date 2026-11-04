@@ -11,7 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
@@ -31,7 +30,8 @@ import { fileURLToPath } from 'node:url';
 import { StudyError } from '@study/contracts/errors';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import { App } from '#server/runtime/index';
@@ -76,12 +76,11 @@ testStable(
 
       writeFileSync(scratch, 'active snapshot');
       writeFileSync(journal, 'active journal');
-      await assert.rejects(
-        App.open({ path: f.location.path }),
+      await expect(App.open({ path: f.location.path })).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'transient'
       );
-      assert.equal(readFileSync(scratch, 'utf8'), 'active snapshot');
-      assert.equal(readFileSync(journal, 'utf8'), 'active journal');
+      assert.ok(readFileSync(scratch, 'utf8') === 'active snapshot');
+      assert.ok(readFileSync(journal, 'utf8') === 'active journal');
     } finally {
       await f.close();
     }
@@ -99,16 +98,14 @@ testStable(
       symlinkSync(f.location.path, alias);
 
       for (const path of [alias, relative(process.cwd(), f.location.path)])
-        await assert.rejects(
-          acquireDatabaseOwnership(path),
+        await expect(acquireDatabaseOwnership(path)).rejects.toSatisfy(
           (error: unknown) => error instanceof StudyError && error.kind === 'transient'
         );
 
       const hard = join(f.location.dir, 'hard.sqlite');
 
       linkSync(f.location.path, hard);
-      await assert.rejects(
-        acquireDatabaseOwnership(hard),
+      await expect(acquireDatabaseOwnership(hard)).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'unsupported'
       );
     } finally {
@@ -126,7 +123,7 @@ testStable('distinct paths and in-memory instances have independent path leases'
     for (const path of [location.path, location.path + '.other', ':memory:', ':memory:'])
       leases.push(await acquireDatabaseOwnership(path));
 
-    assert.equal(leases.length, 4);
+    assert.strictEqual(leases.length, 4);
   } finally {
     await Promise.all(leases.map((lease) => lease.release()));
     location.cleanup();
@@ -143,7 +140,7 @@ testStable(
 
       mkdirSync(root);
       writeFileSync(join(root, 'restore.json'), '{');
-      await assert.rejects(App.open({ path: location.path }));
+      await expect(App.open({ path: location.path })).rejects.toSatisfy(() => true);
       rmSync(join(root, 'restore.json'));
 
       const app = await App.open({ path: location.path });
@@ -169,12 +166,12 @@ for (const termination of ['close', 'SIGKILL'] as const)
       const owner = await childOwner(location.path);
 
       try {
-        assert.deepEqual(owner.message, { state: 'owned' });
+        expect(owner.message).toStrictEqual({ state: 'owned' });
 
         const contender = await childOwner(location.path);
 
         try {
-          assert.deepEqual(contender.message, { state: 'rejected', kind: 'transient' });
+          expect(contender.message).toStrictEqual({ state: 'rejected', kind: 'transient' });
           await contender.exited;
         } finally {
           contender.child.kill('SIGKILL');
@@ -214,8 +211,7 @@ testStable(
         listener.once('error', reject);
         listener.listen({ host: '127.0.0.1', port, exclusive: true }, resolve);
       });
-      await assert.rejects(
-        App.open({ path: location.path }),
+      await expect(App.open({ path: location.path })).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'transient'
       );
     } finally {
@@ -251,9 +247,9 @@ testStable(
       const restored = await opening;
 
       try {
-        assert.deepEqual(contender.message, { state: 'rejected', kind: 'transient' });
+        expect(contender.message).toStrictEqual({ state: 'rejected', kind: 'transient' });
         await contender.exited;
-        assert.equal(restored.store.db.orm.select().from(s.study_documents).all().length, 1);
+        assert.strictEqual(restored.store.db.orm.select().from(s.study_documents).all().length, 1);
       } finally {
         contender.child.kill('SIGKILL');
         await restored.close();
@@ -271,7 +267,7 @@ testStable(
 
     try {
       writeFileSync(location.path, 'not a SQLite database');
-      await assert.rejects(App.open({ path: location.path }));
+      await expect(App.open({ path: location.path })).rejects.toSatisfy(() => true);
       rmSync(location.path);
 
       const app = await App.open({ path: location.path });
@@ -334,9 +330,9 @@ testStable(
       const contender = await inTestPhase(t, 'contender-start', () => childOwner(f.location.path));
 
       try {
-        assert.deepEqual(contender.message, { state: 'rejected', kind: 'transient' });
+        expect(contender.message).toStrictEqual({ state: 'rejected', kind: 'transient' });
         await inTestPhase(t, 'contender-exit', () => contender.exited);
-        assert.deepEqual(readFileSync(scratch), bytes);
+        expect(readFileSync(scratch)).toStrictEqual(bytes);
       } finally {
         contender.child.kill('SIGKILL');
       }

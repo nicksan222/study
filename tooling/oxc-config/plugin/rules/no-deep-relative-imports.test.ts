@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -12,7 +11,7 @@ testStable(
         "import '../x'; import '../../x'; export * from './../../../x'; type T = import('..\\\\..\\\\x').T; import x = require('./../../x'); const y = import('../folder/../../x'); require('../../x');"
     });
 
-    assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
     assert.ok(
       diagnostics.every(
         ({ message }) =>
@@ -29,5 +28,5 @@ testStable('allows shallow and non-import strings and respects shadowed require'
       "import './x'; import '../x'; const text = '../../x'; function f(require: (s: string) => void) { require('../../x'); }"
   });
 
-  assert.deepEqual(diagnostics, []);
+  expect(diagnostics).toStrictEqual([]);
 });

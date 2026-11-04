@@ -12,19 +12,19 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import {
   appendRecordingInputSchema,
   recordingPageInputSchema
 } from '@study/contracts/recordings/rpc';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 testStable('recording append accepts only bounded signed 16-bit PCM', () => {
   const decode = Schema.decodeUnknownSync(appendRecordingInputSchema);
 
-  assert.deepEqual(decode({ id: 1n, samples: [-32768, 0, 32767] }).samples, [-32768, 0, 32767]);
+  expect(decode({ id: 1n, samples: [-32768, 0, 32767] }).samples).toStrictEqual([-32768, 0, 32767]);
 
   for (const samples of [[], [32768], [-32769], [1.5], [NaN], Array(960001).fill(0)])
     assert.throws(() => decode({ id: 1n, samples }));
@@ -35,5 +35,5 @@ testStable('recording pages are bounded', () => {
 
   assert.throws(() => decode({ limit: 0 }));
   assert.throws(() => decode({ limit: 101 }));
-  assert.equal(decode({ limit: 100 }).limit, 100);
+  assert.strictEqual(decode({ limit: 100 }).limit, 100);
 });

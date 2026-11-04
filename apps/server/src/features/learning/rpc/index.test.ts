@@ -13,16 +13,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { QuizAttemptId } from '@study/contracts/ids';
 import { LearningRpc } from '@study/contracts/learning/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/service/index';
@@ -54,9 +54,8 @@ testStable('native learning RPC maps missing attempts to typed failures', async 
           const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
           const attemptId = 999n as QuizAttemptId;
 
-          assert.equal(
-            (yield* Effect.flip(client('learning.attempt', { attemptId }))).kind,
-            'not_found'
+          assert.ok(
+            (yield* Effect.flip(client('learning.attempt', { attemptId }))).kind === 'not_found'
           );
           assert.ok(Option.isNone(yield* client('learning.findAttempt', { attemptId })));
         }).pipe(Effect.provide(handlers))
@@ -119,14 +118,13 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
             inputs: [{ kind: 'document', versionId: doc.version!.id }]
           });
 
-          assert.equal(started.slots.length, 2);
-          assert.equal(
+          assert.strictEqual(started.slots.length, 2);
+          assert.strictEqual(
             (yield* client('learning.practice', { projectId: project.id })).epoch,
             started.epoch
           );
-          assert.equal(
-            (yield* client('learning.stopPractice', { projectId: project.id })).enabled,
-            false
+          assert.ok(
+            (yield* client('learning.stopPractice', { projectId: project.id })).enabled === false
           );
         }).pipe(Effect.provide(handlers), Effect.provide(services))
       )

@@ -11,12 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
@@ -96,23 +95,26 @@ testStable(
       f.context.db.exec(
         "CREATE TRIGGER reject_indexed BEFORE INSERT ON workflow_events WHEN NEW.type='SourceIndexed' BEGIN SELECT RAISE(ABORT,'injected publication failure'); END"
       );
-      await assert.rejects(execute(setup.request, 'rollback-ingestion'));
-      assert.equal(
+      await expect(execute(setup.request, 'rollback-ingestion')).rejects.toSatisfy(() => true);
+      assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) n FROM source_extraction_revisions`)?.n,
         0n
       );
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM content_snapshots`)?.n, 0n);
+      assert.strictEqual(
+        f.context.db.orm.get(sql`SELECT count(*) n FROM content_snapshots`)?.n,
+        0n
+      );
       f.context.db.exec('DROP TRIGGER reject_indexed');
       const first = await execute(setup.request, 'first-ingestion');
 
-      assert.equal(await execute(setup.request, 'first-ingestion'), first);
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
+      assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
       assert.throws(() =>
         f.context.db.orm.run(sql`UPDATE blocks SET text='tampered' WHERE document_id=${first}`)
       );
       f.reopen();
-      assert.equal(await execute(setup.request, 'first-ingestion'), first);
+      assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
       const correction = await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
@@ -143,20 +145,20 @@ testStable(
           });
 
           assert.ok(state.requestId);
-          assert.equal(yield* sources.currentExtraction({ id: setup.source.id }), null);
-          assert.equal((yield* sources.extraction(input)).document.blocks[0]?.text, 'Hello');
+          assert.strictEqual(yield* sources.currentExtraction({ id: setup.source.id }), null);
+          assert.ok((yield* sources.extraction(input)).document.blocks[0]?.text === 'Hello');
           const capture = yield* materials.materialGeneration({ requestId: request.id });
 
-          assert.deepEqual(capture.inputs, [input]);
+          expect(capture.inputs).toStrictEqual([input]);
 
           return event(state.requestId);
         }).pipe(Effect.provide(domain()))
       );
 
-      await assert.rejects(execute(setup.request, 'stale-ingestion'));
+      await expect(execute(setup.request, 'stale-ingestion')).rejects.toSatisfy(() => true);
       const corrected = await execute(correction, 'correction');
 
-      assert.notEqual(corrected, first);
+      assert.notStrictEqual(corrected, first);
       const fresh = await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
@@ -174,14 +176,14 @@ testStable(
       );
       const reprocessed = await execute(fresh, 'reprocessed');
 
-      assert.notEqual(reprocessed, corrected);
+      assert.notStrictEqual(reprocessed, corrected);
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
 
-          assert.equal((yield* sources.source(setup.source.id)).projectId, null);
+          assert.ok((yield* sources.source(setup.source.id)).projectId === null);
           yield* sources.setSourceProject({ id: setup.source.id, projectId: setup.other.id });
-          assert.equal((yield* sources.source(setup.source.id)).projectId, setup.other.id);
+          assert.strictEqual((yield* sources.source(setup.source.id)).projectId, setup.other.id);
         }).pipe(Effect.provide(domain()))
       );
       f.reopen();
@@ -190,7 +192,7 @@ testStable(
         Effect.gen(function* () {
           const sources = yield* Sources;
 
-          assert.equal((yield* sources.source(setup.source.id)).projectId, setup.other.id);
+          assert.strictEqual((yield* sources.source(setup.source.id)).projectId, setup.other.id);
           const state = yield* sources.replaceSource({
             id: setup.source.id,
             expectedRevision: 1,
@@ -205,47 +207,46 @@ testStable(
       );
       const replaced = await execute(replacement, 'replacement');
 
-      assert.notEqual(replaced, reprocessed);
+      assert.notStrictEqual(replaced, reprocessed);
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
           const projects = yield* Projects;
           const history = yield* sources.extractions({ sourceId: setup.source.id, limit: 10 });
 
-          assert.equal(history.items.length, 4);
-          assert.deepEqual(
-            new Set(history.items.map((item) => item.snapshotId)),
+          assert.strictEqual(history.items.length, 4);
+          expect(new Set(history.items.map((item) => item.snapshotId))).toStrictEqual(
             new Set([first, corrected, reprocessed, replaced])
           );
-          assert.equal(
+          assert.ok(
             (yield* sources.extraction({
               sourceId: setup.source.id,
               revision: 1n,
               snapshotId: corrected
-            })).document.blocks[0]?.text,
-            'Corrected'
+            })).document.blocks[0]?.text === 'Corrected'
           );
-          assert.equal(
+          assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: setup.source.id, revision: 1n })).bytes
-            ),
-            'Hello'
+            ) === 'Hello'
           );
-          assert.equal(
+          assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: setup.source.id, revision: 2n })).bytes
-            ),
-            'Replacement'
+            ) === 'Replacement'
           );
           yield* projects.deleteProject({ id: setup.other.id });
-          assert.equal((yield* sources.source(setup.source.id)).projectId, null);
-          assert.equal(
+          assert.ok((yield* sources.source(setup.source.id)).projectId === null);
+          assert.strictEqual(
             (yield* sources.currentExtraction({ id: setup.source.id }))?.snapshotId,
             replaced
           );
-          assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-          assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
-          assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+          assert.strictEqual(
+            f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
+            0n
+          );
+          expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(domain()))
       );
     } finally {
@@ -293,18 +294,20 @@ testStable(
                 }
               })
             );
-            assert.equal(yield* sources.currentExtraction({ id: source.id }), null);
-            assert.deepEqual(
-              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
-              bytes
-            );
+            assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
+            expect(
+              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+            ).toStrictEqual(bytes);
             assert.ok(
               f.context.db.orm.get(
                 sql`SELECT 1 FROM workflow_events WHERE type='SourceProcessingFailed'`
               )
             );
-            assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-            assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
+            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+            assert.strictEqual(
+              f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
+              0n
+            );
           })
         ).pipe(Effect.provide(f.services()))
       );

@@ -9,15 +9,14 @@
  * │   inherit only allowed annotations and carry a span.                                     │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Invokes #server/platform/observability/index directly with node:test; no application or  │
+ * │ Invokes #server/platform/observability/index directly with Vitest   ; no application or  │
  * │ database fixture is involved.                                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { strict as assert } from 'node:assert';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import type { Tracer } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { safeMetadata } from '#server/platform/observability/index';
 
@@ -26,7 +25,7 @@ function spanName(span: Tracer.AnySpan) {
 }
 
 testStable('only approved scalar operation metadata reaches the log sink', () => {
-  assert.deepEqual(
+  expect(
     safeMetadata({
       requestId: 'r1',
       attempt: 2,
@@ -34,9 +33,8 @@ testStable('only approved scalar operation metadata reaches the log sink', () =>
       cause: new Error('secret'),
       entity: 'project',
       token: 'secret'
-    }),
-    { requestId: 'r1', attempt: 2, entity: 'project' }
-  );
+    })
+  ).toStrictEqual({ requestId: 'r1', attempt: 2, entity: 'project' });
 });
 
 testStable('operation logs inherit only allowed annotations and carry a span', async () => {
@@ -66,13 +64,13 @@ testStable('operation logs inherit only allowed annotations and carry a span', a
       Effect.provideService(References.MinimumLogLevel, 'Debug')
     )
   );
-  assert.equal(entries.length, 2);
+  assert.strictEqual(entries.length, 2);
   const serialized = JSON.stringify(entries);
 
-  assert.match(serialized, /r1/);
-  assert.match(serialized, /test.operation/);
-  assert.match(serialized, /parent/);
-  assert.doesNotMatch(serialized, /secret/);
+  expect(serialized).toMatch(/r1/);
+  expect(serialized).toMatch(/test.operation/);
+  expect(serialized).toMatch(/parent/);
+  expect(serialized).not.toMatch(/secret/);
 });
 
 testStable(
@@ -106,43 +104,41 @@ testStable(
     );
     const active = snapshots.during.find((s) => s.id === 'study.operation.active');
 
-    assert.equal(active?.type, 'Gauge');
+    assert.ok(active?.type === 'Gauge');
 
     assert.ok(active?.type === 'Gauge');
-    assert.equal(active.state.value, 1);
+    assert.strictEqual(active.state.value, 1);
 
     const after = snapshots.after;
     const gauge = after.find((s) => s.id === 'study.operation.active');
 
-    assert.equal(gauge?.type, 'Gauge');
+    assert.ok(gauge?.type === 'Gauge');
 
     assert.ok(gauge?.type === 'Gauge');
-    assert.equal(gauge.state.value, 0);
+    assert.strictEqual(gauge.state.value, 0);
 
     const counts = after.filter((s) => s.id === 'study.operation.completed');
 
-    assert.deepEqual(
-      counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? '')),
-      ['failure', 'interrupted', 'success']
-    );
+    expect(
+      counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+    ).toStrictEqual(['failure', 'interrupted', 'success']);
 
     for (const count of counts) {
-      assert.equal(count.type, 'Counter');
+      assert.ok(count.type === 'Counter');
 
       assert.ok(count.type === 'Counter');
-      assert.equal(count.state.count, 1);
+      assert.strictEqual(count.state.count, 1);
     }
 
     const duration = after.find((s) => s.id === 'study.operation.duration_ms');
 
-    assert.equal(duration?.type, 'Histogram');
+    assert.ok(duration?.type === 'Histogram');
 
     assert.ok(duration?.type === 'Histogram');
-    assert.equal(duration.state.count, 3);
+    assert.strictEqual(duration.state.count, 3);
     assert.ok(duration.state.sum >= 2000);
 
-    assert.doesNotMatch(
-      JSON.stringify(after),
+    expect(JSON.stringify(after)).not.toMatch(
       /private-id|secret-operation|private failure|requestId/
     );
   }
@@ -160,15 +156,16 @@ testStable(
       recordPublicationRejection
     } = await import('#server/platform/observability/index');
 
-    assert.deepEqual(
-      safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' }),
-      {
-        outcome: 'success',
-        modelTier: 'smart',
-        errorKind: 'transient'
-      }
+    expect(
+      safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' })
+    ).toStrictEqual({
+      outcome: 'success',
+      modelTier: 'smart',
+      errorKind: 'transient'
+    });
+    expect(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never)).toStrictEqual(
+      {}
     );
-    assert.deepEqual(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never), {});
     const snapshots = await Effect.runPromise(
       Effect.gen(function* () {
         yield* recordAiAdmission();
@@ -183,14 +180,14 @@ testStable(
       )
     );
 
-    assert.equal(snapshots.length, 4);
+    assert.strictEqual(snapshots.length, 4);
 
     for (const snapshot of snapshots) {
-      assert.equal(snapshot.type, 'Counter');
+      assert.ok(snapshot.type === 'Counter');
 
-      if (snapshot.type === 'Counter') assert.equal(snapshot.state.count, 1);
+      if (snapshot.type === 'Counter') assert.strictEqual(snapshot.state.count, 1);
 
-      assert.doesNotMatch(JSON.stringify(snapshot.attributes ?? {}), /secret|requestId/);
+      expect(JSON.stringify(snapshot.attributes ?? {})).not.toMatch(/secret|requestId/);
     }
   }
 );

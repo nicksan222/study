@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -14,7 +13,7 @@ testStable('transaction-no-io guards production and accepts safe alternatives', 
       "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => fetch(url));"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -26,7 +25,7 @@ testStable('transaction-no-io handles aliases and avoids unrelated bindings', ()
       "import { Db } from '@study/db'; function f(db: Db, fetch) { db.transaction(() => fetch(url)); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -38,5 +37,5 @@ testStable('named transaction callbacks cannot hide external I/O behind database
       "import type { ServerContext } from '#server/runtime/context'; function operation(ctx: ServerContext) { const work = () => { const later = () => fetch(url); return 1; }; ctx.transaction(work); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

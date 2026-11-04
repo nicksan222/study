@@ -11,7 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
@@ -19,9 +18,11 @@ import { createBlock } from '@study/contracts/sources/document';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -91,8 +92,8 @@ testStable(
               bytes: new Uint8Array([...bytes, 1])
             });
 
-            assert.notEqual(source.id, other.id);
-            assert.equal((yield* rpc['sources.source']({ id: source.id })).id, source.id);
+            assert.notStrictEqual(source.id, other.id);
+            assert.strictEqual((yield* rpc['sources.source']({ id: source.id })).id, source.id);
             const imageBlock = createBlock({
               type: 'image',
               sourceId: source.id,
@@ -112,7 +113,7 @@ testStable(
             assert.ok(authored.version);
             const original = yield* rpc['documents.version']({ id: authored.version.id });
 
-            assert.deepEqual(original.document, document);
+            expect(original.document).toStrictEqual(document);
             const another = yield* rpc['documents.create']({
               createKey: randomUUID(),
               title: 'Other',
@@ -122,16 +123,16 @@ testStable(
             });
 
             assert.ok(another.version);
-            assert.notEqual(original.snapshotId, another.version.snapshotId);
-            assert.notEqual(original.documentId, another.id);
+            assert.notStrictEqual(original.snapshotId, another.version.snapshotId);
+            assert.notStrictEqual(original.documentId, another.id);
             assert.ok(original.document.blocks[0]?.content.type === 'image');
             const image = yield* rpc['sources.exportRevision']({
               sourceId: original.document.blocks[0].content.sourceId,
               revision: BigInt(original.document.blocks[0].content.revision)
             });
 
-            assert.equal(image.mime, 'image/png');
-            assert.deepEqual(image.bytes, bytes);
+            assert.ok(image.mime === 'image/png');
+            expect(image.bytes).toStrictEqual(bytes);
             const revised = yield* rpc['documents.save']({
               documentId: authored.id,
               expectedVersionId: original.id,
@@ -140,12 +141,11 @@ testStable(
             });
             const next = yield* rpc['documents.version']({ id: revised.submittedVersionId });
 
-            assert.equal(
-              next.document.blocks.some((block) => block.content.type === 'image'),
-              false
+            assert.ok(
+              next.document.blocks.some((block) => block.content.type === 'image') === false
             );
-            assert.deepEqual(yield* rpc['documents.version']({ id: original.id }), original);
-            assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+            expect(yield* rpc['documents.version']({ id: original.id })).toStrictEqual(original);
+            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
 
             return { original, image, source };
           }).pipe(Effect.provide(f.handlers()))
@@ -158,15 +158,13 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(DocumentsRpc.merge(SourcesRpc));
 
-            assert.deepEqual(
-              yield* rpc['documents.version']({ id: saved.original.id }),
+            expect(yield* rpc['documents.version']({ id: saved.original.id })).toStrictEqual(
               saved.original
             );
-            assert.deepEqual(
-              yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }),
-              saved.image
-            );
-            assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+            expect(
+              yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n })
+            ).toStrictEqual(saved.image);
+            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(f.handlers()))
         )
       );
@@ -225,11 +223,10 @@ testStable(
               keepLatest: 1,
               token: preview.token
             });
-            assert.equal(
-              (yield* Effect.flip(rpc['documents.version']({ id: before.id }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(rpc['documents.version']({ id: before.id }))).kind === 'not_found'
             );
-            assert.equal(
+            assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT 1 FROM document_assets WHERE document_id=${before.snapshotId}`
               ),
@@ -252,19 +249,21 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(DocumentsRpc.merge(SourcesRpc));
 
-            assert.equal(
-              (yield* Effect.flip(rpc['documents.version']({ id: saved.before.id }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(rpc['documents.version']({ id: saved.before.id }))).kind ===
+                'not_found'
             );
-            assert.deepEqual(yield* rpc['documents.version']({ id: saved.after.id }), saved.after);
+            expect(yield* rpc['documents.version']({ id: saved.after.id })).toStrictEqual(
+              saved.after
+            );
             const image = yield* rpc['sources.exportRevision']({
               sourceId: saved.source.id,
               revision: 1n
             });
 
-            assert.equal(image.mime, 'image/png');
+            assert.ok(image.mime === 'image/png');
             assert.ok(image.bytes.length);
-            assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(f.handlers()))
         )
       );

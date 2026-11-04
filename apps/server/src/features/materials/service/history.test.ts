@@ -11,15 +11,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { historyPolicySchema, historyVersionIdsSchema } from '@study/contracts/materials/history';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -34,9 +33,9 @@ import { cleanup as cleanupSession } from '#testing/session-deletion';
 testStable('retention policy and explicit candidate scope have positive finite bounds', () => {
   const policy = Schema.decodeUnknownSync(historyPolicySchema);
 
-  assert.deepEqual(policy({ keepLatest: 1 }), { keepLatest: 1 });
+  expect(policy({ keepLatest: 1 })).toStrictEqual({ keepLatest: 1 });
 
-  assert.deepEqual(policy({ keepLatest: 1000 }), { keepLatest: 1000 });
+  expect(policy({ keepLatest: 1000 })).toStrictEqual({ keepLatest: 1000 });
 
   for (const keepLatest of [0, -1, 1001, 1.5]) assert.throws(() => policy({ keepLatest }));
 
@@ -98,9 +97,9 @@ testStable(
 
           const preview = yield* client('materials.previewHistoryPrune', scope);
 
-          assert.deepEqual(preview.candidateIds, [root.version.id]);
+          expect(preview.candidateIds).toStrictEqual([root.version.id]);
 
-          assert.deepEqual(preview.references, []);
+          expect(preview.references).toStrictEqual([]);
 
           assert.ok(preview.removedBodyBytes > 0n);
 
@@ -113,13 +112,12 @@ testStable(
 
           const accepted = yield* client('materials.requestHistoryPrune', input);
 
-          assert.equal(accepted.status, 'pending');
+          assert.ok(accepted.status === 'pending');
 
-          assert.deepEqual(yield* client('materials.requestHistoryPrune', input), accepted);
+          expect(yield* client('materials.requestHistoryPrune', input)).toStrictEqual(accepted);
 
-          assert.equal(
-            (yield* Effect.flip(m.materialVersion({ id: root.version.id }))).kind,
-            'not_found'
+          assert.ok(
+            (yield* Effect.flip(m.materialVersion({ id: root.version.id }))).kind === 'not_found'
           );
 
           return { root, kept, current, derivative, input };
@@ -132,31 +130,29 @@ testStable(
         Effect.gen(function* () {
           const m = yield* Materials;
 
-          assert.equal(
-            (yield* m.historyPrune({ operationId: saved.input.operationId })).status,
-            'completed'
+          assert.ok(
+            (yield* m.historyPrune({ operationId: saved.input.operationId })).status === 'completed'
           );
 
-          assert.deepEqual(yield* m.material({ id: saved.root.id }), saved.current);
+          expect(yield* m.material({ id: saved.root.id })).toStrictEqual(saved.current);
 
-          assert.equal(
+          assert.strictEqual(
             (yield* m.materialVersion({ id: saved.derivative.version.id })).id,
             saved.derivative.version.id
           );
 
-          assert.deepEqual(
-            (yield* m.materialVersion({ id: saved.derivative.version.id })).inputs,
-            []
-          );
+          expect(
+            (yield* m.materialVersion({ id: saved.derivative.version.id })).inputs
+          ).toStrictEqual([]);
 
           const history = yield* m.materialVersions({ materialId: saved.root.id, limit: 30 });
 
-          assert.equal(
-            history.items.find((v) => v.id === saved.root.version.id)?.availability,
-            'unavailable'
+          assert.ok(
+            history.items.find((v) => v.id === saved.root.version.id)?.availability ===
+              'unavailable'
           );
 
-          assert.equal(
+          assert.strictEqual(
             (yield* m.materialVersions({
               materialId: saved.root.id,
               cursor: saved.root.version.id,
@@ -165,8 +161,7 @@ testStable(
             0
           );
 
-          assert.deepEqual(
-            yield* m.requestHistoryPrune(saved.input),
+          expect(yield* m.requestHistoryPrune(saved.input)).toStrictEqual(
             yield* m.historyPrune({ operationId: saved.input.operationId })
           );
         }).pipe(Effect.provide(f.domain()))
@@ -176,11 +171,14 @@ testStable(
         sql`SELECT payload FROM material_diagram_versions WHERE payload LIKE '%HISTORY_MARKER_REMOVE%'`
       );
 
-      assert.deepEqual(markerRows, []);
+      expect(markerRows).toStrictEqual([]);
 
-      assert.equal(f.context.db.orm.select().from(s.material_deletion_members).all().length, 0);
+      assert.strictEqual(
+        f.context.db.orm.select().from(s.material_deletion_members).all().length,
+        0
+      );
 
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -207,7 +205,7 @@ testStable(
 
           const first = yield* m.previewHistoryPrune(scope);
 
-          assert.deepEqual(first.candidateIds, []);
+          expect(first.candidateIds).toStrictEqual([]);
 
           const draft = yield* m.createVersion({
             materialId: root.id,
@@ -221,7 +219,7 @@ testStable(
             publish: true
           });
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               m.requestHistoryPrune({
                 ...scope,
@@ -229,13 +227,12 @@ testStable(
                 candidateIds: [],
                 token: first.token
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
 
           const preview = yield* m.previewHistoryPrune(scope);
 
-          assert.equal(draft.status, 'draft');
+          assert.ok(draft.status === 'draft');
 
           assert.ok(!preview.candidateIds.includes(draft.id));
 
@@ -247,7 +244,7 @@ testStable(
             preview.protected.some((p) => p.versionId === latest.id && p.reason === 'keep_latest')
           );
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               m.requestHistoryPrune({
                 ...scope,
@@ -255,15 +252,14 @@ testStable(
                 candidateIds: [root.version.id, latest.id],
                 token: preview.token
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
 
           const noopScope = { materialId: root.id, policy: { keepLatest: 1000 } };
 
           const noop = yield* m.previewHistoryPrune(noopScope);
 
-          assert.deepEqual(noop.candidateIds, []);
+          expect(noop.candidateIds).toStrictEqual([]);
 
           return yield* m.requestHistoryPrune({
             ...noopScope,
@@ -276,15 +272,14 @@ testStable(
 
       await cleanup(f, input.operationId);
 
-      assert.equal(
+      assert.ok(
         (
           await Effect.runPromise(
             Effect.gen(function* () {
               return yield* (yield* Materials).historyPrune({ operationId: input.operationId });
             }).pipe(Effect.provide(f.domain()))
           )
-        ).status,
-        'completed'
+        ).status === 'completed'
       );
     } finally {
       await f.close();
@@ -337,15 +332,14 @@ testStable(
 
           const retried = yield* m.retryHistoryPrune({ operationId: accepted.operationId });
 
-          assert.equal(retried.attempt, 2);
+          assert.strictEqual(retried.attempt, 2);
 
-          assert.equal(
+          assert.ok(
             (yield* m.failMaterialHistory({
               operationId: accepted.operationId,
               attempt: 1,
               errorKind: 'internal'
-            })).status,
-            'pending'
+            })).status === 'pending'
           );
 
           return { root, accepted };
@@ -358,20 +352,19 @@ testStable(
           Effect.gen(function* () {
             const m = yield* Materials;
 
-            assert.equal(
+            assert.ok(
               (yield* m.finishMaterialHistory({
                 operationId: saved.accepted.operationId,
                 attempt: 1
-              })).status,
-              'pending'
+              })).status === 'pending'
             );
           }).pipe(Effect.provide(f.domain()))
         ).pipe(Effect.provide(f.domain()))
       );
 
-      assert.equal(failure, undefined);
+      assert.strictEqual(failure, undefined);
 
-      await assert.rejects(acceptMaterialDeletion(f, saved.root.id));
+      await expect(acceptMaterialDeletion(f, saved.root.id)).rejects.toSatisfy(() => true);
 
       await cleanup(f, saved.accepted.operationId);
 
@@ -438,19 +431,19 @@ testStable(
           const scope = { documentId: root.id, keepLatest: 1 };
           const preview = yield* docs.previewHistory(scope);
 
-          assert.deepEqual(preview.blockedVersionIds, [root.version.id]);
-          assert.equal(
-            (yield* Effect.flip(docs.retireHistory({ ...scope, token: preview.token }))).kind,
-            'invalid_input'
+          expect(preview.blockedVersionIds).toStrictEqual([root.version.id]);
+          assert.ok(
+            (yield* Effect.flip(docs.retireHistory({ ...scope, token: preview.token }))).kind ===
+              'invalid_input'
           );
-          assert.equal(
-            (yield* chats.sessionContext({ requestId: capture.requestId })).instruction,
-            'PRIVATE_CAPTURE_PRUNE'
+          assert.ok(
+            (yield* chats.sessionContext({ requestId: capture.requestId })).instruction ===
+              'PRIVATE_CAPTURE_PRUNE'
           );
           yield* chats.deleteSession(session.id);
           const released = yield* docs.previewHistory(scope);
 
-          assert.deepEqual(released.blockedVersionIds, []);
+          expect(released.blockedVersionIds).toStrictEqual([]);
           yield* docs.retireHistory({ ...scope, token: released.token });
 
           return {
@@ -470,19 +463,18 @@ testStable(
           const docs = yield* Documents;
           const chats = yield* Conversations;
 
-          assert.equal(
-            (yield* Effect.flip(chats.sessionContext({ requestId: saved.captureId }))).kind,
-            'not_found'
+          assert.ok(
+            (yield* Effect.flip(chats.sessionContext({ requestId: saved.captureId }))).kind ===
+              'not_found'
           );
-          assert.equal((yield* docs.transform({ requestId: saved.requestId })).cancelled, true);
-          assert.equal(
+          assert.ok((yield* docs.transform({ requestId: saved.requestId })).cancelled === true);
+          assert.ok(
             (yield* Effect.flip(
               chats.retryDocumentTransform({
                 requestId: saved.requestId,
                 retryId: 'no-resurrection'
               })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
           const session = yield* chats.createUntitledSession({});
 
@@ -503,20 +495,23 @@ testStable(
             preferences: {}
           });
 
-          assert.deepEqual(fresh.inputs[0]?.input, {
+          expect(fresh.inputs[0]?.input).toStrictEqual({
             kind: 'document',
             versionId: saved.currentId
           });
-          assert.equal((yield* docs.document({ id: saved.rootId })).headVersionId, saved.currentId);
+          assert.strictEqual(
+            (yield* docs.document({ id: saved.rootId })).headVersionId,
+            saved.currentId
+          );
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.equal(
+      assert.strictEqual(
         f.context.db.orm.get(
           sql`SELECT count(*) n FROM message_versions WHERE text='RAW_MESSAGE_PRIVATE'`
         )?.n,
         0n
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -555,11 +550,11 @@ testStable(
 
           const preview = yield* m.previewHistoryPrune(scope);
 
-          assert.deepEqual(preview.candidateIds, ids.slice(0, 100));
+          expect(preview.candidateIds).toStrictEqual(ids.slice(0, 100));
 
-          assert.equal(preview.hasMore, true);
+          assert.ok(preview.hasMore === true);
 
-          assert.equal((yield* m.previewHistoryPrune(scope)).token, preview.token);
+          assert.strictEqual((yield* m.previewHistoryPrune(scope)).token, preview.token);
 
           yield* m.requestHistoryPrune({
             ...scope,
@@ -580,11 +575,11 @@ testStable(
 
           const next = yield* m.previewHistoryPrune(saved.scope);
 
-          assert.deepEqual(next.candidateIds, saved.ids.slice(100, 102));
+          expect(next.candidateIds).toStrictEqual(saved.ids.slice(100, 102));
 
-          assert.equal(next.hasMore, false);
+          assert.ok(next.hasMore === false);
 
-          assert.equal(
+          assert.strictEqual(
             (yield* m.material({ id: saved.scope.materialId })).version.id,
             saved.ids[102]
           );

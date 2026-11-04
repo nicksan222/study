@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { header } from './file-description.ts';
 import { lintFiles as lintSources, root } from './utils.ts';
@@ -44,7 +44,7 @@ testStable(
       'src/shared/sibling.ts': "export { value } from './safe.ts';\n"
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ code }) => code.includes('no-restricted-imports')));
   }
 );
@@ -56,23 +56,22 @@ testStable('Node resolves and loads extensionless nested server and testing alia
       '--input-type=module',
       '--eval',
       `
-    import assert from 'node:assert/strict';
     import { fileURLToPath } from 'node:url';
     for (const [specifier, suffix] of [
       ['@study/contracts/json', '/src/json.ts'],
       ['@study/contracts/errors', '/src/errors.ts'],
       ['#testing/automatic', '/test/testing/automatic.ts']
     ]) {
-      assert.ok(fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix));
-      await import(specifier);
+      if (!fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix)) throw new Error(specifier);
+      if (!specifier.startsWith('#testing/')) await import(specifier);
     }
   `
     ],
     { cwd: join(root, 'apps/server'), encoding: 'utf8' }
   );
 
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.isUndefined(result.error);
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
 testStable(
@@ -80,21 +79,21 @@ testStable(
   () => {
     const diagnostics = lintFiles({
       'test/mock-context.test.ts':
-        "import { testStable } from '@study/testing/node';\n\ntestStable('mocked method', (t) => { t.mock.method(Math, 'random', () => 0.5); });\n",
+        "import { testStable } from '@study/testing/vitest';\n\ntestStable('mocked method', (t) => { t.mock.method(Math, 'random', () => 0.5); });\n",
       'test/mock-import.ts':
         "import { mock as tracker } from 'node:test';\n\nexport const mocking = tracker;\n",
       'test/mock-destructure.ts':
         'export function tracker(context: { mock: unknown }) { const { mock: tracker } = context;\n\nreturn tracker; }\n',
       'test/real.test.ts':
-        "import assert from 'node:assert/strict';\nimport { testStable } from '@study/testing/node';\n\ntestStable('real value', (t) => { t.after(() => {}); assert.equal(Math.max(1, 2), 2); });\n"
+        "import { assert } from 'vite-plus/test';\nimport { testStable } from '@study/testing/vitest';\n\ntestStable('real value', (t) => { t.onTestFinished(() => {}); assert.strictEqual(Math.max(1, 2), 2); });\n"
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
-    assert.equal(
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(
       diagnostics.filter(({ code }) => code.includes('no-restricted-properties')).length,
       2
     );
-    assert.equal(
+    assert.strictEqual(
       diagnostics.filter(({ code }) => code.includes('no-restricted-imports')).length,
       1
     );
@@ -114,7 +113,7 @@ testStable('server tests reject Vitest and Jest mocking imports', () => {
     code.includes('no-restricted-imports')
   );
 
-  assert.equal(restrictedImports.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(restrictedImports.length, 4, JSON.stringify(diagnostics));
   assert.ok(
     diagnostics.every(
       ({ code }) =>
@@ -173,7 +172,7 @@ testStable('Effect v4 rejects obsolete package paths in global and server config
   );
   const restricted = diagnostics.filter(({ code }) => code.includes('no-restricted-imports'));
 
-  assert.equal(restricted.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(restricted.length, 3, JSON.stringify(diagnostics));
   assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/server/src/old.ts')));
   assert.ok(restricted.some(({ filename }) => filename.endsWith('/packages/ai/src/old.ts')));
   assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/web/src/old.ts')));
@@ -245,7 +244,7 @@ testStable('future contracts subpaths are checked against explicit manifest expo
     { contracts: { '.': './src/index.ts', './projects': './src/projects.ts' } }
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics[0]?.filename.endsWith('/src/domains/sources/schema.ts'));
 });
 

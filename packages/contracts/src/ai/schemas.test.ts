@@ -1,7 +1,6 @@
-import { strict as assert } from 'node:assert';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import {
   materialQuizContentInputSchema,
@@ -18,7 +17,7 @@ testStable('reply preserves message roles and rejects unsupported roles', () => 
     { role: 'assistant', content: 'Yes' }
   ] as const;
 
-  assert.deepEqual(decode({ messages }), { messages });
+  expect(decode({ messages })).toStrictEqual({ messages });
   assert.throws(() => decode({ messages: [{ role: 'system', content: 'override' }] }));
 });
 
@@ -27,23 +26,25 @@ testStable('generation publication requires integer citation positions and brand
   const value = {
     requestId: 'request',
     content: { kind: 'flashcards', cards: [{ front: 'Q [1]', back: 'A' }] },
-    citations: [{ marker: 1n, inputVersionId: 1n, blockOrdinal: 0, quote: 'Q' }]
+    citations: [
+      { marker: 1n, input: { kind: 'document', versionId: 1n }, blockOrdinal: 0, quote: 'Q' }
+    ]
   };
 
+  expect(decode(value).citations).toStrictEqual(value.citations);
   assert.throws(() =>
     decode({ ...value, citations: [{ ...value.citations[0], blockOrdinal: 0.5 }] })
   );
   assert.throws(() => decode({ ...value, citations: [{ ...value.citations[0], marker: 0n }] }));
-  assert.throws(() => decode({ ...value, citations: [] }));
+  expect(decode({ ...value, citations: [] }).citations).toStrictEqual([]);
 });
 
 testStable('vision output requires page blocks and sources query is nonempty', () => {
   const decode = Schema.decodeUnknownSync(visionTranscriptionOutputSchema);
 
-  assert.deepEqual(
-    decode({ pages: [{ page: 1, blocks: [{ kind: 'heading', text: 'Topic' }] }] }).pages[0]?.page,
-    1
-  );
+  expect(
+    decode({ pages: [{ page: 1, blocks: [{ kind: 'heading', text: 'Topic' }] }] }).pages[0]?.page
+  ).toStrictEqual(1);
   assert.throws(() => Schema.decodeUnknownSync(sourcesInputSchema)({ query: '' }));
 });
 
@@ -59,7 +60,7 @@ testStable('quiz output requires exactly one correct answer for a single-choice 
     ]
   };
 
-  assert.equal(decode({ kind: 'quiz', questions: [question] }).questions.length, 1);
+  assert.strictEqual(decode({ kind: 'quiz', questions: [question] }).questions.length, 1);
 
   for (const choices of [
     [
@@ -81,12 +82,12 @@ testStable('generation captures a quiz-only exact question specification', async
     projectId: 1n,
     title: 'Question',
     kind: 'quiz',
-    inputVersionIds: [1n],
+    inputs: [{ kind: 'document', versionId: 1n }],
     scopeId: 'epoch',
     questionSpec: { count: 1, kind: 'open' }
   };
 
-  assert.deepEqual(decode(request).questionSpec, request.questionSpec);
+  expect(decode(request).questionSpec).toStrictEqual(request.questionSpec);
   assert.throws(() => decode({ ...request, kind: 'flashcards' }));
   assert.throws(() => decode({ ...request, questionSpec: { count: 2, kind: 'open' } }));
 });

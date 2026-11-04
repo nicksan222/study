@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -13,7 +12,7 @@ testStable('requires canonical feature role folders and bound resource APIs', ()
     'src/features/b/service/index.ts': 'export const x = 1;'
   });
 
-  assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
 
 testStable('keeps feature entry exports on the public service boundary', () => {
@@ -23,7 +22,7 @@ testStable('keeps feature entry exports on the public service boundary', () => {
     'src/features/c/rpc/index.ts': `import { Store } from '../store/index.ts';`
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('rejects public aliases and nested entrypoint loopholes', () => {
@@ -33,7 +32,7 @@ testStable('rejects public aliases and nested entrypoint loopholes', () => {
     'src/features/c/store/index.ts': `import { defineStore, storeMutation } from '#server/platform/definitions/define-store'; defineStore({make: () => ({queries: {}, mutations: {save: storeMutation({run(db, input) {}})}})});`
   });
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('detects aliased resource types without confusing domain fields', () => {
@@ -41,7 +40,7 @@ testStable('detects aliased resource types without confusing domain fields', () 
     'src/features/a/store/read.ts': `import type { Db as Database } from '@study/db'; import type { Clock as Time } from 'effect'; import type { StoreResources as Resources } from '#server/platform/definitions/define-store'; function read(db: Database) {} function now(clock: Time.Clock) {} function makeReads(resources: Resources) {} function domain(db: string, clock: number) {}`
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('requires make to return bound descriptor groups', () => {
@@ -50,7 +49,7 @@ testStable('requires make to return bound descriptor groups', () => {
     'src/features/b/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: () => ({queries: {}, mutations: {}})});`
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('bound aliases preserve each persistence boundary', () => {
@@ -72,8 +71,8 @@ testStable('bound aliases preserve each persistence boundary', () => {
       'src/features/projects/store/index.ts': prefix + operation + suffix
     });
 
-    assert.equal(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
-    assert.equal(diagnostics[0]?.code, `study(${rule})`);
+    assert.strictEqual(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
+    assert.strictEqual(diagnostics[0]?.code, `study(${rule})`);
   }
 });
 
@@ -86,7 +85,7 @@ testStable(
       'src/features/a/agents/index.ts': `import type * as Context from '../../../runtime/context'; function agent(context: Context.ServerContext) {}`
     });
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
@@ -95,7 +94,7 @@ testStable('respects shadowed namespace type bindings and cyclic aliases', () =>
     'src/features/a/store/read.ts': `import type * as Storage from '@study/db'; type A = B; type B = A; function read<Storage>(db: Storage, other: A) {} function real(db: Storage.Db) {}`
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('current ServerContext aliases retain resource and persistence ownership', () => {
@@ -115,7 +114,7 @@ testStable('current ServerContext aliases retain resource and persistence owners
         'src/features/projects/store/read.ts': `${declaration} import { sessions } from '@study/db'; function read(ctx: Alias) { ${body} }`
       });
 
-      assert.equal(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
+      assert.strictEqual(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
     }
   }
 });
@@ -131,7 +130,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics, []);
+    expect(diagnostics).toStrictEqual([]);
   }
 );
 
@@ -151,6 +150,6 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
   }
 );

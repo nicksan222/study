@@ -10,7 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
@@ -18,9 +17,10 @@ import { createBlock } from '@study/contracts/sources/document';
 import type { Block } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -145,32 +145,31 @@ testStable(
       );
       const result = await fixture.executeAuthored(event, 'json-image');
 
-      assert.equal(fixture.bodies.length, 2);
-      assert.equal(fixture.replies.length, 0);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.replies.length, 0);
       fixture.reopen();
-      assert.equal(await fixture.executeAuthored(event, 'json-image-replay'), result);
-      assert.equal(fixture.bodies.length, 2);
+      assert.strictEqual(await fixture.executeAuthored(event, 'json-image-replay'), result);
+      assert.strictEqual(fixture.bodies.length, 2);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Documents;
           const read = yield* materials.version({ id: result });
 
-          assert.deepEqual(read.document.blocks[1]!.content, {
+          expect(read.document.blocks[1]!.content).toStrictEqual({
             type: 'image',
             sourceId: setup.image.id,
             revision: 1,
             alt: 'Retained image'
           });
-          assert.notEqual(read.document.blocks[1]!.id, setup.block.id);
-          assert.deepEqual(read.document.blocks[1]!.anchor, { type: 'authored' });
-          assert.deepEqual(read.inputs[0], {
+          assert.notStrictEqual(read.document.blocks[1]!.id, setup.block.id);
+          expect(read.document.blocks[1]!.anchor).toStrictEqual({ type: 'authored' });
+          expect(read.inputs[0]).toStrictEqual({
             kind: 'document',
             versionId: setup.original.version.id
           });
-          assert.deepEqual(
-            (yield* materials.version({ id: setup.original.version.id })).document,
-            setup.original.version.document
-          );
+          expect(
+            (yield* materials.version({ id: setup.original.version.id })).document
+          ).toStrictEqual(setup.original.version.document);
           const chats = yield* Conversations;
 
           yield* chats.deleteSession(setup.session.id);
@@ -182,16 +181,17 @@ testStable(
           );
           const retained = yield* materials.version({ id: result });
 
-          assert.deepEqual(retained.document, read.document);
-          assert.deepEqual(
-            (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes,
-            new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
-          );
+          expect(retained.document).toStrictEqual(read.document);
+          expect(
+            (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
+          ).toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await assert.rejects(fixture.executeAuthored(event, 'image-after-session-delete'));
-      assert.equal(fixture.bodies.length, 2);
-      assert.equal(
+      await expect(fixture.executeAuthored(event, 'image-after-session-delete')).rejects.toSatisfy(
+        () => true
+      );
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(
         fixture.context.db.orm.all(
           sql`SELECT * FROM document_assets WHERE source_id=${setup.image.id}`
         ).length,
@@ -287,28 +287,27 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
           }
         }
       );
-      await assert.rejects(fixture.executeAuthored(fixture.authoredEvent(setup.request.id), mode));
-      assert.equal(fixture.bodies.length, 2);
-      assert.equal(fixture.replies.length, 0);
-      assert.deepEqual(
-        fixture.context.db.orm.select().from(s.study_document_versions).all(),
+      await expect(
+        fixture.executeAuthored(fixture.authoredEvent(setup.request.id), mode)
+      ).rejects.toSatisfy(() => true);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.replies.length, 0);
+      expect(fixture.context.db.orm.select().from(s.study_document_versions).all()).toStrictEqual(
         before
       );
-      assert.deepEqual(
+      expect(
         fixture.context.db.orm
           .select()
           .from(s.workflowEvents)
           .all()
-          .filter((row) => row.type === 'DocumentPublished'),
-        published
-      );
-      assert.equal(
+          .filter((row) => row.type === 'DocumentPublished')
+      ).toStrictEqual(published);
+      assert.ok(
         fixture.context.db.orm
           .select()
           .from(s.study_document_transform_requests)
           .where(eq(s.study_document_transform_requests.id, setup.request.id))
-          .get()?.result_version_id,
-        null
+          .get()?.result_version_id === null
       );
 
       if (mode === 'alt-range') {
@@ -361,8 +360,8 @@ testStable(
         'transient-retry'
       );
 
-      assert.equal(fixture.bodies.length, 3);
-      assert.equal(fixture.replies.length, 0);
+      assert.strictEqual(fixture.bodies.length, 3);
+      assert.strictEqual(fixture.replies.length, 0);
 
       for (const body of fixture.bodies) {
         assert.ok(body.includes('alpha captured'));
@@ -375,12 +374,11 @@ testStable(
         .where(eq(s.workflow_activities.execution_id, 'transient-retry'))
         .all();
 
-      assert.deepEqual(
+      expect(
         attempts
           .filter((row) => row.name === 'generate-authored-document')
-          .map((row) => Number(row.attempt)),
-        [1, 2]
-      );
+          .map((row) => Number(row.attempt))
+      ).toStrictEqual([1, 2]);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Documents;
@@ -390,19 +388,19 @@ testStable(
             retryId: 'completed-retry'
           });
 
-          assert.equal(retry.contextRequestId, setup.snapshot.requestId);
-          assert.equal(retry.resultVersionId, result);
-          assert.deepEqual(read.inputs, [
+          assert.strictEqual(retry.contextRequestId, setup.snapshot.requestId);
+          assert.strictEqual(retry.resultVersionId, result);
+          expect(read.inputs).toStrictEqual([
             { kind: 'document', versionId: setup.original.version.id }
           ]);
         }).pipe(Effect.provide(fixture.domain()))
       );
       fixture.reopen();
-      assert.equal(
+      assert.strictEqual(
         await fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'retry-reopen'),
         result
       );
-      assert.equal(fixture.bodies.length, 3);
+      assert.strictEqual(fixture.bodies.length, 3);
       const regenerated = await Effect.runPromise(
         Effect.gen(function* () {
           const head = (yield* (yield* Documents).document({ id: setup.original.id })).version;
@@ -429,7 +427,7 @@ testStable(
             operations: ['explain']
           });
 
-          assert.notEqual(request.id, setup.request.id);
+          assert.notStrictEqual(request.id, setup.request.id);
 
           return { request, head };
         }).pipe(Effect.provide(fixture.domain()))
@@ -447,15 +445,15 @@ testStable(
         'explicit-regenerate'
       );
 
-      assert.notEqual(second, result);
+      assert.notStrictEqual(second, result);
       await Effect.runPromise(
         Effect.gen(function* () {
           const read = yield* (yield* Documents).version({ id: second });
 
-          assert.deepEqual(read.inputs, [{ kind: 'document', versionId: regenerated.head.id }]);
+          expect(read.inputs).toStrictEqual([{ kind: 'document', versionId: regenerated.head.id }]);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      assert.equal(fixture.bodies.length, 5);
+      assert.strictEqual(fixture.bodies.length, 5);
     } finally {
       await fixture.close();
     }
@@ -504,14 +502,14 @@ testStable(
               requestId: setup.request.id
             });
 
-            assert.equal(cancelled.cancelled, true);
+            assert.ok(cancelled.cancelled === true);
             yield* Deferred.succeed(release, undefined);
             const exit = yield* Fiber.await(fiber);
 
             assert.ok(Exit.isFailure(exit));
-            assert.equal(
-              workflowStore(fixture.context).execution('cancel-before-publication')?.status,
-              'cancelled'
+            assert.ok(
+              workflowStore(fixture.context).execution('cancel-before-publication')?.status ===
+                'cancelled'
             );
             yield* engine.resume(documentTransformWorkflow, 'cancel-before-publication');
             const error = yield* Effect.flip(
@@ -521,12 +519,12 @@ testStable(
               })
             );
 
-            assert.equal(error.kind, 'cancelled');
+            assert.ok(error.kind === 'cancelled');
           })
         ).pipe(Effect.provide(fixture.services()), Effect.timeout('10 seconds'))
       );
-      assert.equal(fixture.bodies.length, 2);
-      assert.equal(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
       fixture.reopen();
       await Effect.runPromise(
         Effect.scoped(
@@ -539,12 +537,12 @@ testStable(
               requestId: setup.request.id
             });
 
-            assert.equal(read.cancelled, true);
-            assert.equal(read.resultVersionId, null);
+            assert.ok(read.cancelled === true);
+            assert.ok(read.resultVersionId === null);
           })
         ).pipe(Effect.provide(fixture.services()))
       );
-      assert.equal(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.bodies.length, 2);
     } finally {
       await fixture.close();
     }
@@ -588,14 +586,14 @@ testStable(
 
             yield* Deferred.await(published);
             yield* engine.interrupt(documentTransformWorkflow, 'publication-wins');
-            assert.equal(workflowStore(fixture.context).interruptMode('publication-wins'), 'safe');
+            assert.ok(workflowStore(fixture.context).interruptMode('publication-wins') === 'safe');
             const materials = yield* Documents;
             const pending = yield* materials.transform({
               requestId: setup.request.id
             });
 
             assert.ok(pending.resultVersionId);
-            assert.equal(pending.cancelled, false);
+            assert.ok(pending.cancelled === false);
             yield* engine.interruptUnsafe(documentTransformWorkflow, 'publication-wins');
             yield* Fiber.await(fiber);
             // Unsafe interruption can resume receipt replay before its terminal checkpoint.
@@ -606,9 +604,8 @@ testStable(
             )
               yield* Effect.sleep('10 millis');
 
-            assert.equal(
-              workflowStore(fixture.context).execution('publication-wins')?.status,
-              'cancelled'
+            assert.ok(
+              workflowStore(fixture.context).execution('publication-wins')?.status === 'cancelled'
             );
             const read = yield* materials.transform({
               requestId: setup.request.id
@@ -617,10 +614,10 @@ testStable(
               requestId: setup.request.id
             });
 
-            assert.equal(read.cancelled, false);
-            assert.equal(cancelled.cancelled, false);
-            assert.equal(read.resultVersionId, pending.resultVersionId);
-            assert.equal(cancelled.resultVersionId, pending.resultVersionId);
+            assert.ok(read.cancelled === false);
+            assert.ok(cancelled.cancelled === false);
+            assert.strictEqual(read.resultVersionId, pending.resultVersionId);
+            assert.strictEqual(cancelled.resultVersionId, pending.resultVersionId);
 
             return pending.resultVersionId;
           })
@@ -628,9 +625,9 @@ testStable(
       );
 
       fixture.reopen();
-      assert.equal(await fixture.executeAuthored(event, 'publication-wins-replay'), result);
-      assert.equal(fixture.bodies.length, 2);
-      assert.equal(fixture.context.db.orm.select().from(s.study_documents).all().length, 2);
+      assert.strictEqual(await fixture.executeAuthored(event, 'publication-wins-replay'), result);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.study_documents).all().length, 2);
     } finally {
       await fixture.close();
     }
@@ -708,29 +705,22 @@ testStable(
           const materials = yield* Documents;
           const saved = (yield* materials.version({ id: result })).citations;
 
-          assert.deepEqual(
-            saved.map((citation) => citation.target),
-            [
-              { ...setup.range, start: 3, end: 7 },
-              { ...setup.range, start: 11, end: 15 }
-            ]
-          );
-          assert.deepEqual(
-            saved.map(({ quote }) => quote),
-            ['echo', 'echo']
-          );
+          expect(saved.map((citation) => citation.target)).toStrictEqual([
+            { ...setup.range, start: 3, end: 7 },
+            { ...setup.range, start: 11, end: 15 }
+          ]);
+          expect(saved.map(({ quote }) => quote)).toStrictEqual(['echo', 'echo']);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await assert.rejects(
-        fixture.executeAuthored(event, 'duplicate-ranges-replay'),
+      await expect(fixture.executeAuthored(event, 'duplicate-ranges-replay')).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'cancelled'
       );
-      assert.deepEqual(await libraryState(fixture, [result]), retained);
-      assert.equal(
+      expect(await libraryState(fixture, [result])).toStrictEqual(retained);
+      assert.strictEqual(
         fixture.context.db.orm.select().from(s.study_document_versions).all().length,
         outputCount
       );
-      assert.equal(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.bodies.length, 2);
     } finally {
       await fixture.close();
     }
@@ -761,18 +751,17 @@ testStable('provider report ordinals cannot reference an unavailable output bloc
         }
       }
     );
-    await assert.rejects(
+    await expect(
       fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'bad-report-reference')
-    );
-    assert.equal(fixture.bodies.length, 2);
-    assert.equal(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
-    assert.equal(
+    ).rejects.toSatisfy(() => true);
+    assert.strictEqual(fixture.bodies.length, 2);
+    assert.strictEqual(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
+    assert.ok(
       fixture.context.db.orm
         .select()
         .from(s.study_document_transform_requests)
         .where(eq(s.study_document_transform_requests.id, setup.request.id))
-        .get()?.result_version_id,
-      null
+        .get()?.result_version_id === null
     );
   } finally {
     await fixture.close();
@@ -796,16 +785,17 @@ for (const barrier of ['cancel', 'session-delete'] as const) {
           else yield* (yield* Conversations).deleteSession(setup.session.id);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await assert.rejects(fixture.executeAuthored(event, `preflight-${barrier}`));
-      assert.equal(fixture.bodies.length, 0);
-      assert.equal(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
-      assert.equal(
+      await expect(fixture.executeAuthored(event, `preflight-${barrier}`)).rejects.toSatisfy(
+        () => true
+      );
+      assert.strictEqual(fixture.bodies.length, 0);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.ok(
         fixture.context.db.orm
           .select()
           .from(s.study_document_transform_requests)
           .where(eq(s.study_document_transform_requests.id, setup.request.id))
-          .get()?.result_version_id,
-        null
+          .get()?.result_version_id === null
       );
     } finally {
       await fixture.close();

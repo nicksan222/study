@@ -13,9 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { assertQuestionSpec } from './question-spec.ts';
 
@@ -32,12 +31,12 @@ const choice = {
 };
 
 testStable('a captured question specification enforces count and selected kind', () => {
-  assert.doesNotThrow(() =>
+  expect(() =>
     assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open] })
-  );
-  assert.doesNotThrow(() =>
+  ).not.toThrow();
+  expect(() =>
     assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [choice] })
-  );
+  ).not.toThrow();
   assert.throws(() =>
     assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [choice] })
   );

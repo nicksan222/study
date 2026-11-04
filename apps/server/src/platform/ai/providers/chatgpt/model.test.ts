@@ -14,11 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { titleAgent } from '#server/features/conversations/agents/title';
 import { generateAgent, layer } from '#server/platform/ai/agents';
@@ -104,11 +104,11 @@ testStable('Responses adapter retries 401 with rotated OAuth token and consumes 
       )
     );
 
-    assert.equal(result, 'Biology');
-    assert.deepEqual(headers, ['Bearer original', 'Bearer renewed']);
-    assert.equal(bodies[1].stream, true);
-    assert.equal(bodies[1].store, false);
-    assert.match(String(bodies[1].instructions), /study session/i);
+    assert.ok(result === 'Biology');
+    expect(headers).toStrictEqual(['Bearer original', 'Bearer renewed']);
+    assert.ok(bodies[1].stream === true);
+    assert.ok(bodies[1].store === false);
+    expect(String(bodies[1].instructions)).toMatch(/study session/i);
     assert.ok(Array.isArray(bodies[1].input));
   } finally {
     await auth.dispose();

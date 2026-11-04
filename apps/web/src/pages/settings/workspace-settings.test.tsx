@@ -3,7 +3,7 @@ import type { WorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+import { afterEach, assert, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { WritingSettings } from './workspace-settings';
 
@@ -67,7 +67,7 @@ testStable(
     fireEvent.change(input, { target: { value: '8' } });
     const form = input.closest('form');
 
-    if (!form) throw new Error('Autosave controls require a form');
+    assert.ok(form, 'Autosave controls require a form');
 
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('WorkspaceSettingsFailed')).toBeInTheDocument();

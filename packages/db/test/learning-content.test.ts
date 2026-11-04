@@ -1,10 +1,10 @@
-import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 
@@ -12,7 +12,7 @@ testStable('learning tables enforce typed content and ownership', (t) => {
   const folder = mkdtempSync(join(tmpdir(), 'study-learning-'));
   const db = Db.open(join(folder, 'study.db'));
 
-  t.after(() => {
+  t.onTestFinished(() => {
     db.close();
     rmSync(folder, { recursive: true, force: true });
   });

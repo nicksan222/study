@@ -14,10 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { Database } from '#server/platform/database/database';
 import { useStore } from '#server/platform/definitions/define-store';
@@ -30,7 +29,7 @@ testStable('application close is safe to call repeatedly', async (t) => {
   const app = await resources.openApp();
 
   await app.close();
-  await assert.doesNotReject(App.prototype.close.call(app));
+  await expect(App.prototype.close.call(app)).resolves.toSatisfy(() => true);
 });
 
 testStable(
@@ -47,11 +46,11 @@ testStable(
     const restart = Promise.resolve(app.workers.start());
 
     await Promise.all([stop, restart]);
-    assert.equal(app.workers.started, true);
+    assert.ok(app.workers.started === true);
 
     const closing = app.close();
 
-    await assert.rejects(Promise.resolve().then(() => app.workers.start()));
+    await expect(Promise.resolve().then(() => app.workers.start())).rejects.toSatisfy(() => true);
     await closing;
   }
 );
@@ -65,9 +64,9 @@ testStable('a rejected second application open never acquires another database',
 
   const second = `${resources.path}.second`;
 
-  assert.equal(existsSync(second), false);
-  await assert.rejects(resources.openApp({ path: second }));
-  assert.equal(existsSync(second), false);
+  assert.ok(existsSync(second) === false);
+  await expect(resources.openApp({ path: second })).rejects.toSatisfy(() => true);
+  assert.ok(existsSync(second) === false);
   await app.close();
 });
 
@@ -115,7 +114,7 @@ for (const failPersistence of [false, true])
           );
       });
 
-      t.after(async () => {
+      t.onTestFinished(async () => {
         release();
         peer.closeAllConnections();
         await new Promise<void>((resolve) => peer.close(() => resolve()));
@@ -125,7 +124,7 @@ for (const failPersistence of [false, true])
 
       const address = peer.address();
 
-      if (!address || typeof address === 'string') throw new Error('OAuth listener missing');
+      assert.ok(!(!address || typeof address === 'string'), 'OAuth listener missing');
 
       const resources = createServerTest(t, { app: false });
 
@@ -169,16 +168,16 @@ for (const failPersistence of [false, true])
         await token;
 
         if (failPersistence) {
-          await assert.rejects(closing);
+          await expect(closing).rejects.toSatisfy(() => true);
 
           const retained = await app.nativeRuntime.runPromise(
             useStore(AuthStore).pipe(Effect.flatMap((store) => store.findAccount(undefined)))
           );
 
           assert.ok(Option.isSome(retained));
-          assert.equal(decodeAccount(retained.value).refreshToken, 'original');
+          assert.ok(decodeAccount(retained.value).refreshToken === 'original');
           // A retryable auth close still owns the path: no second startup cleanup may run.
-          await assert.rejects(resources.openApp(options));
+          await expect(resources.openApp(options)).rejects.toSatisfy(() => true);
           app.store.db.orm.run(sql`DROP TRIGGER fail_credential_save`);
           await app.close();
         } else await closing;
@@ -190,7 +189,7 @@ for (const failPersistence of [false, true])
         );
 
         assert.ok(Option.isSome(account));
-        assert.equal(decodeAccount(account.value).refreshToken, 'rotated');
+        assert.ok(decodeAccount(account.value).refreshToken === 'rotated');
       } finally {
         release();
 
@@ -206,7 +205,9 @@ for (const failPersistence of [false, true])
 testStable('failed database acquisition releases the process-wide auth owner', async (t) => {
   const resources = createServerTest(t, { app: false });
 
-  await assert.rejects(resources.openApp({ path: `${resources.dir}/missing/database.sqlite` }));
+  await expect(
+    resources.openApp({ path: `${resources.dir}/missing/database.sqlite` })
+  ).rejects.toSatisfy(() => true);
 
   const app = await resources.openApp();
 

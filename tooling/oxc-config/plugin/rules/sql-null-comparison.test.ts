@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -9,7 +8,7 @@ testStable('reports sql-null-comparison', () => {
     'src/bad.ts': "import { eq } from '@study/db'; eq(items.id, null);"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('recognizes aliases and ignores quoted or commented SQL and shadowed names', () => {
@@ -21,7 +20,7 @@ testStable('recognizes aliases and ignores quoted or commented SQL and shadowed 
     'src/example.test.ts': "import { eq } from '@study/db'; eq(col, null);"
   });
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -32,6 +31,6 @@ testStable(
         "import { sql } from '@study/db'; sql`UPDATE projects SET error=NULL, title=NULL WHERE id=1`; sql`INSERT INTO projects VALUES(1) ON CONFLICT(id) DO UPDATE SET error=NULL`; sql`UPDATE projects SET title=CASE WHEN previous=NULL THEN 'a' END WHERE id=1`; sql`UPDATE projects SET error=NULL WHERE title=NULL`; sql`SELECT id FROM projects WHERE NULL = title`;"
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );

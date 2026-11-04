@@ -1,4 +1,3 @@
-import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,12 +5,25 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { projectIdSchema } from '@study/contracts/ids';
-import { testMigration, testStable } from '@study/testing/node';
+import { testMigration, testStable } from '@study/testing/vitest';
 import { sql, eq, getTableName } from 'drizzle-orm';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import * as schema from '../src/schema.ts';
+
+function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+  try {
+    run();
+  } catch (error) {
+    assert.ok(matches(error), 'Thrown error did not match');
+
+    return;
+  }
+
+  assert.fail('Expected function to throw');
+}
 
 function fixture(run: (path: string) => void) {
   const folder = mkdtempSync(join(tmpdir(), 'study-schema-'));
@@ -37,7 +49,7 @@ testStable('the Drizzle baseline initializes every modeled table and current cod
         )
         .map((row) => row.name);
 
-      assert.deepEqual(tables, Object.values(schema).map(getTableName).sort());
+      expect(tables).toStrictEqual(Object.values(schema).map(getTableName).sort());
 
       for (const [name, table] of Object.entries(schema))
         if (name.startsWith('codes_')) {
@@ -45,15 +57,15 @@ testStable('the Drizzle baseline initializes every modeled table and current cod
             .all(sql.raw(`SELECT code FROM "${name}" ORDER BY code`))
             .map((row) => row.code);
 
-          assert.deepEqual(codes, 'code' in table ? [...table.code.enumValues!].sort() : []);
+          expect(codes).toStrictEqual('code' in table ? [...table.code.enumValues!].sort() : []);
         }
 
-      assert.deepEqual(db.all(sql.raw('PRAGMA foreign_key_check')), []);
+      expect(db.all(sql.raw('PRAGMA foreign_key_check'))).toStrictEqual([]);
       assert.ok(
         (db.get<{ n: bigint }>(sql.raw('SELECT count(*) AS n FROM __drizzle_migrations'))?.n ??
           0n) >= 9n
       );
-      assert.equal(
+      assert.strictEqual(
         db.get(
           sql.raw("SELECT name FROM sqlite_schema WHERE name IN ('schema_meta','embeddings')")
         ),
@@ -87,7 +99,7 @@ testStable(
           .returning()
           .get();
 
-        assert.equal(next.id, id + 1n);
+        assert.strictEqual(next.id, id + 1n);
         const session = db
           .insert(schema.sessions)
           .values({
@@ -100,8 +112,8 @@ testStable(
           .get();
 
         db.insert(schema.project_sessions).values({ project_id: id, session_id: session.id }).run();
-        assert.equal(db.select().from(schema.project_sessions).get()?.project_id, id);
-        assert.throws(
+        assert.strictEqual(db.select().from(schema.project_sessions).get()?.project_id, id);
+        assertThrowsMatching(
           () =>
             db
               .insert(schema.project_sessions)
@@ -117,7 +129,7 @@ testStable(
             error.cause.errcode === 787
         );
         db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
-        assert.equal(db.select().from(schema.sessions).get()?.id, session.id);
+        assert.strictEqual(db.select().from(schema.sessions).get()?.id, session.id);
         db.insert(schema.projects)
           .values({
             id,
@@ -126,7 +138,7 @@ testStable(
             updated_at: 1n
           })
           .run();
-        assert.equal(
+        assert.strictEqual(
           db.select().from(schema.projects).where(eq(schema.projects.id, id)).get()?.id,
           id
         );
@@ -161,8 +173,8 @@ testStable('Drizzle generation is stable and leaves SQL-managed FTS outside sche
       { encoding: 'utf8' }
     );
 
-    assert.match(result, /No schema changes/);
-    assert.deepEqual(readdirSync(output), before);
+    expect(result).toMatch(/No schema changes/);
+    expect(readdirSync(output)).toStrictEqual(before);
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
@@ -175,11 +187,11 @@ testStable('retired projection tables and message job ownership are absent', () 
     try {
       const db = connection.orm;
 
-      assert.equal(
+      assert.strictEqual(
         db.get(sql.raw("SELECT name FROM sqlite_schema WHERE type='table' AND name='jobs'")),
         undefined
       );
-      assert.equal(
+      assert.strictEqual(
         db
           .all(sql.raw('PRAGMA table_info(message_versions)'))
           .some((column) => column.name === 'owner_job_id'),
@@ -223,7 +235,7 @@ testMigration({ migration: 'ask_migration', retention: 'permanent' })(
           connection.orm.run(sql`INSERT INTO session_retired_intents
         (session_id,intent_key,request_id,reason) VALUES (1,'forged','missing','input_retired')`)
         );
-        assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         connection.close();
       }

@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -99,28 +99,29 @@ testStable(
               limit: 1
             });
 
-            assert.equal(first.items[0]?.requestId, setup.requests[0]!.requestId);
-            assert.equal(first.items[0]?.contextRequestId, setup.requests[0]!.contextRequestId);
-            assert.equal(first.items[0]?.state, 'available');
-            assert.equal(first.next, setup.requests[0]!.requestId);
+            assert.strictEqual(first.items[0]?.requestId, setup.requests[0]!.requestId);
+            assert.strictEqual(
+              first.items[0]?.contextRequestId,
+              setup.requests[0]!.contextRequestId
+            );
+            assert.ok(first.items[0]?.state === 'available');
+            assert.strictEqual(first.next, setup.requests[0]!.requestId);
             const rest = yield* rpc('conversations.sessionGenerations', {
               sessionId: setup.session.id,
               limit: 2,
               before: first.next!
             });
 
-            assert.deepEqual(
-              rest.items.map((i) => i.requestId),
+            expect(rest.items.map((i) => i.requestId)).toStrictEqual(
               setup.requests.slice(1).map((i) => i.requestId)
             );
-            assert.equal(rest.next, null);
-            assert.deepEqual(
+            assert.ok(rest.next === null);
+            expect(
               (yield* rpc('conversations.sessionGenerations', {
                 sessionId: setup.other.id,
                 limit: 100
-              })).items,
-              []
-            );
+              })).items
+            ).toStrictEqual([]);
           }).pipe(Effect.provide(ConversationsRpcLive.pipe(Layer.provideMerge(fixture.domain()))))
         )
       );
@@ -132,8 +133,7 @@ testStable(
           const page = yield* chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 });
 
           assert.ok(page.items.every((item) => item.state === 'available'));
-          assert.deepEqual(
-            page.items.map((item) => item.requestId),
+          expect(page.items.map((item) => item.requestId)).toStrictEqual(
             setup.requests.map((item) => item.requestId)
           );
         }).pipe(Effect.provide(fixture.domain()))
@@ -147,7 +147,7 @@ testStable(
           yield* docs.cancelTransform({ requestId: setup.requests[0]!.requestId });
           const page = yield* chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 });
 
-          assert.equal(page.items[0]?.cancelled, true);
+          assert.ok(page.items[0]?.cancelled === true);
           assert.ok(page.items.every((item) => item.state === 'available'));
           yield* chats.deleteSession(setup.session.id);
         }).pipe(Effect.provide(fixture.domain()))
@@ -158,17 +158,16 @@ testStable(
         Effect.gen(function* () {
           const chats = yield* Conversations;
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
           const docs = yield* Documents;
           const retained = yield* docs.document({ id: setup.input.id });
 
           assert.ok(retained.version);
-          assert.equal(retained.version.document.blocks[0]?.text, 'Retained discovery evidence');
+          assert.ok(retained.version.document.blocks[0]?.text === 'Retained discovery evidence');
         }).pipe(Effect.provide(fixture.domain()))
       );
     } finally {

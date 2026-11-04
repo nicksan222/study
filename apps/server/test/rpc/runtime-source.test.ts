@@ -14,13 +14,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Sources } from '#server/features/sources/index';
@@ -85,7 +85,7 @@ testStable(
                 )
               );
 
-              assert.equal(document.document.blocks[0]?.text, 'Corrected');
+              assert.ok(document.document.blocks[0]?.text === 'Corrected');
 
               return;
             }
@@ -139,9 +139,9 @@ testStable(
                 );
 
                 assert.ok(hit);
-                assert.equal(hit.target.type, 'source');
+                assert.ok(hit.target.type === 'source');
 
-                if (hit.target.type === 'source') assert.equal(hit.target.anchor?.type, 'text');
+                if (hit.target.type === 'source') assert.ok(hit.target.anchor?.type === 'text');
 
                 return;
               }
@@ -197,7 +197,7 @@ testStable(
 
             const extracted = yield* waitForExtraction('Mitochondria generate ATP');
 
-            assert.equal(
+            assert.strictEqual(
               (yield* client['materials.materials']({
                 projectId: project.id,
                 archived: false,
@@ -205,7 +205,7 @@ testStable(
               })).items.length,
               0
             );
-            assert.equal(
+            assert.strictEqual(
               (yield* client['documents.documents']({
                 projectId: project.id,
                 archived: false,
@@ -220,18 +220,18 @@ testStable(
               bytes: new TextEncoder().encode('Chloroplasts capture sunlight')
             });
 
-            assert.equal(replaced.revision, 2);
+            assert.strictEqual(replaced.revision, 2);
             const next = yield* waitForExtraction('Chloroplasts capture sunlight');
 
-            assert.equal(next.sourceId, extracted.sourceId);
-            assert.notEqual(next.snapshotId, extracted.snapshotId);
+            assert.strictEqual(next.sourceId, extracted.sourceId);
+            assert.notStrictEqual(next.snapshotId, extracted.snapshotId);
             const old = yield* client['sources.extraction']({
               sourceId: source.id,
               revision: 1n,
               snapshotId: extracted.snapshotId
             });
 
-            assert.deepEqual(old.document, extracted.document);
+            expect(old.document).toStrictEqual(extracted.document);
             const oldBytes = yield* client['sources.exportRevision']({
               sourceId: source.id,
               revision: 1n
@@ -241,9 +241,10 @@ testStable(
               revision: 2n
             });
 
-            assert.deepEqual(oldBytes.bytes, new TextEncoder().encode('Mitochondria generate ATP'));
-            assert.deepEqual(
-              nextBytes.bytes,
+            expect(oldBytes.bytes).toStrictEqual(
+              new TextEncoder().encode('Mitochondria generate ATP')
+            );
+            expect(nextBytes.bytes).toStrictEqual(
               new TextEncoder().encode('Chloroplasts capture sunlight')
             );
             const history = yield* client['sources.extractions']({
@@ -251,10 +252,10 @@ testStable(
               limit: 10
             });
 
-            assert.deepEqual(
-              history.items.map((item) => item.snapshotId),
-              [next.snapshotId, extracted.snapshotId]
-            );
+            expect(history.items.map((item) => item.snapshotId)).toStrictEqual([
+              next.snapshotId,
+              extracted.snapshotId
+            ]);
           })
         )
       );
@@ -265,13 +266,11 @@ testStable(
           sql`SELECT revision, bytes FROM source_snapshots ORDER BY revision`
         ) as { revision: bigint; bytes: Uint8Array }[];
 
-        assert.equal(snapshots.length, 2);
-        assert.deepEqual(
-          Buffer.from(snapshots[0]!.bytes),
+        assert.strictEqual(snapshots.length, 2);
+        expect(Buffer.from(snapshots[0]!.bytes)).toStrictEqual(
           Buffer.from('Mitochondria generate ATP')
         );
-        assert.deepEqual(
-          Buffer.from(snapshots[1]!.bytes),
+        expect(Buffer.from(snapshots[1]!.bytes)).toStrictEqual(
           Buffer.from('Chloroplasts capture sunlight')
         );
       } finally {

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -14,11 +13,11 @@ testStable('rejects manual browser navigation and raw search decoding', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 8, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
 });
 
 testStable('allows the router adapter, transport discovery and external links', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-router-navigation',
       {
@@ -27,9 +26,8 @@ testStable('allows the router adapter, transport discovery and external links', 
         'apps/web/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; export const view = <><Link to="/home" /><a href="https://example.com">External</a></>;`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable('destructured browser aliases cannot bypass TanStack navigation', () => {
@@ -47,7 +45,7 @@ testStable('destructured browser aliases cannot bypass TanStack navigation', () 
     true
   );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -63,12 +61,12 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
   }
 );
 
 testStable('permits browser history, kebab-case paths and parameterized route segments', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-router-navigation',
       {
@@ -76,9 +74,8 @@ testStable('permits browser history, kebab-case paths and parameterized route se
         'apps/web/src/app/shell/links.ts': `export const links = ['/', '/home', '/media-list', '/projects/$projectId/sessions/$sessionId', 'https://example.com/SomePage'];`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable(
@@ -94,7 +91,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/unsafe.tsx')));
   }
 );
@@ -102,7 +99,7 @@ testStable(
 testStable(
   'proposal result and captured input links use typed route search for exact versions',
   () => {
-    assert.deepEqual(
+    expect(
       lintRule(
         'web-router-navigation',
         {
@@ -116,9 +113,8 @@ testStable(
     `
         },
         true
-      ),
-      []
-    );
+      )
+    ).toStrictEqual([]);
     const diagnostics = lintRule(
       'web-router-navigation',
       {
@@ -130,7 +126,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -154,7 +150,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/sessions.index.tsx')));
   }
 );

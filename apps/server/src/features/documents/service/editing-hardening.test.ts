@@ -12,15 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Sources } from '#server/features/sources/index';
@@ -109,11 +110,10 @@ testStable(
             document: { blocks: [paragraph('Alternative'), block], meta }
           });
 
-          assert.equal(winner.outcome, 'saved');
-          assert.equal(loser.outcome, 'conflict');
-          assert.equal(
-            (yield* documents.version({ id: loser.submittedVersionId })).status,
-            'draft'
+          assert.ok(winner.outcome === 'saved');
+          assert.ok(loser.outcome === 'conflict');
+          assert.ok(
+            (yield* documents.version({ id: loser.submittedVersionId })).status === 'draft'
           );
 
           return { image, block, target, winner, loser };
@@ -127,19 +127,21 @@ testStable(
         .where(eq(s.document_assets.source_id, setup.image.id))
         .all();
 
-      assert.equal(associations.length, 1);
-      assert.equal(associations[0]!.block_id, setup.block.id);
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      assert.deepEqual(
+      assert.strictEqual(associations.length, 1);
+      assert.strictEqual(associations[0]!.block_id, setup.block.id);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+      expect(
         f.context.db.orm
           .select()
           .from(s.study_document_versions)
           .where(eq(s.study_document_versions.content_snapshot_id, associations[0]!.document_id))
           .all()
-          .map((row) => row.id),
-        [setup.loser.submittedVersionId]
+          .map((row) => row.id)
+      ).toStrictEqual([setup.loser.submittedVersionId]);
+      assert.strictEqual(
+        f.context.db.orm.select().from(s.study_document_proposals).all().length,
+        0
       );
-      assert.equal(f.context.db.orm.select().from(s.study_document_proposals).all().length, 0);
 
       const before = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
       const retained = before();
@@ -152,7 +154,7 @@ testStable(
         sql`DELETE FROM source_snapshots WHERE source_id=${setup.image.id} AND revision=1`
       ]) {
         assert.throws(() => f.context.db.orm.run(mutation));
-        assert.deepEqual(before(), retained);
+        expect(before()).toStrictEqual(retained);
       }
 
       await Effect.runPromise(
@@ -160,21 +162,20 @@ testStable(
           const documents = yield* Documents;
           const version = yield* documents.version({ id: setup.loser.submittedVersionId });
 
-          assert.deepEqual(version.document.blocks[1], setup.block);
-          assert.equal(
+          expect(version.document.blocks[1]).toStrictEqual(setup.block);
+          assert.strictEqual(
             (yield* documents.document({ id: setup.target.id })).headVersionId,
             setup.winner.submittedVersionId
           );
-          assert.deepEqual(
-            (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes,
-            bytes
-          );
+          expect(
+            (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
+          ).toStrictEqual(bytes);
           assert.throws(() =>
             f.context.db.orm.run(sql`DELETE FROM study_document_versions WHERE id=${version.id}`)
           );
         }).pipe(Effect.provide(f.services()))
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       f.close();
     }
@@ -244,12 +245,12 @@ testStable(
             documentId: save.documentId
           });
 
-          assert.equal(replay.replayed, true);
-          assert.equal(replay.submittedVersionId, saved.submittedVersionId);
-          assert.deepEqual(output(), before);
-          assert.deepEqual((yield* documents.version({ id: saved.submittedVersionId })).inputs, [
-            input
-          ]);
+          assert.ok(replay.replayed === true);
+          assert.strictEqual(replay.submittedVersionId, saved.submittedVersionId);
+          expect(output()).toStrictEqual(before);
+          expect((yield* documents.version({ id: saved.submittedVersionId })).inputs).toStrictEqual(
+            [input]
+          );
 
           for (const value of [
             {
@@ -267,9 +268,9 @@ testStable(
               }
             }
           ])
-            assert.equal((yield* Effect.flip(documents.save(value))).kind, 'invalid_input');
+            assert.ok((yield* Effect.flip(documents.save(value))).kind === 'invalid_input');
 
-          assert.deepEqual(output(), before);
+          expect(output()).toStrictEqual(before);
           yield* sources.replaceSource({
             id: source.id,
             expectedRevision: 1,
@@ -284,35 +285,33 @@ testStable(
           };
           const undo = yield* documents.restore(undoValue);
 
-          assert.equal(undo.outcome, 'saved');
-          assert.equal(undo.currentVersionId, saved.submittedVersionId);
-          assert.equal(
+          assert.ok(undo.outcome === 'saved');
+          assert.strictEqual(undo.currentVersionId, saved.submittedVersionId);
+          assert.strictEqual(
             (yield* documents.document({ id: derivative.id })).headVersionId,
             undo.submittedVersionId
           );
-          assert.equal(
-            (yield* documents.version({ id: undo.submittedVersionId })).status,
-            'published'
+          assert.ok(
+            (yield* documents.version({ id: undo.submittedVersionId })).status === 'published'
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* documents.restore(undoValue)).submittedVersionId,
             undo.submittedVersionId
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               documents.restore({ ...undoValue, restoreVersionId: saved.submittedVersionId })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const oldRevision = yield* sources.exportRevision({ sourceId: source.id, revision: 1n });
 
-          assert.deepEqual(oldRevision.bytes, exported.bytes);
-          assert.deepEqual((yield* documents.version({ id: undo.submittedVersionId })).inputs, [
+          expect(oldRevision.bytes).toStrictEqual(exported.bytes);
+          expect((yield* documents.version({ id: undo.submittedVersionId })).inputs).toStrictEqual([
             input
           ]);
         }).pipe(Effect.provide(f.services()))
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       f.close();
     }

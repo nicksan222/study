@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRulePaths } from '../test/utils.ts';
 
@@ -39,8 +38,7 @@ testStable(
       )
     );
 
-    assert.deepEqual(
-      diagnostics,
+    expect(diagnostics).toStrictEqual(
       Object.keys(files)
         .slice(0, 9)
         .map((file) => prefix + file)

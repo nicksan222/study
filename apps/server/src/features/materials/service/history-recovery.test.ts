@@ -10,12 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { documentTransformFixture } from '#testing/document-transform';
@@ -74,7 +73,7 @@ for (const failSettlement of [false, true]) {
             sql`CREATE TRIGGER reject_history_failure BEFORE UPDATE OF status ON material_history_prunes WHEN NEW.status='failed' BEGIN SELECT RAISE(ABORT,'injected settlement'); END`
           );
 
-        await assert.rejects(cleanupHistory(f, 'history-rollback'));
+        await expect(cleanupHistory(f, 'history-rollback')).rejects.toSatisfy(() => true);
 
         await Effect.runPromise(
           awaitNativeStatus(f, 'history-test/history-rollback/1', 'completed')
@@ -86,11 +85,13 @@ for (const failSettlement of [false, true]) {
           ).pipe(Effect.provide(f.domain()))
         );
 
-        assert.equal(state.status, failSettlement ? 'pending' : 'failed');
+        assert.strictEqual(state.status, failSettlement ? 'pending' : 'failed');
 
-        assert.equal(state.completedAt, null);
+        assert.ok(state.completedAt === null);
 
-        assert.deepEqual(f.context.db.orm.select().from(s.material_diagram_versions).all(), before);
+        expect(f.context.db.orm.select().from(s.material_diagram_versions).all()).toStrictEqual(
+          before
+        );
 
         assert.ok(
           f.context.db.orm
@@ -100,7 +101,7 @@ for (const failSettlement of [false, true]) {
             .get()
         );
 
-        await assert.rejects(acceptMaterialDeletion(f, saved.root.id));
+        await expect(acceptMaterialDeletion(f, saved.root.id)).rejects.toSatisfy(() => true);
 
         f.context.db.orm.run(sql`DROP TRIGGER reject_history_cleanup`);
 
@@ -114,20 +115,19 @@ for (const failSettlement of [false, true]) {
 
             const retry = yield* m.retryHistoryPrune({ operationId: state.operationId });
 
-            assert.equal(retry.attempt, 2);
+            assert.strictEqual(retry.attempt, 2);
 
-            assert.equal(
+            assert.strictEqual(
               (yield* m.retryHistoryPrune({ operationId: state.operationId })).attempt,
               2
             );
 
-            assert.equal(
+            assert.ok(
               (yield* m.failMaterialHistory({
                 operationId: state.operationId,
                 attempt: 1,
                 errorKind: 'internal'
-              })).status,
-              'pending'
+              })).status === 'pending'
             );
           }).pipe(Effect.provide(f.domain()))
         );
@@ -136,18 +136,19 @@ for (const failSettlement of [false, true]) {
           withTestPublication(
             f.context,
             Effect.gen(function* () {
-              assert.equal(
+              assert.ok(
                 (yield* (yield* Materials).finishMaterialHistory({
                   operationId: state.operationId,
                   attempt: 1
-                })).status,
-                'pending'
+                })).status === 'pending'
               );
             }).pipe(Effect.provide(f.domain()))
           ).pipe(Effect.provide(f.domain()))
         );
 
-        assert.deepEqual(f.context.db.orm.select().from(s.material_diagram_versions).all(), before);
+        expect(f.context.db.orm.select().from(s.material_diagram_versions).all()).toStrictEqual(
+          before
+        );
 
         await cleanupHistory(f, state.operationId);
 
@@ -161,17 +162,16 @@ for (const failSettlement of [false, true]) {
 
             const completed = yield* m.historyPrune({ operationId: state.operationId });
 
-            assert.equal(completed.status, 'completed');
+            assert.ok(completed.status === 'completed');
 
-            assert.equal(completed.attempt, 2);
+            assert.strictEqual(completed.attempt, 2);
 
-            assert.equal(
+            assert.strictEqual(
               (yield* m.retryHistoryPrune({ operationId: state.operationId })).attempt,
               2
             );
 
-            assert.deepEqual(
-              yield* m.materialVersion({ id: saved.current.id }),
+            expect(yield* m.materialVersion({ id: saved.current.id })).toStrictEqual(
               saved.currentVersion
             );
           }).pipe(Effect.provide(f.domain()))

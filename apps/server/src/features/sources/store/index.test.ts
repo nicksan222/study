@@ -13,13 +13,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Option } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -64,10 +63,10 @@ testStable('snapshots survive replacement and stale publications leave no docume
       )
     );
 
-    assert.equal(source.sizeBytes, 5n);
-    assert.equal(
-      Buffer.from(source.sha256).toString('hex'),
-      'a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e'
+    assert.strictEqual(source.sizeBytes, 5n);
+    assert.ok(
+      Buffer.from(source.sha256).toString('hex') ===
+        'a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e'
     );
     await Effect.runPromise(
       transaction((tx) =>
@@ -82,7 +81,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
         })
       ).pipe(Effect.provideService(Database, { store: context }))
     );
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         transaction((tx) =>
           tx.store(SourceStore).replaceSourceInput({
@@ -93,17 +92,17 @@ testStable('snapshots survive replacement and stale publications leave no docume
           })
         ).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
+    ).rejects.toSatisfy(() => true);
     const updated = await Effect.runPromise(
       Effect.runSync(
         useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
       ).source(source.id)
     );
 
-    assert.equal(updated.sizeBytes, 6n);
-    assert.equal(
-      Buffer.from(updated.sha256).toString('hex'),
-      '16367aacb67a4a017c8da8ab95682ccb390863780f7114dda0a0e0c55644c7c4'
+    assert.strictEqual(updated.sizeBytes, 6n);
+    assert.ok(
+      Buffer.from(updated.sha256).toString('hex') ===
+        '16367aacb67a4a017c8da8ab95682ccb390863780f7114dda0a0e0c55644c7c4'
     );
     const old = await Effect.runPromise(
       Effect.runSync(
@@ -111,11 +110,11 @@ testStable('snapshots survive replacement and stale publications leave no docume
       ).sourceSnapshot({ id: source.id, revision: 1 })
     );
 
-    assert.equal(new TextDecoder().decode(old.bytes), 'first');
-    assert.equal(old.kind, 'text');
-    assert.equal(old.mime, 'text/plain');
-    assert.equal(old.uri, 'https://example.com/original');
-    await assert.rejects(
+    assert.ok(new TextDecoder().decode(old.bytes) === 'first');
+    assert.ok(old.kind === 'text');
+    assert.ok(old.mime === 'text/plain');
+    assert.ok(old.uri === 'https://example.com/original');
+    await expect(
       Effect.runPromise(
         transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
@@ -126,8 +125,8 @@ testStable('snapshots survive replacement and stale publications leave no docume
           })
         ).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
-    await assert.rejects(
+    ).rejects.toSatisfy(() => true);
+    await expect(
       Effect.runPromise(
         transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
@@ -138,8 +137,8 @@ testStable('snapshots survive replacement and stale publications leave no docume
           })
         ).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
-    assert.equal(
+    ).rejects.toSatisfy(() => true);
+    assert.ok(
       (
         await Effect.runPromise(
           Effect.runSync(
@@ -148,10 +147,9 @@ testStable('snapshots survive replacement and stale publications leave no docume
             )
           ).sourceProcessing(source.id)
         )
-      ).documentId,
-      null
+      ).documentId === null
     );
-    assert.equal(
+    assert.strictEqual(
       context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM content_snapshots`)
         ?.count,
       0n
@@ -163,7 +161,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
           .requestSourceProcessing({ id: source.id, expectedRevision: 2, requestId: 'request-3' })
       ).pipe(Effect.provideService(Database, { store: context }))
     );
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
@@ -174,8 +172,8 @@ testStable('snapshots survive replacement and stale publications leave no docume
           })
         ).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
-    await assert.rejects(
+    ).rejects.toSatisfy(() => true);
+    await expect(
       Effect.runPromise(
         transaction((tx) => {
           tx.store(SourceStore).publishSourceDocument({
@@ -188,13 +186,13 @@ testStable('snapshots survive replacement and stale publications leave no docume
           throw new Error('rollback');
         }).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
-    assert.equal(
+    ).rejects.toSatisfy(() => true);
+    assert.strictEqual(
       context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM content_snapshots`)
         ?.count,
       0n
     );
-    assert.equal(
+    assert.ok(
       (
         await Effect.runPromise(
           Effect.runSync(
@@ -203,8 +201,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
             )
           ).sourceProcessing(source.id)
         )
-      ).documentId,
-      null
+      ).documentId === null
     );
     const { documentId: id } = await Effect.runPromise(
       transaction((tx) =>
@@ -217,7 +214,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
       ).pipe(Effect.provideService(Database, { store: context }))
     );
 
-    assert.equal(
+    assert.strictEqual(
       context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM blocks`)?.count,
       1n
     );
@@ -228,7 +225,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
           .requestSourceProcessing({ id: source.id, expectedRevision: 2, requestId: 'request-4' })
       ).pipe(Effect.provideService(Database, { store: context }))
     );
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         transaction((tx) =>
           tx.store(SourceStore).publishSourceDocument({
@@ -239,13 +236,13 @@ testStable('snapshots survive replacement and stale publications leave no docume
           })
         ).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
-    assert.equal(
+    ).rejects.toSatisfy(() => true);
+    assert.strictEqual(
       context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM content_snapshots`)
         ?.count,
       1n
     );
-    assert.equal(
+    assert.strictEqual(
       (
         await Effect.runPromise(
           Effect.runSync(
@@ -259,7 +256,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
     );
     context.close();
     context = new ServerContext(location.open());
-    assert.equal(
+    assert.strictEqual(
       (
         await Effect.runPromise(
           Effect.runSync(
@@ -271,7 +268,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
       ).documentId,
       id
     );
-    assert.equal(
+    assert.ok(
       new TextDecoder().decode(
         (
           await Effect.runPromise(
@@ -282,8 +279,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
             ).sourceSnapshot({ id: source.id, revision: 1 })
           )
         ).bytes
-      ),
-      'first'
+      ) === 'first'
     );
   } finally {
     context.close();
@@ -307,26 +303,24 @@ testStable('source reads distinguish absence and enforce bounded pagination', as
       )
     );
 
-    assert.deepEqual(
+    expect(
       (
         await Effect.runPromise(
           Effect.runSync(
             useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
           ).sources({ limit: 1 })
         )
-      ).map((s) => s.id),
-      [b.id]
-    );
-    assert.deepEqual(
+      ).map((s) => s.id)
+    ).toStrictEqual([b.id]);
+    expect(
       (
         await Effect.runPromise(
           Effect.runSync(
             useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
           ).sources({ limit: 1, before: b.id })
         )
-      ).map((s) => s.id),
-      [a.id]
-    );
+      ).map((s) => s.id)
+    ).toStrictEqual([a.id]);
     assert.ok(
       Option.isNone(
         await Effect.runPromise(
@@ -336,20 +330,20 @@ testStable('source reads distinguish absence and enforce bounded pagination', as
         )
       )
     );
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         Effect.runSync(
           useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
         ).source(999n as typeof a.id)
       )
-    );
-    await assert.rejects(
+    ).rejects.toSatisfy(() => true);
+    await expect(
       Effect.runPromise(
         Effect.runSync(
           useStore(SourceStore).pipe(Effect.provideService(Database, { store: context }))
         ).sources({ limit: 0 })
       )
-    );
+    ).rejects.toSatisfy(() => true);
   } finally {
     context.close();
     location.cleanup();

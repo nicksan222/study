@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -16,11 +15,11 @@ testStable('rejects upward dependencies, cross-page imports and private feature 
     true
   );
 
-  assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
 testStable('allows composition, same-domain internals and explicit feature entry points', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-boundaries',
       {
@@ -31,9 +30,8 @@ testStable('allows composition, same-domain internals and explicit feature entry
         'apps/web/src/lib/example.test.ts': `import '../pages/home/page';`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable('restricts the raw transport and root-level application files', () => {
@@ -46,7 +44,7 @@ testStable('restricts the raw transport and root-level application files', () =>
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable('canonical folders, type imports and alternate loaders cannot bypass ownership', () => {
@@ -65,11 +63,11 @@ testStable('canonical folders, type imports and alternate loaders cannot bypass 
     true
   );
 
-  assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
 
 testStable('permits Query while keeping raw RPC in the transport adapter', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-boundaries',
       {
@@ -77,15 +75,14 @@ testStable('permits Query while keeping raw RPC in the transport adapter', () =>
         'apps/web/src/features/library/library.queries.ts': `import { queryOptions } from '@tanstack/react-query';`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable(
   'Material routes compose the feature entrypoint while internals stay feature-owned',
   () => {
-    assert.equal(
+    assert.strictEqual(
       lintRule(
         'web-boundaries',
         {
@@ -96,7 +93,7 @@ testStable(
       ).length,
       2
     );
-    assert.deepEqual(
+    expect(
       lintRule(
         'web-boundaries',
         {
@@ -107,9 +104,8 @@ testStable(
           'apps/web/src/app/shell/shell.tsx': `import './shell.css';`
         },
         true
-      ),
-      []
-    );
+      )
+    ).toStrictEqual([]);
   }
 );
 
@@ -126,5 +122,5 @@ testStable('private web aliases preserve downward ownership and transport restri
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });

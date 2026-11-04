@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -39,7 +38,7 @@ testStable(
       db.exec(
         "INSERT INTO message_versions(message_id,number,origin,status,text,created_at) VALUES(3,2,'edited','complete','Independent manual edit',1)"
       );
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(sql`SELECT text FROM message_versions WHERE id=2`)?.text,
         'Preserved raw answer'
       );
@@ -51,13 +50,13 @@ testStable(
         'session_run_contexts_history_insert',
         'sessions_history_selection'
       ])
-        assert.equal(
+        assert.strictEqual(
           db.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name=${name}`),
           undefined,
           name
         );
 
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db.close();
       location.cleanup();

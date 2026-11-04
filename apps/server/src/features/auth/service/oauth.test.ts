@@ -14,15 +14,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 
 import { sql } from '@study/db';
 import { preferences } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import type { Context } from 'effect';
 import { Effect, Fiber, Layer } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';
@@ -59,7 +59,7 @@ async function peer() {
 
     const form = new URLSearchParams(body);
 
-    assert.equal(request.url, '/api/accounts/oauth/token');
+    assert.ok(request.url === '/api/accounts/oauth/token');
 
     if (form.get('grant_type') === 'refresh_token') {
       if (rotate) {
@@ -73,7 +73,7 @@ async function peer() {
       return;
     }
 
-    assert.equal(form.get('grant_type'), 'authorization_code');
+    assert.ok(form.get('grant_type') === 'authorization_code');
 
     if (blockToken) {
       response.on('close', tokenClosed);
@@ -184,21 +184,21 @@ testStable(
         );
         const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
 
-        assert.equal(response.status, 200);
+        assert.strictEqual(response.status, 200);
         yield* Effect.promise(() => response.text());
-        assert.deepEqual(yield* Fiber.join(pending), {
+        expect(yield* Fiber.join(pending)).toStrictEqual({
           signedIn: true,
           email: 'p@example.test',
           sharing: true
         });
-        assert.deepEqual(yield* auth.publicAccount(), {
+        expect(yield* auth.publicAccount()).toStrictEqual({
           subject: 'person',
           email: 'p@example.test',
           sharing: true
         });
         const first = yield* auth.credentialGeneration();
 
-        assert.notDeepEqual(first, initial);
+        expect(first).not.toStrictEqual(initial);
         const second = yield* auth.startSignIn({});
         const finishing = yield* Effect.forkChild(
           auth.finishSignIn({ attemptId: second.attemptId })
@@ -207,11 +207,11 @@ testStable(
 
         yield* Effect.promise(() => result.text());
         yield* Fiber.join(finishing);
-        assert.notDeepEqual(yield* auth.credentialGeneration(), first);
+        expect(yield* auth.credentialGeneration()).not.toStrictEqual(first);
         const rows = context.db.orm.select().from(preferences).all();
         const account = rows.find((row) => row.key === 'account');
 
-        assert.equal(JSON.parse(account!.value).refreshToken, 'refresh-secret');
+        assert.ok(JSON.parse(account!.value).refreshToken === 'refresh-secret');
         assert.ok(!JSON.stringify(yield* auth.publicAccount()).includes('secret'));
       }
 
@@ -250,16 +250,15 @@ testStable('failed OAuth persistence restores the previous account and session',
 
       yield* Effect.promise(() => response.text());
       assert.ok(yield* Fiber.join(pending));
-      assert.equal((yield* auth.publicAccount())?.subject, 'old');
-      assert.equal(
+      assert.ok((yield* auth.publicAccount())?.subject === 'old');
+      assert.ok(
         JSON.parse(
           context.db.orm
             .select()
             .from(preferences)
             .all()
             .find((row) => row.key === 'account')!.value
-        ).refreshToken,
-        'old-secret'
+        ).refreshToken === 'old-secret'
       );
       // A restored session attempts refresh rather than reporting a signed-out session.
       const failure = yield* Effect.flip(
@@ -267,7 +266,7 @@ testStable('failed OAuth persistence restores the previous account and session',
       );
 
       assert.ok(failure instanceof Error);
-      assert.notEqual(failure.message, 'ChatGPT is not signed in');
+      assert.notStrictEqual(failure.message, 'ChatGPT is not signed in');
     }
 
     await Effect.runPromise(
@@ -357,7 +356,7 @@ testStable(
               .all()
               .find((entry) => entry.key === 'account');
 
-            assert.equal(JSON.parse(row!.value).refreshToken, 'rotated-secret');
+            assert.ok(JSON.parse(row!.value).refreshToken === 'rotated-secret');
           }).pipe(Effect.provide(layer))
         )
       );
@@ -390,7 +389,7 @@ testStable(
         yield* Effect.promise(() => oauth.tokenRequest);
         yield* Fiber.interrupt(finishing);
         yield* Effect.promise(() => oauth.tokenAbort);
-        yield* Effect.promise(() => assert.rejects(fetch(callback)));
+        yield* Effect.promise(() => expect(fetch(callback)).rejects.toSatisfy(() => true));
       }
 
       await Effect.runPromise(

@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
-import type { TestContext } from 'node:test';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -10,7 +9,7 @@ function fixture(t: TestContext) {
   const location = createTestDatabase();
   const db = location.open();
 
-  t.after(() => {
+  t.onTestFinished(() => {
     db.close();
     location.cleanup();
   });
@@ -37,10 +36,10 @@ testStable(
     VALUES (1,'One','user',1,1),(2,'Two','user',1,1);
     INSERT INTO session_documents(session_id,document_id,position) VALUES (1,1,0),(1,2,1),(2,1,0);
     DELETE FROM sessions;`);
-    assert.equal(db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n, 2n);
-    assert.equal(db.orm.get(sql`SELECT count(*) AS n FROM study_document_versions`)?.n, 3n);
-    assert.equal(db.orm.get(sql`SELECT count(*) AS n FROM session_documents`)?.n, 0n);
-    assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n, 2n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM study_document_versions`)?.n, 3n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM session_documents`)?.n, 0n);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
@@ -85,7 +84,7 @@ testStable(
       db.exec(`INSERT INTO study_document_version_parents
     (version_id,parent_version_id,document_id) VALUES (1,2,1)`)
     );
-    assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
@@ -122,11 +121,11 @@ testStable(
         `INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (77,'document','Bypass',1,1)`
       )
     );
-    assert.equal(
+    assert.strictEqual(
       db.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_document_versions'`),
       undefined
     );
-    assert.equal(db.orm.get(sql`SELECT count(*) n FROM study_document_versions`)?.n, 3n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM study_document_versions`)?.n, 3n);
   }
 );
 
@@ -147,5 +146,5 @@ testStable('authored publication rejects an exact input draft or retired depende
       `INSERT INTO study_document_retirements(version_id,reason,created_at) VALUES(3,'history',3)`
     )
   );
-  assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+  expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
 });

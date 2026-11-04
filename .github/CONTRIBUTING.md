@@ -78,7 +78,7 @@ configs live in `apps/web`; shared TypeScript settings live in `tooling/typescri
 Rust lint and dependency policy live in `tooling/rust`; `.cargo/config.toml` points Clippy
 there for both recipes and direct Cargo invocations. Root npm scripts select the web
 workspace and server TypeScript config. Vite+ (`vp`) owns web development, builds,
-frontend Vitest, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts` imports the
+Vitest for every TypeScript and JavaScript test suite, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts` imports the
 shared policies from `tooling/oxc-config`; these apply to server, frontend, tests and tooling.
 Run `npm run format` to format, `npm run format:check` to check formatting, and `npm run lint`
 for the combined format/lint gate with warnings denied.
@@ -213,3 +213,10 @@ Desktop, CLI, and web clients use the same typed procedures.
 `apps/server`, grouped by domain with input validation and a sibling `.test.ts` for each
 operation. Tests use fresh SQLite databases and actual services. `apps/server/src/runtime/main.ts`
 starts and stops the server process. The app is local only; ChatGPT provider sign-in is retained.
+
+Test assertions come from `vite-plus/test`; classified registrations come from
+`@study/testing/vitest`. `node:assert` imports are forbidden. `npm run server:test`
+runs the server and package suites; `npm run quality:test` runs lint, development,
+desktop permission, and shared runner tests. Server fixtures use Vitest lifecycle
+hooks to close resources before deleting SQLite files. Test-runner imports stay out
+of production modules.

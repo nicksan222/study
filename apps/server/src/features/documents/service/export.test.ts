@@ -11,16 +11,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { createBlock } from '@study/contracts/sources/document';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -43,10 +43,10 @@ testStable('export primitives reject active protocols and escape text and attrib
     '//example.com',
     'file:///tmp/x'
   ])
-    assert.equal(safeExportLink(link), false);
+    assert.ok(safeExportLink(link) === false);
 
-  assert.equal(safeExportLink('https://example.com/a'), true);
-  assert.equal(escapeHtml('<script a="x">&'), '&lt;script a=&quot;x&quot;&gt;&amp;');
+  assert.ok(safeExportLink('https://example.com/a') === true);
+  assert.ok(escapeHtml('<script a="x">&') === '&lt;script a=&quot;x&quot;&gt;&amp;');
 });
 
 testStable(
@@ -89,13 +89,13 @@ testStable(
             const key = { id: material.version!.id, format: 'html' as const };
             const first = yield* rpc('documents.exportFile', key);
 
-            assert.deepEqual(first, yield* rpc('documents.exportFile', key));
+            expect(first).toStrictEqual(yield* rpc('documents.exportFile', key));
             const text = new TextDecoder().decode(first.bytes);
 
             assert.ok(!text.includes('<script>'));
             assert.ok(text.includes('&lt;script&gt;'));
             assert.ok(first.omissions.some((o) => o.code === 'math_not_rendered'));
-            assert.equal(first.versionId, material.version!.id);
+            assert.strictEqual(first.versionId, material.version!.id);
 
             for (const kind of ['audio', 'video'] as const) {
               const capability = yield* sourceRpc('sources.importCapability', {
@@ -103,8 +103,8 @@ testStable(
                 mime: kind + '/test'
               });
 
-              assert.equal(capability.status, 'unavailable');
-              assert.equal(capability.provider.capability, 'unverified');
+              assert.ok(capability.status === 'unavailable');
+              assert.ok(capability.provider.capability === 'unverified');
             }
 
             const literal =
@@ -223,9 +223,9 @@ testStable(
               format: 'aid_json'
             });
 
-            assert.equal(
-              JSON.parse(new TextDecoder().decode(aidJson.bytes)).version.content.kind,
-              'flashcards'
+            assert.ok(
+              JSON.parse(new TextDecoder().decode(aidJson.bytes)).version.content.kind ===
+                'flashcards'
             );
             const historical = yield* rpc('documents.create', {
               createKey: 'history-export',
@@ -253,24 +253,22 @@ testStable(
             const history = yield* rpc('documents.previewHistory', scope);
 
             yield* rpc('documents.retireHistory', { ...scope, token: history.token });
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 rpc('documents.exportFile', { id: historical.version.id, format: 'markdown' })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
             const preview = yield* rpc('documents.previewDeletion', { id: material.id });
 
             yield* rpc('documents.delete', { documentId: material.id, token: preview.token });
-            assert.equal((yield* Effect.flip(rpc('documents.exportFile', key))).kind, 'not_found');
-            assert.deepEqual(
+            assert.ok((yield* Effect.flip(rpc('documents.exportFile', key))).kind === 'not_found');
+            expect(
               yield* aidRpc('materials.exportMaterialVersion', {
                 id: aid.version.id,
                 format: 'aid_json'
               }),
-              aidJson,
               'Independent learning artifacts keep their own export lifetime'
-            );
+            ).toStrictEqual(aidJson);
           })
         ).pipe(Effect.provide(handlers))
       );
@@ -296,8 +294,10 @@ testStable(
       const exact = exportBudget(bytes);
 
       exact.consume(value);
-      assert.equal(exact.remaining(), 0);
-      assert.throws(() => exportBudget(bytes - 1).consume(value), { kind: 'invalid_input' });
+      assert.strictEqual(exact.remaining(), 0);
+      expect(() => exportBudget(bytes - 1).consume(value)).toThrow(
+        expect.objectContaining({ kind: 'invalid_input' })
+      );
     }
 
     let readLater = false;
@@ -310,7 +310,9 @@ testStable(
       }
     };
 
-    assert.throws(() => exportBudget(20).consume(evidence), { kind: 'invalid_input' });
-    assert.equal(readLater, false);
+    expect(() => exportBudget(20).consume(evidence)).toThrow(
+      expect.objectContaining({ kind: 'invalid_input' })
+    );
+    assert.ok(readLater === false);
   }
 );

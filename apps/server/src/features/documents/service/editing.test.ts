@@ -10,17 +10,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { createBlock } from '@study/contracts/sources/document';
 import { sql, eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import type { Context } from 'effect';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { assert, expect } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -110,7 +109,7 @@ testStable(
 
       const results = await Promise.all([save(a), save(b)]);
 
-      assert.deepEqual(results.map((r) => r.outcome).sort(), ['conflict', 'saved']);
+      expect(results.map((r) => r.outcome).sort()).toStrictEqual(['conflict', 'saved']);
 
       const winner = results.find((r) => r.outcome === 'saved')!;
 
@@ -126,7 +125,7 @@ testStable(
         })
       );
 
-      assert.equal(comparison.evidence, 'structural_only');
+      assert.ok(comparison.evidence === 'structural_only');
 
       assert.ok(comparison.proposed.document.blocks.length > 0);
 
@@ -134,7 +133,7 @@ testStable(
 
       assert.ok(!comparison.proposedChanges.some((change) => change.blockId === stable.id));
 
-      assert.equal(context.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(context.db.orm.select().from(s.study_documents).all().length, 1);
 
       const retainedBlock = context.db.orm
         .select()
@@ -167,17 +166,17 @@ testStable(
         sql`CREATE TRIGGER reject_edit_event BEFORE INSERT ON workflow_events WHEN NEW.type='DocumentPublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
       );
 
-      await assert.rejects(save(retryable));
+      await expect(save(retryable)).rejects.toSatisfy(() => true);
 
-      assert.deepEqual(output(), beforeFailure);
+      expect(output()).toStrictEqual(beforeFailure);
 
       context.db.orm.run(sql`DROP TRIGGER reject_edit_event`);
 
       const retried = await save(retryable);
 
-      assert.equal(retried.outcome, 'saved');
+      assert.ok(retried.outcome === 'saved');
 
-      assert.equal((await save(retryable)).submittedVersionId, retried.submittedVersionId);
+      assert.strictEqual((await save(retryable)).submittedVersionId, retried.submittedVersionId);
 
       assert.throws(() =>
         context.db.orm
@@ -192,9 +191,9 @@ testStable(
 
       const replay = await save(a);
 
-      assert.equal(replay.replayed, true);
+      assert.ok(replay.replayed === true);
 
-      assert.equal(replay.submittedVersionId, results[0]!.submittedVersionId);
+      assert.strictEqual(replay.submittedVersionId, results[0]!.submittedVersionId);
 
       const changed = await call(
         Effect.gen(function* () {
@@ -207,7 +206,7 @@ testStable(
         })
       );
 
-      assert.equal(changed.kind, 'invalid_input');
+      assert.ok(changed.kind === 'invalid_input');
 
       const undo = await call(
         Effect.gen(function* () {
@@ -220,7 +219,7 @@ testStable(
         })
       );
 
-      assert.equal(undo.outcome, 'saved');
+      assert.ok(undo.outcome === 'saved');
 
       const concurrent = await save({
         ...a,
@@ -240,11 +239,11 @@ testStable(
         })
       );
 
-      assert.equal(staleUndo.outcome, 'conflict');
+      assert.ok(staleUndo.outcome === 'conflict');
 
-      assert.equal(staleUndo.currentVersionId, concurrent.submittedVersionId);
+      assert.strictEqual(staleUndo.currentVersionId, concurrent.submittedVersionId);
 
-      assert.equal(
+      assert.strictEqual(
         (
           await call(
             Effect.gen(function* () {
@@ -255,7 +254,7 @@ testStable(
         concurrent.submittedVersionId
       );
 
-      assert.equal(context.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(context.db.orm.select().from(s.study_documents).all().length, 1);
     } finally {
       context.close();
 

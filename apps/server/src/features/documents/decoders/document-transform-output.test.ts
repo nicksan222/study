@@ -11,12 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { createBlock } from '@study/contracts/sources/document';
 import { blockContentSchema } from '@study/contracts/sources/schemas';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { canonicalDocumentTransformOutput } from './document-transform-output.ts';
 
@@ -42,17 +42,16 @@ testStable(
     const proposed = canonicalDocumentTransformOutput(output, [first, second, code]);
     const ids = proposed.document.blocks.map((block) => block.id);
 
-    assert.deepEqual(ids.slice(0, 3), [code.id, first.id, second.id]);
-    assert.equal(new Set(ids).size, ids.length);
+    expect(ids.slice(0, 3)).toStrictEqual([code.id, first.id, second.id]);
+    assert.strictEqual(new Set(ids).size, ids.length);
     assert.ok(![first.id, second.id, code.id].includes(ids[3]!));
     assert.ok(![first.id, second.id, code.id, added.id].includes(ids[4]!));
-    assert.deepEqual(proposed.report.notes[0]!.blockIds, [code.id, first.id, second.id]);
+    expect(proposed.report.notes[0]!.blockIds).toStrictEqual([code.id, first.id, second.id]);
 
     const independent = canonicalDocumentTransformOutput(output);
 
     assert.ok(independent.document.blocks.every((block) => !ids.includes(block.id)));
-    assert.deepEqual(
-      independent.document.blocks.map((block) => block.content),
+    expect(independent.document.blocks.map((block) => block.content)).toStrictEqual(
       proposed.document.blocks.map((block) => block.content)
     );
   }
@@ -90,8 +89,8 @@ testStable(
       ]
     });
 
-    assert.equal(table.text, marked.text);
-    assert.equal(list.text, renumbered.text);
+    assert.strictEqual(table.text, marked.text);
+    assert.strictEqual(list.text, renumbered.text);
 
     const result = canonicalDocumentTransformOutput(
       {
@@ -105,7 +104,7 @@ testStable(
     const ids = result.document.blocks.map((block) => block.id);
 
     assert.ok(ids.slice(0, 2).every((id) => id !== table.id && id !== list.id));
-    assert.deepEqual(ids.slice(2), [table.id, list.id]);
-    assert.deepEqual(result.report.notes[0]!.blockIds, ids);
+    expect(ids.slice(2)).toStrictEqual([table.id, list.id]);
+    expect(result.report.notes[0]!.blockIds).toStrictEqual(ids);
   }
 );

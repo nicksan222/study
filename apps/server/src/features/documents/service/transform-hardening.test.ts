@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { citationSchema } from '@study/contracts/documents/schemas';
@@ -21,8 +20,9 @@ import { studyDocumentVersionIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -165,10 +165,10 @@ testStable(
       const before = state(f);
 
       for (const citation of forged) {
-        await assert.rejects(
+        await expect(
           Effect.runPromise(publish(f, { ...saved.publication, citations: [citation] }))
-        );
-        assert.deepEqual(state(f), before);
+        ).rejects.toSatisfy(() => true);
+        expect(state(f)).toStrictEqual(before);
       }
 
       await Effect.runPromise(publish(f, saved.publication));
@@ -187,7 +187,7 @@ testStable(
           }))
         })
       );
-      assert.deepEqual(state(f), after);
+      expect(state(f)).toStrictEqual(after);
 
       for (const changed of [
         { ...saved.publication, language: 'italian' },
@@ -200,8 +200,8 @@ testStable(
           citations: [{ ...cited, target: { ...saved.target, start: 3, end: 7 } }]
         }
       ]) {
-        await assert.rejects(Effect.runPromise(publish(f, changed)));
-        assert.deepEqual(state(f), after);
+        await expect(Effect.runPromise(publish(f, changed))).rejects.toSatisfy(() => true);
+        expect(state(f)).toStrictEqual(after);
       }
 
       const versionId = after.transforms.find(
@@ -218,12 +218,12 @@ testStable(
         sql`UPDATE study_document_transform_requests SET report=NULL WHERE id=${saved.request.id}`
       ]) {
         assert.throws(() => f.context.db.orm.run(mutation));
-        assert.deepEqual(state(f), after);
+        expect(state(f)).toStrictEqual(after);
       }
 
       f.reopen();
       await Effect.runPromise(publish(f, saved.publication));
-      assert.deepEqual(state(f), after);
+      expect(state(f)).toStrictEqual(after);
       await Effect.runPromise(
         Effect.flatMap(Conversations, (chats) => chats.deleteSession(saved.session.id)).pipe(
           Effect.provide(f.domain())
@@ -232,14 +232,14 @@ testStable(
       const retired = state(f);
 
       await Effect.runPromise(publish(f, saved.publication));
-      assert.deepEqual(state(f), retired);
+      expect(state(f)).toStrictEqual(retired);
       const docs = await Effect.runPromise(Documents.pipe(Effect.provide(f.domain())));
       const version = await Effect.runPromise(
         docs.version({ id: versionId }).pipe(Effect.provide(f.domain()))
       );
 
-      assert.deepEqual(version.citations, saved.publication.citations);
-      assert.deepEqual(version.inputs, [saved.input]);
+      expect(version.citations).toStrictEqual(saved.publication.citations);
+      expect(version.inputs).toStrictEqual([saved.input]);
     } finally {
       await f.close();
     }
@@ -275,10 +275,10 @@ testStable(
             });
           const exact = yield* write(citation);
 
-          assert.deepEqual(exact.version?.citations, [citation]);
+          expect(exact.version?.citations).toStrictEqual([citation]);
           const approximate = yield* write({ ...citation, target: null });
 
-          assert.equal(approximate.version?.citations[0]?.target, null);
+          assert.ok(approximate.version?.citations[0]?.target === null);
           const before = state(f);
 
           for (const target of [
@@ -287,14 +287,13 @@ testStable(
             { ...citation.target, start: 0, end: 2 },
             { ...citation.target, blockId: exact.version!.document.blocks[0]!.id }
           ]) {
-            assert.equal(
-              (yield* Effect.flip(write({ ...citation, target }))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(write({ ...citation, target }))).kind === 'invalid_input'
             );
-            assert.deepEqual(state(f), before);
+            expect(state(f)).toStrictEqual(before);
           }
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               write({
                 ...citation,
@@ -305,10 +304,9 @@ testStable(
                   )
                 }
               })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
-          assert.deepEqual(state(f), before);
+          expect(state(f)).toStrictEqual(before);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -366,8 +364,8 @@ testStable(
             })
           );
 
-          assert.equal(failure.kind, 'invalid_input');
-          assert.deepEqual(state(f), before);
+          assert.ok(failure.kind === 'invalid_input');
+          expect(state(f)).toStrictEqual(before);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -391,8 +389,10 @@ for (const table of ['study_document_proposals', 'study_document_transform_reque
             ? "CREATE TRIGGER reject_publication BEFORE INSERT ON study_document_proposals BEGIN SELECT RAISE(ABORT,'fixture rollback'); END"
             : "CREATE TRIGGER reject_publication BEFORE UPDATE OF result_version_id ON study_document_transform_requests WHEN NEW.result_version_id IS NOT NULL BEGIN SELECT RAISE(ABORT,'fixture rollback'); END"
         );
-        await assert.rejects(Effect.runPromise(publish(f, saved.publication)));
-        assert.deepEqual(state(f), before);
+        await expect(Effect.runPromise(publish(f, saved.publication))).rejects.toSatisfy(
+          () => true
+        );
+        expect(state(f)).toStrictEqual(before);
         f.context.db.exec('DROP TRIGGER reject_publication');
         await Effect.runPromise(publish(f, saved.publication));
         const after = state(f);
@@ -401,21 +401,21 @@ for (const table of ['study_document_proposals', 'study_document_transform_reque
         )?.result_version_id;
 
         assert.ok(versionId);
-        assert.equal(after.proposals[0]?.proposed_version_id, versionId);
-        assert.equal(after.proposals[0]?.base_version_id, saved.original.version.id);
-        assert.equal(after.documents.find((row) => row.id === versionId)?.status, 'draft');
-        assert.equal(after.published.length, before.published.length + 1);
-        assert.equal(after.published.at(-1)?.correlationId, saved.request.id);
-        assert.equal(
-          after.documents.find((row) => row.id === saved.original.version.id)?.status,
-          'published'
+        assert.strictEqual(after.proposals[0]?.proposed_version_id, versionId);
+        assert.strictEqual(after.proposals[0]?.base_version_id, saved.original.version.id);
+        assert.ok(after.documents.find((row) => row.id === versionId)?.status === 'draft');
+        assert.strictEqual(after.published.length, before.published.length + 1);
+        assert.strictEqual(after.published.at(-1)?.correlationId, saved.request.id);
+        assert.ok(
+          after.documents.find((row) => row.id === saved.original.version.id)?.status ===
+            'published'
         );
         await Effect.runPromise(publish(f, saved.publication));
-        assert.deepEqual(state(f), after);
+        expect(state(f)).toStrictEqual(after);
         f.reopen();
         await Effect.runPromise(publish(f, saved.publication));
-        assert.deepEqual(state(f), after);
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(state(f)).toStrictEqual(after);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

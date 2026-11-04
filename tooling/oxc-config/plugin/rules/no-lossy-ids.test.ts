@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -11,7 +10,7 @@ testStable('no-lossy-ids guards production and accepts safe alternatives', () =>
     'src/fixture.test.ts': 'Number(item.id); parseInt(projectId, 10);'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -21,7 +20,7 @@ testStable('no-lossy-ids handles aliases and avoids unrelated bindings', () => {
     'src/good.ts': 'function f(JSON) { return JSON.parse(row.body) as Body; } Number(pageCount);'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -31,7 +30,7 @@ testStable('no-lossy-ids covers direct unsafe forms', () => {
     'src/good.ts': 'Number.parseInt(row.duration, 10);'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -53,7 +52,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
   }
 );
@@ -75,7 +74,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
   }
 );
@@ -88,7 +87,7 @@ testStable(
       'src/features/materials/store/session-retirement.ts': `Number(row.result_version_id); Number(row.proposed_version_id); String(row.base_version_id); String(value.requestId);`
     });
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
@@ -102,7 +101,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -118,7 +117,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -132,7 +131,7 @@ testStable(
         'Number(row.session_id); String(row.request_id); Number(row.revision);'
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -147,6 +146,6 @@ testStable('workspace project selections and membership identities stay lossless
     true
   );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/identity.ts')));
 });

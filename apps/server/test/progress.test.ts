@@ -1,28 +1,29 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Checks concise test results and failure-only file diagnostics.                     │
+ * │ @file Verifies native Vitest progress and failure-only diagnostics in isolated           │
+ * │ subprocesses.                                                                            │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Exercises the real Node CLI with passing and failing files running together.           │
+ * │ - Checks passing output stays quiet and failed output retains diagnostics.               │
+ * │ - Confirms phase helpers preserve returned values and original operation failures.       │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Uses public Node reporter events; CLI loading is covered by automatic fixture tests.     │
+ * │ Uses the real test CLI and temporary files without replacing application services.       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { expect } from 'vite-plus/test';
 
-import progress from '#testing/progress';
+import { inTestPhase } from '#testing/progress';
 
-const reporter = fileURLToPath(new URL('./testing/progress.ts', import.meta.url));
+const runner = fileURLToPath(new URL('../../../node_modules/vitest/vitest.mjs', import.meta.url));
 
 for (const mode of ['pass', 'fail', 'imported-fail']) {
   const fails = mode !== 'pass';
@@ -30,11 +31,8 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
   testStable(`progress keeps test results and filters diagnostics for ${mode}`, () => {
     const directory = mkdtempSync(join(tmpdir(), 'study-reporter-'));
     const fixture = join(directory, 'fixture.test.mjs');
-    const passing = join(directory, 'passing.test.mjs');
     const definition = mode === 'imported-fail' ? join(directory, 'definition.mjs') : fixture;
-    const env = { ...process.env };
-
-    delete env.NODE_TEST_CONTEXT;
+    const config = join(directory, 'vite.config.mjs');
 
     try {
       symlinkSync(
@@ -43,65 +41,50 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
         'dir'
       );
       writeFileSync(
-        passing,
-        `
-        import { testStable } from '@study/testing/node';
-        testStable('other passing result', () => console.log('other passing output'));
-      `
+        config,
+        `export default { test: { fsModuleCache: false, include: ['*.test.mjs'], reporters: ['verbose'], silent: 'passed-only', maxWorkers: 1 } };`
+      );
+      writeFileSync(
+        join(directory, 'passing.test.mjs'),
+        `import { testStable } from '@study/testing/vitest'; testStable('other passing result', () => console.log('other passing output'));`
       );
       writeFileSync(
         definition,
-        `
-        import { testStable } from '@study/testing/node';
-        testStable('visible test result', (t) => {
-          console.log('fixture stdout');
-          console.error('fixture stderr');
-          t.diagnostic('fixture diagnostic');
-          t.log('fixture phase');
-          if (${fails}) throw new Error('intentional failure');
-        });
-      `
+        `import { testStable } from '@study/testing/vitest'; import { assert } from 'vite-plus/test'; testStable('visible test result', () => { console.log('fixture stdout'); console.error('fixture stderr'); console.debug('fixture phase'); if (${fails}) assert.fail('intentional failure'); });`
       );
 
       if (definition !== fixture) writeFileSync(fixture, `import './definition.mjs';`);
 
       const child = spawnSync(
         process.execPath,
-        ['--test', `--test-reporter=${reporter}`, fixture, passing],
-        {
-          encoding: 'utf8',
-          env
-        }
+        [runner, 'run', '--root', directory, '--config', config],
+        { encoding: 'utf8' }
       );
       const output = child.stdout + child.stderr;
 
-      assert.equal(child.status, fails ? 1 : 0, output);
-      assert.match(output, /visible test result/);
-      assert.match(output, /other passing result/);
-      assert.doesNotMatch(output, /other passing output/);
-      assert.doesNotMatch(output, /"event":"test:/);
+      expect(child.status, output).toBe(fails ? 1 : 0);
+      expect(output).toMatch(/visible test result/);
+      expect(output).toMatch(/other passing result/);
+      expect(output).not.toMatch(/other passing output/);
 
-      for (const message of [
-        'fixture stdout',
-        'fixture stderr',
-        'fixture diagnostic',
-        'fixture phase'
-      ]) {
-        if (fails) assert.ok(output.includes(message), output);
-        else assert.ok(!output.includes(message), output);
+      for (const message of ['fixture stdout', 'fixture stderr', 'fixture phase']) {
+        expect(output.includes(message), output).toBe(fails);
       }
 
-      if (fails) assert.match(output, /intentional failure/);
+      if (fails) expect(output).toMatch(/intentional failure/);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
   });
 }
 
-testStable('progress emits no debug output for an empty event stream', async () => {
-  let output = '';
+testStable('phase diagnostics preserve operation results and failures', async (context) => {
+  await expect(inTestPhase(context, 'success', async () => 42)).resolves.toBe(42);
+  const failure = new Error('operation failure');
 
-  for await (const chunk of progress(Readable.from([]))) output += chunk;
-
-  assert.equal(output, '');
+  await expect(
+    inTestPhase(context, 'failure', () => {
+      throw failure;
+    })
+  ).rejects.toBe(failure);
 });

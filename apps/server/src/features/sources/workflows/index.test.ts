@@ -13,17 +13,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import type { ProjectId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -111,29 +110,35 @@ testStable(
               assert.ok(indexed?.type === 'SourceIndexed');
 
               if (revision === 1) {
-                assert.equal(indexed.projectId, collection.id);
+                assert.strictEqual(indexed.projectId, collection.id);
                 yield* projects.deleteProject({ id: collection.id });
               }
 
-              assert.equal(
+              assert.strictEqual(
                 (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
                 documentId
               );
-              assert.equal(context.db.orm.select().from(tables.materials).all().length, 0);
-              assert.equal(context.db.orm.select().from(tables.study_documents).all().length, 0);
+              assert.strictEqual(context.db.orm.select().from(tables.materials).all().length, 0);
+              assert.strictEqual(
+                context.db.orm.select().from(tables.study_documents).all().length,
+                0
+              );
 
               return { documentId };
             }
 
             const first = yield* ingest(1);
 
-            assert.equal((yield* sources.sourceProcessing(source.id)).documentId, first.documentId);
+            assert.strictEqual(
+              (yield* sources.sourceProcessing(source.id)).documentId,
+              first.documentId
+            );
             const session = yield* client('conversations.createSession', {
               title: 'Historic import'
             });
 
             // Original bytes are not authority for a future extraction.
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.updateSessionSelection', {
                   sessionId: session.id,
@@ -150,8 +155,7 @@ testStable(
                     }
                   ]
                 })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
             yield* sources.replaceSource({
               id: source.id,
@@ -161,7 +165,7 @@ testStable(
             });
             const latest = yield* ingest(2);
 
-            assert.notEqual(latest.documentId, first.documentId);
+            assert.notStrictEqual(latest.documentId, first.documentId);
             // Select after replacement: resolution must follow the version pin, never processing head.
             yield* client('conversations.updateSessionSelection', {
               sessionId: session.id,
@@ -185,11 +189,10 @@ testStable(
               preferences: {}
             });
 
-            assert.deepEqual(snapshot.messages, []);
-            assert.equal(snapshot.inputs[0]!.snapshotId, first.documentId);
-            assert.equal(snapshot.inputs[0]!.excerpts[0]!.text, 'Hello historic extraction');
-            assert.deepEqual(
-              snapshot.inputs[0]!.document,
+            expect(snapshot.messages).toStrictEqual([]);
+            assert.strictEqual(snapshot.inputs[0]!.snapshotId, first.documentId);
+            assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === 'Hello historic extraction');
+            expect(snapshot.inputs[0]!.document).toStrictEqual(
               (yield* sources.extraction({
                 sourceId: source.id,
                 revision: 1n,
@@ -210,7 +213,7 @@ testStable(
         ).pipe(Effect.provide(domain()))
       );
 
-      assert.deepEqual(reopened, captured);
+      expect(reopened).toStrictEqual(captured);
     } finally {
       await auth.dispose();
       context.close();
@@ -277,8 +280,8 @@ testStable(
               engine.execute(sourceIngestionWorkflow, { executionId: 'stale', payload: { event } })
             );
 
-            assert.equal(failure.kind, 'invalid_input');
-            assert.equal((yield* sources.sourceProcessing(source.id)).documentId, null);
+            assert.ok(failure.kind === 'invalid_input');
+            assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
             const revisionSource = yield* sources.createSource({
               name: 'revision.txt',
               bytes: new TextEncoder().encode('first'),
@@ -309,9 +312,9 @@ testStable(
               })
             );
 
-            assert.equal(revisionFailure.kind, 'invalid_input');
-            assert.equal((yield* sources.sourceProcessing(revisionSource.id)).documentId, null);
-            assert.equal(
+            assert.ok(revisionFailure.kind === 'invalid_input');
+            assert.ok((yield* sources.sourceProcessing(revisionSource.id)).documentId === null);
+            assert.strictEqual(
               dispatchPending(context, sourceIngestionRegistration.triggers, Date.now()),
               3
             );
@@ -332,7 +335,7 @@ testStable(
                 yield* Effect.sleep('10 millis');
             }
 
-            assert.equal((yield* sources.sourceProcessing(source.id)).documentId, null);
+            assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
           }).pipe(Effect.provide(services))
         )
       );
@@ -401,7 +404,7 @@ for (const input of ['attachment', 'link'] as const)
       await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
       const address = peer.address();
 
-      if (!address || typeof address === 'string') throw new Error('missing peer address');
+      assert.ok(!(!address || typeof address === 'string'), 'missing peer address');
 
       const base = `http://127.0.0.1:${address.port}`;
       const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
@@ -463,23 +466,23 @@ for (const input of ['attachment', 'link'] as const)
                 })
               );
 
-              assert.equal(stale.kind, 'invalid_input');
-              assert.equal(calls, 0);
+              assert.ok(stale.kind === 'invalid_input');
+              assert.strictEqual(calls, 0);
               const exit = yield* Effect.exit(
                 engine.execute(sourceIngestionWorkflow, { executionId: 'pdf', payload: { event } })
               );
 
-              assert.equal(exit._tag, 'Failure');
+              assert.ok(exit._tag === 'Failure');
 
               return { event };
             }).pipe(Effect.provide(services()))
           )
         );
 
-        assert.equal(calls, 1);
-        assert.equal(fetches, input === 'link' ? 1 : 0);
-        assert.match(String(requestBody.instructions), /Transcribe all pages in order/);
-        assert.equal(
+        assert.strictEqual(calls, 1);
+        assert.strictEqual(fetches, input === 'link' ? 1 : 0);
+        expect(String(requestBody.instructions)).toMatch(/Transcribe all pages in order/);
+        assert.strictEqual(
           context.db.orm.all(
             sql`SELECT * FROM workflow_activities WHERE execution_id = 'pdf' AND name = 'decode-source'`
           ).length,
@@ -504,14 +507,13 @@ for (const input of ['attachment', 'link'] as const)
             }).pipe(Effect.provide(services()))
           )
         );
-        assert.equal(calls, 1);
-        assert.equal(fetches, input === 'link' ? 1 : 0);
-        assert.deepEqual(
+        assert.strictEqual(calls, 1);
+        assert.strictEqual(fetches, input === 'link' ? 1 : 0);
+        expect(
           context.db.orm
             .all<{ text: string }>(sql`SELECT text FROM blocks ORDER BY ordinal`)
-            .map((row) => row.text),
-          ['One', 'Two']
-        );
+            .map((row) => row.text)
+        ).toStrictEqual(['One', 'Two']);
       } finally {
         await auth.dispose();
         context.close();
@@ -604,16 +606,15 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
               payload: { event }
             });
 
-            assert.equal((yield* sources.sourceProcessing(source.id)).documentId, id);
+            assert.strictEqual((yield* sources.sourceProcessing(source.id)).documentId, id);
             const rows = context.db.orm.all<{ text: string }>(
               'SELECT text FROM blocks ORDER BY rowid'
             );
 
-            assert.deepEqual(
+            expect(
               rows.slice(-sample.expected.length).map((row) => row.text),
-              sample.expected,
               sample.name
-            );
+            ).toStrictEqual(sample.expected);
           }
 
           const { SourceStore } = yield* Effect.promise(
@@ -653,7 +654,7 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
             'SELECT anchor FROM blocks ORDER BY rowid DESC LIMIT 1'
           )[0].anchor;
 
-          assert.deepEqual(JSON.parse(anchor), {
+          expect(JSON.parse(anchor)).toStrictEqual({
             type: 'url',
             url: 'https://example.test/original',
             fragment: 'chapter'
@@ -690,7 +691,7 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
               })
             );
 
-            assert.equal(failure.kind, 'unsupported', name);
+            assert.ok(failure.kind === 'unsupported', name);
           }
         }).pipe(Effect.provide(services))
       )
@@ -718,7 +719,7 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
   await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
   const address = peer.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   const base = `http://127.0.0.1:${address.port}`;
   const location = createTestDatabase();
@@ -767,10 +768,10 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
             'SELECT text, anchor FROM blocks'
           );
 
-          assert.equal(rows[0].text, 'Hello');
-          assert.equal(JSON.parse(rows[0].anchor).url, `${base}/final`);
-          assert.equal((yield* sources.source(source.id)).uri, `${base}/start`);
-          assert.equal(calls, 2);
+          assert.ok(rows[0].text === 'Hello');
+          assert.strictEqual(JSON.parse(rows[0].anchor).url, `${base}/final`);
+          assert.strictEqual((yield* sources.source(source.id)).uri, `${base}/start`);
+          assert.strictEqual(calls, 2);
         }).pipe(Effect.provide(services))
       )
     );
@@ -795,7 +796,7 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
   await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
   const address = peer.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   const base = `http://127.0.0.1:${address.port}`;
   const location = createTestDatabase();
@@ -847,16 +848,15 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
             })
           );
 
-          assert.equal(stale.kind, 'invalid_input');
-          assert.equal(calls, 0);
-          assert.equal(
+          assert.ok(stale.kind === 'invalid_input');
+          assert.strictEqual(calls, 0);
+          assert.ok(
             (yield* Effect.exit(
               engine.execute(sourceIngestionWorkflow, {
                 executionId: 'replay-link',
                 payload: { event }
               })
-            ))._tag,
-            'Failure'
+            ))._tag === 'Failure'
           );
 
           return { event };
@@ -864,8 +864,8 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
       )
     );
 
-    assert.equal(calls, 1);
-    assert.equal(
+    assert.strictEqual(calls, 1);
+    assert.strictEqual(
       context.db.orm.all(
         sql`SELECT * FROM workflow_activities WHERE execution_id = 'replay-link' AND name = 'fetch-source'`
       ).length,
@@ -890,10 +890,9 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
         }).pipe(Effect.provide(services()))
       )
     );
-    assert.equal(calls, 1);
-    assert.equal(
-      context.db.orm.all<{ text: string }>(sql`SELECT text FROM blocks`)[0].text,
-      'captured'
+    assert.strictEqual(calls, 1);
+    assert.ok(
+      context.db.orm.all<{ text: string }>(sql`SELECT text FROM blocks`)[0].text === 'captured'
     );
   } finally {
     await auth.dispose();
@@ -922,7 +921,7 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
   await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
   const address = peer.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   const base = `http://127.0.0.1:${address.port}`;
   const location = createTestDatabase();
@@ -971,7 +970,7 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
           yield* Effect.promise(() => startedPromise);
           yield* engine.interruptUnsafe(sourceIngestionWorkflow, 'interrupt-link');
           yield* Effect.promise(() => closedPromise);
-          assert.equal((yield* sources.sourceProcessing(source.id)).documentId, null);
+          assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
         }).pipe(Effect.provide(services))
       )
     );
@@ -1068,51 +1067,50 @@ testStable(
               payload: { event }
             });
 
-            assert.notEqual(id, old.documentId);
+            assert.notStrictEqual(id, old.documentId);
             const current = yield* sources.sourceDocument(source.id);
 
-            assert.equal(current.document.blocks[0].text, 'after');
-            assert.equal(current.document.blocks[0].id, document.blocks[0].id);
+            assert.ok(current.document.blocks[0].text === 'after');
+            assert.strictEqual(current.document.blocks[0].id, document.blocks[0].id);
             const historical = yield* sources.document({
               id: old.documentId,
               sourceId: source.id,
               projectId: 1n as ProjectId
             });
 
-            assert.deepEqual(historical.document, document);
-            assert.deepEqual(current.document.blocks[0].anchor, document.blocks[0].anchor);
-            assert.equal(current.document.meta.corrected, true);
+            expect(historical.document).toStrictEqual(document);
+            expect(current.document.blocks[0].anchor).toStrictEqual(document.blocks[0].anchor);
+            assert.ok(current.document.meta.corrected === true);
             const indexed = context.db.orm.all<{ causation_id: string; correlation_id: string }>(
               sql`SELECT causation_id, correlation_id FROM workflow_events WHERE type = 'SourceIndexed'`
             );
 
-            assert.equal(indexed.length, 1);
-            assert.equal(indexed[0].causation_id, event.eventId);
-            assert.equal(indexed[0].correlation_id, event.correlationId);
+            assert.strictEqual(indexed.length, 1);
+            assert.strictEqual(indexed[0].causation_id, event.eventId);
+            assert.strictEqual(indexed[0].correlation_id, event.correlationId);
             context.db.orm.run(
               sql`DELETE FROM workflow_activities WHERE execution_id = 'correct' AND name = 'publish-source'`
             );
             context.db.orm.run(
               sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'correct'`
             );
-            assert.equal(
+            assert.strictEqual(
               yield* engine.execute(sourceCorrectionWorkflow, {
                 executionId: 'correct',
                 payload: { event }
               }),
               id
             );
-            assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
-            assert.equal(
+            assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
+            assert.strictEqual(
               context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
                 .length,
               1
             );
-            assert.equal(
+            assert.ok(
               context.db.orm.all<{ text: string }>(
                 'SELECT text FROM blocks ORDER BY document_id'
-              )[0].text,
-              'before'
+              )[0].text === 'before'
             );
 
             return { event, id, sourceId: source.id };
@@ -1136,19 +1134,18 @@ testStable(
             const sources = yield* Sources;
 
             yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
-            assert.equal(
+            assert.strictEqual(
               yield* engine.execute(sourceCorrectionWorkflow, {
                 executionId: 'correct',
                 payload: { event: captured.event }
               }),
               captured.id
             );
-            assert.equal(
-              (yield* sources.sourceDocument(captured.sourceId)).document.blocks[0].text,
-              'after'
+            assert.ok(
+              (yield* sources.sourceDocument(captured.sourceId)).document.blocks[0].text === 'after'
             );
-            assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
-            assert.equal(
+            assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
+            assert.strictEqual(
               context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
                 .length,
               1

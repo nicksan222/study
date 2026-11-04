@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -9,7 +8,7 @@ testStable('server-layer-boundary rejects forbidden edges', () => {
     'src/procedures/jobs/create.ts': "import { db } from '@study/db';"
   });
 
-  assert.equal(diagnostics.length, 1);
+  assert.strictEqual(diagnostics.length, 1);
 });
 
 testStable('RPC adapters delegate subscriptions instead of owning database capabilities', () => {
@@ -24,7 +23,7 @@ testStable('RPC adapters delegate subscriptions instead of owning database capab
     `
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('store network calls follow global fetch aliases without matching shadows', () => {
@@ -33,7 +32,7 @@ testStable('store network calls follow global fetch aliases without matching sha
       "const request = globalThis.fetch; const run = request; run('https://example.com'); function f(fetch: () => void) { const request = fetch; request(); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -45,7 +44,7 @@ testStable(
       'src/procedures/projects/create/procedure.ts': "import '@study/db';"
     });
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
     assert.ok(diagnostics[0].filename.endsWith('/procedure.ts'));
   }
 );
@@ -63,7 +62,7 @@ testStable('feature roles enforce private stores and public cross-feature servic
     'src/features/source/source.service.test.ts': "import './source.store'; import '@study/db';"
   });
 
-  assert.equal(diagnostics.length, 8, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -74,7 +73,7 @@ testStable(
         "const load = require; load('#server/features/source/source.store'); function f(require: (x: string) => void) { require('#server/features/source/source.store'); } import('#server/features/source/source.store');"
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -90,7 +89,7 @@ testStable(
       'src/features/source/source.store.ts': "import '@study/db';"
     });
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
@@ -106,7 +105,7 @@ testStable('retired server layers and feature public exports demand migration', 
     'src/features/a/a.workflow.ts': "import type { Db } from '@study/db';"
   });
 
-  assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
 testStable('plain role filenames enforce the same boundaries as suffixed filenames', () => {
@@ -119,7 +118,7 @@ testStable('plain role filenames enforce the same boundaries as suffixed filenam
       "export { Sources } from './service'; export { SourceStore } from './store';"
   });
 
-  assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -133,7 +132,7 @@ testStable(
       'src/features/sources/nested/store.ts': "import '@study/db';"
     });
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
     assert.ok(diagnostics[0].filename.endsWith('/features/materials/service.ts'));
   }
 );
@@ -145,7 +144,7 @@ testStable('FSRS has one platform adapter rather than feature-specific copies', 
     'src/features/practice/store.ts': "import type { Card } from 'ts-fsrs';"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('preferences are private to settings, auth, and themes stores', () => {
@@ -164,7 +163,7 @@ testStable('preferences are private to settings, auth, and themes stores', () =>
     'src/features/learning/store.test.ts': "import { preferences } from '@study/db/schema';"
   });
 
-  assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
 });
 
 testStable('preferences checks respect shadows, type imports, and unrelated tables', () => {
@@ -175,7 +174,7 @@ testStable('preferences checks respect shadows, type imports, and unrelated tabl
       "import type * as schema from '@study/db/schema'; type P = typeof schema.preferences;"
   });
 
-  assert.equal(diagnostics.length, 0, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 0, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -190,7 +189,7 @@ testStable(
         "import { sourceIngestionWorkflow } from '#server/features/sources/workflow';"
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -213,7 +212,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/capture.ts')));
   }
 );
@@ -236,7 +235,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/bypass.ts')));
   }
 );
@@ -259,7 +258,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
   }
 );
@@ -285,7 +284,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/citations.ts')));
   }
 );
@@ -309,7 +308,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 
     assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
   }
@@ -339,7 +338,7 @@ testStable(
       'src/features/sources/index.ts': `export { SourceMaterialDeletionStore } from './store/material-deletion';`
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/deletion.ts')));
   }
 );
@@ -367,7 +366,7 @@ testStable(
       'src/features/sources/index.ts': `export { SourceMaterialHistoryStore } from './store/material-history';`
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 
     assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/history.ts')));
   }
@@ -385,7 +384,7 @@ testStable(
         "import { Sources } from '#server/features/sources/index'; import { transaction } from '#server/platform/definitions/define-store'; transaction(tx => Sources.validateBackup(tx));"
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/service/backup.ts')));
   }
 );

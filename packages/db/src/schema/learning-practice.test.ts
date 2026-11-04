@@ -1,12 +1,11 @@
-import { strict as assert } from 'node:assert';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
+import { assert } from 'vite-plus/test';
 
 import { learning_practice_controls, learning_practice_slots } from './learning-practice.ts';
 
 testStable('practice keeps one control per project and unique slot ordinals per epoch', () => {
-  assert.equal(getTableConfig(learning_practice_controls).name, 'learning_practice_controls');
+  assert.strictEqual(getTableConfig(learning_practice_controls).name, 'learning_practice_controls');
   const slots = getTableConfig(learning_practice_slots);
 
   assert.ok(

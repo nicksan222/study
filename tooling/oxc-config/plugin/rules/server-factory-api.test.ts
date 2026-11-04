@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintFiles } from '../test/utils.ts';
 
@@ -24,7 +23,7 @@ testStable(
       'module-factories'
     );
 
-    assert.equal(results.length, 3, JSON.stringify(results));
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
@@ -42,7 +41,7 @@ testStable('workflow exports require canonical definitions and registrations', (
     'module-factories'
   );
 
-  assert.equal(results.length, 3, JSON.stringify(results));
+  assert.strictEqual(results.length, 3, JSON.stringify(results));
 });
 
 testStable('store operations require the correct canonical branded descriptor constructor', () => {
@@ -57,7 +56,7 @@ testStable('store operations require the correct canonical branded descriptor co
     files[`src/features/${name}/store/index.ts`] =
       `${store} const {storeQuery:q,storeMutation:m} = api; const fake = x => x; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries:{item:${query}},mutations:{save:${mutation}}})});`;
 
-  assert.equal(lintFiles(files, 'operation-conventions').length, 4);
+  assert.strictEqual(lintFiles(files, 'operation-conventions').length, 4);
 });
 
 testStable(
@@ -80,7 +79,7 @@ testStable(
       'server-layer-boundary'
     );
 
-    assert.equal(results.length, 3, JSON.stringify(results));
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
@@ -92,8 +91,8 @@ testStable('canonical transaction aliases retain synchronous and I/O checks', ()
       'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
   };
 
-  assert.equal(lintFiles(files, 'synchronous-transactions').length, 1);
-  assert.equal(lintFiles(files, 'transaction-no-io').length, 1);
+  assert.strictEqual(lintFiles(files, 'synchronous-transactions').length, 1);
+  assert.strictEqual(lintFiles(files, 'transaction-no-io').length, 1);
 });
 
 testStable('native feature conversion stays behind canonical factories', () => {
@@ -110,7 +109,7 @@ testStable('native feature conversion stays behind canonical factories', () => {
     'workflow-boundary'
   );
 
-  assert.equal(results.length, 3, JSON.stringify(results));
+  assert.strictEqual(results.length, 3, JSON.stringify(results));
 });
 
 testStable('backend useStore is not a React hook and frontend hook rules stay enforced', () => {
@@ -125,7 +124,7 @@ testStable('backend useStore is not a React hook and frontend hook rules stay en
     true
   ).filter(({ code }) => code.includes('rules-of-hooks'));
 
-  assert.equal(results.length, 1, JSON.stringify(results));
+  assert.strictEqual(results.length, 1, JSON.stringify(results));
   assert.ok(results[0]?.filename.includes('/apps/web/'));
 });
 
@@ -151,7 +150,7 @@ testStable(
       'module-factories'
     );
 
-    assert.equal(results.length, 5, JSON.stringify(results));
+    assert.strictEqual(results.length, 5, JSON.stringify(results));
   }
 );
 
@@ -172,7 +171,7 @@ testStable('Database namespace reads and default store imports retain precise bo
     'server-layer-boundary'
   );
 
-  assert.equal(results.length, 3, JSON.stringify(results));
+  assert.strictEqual(results.length, 3, JSON.stringify(results));
 });
 
 testStable(
@@ -192,14 +191,14 @@ testStable(
       'workflow-boundary'
     );
 
-    assert.equal(results.length, 2, JSON.stringify(results));
+    assert.strictEqual(results.length, 2, JSON.stringify(results));
   }
 );
 
 testStable(
   'unregistered workflow functions and aliased descriptor spreads do not publish alternate APIs',
   () => {
-    assert.equal(
+    assert.strictEqual(
       lintFiles(
         {
           'src/features/a/workflows/index.ts':
@@ -211,7 +210,7 @@ testStable(
       ).length,
       1
     );
-    assert.equal(
+    assert.strictEqual(
       lintFiles(
         {
           'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
@@ -240,7 +239,7 @@ testStable(
       'server-layer-boundary'
     );
 
-    assert.equal(results.length, 3, JSON.stringify(results));
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
     assert.ok(results.every(({ filename }) => filename.includes('/features/a/')));
   }
 );
@@ -264,6 +263,6 @@ testStable(
       'workflow-boundary'
     );
 
-    assert.equal(results.length, 2, JSON.stringify(results));
+    assert.strictEqual(results.length, 2, JSON.stringify(results));
   }
 );

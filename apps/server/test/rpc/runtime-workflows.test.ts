@@ -15,12 +15,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Option } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -39,7 +39,7 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            assert.deepEqual((yield* client['workflows.executions']({ limit: 10 })).items, []);
+            expect((yield* client['workflows.executions']({ limit: 10 })).items).toStrictEqual([]);
             const source = yield* client['sources.createSource']({
               name: 'waiting.png',
               bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
@@ -57,12 +57,11 @@ testStable(
               const execution = page.items.find((item) => item.workflow === 'source-ingestion/v1');
 
               if (execution?.status === 'suspended') {
-                assert.equal(execution.canCancel, true);
-                assert.equal(execution.outcome, null);
-                assert.deepEqual(
-                  (yield* client['workflows.execution']({ id: execution.id })).id,
-                  execution.id
-                );
+                assert.ok(execution.canCancel === true);
+                assert.ok(execution.outcome === null);
+                expect(
+                  (yield* client['workflows.execution']({ id: execution.id })).id
+                ).toStrictEqual(execution.id);
                 yield* client['system.stopWorkers']({});
                 const cancelled = yield* client['workflows.cancelExecution']({
                   id: execution.id,
@@ -70,25 +69,24 @@ testStable(
                 });
 
                 assert.ok(['cancelling', 'cancelled'].includes(cancelled.status));
-                assert.equal(cancelled.canCancel, false);
+                assert.ok(cancelled.canCancel === false);
                 const repeated = yield* client['workflows.cancelExecution']({
                   id: execution.id,
                   mode: 'safe'
                 });
 
                 assert.ok(['cancelling', 'cancelled'].includes(repeated.status));
-                assert.equal('payload' in repeated, false);
-                assert.equal('ownerToken' in repeated, false);
+                assert.ok('payload' in repeated === false);
+                assert.ok('ownerToken' in repeated === false);
 
                 for (const createdAtMs of [-1n, 9223372036854775808n])
-                  assert.equal(
+                  assert.ok(
                     (yield* Effect.exit(
                       client['workflows.executions']({
                         limit: 1,
                         before: { id: execution.id, createdAtMs }
                       })
-                    ))._tag,
-                    'Failure'
+                    ))._tag === 'Failure'
                   );
 
                 return;
@@ -116,16 +114,15 @@ testStable(
               const execution = page.items.find((item) => item.workflow === 'source-ingestion/v1');
 
               if (execution?.status === 'cancelled') {
-                assert.equal(
+                assert.ok(
                   (yield* client['sources.sourceProcessing']({
                     id: (yield* client['sources.sources']({ limit: 1 })).items[0]!.id
-                  })).documentId,
-                  null
+                  })).documentId === null
                 );
                 assert.ok(
                   Option.isSome(yield* client['workflows.findExecution']({ id: execution.id }))
                 );
-                assert.equal(page.next, null);
+                assert.ok(page.next === null);
 
                 return;
               }
@@ -182,15 +179,14 @@ testStable(
                 ingestions.length === 2 &&
                 page.items.every((execution) => execution.status === 'completed')
               ) {
-                assert.deepEqual(
+                expect(
                   ingestions
                     .map((execution) => execution.outcome)
-                    .sort((a, b) => (a ?? '').localeCompare(b ?? '')),
-                  ['failure', 'success']
-                );
-                assert.equal(
-                  ingestions.find((execution) => execution.outcome === 'failure')?.failureKind,
-                  'unsupported'
+                    .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+                ).toStrictEqual(['failure', 'success']);
+                assert.ok(
+                  ingestions.find((execution) => execution.outcome === 'failure')?.failureKind ===
+                    'unsupported'
                 );
                 assert.ok(page.items.every((execution) => !execution.canCancel));
                 const first = yield* client['workflows.executions']({ limit: 1 });
@@ -201,8 +197,8 @@ testStable(
                   before: first.next
                 });
 
-                assert.equal(second.items.length, 1);
-                assert.notEqual(first.items[0]?.id, second.items[0]?.id);
+                assert.strictEqual(second.items.length, 1);
+                assert.notStrictEqual(first.items[0]?.id, second.items[0]?.id);
                 const seen = [first.items[0]!.id, second.items[0]!.id];
                 let cursor = second.next;
 
@@ -213,16 +209,14 @@ testStable(
                   cursor = next.next;
                 }
 
-                assert.equal(new Set(seen).size, seen.length);
+                assert.strictEqual(new Set(seen).size, seen.length);
                 assert.ok(ingestions.every((execution) => seen.includes(execution.id)));
                 const target = ingestions[0]!;
 
-                assert.deepEqual(
-                  yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' }),
-                  target
-                );
-                assert.deepEqual(
-                  Object.keys(target).sort(),
+                expect(
+                  yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' })
+                ).toStrictEqual(target);
+                expect(Object.keys(target).sort()).toStrictEqual(
                   [
                     'id',
                     'workflow',
@@ -235,9 +229,9 @@ testStable(
                     'updatedAtMs'
                   ].sort()
                 );
-                assert.equal(
-                  (yield* Effect.exit(client['workflows.executions']({ limit: 0 })))._tag,
-                  'Failure'
+                assert.ok(
+                  (yield* Effect.exit(client['workflows.executions']({ limit: 0 })))._tag ===
+                    'Failure'
                 );
 
                 return;
@@ -278,7 +272,7 @@ testStable(
       entered();
     });
 
-    t.after(async () => {
+    t.onTestFinished(async () => {
       peer.closeAllConnections();
       await new Promise<void>((resolve) => peer.close(() => resolve()));
     });
@@ -286,7 +280,7 @@ testStable(
     await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
     const address = peer.address();
 
-    if (!address || typeof address === 'string') throw new Error('HTTP peer missing');
+    assert.ok(!(!address || typeof address === 'string'), 'HTTP peer missing');
 
     const location = createTestDatabase();
     const app = await App.open({ path: location.path });
@@ -319,9 +313,8 @@ testStable(
 
             assert.ok(['cancelled', 'cancelling'].includes(result.status));
             yield* Effect.promise(() => closed).pipe(Effect.timeout('2 seconds'));
-            assert.equal(
-              (yield* client['sources.sourceProcessing']({ id: source.id })).documentId,
-              null
+            assert.ok(
+              (yield* client['sources.sourceProcessing']({ id: source.id })).documentId === null
             );
           })
         )

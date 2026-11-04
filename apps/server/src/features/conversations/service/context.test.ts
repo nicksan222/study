@@ -11,7 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
@@ -22,9 +21,11 @@ import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -93,36 +94,33 @@ testStable(
               expectedRevision: 0n,
               targets: [target]
             });
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.updateSessionSelection', {
                   sessionId: first.id,
                   expectedRevision: 0n,
                   targets: []
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.deepEqual(
-              (yield* client('conversations.sessionSelection', { sessionId: second.id })).targets,
-              []
-            );
+            expect(
+              (yield* client('conversations.sessionSelection', { sessionId: second.id })).targets
+            ).toStrictEqual([]);
             const bad = {
               ...target,
               scope: { kind: 'ranges' as const, ranges: [{ ...range, start: 8 }] }
             };
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.updateSessionSelection', {
                   sessionId: second.id,
                   expectedRevision: 0n,
                   targets: [bad]
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.updateSessionSelection', {
                   sessionId: second.id,
@@ -137,8 +135,7 @@ testStable(
                     }
                   ]
                 })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
             const intent = {
               sessionId: first.id,
@@ -148,8 +145,8 @@ testStable(
             };
             const snapshot = yield* client('conversations.captureSessionContext', intent);
 
-            assert.equal(snapshot.inputs[0]!.excerpts[0]!.text, 'selected');
-            assert.deepEqual(snapshot.messages, []);
+            assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === 'selected');
+            expect(snapshot.messages).toStrictEqual([]);
             yield* documents.save({
               documentId: material.id,
               expectedVersionId: material.version!.id,
@@ -161,11 +158,10 @@ testStable(
               expectedRevision: 1n,
               targets: []
             });
-            assert.deepEqual(
-              yield* client('conversations.captureSessionContext', intent),
+            expect(yield* client('conversations.captureSessionContext', intent)).toStrictEqual(
               snapshot
             );
-            assert.deepEqual(
+            expect(
               yield* client('conversations.captureSessionContext', {
                 preferences: { language: 'english', detail: 'brief' },
                 instruction: intent.instruction,
@@ -173,26 +169,23 @@ testStable(
                 sessionId: intent.sessionId,
                 threadRoot: undefined,
                 throughMessageId: undefined
-              }),
-              snapshot
-            );
-            assert.equal(
+              })
+            ).toStrictEqual(snapshot);
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.captureSessionContext', {
                   ...intent,
                   instruction: 'Changed'
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.captureSessionContext', {
                   ...intent,
                   preferences: { detail: 'detailed' }
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
             yield* client('conversations.updateSessionSelection', {
               sessionId: first.id,
@@ -221,21 +214,19 @@ testStable(
               expectedRevision: 3n,
               targets: []
             });
-            assert.deepEqual(
-              yield* client('conversations.replySnapshot', { requestId: request.requestId }),
-              before
-            );
-            assert.deepEqual(
+            expect(
+              yield* client('conversations.replySnapshot', { requestId: request.requestId })
+            ).toStrictEqual(before);
+            expect(
               yield* client('conversations.requestReply', {
                 sessionId: first.id,
                 intentKey: 'reply',
                 instruction: 'Use selected passage'
-              }),
-              request
-            );
+              })
+            ).toStrictEqual(request);
             const conversations = yield* Conversations;
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 withTestPublication(
                   context,
@@ -257,8 +248,7 @@ testStable(
                     })
                     .pipe(Effect.asVoid)
                 )
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
             const publication = {
               requestId: request.requestId,
@@ -286,7 +276,7 @@ testStable(
             };
 
             for (const selectedRange of [undefined, { ...range, start: range.start - 1 }])
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   withTestPublication(
                     context,
@@ -300,8 +290,7 @@ testStable(
                       })
                       .pipe(Effect.asVoid)
                   )
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
 
             for (let replay = 0; replay < 2; replay++)
@@ -312,22 +301,22 @@ testStable(
 
             const answer = yield* client('conversations.message', { id: request.messageId });
 
-            assert.deepEqual(answer.citations[0]!.input, {
+            expect(answer.citations[0]!.input).toStrictEqual({
               kind: 'document',
               versionId: material.version!.id
             });
-            assert.equal(answer.citations[0]!.rangeStart, 10);
-            assert.equal(answer.citations[0]!.rangeEnd, 18);
-            assert.equal(answer.citations[0]!.origin, 'agent');
-            assert.equal(answer.citations[0]!.precision, 'exact');
+            assert.strictEqual(answer.citations[0]!.rangeStart, 10);
+            assert.strictEqual(answer.citations[0]!.rangeEnd, 18);
+            assert.ok(answer.citations[0]!.origin === 'agent');
+            assert.ok(answer.citations[0]!.precision === 'exact');
             const evidence = answer.citations[0]!.evidence;
 
-            assert.equal(evidence?.availability, 'available');
+            assert.ok(evidence?.availability === 'available');
 
             if (evidence?.availability === 'available') {
-              assert.equal(evidence.precision, 'exact');
-              assert.equal(evidence.excerpt, 'selected');
-              assert.equal(evidence.snapshotId, documentId);
+              assert.ok(evidence.precision === 'exact');
+              assert.ok(evidence.excerpt === 'selected');
+              assert.strictEqual(evidence.snapshotId, documentId);
             }
 
             const thread = yield* client('conversations.thread', {
@@ -335,51 +324,48 @@ testStable(
               limit: 20
             });
 
-            assert.deepEqual(
-              thread.items.find((message) => message.id === answer.id)?.citations,
-              answer.citations
-            );
+            expect(
+              thread.items.find((message) => message.id === answer.id)?.citations
+            ).toStrictEqual(answer.citations);
             const edited = yield* client('conversations.editMessage', {
               messageId: request.messageId,
               text: 'Edited wording [2]'
             });
 
-            assert.deepEqual(edited.citations, [{ ...answer.citations[1]!, marker: 1 }]);
-            assert.equal(edited.versions.at(-1)?.text, 'Edited wording [1]');
-            assert.deepEqual(edited.citations[0]!.support, { state: 'unassessed' });
-            assert.equal(edited.citations[0]!.rangeStart, 10);
-            assert.equal(edited.citations[0]!.rangeEnd, 18);
+            expect(edited.citations).toStrictEqual([{ ...answer.citations[1]!, marker: 1 }]);
+            assert.ok(edited.versions.at(-1)?.text === 'Edited wording [1]');
+            expect(edited.citations[0]!.support).toStrictEqual({ state: 'unassessed' });
+            assert.strictEqual(edited.citations[0]!.rangeStart, 10);
+            assert.strictEqual(edited.citations[0]!.rangeEnd, 18);
             yield* client('conversations.setActiveVersion', {
               messageId: request.messageId,
               versionId: answer.activeVersionId!
             });
-            assert.deepEqual(
-              (yield* client('conversations.message', { id: request.messageId })).citations,
-              answer.citations
-            );
+            expect(
+              (yield* client('conversations.message', { id: request.messageId })).citations
+            ).toStrictEqual(answer.citations);
             yield* client('conversations.deleteMessage', { id: request.messageId });
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.requestReply', {
                   sessionId: first.id,
                   intentKey: 'reply',
                   instruction: 'Use selected passage'
                 })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
             const regenerated = yield* client('conversations.requestReply', {
               sessionId: first.id,
               intentKey: 'regenerated'
             });
 
-            assert.notEqual(regenerated.requestId, request.requestId);
+            assert.notStrictEqual(regenerated.requestId, request.requestId);
             const regeneratedSnapshot = yield* client('conversations.replySnapshot', {
               requestId: regenerated.requestId
             });
 
-            assert.equal(regeneratedSnapshot.messages[0]!.text, 'Changed later');
-            assert.deepEqual(regeneratedSnapshot.context!.inputs, []);
+            assert.ok(regeneratedSnapshot.messages[0]!.text === 'Changed later');
+            expect(regeneratedSnapshot.context!.inputs).toStrictEqual([]);
 
             return snapshot;
           }).pipe(Effect.provide(handlers()))
@@ -394,7 +380,7 @@ testStable(
         ).pipe(Effect.provide(services()))
       );
 
-      assert.deepEqual(reopened, captured);
+      expect(reopened).toStrictEqual(captured);
     } finally {
       context.close();
       location.cleanup();
@@ -424,17 +410,19 @@ testStable(
           yield* Effect.flip(
             conversations.requestReply({ sessionId: session.id, intentKey: 'retry' })
           );
-          assert.equal(context.db.orm.select().from(s.session_run_contexts).all().length, 0);
-          assert.equal(context.db.orm.select().from(s.conversation_reply_requests).all().length, 0);
+          assert.strictEqual(context.db.orm.select().from(s.session_run_contexts).all().length, 0);
+          assert.strictEqual(
+            context.db.orm.select().from(s.conversation_reply_requests).all().length,
+            0
+          );
           context.db.orm.run(sql`DROP TRIGGER reject_context_event`);
           const request = yield* conversations.requestReply({
             sessionId: session.id,
             intentKey: 'retry'
           });
 
-          assert.equal(
-            (yield* conversations.sessionContext(request)).messages[0]!.text,
-            'Original'
+          assert.ok(
+            (yield* conversations.sessionContext(request)).messages[0]!.text === 'Original'
           );
         }).pipe(Effect.provide(layer))
       );
@@ -462,7 +450,7 @@ testStable(
           const first = yield* conversations.createSession({ title: 'One' });
           const second = yield* conversations.createSession({ title: 'Two' });
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               conversations.captureSessionContext({
                 sessionId: first.id,
@@ -470,8 +458,7 @@ testStable(
                 instruction: '',
                 preferences: {}
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const a = yield* documents.create({
             createKey: randomUUID(),
@@ -489,10 +476,9 @@ testStable(
             document: content('Beta')
           });
 
-          assert.deepEqual(
-            (yield* conversations.sessionSelection({ sessionId: first.id })).targets,
-            []
-          );
+          expect(
+            (yield* conversations.sessionSelection({ sessionId: first.id })).targets
+          ).toStrictEqual([]);
           yield* documents.detach({ sessionId: first.id, documentId: a.id });
           const targets = [a, b].map((item) => ({
             input: { kind: 'document' as const, versionId: item.version!.id },
@@ -521,14 +507,11 @@ testStable(
             preferences: {}
           });
 
-          assert.deepEqual(
-            ordered.inputs.map((item) => item.input),
-            [
-              { kind: 'document', versionId: b.version!.id },
-              { kind: 'document', versionId: a.version!.id }
-            ]
-          );
-          assert.equal(
+          expect(ordered.inputs.map((item) => item.input)).toStrictEqual([
+            { kind: 'document', versionId: b.version!.id },
+            { kind: 'document', versionId: a.version!.id }
+          ]);
+          assert.strictEqual(
             (yield* conversations.sessionSelection({ sessionId: second.id })).targets.length,
             1
           );
@@ -553,7 +536,7 @@ testStable(
             document: content('Retained alternative')
           });
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               conversations.updateSessionSelection({
                 sessionId: second.id,
@@ -565,18 +548,16 @@ testStable(
                   }
                 ]
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               conversations.updateSessionSelection({
                 sessionId: second.id,
                 expectedRevision: 1n,
                 targets: [targets[0]!, targets[0]!]
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
 
           for (let i = 0; i < 55; i++)
@@ -596,20 +577,18 @@ testStable(
               .where(eq(s.session_run_contexts.request_id, history.requestId))
               .run()
           );
-          assert.equal(history.messages.length, 50);
-          assert.equal(history.excludedMessages, 5);
-          assert.equal(history.messages[0]!.text, 'Message 5');
+          assert.strictEqual(history.messages.length, 50);
+          assert.strictEqual(history.excludedMessages, 5);
+          assert.ok(history.messages[0]!.text === 'Message 5');
           yield* conversations.deleteMessage(history.messages[0]!.messageId);
-          assert.deepEqual(
-            yield* conversations.inspectSessionContext({ requestId: history.requestId }),
-            history
-          );
-          assert.equal(
+          expect(
+            yield* conversations.inspectSessionContext({ requestId: history.requestId })
+          ).toStrictEqual(history);
+          assert.ok(
             (yield* Effect.flip(conversations.sessionContext({ requestId: history.requestId })))
-              .kind,
-            'not_found'
+              .kind === 'not_found'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               conversations.captureSessionContext({
                 sessionId: first.id,
@@ -617,13 +596,11 @@ testStable(
                 instruction: '',
                 preferences: {}
               })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
-          assert.equal(
+          assert.ok(
             (yield* conversations.sessionContext({ requestId: ordered.requestId })).inputs[0]!
-              .excerpts[0]!.text,
-            'Beta'
+              .excerpts[0]!.text === 'Beta'
           );
         }).pipe(Effect.provide(layer))
       );
@@ -698,11 +675,11 @@ testStable(
             const snapshot = yield* client('conversations.captureSessionContext', intent);
             const input = snapshot.inputs[0]!;
 
-            assert.equal(input.document, undefined);
-            assert.equal(input.excerpts.length, 1);
-            assert.equal(input.excerpts[0]!.blockOrdinal, 1);
-            assert.deepEqual(input.excerpts[0]!.content, block.content);
-            assert.equal(input.excerpts[0]!.text, 'Selected figure caption');
+            assert.strictEqual(input.document, undefined);
+            assert.strictEqual(input.excerpts.length, 1);
+            assert.strictEqual(input.excerpts[0]!.blockOrdinal, 1);
+            expect(input.excerpts[0]!.content).toStrictEqual(block.content);
+            assert.ok(input.excerpts[0]!.text === 'Selected figure caption');
             yield* client('conversations.updateSessionSelection', {
               sessionId: session.id,
               expectedRevision: 1n,
@@ -727,9 +704,9 @@ testStable(
               intentKey: 'alt-text-only'
             });
 
-            assert.equal(range.inputs[0]!.document, undefined);
-            assert.equal(range.inputs[0]!.excerpts[0]!.text, 'Selected');
-            assert.equal(range.inputs[0]!.excerpts[0]!.content, undefined);
+            assert.strictEqual(range.inputs[0]!.document, undefined);
+            assert.ok(range.inputs[0]!.excerpts[0]!.text === 'Selected');
+            assert.strictEqual(range.inputs[0]!.excerpts[0]!.content, undefined);
             yield* sources.replaceSource({
               id: image.id,
               expectedRevision: 1,
@@ -753,14 +730,12 @@ testStable(
               }
             });
 
-            assert.deepEqual(
-              yield* client('conversations.captureSessionContext', intent),
+            expect(yield* client('conversations.captureSessionContext', intent)).toStrictEqual(
               snapshot
             );
-            assert.deepEqual(
-              (yield* sources.sourceSnapshot({ id: image.id, revision: 1 })).bytes,
-              bytes
-            );
+            expect(
+              (yield* sources.sourceSnapshot({ id: image.id, revision: 1 })).bytes
+            ).toStrictEqual(bytes);
 
             return { snapshot, range, material, session, image };
           }).pipe(Effect.provide(handlers()))
@@ -775,31 +750,27 @@ testStable(
           const documents = yield* Documents;
           const sources = yield* Sources;
 
-          assert.deepEqual(
-            yield* conversations.sessionContext({ requestId: saved.snapshot.requestId }),
-            saved.snapshot
-          );
-          assert.deepEqual(
-            yield* conversations.sessionContext({ requestId: saved.range.requestId }),
-            saved.range
-          );
+          expect(
+            yield* conversations.sessionContext({ requestId: saved.snapshot.requestId })
+          ).toStrictEqual(saved.snapshot);
+          expect(
+            yield* conversations.sessionContext({ requestId: saved.range.requestId })
+          ).toStrictEqual(saved.range);
           yield* conversations.deleteSession(saved.session.id);
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               conversations.inspectSessionContext({
                 requestId: saved.snapshot.requestId
               })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* documents.document({ id: saved.material.id })).id,
             saved.material.id
           );
-          assert.deepEqual(
-            (yield* sources.sourceSnapshot({ id: saved.image.id, revision: 1 })).bytes,
-            bytes
-          );
+          expect(
+            (yield* sources.sourceSnapshot({ id: saved.image.id, revision: 1 })).bytes
+          ).toStrictEqual(bytes);
         }).pipe(Effect.provide(services()))
       );
     } finally {
@@ -820,21 +791,21 @@ function assertRetainedCitationShapes(
   const [incomplete, mismatch, unpublished, attachment] = read.citations;
 
   for (const citation of read.citations) {
-    assert.equal(citation.precision, 'unavailable');
-    assert.deepEqual(citation.evidence, {
+    assert.ok(citation.precision === 'unavailable');
+    expect(citation.evidence).toStrictEqual({
       availability: 'unavailable',
       precision: 'unavailable',
       reason: 'captured_input_unavailable'
     });
-    assert.deepEqual(citation.anchor, anchor);
+    expect(citation.anchor).toStrictEqual(anchor);
   }
 
-  assert.deepEqual(incomplete!.input, { kind: 'document', versionId });
-  assert.equal(incomplete!.documentId, null);
-  assert.deepEqual(mismatch!.input, { kind: 'document', versionId });
-  assert.deepEqual(unpublished!.input, { kind: 'document', versionId: draftVersionId });
-  assert.equal(attachment!.sourceId, sourceId);
-  assert.equal(attachment!.quote, 'Retained attachment');
+  expect(incomplete!.input).toStrictEqual({ kind: 'document', versionId });
+  assert.ok(incomplete!.documentId === null);
+  expect(mismatch!.input).toStrictEqual({ kind: 'document', versionId });
+  expect(unpublished!.input).toStrictEqual({ kind: 'document', versionId: draftVersionId });
+  assert.strictEqual(attachment!.sourceId, sourceId);
+  assert.ok(attachment!.quote === 'Retained attachment');
 }
 
 testStable(
@@ -953,39 +924,36 @@ testStable(
               source.id
             );
 
-            assert.deepEqual(
+            expect(
               (yield* rpc('conversations.thread', { sessionId: session.id, limit: 10 })).items[0]!
-                .citations,
-              read.citations
-            );
+                .citations
+            ).toStrictEqual(read.citations);
             const edited = yield* rpc('conversations.editMessage', {
               messageId: message.id,
               text: 'Reordered [4] [2] [1] [3]'
             });
 
-            assert.deepEqual(edited.citations, read.citations);
+            expect(edited.citations).toStrictEqual(read.citations);
             const exactVersion = yield* rpc('conversations.messageVersionCitations', {
               sessionId: session.id,
               messageId: message.id,
               versionId: message.activeVersionId!
             });
 
-            assert.deepEqual(exactVersion.citations, read.citations);
-            assert.deepEqual(
+            expect(exactVersion.citations).toStrictEqual(read.citations);
+            expect(
               (yield* rpc('conversations.setActiveVersion', {
                 messageId: message.id,
                 versionId: message.activeVersionId!
-              })).citations,
-              read.citations
-            );
-            assert.deepEqual(
+              })).citations
+            ).toStrictEqual(read.citations);
+            expect(
               context.db.orm
                 .select()
                 .from(s.citations)
                 .where(eq(s.citations.version_id, message.activeVersionId!))
-                .all(),
-              rows
-            );
+                .all()
+            ).toStrictEqual(rows);
 
             return {
               id: message.id,
@@ -1004,18 +972,16 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
 
-            assert.deepEqual(
-              (yield* rpc('conversations.message', { id: retained.id })).citations,
-              retained.citations
-            );
-            assert.deepEqual(
+            expect(
+              (yield* rpc('conversations.message', { id: retained.id })).citations
+            ).toStrictEqual(retained.citations);
+            expect(
               (yield* rpc('conversations.messageVersionCitations', {
                 sessionId: retained.sessionId,
                 messageId: retained.id,
                 versionId: retained.versionId
-              })).citations,
-              retained.citations
-            );
+              })).citations
+            ).toStrictEqual(retained.citations);
           }).pipe(Effect.provide(handlers()))
         )
       );
@@ -1101,25 +1067,21 @@ testStable(
             { threadRoot, throughMessageId: sibling.id },
             { threadRoot, throughMessageId: siblingRoot.id }
           ].entries()) {
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.captureSessionContext', {
                   ...intent,
                   ...scope,
                   intentKey: 'invalid-' + index
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
           }
 
-          assert.equal(context.db.orm.select().from(s.session_run_contexts).all().length, 0);
+          assert.strictEqual(context.db.orm.select().from(s.session_run_contexts).all().length, 0);
           const captured = yield* client('conversations.captureSessionContext', intent);
 
-          assert.deepEqual(
-            captured.messages.map((message) => message.messageId),
-            [first.id]
-          );
+          expect(captured.messages.map((message) => message.messageId)).toStrictEqual([first.id]);
           const rootOnly = yield* client('conversations.captureSessionContext', {
             ...intent,
             intentKey: 'root-only',
@@ -1127,10 +1089,7 @@ testStable(
             throughMessageId: root.id
           });
 
-          assert.deepEqual(
-            rootOnly.messages.map((message) => message.messageId),
-            [root.id]
-          );
+          expect(rootOnly.messages.map((message) => message.messageId)).toStrictEqual([root.id]);
           const threaded = yield* client('conversations.captureSessionContext', {
             ...intent,
             intentKey: 'threaded',
@@ -1138,16 +1097,18 @@ testStable(
             throughMessageId: child.id
           });
 
-          assert.deepEqual(
-            threaded.messages.map((message) => message.messageId),
-            [root.id, child.id]
-          );
+          expect(threaded.messages.map((message) => message.messageId)).toStrictEqual([
+            root.id,
+            child.id
+          ]);
           yield* client('conversations.editMessage', {
             messageId: first.id,
             text: 'Changed afterwards'
           });
           yield* client('conversations.postMessage', { sessionId: session.id, text: 'Later' });
-          assert.deepEqual(yield* client('conversations.captureSessionContext', intent), captured);
+          expect(yield* client('conversations.captureSessionContext', intent)).toStrictEqual(
+            captured
+          );
         }).pipe(Effect.scoped, Effect.provide(handlers))
       );
     } finally {

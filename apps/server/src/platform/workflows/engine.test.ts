@@ -15,15 +15,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { failureSchema } from '@study/contracts/errors';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Option, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
@@ -107,8 +106,8 @@ testStable(
         }
 
         assert.ok(Option.isSome(state) && state.value._tag === 'Complete');
-        assert.equal(interruptions, 0);
-        assert.equal(calls, 1);
+        assert.strictEqual(interruptions, 0);
+        assert.strictEqual(calls, 1);
       }
 
       await Effect.runPromise(
@@ -166,7 +165,7 @@ testStable(
               result = yield* engine.poll(workflow, 'one');
             }
 
-            assert.equal(result.value._tag, 'Suspended');
+            assert.ok(result.value._tag === 'Suspended');
           }).pipe(Effect.provide(workflowEngineLayer(context)))
         )
       );
@@ -194,8 +193,8 @@ testStable(
       await first(context);
       context.close();
       context = new ServerContext(location.open());
-      assert.equal(await second(context), 1);
-      assert.equal(calls, 1);
+      assert.strictEqual(await second(context), 1);
+      assert.strictEqual(calls, 1);
     } finally {
       context.close();
       location.cleanup();
@@ -213,14 +212,14 @@ testStable('SQLite leases prevent concurrent claims and fence expired owners', (
     const b = workflowStore(second);
 
     a.start('lease', 'test', '{}', undefined);
-    assert.equal(a.claim('lease', 'a'), true);
-    assert.equal(b.claim('lease', 'b'), false);
+    assert.ok(a.claim('lease', 'a') === true);
+    assert.ok(b.claim('lease', 'b') === false);
     first.db.orm
       .update(workflow_executions)
       .set({ updated_at: 0n })
       .where(eq(workflow_executions.execution_id, 'lease'))
       .run();
-    assert.equal(b.claim('lease', 'b'), true);
+    assert.ok(b.claim('lease', 'b') === true);
     assert.throws(() => a.checkpoint('lease', 'a', '{}', 'completed'), /fenced/);
     assert.throws(() => a.saveActivity('lease', 'a', 'activity', 1, '{}'), /fenced/);
   } finally {
@@ -280,7 +279,7 @@ testStable('a cancelled suspended execution stays cancelled after reopening SQLi
         }).pipe(Effect.provide(workflowEngineLayer(context)))
       )
     );
-    assert.equal(workflowStore(context).execution('cancel')?.status, 'cancelled');
+    assert.ok(workflowStore(context).execution('cancel')?.status === 'cancelled');
     context.close();
     context = new ServerContext(location.open());
     await Effect.runPromise(
@@ -294,9 +293,9 @@ testStable('a cancelled suspended execution stays cancelled after reopening SQLi
         }).pipe(Effect.provide(workflowEngineLayer(context)))
       )
     );
-    assert.equal(calls, 1);
-    assert.equal(finalizers, 1);
-    assert.equal(workflowStore(context).execution('cancel')?.status, 'cancelled');
+    assert.strictEqual(calls, 1);
+    assert.strictEqual(finalizers, 1);
+    assert.ok(workflowStore(context).execution('cancel')?.status === 'cancelled');
   } finally {
     context.close();
     location.cleanup();
@@ -338,7 +337,7 @@ testStable(
           }).pipe(Effect.provide(workflowEngineLayer(context)))
         )
       );
-      assert.equal(calls, 0);
+      assert.strictEqual(calls, 0);
     } finally {
       context.close();
       location.cleanup();
@@ -395,7 +394,7 @@ testStable('two engines sharing SQLite do not run an activity concurrently', asy
 
     await entered;
     await run(second, false);
-    assert.equal(calls, 1);
+    assert.strictEqual(calls, 1);
     finish();
     await active;
   } finally {
@@ -457,8 +456,8 @@ testStable(
           }).pipe(Effect.provide(workflowEngineLayer(context)))
         )
       );
-      assert.equal(calls, 1);
-      assert.equal(workflowStore(context).execution('unsafe')?.status, 'cancelled');
+      assert.strictEqual(calls, 1);
+      assert.ok(workflowStore(context).execution('unsafe')?.status === 'cancelled');
     } finally {
       context.close();
       location.cleanup();
@@ -491,19 +490,22 @@ testStable(
             execute: Effect.gen(function* () {
               const owner = yield* currentWorkflowActivityOwner;
 
-              assert.equal(owner.executionId, 'captured');
-              assert.equal(owner.activityName, 'capture-owner');
+              assert.ok(owner.executionId === 'captured');
+              assert.ok(owner.activityName === 'capture-owner');
               assert.ok(owner.ownerToken.length > 0);
               const store = workflowStore(context);
 
-              assert.equal(store.execution(owner.executionId)?.owner_token, owner.ownerToken);
+              assert.strictEqual(store.execution(owner.executionId)?.owner_token, owner.ownerToken);
               // A newer lease in SQLite cannot change the granted identity.
               context.db.orm
                 .update(workflow_executions)
                 .set({ owner_token: 'replacement' })
                 .where(eq(workflow_executions.execution_id, owner.executionId))
                 .run();
-              assert.equal((yield* currentWorkflowActivityOwner).ownerToken, owner.ownerToken);
+              assert.strictEqual(
+                (yield* currentWorkflowActivityOwner).ownerToken,
+                owner.ownerToken
+              );
               assert.throws(() => store.assertOwner(owner.executionId, owner.ownerToken), /fenced/);
               context.db.orm
                 .update(workflow_executions)
@@ -530,7 +532,7 @@ testStable(
         )
       );
 
-      assert.equal(result, 'captured');
+      assert.ok(result === 'captured');
     } finally {
       context.close();
       location.cleanup();
@@ -597,11 +599,11 @@ testStable('closing an expired engine cannot release a replacement engine claim'
     assert.ok(owner);
     old.close();
     await old.done;
-    assert.equal(workflowStore(second).execution('replacement')?.owner_token, owner);
-    assert.equal(workflowStore(second).execution('replacement')?.status, 'running');
+    assert.strictEqual(workflowStore(second).execution('replacement')?.owner_token, owner);
+    assert.ok(workflowStore(second).execution('replacement')?.status === 'running');
     replacement.close();
     await replacement.done;
-    assert.equal(workflowStore(second).execution('replacement')?.owner_token, null);
+    assert.ok(workflowStore(second).execution('replacement')?.owner_token === null);
   } finally {
     old.close();
     replacement?.close();
@@ -676,8 +678,8 @@ testStable('a suspended run can resume in the same engine after its fiber comple
       )
     );
 
-    assert.equal(result, 'resumed');
-    assert.equal(calls, 1);
+    assert.ok(result === 'resumed');
+    assert.strictEqual(calls, 1);
   } finally {
     context.close();
     location.cleanup();

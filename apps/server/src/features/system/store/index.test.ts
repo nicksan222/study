@@ -13,12 +13,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -44,15 +44,17 @@ testStable('search reads bounded project and source projections from SQLite', as
     );
     const result = await Effect.runPromise(store.searches({ query: 'physics', limit: 10 }));
 
-    assert.deepEqual(result.map((hit) => hit.kind).sort(), ['project', 'source']);
-    assert.deepEqual(
+    expect(result.map((hit) => hit.kind).sort()).toStrictEqual(['project', 'source']);
+    expect(
       (
         await Effect.runPromise(store.searches({ query: 'physics', limit: 10, kinds: ['source'] }))
-      ).map((hit) => hit.kind),
-      ['source']
+      ).map((hit) => hit.kind)
+    ).toStrictEqual(['source']);
+    assert.strictEqual(
+      (await Effect.runPromise(store.searches({ query: '!!!', limit: 10 }))).length,
+      0
     );
-    assert.equal((await Effect.runPromise(store.searches({ query: '!!!', limit: 10 }))).length, 0);
-    assert.equal(
+    assert.strictEqual(
       (await Effect.runPromise(store.searches({ query: 'physics', limit: 1 }))).length,
       1
     );
@@ -86,18 +88,18 @@ testStable('passage search retains anchors and ignores superseded documents', as
       useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
     );
 
-    assert.equal(
+    assert.strictEqual(
       (await Effect.runPromise(store.searches({ query: 'obsolete', limit: 10 }))).length,
       0
     );
-    assert.equal(
+    assert.strictEqual(
       (await Effect.runPromise(store.searches({ query: 'unpublished', limit: 10 }))).length,
       0
     );
     const result = await Effect.runPromise(store.searches({ query: 'molecules', limit: 10 }));
 
-    assert.equal(result.length, 1);
-    assert.deepEqual(result[0]?.target, {
+    assert.strictEqual(result.length, 1);
+    expect(result[0]?.target).toStrictEqual({
       type: 'source',
       sourceId: 1n,
       anchor: { type: 'page', page: 2 }
@@ -137,27 +139,23 @@ testStable('search indexes only current published quiz material and prompts', as
     const find = (query: string, project?: bigint) =>
       Effect.runPromise(store.searches({ query, limit: 10, project: project as never }));
 
-    assert.equal((await find('orbital')).length, 0);
+    assert.strictEqual((await find('orbital')).length, 0);
     run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=1`);
-    assert.deepEqual(
+    expect(
       (await find('cafe')).map((hit) =>
         hit.target.type === 'material' ? hit.target.materialKind : hit.kind
-      ),
-      ['quiz']
-    );
-    assert.deepEqual(
-      (await find('orbital')).map((hit) => hit.kind),
-      ['question']
-    );
-    assert.equal((await find('secret')).length, 0);
-    assert.equal((await find('orbital', 2n)).length, 0);
+      )
+    ).toStrictEqual(['quiz']);
+    expect((await find('orbital')).map((hit) => hit.kind)).toStrictEqual(['question']);
+    assert.strictEqual((await find('secret')).length, 0);
+    assert.strictEqual((await find('orbital', 2n)).length, 0);
     run(sql`UPDATE materials SET archived_at=3 WHERE id=1`);
-    assert.equal((await find('orbital')).length, 0);
+    assert.strictEqual((await find('orbital')).length, 0);
     run(sql`UPDATE materials SET archived_at=NULL WHERE id=1`);
-    assert.equal((await find('orbital')).length, 1);
+    assert.strictEqual((await find('orbital')).length, 1);
     run(sql`UPDATE materials SET title='Renamed nebula',updated_at=4 WHERE id=1`);
-    assert.equal((await find('cafe')).length, 0);
-    assert.equal((await find('nebula')).length, 1);
+    assert.strictEqual((await find('cafe')).length, 0);
+    assert.strictEqual((await find('nebula')).length, 1);
     run(
       sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (2,1,'quiz',2,'draft',4)`
     );
@@ -168,23 +166,23 @@ testStable('search indexes only current published quiz material and prompts', as
     run(
       sql`INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES (2,'Private')`
     );
-    assert.equal((await find('quantum')).length, 0);
+    assert.strictEqual((await find('quantum')).length, 0);
     run(sql`UPDATE material_versions SET status='published',published_at=5 WHERE id=2`);
-    assert.equal((await find('orbital')).length, 0);
+    assert.strictEqual((await find('orbital')).length, 0);
     const hits = await find('quantum "lumiere"');
 
-    assert.equal(hits.length, 1);
-    assert.deepEqual(hits[0]?.target, {
+    assert.strictEqual(hits.length, 1);
+    expect(hits[0]?.target).toStrictEqual({
       type: 'question',
       materialId: 1n,
       versionId: 2n,
       questionId: 2n
     });
     assert.throws(() => run(sql`DELETE FROM materials WHERE id=1`));
-    assert.equal((await find('quantum')).length, 1);
+    assert.strictEqual((await find('quantum')).length, 1);
     run(sql`DELETE FROM projects WHERE id=1`);
-    assert.equal((await find('quantum')).length, 1);
-    assert.equal(
+    assert.strictEqual((await find('quantum')).length, 1);
+    assert.strictEqual(
       context.db.orm.all(sql`SELECT rowid FROM catalog_fts WHERE kind IN ('material','question')`)
         .length,
       2
@@ -221,30 +219,27 @@ testStable(
         );
       const hits = await find();
 
-      assert.equal(hits.length, 1);
-      assert.deepEqual(hits[0]?.target, {
+      assert.strictEqual(hits.length, 1);
+      expect(hits[0]?.target).toStrictEqual({
         type: 'material',
         materialId: 2n,
         versionId: 2n,
         materialKind: 'diagram'
       });
-      assert.deepEqual(await find(), hits);
+      expect(await find()).toStrictEqual(hits);
       const tied = await Effect.runPromise(
         store.searches({ query: 'GlobalReaderToken', kinds: ['material'], limit: 2 })
       );
 
-      assert.deepEqual(
-        tied.map((hit) => hit.target),
-        [
-          { type: 'material', materialId: 2n, versionId: 2n, materialKind: 'diagram' },
-          { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }
-        ]
-      );
+      expect(tied.map((hit) => hit.target)).toStrictEqual([
+        { type: 'material', materialId: 2n, versionId: 2n, materialKind: 'diagram' },
+        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }
+      ]);
       run(
         sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Scope',1,1),(2,'Other',1,1),(3,'Later match',1,1)`
       );
       run(sql`INSERT INTO project_materials(project_id,material_id) VALUES (1,2),(3,3)`);
-      assert.deepEqual(
+      expect(
         await Effect.runPromise(
           store.searches({
             query: 'GlobalReaderToken',
@@ -252,10 +247,9 @@ testStable(
             limit: 1,
             project: 1n as never
           })
-        ),
-        hits
-      );
-      assert.deepEqual(
+        )
+      ).toStrictEqual(hits);
+      expect(
         (
           await Effect.runPromise(
             store.searches({
@@ -265,10 +259,11 @@ testStable(
               project: 3n as never
             })
           )
-        ).map((hit) => hit.target),
-        [{ type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }]
-      );
-      assert.deepEqual(
+        ).map((hit) => hit.target)
+      ).toStrictEqual([
+        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }
+      ]);
+      expect(
         await Effect.runPromise(
           store.searches({
             query: 'GlobalReaderToken',
@@ -276,9 +271,8 @@ testStable(
             limit: 1,
             project: 2n as never
           })
-        ),
-        []
-      );
+        )
+      ).toStrictEqual([]);
     } finally {
       context.close();
       location.cleanup();
@@ -313,24 +307,22 @@ testStable(
           });
           const store = yield* useStore(SystemStore);
 
-          assert.deepEqual(
-            yield* store.searches({ query: 'Obsolete', kinds: ['document'], limit: 10 }),
-            []
-          );
+          expect(
+            yield* store.searches({ query: 'Obsolete', kinds: ['document'], limit: 10 })
+          ).toStrictEqual([]);
           const hits = yield* store.searches({
             query: 'HeadOnlySearchToken',
             kinds: ['document'],
             limit: 10
           });
 
-          assert.equal(hits.length, 1);
-          assert.equal(hits[0].kind, 'document');
-          assert.deepEqual(hits[0].target, { type: 'document', documentId: document.id });
+          assert.strictEqual(hits.length, 1);
+          assert.ok(hits[0].kind === 'document');
+          expect(hits[0].target).toStrictEqual({ type: 'document', documentId: document.id });
           yield* documents.archive({ id: document.id, archived: true });
-          assert.deepEqual(
-            yield* store.searches({ query: 'HeadOnlySearchToken', kinds: ['document'], limit: 10 }),
-            []
-          );
+          expect(
+            yield* store.searches({ query: 'HeadOnlySearchToken', kinds: ['document'], limit: 10 })
+          ).toStrictEqual([]);
         }).pipe(
           Effect.provide(Documents.layer),
           Effect.provideService(Database, { store: context })

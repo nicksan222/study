@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { projectIdSchema } from '@study/contracts/ids';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Clock, Effect } from 'effect';
 import { Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -52,7 +52,7 @@ testStable(
       context = new ServerContext(location.open(), clock);
       const store = await provide(useStore(ProjectsStore));
 
-      assert.deepEqual((await Effect.runPromise(store.project(created.id))).icon, {
+      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'monogram',
         value: 'BIO',
         color: 'neutral'
@@ -62,7 +62,7 @@ testStable(
           tx.store(ProjectsStore).renameProject({ id: created.id, name: 'Advanced Biology' })
         )
       );
-      assert.deepEqual((await Effect.runPromise(store.project(created.id))).icon, {
+      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'monogram',
         value: 'BIO',
         color: 'neutral'
@@ -74,7 +74,7 @@ testStable(
             .setIcon({ id: created.id, icon: { kind: 'automatic', color: 'neutral' } })
         )
       );
-      assert.deepEqual((await Effect.runPromise(store.project(created.id))).icon, {
+      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'automatic',
         color: 'neutral'
       });
@@ -89,7 +89,7 @@ testStable(
         )
       );
 
-      assert.deepEqual(error.kind, 'not_found');
+      expect(error.kind).toStrictEqual('not_found');
     } finally {
       context.close();
       location.cleanup();
@@ -119,7 +119,7 @@ testStable('rich icons persist their typed variant and color across SQLite reope
       context = new ServerContext(location.open(), clock);
       const store = await provide(useStore(ProjectsStore));
 
-      assert.deepEqual((await Effect.runPromise(store.project(created.id))).icon, icon);
+      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual(icon);
     }
   } finally {
     context.close();

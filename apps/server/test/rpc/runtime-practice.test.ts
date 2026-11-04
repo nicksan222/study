@@ -15,14 +15,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -150,7 +151,7 @@ for (const mode of [
       });
       const address = peer.address();
 
-      if (!address || typeof address === 'string') throw new Error('missing peer address');
+      assert.ok(!(!address || typeof address === 'string'), 'missing peer address');
 
       const base = `http://127.0.0.1:${address.port}`;
       const context = new ServerContext(resources.openDb());
@@ -216,11 +217,8 @@ for (const mode of [
               inputs: [{ kind: 'document', versionId: document.version!.id }]
             });
 
-            assert.equal(initial.slots.length, 2);
-            assert.deepEqual(
-              initial.slots.map((slot) => slot.kind),
-              ['choice', 'choice']
-            );
+            assert.strictEqual(initial.slots.length, 2);
+            expect(initial.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
 
             if (mode === 'archived-before-request')
               yield* client['documents.archive']({ id: document.id, archived: true });
@@ -248,10 +246,10 @@ for (const mode of [
                 transient = false;
                 const failed = ready.slots.filter((slot) => slot.status === 'failed');
 
-                assert.equal(failed.length, mode === 'invalid-model' ? 1 : 2);
+                assert.strictEqual(failed.length, mode === 'invalid-model' ? 1 : 2);
 
                 if (mode === 'transient-exhausted')
-                  assert.equal(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
+                  assert.strictEqual(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
 
                 if (mode === 'invalid-model') {
                   const settings = yield* client['settings.appSettings']({});
@@ -265,8 +263,8 @@ for (const mode of [
                     slotId: slot.slotId
                   });
 
-                  assert.equal(retried.slotId, slot.slotId);
-                  assert.equal(retried.kind, slot.kind);
+                  assert.strictEqual(retried.slotId, slot.slotId);
+                  assert.strictEqual(retried.kind, slot.kind);
                   mark('duplicate-manual-retry');
                   yield* client['learning.retryPracticeQuestion']({ slotId: slot.slotId });
                 }
@@ -295,14 +293,14 @@ for (const mode of [
                 (_, value) => (typeof value === 'bigint' ? String(value) : value)
               )
             );
-            assert.equal(
+            assert.strictEqual(
               generations,
               mode === 'invalid-model' ? 3 : mode === 'transient-exhausted' ? 10 : 2,
               JSON.stringify({ failedCalls, healthyStarts, trace })
             );
 
             if (mode === 'transient-exhausted')
-              assert.equal(healthyStarts, 2, JSON.stringify({ failedCalls, trace }));
+              assert.strictEqual(healthyStarts, 2, JSON.stringify({ failedCalls, trace }));
 
             const first = ready.slots[0]!;
 
@@ -310,7 +308,7 @@ for (const mode of [
             const attempt = yield* client['learning.attempt']({ attemptId: first.attemptId });
             const question = attempt.questions[0]!;
 
-            if (question.kind === 'open') throw new Error('expected choice');
+            assert.ok(!(question.kind === 'open'), 'expected choice');
 
             const input = {
               slotId: first.slotId,
@@ -328,18 +326,15 @@ for (const mode of [
             );
 
             assert.ok('kind' in rejected);
-            assert.equal(rejected.kind, 'invalid_input');
+            assert.ok(rejected.kind === 'invalid_input');
             yield* client['learning.answerPracticeQuestion'](input);
             const refill = yield* client['learning.practice']({ projectId: project.id });
 
-            assert.deepEqual(
-              refill.slots.map((slot) => slot.kind),
-              ['choice', 'open']
-            );
+            expect(refill.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
             const stopped = yield* client['learning.stopPractice']({ projectId: project.id });
 
-            assert.equal(stopped.enabled, false);
-            assert.equal(stopped.slots.length, 0);
+            assert.ok(stopped.enabled === false);
+            assert.strictEqual(stopped.slots.length, 0);
             const count = generations;
 
             yield* client['system.stopWorkers']({});
@@ -369,12 +364,12 @@ for (const mode of [
                 yield* Effect.sleep('25 millis');
               }
 
-              assert.equal(drained, true);
+              assert.ok(drained === true);
             }
 
-            assert.equal(generations, count);
-            assert.equal(yield* client['projects.deleteProject']({ id: project.id }), true);
-            assert.deepEqual(app.store.db.orm.all('PRAGMA foreign_key_check'), []);
+            assert.strictEqual(generations, count);
+            assert.strictEqual(yield* client['projects.deleteProject']({ id: project.id }), true);
+            expect(app.store.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
           })
         )
       );

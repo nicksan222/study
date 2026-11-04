@@ -12,14 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
@@ -98,7 +99,7 @@ testStable(
           });
 
           yield* materials.deleteDraft({ id: draft.id });
-          assert.equal(
+          assert.strictEqual(
             context.db.orm.get(
               sql`SELECT count(*) n FROM document_assets WHERE source_id=${source.id}`
             )?.n,
@@ -118,9 +119,9 @@ testStable(
               bytes: new Uint8Array([1, 2, 3])
             })
           );
-          assert.deepEqual(context.db.orm.all(sql`SELECT * FROM source_snapshots`), before);
-          assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, events);
-          assert.equal((yield* sources.sourceProcessing(source.id)).revision, 1);
+          expect(context.db.orm.all(sql`SELECT * FROM source_snapshots`)).toStrictEqual(before);
+          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, events);
+          assert.strictEqual((yield* sources.sourceProcessing(source.id)).revision, 1);
           context.db.exec('DROP TRIGGER reject_image_replacement');
           yield* sources.replaceSource({
             id: source.id,
@@ -128,11 +129,10 @@ testStable(
             name: 'new.png',
             bytes: new Uint8Array([1, 2, 3])
           });
-          assert.deepEqual(
-            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
-            bytes
-          );
-          assert.deepEqual((yield* docs.version({ id: image.version.id })).document, document);
+          expect(
+            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+          ).toStrictEqual(bytes);
+          expect((yield* docs.version({ id: image.version.id })).document).toStrictEqual(document);
 
           for (const query of [
             sql`UPDATE source_snapshots SET bytes=X'00' WHERE source_id=${source.id} AND revision=1`,
@@ -143,20 +143,20 @@ testStable(
 
           yield* sources.setSourceProject({ id: source.id, projectId: other.id });
           yield* projects.deleteProject({ id: project.id });
-          assert.deepEqual((yield* docs.version({ id: image.version.id })).document, document);
+          expect((yield* docs.version({ id: image.version.id })).document).toStrictEqual(document);
           assert.ok(
             (yield* sources.previewDeletion({ id: source.id })).blockedBy.includes('image_assets')
           );
           const preview = yield* docs.previewDeletion({ id: image.id });
 
           yield* docs.delete({ documentId: image.id, token: preview.token });
-          assert.deepEqual((yield* sources.previewDeletion({ id: source.id })).blockedBy, []);
-          assert.equal(yield* sources.deleteSource({ id: source.id }), true);
-          assert.equal(
+          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([]);
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM source_snapshots WHERE source_id=${source.id}`),
             undefined
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {

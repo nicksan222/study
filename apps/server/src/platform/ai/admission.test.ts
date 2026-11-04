@@ -13,12 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { StudyError } from '@study/contracts/errors';
 import type { ConcurrencySettings } from '@study/contracts/settings/types';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Metric } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { makeAdmission, withAdmissionSettings } from '#server/platform/ai/admission';
 
@@ -51,14 +50,14 @@ testStable(
         yield* Effect.yieldNow;
         const overflow = yield* Effect.flip(gate.run(Effect.void));
 
-        assert.equal(overflow.kind, 'rate_limited');
+        assert.ok(overflow.kind === 'rate_limited');
         yield* Fiber.interrupt(waiting);
-        assert.equal(dispatches, 2);
+        assert.strictEqual(dispatches, 2);
         yield* Deferred.succeed(release, undefined);
         yield* Fiber.join(first);
         yield* Fiber.join(second);
         yield* Effect.exit(gate.run(Effect.fail('failure')));
-        assert.equal(yield* gate.run(Effect.succeed('released')), 'released');
+        assert.strictEqual(yield* gate.run(Effect.succeed('released')), 'released');
 
         return yield* Metric.snapshot;
       }).pipe(
@@ -68,17 +67,17 @@ testStable(
     );
     const admission = snapshots.find((value) => value.id === 'study.ai.admission');
 
-    assert.equal(admission?.type, 'Counter');
+    assert.ok(admission?.type === 'Counter');
 
-    if (admission?.type === 'Counter') assert.equal(admission.state.count, 4);
+    if (admission?.type === 'Counter') assert.strictEqual(admission.state.count, 4);
 
     const active = snapshots.find((value) => value.id === 'study.ai.active');
 
-    assert.equal(active?.type, 'Gauge');
+    assert.ok(active?.type === 'Gauge');
 
-    if (active?.type === 'Gauge') assert.equal(active.state.value, 0);
+    if (active?.type === 'Gauge') assert.strictEqual(active.state.value, 0);
 
-    assert.doesNotMatch(JSON.stringify(snapshots), /requestId|secret/);
+    expect(JSON.stringify(snapshots)).not.toMatch(/requestId|secret/);
   }
 );
 
@@ -107,7 +106,7 @@ testStable(
 
       yield* Stream.runDrain(Stream.take(stream, 1));
       yield* Deferred.await(done);
-      assert.equal(yield* gate.run(Effect.succeed('free')), 'free');
+      assert.strictEqual(yield* gate.run(Effect.succeed('free')), 'free');
     }
 
     await Effect.runPromise(Effect.gen(verifyStreamPermit));
@@ -143,7 +142,7 @@ testStable(
         return yield* admission.run(Effect.void);
       }).pipe(Effect.provide(layer));
 
-      assert.equal((yield* Effect.flip(other)).kind, 'rate_limited');
+      assert.ok((yield* Effect.flip(other)).kind === 'rate_limited');
       yield* Deferred.succeed(release, undefined);
       yield* Fiber.join(fiber);
       yield* Effect.exit(owner.run(Effect.die('defect')));
@@ -178,7 +177,7 @@ testStable('closing a scope interrupts active and waiting fibers', async () => {
       yield* Effect.yieldNow;
       yield* Scope.close(scope, Exit.void);
       yield* Deferred.await(stopped);
-      assert.equal(dispatched, 1);
+      assert.strictEqual(dispatched, 1);
       yield* gate.run(Effect.void);
     })
   );
@@ -215,25 +214,25 @@ testStable(
         const second = yield* Effect.forkChild(work(1));
 
         yield* Effect.yieldNow;
-        assert.equal(dispatches, 1);
+        assert.strictEqual(dispatches, 1);
         yield* gate.configure({ maxConcurrentAi: 2, maxQueuedAi: 1 });
         yield* Deferred.await(entered[1]!);
         const third = yield* Effect.forkChild(work(2));
 
         yield* Effect.yieldNow;
         yield* gate.configure({ maxConcurrentAi: 1, maxQueuedAi: 0 });
-        assert.equal((yield* Effect.flip(gate.run(Effect.void))).kind, 'rate_limited');
+        assert.ok((yield* Effect.flip(gate.run(Effect.void))).kind === 'rate_limited');
         yield* Deferred.succeed(releases[0]!, undefined);
         yield* Fiber.join(first);
         yield* Effect.yieldNow;
-        assert.equal(dispatches, 2);
+        assert.strictEqual(dispatches, 2);
         yield* Deferred.succeed(releases[1]!, undefined);
         yield* Fiber.join(second);
         yield* Deferred.await(entered[2]!);
-        assert.equal(dispatches, 3);
+        assert.strictEqual(dispatches, 3);
         yield* Deferred.succeed(releases[2]!, undefined);
         yield* Fiber.join(third);
-        assert.equal(yield* gate.run(Effect.succeed('released')), 'released');
+        assert.strictEqual(yield* gate.run(Effect.succeed('released')), 'released');
       })
     );
   }
@@ -262,12 +261,12 @@ testStable(
         );
 
         yield* Deferred.await(entered);
-        assert.equal((yield* Effect.flip(gate.run(Effect.void))).kind, 'rate_limited');
+        assert.ok((yield* Effect.flip(gate.run(Effect.void))).kind === 'rate_limited');
         settings = { maxConcurrentAi: 2, maxQueuedAi: 0 };
-        assert.equal(yield* gate.run(Effect.succeed('new capacity')), 'new capacity');
-        assert.equal(
-          (yield* Effect.flip(owner.configure({ maxConcurrentAi: 0, maxQueuedAi: 0 }))).kind,
-          'invalid_input'
+        assert.strictEqual(yield* gate.run(Effect.succeed('new capacity')), 'new capacity');
+        assert.ok(
+          (yield* Effect.flip(owner.configure({ maxConcurrentAi: 0, maxQueuedAi: 0 }))).kind ===
+            'invalid_input'
         );
         yield* Deferred.succeed(release, undefined);
         yield* Fiber.join(first);

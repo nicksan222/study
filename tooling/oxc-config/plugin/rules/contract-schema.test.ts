@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -11,7 +10,7 @@ testStable('reports the prohibited pattern', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -28,7 +27,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
 
@@ -42,7 +41,7 @@ testStable('rejects exported aliases to handwritten objects and inferred databas
     true
   );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('rejects handwritten brands tied to imported Effect Brand', () => {
@@ -55,7 +54,7 @@ testStable('rejects handwritten brands tied to imported Effect Brand', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -72,7 +71,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -86,7 +85,7 @@ testStable('native RPC declarations specify payload, success and error schemas',
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -107,7 +106,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -129,7 +128,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -151,7 +150,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -183,7 +182,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -207,5 +206,5 @@ testStable('backup descriptors and restore acknowledgements use checked canonica
     true
   );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });

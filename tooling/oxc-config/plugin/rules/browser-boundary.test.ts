@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -22,7 +21,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
   }
 );
 
@@ -32,7 +31,7 @@ testStable('browser entrypoints reject private server types', () => {
       "import type { ServerContext } from '../runtime/context'; import type { AppRouter } from '../runtime/router'; import type { Secret } from '../domains/jobs/store';"
   });
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('public root rejects private server types', () => {
@@ -41,7 +40,7 @@ testStable('public root rejects private server types', () => {
       "export type {AppRouter} from './runtime/router'; export type {ServerContext} from './runtime/context';"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -58,7 +57,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -73,7 +72,7 @@ testStable('browser consumers cannot import server package or retired transports
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable('browser consumers use only the explicit native client entrypoint', () => {
@@ -86,5 +85,5 @@ testStable('browser consumers use only the explicit native client entrypoint', (
     true
   );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });

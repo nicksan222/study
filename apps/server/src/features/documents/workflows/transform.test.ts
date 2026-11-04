@@ -10,12 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { createBlock } from '@study/contracts/sources/document';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -174,9 +173,9 @@ testStable(
             fixture.context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
           );
 
-          assert.equal(event.type, 'DocumentGenerationRequested');
+          assert.ok(event.type === 'DocumentGenerationRequested');
 
-          if (event.type !== 'DocumentGenerationRequested') throw new Error('Wrong event');
+          assert.ok(!(event.type !== 'DocumentGenerationRequested'), 'Wrong event');
 
           return { session, original, event, capture, request };
         }).pipe(Effect.provide(domain()))
@@ -185,7 +184,7 @@ testStable(
       const result = await execute(setup.event, 'document-fixture');
       const calls = bodies.length;
 
-      assert.equal(calls, 2);
+      assert.strictEqual(calls, 2);
       const prompt = bodies.join('\n');
 
       assert.ok(prompt.includes('alpha selected'));
@@ -197,8 +196,8 @@ testStable(
       assert.ok(!prompt.includes('OUTSIDE'));
       assert.ok(!prompt.includes('NEW MESSAGE SECRET'));
       fixture.reopen();
-      assert.deepEqual(await execute(setup.event, 'document-replay'), result);
-      assert.equal(bodies.length, calls);
+      expect(await execute(setup.event, 'document-replay')).toStrictEqual(result);
+      assert.strictEqual(bodies.length, calls);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Documents;
@@ -207,10 +206,14 @@ testStable(
           });
 
           assert.ok(receipt.resultVersionId);
-          assert.deepEqual(
-            receipt.report?.notes.map((note) => note.kind),
-            ['conflict', 'addition', 'omission', 'limit', 'uncertainty', 'correction_proposal']
-          );
+          expect(receipt.report?.notes.map((note) => note.kind)).toStrictEqual([
+            'conflict',
+            'addition',
+            'omission',
+            'limit',
+            'uncertainty',
+            'correction_proposal'
+          ]);
           const saved = yield* materials.version({ id: receipt.resultVersionId });
           const reportTargets = receipt.report?.notes.flatMap((note) => note.blockIds) ?? [];
 
@@ -218,18 +221,17 @@ testStable(
           const savedBlocks = saved.document.blocks;
 
           assertReportTargets(savedBlocks, reportTargets);
-          assert.equal(saved.creator, 'agent');
-          assert.deepEqual(saved.inputs, [
+          assert.ok(saved.creator === 'agent');
+          expect(saved.inputs).toStrictEqual([
             { kind: 'document', versionId: setup.original.version!.id },
             ...setup.capture.messages.map((message) => ({
               kind: 'message',
               versionId: message.versionId
             }))
           ]);
-          assert.deepEqual(
-            (yield* materials.version({ id: setup.original.version!.id })).document,
-            setup.original.version!.document
-          );
+          expect(
+            (yield* materials.version({ id: setup.original.version!.id })).document
+          ).toStrictEqual(setup.original.version!.document);
         }).pipe(Effect.provide(domain()))
       );
       const late = await Effect.runPromise(
@@ -257,12 +259,12 @@ testStable(
             retryId: 'exact-retry'
           });
 
-          assert.equal(retry.contextRequestId, capture.requestId);
+          assert.strictEqual(retry.contextRequestId, capture.requestId);
           const event = decodeEvent(
             fixture.context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
           );
 
-          if (event.type !== 'DocumentGenerationRequested') throw new Error('Wrong event');
+          assert.ok(!(event.type !== 'DocumentGenerationRequested'), 'Wrong event');
 
           return event;
         }).pipe(Effect.provide(domain()))
@@ -274,8 +276,8 @@ testStable(
       ).pipe(Effect.asVoid, Effect.provide(domain()));
 
       fixture.beforeOutput(() => Effect.runPromise(deleteSession));
-      await assert.rejects(execute(late, 'late-document'));
-      assert.equal(fixture.context.db.orm.select().from(s.study_documents).all().length, 2);
+      await expect(execute(late, 'late-document')).rejects.toSatisfy(() => true);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.study_documents).all().length, 2);
     } finally {
       await fixture.close();
     }

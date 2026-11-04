@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { annotationSchema } from '@study/contracts/documents/evidence';
@@ -22,9 +21,11 @@ import { correctBlockText, createBlock } from '@study/contracts/sources/document
 import { sql, eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -97,15 +98,14 @@ testStable(
               note: ''
             });
 
-            assert.equal(created.outcome, 'saved');
+            assert.ok(created.outcome === 'saved');
             const exact = yield* rpc['documents.version']({
               id: created.annotation.target.range.versionId
             });
 
-            assert.deepEqual(exact.document.blocks[0].content, block.content);
-            assert.equal(
-              exact.document.blocks[0].text.slice(target.range.start, target.range.end),
-              '😀'
+            expect(exact.document.blocks[0].content).toStrictEqual(block.content);
+            assert.ok(
+              exact.document.blocks[0].text.slice(target.range.start, target.range.end) === '😀'
             );
             const id = created.annotation.id;
 
@@ -114,15 +114,14 @@ testStable(
               { ...target.range, end: 200 },
               { ...target.range, start: 1, end: 1 }
             ])
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['documents.createAnnotation']({
                     target: { ...target, range },
                     kind: 'note',
                     note: 'Invalid'
                   })
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
 
             const update = {
@@ -134,7 +133,7 @@ testStable(
               deleted: false
             };
 
-            assert.equal((yield* rpc['documents.reviseAnnotation'](update)).outcome, 'saved');
+            assert.ok((yield* rpc['documents.reviseAnnotation'](update)).outcome === 'saved');
             const beforeConflicts = state();
 
             for (const intent of [
@@ -144,22 +143,21 @@ testStable(
             ]) {
               const conflict = yield* rpc['documents.reviseAnnotation'](intent);
 
-              assert.equal(conflict.outcome, 'conflict');
-              assert.equal(conflict.annotation.note, 'First edit');
-              assert.deepEqual(conflict.annotation.target, target);
+              assert.ok(conflict.outcome === 'conflict');
+              assert.ok(conflict.annotation.note === 'First edit');
+              expect(conflict.annotation.target).toStrictEqual(target);
             }
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 rpc['documents.reviseAnnotation']({
                   ...update,
                   expectedRevision: 2n,
                   target: { ...target, range: { ...target.range, end: 200 } }
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.deepEqual(state(), beforeConflicts);
+            expect(state()).toStrictEqual(beforeConflicts);
             const other = yield* rpc['documents.create']({
               createKey: randomUUID(),
               title: 'Other identity',
@@ -171,17 +169,16 @@ testStable(
             assert.ok(other.version);
             const beforeWrongOwner = state();
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 rpc['documents.reviseAnnotation']({
                   ...update,
                   expectedRevision: 2n,
                   target: { ...target, documentId: other.id }
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.deepEqual(state(), beforeWrongOwner);
+            expect(state()).toStrictEqual(beforeWrongOwner);
             const changed = yield* rpc['documents.save']({
               documentId: document.id,
               expectedVersionId: document.version.id,
@@ -207,18 +204,16 @@ testStable(
               target: nextTarget
             });
 
-            assert.equal(moved.annotation.operation, 'reanchor');
-            assert.deepEqual(
+            assert.ok(moved.annotation.operation === 'reanchor');
+            expect(
               (yield* rpc['documents.annotationHistory']({ id, limit: 10 })).items.map(
                 (item) => item.target
-              ),
-              [nextTarget, target, target]
-            );
-            assert.equal(
+              )
+            ).toStrictEqual([nextTarget, target, target]);
+            assert.ok(
               (yield* rpc['documents.version']({
                 id: target.range.versionId
-              })).document.blocks[0].text.slice(1, 3),
-              '😀'
+              })).document.blocks[0].text.slice(1, 3) === '😀'
             );
             const beforeFailure = state();
 
@@ -232,7 +227,7 @@ testStable(
               { ...update, expectedRevision: 3n, target: nextTarget, deleted: true }
             ]) {
               yield* Effect.flip(rpc['documents.reviseAnnotation'](intent));
-              assert.deepEqual(state(), beforeFailure);
+              expect(state()).toStrictEqual(beforeFailure);
             }
 
             context.db.exec('DROP TRIGGER reject_annotation_event');
@@ -283,7 +278,7 @@ testStable(
                 .set({ payload: '{}' })
                 .run()
             );
-            assert.deepEqual(state(), beforeFailure);
+            expect(state()).toStrictEqual(beforeFailure);
             const retried = yield* rpc['documents.reviseAnnotation']({
               ...update,
               expectedRevision: 3n,
@@ -291,27 +286,21 @@ testStable(
               note: 'Retried after rollback'
             });
 
-            assert.equal(retried.annotation.revision, 4n);
-            assert.equal(state().events.length, beforeFailure.events.length + 1);
+            assert.strictEqual(retried.annotation.revision, 4n);
+            assert.strictEqual(state().events.length, beforeFailure.events.length + 1);
             const page = yield* rpc['documents.annotationHistory']({ id, limit: 2 });
 
-            assert.deepEqual(
-              page.items.map((item) => item.revision),
-              [4n, 3n]
-            );
-            assert.equal(page.nextCursor, 3n);
+            expect(page.items.map((item) => item.revision)).toStrictEqual([4n, 3n]);
+            assert.strictEqual(page.nextCursor, 3n);
             const tail = yield* rpc['documents.annotationHistory']({
               id,
               limit: 2,
               cursor: page.nextCursor!
             });
 
-            assert.deepEqual(
-              tail.items.map((item) => item.revision),
-              [2n, 1n]
-            );
-            assert.equal(tail.nextCursor, null);
-            assert.equal(
+            expect(tail.items.map((item) => item.revision)).toStrictEqual([2n, 1n]);
+            assert.ok(tail.nextCursor === null);
+            assert.strictEqual(
               (yield* rpc['documents.annotations']({
                 documentId: document.id,
                 limit: 1,
@@ -333,8 +322,8 @@ testStable(
             const rpc = yield* RpcTest.makeClient(DocumentsRpc);
             const reopened = yield* rpc['documents.annotation']({ id: retained.id });
 
-            assert.equal(reopened.revision, 4n);
-            assert.equal(reopened.note, 'Retried after rollback');
+            assert.strictEqual(reopened.revision, 4n);
+            assert.ok(reopened.note === 'Retried after rollback');
             const deleted = yield* rpc['documents.reviseAnnotation']({
               id: retained.id,
               expectedRevision: reopened.revision,
@@ -344,9 +333,9 @@ testStable(
               deleted: true
             });
 
-            assert.equal(deleted.annotation.deleted, true);
-            assert.equal(deleted.annotation.revision, 5n);
-            assert.equal(
+            assert.ok(deleted.annotation.deleted === true);
+            assert.strictEqual(deleted.annotation.revision, 5n);
+            assert.strictEqual(
               (yield* rpc['documents.annotations']({
                 documentId: retained.documentId,
                 limit: 10,
@@ -354,7 +343,7 @@ testStable(
               })).items.length,
               0
             );
-            assert.equal(
+            assert.strictEqual(
               (yield* rpc['documents.annotations']({
                 documentId: retained.documentId,
                 limit: 10,
@@ -362,12 +351,12 @@ testStable(
               })).items.length,
               1
             );
-            assert.equal(
+            assert.strictEqual(
               (yield* rpc['documents.annotationHistory']({ id: retained.id, limit: 10 })).items
                 .length,
               5
             );
-            assert.equal(
+            assert.strictEqual(
               (yield* rpc['documents.document']({ id: retained.documentId })).id,
               retained.documentId
             );
@@ -378,7 +367,7 @@ testStable(
               { target: retained.target, deleted: false, note: reopened.note },
               { target: reopened.target, deleted: true, note: reopened.note }
             ])
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['documents.reviseAnnotation']({
                     id: retained.id,
@@ -386,16 +375,14 @@ testStable(
                     kind: 'note',
                     ...intent
                   })
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
 
-            assert.deepEqual(state(), tombstone);
-            assert.equal(
+            expect(state()).toStrictEqual(tombstone);
+            assert.ok(
               (yield* Effect.flip(
                 rpc['documents.version']({ id: studyDocumentVersionIdSchema.make(999999n) })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
 
             for (const range of [
@@ -404,21 +391,20 @@ testStable(
               { ...retained.target.range, start: 2, end: 3 },
               { ...retained.target.range, start: 1, end: 1 }
             ])
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['documents.createAnnotation']({
                     target: { ...retained.target, range },
                     kind: 'note',
                     note: ''
                   })
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
 
             const old = yield* rpc['documents.version']({ id: retained.target.range.versionId });
 
-            assert.equal(old.document.blocks[0].text.slice(1, 3), '😀');
-            assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+            assert.ok(old.document.blocks[0].text.slice(1, 3) === '😀');
+            expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(handlers()))
         )
       );

@@ -13,15 +13,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { SettingsRpc } from '@study/contracts/settings/rpc';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Settings } from '#server/features/settings/index';
 import { admissionLayer, makeAdmission } from '#server/platform/ai/admission';
@@ -45,39 +45,37 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(SettingsRpc, { flatten: true });
 
-          assert.deepEqual(
-            yield* client('settings.workspacePreferences', {}),
+          expect(yield* client('settings.workspacePreferences', {})).toStrictEqual(
             defaultWorkspacePreferences
           );
           yield* client('settings.saveWorkspacePreferences', {
             ...defaultWorkspacePreferences,
             autosaveIntervalSeconds: 7
           });
-          assert.equal(
+          assert.strictEqual(
             (yield* client('settings.workspacePreferences', {})).autosaveIntervalSeconds,
             7
           );
-          assert.deepEqual(yield* client('settings.concurrencySettings', {}), {
+          expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
             maxConcurrentAi: 2,
             maxQueuedAi: 16
           });
           yield* client('settings.saveConcurrencySettings', { maxConcurrentAi: 4, maxQueuedAi: 8 });
-          assert.deepEqual(yield* client('settings.concurrencySettings', {}), {
+          expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
             maxConcurrentAi: 4,
             maxQueuedAi: 8
           });
-          assert.equal((yield* client('settings.appSettings', {})).zoomPercent, 100);
+          assert.strictEqual((yield* client('settings.appSettings', {})).zoomPercent, 100);
           yield* client('settings.saveReviewSettings', { newCardsPerDay: 33 });
-          assert.equal((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
+          assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
           context.db.orm.run(
             sql`CREATE TRIGGER reject_review BEFORE INSERT ON preferences WHEN NEW.scope = 'review' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
           );
           assert.ok(
             (yield* Effect.flip(client('settings.saveReviewSettings', { newCardsPerDay: 44 }))).kind
           );
-          assert.equal((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
-          assert.deepEqual(
-            [...SettingsRpc.requests.keys()].sort(),
+          assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
+          expect([...SettingsRpc.requests.keys()].sort()).toStrictEqual(
             [
               'settings.workspacePreferences',
               'settings.saveWorkspacePreferences',
@@ -157,18 +155,18 @@ testStable(
               maxConcurrentAi: 1,
               maxQueuedAi: 3
             });
-            assert.deepEqual(yield* client('settings.concurrencySettings', {}), {
+            expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
               maxConcurrentAi: 1,
               maxQueuedAi: 3
             });
             yield* Deferred.succeed(releases[0]!, undefined);
             yield* Fiber.join(first);
             yield* Effect.yieldNow;
-            assert.equal(dispatches, 2);
+            assert.strictEqual(dispatches, 2);
             yield* Deferred.succeed(releases[1]!, undefined);
             yield* Fiber.join(second);
             yield* Deferred.await(entered[2]!);
-            assert.equal(dispatches, 3);
+            assert.strictEqual(dispatches, 3);
 
             // Raising the setting dispatches existing queued work without another submission.
             yield* client('settings.saveConcurrencySettings', {
@@ -176,7 +174,7 @@ testStable(
               maxQueuedAi: 2
             });
             yield* Deferred.await(entered[3]!);
-            assert.equal(dispatches, 4);
+            assert.strictEqual(dispatches, 4);
 
             context.db.orm.run(
               sql`CREATE TRIGGER reject_concurrency BEFORE INSERT ON preferences WHEN NEW.scope = 'concurrency' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
@@ -184,13 +182,13 @@ testStable(
             yield* Effect.flip(
               client('settings.saveConcurrencySettings', { maxConcurrentAi: 1, maxQueuedAi: 0 })
             );
-            assert.deepEqual(yield* client('settings.concurrencySettings', {}), {
+            expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
               maxConcurrentAi: 2,
               maxQueuedAi: 2
             });
             yield* Deferred.succeed(releases[2]!, undefined);
             yield* Fiber.join(third);
-            assert.equal(
+            assert.strictEqual(
               yield* owner.run(Effect.succeed('unchanged after failed save')),
               'unchanged after failed save'
             );

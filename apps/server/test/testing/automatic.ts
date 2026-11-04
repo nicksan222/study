@@ -14,9 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { TestContext } from 'node:test';
-
 import { createTestDatabase } from '@study/db/testing';
+import type { TestContext } from 'vite-plus/test';
 
 import { inTestPhase } from './progress.ts';
 
@@ -32,31 +31,29 @@ const states = new WeakMap<TestContext, TestState>();
 const databases: ReturnType<typeof createTestDatabase>[] = [];
 
 export function registerTest(t: TestContext) {
-  t.log('study-test-phase:automatic-setup:start');
+  console.debug('study-test-phase:automatic-setup:start');
 
   const database = createTestDatabase();
   const state: TestState = { database, resources: [] };
 
   databases.push(database);
   states.set(t, state);
-  t.after(
-    () =>
-      inTestPhase(t, 'automatic-cleanup', async () => {
-        const errors: unknown[] = [];
+  t.onTestFinished(() =>
+    inTestPhase(t, 'automatic-cleanup', async () => {
+      const errors: unknown[] = [];
 
-        for (const [index, cleanup] of state.resources.reverse().entries()) {
-          try {
-            await inTestPhase(t, `automatic-resource-${index}`, cleanup);
-          } catch (error) {
-            errors.push(error);
-          }
+      for (const [index, cleanup] of state.resources.reverse().entries()) {
+        try {
+          await inTestPhase(t, `automatic-resource-${index}`, cleanup);
+        } catch (error) {
+          errors.push(error);
         }
+      }
 
-        if (errors.length) throw new AggregateError(errors, 'Test resource cleanup failed');
-      }),
-    { timeout: 30000 }
+      if (errors.length) throw new AggregateError(errors, 'Test resource cleanup failed');
+    })
   );
-  t.log('study-test-phase:automatic-setup:complete');
+  console.debug('study-test-phase:automatic-setup:complete');
 }
 
 export function cleanupTestFile() {

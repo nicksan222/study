@@ -13,10 +13,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { decodePdf } from '#server/features/sources/decoders/pdf';
 import { decodeText } from '#server/features/sources/decoders/text';
@@ -30,28 +30,24 @@ testStable('text decoding preserves UTF-8 byte anchors and markdown fences', () 
     mime: 'text/markdown'
   });
 
-  assert.deepEqual(
-    result.blocks.map((block) => block.kind),
-    ['heading', 'code']
-  );
-  assert.deepEqual(result.blocks[1].anchor, {
+  expect(result.blocks.map((block) => block.kind)).toStrictEqual(['heading', 'code']);
+  expect(result.blocks[1].anchor).toStrictEqual({
     type: 'text',
     lineStart: 3,
     lineEnd: 7,
     start: 10,
     end: 31
   });
-  assert.throws(
-    () => decodeText({ bytes: new Uint8Array([255]), kind: 'text', mime: 'text/plain' }),
-    { kind: 'invalid_input' }
-  );
+  expect(() =>
+    decodeText({ bytes: new Uint8Array([255]), kind: 'text', mime: 'text/plain' })
+  ).toThrow(expect.objectContaining({ kind: 'invalid_input' }));
 });
 
 testStable('PDF decoding validates and counts pages', async () => {
   const fixture = await readFile(new URL('./fixtures/two-pages.pdf', import.meta.url));
 
-  assert.equal(await decodePdf(fixture), 2);
-  await assert.rejects(decodePdf(bytes('not a PDF')), { kind: 'invalid_input' });
+  assert.strictEqual(await decodePdf(fixture), 2);
+  await expect(decodePdf(bytes('not a PDF'))).rejects.toMatchObject({ kind: 'invalid_input' });
 });
 
 testStable(
@@ -64,17 +60,22 @@ testStable(
     ];
     const document = visionDocument(pages, 2);
 
-    assert.deepEqual(
-      document.blocks.map((block) => block.anchor),
-      [
-        { type: 'page', page: 1 },
-        { type: 'page', page: 2 }
-      ]
+    expect(document.blocks.map((block) => block.anchor)).toStrictEqual([
+      { type: 'page', page: 1 },
+      { type: 'page', page: 2 }
+    ]);
+    assert.strictEqual(document.meta.pageCount, 2);
+    expect(document.meta.omissions).toStrictEqual([
+      'provider_structure',
+      'layout',
+      'embedded_media'
+    ]);
+    expect(() => visionDocument(pages.slice(0, 1), 2)).toThrow(
+      expect.objectContaining({ kind: 'invalid_input' })
     );
-    assert.equal(document.meta.pageCount, 2);
-    assert.deepEqual(document.meta.omissions, ['provider_structure', 'layout', 'embedded_media']);
-    assert.throws(() => visionDocument(pages.slice(0, 1), 2), { kind: 'invalid_input' });
-    assert.throws(() => visionDocument([...pages].reverse(), 2), { kind: 'invalid_input' });
+    expect(() => visionDocument([...pages].reverse(), 2)).toThrow(
+      expect.objectContaining({ kind: 'invalid_input' })
+    );
   }
 );
 
@@ -87,31 +88,26 @@ testStable('HTML extracts visible content and preserves URL fragments', async ()
     url: 'https://example.test/'
   });
 
-  assert.deepEqual(
-    document.blocks.map((block) => block.text),
-    ['Title', 'Body & detail']
-  );
-  assert.deepEqual(document.blocks[0].anchor, {
+  expect(document.blocks.map((block) => block.text)).toStrictEqual(['Title', 'Body & detail']);
+  expect(document.blocks[0].anchor).toStrictEqual({
     type: 'url',
     url: 'https://example.test/',
     fragment: 'top'
   });
-  assert.deepEqual(
+  expect(
     decodeHtml({
       bytes: bytes(
         '<main><div>Intro <b>detail</b></div><ul><li>Parent<ul><li>Child</li></ul>After</li></ul></main>'
       )
-    }).blocks.map((block) => [block.kind, block.text]),
-    [
-      ['paragraph', 'Intro detail'],
-      ['list_item', 'Parent\nChild\nAfter']
-    ]
-  );
+    }).blocks.map((block) => [block.kind, block.text])
+  ).toStrictEqual([
+    ['paragraph', 'Intro detail'],
+    ['list_item', 'Parent\nChild\nAfter']
+  ]);
 
-  assert.deepEqual(
-    decodeHtml({ bytes: bytes('<main><p>Attachment</p></main>') }).blocks[0].anchor,
-    { type: 'paragraph', index: 1 }
-  );
+  expect(
+    decodeHtml({ bytes: bytes('<main><p>Attachment</p></main>') }).blocks[0].anchor
+  ).toStrictEqual({ type: 'paragraph', index: 1 });
 });
 
 testStable(
@@ -138,24 +134,20 @@ testStable(
     ] as const) {
       const doc = await decodeOffice({ kind, bytes: await fixture(name) });
 
-      assert.deepEqual(
+      expect(
         doc.blocks.map((block) => block.text),
-        expected,
         name
-      );
+      ).toStrictEqual(expected);
     }
 
     const slides = await decodeOffice({ kind: 'slides', bytes: await fixture('sample.pptx') });
 
-    assert.equal(slides.meta.pageCount, 2);
-    assert.deepEqual(
-      slides.blocks.map((block) => block.anchor),
-      [
-        { type: 'slide', index: 1 },
-        { type: 'slide', index: 1 },
-        { type: 'slide', index: 2 }
-      ]
-    );
+    assert.strictEqual(slides.meta.pageCount, 2);
+    expect(slides.blocks.map((block) => block.anchor)).toStrictEqual([
+      { type: 'slide', index: 1 },
+      { type: 'slide', index: 1 },
+      { type: 'slide', index: 2 }
+    ]);
 
     for (const name of [
       'malformed.docx',
@@ -163,16 +155,15 @@ testStable(
       'missing-slide.pptx',
       'missing-notes.pptx'
     ]) {
-      await assert.rejects(
+      await expect(
         decodeOffice({
           kind: name.endsWith('.docx') ? 'document' : 'slides',
           bytes: await fixture(name)
-        }),
-        { kind: 'invalid_input' }
-      );
+        })
+      ).rejects.toMatchObject({ kind: 'invalid_input' });
     }
 
-    await assert.rejects(decodeOffice({ kind: 'document', bytes: bytes('bad') }), {
+    await expect(decodeOffice({ kind: 'document', bytes: bytes('bad') })).rejects.toMatchObject({
       kind: 'invalid_input'
     });
   }
@@ -190,38 +181,39 @@ testStable(
       )
     });
 
-    assert.equal(Schema.is(documentSchema)(html), true);
-    assert.deepEqual(
-      html.blocks.map((block) => block.text),
-      ['Title', 'Parent\nChild\nAfter', 'A | ', 'let n = 1;', 'Link']
-    );
-    assert.deepEqual(
+    assert.ok(Schema.is(documentSchema)(html) === true);
+    expect(html.blocks.map((block) => block.text)).toStrictEqual([
+      'Title',
+      'Parent\nChild\nAfter',
+      'A | ',
+      'let n = 1;',
+      'Link'
+    ]);
+    expect(
       html.blocks[1]!.content.type === 'list_item' &&
         html.blocks[1]!.content.items.map((item) => [
           item.depth,
           item.ordered,
           item.start,
           item.continuation
-        ]),
-      [
-        [0, true, 3, false],
-        [1, false, 1, false],
-        [0, true, 3, true]
-      ]
-    );
-    assert.deepEqual(
+        ])
+    ).toStrictEqual([
+      [0, true, 3, false],
+      [1, false, 1, false],
+      [0, true, 3, true]
+    ]);
+    expect(
       html.blocks[2]!.content.type === 'table' &&
-        html.blocks[2]!.content.rows[0]!.cells.map((cell) => cell.header),
-      [true, false]
-    );
-    assert.equal(html.blocks[3]!.content.type === 'code' && html.blocks[3]!.content.language, 'ts');
-    assert.equal(
-      html.blocks[4]!.content.type === 'paragraph' && html.blocks[4]!.content.inlines[0]!.type,
-      'link'
+        html.blocks[2]!.content.rows[0]!.cells.map((cell) => cell.header)
+    ).toStrictEqual([true, false]);
+    assert.ok(html.blocks[3]!.content.type === 'code' && html.blocks[3]!.content.language === 'ts');
+    assert.ok(
+      html.blocks[4]!.content.type === 'paragraph' &&
+        html.blocks[4]!.content.inlines[0]!.type === 'link'
     );
     assert.ok(html.meta.omissions.includes('embedded_media'));
 
-    for (const block of html.blocks) assert.equal(block.text, canonicalText(block.content));
+    for (const block of html.blocks) assert.strictEqual(block.text, canonicalText(block.content));
   }
 );
 
@@ -238,24 +230,26 @@ testStable(
       )
     });
 
-    assert.equal(Schema.is(documentSchema)(markdown), true);
-    assert.deepEqual(
-      markdown.blocks.map((block) => block.text),
-      ['Title', 'Parent\nChild', 'A | B\nOne | Two', 'let n = 1;']
-    );
-    assert.equal(
+    assert.ok(Schema.is(documentSchema)(markdown) === true);
+    expect(markdown.blocks.map((block) => block.text)).toStrictEqual([
+      'Title',
+      'Parent\nChild',
+      'A | B\nOne | Two',
+      'let n = 1;'
+    ]);
+    assert.strictEqual(
       markdown.blocks[1]!.content.type === 'list_item' &&
         markdown.blocks[1]!.content.items[1]!.depth,
       1
     );
-    assert.equal(
-      markdown.blocks[3]!.content.type === 'code' && markdown.blocks[3]!.content.language,
-      'ts'
+    assert.ok(
+      markdown.blocks[3]!.content.type === 'code' && markdown.blocks[3]!.content.language === 'ts'
     );
 
     assert.ok(markdown.meta.omissions.includes('unsupported_markup'));
 
-    for (const block of markdown.blocks) assert.equal(block.text, canonicalText(block.content));
+    for (const block of markdown.blocks)
+      assert.strictEqual(block.text, canonicalText(block.content));
   }
 );
 
@@ -266,26 +260,23 @@ testStable('Office retains extracted marks and cells and reports nested-table lo
     bytes: await readFile(new URL('./fixtures/sample.docx', import.meta.url))
   });
 
-  assert.deepEqual(
-    word.blocks[0]!.content.type === 'heading' && word.blocks[0]!.content.inlines[0],
-    { type: 'text', text: 'Heading', marks: ['strong'] }
-  );
-  assert.deepEqual(
-    word.blocks[1]!.content.type === 'paragraph' && word.blocks[1]!.content.inlines[0],
-    { type: 'text', text: 'First paragraph', marks: ['emphasis'] }
-  );
+  expect(
+    word.blocks[0]!.content.type === 'heading' && word.blocks[0]!.content.inlines[0]
+  ).toStrictEqual({ type: 'text', text: 'Heading', marks: ['strong'] });
+  expect(
+    word.blocks[1]!.content.type === 'paragraph' && word.blocks[1]!.content.inlines[0]
+  ).toStrictEqual({ type: 'text', text: 'First paragraph', marks: ['emphasis'] });
   const table = await decodeOffice({
     kind: 'document',
     bytes: await readFile(new URL('./fixtures/table.docx', import.meta.url))
   });
 
-  assert.deepEqual(
+  expect(
     table.blocks[1]!.content.type === 'table' &&
       table.blocks[1]!.content.rows[0]!.cells.map(
         (cell) => cell.paragraphs[0]![0]!.type === 'text' && cell.paragraphs[0]![0]!.text
-      ),
-    ['Left', 'Right']
-  );
+      )
+  ).toStrictEqual(['Left', 'Right']);
   const nested = await decodeOffice({
     kind: 'document',
     bytes: await readFile(new URL('./fixtures/nested-tables.docx', import.meta.url))
@@ -309,7 +300,7 @@ testStable(
       { type: 'text', lineStart: 1, lineEnd: 2, start: 4, end: 2 },
       { type: 'slide', index: NaN }
     ])
-      assert.equal(Schema.is(anchorSchema)(anchor), false);
+      assert.ok(Schema.is(anchorSchema)(anchor) === false);
   }
 );
 
@@ -333,19 +324,13 @@ testStable('HTML preserves empty list ancestors without inventing continuations'
   ] as const) {
     const result = decodeHtml({ bytes: bytes('<main>' + source + '</main>') });
 
-    assert.equal(Schema.is(documentSchema)(result), true);
+    assert.ok(Schema.is(documentSchema)(result) === true);
     const content = result.blocks[0]!.content;
 
-    assert.equal(content.type, 'list_item');
-    assert.deepEqual(
-      content.items.map((item) => item.depth),
-      depths
-    );
-    assert.deepEqual(
-      content.items.map((item) => item.continuation),
-      continuations
-    );
-    assert.equal(content.items[0]!.inlines.length, 0);
+    assert.ok(content.type === 'list_item');
+    expect(content.items.map((item) => item.depth)).toStrictEqual(depths);
+    expect(content.items.map((item) => item.continuation)).toStrictEqual(continuations);
+    assert.strictEqual(content.items[0]!.inlines.length, 0);
   }
 });
 
@@ -361,19 +346,18 @@ testStable(
       )
     });
 
-    assert.equal(Schema.is(documentSchema)(result), true);
+    assert.ok(Schema.is(documentSchema)(result) === true);
     const content = result.blocks[0]!.content;
 
-    assert.equal(content.type, 'table');
+    assert.ok(content.type === 'table');
     const cell = content.rows[0]!.cells[0]!;
 
-    assert.deepEqual(
-      cell.paragraphs.map((inlines) => canonicalText({ type: 'paragraph', inlines })),
-      ['Before', 'First', '', 'Second', 'After']
-    );
-    assert.deepEqual(cell.paragraphs[1], [{ type: 'text', text: 'First', marks: ['strong'] }]);
-    assert.deepEqual(content.rows[0]!.cells[1]!.paragraphs, [[]]);
-    assert.equal(result.blocks[0]!.text, 'Before\nFirst\n\nSecond\nAfter | ');
+    expect(
+      cell.paragraphs.map((inlines) => canonicalText({ type: 'paragraph', inlines }))
+    ).toStrictEqual(['Before', 'First', '', 'Second', 'After']);
+    expect(cell.paragraphs[1]).toStrictEqual([{ type: 'text', text: 'First', marks: ['strong'] }]);
+    expect(content.rows[0]!.cells[1]!.paragraphs).toStrictEqual([[]]);
+    assert.ok(result.blocks[0]!.text === 'Before\nFirst\n\nSecond\nAfter | ');
   }
 );
 
@@ -388,21 +372,22 @@ testStable('HTML groups loose phrasing without breaking words or losing inline m
       url: 'https://example.test/page'
     });
 
-    assert.deepEqual(
-      result.blocks.map((block) => block.text),
-      ['international link', 'Next', 'ending']
-    );
-    assert.equal(result.blocks[0]!.content.type, 'paragraph');
+    expect(result.blocks.map((block) => block.text)).toStrictEqual([
+      'international link',
+      'Next',
+      'ending'
+    ]);
+    assert.ok(result.blocks[0]!.content.type === 'paragraph');
 
     if (result.blocks[0]!.content.type === 'paragraph')
-      assert.deepEqual(result.blocks[0]!.content.inlines, [
+      expect(result.blocks[0]!.content.inlines).toStrictEqual([
         { type: 'text', text: 'inter', marks: [] },
         { type: 'text', text: 'national', marks: ['strong'] },
         { type: 'text', text: ' ', marks: [] },
         { type: 'link', href: 'https://example.test/', text: 'link' }
       ]);
 
-    assert.deepEqual(result.blocks[0]!.anchor, {
+    expect(result.blocks[0]!.anchor).toStrictEqual({
       type: 'url',
       url: 'https://example.test/page',
       fragment: 'flow'
@@ -427,28 +412,27 @@ testStable(
       });
 
       Schema.decodeUnknownSync(documentSchema)(result);
-      assert.equal(result.blocks[0]!.text, 'Parent\nChild\nAfter\nFirst\nSecond');
+      assert.ok(result.blocks[0]!.text === 'Parent\nChild\nAfter\nFirst\nSecond');
 
       return result.blocks[0]!.content;
     });
 
-    assert.deepEqual(contents[1], contents[0]);
-    assert.deepEqual(contents[2], contents[0]);
+    expect(contents[1]).toStrictEqual(contents[0]);
+    expect(contents[2]).toStrictEqual(contents[0]);
     const content = contents[0]!;
 
-    assert.equal(content.type, 'list_item');
+    assert.ok(content.type === 'list_item');
 
     if (content.type === 'list_item')
-      assert.deepEqual(
-        content.items.map(({ depth, start, continuation }) => ({ depth, start, continuation })),
-        [
-          { depth: 0, start: 3, continuation: false },
-          { depth: 1, start: 1, continuation: false },
-          { depth: 0, start: 3, continuation: true },
-          { depth: 0, start: 4, continuation: false },
-          { depth: 0, start: 4, continuation: true }
-        ]
-      );
+      expect(
+        content.items.map(({ depth, start, continuation }) => ({ depth, start, continuation }))
+      ).toStrictEqual([
+        { depth: 0, start: 3, continuation: false },
+        { depth: 1, start: 1, continuation: false },
+        { depth: 0, start: 3, continuation: true },
+        { depth: 0, start: 4, continuation: false },
+        { depth: 0, start: 4, continuation: true }
+      ]);
   }
 );
 
@@ -468,16 +452,13 @@ testStable(
       });
 
       Schema.decodeUnknownSync(documentSchema)(result);
-      assert.deepEqual(
-        result.blocks.map((block) => [block.content.type, block.text]),
-        [
-          ['paragraph', 'Topic'],
-          ['paragraph', 'Before'],
-          ['list_item', 'Evidence'],
-          ['table', 'Cell'],
-          ['paragraph', 'international']
-        ]
-      );
+      expect(result.blocks.map((block) => [block.content.type, block.text])).toStrictEqual([
+        ['paragraph', 'Topic'],
+        ['paragraph', 'Before'],
+        ['list_item', 'Evidence'],
+        ['table', 'Cell'],
+        ['paragraph', 'international']
+      ]);
       const list = decodeHtml({
         bytes: bytes(
           `<ol start="3"><li><${wrapper}><summary>Topic</summary><p>Before</p><ul><li>Evidence</li></ul><p>After</p>inter<strong>national</strong></${tag}></li></ol>`
@@ -485,15 +466,14 @@ testStable(
       });
 
       Schema.decodeUnknownSync(documentSchema)(list);
-      assert.equal(list.blocks.length, 1);
-      assert.equal(list.blocks[0]!.text, 'Topic\nBefore\nEvidence\nAfter\ninternational');
+      assert.strictEqual(list.blocks.length, 1);
+      assert.ok(list.blocks[0]!.text === 'Topic\nBefore\nEvidence\nAfter\ninternational');
       const content = list.blocks[0]!.content;
 
-      assert.equal(content.type, 'list_item');
+      assert.ok(content.type === 'list_item');
 
       if (content.type === 'list_item')
-        assert.deepEqual(
-          content.items.map(({ depth, continuation }) => [depth, continuation]),
+        expect(content.items.map(({ depth, continuation }) => [depth, continuation])).toStrictEqual(
           [
             [0, false],
             [0, true],

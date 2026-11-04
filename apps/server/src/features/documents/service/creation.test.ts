@@ -10,12 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { plainBlock } from '@study/contracts/sources/document';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -59,14 +58,14 @@ testStable(
           const original = yield* documents.create(input);
           const replay = yield* documents.create(input);
 
-          assert.equal(replay.id, original.id);
+          assert.strictEqual(replay.id, original.id);
           assert.ok(original.version);
           assert.ok(replay.version);
-          assert.equal(replay.version.id, original.version.id);
-          assert.equal(original.version.documentId, original.id);
-          assert.equal(
-            (yield* Effect.flip(documents.create({ ...input, title: 'Different intent' }))).kind,
-            'invalid_input'
+          assert.strictEqual(replay.version.id, original.version.id);
+          assert.strictEqual(original.version.documentId, original.id);
+          assert.ok(
+            (yield* Effect.flip(documents.create({ ...input, title: 'Different intent' }))).kind ===
+              'invalid_input'
           );
           const description = yield* documents.updateMetadata({
             id: original.id,
@@ -76,9 +75,9 @@ testStable(
             expectedDescription: null
           });
 
-          assert.equal(description.description, 'A short summary');
-          assert.equal(description.headVersionId, original.version.id);
-          assert.equal(
+          assert.ok(description.description === 'A short summary');
+          assert.strictEqual(description.headVersionId, original.version.id);
+          assert.ok(
             (yield* Effect.flip(
               documents.updateMetadata({
                 id: original.id,
@@ -87,18 +86,16 @@ testStable(
                 description: 'Stale overwrite',
                 expectedDescription: null
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* documents.updateMetadata({
               id: original.id,
               title: original.title,
               expectedTitle: original.title,
               description: null,
               expectedDescription: 'A short summary'
-            })).description,
-            null
+            })).description === null
           );
         }).pipe(Effect.provide(layer))
       );

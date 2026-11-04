@@ -8,11 +8,11 @@
     "./testing": "./src/testing.ts"
   },
   "scripts": {
-    "check:generated": "node --test --test-name-pattern=\"Drizzle generation\" test/schema.test.ts",
+    "check:generated": "vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\"",
     "check:schema": "drizzle-kit check",
-    "test": "node --test test/*.test.ts",
+    "test": "vp test run --config ../../vite.config.ts --project server packages/db",
     "gen": "drizzle-kit generate",
-    "gen:check": "node --test --test-name-pattern=\"Drizzle generation\" test/schema.test.ts"
+    "gen:check": "vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\""
   },
   "dependencies": {
     "@study/contracts": "*",

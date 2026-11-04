@@ -11,15 +11,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { projectIdSchema } from '@study/contracts/ids';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -58,33 +59,28 @@ testStable(
 
             yield* rpc['documents.attachProject'](link);
             yield* rpc['documents.attachProject'](link);
-            assert.deepEqual((yield* rpc['documents.document']({ id: document.id })).projectIds, [
-              a.id,
-              b.id
-            ]);
+            expect(
+              (yield* rpc['documents.document']({ id: document.id })).projectIds
+            ).toStrictEqual([a.id, b.id]);
             const missing = {
               ...link,
               projectId: Schema.decodeUnknownSync(projectIdSchema)(b.id + 999n)
             };
 
-            assert.equal(
-              (yield* Effect.flip(rpc['documents.attachProject'](missing))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(rpc['documents.attachProject'](missing))).kind === 'not_found'
             );
-            assert.equal(
-              (yield* Effect.flip(rpc['documents.detachProject'](missing))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(rpc['documents.detachProject'](missing))).kind === 'not_found'
             );
             yield* rpc['documents.detachProject']({ documentId: document.id, projectId: a.id });
             yield* rpc['documents.detachProject']({ documentId: document.id, projectId: a.id });
             yield* projects.deleteProject({ id: a.id });
             yield* projects.deleteProject({ id: b.id });
-            assert.deepEqual(
-              (yield* rpc['documents.document']({ id: document.id })).projectIds,
-              []
-            );
-            assert.deepEqual(
-              yield* rpc['documents.version']({ id: document.version.id }),
+            expect(
+              (yield* rpc['documents.document']({ id: document.id })).projectIds
+            ).toStrictEqual([]);
+            expect(yield* rpc['documents.version']({ id: document.version.id })).toStrictEqual(
               document.version
             );
             yield* chats.deleteSession(session.id);
@@ -101,26 +97,25 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(DocumentsRpc);
 
-            assert.deepEqual(
-              yield* rpc['documents.version']({ id: saved.version.id }),
+            expect(yield* rpc['documents.version']({ id: saved.version.id })).toStrictEqual(
               saved.version
             );
             const all = yield* rpc['documents.documents']({ limit: 10, archived: false });
 
-            assert.equal(all.items[0]?.id, saved.document.id);
-            assert.equal(
+            assert.strictEqual(all.items[0]?.id, saved.document.id);
+            assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM session_documents`)?.n,
               0n
             );
-            assert.equal(
+            assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM project_documents`)?.n,
               0n
             );
-            assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
           })
         ).pipe(Effect.provide(DocumentsRpcLive.pipe(Layer.provideMerge(f.domain()))))
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

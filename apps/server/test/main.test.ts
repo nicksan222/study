@@ -13,7 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createInterface } from 'node:readline';
@@ -21,8 +20,9 @@ import { fileURLToPath } from 'node:url';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { createServerTest } from '#testing/server-test';
@@ -75,8 +75,8 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
           url: string;
         };
 
-        assert.match(endpoint.url, /^http:\/\/127\.0\.0\.1:/);
-        assert.deepEqual(Object.keys(endpoint), ['url']);
+        expect(endpoint.url).toMatch(/^http:\/\/127\.0\.0\.1:/);
+        expect(Object.keys(endpoint)).toStrictEqual(['url']);
         const project = await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -87,7 +87,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
           )
         );
 
-        assert.equal(typeof project.id, 'bigint');
+        assert.ok(typeof project.id === 'bigint');
         const database = createServerTest(t, { app: false }).openDb(env.STUDY_DATABASE!);
 
         try {
@@ -95,8 +95,8 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
             sql`SELECT id, name FROM projects WHERE id=${project.id}`
           );
 
-          assert.equal(saved?.id, project.id);
-          assert.equal(saved?.name, 'Process persistence');
+          assert.strictEqual(saved?.id, project.id);
+          assert.ok(saved?.name === 'Process persistence');
         } finally {
           database.close();
         }
@@ -106,8 +106,8 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
 
         const result = await exit;
 
-        assert.equal(result[0], 0, stderr);
-        assert.deepEqual(stdout, [JSON.stringify(endpoint)]);
+        assert.strictEqual(result[0], 0, stderr);
+        expect(stdout).toStrictEqual([JSON.stringify(endpoint)]);
       } finally {
         lines.close();
 

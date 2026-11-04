@@ -1,4 +1,3 @@
-import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
   cpSync,
@@ -12,6 +11,8 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { assert, expect } from 'vite-plus/test';
 
 export const root = fileURLToPath(new URL('../../../../', import.meta.url));
 
@@ -108,12 +109,12 @@ export function lintFiles(
       }
     );
 
-    assert.ifError(result.error);
+    assert.isUndefined(result.error);
     assertLintStatus(result.status, result.stderr, result.stdout);
 
     const output = JSON.parse(result.stdout) as { diagnostics: Diagnostic[] };
 
-    assert.equal(result.status, output.diagnostics.length ? 1 : 0, result.stderr);
+    assert.strictEqual(result.status, output.diagnostics.length ? 1 : 0, result.stderr);
 
     return output.diagnostics;
   } finally {
@@ -152,7 +153,11 @@ export function checkWiring(
   overrides: Record<string, unknown>[] = []
 ): void {
   for (const rule of rules) {
-    assert.equal(configured[`study/${rule}`], 'error', `study/${rule} must be enabled as an error`);
+    assert.strictEqual(
+      configured[`study/${rule}`],
+      'error',
+      `study/${rule} must be enabled as an error`
+    );
     assert.ok(testFiles.includes(`${rule}.test.ts`), `missing test for study/${rule}`);
   }
 
@@ -161,7 +166,7 @@ export function checkWiring(
       if (!name.startsWith('study/')) continue;
 
       assert.ok(rules.includes(name.slice('study/'.length)), `unknown rule ${name}`);
-      assert.equal(
+      assert.strictEqual(
         Array.isArray(severity) ? severity[0] : severity,
         'error',
         `${name} must remain an error`
@@ -175,19 +180,18 @@ export function assertDiagnostics(
   diagnostics: Diagnostic[],
   expected: [string, string][]
 ): void {
-  assert.deepEqual(
+  expect(
     diagnostics
       .map(({ code, filename, message }) => {
-        assert.equal(code, `study(${rule})`);
+        assert.strictEqual(code, `study(${rule})`);
         const marker = '/apps/server/';
 
         assert.ok(filename.includes(marker), filename);
 
         return [filename.split(marker)[1], message];
       })
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
-    expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-  );
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  ).toStrictEqual(expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
 }
 
 function assertLintStatus(status: number | null, stderr: string, stdout: string): void {

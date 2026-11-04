@@ -1,13 +1,13 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { requireRow } from './rows.ts';
@@ -165,33 +165,33 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         )
         .map((row) => ({ ...row }));
 
-      assert.deepEqual(versions, [
+      expect(versions).toStrictEqual([
         { id: 1n, number: 1n, text: 'Base' },
         { id: 3n, number: 2n, text: 'Legacy late' },
         { id: 2n, number: 3n, text: 'Native' }
       ]);
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT document_id FROM session_documents WHERE session_id=9`))
           .document_id,
         2n
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT document_id FROM project_documents WHERE project_id=5`))
           .document_id,
         2n
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(sql`SELECT document_version_id FROM study_document_inputs WHERE version_id=4`)
         ).document_version_id,
         3n
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT quote FROM study_document_citations WHERE version_id=4`))
           .quote,
         'Legacy'
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(
             sql`SELECT document_version_id FROM material_evidence_inputs WHERE version_id=31`
@@ -199,13 +199,13 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         ).document_version_id,
         3n
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(sql`SELECT quote FROM material_evidence_citations WHERE version_id=31`)
         ).quote,
         'Legacy'
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(
             sql`SELECT payload FROM study_document_annotation_revisions WHERE annotation_id=1 AND revision=2`
@@ -215,7 +215,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           .includes('Native note'),
         true
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(
             sql`SELECT payload FROM study_document_annotation_revisions WHERE annotation_id=2 AND revision=2`
@@ -225,7 +225,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           .includes('Legacy note'),
         true
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(sql`SELECT intent FROM study_document_edit_receipts WHERE key='late-save'`)
         ).intent,
@@ -243,9 +243,9 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         )
       );
 
-      assert.deepEqual(captured.inputs[0]!.input, { kind: 'document', versionId: 3n });
-      assert.equal(captured.inputs[0]!.documentId, 1n);
-      assert.equal(
+      expect(captured.inputs[0]!.input).toStrictEqual({ kind: 'document', versionId: 3n });
+      assert.strictEqual(captured.inputs[0]!.documentId, 1n);
+      assert.strictEqual(
         requireRow(
           db.orm.get(
             sql`SELECT version_id FROM session_context_documents WHERE request_id='late-context'`
@@ -253,24 +253,24 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         ).version_id,
         3n
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT authored_version_id FROM citations WHERE version_id=1`))
           .authored_version_id,
         3n
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT document_id FROM citations WHERE version_id=1`))
           .document_id,
         captured.inputs[0]!.snapshotId
       );
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       const identity = db.schemaIdentity();
 
       db.close();
       db = undefined;
       db = Db.open(path, migrations);
-      assert.equal(db.schemaIdentity(), identity);
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      assert.strictEqual(db.schemaIdentity(), identity);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db?.close();
       rmSync(folder, { recursive: true, force: true });
@@ -286,7 +286,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const db = Db.open(':memory:', migrations);
 
     try {
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       assert.ok(
         db.orm.get(
           sql`SELECT 1 FROM sqlite_schema WHERE type='trigger' AND name='study_document_versions_sealed_update'`

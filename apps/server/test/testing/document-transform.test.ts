@@ -12,9 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
@@ -26,7 +25,7 @@ testStable(
     const owner = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
 
     try {
-      await assert.rejects(documentTransformFixture(), /auth owner already exists/);
+      await expect(documentTransformFixture()).rejects.toThrow(/auth owner already exists/);
     } finally {
       await owner.dispose();
     }

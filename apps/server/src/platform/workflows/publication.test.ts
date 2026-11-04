@@ -15,16 +15,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyError } from '@study/contracts/errors';
 import type { SourceId } from '@study/contracts/ids';
 import { eq, sql } from '@study/db';
 import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Metric, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -127,29 +126,29 @@ testStable(
                 )
               );
 
-              assert.equal(rejected.kind, 'cancelled');
+              assert.ok(rejected.kind === 'cancelled');
 
               throw new Error('rollback owner database');
             }),
           /rollback owner database/
         );
-        assert.equal(invoked, false);
-        assert.equal(
+        assert.ok(invoked === false);
+        assert.strictEqual(
           second.db.orm.get(sql`SELECT key FROM preferences WHERE scope='publication-context'`),
           undefined
         );
-        assert.equal(
+        assert.strictEqual(
           second.db.orm.get(
             sql`SELECT event_id FROM workflow_events WHERE event_id='wrong-database-publication'`
           ),
           undefined
         );
-        assert.equal(context.db.orm.all(sql`SELECT value FROM publication_probe`).length, 0);
+        assert.strictEqual(context.db.orm.all(sql`SELECT value FROM publication_probe`).length, 0);
 
         yield* publicationTransaction((tx) => tx.store(probe).insert('same-database')).pipe(
           Effect.provideService(Database, { store: context })
         );
-        assert.equal(
+        assert.strictEqual(
           context.db.orm.all(sql`SELECT key FROM preferences WHERE scope='publication-context'`)
             .length,
           1
@@ -188,7 +187,7 @@ testStable(
         .where(eq(workflow_executions.execution_id, 'publication'))
         .run();
       assert.throws(() => context.transaction(() => guard.assert(context)), StudyError);
-      assert.equal(store.claim('publication', 'replacement'), true);
+      assert.ok(store.claim('publication', 'replacement') === true);
       assert.throws(() => context.transaction(() => guard.assert(context)), StudyError);
       assert.throws(
         () =>
@@ -198,7 +197,7 @@ testStable(
           }),
         StudyError
       );
-      assert.equal(context.db.orm.all(sql`SELECT value FROM publication_probe`).length, 1);
+      assert.strictEqual(context.db.orm.all(sql`SELECT value FROM publication_probe`).length, 1);
       context.db.orm
         .delete(workflow_executions)
         .where(eq(workflow_executions.execution_id, 'publication'))
@@ -233,12 +232,12 @@ testStable(
         ).pipe(Effect.provideService(Metric.MetricRegistry, new Map()))
       );
 
-      assert.equal(assertionsCompleted, true);
+      assert.isTrue(assertionsCompleted);
       const rejected = metrics.find((metric) => metric.id === 'study.publication.rejection');
 
-      assert.equal(rejected?.type, 'Counter');
+      assert.ok(rejected?.type === 'Counter');
 
-      if (rejected?.type === 'Counter') assert.equal(rejected.state.count, 8);
+      if (rejected?.type === 'Counter') assert.strictEqual(rejected.state.count, 8);
     } finally {
       context.close();
       location.cleanup();

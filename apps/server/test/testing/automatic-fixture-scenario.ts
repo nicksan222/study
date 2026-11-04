@@ -14,14 +14,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-import { beforeEach } from 'node:test';
-import type { TestContext } from 'node:test';
 
 import { Db, sql } from '@study/db';
-import { subtests, testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect, afterAll } from 'vite-plus/test';
+import { beforeEach } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
 import { App } from '#server/runtime/service';
@@ -31,7 +31,7 @@ import { createServerTest } from './server-test.ts';
 const mode = process.env.STUDY_TEST_SCENARIO;
 
 if (mode === 'setup-failure') {
-  beforeEach(async (t) => {
+  beforeEach((t) => {
     const { path } = createServerTest(t as TestContext, { app: false });
 
     writeFileSync(path, 'setup failed');
@@ -52,7 +52,7 @@ if (
 
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
     f.dispose(() => {
-      assert.equal(f.store.db.orm.get<{ value: bigint }>(sql`SELECT 1 AS value`)?.value, 1n);
+      assert.strictEqual(f.store.db.orm.get<{ value: bigint }>(sql`SELECT 1 AS value`)?.value, 1n);
       console.log('LIVE_SQL_DURING_DISPOSAL');
     });
 
@@ -69,7 +69,7 @@ if (
       Effect.flatMap(Projects, (projects) => projects.createProject({ name: 'First' }))
     );
 
-    assert.equal(project.name, 'First');
+    assert.strictEqual(project.name, 'First');
     let reopened: Db;
 
     f.dispose(() => {
@@ -79,7 +79,7 @@ if (
     reopened = f.manage(Db.open(f.path));
 
     try {
-      assert.equal(
+      assert.strictEqual(
         reopened.orm.get<{ name: string }>(sql`SELECT name FROM projects`)?.name,
         'First'
       );
@@ -88,7 +88,7 @@ if (
     }
 
     if (mode === 'failure' || mode === 'failure-cleanup-throw')
-      throw new Error('intentional test failure');
+      assert.fail('intentional test failure');
   });
 
 if (mode === 'success') {
@@ -96,51 +96,44 @@ if (mode === 'success') {
     const f = await createServerTest(t);
 
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
-    assert.deepEqual(
+    expect(
       (
         await f.app.nativeRuntime.runPromise(
           Effect.flatMap(Projects, (projects) => projects.projects({ limit: 10 }))
         )
-      ).items,
-      []
-    );
+      ).items
+    ).toStrictEqual([]);
   });
 }
 
 if (mode === 'concurrent') {
-  void testStable('concurrent databases', { concurrency: true }, async (t) => {
-    let arrived = 0;
-    let release!: () => void;
-    const ready = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const paths: string[] = [];
+  let arrived = 0;
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const paths: string[] = [];
 
-    await Promise.all(
-      ['a', 'b'].map((name) =>
-        subtests(t).testStable(name, async (child) => {
-          const { path, manage } = createServerTest(child, { app: false });
-          const db = manage(Db.open(path));
+  testStable.concurrent.for(['a', 'b'])('concurrent database %s', async (name, context) => {
+    const { path, manage } = createServerTest(context, { app: false });
+    const db = manage(Db.open(path));
 
-          paths.push(path);
-          console.log('FIXTURE_PATH', JSON.stringify(path));
+    paths.push(path);
+    console.log('FIXTURE_PATH', JSON.stringify(path));
 
-          try {
-            db.orm.run(
-              sql`INSERT INTO projects (name, created_at, updated_at) VALUES (${name}, 0, 0)`
-            );
+    try {
+      db.orm.run(sql`INSERT INTO projects (name, created_at, updated_at) VALUES (${name}, 0, 0)`);
 
-            if (++arrived === 2) release();
+      if (++arrived === 2) release();
 
-            await ready;
-            assert.equal(db.orm.get<{ name: string }>(sql`SELECT name FROM projects`)?.name, name);
-          } finally {
-            db.close();
-          }
-        })
-      )
-    );
-    assert.equal(new Set(paths).size, 2);
+      await ready;
+      assert.strictEqual(db.orm.get<{ name: string }>(sql`SELECT name FROM projects`)?.name, name);
+    } finally {
+      db.close();
+    }
+  });
+  afterAll(() => {
+    assert.strictEqual(new Set(paths).size, 2);
   });
 }
 
@@ -152,7 +145,7 @@ if (mode === 'retry-sync' || mode === 'retry-async') {
     writeFileSync(database.path, 'resource exists');
     console.log('FIXTURE_PATH', JSON.stringify(database.path));
     database.dispose(() => {
-      assert.equal(attempts, 2);
+      assert.strictEqual(attempts, 2);
       console.log('RETRIED_CLOSE_BEFORE_FILE_CLEANUP');
     });
 
@@ -177,8 +170,8 @@ if (mode === 'retry-sync' || mode === 'retry-async') {
       const first = resource.close();
       const concurrent = resource.close();
 
-      assert.equal(concurrent, first);
-      await assert.rejects(first, /first close fails/);
+      assert.strictEqual(concurrent, first);
+      await expect(first).rejects.toThrow(/first close fails/);
     }
   });
 }
@@ -195,14 +188,14 @@ if (mode === 'api-reuse') {
       const first = await createServerTest(t);
       const again = await createServerTest(t);
 
-      assert.equal(first, again);
-      assert.equal(first.app, again.app);
-      assert.equal(first.app.nativeRuntime, again.app.nativeRuntime);
+      assert.strictEqual(first, again);
+      assert.strictEqual(first.app, again.app);
+      assert.strictEqual(first.app.nativeRuntime, again.app.nativeRuntime);
       console.log('FIXTURE_PATH', JSON.stringify(first.path));
 
-      assert.equal(low.path, first.path);
-      assert.equal(low.dir, first.dir);
-      assert.equal('app' in low, false);
+      assert.strictEqual(low.path, first.path);
+      assert.strictEqual(low.dir, first.dir);
+      assert.strictEqual('app' in low, false);
     }
   );
 }

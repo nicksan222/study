@@ -1,4 +1,4 @@
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 

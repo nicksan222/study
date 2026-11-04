@@ -15,13 +15,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -109,7 +108,10 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
               }
 
               assert.ok(waiting, 'grading should wait durably for model setup');
-              assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_clocks`).length, 0);
+              assert.strictEqual(
+                app.store.db.orm.all(sql`SELECT * FROM workflow_clocks`).length,
+                0
+              );
               yield* client['learning.gradeResponse']({
                 attemptId: attempt.id,
                 questionId,
@@ -118,9 +120,9 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
               });
               const completed = yield* client['learning.finishQuiz']({ attemptId: attempt.id });
 
-              assert.equal(completed.status, 'completed');
-              assert.equal(completed.questions[0]?.score, 1);
-              assert.equal(completed.questions[0]?.feedback, 'Reviewed manually');
+              assert.ok(completed.status === 'completed');
+              assert.strictEqual(completed.questions[0]?.score, 1);
+              assert.ok(completed.questions[0]?.feedback === 'Reviewed manually');
             })
           )
         );

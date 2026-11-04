@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule, lintRulePaths } from '../test/utils.ts';
 
@@ -17,7 +16,7 @@ ${source}`
 }
 
 testStable('restricts workflow table mutations to their exact owners while allowing reads', () => {
-  assert.deepEqual(
+  expect(
     lint({
       'apps/server/src/features/workflows/store.ts': `import { workflow_executions as executions, workflowEvents } from '@study/db/schema'; db.select().from(executions); db.update(executions).set({}); db.insert(workflowEvents).values({});`,
       'apps/server/src/platform/workflows/store.ts': `import { workflow_executions, workflow_activities } from '@study/db'; db.insert(workflow_executions); db.delete(workflow_activities);`,
@@ -27,19 +26,18 @@ testStable('restricts workflow table mutations to their exact owners while allow
       'apps/server/src/platform/workflows/retry.ts': `import { workflow_configuration_waits } from '@study/db/schema'; db.insert(workflow_configuration_waits);`,
       'apps/server/src/platform/workflows/configuration.ts': `import { workflow_configuration_waits } from '@study/db/schema'; db.delete(workflow_configuration_waits);`,
       'apps/server/src/feature.test.ts': `import { workflow_executions } from '@study/db/schema'; db.delete(workflow_executions);`
-    }),
-    [
-      'apps/server/src/features/workflows/store.ts',
-      'apps/server/src/features/workflows/store.ts',
-      'apps/server/src/platform/workflows/control.ts'
-    ]
-  );
+    })
+  ).toStrictEqual([
+    'apps/server/src/features/workflows/store.ts',
+    'apps/server/src/features/workflows/store.ts',
+    'apps/server/src/platform/workflows/control.ts'
+  ]);
 });
 
 testStable(
   'resolves imported tables through aliases, destructuring, wrappers and lexical scopes',
   () => {
-    assert.deepEqual(
+    expect(
       lint({
         'apps/server/src/features/jobs/store.ts': `
       import * as schema from '@study/db/schema';
@@ -50,14 +48,13 @@ testStable(
       const a = b; const b = a; db.insert(a);
       db.insert(schema.ordinary).onConflictDoUpdate({ target: schema.ordinary });
     `
-      }),
-      Array(3).fill('apps/server/src/features/jobs/store.ts')
-    );
+      })
+    ).toStrictEqual(Array(3).fill('apps/server/src/features/jobs/store.ts'));
   }
 );
 
 testStable('recognizes raw SQL writes without treating reads or values as mutations', () => {
-  assert.deepEqual(
+  expect(
     lint({
       'apps/server/src/features/jobs/store.ts': `
       import { sql as query } from 'drizzle-orm';
@@ -74,27 +71,25 @@ testStable('recognizes raw SQL writes without treating reads or values as mutati
       db.execute("SELECT 'DELETE FROM workflow_receipts'");
       db.execute('SELECT "update" workflow_executions FROM ordinary');
     `
-    }),
-    Array(6).fill('apps/server/src/features/jobs/store.ts')
-  );
+    })
+  ).toStrictEqual(Array(6).fill('apps/server/src/features/jobs/store.ts'));
 });
 
 testStable('each protected table is restricted to its mapped owners', () => {
-  assert.deepEqual(
+  expect(
     lint({
       'apps/server/src/platform/workflows/engine.ts': `import { workflow_activities, workflow_deferreds, workflow_clocks, workflow_configuration_waits, workflowReceipts } from '@study/db/schema'; db.insert(workflow_activities); db.update(workflow_deferreds); db.delete(workflow_clocks); db.insert(workflow_configuration_waits); db.insert(workflowReceipts);`,
       'apps/server/src/platform/workflows/store.ts': `import { workflow_deferreds, workflow_clocks } from '@study/db/schema'; db.insert(workflow_deferreds); db.update(workflow_clocks);`,
       'apps/server/src/platform/workflows/events.ts': `import { workflow_executions } from '@study/db/schema'; db.insert(workflow_executions);`
-    }),
-    [
-      ...Array(5).fill('apps/server/src/platform/workflows/engine.ts'),
-      'apps/server/src/platform/workflows/events.ts'
-    ]
-  );
+    })
+  ).toStrictEqual([
+    ...Array(5).fill('apps/server/src/platform/workflows/engine.ts'),
+    'apps/server/src/platform/workflows/events.ts'
+  ]);
 });
 
 testStable('unrelated APIs and SQL identifiers are not workflow writers', () => {
-  assert.deepEqual(
+  expect(
     lint({
       'apps/server/src/features/example/store.ts': `
       import { workflow_executions } from '@study/db';
@@ -104,9 +99,8 @@ testStable('unrelated APIs and SQL identifiers are not workflow writers', () => 
       db.execute('WITH update AS (SELECT 1) SELECT workflow_executions FROM ordinary');
       function shadow(db: { update(value: unknown): void }) { db.update(workflow_executions); }
     `
-    }),
-    []
-  );
+    })
+  ).toStrictEqual([]);
 });
 
 for (const identifier of ['constructor', '__proto__', 'ordinary']) {
@@ -119,10 +113,9 @@ for (const identifier of ['constructor', '__proto__', 'ordinary']) {
         'apps/server/src/features/jobs/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute(${JSON.stringify(statement)});`
       });
 
-      assert.deepEqual(
-        diagnostics.map(({ message }) => message),
-        ['Only the canonical workflow owner may write workflow_events.']
-      );
+      expect(diagnostics.map(({ message }) => message)).toStrictEqual([
+        'Only the canonical workflow owner may write workflow_events.'
+      ]);
     });
   }
 }
@@ -130,7 +123,7 @@ for (const identifier of ['constructor', '__proto__', 'ordinary']) {
 testStable(
   'retirement may write its fences but checkpoint and event mutations retain existing canonical owners',
   () => {
-    assert.deepEqual(
+    expect(
       lint({
         'apps/server/src/platform/workflows/retirement.ts': `
       import * as s from '@study/db/schema';
@@ -148,20 +141,19 @@ testStable(
         'apps/server/src/platform/workflows/store.ts': `import * as s from '@study/db/schema'; db.delete(s.workflow_activities); db.update(s.workflow_executions);`,
         'apps/server/src/platform/workflows/events.ts': `import * as s from '@study/db/schema'; db.update(s.workflowEvents);`,
         'apps/server/src/platform/workflows/configuration.ts': `import * as s from '@study/db/schema'; db.delete(s.workflow_configuration_waits);`
-      }),
-      [
-        ...Array(2).fill('apps/server/src/features/conversations/store/deletion.ts'),
-        'apps/server/src/platform/workflows/control.ts',
-        ...Array(3).fill('apps/server/src/platform/workflows/retirement.ts')
-      ]
-    );
+      })
+    ).toStrictEqual([
+      ...Array(2).fill('apps/server/src/features/conversations/store/deletion.ts'),
+      'apps/server/src/platform/workflows/control.ts',
+      ...Array(3).fill('apps/server/src/platform/workflows/retirement.ts')
+    ]);
   }
 );
 
 testStable(
   'Material cleanup cannot acquire native execution, checkpoint, event or fence writer authority',
   () => {
-    assert.deepEqual(
+    expect(
       lint({
         'apps/server/src/features/materials/store/deletion.ts': `
       import * as s from '@study/db/schema';
@@ -177,16 +169,15 @@ testStable(
       import * as s from '@study/db/schema';
       db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
     `
-      }),
-      Array(8).fill('apps/server/src/features/materials/store/deletion.ts')
-    );
+      })
+    ).toStrictEqual(Array(8).fill('apps/server/src/features/materials/store/deletion.ts'));
   }
 );
 
 testStable(
   'history participants cannot mutate native payloads, checkpoints, deferreds or fences',
   () => {
-    assert.deepEqual(
+    expect(
       lint({
         'apps/server/src/features/materials/store/generation-cleanup.ts': `
       import * as schema from '@study/db/schema';
@@ -207,19 +198,18 @@ testStable(
         'apps/server/src/platform/workflows/retirement.ts': `
       import * as s from '@study/db/schema'; db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
     `
-      }),
-      [
-        ...Array(3).fill('apps/server/src/features/conversations/store/material-history.ts'),
-        ...Array(3).fill('apps/server/src/features/materials/store/generation-cleanup.ts')
-      ]
-    );
+      })
+    ).toStrictEqual([
+      ...Array(3).fill('apps/server/src/features/conversations/store/material-history.ts'),
+      ...Array(3).fill('apps/server/src/features/materials/store/generation-cleanup.ts')
+    ]);
   }
 );
 
 testStable(
   'snapshot sanitizers cannot clear native payloads or receipts outside the canonical workflow owners',
   () => {
-    assert.deepEqual(
+    expect(
       lint({
         'apps/server/src/features/system/store/backup.ts': `
       import * as s from '@study/db/schema'; import { sql } from '@study/db';
@@ -231,11 +221,10 @@ testStable(
         'apps/server/src/platform/database/backups.ts': `
       import * as s from '@study/db/schema'; db.delete(s.workflow_retired_executions);
     `
-      }),
-      [
-        ...Array(5).fill('apps/server/src/features/system/store/backup.ts'),
-        'apps/server/src/platform/database/backups.ts'
-      ]
-    );
+      })
+    ).toStrictEqual([
+      ...Array(5).fill('apps/server/src/features/system/store/backup.ts'),
+      'apps/server/src/platform/database/backups.ts'
+    ]);
   }
 );

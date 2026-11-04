@@ -13,17 +13,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/service/index';
 import { Settings } from '#server/features/settings/index';
@@ -78,7 +78,7 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
   await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
   const address = peer.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   const base = `http://127.0.0.1:${address.port}`;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
@@ -138,7 +138,7 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      if (event.type !== 'ConversationTitleRequested') throw new Error('wrong event');
+      assert.ok(!(event.type !== 'ConversationTitleRequested'), 'wrong event');
 
       return event;
     };
@@ -165,18 +165,18 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
         c.editMessage({ messageId: first.message.id, text: 'Plants' })
       )
     );
-    await assert.rejects(execute(stale, 'stale-title'));
-    assert.equal(calls, 0);
+    await expect(execute(stale, 'stale-title')).rejects.toSatisfy(() => true);
+    assert.strictEqual(calls, 0);
     const old = await request(first.session.id);
     const current = await request(first.session.id);
 
-    await assert.rejects(execute(old, 'old-title'));
-    assert.equal(calls, 0);
+    await expect(execute(old, 'old-title')).rejects.toSatisfy(() => true);
+    assert.strictEqual(calls, 0);
     context.db.orm.run(
       sql`CREATE TRIGGER fail_title BEFORE UPDATE OF title ON sessions BEGIN SELECT RAISE(ABORT, 'unavailable'); END`
     );
-    await assert.rejects(execute(current, 'replay-title'));
-    assert.equal(calls, 1);
+    await expect(execute(current, 'replay-title')).rejects.toSatisfy(() => true);
+    assert.strictEqual(calls, 1);
     context.db.orm.run(sql`DROP TRIGGER fail_title`);
     context.db.orm.run(
       sql`DELETE FROM workflow_activities WHERE execution_id = 'replay-title' AND name = 'publish-title'`
@@ -187,10 +187,10 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
     context.close();
     context = new ServerContext(location.open());
     await execute(current, 'replay-title');
-    assert.equal(calls, 1);
-    assert.equal(
-      (await run(Effect.flatMap(Conversations, (c) => c.session(first.session.id)))).title,
-      'Cell Biology'
+    assert.strictEqual(calls, 1);
+    assert.ok(
+      (await run(Effect.flatMap(Conversations, (c) => c.session(first.session.id)))).title ===
+        'Cell Biology'
     );
     context.db.orm.run(
       sql`DELETE FROM workflow_activities WHERE execution_id='replay-title' AND name='publish-title'`
@@ -199,8 +199,8 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
       sql`UPDATE workflow_executions SET status='suspended',result=NULL,owner_token=NULL WHERE execution_id='replay-title'`
     );
     await execute(current, 'replay-title');
-    assert.equal(calls, 1, 'a committed title must replay without a new model call');
-    assert.match(bodies[0]!, /Plants/);
+    assert.strictEqual(calls, 1, 'a committed title must replay without a new model call');
+    expect(bodies[0]!).toMatch(/Plants/);
     const renamed = await make();
     const renamedRequest = await request(renamed.session.id);
 
@@ -209,8 +209,8 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
         c.renameSession({ id: renamed.session.id, title: 'Personal' })
       )
     );
-    await assert.rejects(execute(renamedRequest, 'renamed-title'));
-    assert.equal(calls, 1);
+    await expect(execute(renamedRequest, 'renamed-title')).rejects.toSatisfy(() => true);
+    assert.strictEqual(calls, 1);
     const race = await make();
     const racing = await request(race.session.id);
 
@@ -221,24 +221,25 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
         )
       );
     };
-    await assert.rejects(execute(racing, 'race-title'));
-    assert.equal(
-      (await run(Effect.flatMap(Conversations, (c) => c.session(race.session.id)))).title,
-      'Mine'
+    await expect(execute(racing, 'race-title')).rejects.toSatisfy(() => true);
+    assert.ok(
+      (await run(Effect.flatMap(Conversations, (c) => c.session(race.session.id)))).title === 'Mine'
     );
     const invalid = await make();
 
     output = 'x'.repeat(201);
-    await assert.rejects(execute(await request(invalid.session.id), 'invalid-title'));
-    assert.equal(
-      (await run(Effect.flatMap(Conversations, (c) => c.session(invalid.session.id)))).titleSource,
-      'provisional'
+    await expect(execute(await request(invalid.session.id), 'invalid-title')).rejects.toSatisfy(
+      () => true
+    );
+    assert.ok(
+      (await run(Effect.flatMap(Conversations, (c) => c.session(invalid.session.id))))
+        .titleSource === 'provisional'
     );
     output = 'Valid retry';
     await execute(await request(invalid.session.id), 'retry-title');
-    assert.equal(
-      (await run(Effect.flatMap(Conversations, (c) => c.session(invalid.session.id)))).title,
-      'Valid retry'
+    assert.ok(
+      (await run(Effect.flatMap(Conversations, (c) => c.session(invalid.session.id)))).title ===
+        'Valid retry'
     );
   } finally {
     await auth.dispose();
@@ -273,7 +274,7 @@ testStable(
               .map((row) => decodeEvent(row.payload))
               .filter((event) => event.type === 'ConversationTitleRequested');
 
-          assert.equal(titles().length, 0);
+          assert.strictEqual(titles().length, 0);
           yield* settings.saveWorkspacePreferences({
             ...defaultWorkspacePreferences,
             autoTitleSessions: true
@@ -286,18 +287,18 @@ testStable(
           };
           const note = yield* conversations.postMessage(input);
 
-          assert.equal(titles().length, 1);
-          assert.equal((yield* conversations.postMessage(input)).id, note.id);
-          assert.equal(titles().length, 1);
+          assert.strictEqual(titles().length, 1);
+          assert.strictEqual((yield* conversations.postMessage(input)).id, note.id);
+          assert.strictEqual(titles().length, 1);
           yield* conversations.renameSession({ id: session.id, title: 'My biology notes' });
           yield* conversations.postMessage({ sessionId: session.id, text: 'More cells' });
-          assert.equal(titles().length, 1);
+          assert.strictEqual(titles().length, 1);
           yield* settings.saveWorkspacePreferences(defaultWorkspacePreferences);
           const manual = yield* conversations.createUntitledSession({});
 
           yield* conversations.postMessage({ sessionId: manual.id, text: 'Manual title' });
           yield* conversations.requestTitle({ sessionId: manual.id });
-          assert.equal(titles().length, 2);
+          assert.strictEqual(titles().length, 2);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -342,25 +343,22 @@ testStable(
 
           assert.ok(title && title.type === 'ConversationTitleRequested');
           assert.ok(reply && reply.type === 'ConversationGenerationRequested');
-          assert.deepEqual(
-            title.messages.map((message) => message.messageId),
-            [note.id]
-          );
-          assert.deepEqual(
-            (yield* conversations.titleSnapshot({ requestId: title.requestId })).messages,
-            title.messages
-          );
+          expect(title.messages.map((message) => message.messageId)).toStrictEqual([note.id]);
+          expect(
+            (yield* conversations.titleSnapshot({ requestId: title.requestId })).messages
+          ).toStrictEqual(title.messages);
           const thread = yield* conversations.thread({ sessionId: session.id, limit: 10 });
 
-          assert.equal(thread.items.length, 2);
-          assert.equal(thread.items[1]?.versions[0]?.status, 'pending');
+          assert.strictEqual(thread.items.length, 2);
+          assert.ok(thread.items[1]?.versions[0]?.status === 'pending');
           const manual = yield* conversations.requestTitle({ sessionId: session.id });
 
-          assert.deepEqual((yield* conversations.titleSnapshot(manual)).messages, title.messages);
+          expect((yield* conversations.titleSnapshot(manual)).messages).toStrictEqual(
+            title.messages
+          );
           yield* conversations.editMessage({ messageId: note.id, text: 'New context' });
-          assert.equal(
-            (yield* Effect.flip(conversations.titleSnapshot(manual))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(conversations.titleSnapshot(manual))).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(layer))
       );
@@ -420,15 +418,14 @@ testStable(
             context,
             conversations.publishReply(publication).pipe(Effect.asVoid)
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(conversations.titleSnapshot({ requestId: original.requestId })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
-          assert.equal(titles().length, 2);
+          assert.strictEqual(titles().length, 2);
           const refreshed = titles()[1]!;
 
-          assert.equal(
+          assert.strictEqual(
             (yield* conversations.titleSnapshot({ requestId: refreshed.requestId })).messages
               .length,
             2
@@ -437,14 +434,14 @@ testStable(
             context,
             conversations.publishReply(publication).pipe(Effect.asVoid)
           );
-          assert.equal(titles().length, 2);
+          assert.strictEqual(titles().length, 2);
           yield* withTestPublication(
             context,
             conversations
               .publishTitle({ requestId: refreshed.requestId, title: 'Cell division' })
               .pipe(Effect.asVoid)
           );
-          assert.equal((yield* conversations.session(session.id)).title, 'Cell division');
+          assert.ok((yield* conversations.session(session.id)).title === 'Cell division');
           const manual = yield* conversations.createUntitledSession({});
 
           yield* conversations.postMessage({
@@ -470,8 +467,8 @@ testStable(
               })
               .pipe(Effect.asVoid)
           );
-          assert.equal(titles().length, before);
-          assert.equal((yield* conversations.session(manual.id)).title, 'My title');
+          assert.strictEqual(titles().length, before);
+          assert.ok((yield* conversations.session(manual.id)).title === 'My title');
         }).pipe(Effect.provide(layer))
       );
     } finally {

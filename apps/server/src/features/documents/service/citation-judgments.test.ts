@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
@@ -20,9 +19,11 @@ import { correctBlockText, createBlock } from '@study/contracts/sources/document
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -111,7 +112,7 @@ testStable(
               .from(s.study_document_citation_assessments)
               .all();
 
-            assert.equal(
+            assert.strictEqual(
               (yield* rpc['documents.assessments']({
                 versionId: claim.version.id,
                 marker: 1,
@@ -125,25 +126,23 @@ testStable(
               { ...assessment, claim: { ...target, documentId: evidence.id } },
               { ...assessment, marker: 2 }
             ]) {
-              assert.equal(
-                (yield* Effect.flip(rpc['documents.assessCitation'](invalid))).kind,
-                'invalid_input'
+              assert.ok(
+                (yield* Effect.flip(rpc['documents.assessCitation'](invalid))).kind ===
+                  'invalid_input'
               );
-              assert.deepEqual(
-                context.db.orm.select().from(s.study_document_citation_assessments).all(),
-                before
-              );
+              expect(
+                context.db.orm.select().from(s.study_document_citation_assessments).all()
+              ).toStrictEqual(before);
             }
 
             context.db.exec(
               "CREATE TRIGGER reject_assessment_insert AFTER INSERT ON study_document_citation_assessments BEGIN SELECT RAISE(ABORT,'injected failure'); END"
             );
             yield* Effect.flip(rpc['documents.assessCitation'](assessment));
-            assert.deepEqual(
-              context.db.orm.select().from(s.study_document_citation_assessments).all(),
-              before
-            );
-            assert.equal(
+            expect(
+              context.db.orm.select().from(s.study_document_citation_assessments).all()
+            ).toStrictEqual(before);
+            assert.strictEqual(
               (yield* rpc['documents.assessments']({ versionId: claim.version.id, limit: 10 }))
                 .items.length,
               0
@@ -151,12 +150,11 @@ testStable(
             context.db.exec('DROP TRIGGER reject_assessment_insert');
             const recorded = yield* rpc['documents.assessCitation'](assessment);
 
-            assert.equal(recorded.assessment.independentVerification, false);
-            assert.equal(recorded.assessment.suppliedBy, 'user');
-            assert.equal(
+            assert.ok(recorded.assessment.independentVerification === false);
+            assert.ok(recorded.assessment.suppliedBy === 'user');
+            assert.ok(
               (yield* rpc['documents.assessments']({ versionId: claim.version.id, limit: 10 }))
-                .items[0].state,
-              'assessed'
+                .items[0].state === 'assessed'
             );
             const changed = yield* rpc['documents.save']({
               documentId: claim.id,
@@ -170,9 +168,9 @@ testStable(
               limit: 10
             })).items[0];
 
-            assert.equal(stale.state, 'stale');
-            assert.deepEqual(stale.assessment.claim, target);
-            assert.equal(
+            assert.ok(stale.state === 'stale');
+            expect(stale.assessment.claim).toStrictEqual(target);
+            assert.strictEqual(
               (yield* rpc['documents.assessments']({
                 versionId: changed.submittedVersionId,
                 limit: 10
@@ -181,8 +179,8 @@ testStable(
             );
             const copied = yield* rpc['documents.version']({ id: changed.submittedVersionId });
 
-            assert.deepEqual(copied.citations, [citation]);
-            assert.deepEqual(copied.inputs, [input]);
+            expect(copied.citations).toStrictEqual([citation]);
+            expect(copied.inputs).toStrictEqual([input]);
             const restored = yield* rpc['documents.restore']({
               documentId: claim.id,
               expectedVersionId: changed.submittedVersionId,
@@ -190,7 +188,7 @@ testStable(
               key: 'claim-restore'
             });
 
-            assert.equal(
+            assert.strictEqual(
               (yield* rpc['documents.assessments']({
                 versionId: restored.submittedVersionId,
                 limit: 10
@@ -204,18 +202,17 @@ testStable(
               document: { blocks: [correctBlockText(block, 'Revised evidence')], meta }
             });
 
-            assert.equal(
+            assert.strictEqual(
               (yield* rpc['documents.document']({ id: evidence.id })).headVersionId,
               edited.submittedVersionId
             );
-            assert.equal(
+            assert.ok(
               (yield* rpc['documents.assessments']({ versionId: claim.version.id, limit: 10 }))
-                .items[0].state,
-              'stale'
+                .items[0].state === 'stale'
             );
-            assert.equal(
-              (yield* rpc['documents.version']({ id: input.versionId })).document.blocks[0].text,
-              'Exact evidence'
+            assert.ok(
+              (yield* rpc['documents.version']({ id: input.versionId })).document.blocks[0].text ===
+                'Exact evidence'
             );
             const rows = context.db.orm.select().from(s.study_document_citation_assessments).all();
 
@@ -251,21 +248,20 @@ testStable(
                   .run()
               );
 
-            assert.deepEqual(
-              context.db.orm.select().from(s.study_document_citation_assessments).all(),
-              rows
-            );
-            assert.deepEqual((yield* rpc['documents.version']({ id: claim.version.id })).inputs, [
-              input
-            ]);
+            expect(
+              context.db.orm.select().from(s.study_document_citation_assessments).all()
+            ).toStrictEqual(rows);
+            expect(
+              (yield* rpc['documents.version']({ id: claim.version.id })).inputs
+            ).toStrictEqual([input]);
             const retirement = yield* rpc['documents.previewDeletion']({ id: claim.id });
 
             yield* rpc['documents.delete']({ documentId: claim.id, token: retirement.token });
-            assert.equal(
+            assert.strictEqual(
               context.db.orm.select().from(s.study_document_citation_assessments).all().length,
               0
             );
-            assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+            expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(handlers))
         )
       );

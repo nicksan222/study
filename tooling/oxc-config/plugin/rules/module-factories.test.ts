@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRulePaths } from '../test/utils.ts';
 
@@ -15,7 +14,7 @@ function lint(files: Record<string, string>) {
 }
 
 testStable('only canonical factory results and their service layers are public', () => {
-  assert.deepEqual(
+  expect(
     lint({
       'alpha/service/index.ts':
         "import { defineService as create } from '#server/platform/definitions/define-service'; const alias = create; function helper() {} const service = alias('study/Alpha', make); export { service as Alpha }; export const layer = service.layer;",
@@ -33,54 +32,50 @@ testStable('only canonical factory results and their service layers are public',
         "import { defineStore } from '#server/platform/definitions/define-store'; export const Store = defineStore({make: ({db}) => ({queries: {}, mutations: {}})}); export const bad = () => 1;",
       'kappa/index.ts': "export * from './store/queries.ts';",
       'lambda/index.ts': "export { type Input } from './store/query.ts';"
-    }),
-    [
-      'beta/index.ts',
-      'delta/store/index.ts',
-      'epsilon/index.ts',
-      'iota/store/index.ts',
-      'kappa/index.ts',
-      'theta/service/index.ts',
-      'zeta/store/index.ts'
-    ]
-  );
+    })
+  ).toStrictEqual([
+    'beta/index.ts',
+    'delta/store/index.ts',
+    'epsilon/index.ts',
+    'iota/store/index.ts',
+    'kappa/index.ts',
+    'theta/service/index.ts',
+    'zeta/store/index.ts'
+  ]);
 });
 
 testStable(
   'store entry requires an exported factory even when it contains only private helpers',
   () => {
-    assert.deepEqual(
+    expect(
       lint({
         'alpha/store/index.ts': 'function helper() { return 1; }',
         'beta/store/index.ts': 'export type Input = string;',
         'gamma/store/query.ts': 'function helper() { return 1; }'
-      }),
-      ['alpha/store/index.ts', 'beta/store/index.ts']
-    );
+      })
+    ).toStrictEqual(['alpha/store/index.ts', 'beta/store/index.ts']);
   }
 );
 
 testStable('nested entry modules cannot avoid canonical construction', () => {
-  assert.deepEqual(
+  expect(
     lint({
       'sources/nested/store.ts': 'export const db = {};',
       'sources/nested/service.ts': 'export const Sources = {};'
-    }),
-    ['sources/nested/service.ts', 'sources/nested/store.ts']
-  );
+    })
+  ).toStrictEqual(['sources/nested/service.ts', 'sources/nested/store.ts']);
 });
 
 testStable(
   'snapshot participants stay attached to the canonical service rather than detached public helpers',
   () => {
-    assert.deepEqual(
+    expect(
       lint({
         'auth/service/index.ts':
           "import { defineService } from '#server/platform/definitions/define-service'; export const Auth = defineService('study/Auth', make, {sanitizeBackup: tx => tx.store(Store).sanitize(undefined)});",
         'sources/service/index.ts':
           "import { defineService } from '#server/platform/definitions/define-service'; export const Sources = defineService('study/Sources', make); export const validateBackup = tx => tx.store(Store).validate(undefined);"
-      }),
-      ['sources/service/index.ts']
-    );
+      })
+    ).toStrictEqual(['sources/service/index.ts']);
   }
 );

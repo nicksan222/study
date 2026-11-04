@@ -12,13 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 /** Generated learning history owns private retirement; exact authored inputs stay pinned until release. */
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
@@ -40,18 +39,17 @@ function assertRetired(f: Fixture, requestId: string) {
     .get();
 
   assert.ok(row);
-  assert.equal(row.payload, '{}');
-  assert.equal(row.cancelled, true);
-  assert.equal(row.result_version_id, null);
-  assert.equal(row.result_hash, null);
-  assert.deepEqual(
+  assert.ok(row.payload === '{}');
+  assert.ok(row.cancelled === true);
+  assert.ok(row.result_version_id === null);
+  assert.ok(row.result_hash === null);
+  expect(
     f.context.db.orm
       .select()
       .from(s.material_evidence_inputs)
       .where(eq(s.material_evidence_inputs.request_id, requestId))
-      .all(),
-    []
-  );
+      .all()
+  ).toStrictEqual([]);
 }
 
 for (const attemptInputFirst of [false, true])
@@ -72,9 +70,9 @@ for (const attemptInputFirst of [false, true])
             const docs = yield* Documents;
             const output = yield* m.materialVersion({ id: versionId });
 
-            assert.equal(output.content.kind, 'flashcards');
+            assert.ok(output.content.kind === 'flashcards');
 
-            if (output.content.kind !== 'flashcards') throw new Error('Expected flashcards');
+            assert.ok(!(output.content.kind !== 'flashcards'), 'Expected flashcards');
 
             const content = {
               kind: 'flashcards' as const,
@@ -102,10 +100,10 @@ for (const attemptInputFirst of [false, true])
             if (attemptInputFirst) {
               const blocked = yield* docs.previewHistory(scope);
 
-              assert.deepEqual(blocked.blockedVersionIds, [saved.input.version.id]);
-              assert.equal(
-                (yield* Effect.flip(docs.retireHistory({ ...scope, token: blocked.token }))).kind,
-                'invalid_input'
+              expect(blocked.blockedVersionIds).toStrictEqual([saved.input.version.id]);
+              assert.ok(
+                (yield* Effect.flip(docs.retireHistory({ ...scope, token: blocked.token })))
+                  .kind === 'invalid_input'
               );
             }
 
@@ -114,76 +112,70 @@ for (const attemptInputFirst of [false, true])
         );
         const accepted = await acceptHistory(f, kept.owner, 'history-output');
 
-        assert.deepEqual(accepted.candidateIds, [versionId]);
+        expect(accepted.candidateIds).toStrictEqual([versionId]);
         const owner = f.context.db.orm
           .select()
           .from(s.material_history_requests)
           .where(eq(s.material_history_requests.request_id, saved.request.id))
           .get();
 
-        assert.equal(owner?.kind, 'generation');
-        assert.equal(owner.operation_id, 'history-output');
+        assert.ok(owner?.kind === 'generation');
+        assert.ok(owner.operation_id === 'history-output');
         await cleanupHistory(f, 'history-output');
         f.reopen();
         assertRetired(f, saved.request.id);
         assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
         const native = workflowStore(f.context).execution('history-generated');
 
-        assert.equal(native?.payload, '{}');
-        assert.equal(native.result, null);
-        assert.equal(native.owner_token, null);
-        assert.deepEqual(
+        assert.ok(native?.payload === '{}');
+        assert.ok(native.result === null);
+        assert.ok(native.owner_token === null);
+        expect(
           f.context.db.orm
             .select()
             .from(s.workflow_activities)
             .where(eq(s.workflow_activities.execution_id, 'history-generated'))
-            .all(),
-          []
-        );
+            .all()
+        ).toStrictEqual([]);
         await Effect.runPromise(
           Effect.gen(function* () {
             const m = yield* Materials;
             const docs = yield* Documents;
 
-            assert.equal(
-              (yield* m.historyPrune({ operationId: 'history-output' })).status,
-              'completed'
+            assert.ok(
+              (yield* m.historyPrune({ operationId: 'history-output' })).status === 'completed'
             );
-            assert.equal((yield* m.material({ id: kept.owner })).version.id, kept.current.id);
-            assert.deepEqual(
-              yield* m.materialVersion({ id: kept.copy.version.id }),
+            assert.strictEqual((yield* m.material({ id: kept.owner })).version.id, kept.current.id);
+            expect(yield* m.materialVersion({ id: kept.copy.version.id })).toStrictEqual(
               kept.copy.version
             );
-            assert.deepEqual(
-              (yield* m.materialVersion({ id: kept.current.id })).content,
+            expect((yield* m.materialVersion({ id: kept.current.id })).content).toStrictEqual(
               kept.current.content
             );
-            assert.equal(
-              (yield* Effect.flip(m.materialVersion({ id: versionId }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(m.materialVersion({ id: versionId }))).kind === 'not_found'
             );
 
             if (attemptInputFirst) {
               const preview = yield* docs.previewHistory(kept.scope);
 
-              assert.deepEqual(preview.blockedVersionIds, []);
+              expect(preview.blockedVersionIds).toStrictEqual([]);
               yield* docs.retireHistory({ ...kept.scope, token: preview.token });
             }
           }).pipe(Effect.provide(f.domain()))
         );
         const calls = f.bodies.length;
 
-        await assert.rejects(f.execute(event, 'late-history-generation'));
-        assert.equal(f.bodies.length, calls);
-        assert.deepEqual(
+        await expect(f.execute(event, 'late-history-generation')).rejects.toSatisfy(() => true);
+        assert.strictEqual(f.bodies.length, calls);
+        expect(
           f.context.db.orm
             .select()
             .from(s.material_history_requests)
             .where(eq(s.material_history_requests.request_id, saved.request.id))
-            .get(),
-          owner
-        );
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+            .get()
+        ).toStrictEqual(owner);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }
@@ -220,13 +212,13 @@ testStable(
       const retirement = () =>
         makeGenerationRetirement({ db: f.context.db, clock: f.context.clock });
 
-      assert.equal(retirement().isScrubbed(saved.request.id), false);
+      assert.ok(retirement().isScrubbed(saved.request.id) === false);
       await acceptHistory(f, owner, 'scrub-shape-proof');
-      assert.equal(retirement().isScrubbed(saved.request.id), false);
+      assert.ok(retirement().isScrubbed(saved.request.id) === false);
       await cleanupHistory(f, 'scrub-shape-proof');
       f.reopen();
-      assert.equal(retirement().isScrubbed(saved.request.id), true);
-      assert.equal(retirement().isScrubbed('missing'), false);
+      assert.ok(retirement().isScrubbed(saved.request.id) === true);
+      assert.ok(retirement().isScrubbed('missing') === false);
 
       for (const patch of [
         sql`payload='{ }'`,
@@ -257,7 +249,7 @@ testStable(
           .where(eq(s.material_history_requests.request_id, saved.request.id))
           .run()
       );
-      assert.equal(retirement().isScrubbed(saved.request.id), true);
+      assert.ok(retirement().isScrubbed(saved.request.id) === true);
       assertRetired(f, saved.request.id);
     } finally {
       await f.close();

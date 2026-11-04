@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -15,7 +14,7 @@ testStable('web markup cannot bypass shared presentation with native styles', ()
     true
   );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('only the web bootstrap imports approved global stylesheets', () => {
@@ -29,18 +28,17 @@ testStable('only the web bootstrap imports approved global stylesheets', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable('web composition remains free to use semantic props and unstyled HTML', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-presentation',
       {
         'apps/web/src/example.tsx': `import { Sidebar } from '@study/ui/sidebar'; export const view = <Sidebar.Footer trailing={<Sidebar.Utility variant="secondary" />}><form aria-label="Create" /></Sidebar.Footer>;`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });

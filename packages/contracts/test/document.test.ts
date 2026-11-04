@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { contentRangeSchema } from '../src/inputs.ts';
 import { createBlock, validBlockTextRange } from '../src/sources/document.ts';
@@ -38,7 +37,7 @@ testStable(
       [4, 5],
       [5, 5]
     ]) {
-      assert.equal(validBlockTextRange(document, { ...range, start, end }), true);
+      assert.strictEqual(validBlockTextRange(document, { ...range, start, end }), true);
     }
 
     for (const [start, end] of [
@@ -53,16 +52,16 @@ testStable(
       [0, Number.POSITIVE_INFINITY],
       [100, 109]
     ]) {
-      assert.equal(validBlockTextRange(document, { ...range, start, end }), false);
+      assert.strictEqual(validBlockTextRange(document, { ...range, start, end }), false);
     }
 
-    assert.equal(Schema.is(contentRangeSchema)({ ...range, start: 0.5 }), false);
-    assert.equal(
+    assert.strictEqual(Schema.is(contentRangeSchema)({ ...range, start: 0.5 }), false);
+    assert.strictEqual(
       Schema.is(contentRangeSchema)({ ...range, end: Number.MAX_SAFE_INTEGER + 1 }),
       false
     );
-    assert.equal(Schema.is(contentRangeSchema)({ ...range, start: 3, end: 1 }), false);
-    assert.deepEqual(block.anchor, {
+    assert.strictEqual(Schema.is(contentRangeSchema)({ ...range, start: 3, end: 1 }), false);
+    expect(block.anchor).toStrictEqual({
       type: 'text',
       lineStart: 1,
       lineEnd: 1,
@@ -96,8 +95,8 @@ testStable(
       { type: 'url', url: 'javascript:alert(1)', fragment: null }
     ];
 
-    for (const anchor of valid) assert.equal(Schema.is(anchorSchema)(anchor), true);
+    for (const anchor of valid) assert.strictEqual(Schema.is(anchorSchema)(anchor), true);
 
-    for (const anchor of invalid) assert.equal(Schema.is(anchorSchema)(anchor), false);
+    for (const anchor of invalid) assert.strictEqual(Schema.is(anchorSchema)(anchor), false);
   }
 );

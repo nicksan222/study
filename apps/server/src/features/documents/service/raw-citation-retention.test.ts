@@ -11,12 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -92,11 +93,11 @@ for (const mode of ['history', 'delete'] as const)
             f.context.db.orm.run(
               sql`DELETE FROM session_run_contexts WHERE request_id=${request.requestId}`
             );
-            assert.equal(
+            assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM session_context_documents`)?.n,
               0n
             );
-            assert.equal(
+            assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM session_run_contexts`)?.n,
               0n
             );
@@ -134,14 +135,14 @@ for (const mode of ['history', 'delete'] as const)
             );
             const raw = yield* chats.message(saved.messageId);
 
-            assert.equal(raw.citations[0]?.evidence?.availability, 'available');
+            assert.ok(raw.citations[0]?.evidence?.availability === 'available');
             yield* chats.deleteMessage(saved.messageId);
             const released =
               mode === 'history'
                 ? yield* docs.previewHistory({ documentId: saved.document.id, keepLatest: 1 })
                 : yield* docs.previewDeletion({ id: saved.document.id });
 
-            assert.deepEqual(released.blockedVersionIds, []);
+            expect(released.blockedVersionIds).toStrictEqual([]);
 
             if (mode === 'history')
               yield* docs.retireHistory({
@@ -151,13 +152,13 @@ for (const mode of ['history', 'delete'] as const)
               });
             else yield* docs.delete({ documentId: saved.document.id, token: released.token });
 
-            assert.equal(
-              (yield* Effect.flip(docs.version({ id: saved.document.version.id }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(docs.version({ id: saved.document.version.id }))).kind ===
+                'not_found'
             );
           }).pipe(Effect.provide(f.domain()))
         );
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

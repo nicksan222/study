@@ -14,14 +14,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { ProjectId, SessionId } from '@study/contracts/ids';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -93,44 +93,42 @@ testStable(
                 const first = yield* sources.importRecording(input);
                 const again = yield* sources.importRecording(input);
 
-                assert.deepEqual(again, first);
-                assert.equal(first.kind, 'audio');
-                assert.equal(first.mime, 'audio/wav');
-                assert.equal(first.origin, 'recording');
-                assert.equal(
+                expect(again).toStrictEqual(first);
+                assert.ok(first.kind === 'audio');
+                assert.ok(first.mime === 'audio/wav');
+                assert.ok(first.origin === 'recording');
+                assert.strictEqual(
                   context.db.orm.all(
                     sql`SELECT * FROM workflow_events WHERE type = 'SourceProcessingRequested'`
                   ).length,
                   1
                 );
-                assert.deepEqual(
-                  (yield* sources.sourceSnapshot({ id: first.id, revision: 1 })).bytes,
-                  new Uint8Array(input.bytes)
-                );
+                expect(
+                  (yield* sources.sourceSnapshot({ id: first.id, revision: 1 })).bytes
+                ).toStrictEqual(new Uint8Array(input.bytes));
 
                 for (const change of [
                   { name: 'other.wav' },
                   { bytes: Uint8Array.from(input.bytes, (b, i) => (i === 45 ? 1 : b)) },
                   { projectId: 2n as ProjectId }
                 ]) {
-                  assert.equal(
-                    (yield* Effect.flip(sources.importRecording({ ...input, ...change }))).kind,
-                    'invalid_input'
+                  assert.ok(
+                    (yield* Effect.flip(sources.importRecording({ ...input, ...change }))).kind ===
+                      'invalid_input'
                   );
                 }
 
                 const badHeader = Uint8Array.from(input.bytes);
 
                 badHeader[24] = 0;
-                assert.equal(
+                assert.ok(
                   (yield* Effect.flip(
                     sources.importRecording({
                       ...input,
                       requestId: 'bad-header',
                       bytes: badHeader
                     })
-                  )).kind,
-                  'invalid_input'
+                  )).kind === 'invalid_input'
                 );
                 assert.throws(() =>
                   context.db.orm.run(
@@ -146,24 +144,32 @@ testStable(
                   sql`CREATE TRIGGER reject_recording_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'rejected'); END`
                 );
                 yield* Effect.flip(sources.importRecording({ ...input, requestId: 'event-fails' }));
-                assert.equal(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
-                assert.equal(context.db.orm.all(sql`SELECT * FROM source_snapshots`).length, 1);
-                assert.equal(context.db.orm.all(sql`SELECT * FROM source_processing`).length, 1);
-                assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
-                assert.equal(
+                assert.strictEqual(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
+                assert.strictEqual(
+                  context.db.orm.all(sql`SELECT * FROM source_snapshots`).length,
+                  1
+                );
+                assert.strictEqual(
+                  context.db.orm.all(sql`SELECT * FROM source_processing`).length,
+                  1
+                );
+                assert.strictEqual(
+                  context.db.orm.all(sql`SELECT * FROM workflow_events`).length,
+                  1
+                );
+                assert.strictEqual(
                   context.db.orm.all(sql`SELECT * FROM source_recording_imports`).length,
                   1
                 );
                 context.db.orm.run(sql`DROP TRIGGER reject_recording_event`);
-                assert.equal((yield* sources.importRecording(input)).id, first.id);
+                assert.strictEqual((yield* sources.importRecording(input)).id, first.id);
                 workflowStore(context).interrupt('recording-import-test', 'safe');
-                assert.equal(
+                assert.ok(
                   (yield* Effect.flip(
                     sources.importRecording({ ...input, requestId: 'lost-lease' })
-                  )).kind,
-                  'cancelled'
+                  )).kind === 'cancelled'
                 );
-                assert.equal(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
+                assert.strictEqual(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
                 completed = true;
               })
             ).pipe(Effect.orDie)
@@ -189,9 +195,9 @@ testStable(
           )
         )
       );
-      assert.equal(completed, true);
+      assert.isTrue(completed);
       context.db.orm.run(sql`DELETE FROM projects WHERE id = 1`);
-      assert.equal(context.db.orm.all(sql`SELECT * FROM source_recording_imports`).length, 1);
+      assert.strictEqual(context.db.orm.all(sql`SELECT * FROM source_recording_imports`).length, 1);
     } finally {
       context.close();
       location.cleanup();

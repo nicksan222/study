@@ -11,14 +11,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Sources } from '#server/features/sources/index';
@@ -85,22 +86,19 @@ for (const kind of ['file', 'image', 'recording'] as const)
             const preview = yield* docs.previewDeletion({ id: a.id });
 
             yield* docs.delete({ documentId: a.id, token: preview.token });
-            assert.equal(
-              (yield* Effect.flip(docs.exportVersion({ id: a.version.id }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(docs.exportVersion({ id: a.version.id }))).kind === 'not_found'
             );
             const blocked = yield* sources.previewDeletion({ id: source.id });
 
             assert.ok(blocked.blockedBy.includes('exact_inputs'));
-            assert.equal(
-              (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
             );
-            assert.deepEqual(
-              yield* sources.exportRevision({ sourceId: source.id, revision: 1n }),
-              original
-            );
-            assert.deepEqual(yield* docs.exportVersion({ id: b.version.id }), expected);
+            expect(
+              yield* sources.exportRevision({ sourceId: source.id, revision: 1n })
+            ).toStrictEqual(original);
+            expect(yield* docs.exportVersion({ id: b.version.id })).toStrictEqual(expected);
 
             return { source, unrelated, original, b: { ...b, version: b.version }, expected };
           }).pipe(Effect.provide(f.domain()))
@@ -122,38 +120,36 @@ for (const kind of ['file', 'image', 'recording'] as const)
             const sources = yield* Sources;
             const docs = yield* Documents;
 
-            assert.deepEqual(yield* docs.exportVersion({ id: saved.b.version.id }), saved.expected);
+            expect(yield* docs.exportVersion({ id: saved.b.version.id })).toStrictEqual(
+              saved.expected
+            );
             const preview = yield* docs.previewDeletion({ id: saved.b.id });
 
             yield* docs.delete({ documentId: saved.b.id, token: preview.token });
-            assert.deepEqual(
-              (yield* sources.previewDeletion({ id: saved.source.id })).blockedBy,
-              []
-            );
+            expect(
+              (yield* sources.previewDeletion({ id: saved.source.id })).blockedBy
+            ).toStrictEqual([]);
             f.context.db.exec(
               "CREATE TRIGGER reject_source_event BEFORE INSERT ON workflow_events WHEN NEW.type='SourceDeleted' BEGIN SELECT RAISE(ABORT,'injected'); END"
             );
             yield* Effect.flip(sources.deleteSource({ id: saved.source.id }));
-            assert.deepEqual(
-              yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n }),
-              saved.original
-            );
+            expect(
+              yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n })
+            ).toStrictEqual(saved.original);
             f.context.db.exec('DROP TRIGGER reject_source_event');
             yield* sources.deleteSource({ id: saved.source.id });
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 sources.exportRevision({ sourceId: saved.source.id, revision: 1n })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
-            assert.deepEqual(
-              (yield* sources.exportRevision({ sourceId: saved.unrelated.id, revision: 1n })).bytes,
-              saved.original.bytes
-            );
+            expect(
+              (yield* sources.exportRevision({ sourceId: saved.unrelated.id, revision: 1n })).bytes
+            ).toStrictEqual(saved.original.bytes);
           }).pipe(Effect.provide(f.domain()))
         );
         f.reopen();
-        assert.equal(
+        assert.strictEqual(
           f.context.db.orm
             .select()
             .from(s.source_blobs)
@@ -161,7 +157,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
             .all().length,
           0
         );
-        assert.equal(
+        assert.strictEqual(
           f.context.db.orm
             .select()
             .from(s.source_snapshots)
@@ -169,11 +165,11 @@ for (const kind of ['file', 'image', 'recording'] as const)
             .all().length,
           0
         );
-        assert.deepEqual(f.context.db.orm.select().from(s.recording_chunks).all(), pcm);
+        expect(f.context.db.orm.select().from(s.recording_chunks).all()).toStrictEqual(pcm);
 
         if (kind === 'recording') assert.ok(pcm.length);
 
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

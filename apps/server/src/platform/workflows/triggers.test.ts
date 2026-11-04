@@ -15,14 +15,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { workflowEventSchema } from '@study/contracts/events';
 import { workflow_executions, workflowReceipts } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 
@@ -83,13 +82,13 @@ testStable('dispatch commits bounded executions and receipts and survives reopen
     context.transaction(() => {
       for (let i = 0; i < 3; i++) emitEvent(context, event(String(i)), i);
     });
-    assert.equal(dispatchPending(context, [trigger], 10, 2), 2);
+    assert.strictEqual(dispatchPending(context, [trigger], 10, 2), 2);
     context.close();
     context = openContext(location);
-    assert.equal(dispatchPending(context, [trigger], 11, 2), 1);
-    assert.equal(dispatchPending(context, [trigger], 12, 2), 0);
-    assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 3);
-    assert.equal(context.db.orm.select().from(workflow_executions).all().length, 3);
+    assert.strictEqual(dispatchPending(context, [trigger], 11, 2), 1);
+    assert.strictEqual(dispatchPending(context, [trigger], 12, 2), 0);
+    assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 3);
+    assert.strictEqual(context.db.orm.select().from(workflow_executions).all().length, 3);
   } finally {
     context.close();
     location.cleanup();
@@ -102,7 +101,7 @@ testStable('a disabled subscription does not starve an enabled subscription', ()
 
   try {
     context.transaction(() => emitEvent(context, event('one'), 1));
-    assert.equal(
+    assert.strictEqual(
       dispatchPending(
         context,
         [{ ...trigger, subscription: 'disabled', enabled: () => false }, trigger],
@@ -135,8 +134,8 @@ testStable('a scheduling failure rolls back execution and receipt together', () 
     };
 
     assert.throws(() => dispatchPending(context, [trigger, throwing], 3), /policy failed/);
-    assert.equal(context.db.orm.select().from(workflow_executions).all().length, 0);
-    assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 0);
+    assert.strictEqual(context.db.orm.select().from(workflow_executions).all().length, 0);
+    assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
   } finally {
     context.close();
     location.cleanup();
@@ -152,10 +151,10 @@ testStable('re-enabling a policy delivers its retained events', () => {
     context.transaction(() => emitEvent(context, event('one'), 1));
     const policy = { ...trigger, enabled: () => enabled };
 
-    assert.equal(dispatchPending(context, [policy], 2), 0);
+    assert.strictEqual(dispatchPending(context, [policy], 2), 0);
     enabled = true;
-    assert.equal(dispatchPending(context, [policy], 3), 1);
-    assert.equal(dispatchPending(context, [policy], 4), 0);
+    assert.strictEqual(dispatchPending(context, [policy], 3), 1);
+    assert.strictEqual(dispatchPending(context, [policy], 4), 0);
   } finally {
     context.close();
     location.cleanup();
@@ -171,7 +170,7 @@ testStable(
 
     try {
       context.transaction(() => emitEvent(context, event('recover'), 1));
-      assert.equal(dispatchPending(context, [trigger], 2), 1);
+      assert.strictEqual(dispatchPending(context, [trigger], 2), 1);
       context.close();
       context = openContext(location);
 
@@ -192,9 +191,8 @@ testStable(
           yield* Effect.sleep('5 millis');
         }
 
-        assert.equal(
-          context.db.orm.select().from(workflow_executions).all()[0]?.status,
-          'completed'
+        assert.ok(
+          context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed'
         );
         yield* recoverWorkflowEngine(context, engine, [testWorkflow]);
       }
@@ -204,8 +202,8 @@ testStable(
           Effect.gen(resumeCommittedExecution).pipe(Effect.provide(workflowEngineLayer(context)))
         )
       );
-      assert.equal(calls, 1);
-      assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 1);
+      assert.strictEqual(calls, 1);
+      assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 1);
     } finally {
       context.close();
       location.cleanup();
@@ -246,8 +244,8 @@ testStable('material publication events identify a published material version', 
   };
   const decoded = Schema.decodeUnknownSync(workflowEventSchema)(value);
 
-  assert.equal(decoded.type, 'MaterialPublished');
-  assert.equal('materialVersionId' in decoded && decoded.materialVersionId, 3n);
+  assert.ok(decoded.type === 'MaterialPublished');
+  expect('materialVersionId' in decoded && decoded.materialVersionId).toBe(3n);
   assert.throws(() =>
     Schema.decodeUnknownSync(workflowEventSchema)({
       ...value,
@@ -261,7 +259,9 @@ testStable('registered workflows accept canonical failure values', async () => {
   const { sourceIngestionWorkflow } = await import('#server/features/sources/workflows/index');
   const failure = { kind: 'cancelled', message: 'superseded', retryAfterMs: null };
 
-  assert.deepEqual(Schema.decodeUnknownSync(sourceIngestionWorkflow.errorSchema)(failure), failure);
+  expect(Schema.decodeUnknownSync(sourceIngestionWorkflow.errorSchema)(failure)).toStrictEqual(
+    failure
+  );
 });
 
 testStable('disabled subscriptions leave events unscheduled', () => {
@@ -270,9 +270,9 @@ testStable('disabled subscriptions leave events unscheduled', () => {
 
   try {
     context.transaction(() => emitEvent(context, event('disabled'), 1));
-    assert.equal(dispatchPending(context, [{ ...trigger, enabled: () => false }], 2), 0);
-    assert.equal(context.db.orm.select().from(workflow_executions).all().length, 0);
-    assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 0);
+    assert.strictEqual(dispatchPending(context, [{ ...trigger, enabled: () => false }], 2), 0);
+    assert.strictEqual(context.db.orm.select().from(workflow_executions).all().length, 0);
+    assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
   } finally {
     context.close();
     location.cleanup();
@@ -286,5 +286,5 @@ testStable('trigger graph fanout counts every subscription with the same source 
   }));
 
   assert.throws(() => validateTriggerGraph(edges), /fanout/);
-  assert.doesNotThrow(() => validateTriggerGraph(edges.slice(0, 16)));
+  expect(() => validateTriggerGraph(edges.slice(0, 16))).not.toThrow();
 });

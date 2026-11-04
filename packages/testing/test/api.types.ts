@@ -1,23 +1,20 @@
 // These public API checks are compiled, never executed.
 import {
-  subtests,
   testStable,
   testRegression,
   testMigration,
   testCharacterization
-} from '@study/testing/node';
+} from '@study/testing/vitest';
 
 import type { Migration, Regression, Characterization } from '../src/classification.ts';
 
 function publicContract() {
   testStable('context inference', async (context) => {
-    const name: string = context.name;
+    const name: string = context.task.name;
 
-    await subtests(context).testStable(name, (child) => {
-      void child.signal;
-    });
+    void name;
   });
-  testStable('options', { timeout: 1000, concurrency: true }, () => {});
+  testStable('options', { timeout: 1000, concurrent: true }, () => {});
   testRegression({ regression: 'evidence_integrity' })('regression', () => {});
   testMigration({ migration: 'source_upgrade', retention: 'permanent' })('migration', () => {});
   testCharacterization({

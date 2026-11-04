@@ -14,14 +14,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 
 import { sourcesOutputSchema } from '@study/contracts/ai/sources';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema, Stream } from 'effect';
 import type { Response } from 'effect/ai';
 import { AiError, LanguageModel, Tool, Toolkit } from 'effect/ai';
+import { assert, expect } from 'vite-plus/test';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
@@ -175,11 +175,11 @@ testStable('native structured generation stops after a grounded tool call', asyn
       )
     );
 
-    assert.equal(result.reason._tag, 'StructuredOutputError');
-    assert.equal(requests, 1);
-    assert.equal(catalog.citations('answer [1]')[0]?.quote, 'A cell uses energy.');
-    assert.match(body, /Make a card about cells/);
-    assert.match(body, /sources/);
+    assert.ok(result.reason._tag === 'StructuredOutputError');
+    assert.strictEqual(requests, 1);
+    assert.ok(catalog.citations('answer [1]')[0]?.quote === 'A cell uses energy.');
+    expect(body).toMatch(/Make a card about cells/);
+    expect(body).toMatch(/sources/);
     output = JSON.stringify({
       kind: 'flashcards',
       cards: [{ front: 'What uses energy?', back: 'A cell [1]' }]
@@ -188,14 +188,14 @@ testStable('native structured generation stops after a grounded tool call', asyn
       native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output })
     );
 
-    assert.equal(decoded.value.cards[0]?.back, 'A cell [1]');
-    assert.equal(catalog.citations(decoded.value.cards[0]?.back ?? '')[0]?.reference, 'doc');
+    assert.ok(decoded.value.cards[0]?.back === 'A cell [1]');
+    assert.ok(catalog.citations(decoded.value.cards[0]?.back ?? '')[0]?.reference === 'doc');
     output = JSON.stringify({ kind: 'flashcards', cards: [] });
     const invalid = await Effect.runPromise(
       Effect.flip(native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output }))
     );
 
-    assert.equal(invalid.reason._tag, 'StructuredOutputError');
+    assert.ok(invalid.reason._tag === 'StructuredOutputError');
   } finally {
     await auth.dispose();
     await new Promise<void>((resolve) => server.close(() => resolve()));

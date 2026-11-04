@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Registers an isolated database fixture before each Node test and removes all       │
+ * │ @file Registers an isolated database fixture before each Vitest test and removes all     │
  * │ fixture databases after the test file completes.                                         │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
@@ -8,22 +8,19 @@
  * │   after the test file finishes.                                                          │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Node test runner imports this preload; it delegates fixture state to automatic.ts and    │
+ * │ Vitest runner imports this preload; it delegates fixture state to automatic.ts and       │
  * │ does not construct App itself.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { after, beforeEach } from 'node:test';
-import type { TestContext } from 'node:test';
+import { afterAll, beforeEach } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 
 import { cleanupTestFile, registerTest } from './automatic.ts';
 
 beforeEach((t) => registerTest(t as TestContext));
-after(
-  (t) => {
-    t.log('study-test-phase:file-database-cleanup:start');
-    cleanupTestFile();
-    t.log('study-test-phase:file-database-cleanup:complete');
-  },
-  { timeout: 30000 }
-);
+afterAll(() => {
+  console.debug('study-test-phase:file-database-cleanup:start');
+  cleanupTestFile();
+  console.debug('study-test-phase:file-database-cleanup:complete');
+}, 30000);

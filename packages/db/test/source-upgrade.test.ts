@@ -1,13 +1,13 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { workflowEventSchema } from '@study/contracts/events';
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { source_extraction_revisions, source_processing, source_snapshots } from '../src/schema.ts';
@@ -64,26 +64,29 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
 
         assert.ok(state);
         assert.ok(snapshot);
-        assert.equal(state.revision, 1n);
-        assert.equal(state.document_id, 1n);
+        assert.strictEqual(state.revision, 1n);
+        assert.strictEqual(state.document_id, 1n);
         assert.ok(state.request_id);
-        assert.equal(state.published_request_id, state.request_id);
-        assert.deepEqual(snapshot.bytes, input);
+        assert.strictEqual(state.published_request_id, state.request_id);
+        expect(snapshot.bytes).toStrictEqual(input);
         const pin = upgraded.orm.select().from(source_extraction_revisions).get();
 
         assert.ok(pin);
-        assert.equal(pin.source_id, 1n);
-        assert.equal(pin.revision, 1n);
-        assert.equal(pin.snapshot_id, 1n);
-        assert.equal(
+        assert.strictEqual(pin.source_id, 1n);
+        assert.strictEqual(pin.revision, 1n);
+        assert.strictEqual(pin.snapshot_id, 1n);
+        assert.strictEqual(
           requireRow(upgraded.orm.get(sql`SELECT name, project_id FROM sources WHERE id=1`)).name,
           'Existing notes'
         );
-        assert.equal(requireRow(upgraded.orm.get(sql`SELECT count(*) n FROM materials`)).n, 0n);
-        assert.equal(snapshot.kind, 'text');
-        assert.equal(snapshot.mime, 'text/plain');
-        assert.deepEqual(upgraded.orm.all(sql`PRAGMA foreign_key_check`), []);
-        assert.equal(
+        assert.strictEqual(
+          requireRow(upgraded.orm.get(sql`SELECT count(*) n FROM materials`)).n,
+          0n
+        );
+        assert.strictEqual(snapshot.kind, 'text');
+        assert.strictEqual(snapshot.mime, 'text/plain');
+        expect(upgraded.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        assert.strictEqual(
           upgraded.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_source_snapshots'`),
           undefined
         );
@@ -94,9 +97,9 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
       const reopened = Db.open(path);
 
       try {
-        assert.equal(reopened.orm.select().from(source_snapshots).all().length, 1);
-        assert.equal(reopened.orm.select().from(source_extraction_revisions).all().length, 1);
-        assert.equal(reopened.orm.select().from(source_processing).all().length, 1);
+        assert.strictEqual(reopened.orm.select().from(source_snapshots).all().length, 1);
+        assert.strictEqual(reopened.orm.select().from(source_extraction_revisions).all().length, 1);
+        assert.strictEqual(reopened.orm.select().from(source_processing).all().length, 1);
       } finally {
         reopened.close();
       }
@@ -144,32 +147,31 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
       try {
         const snapshots = upgraded.orm.select().from(source_snapshots).all();
 
-        assert.equal(snapshots.length, 2);
-        assert.deepEqual(snapshots.find((s) => s.revision === 1n)?.bytes, Buffer.from([1]));
+        assert.strictEqual(snapshots.length, 2);
+        expect(snapshots.find((s) => s.revision === 1n)?.bytes).toStrictEqual(Buffer.from([1]));
         const pin = upgraded.orm.select().from(source_processing).get()!;
 
-        assert.equal(pin.revision, 2n);
-        assert.deepEqual(
-          snapshots.find((s) => s.revision === pin.revision)?.bytes,
+        assert.strictEqual(pin.revision, 2n);
+        expect(snapshots.find((s) => s.revision === pin.revision)?.bytes).toStrictEqual(
           Buffer.from([2])
         );
-        assert.equal(upgraded.orm.select().from(source_processing).get()?.revision, 2n);
+        assert.strictEqual(upgraded.orm.select().from(source_processing).get()?.revision, 2n);
         const events = upgraded.orm.all(
           sql`SELECT payload FROM workflow_events WHERE type='SourceProcessingRequested'`
         );
 
-        assert.equal(events.length, 1);
+        assert.strictEqual(events.length, 1);
         const event = Schema.decodeUnknownSync(
           Schema.fromJsonString(Schema.toCodecJson(workflowEventSchema))
         )(events[0]!.payload);
 
-        assert.equal(event.type, 'SourceProcessingRequested');
-        assert.equal(event.inputVersion, 2);
+        assert.strictEqual(event.type, 'SourceProcessingRequested');
+        assert.strictEqual(event.inputVersion, 2);
 
-        if (event.type === 'SourceProcessingRequested') assert.equal(event.sourceId, 1n);
+        if (event.type === 'SourceProcessingRequested') assert.strictEqual(event.sourceId, 1n);
 
-        assert.deepEqual(upgraded.orm.all(sql`PRAGMA foreign_key_check`), []);
-        assert.equal(
+        expect(upgraded.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        assert.strictEqual(
           upgraded.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_source_snapshots'`),
           undefined
         );
@@ -214,20 +216,20 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
       try {
         const snapshots = upgraded.orm.select().from(source_snapshots).all();
 
-        assert.equal(snapshots.length, 2);
+        assert.strictEqual(snapshots.length, 2);
         const captured = snapshots.find((s) => s.revision === 1n)!;
         const repaired = snapshots.find((s) => s.revision === 2n)!;
 
-        assert.equal(captured.kind, 'audio');
-        assert.equal(captured.mime, 'audio/wav');
-        assert.equal(repaired.kind, 'image');
-        assert.equal(repaired.mime, 'image/png');
-        assert.deepEqual(captured.bytes, repaired.bytes);
+        assert.strictEqual(captured.kind, 'audio');
+        assert.strictEqual(captured.mime, 'audio/wav');
+        assert.strictEqual(repaired.kind, 'image');
+        assert.strictEqual(repaired.mime, 'image/png');
+        expect(captured.bytes).toStrictEqual(repaired.bytes);
         const state = upgraded.orm.select().from(source_processing).get()!;
 
-        assert.equal(state.revision, 2n);
-        assert.notEqual(state.request_id, 'captured-audio');
-        assert.equal(
+        assert.strictEqual(state.revision, 2n);
+        assert.notStrictEqual(state.request_id, 'captured-audio');
+        assert.strictEqual(
           upgraded.orm.all(
             sql`SELECT * FROM workflow_events WHERE type='SourceProcessingRequested'`
           ).length,
@@ -298,8 +300,8 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
             "UPDATE material_diagram_versions SET payload='rewritten' WHERE version_id=1"
           )
         );
-        assert.deepEqual(upgraded.orm.all(sql`PRAGMA foreign_key_check`), []);
-        assert.equal(
+        expect(upgraded.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        assert.strictEqual(
           upgraded.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_source_snapshots'`),
           undefined
         );
@@ -310,17 +312,16 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
       const reopened = Db.open(path);
 
       try {
-        assert.deepEqual(
+        expect(
           reopened.orm
             .all<{ version_id: bigint; payload: string }>(
               sql`SELECT version_id,payload FROM material_diagram_versions ORDER BY version_id`
             )
-            .map((row) => ({ ...row })),
-          [
-            { version_id: 1n, payload: 'old' },
-            { version_id: 3n, payload: 'current' }
-          ]
-        );
+            .map((row) => ({ ...row }))
+        ).toStrictEqual([
+          { version_id: 1n, payload: 'old' },
+          { version_id: 3n, payload: 'current' }
+        ]);
         assert.throws(() =>
           reopened.exec(
             "INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'upgrade-keep-two')"

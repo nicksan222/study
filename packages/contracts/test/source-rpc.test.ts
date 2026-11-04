@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { sourcePageInputSchema, sourceProcessingSchema } from '../src/sources/rpc.ts';
 import { sourceSchema } from '../src/sources/schemas.ts';
@@ -9,7 +8,7 @@ import { sourceSchema } from '../src/sources/schemas.ts';
 testStable('source pages require a bounded limit and preserve 64-bit cursors', () => {
   const decode = Schema.decodeUnknownSync(sourcePageInputSchema);
 
-  assert.deepEqual(decode({ limit: 20, before: 9007199254740993n }), {
+  expect(decode({ limit: 20, before: 9007199254740993n })).toStrictEqual({
     limit: 20,
     before: 9007199254740993n
   });
@@ -32,7 +31,7 @@ testStable('source processing identities survive the native JSON codec', () => {
   };
   const encoded = Schema.encodeSync(codec)(value);
 
-  assert.deepEqual(Schema.decodeUnknownSync(codec)(JSON.parse(JSON.stringify(encoded))), value);
+  expect(Schema.decodeUnknownSync(codec)(JSON.parse(JSON.stringify(encoded)))).toStrictEqual(value);
   const decode = Schema.decodeUnknownSync(sourceProcessingSchema);
 
   assert.throws(() => decode({ ...value, revision: 0 }));
@@ -57,5 +56,5 @@ testStable('canonical source bytes and large IDs have native wire codecs', () =>
 
   const wire = JSON.parse(JSON.stringify(Schema.encodeSync(codec)(source)));
 
-  assert.deepEqual(Schema.decodeUnknownSync(codec)(wire), source);
+  expect(Schema.decodeUnknownSync(codec)(wire)).toStrictEqual(source);
 });

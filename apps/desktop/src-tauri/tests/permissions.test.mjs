@@ -1,7 +1,7 @@
-import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 testStable(
   'every registered native adapter command is granted to the production main window',
@@ -31,10 +31,9 @@ testStable(
     assert.ok(capability.windows.includes('main'));
     const allowed = new Set(capability.permissions.flatMap((id) => grants.get(id) ?? []));
 
-    assert.deepEqual(
+    expect(
       registered.filter((command) => !allowed.has(command)),
-      [],
       'registered adapters must have an explicit enabled production capability'
-    );
+    ).toStrictEqual([]);
   }
 );

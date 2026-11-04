@@ -1,14 +1,14 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { annotationSchema, assessmentSchema } from '@study/contracts/documents/evidence';
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { assertFinalStorage } from './final-storage.ts';
@@ -128,18 +128,17 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         { old_snapshot_id: 201n, new_snapshot_id: 205n }
       ];
 
-      assert.equal(cell(db, sql`SELECT count(*) AS n FROM study_document_versions`, 'n'), 4n);
-      assert.deepEqual(
+      assert.strictEqual(cell(db, sql`SELECT count(*) AS n FROM study_document_versions`, 'n'), 4n);
+      expect(
         db.orm
           .all(sql`SELECT id,status,number FROM study_document_versions ORDER BY id`)
-          .map((x) => ({ ...x })),
-        [
-          { id: 1n, status: 'published', number: 1n },
-          { id: 2n, status: 'published', number: 2n },
-          { id: 3n, status: 'draft', number: 3n },
-          { id: 4n, status: 'published', number: 1n }
-        ]
-      );
+          .map((x) => ({ ...x }))
+      ).toStrictEqual([
+        { id: 1n, status: 'published', number: 1n },
+        { id: 2n, status: 'published', number: 2n },
+        { id: 3n, status: 'draft', number: 3n },
+        { id: 4n, status: 'published', number: 1n }
+      ]);
 
       for (const map of mappings) {
         const old = oldBlocks
@@ -151,50 +150,43 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           )
           .map((x) => ({ ...x }));
 
-        assert.deepEqual(current, old);
-        assert.equal(
+        expect(current).toStrictEqual(old);
+        assert.strictEqual(
           cell(db, sql`SELECT meta FROM content_snapshots WHERE id=${map.new_snapshot_id}`, 'meta'),
           meta
         );
       }
 
-      assert.deepEqual(
-        db.orm.all(sql`SELECT key,intent,outcome FROM study_document_edit_receipts ORDER BY key`),
-        oldReceipts.map((receipt) => ({ ...receipt, intent: '"domain_cutover"' }))
-      );
-      assert.deepEqual(
-        {
-          ...db.orm.get(
-            sql`SELECT expected_version_id,current_version_id,submitted_version_id,outcome FROM study_document_edit_receipts WHERE key='conflict'`
-          )
-        },
-        {
-          expected_version_id: 1n,
-          current_version_id: 2n,
-          submitted_version_id: 3n,
-          outcome: 'conflict'
-        }
-      );
-      assert.equal(
+      expect(
+        db.orm.all(sql`SELECT key,intent,outcome FROM study_document_edit_receipts ORDER BY key`)
+      ).toStrictEqual(oldReceipts.map((receipt) => ({ ...receipt, intent: '"domain_cutover"' })));
+      expect({
+        ...db.orm.get(
+          sql`SELECT expected_version_id,current_version_id,submitted_version_id,outcome FROM study_document_edit_receipts WHERE key='conflict'`
+        )
+      }).toStrictEqual({
+        expected_version_id: 1n,
+        current_version_id: 2n,
+        submitted_version_id: 3n,
+        outcome: 'conflict'
+      });
+      assert.strictEqual(
         cell(db, sql`SELECT archived_at FROM study_documents WHERE id=2`, 'archived_at'),
         4n
       );
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(
           sql`SELECT snapshot_id FROM source_extraction_revisions WHERE source_id=7 AND revision=4`
         ),
         undefined,
         'a previous extraction must not be attributed to an unfinished replacement revision'
       );
-      assert.deepEqual(
-        {
-          ...db.orm.get(
-            sql`SELECT source_id,source_revision,source_snapshot_id FROM study_document_inputs WHERE version_id=1`
-          )
-        },
-        { source_id: 7n, source_revision: 3n, source_snapshot_id: 70n }
-      );
-      assert.equal(
+      expect({
+        ...db.orm.get(
+          sql`SELECT source_id,source_revision,source_snapshot_id FROM study_document_inputs WHERE version_id=1`
+        )
+      }).toStrictEqual({ source_id: 7n, source_revision: 3n, source_snapshot_id: 70n });
+      assert.strictEqual(
         cell(
           db,
           sql`SELECT document_version_id FROM study_document_inputs WHERE version_id=4`,
@@ -206,37 +198,31 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         sql`SELECT anchor,target,quote FROM study_document_citations WHERE version_id=1`
       );
 
-      assert.deepEqual(
-        { ...citation },
-        {
-          anchor: '{"type":"page","page":2}',
-          target: '{"blockId":"source-block","start":0,"end":11}',
-          quote: 'Retained 😀'
-        }
-      );
+      expect({ ...citation }).toStrictEqual({
+        anchor: '{"type":"page","page":2}',
+        target: '{"blockId":"source-block","start":0,"end":11}',
+        quote: 'Retained 😀'
+      });
       const annotation = JSON.parse(
         String(cell(db, sql`SELECT payload FROM study_document_annotation_revisions`, 'payload'))
       );
 
-      assert.equal(annotation.note, 'Exact annotation 😀');
-      assert.deepEqual(annotation.target, {
+      assert.strictEqual(annotation.note, 'Exact annotation 😀');
+      expect(annotation.target).toStrictEqual({
         documentId: '1',
         range: { versionId: '1', snapshotId: '202', blockId: 'authored-101', start: 0, end: 11 }
       });
-      assert.equal(cell(db, sql`SELECT count(*) AS n FROM project_documents`, 'n'), 2n);
-      assert.equal(
+      assert.strictEqual(cell(db, sql`SELECT count(*) AS n FROM project_documents`, 'n'), 2n);
+      assert.strictEqual(
         cell(db, sql`SELECT source_id FROM document_assets WHERE document_id=202`, 'source_id'),
         8n
       );
-      assert.deepEqual(
-        {
-          ...db.orm.get(
-            sql`SELECT base_version_id,proposed_version_id FROM study_document_proposals WHERE request_id='document/proposal-context'`
-          )
-        },
-        { base_version_id: 1n, proposed_version_id: 3n }
-      );
-      assert.equal(
+      expect({
+        ...db.orm.get(
+          sql`SELECT base_version_id,proposed_version_id FROM study_document_proposals WHERE request_id='document/proposal-context'`
+        )
+      }).toStrictEqual({ base_version_id: 1n, proposed_version_id: 3n });
+      assert.strictEqual(
         cell(
           db,
           sql`SELECT current_version_id FROM study_document_proposal_receipts WHERE key='proposal-conflict'`,
@@ -244,7 +230,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         ),
         2n
       );
-      assert.equal(
+      assert.strictEqual(
         cell(
           db,
           sql`SELECT id FROM study_document_generation_requests WHERE id='document/proposal-context'`,
@@ -256,60 +242,59 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         String(cell(db, sql`SELECT payload FROM study_document_citation_assessments`, 'payload'))
       );
 
-      assert.equal(assessment.note, 'Exact judgment');
-      assert.deepEqual(assessment.evidence, {
+      assert.strictEqual(assessment.note, 'Exact judgment');
+      expect(assessment.evidence).toStrictEqual({
         kind: 'source',
         sourceId: '7',
         revision: '3',
         snapshotId: '70'
       });
-      assert.equal(assessment.claim.range.versionId, '1');
+      assert.strictEqual(assessment.claim.range.versionId, '1');
       const decodedAssessment = Schema.decodeUnknownSync(
         Schema.fromJsonString(Schema.toCodecJson(assessmentSchema))
       )(JSON.stringify(assessment));
 
-      assert.equal(decodedAssessment.claim.range.versionId, 1n);
+      assert.strictEqual(decodedAssessment.claim.range.versionId, 1n);
       const decodedAnnotation = Schema.decodeUnknownSync(
         Schema.fromJsonString(Schema.toCodecJson(annotationSchema))
       )(JSON.stringify(annotation));
 
-      assert.equal(decodedAnnotation.target.range.snapshotId, 202n);
-      assert.equal(cell(db, sql`SELECT count(*) AS n FROM session_documents`, 'n'), 2n);
-      assert.equal(cell(db, sql`SELECT source_id FROM session_sources`, 'source_id'), 7n);
-      assert.equal(
+      assert.strictEqual(decodedAnnotation.target.range.snapshotId, 202n);
+      assert.strictEqual(cell(db, sql`SELECT count(*) AS n FROM session_documents`, 'n'), 2n);
+      assert.strictEqual(cell(db, sql`SELECT source_id FROM session_sources`, 'source_id'), 7n);
+      assert.strictEqual(
         cell(db, sql`SELECT source_id FROM content_snapshots WHERE id=70`, 'source_id'),
         7n
       );
-      assert.equal(cell(db, sql`SELECT count(*) AS n FROM materials`, 'n'), 1n);
-      assert.equal(cell(db, sql`SELECT count(*) AS n FROM source_snapshots`, 'n'), 3n);
-      assert.deepEqual(
+      assert.strictEqual(cell(db, sql`SELECT count(*) AS n FROM materials`, 'n'), 1n);
+      assert.strictEqual(cell(db, sql`SELECT count(*) AS n FROM source_snapshots`, 'n'), 3n);
+      expect(
         db.orm
           .all(
             sql`SELECT document_version_id,source_id,source_revision,source_snapshot_id FROM material_evidence_inputs WHERE version_id=301 ORDER BY position`
           )
-          .map((x) => ({ ...x })),
-        [
-          {
-            document_version_id: null,
-            source_id: 7n,
-            source_revision: 3n,
-            source_snapshot_id: 70n
-          },
-          {
-            document_version_id: 1n,
-            source_id: null,
-            source_revision: null,
-            source_snapshot_id: null
-          }
-        ]
-      );
+          .map((x) => ({ ...x }))
+      ).toStrictEqual([
+        {
+          document_version_id: null,
+          source_id: 7n,
+          source_revision: 3n,
+          source_snapshot_id: 70n
+        },
+        {
+          document_version_id: 1n,
+          source_id: null,
+          source_revision: null,
+          source_snapshot_id: null
+        }
+      ]);
       const learningCitation = db.orm.get(
         sql`SELECT marker,anchor,target,quote FROM material_evidence_citations WHERE version_id=301`
       )!;
 
-      assert.equal(learningCitation.marker, 1n);
-      assert.equal(learningCitation.quote, 'Retained 😀');
-      assert.deepEqual(JSON.parse(String(learningCitation.target)), {
+      assert.strictEqual(learningCitation.marker, 1n);
+      assert.strictEqual(learningCitation.quote, 'Retained 😀');
+      expect(JSON.parse(String(learningCitation.target))).toStrictEqual({
         blockId: 'source-block',
         start: 0,
         end: 11
@@ -322,10 +307,10 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       assert.throws(() => db!.exec(`UPDATE blocks SET text='Changed' WHERE document_id=202`));
       assert.throws(() => db!.exec(`UPDATE study_document_citations SET quote='Changed'`));
       db.exec('DELETE FROM sessions WHERE id=9;DELETE FROM projects WHERE id=5;');
-      assert.equal(cell(db, sql`SELECT count(*) AS n FROM study_document_versions`, 'n'), 4n);
-      assert.equal(cell(db, sql`SELECT count(*) AS n FROM study_documents`, 'n'), 2n);
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
-      assert.equal(cell(db, sql`PRAGMA integrity_check`, 'integrity_check'), 'ok');
+      assert.strictEqual(cell(db, sql`SELECT count(*) AS n FROM study_document_versions`, 'n'), 4n);
+      assert.strictEqual(cell(db, sql`SELECT count(*) AS n FROM study_documents`, 'n'), 2n);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      assert.strictEqual(cell(db, sql`PRAGMA integrity_check`, 'integrity_check'), 'ok');
       const backup = join(folder, 'backup.db');
       const identity = db.contentIdentity();
 
@@ -334,15 +319,15 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
 
       if (process.env.STUDY_FINAL_MIGRATIONS)
         assert.throws(() => Db.validateSnapshot(backup), TypeError);
-      else assert.equal(Db.validateSnapshot(backup), db.schemaIdentity());
+      else assert.strictEqual(Db.validateSnapshot(backup), db.schemaIdentity());
 
       const restored = process.env.STUDY_FINAL_MIGRATIONS
         ? Db.open(backup, migrations)
         : Db.openSnapshot(backup);
 
       try {
-        assert.equal(restored.contentIdentity(), identity);
-        assert.deepEqual(restored.orm.all(sql`PRAGMA foreign_key_check`), []);
+        assert.strictEqual(restored.contentIdentity(), identity);
+        expect(restored.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         restored.close();
       }

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -36,7 +35,7 @@ function fixture(run: (db: TestDb) => void) {
 
   try {
     run(db);
-    assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   } finally {
     db.close();
     location.cleanup();
@@ -73,7 +72,7 @@ testStable(
       ])
         assert.throws(() => db.exec(statement));
 
-      assert.equal(db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 1n);
+      assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 1n);
     })
 );
 
@@ -88,16 +87,14 @@ testStable(
  UPDATE source_blobs SET bytes=X'020304' WHERE source_id=1;
  UPDATE source_processing SET revision=2,request_id='replacement',published_request_id=NULL,document_id=NULL WHERE source_id=1;
  UPDATE material_versions SET status='published',published_at=3 WHERE id=1;`);
-      assert.deepEqual(
+      expect(
         db.orm.get(
           sql`SELECT source_id,source_revision,source_snapshot_id FROM material_evidence_inputs WHERE version_id=1`
-        ),
-        { source_id: 1n, source_revision: 1n, source_snapshot_id: 1n }
-      );
-      assert.deepEqual(
-        db.orm.get(sql`SELECT bytes FROM source_snapshots WHERE revision=1`)?.bytes,
-        new Uint8Array([1])
-      );
+        )
+      ).toStrictEqual({ source_id: 1n, source_revision: 1n, source_snapshot_id: 1n });
+      expect(
+        db.orm.get(sql`SELECT bytes FROM source_snapshots WHERE revision=1`)?.bytes
+      ).toStrictEqual(new Uint8Array([1]));
     })
 );
 
@@ -155,15 +152,14 @@ for (const kind of ['audio', 'video', 'image', 'link'] as const)
         assert.throws(() =>
           db.exec('DELETE FROM source_snapshots WHERE source_id=1 AND revision=1')
         );
-        assert.deepEqual(
-          db.orm.get(sql`SELECT * FROM source_snapshots WHERE source_id=1 AND revision=1`),
-          original
-        );
-        assert.equal(
+        expect(
+          db.orm.get(sql`SELECT * FROM source_snapshots WHERE source_id=1 AND revision=1`)
+        ).toStrictEqual(original);
+        assert.strictEqual(
           db.orm.get(sql`SELECT mime FROM source_snapshots WHERE revision=2`)?.mime,
           'text/plain'
         );
-        assert.equal(
+        assert.strictEqual(
           db.orm.get(
             sql`SELECT count(*) n FROM materials WHERE kind IN ('file','audio','video','image','link','document')`
           )?.n,

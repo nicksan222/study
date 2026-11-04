@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -11,7 +10,7 @@ testStable('preserve-error-cause guards production and accepts safe alternatives
     'src/fixture.test.ts': 'try { run(); } catch (error) { throw new Error(error.message); }'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -22,7 +21,7 @@ testStable('preserve-error-cause handles aliases and avoids unrelated bindings',
     'src/good.ts': 'class Error {} try { run(); } catch (error) { throw new Error(error.message); }'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -33,7 +32,7 @@ testStable('preserve-error-cause covers direct unsafe forms', () => {
       "try { run(); } catch (cause) { if (!input.valid) throw new Error('input invalid'); throw cause; }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -43,5 +42,5 @@ testStable('canonical contracts error wrappers retain their original cause', () 
       "import {StudyError} from '@study/contracts/errors'; try { work(); } catch(error) { throw new StudyError('internal', 'failed'); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

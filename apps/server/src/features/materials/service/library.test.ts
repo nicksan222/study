@@ -11,7 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
@@ -22,9 +21,11 @@ import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Conversations } from '#server/features/conversations/service/index';
@@ -105,7 +106,7 @@ testStable(
               });
 
             yield* materials('materials.detach', { sessionId: first.id, materialId: material.id });
-            assert.equal(
+            assert.strictEqual(
               (yield* materials('materials.materials', {
                 sessionId: second.id,
                 limit: 10,
@@ -113,7 +114,7 @@ testStable(
               })).items[0]?.id,
               material.id
             );
-            assert.equal(
+            assert.strictEqual(
               (yield* materials('materials.materials', {
                 sessionId: first.id,
                 limit: 10,
@@ -136,9 +137,9 @@ testStable(
             const materials = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
             const reopened = yield* materials('materials.material', { id: saved.id });
 
-            assert.equal(reopened.version.id, saved.version.id);
-            assert.deepEqual(reopened.version.content, content);
-            assert.equal(
+            assert.strictEqual(reopened.version.id, saved.version.id);
+            expect(reopened.version.content).toStrictEqual(content);
+            assert.strictEqual(
               (yield* materials('materials.materials', { limit: 10, archived: false })).items[0]
                 ?.id,
               saved.id
@@ -201,24 +202,22 @@ testStable(
 
           yield* projects.addMaterial({ projectId: a.id, materialId: original.id });
           yield* projects.addMaterial({ projectId: a.id, materialId: material.id });
-          assert.equal(
+          assert.strictEqual(
             (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 })).items
               .length,
             2
           );
           yield* projects.removeMaterial({ projectId: a.id, materialId: material.id });
-          assert.deepEqual(
+          expect(
             (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 })).items.map(
               (m) => m.id
-            ),
-            [original.id]
-          );
-          assert.deepEqual(
+            )
+          ).toStrictEqual([original.id]);
+          expect(
             (yield* materials.materials({ projectId: b.id, archived: false, limit: 10 })).items.map(
               (m) => m.id
-            ),
-            [material.id]
-          );
+            )
+          ).toStrictEqual([material.id]);
           const outboxBefore = context.db.orm.select().from(workflowEvents).all().length;
           const missingProject = Schema.decodeUnknownSync(projectIdSchema)(999n);
           const missingMaterial = Schema.decodeUnknownSync(materialIdSchema)(999n);
@@ -235,10 +234,13 @@ testStable(
               content
             })
           ])
-            assert.equal((yield* Effect.flip(mutation)).kind, 'not_found');
+            assert.ok((yield* Effect.flip(mutation)).kind === 'not_found');
 
-          assert.equal(context.db.orm.select().from(workflowEvents).all().length, outboxBefore);
-          assert.equal(
+          assert.strictEqual(
+            context.db.orm.select().from(workflowEvents).all().length,
+            outboxBefore
+          );
+          assert.strictEqual(
             (yield* materials.materials({ archived: false, limit: 10 })).items.length,
             2
           );
@@ -257,22 +259,21 @@ testStable(
             sources = yield* Sources;
           const material = yield* materials.material({ id: saved.material.id });
 
-          assert.equal(material.version.id, saved.material.version.id);
-          assert.deepEqual(material.version.inputs, [
+          assert.strictEqual(material.version.id, saved.material.version.id);
+          expect(material.version.inputs).toStrictEqual([
             { kind: 'document', versionId: saved.evidence.version.id }
           ]);
-          assert.deepEqual(material.projectIds, [saved.b.id]);
-          assert.deepEqual((yield* conversations.session(saved.session.id)).projectIds, [
+          expect(material.projectIds).toStrictEqual([saved.b.id]);
+          expect((yield* conversations.session(saved.session.id)).projectIds).toStrictEqual([
             saved.b.id
           ]);
-          assert.equal((yield* sources.source(saved.source.id)).id, saved.source.id);
-          assert.equal(
+          assert.strictEqual((yield* sources.source(saved.source.id)).id, saved.source.id);
+          assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n })).bytes
-            ),
-            'Original bytes'
+            ) === 'Original bytes'
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {
@@ -329,11 +330,11 @@ testStable(
           const events = context.db.orm.select().from(workflowEvents).all();
           const requests = context.db.orm.all(sql`SELECT * FROM material_generation_requests`);
 
-          assert.equal(
-            (yield* Effect.flip(materials.materialGeneration({ requestId: request.id }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(materials.materialGeneration({ requestId: request.id }))).kind ===
+              'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGeneration({
                 projectId: a.id,
@@ -341,12 +342,10 @@ testStable(
                 kind: 'diagram',
                 inputs: [{ kind: 'document', versionId: input.version.id }]
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.deepEqual(context.db.orm.select().from(workflowEvents).all(), events);
-          assert.deepEqual(
-            context.db.orm.all(sql`SELECT * FROM material_generation_requests`),
+          expect(context.db.orm.select().from(workflowEvents).all()).toStrictEqual(events);
+          expect(context.db.orm.all(sql`SELECT * FROM material_generation_requests`)).toStrictEqual(
             requests
           );
 
@@ -364,29 +363,26 @@ testStable(
           const docs = yield* Documents;
           const conversations = yield* Conversations;
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: saved.request.id })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
           yield* docs.attachProject({ projectId: saved.a.id, documentId: saved.input.id });
-          assert.deepEqual(
-            (yield* materials.materialGeneration({ requestId: saved.request.id })).inputs,
-            [{ kind: 'document', versionId: saved.input.version.id }]
-          );
+          expect(
+            (yield* materials.materialGeneration({ requestId: saved.request.id })).inputs
+          ).toStrictEqual([{ kind: 'document', versionId: saved.input.version.id }]);
           yield* projects.removeSession({ projectId: saved.a.id, sessionId: saved.session.id });
-          assert.deepEqual((yield* conversations.session(saved.session.id)).projectIds, []);
-          assert.equal(
+          expect((yield* conversations.session(saved.session.id)).projectIds).toStrictEqual([]);
+          assert.strictEqual(
             (yield* docs.documents({ sessionId: saved.session.id, archived: false, limit: 10 }))
               .items.length,
             2
           );
           yield* projects.deleteProject({ id: saved.a.id });
           yield* projects.deleteProject({ id: saved.b.id });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: saved.request.id })))
-              .kind,
-            'not_found'
+              .kind === 'not_found'
           );
         }).pipe(Effect.provide(services()))
       );
@@ -399,20 +395,19 @@ testStable(
           const conversations = yield* Conversations;
 
           for (const original of [saved.input, saved.unrelated]) {
-            assert.deepEqual((yield* docs.document({ id: original.id })).projectIds, []);
-            assert.deepEqual(
-              (yield* docs.version({ id: original.version.id })).document,
+            expect((yield* docs.document({ id: original.id })).projectIds).toStrictEqual([]);
+            expect((yield* docs.version({ id: original.version.id })).document).toStrictEqual(
               original.version.document
             );
           }
 
-          assert.deepEqual((yield* conversations.session(saved.session.id)).projectIds, []);
-          assert.equal(
+          expect((yield* conversations.session(saved.session.id)).projectIds).toStrictEqual([]);
+          assert.strictEqual(
             (yield* docs.documents({ sessionId: saved.session.id, archived: false, limit: 10 }))
               .items.length,
             2
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {

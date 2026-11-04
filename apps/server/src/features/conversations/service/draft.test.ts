@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { recordings } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
@@ -49,19 +49,19 @@ testStable(
           assert.ok(repeated.every((session) => session.id === first.id));
           const scoped = yield* conversations.createUntitledSession({ project: project.id });
 
-          assert.equal(scoped.id, first.id);
-          assert.deepEqual(scoped.projectIds, [project.id]);
-          assert.equal((yield* conversations.sessions({ limit: 100 })).items.length, 1);
+          assert.strictEqual(scoped.id, first.id);
+          expect(scoped.projectIds).toStrictEqual([project.id]);
+          assert.strictEqual((yield* conversations.sessions({ limit: 100 })).items.length, 1);
           const global = yield* conversations.createUntitledSession({});
 
-          assert.equal(global.id, first.id);
-          assert.deepEqual(global.projectIds, []);
+          assert.strictEqual(global.id, first.id);
+          expect(global.projectIds).toStrictEqual([]);
           yield* conversations.updateSessionSelection({
             sessionId: first.id,
             expectedRevision: 0n,
             targets: []
           });
-          assert.equal((yield* conversations.createUntitledSession({})).id, first.id);
+          assert.strictEqual((yield* conversations.createUntitledSession({})).id, first.id);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -85,23 +85,22 @@ testStable('new sessions preserve captured work and explicitly named sessions', 
         const named = yield* conversations.createSession({ title: 'Planned study' });
         const first = yield* conversations.createUntitledSession({});
 
-        assert.notEqual(first.id, named.id);
+        assert.notStrictEqual(first.id, named.id);
         yield* conversations.postMessage({ sessionId: first.id, text: 'My notes' });
         const second = yield* conversations.createUntitledSession({});
 
-        assert.notEqual(second.id, first.id);
+        assert.notStrictEqual(second.id, first.id);
         yield* conversations.renameSession({ id: second.id, title: 'Next topic' });
         const third = yield* conversations.createUntitledSession({});
 
-        assert.notEqual(third.id, second.id);
-        assert.equal((yield* conversations.createUntitledSession({})).id, third.id);
-        assert.equal(
+        assert.notStrictEqual(third.id, second.id);
+        assert.strictEqual((yield* conversations.createUntitledSession({})).id, third.id);
+        assert.ok(
           (yield* conversations.thread({ sessionId: first.id, limit: 100 })).items[0]?.versions.at(
             -1
-          )?.text,
-          'My notes'
+          )?.text === 'My notes'
         );
-        assert.equal((yield* conversations.session(second.id)).title, 'Next topic');
+        assert.ok((yield* conversations.session(second.id)).title === 'Next topic');
 
         context.transaction(() => {
           context.db.orm
@@ -115,7 +114,7 @@ testStable('new sessions preserve captured work and explicitly named sessions', 
         });
         const fourth = yield* conversations.createUntitledSession({});
 
-        assert.notEqual(fourth.id, third.id);
+        assert.notStrictEqual(fourth.id, third.id);
         yield* conversations.captureSessionContext({
           sessionId: fourth.id,
           additionalSessionIds: [first.id],
@@ -125,7 +124,7 @@ testStable('new sessions preserve captured work and explicitly named sessions', 
         });
         const fifth = yield* conversations.createUntitledSession({});
 
-        assert.notEqual(fifth.id, fourth.id);
+        assert.notStrictEqual(fifth.id, fourth.id);
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -148,23 +147,21 @@ testStable('first send atomically creates a visible session and first message', 
         const initialMessage = { text: 'First saved note' };
         const session = yield* conversations.createUntitledSession({ initialMessage });
 
-        assert.deepEqual(
-          (yield* conversations.sessions({ limit: 100 })).items.map((item) => item.id),
-          [session.id]
-        );
+        expect(
+          (yield* conversations.sessions({ limit: 100 })).items.map((item) => item.id)
+        ).toStrictEqual([session.id]);
         const thread = yield* conversations.thread({ sessionId: session.id, limit: 100 });
 
-        assert.equal(thread.items.length, 1);
-        assert.equal(thread.items[0]?.versions.at(-1)?.text, 'First saved note');
-        assert.equal(
+        assert.strictEqual(thread.items.length, 1);
+        assert.ok(thread.items[0]?.versions.at(-1)?.text === 'First saved note');
+        assert.ok(
           (yield* Effect.flip(
             conversations.createUntitledSession({
               initialMessage: { text: ' ' }
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal((yield* conversations.sessions({ limit: 100 })).items.length, 1);
+        assert.strictEqual((yield* conversations.sessions({ limit: 100 })).items.length, 1);
       }).pipe(Effect.provide(layer))
     );
   } finally {

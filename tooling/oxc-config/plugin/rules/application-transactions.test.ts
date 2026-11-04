@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -10,7 +9,7 @@ testStable('reports application-transactions', () => {
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.transaction(() => {}); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('recognizes database aliases and preserves context and unrelated transactions', () => {
@@ -25,5 +24,5 @@ testStable('recognizes database aliases and preserves context and unrelated tran
       "import type { Db } from '@study/db'; function f(db: Db) { db.transaction(() => {}); }"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });

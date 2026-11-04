@@ -14,7 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createConnection } from 'node:net';
 
@@ -24,8 +23,9 @@ import { Appearance, Language } from '@study/contracts/settings';
 import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Option, Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -68,17 +68,20 @@ testStable('native HTTP RPC preserves int64 IDs, bytes, typed failures and setti
         Effect.gen(function* () {
           const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
 
-          assert.equal((yield* client['projects.projects']({ limit: 10 })).items[0]?.id, large);
+          assert.strictEqual(
+            (yield* client['projects.projects']({ limit: 10 })).items[0]?.id,
+            large
+          );
           const absent = Schema.decodeUnknownSync(projectIdSchema)(9223372036854775807n);
 
           assert.ok(Option.isNone(yield* client['projects.findProject']({ id: absent })));
-          assert.equal(
-            failureKind(yield* Effect.flip(client['projects.project']({ id: absent }))),
-            'not_found'
+          assert.ok(
+            failureKind(yield* Effect.flip(client['projects.project']({ id: absent }))) ===
+              'not_found'
           );
-          assert.equal(
-            failureKind(yield* Effect.flip(client['projects.createProject']({ name: '' }))),
-            'invalid_input'
+          assert.ok(
+            failureKind(yield* Effect.flip(client['projects.createProject']({ name: '' }))) ===
+              'invalid_input'
           );
           const source = yield* client['sources.createSource']({
             name: 'hello.txt',
@@ -86,9 +89,9 @@ testStable('native HTTP RPC preserves int64 IDs, bytes, typed failures and setti
             projectId: large
           });
 
-          assert.equal(source.projectId, large);
+          assert.strictEqual(source.projectId, large);
           assert.ok(source.sha256 instanceof Uint8Array);
-          assert.deepEqual(yield* client['sources.source']({ id: source.id }), source);
+          expect(yield* client['sources.source']({ id: source.id })).toStrictEqual(source);
           const settings = {
             language: Language.ITALIAN,
             appearance: Appearance.LIGHT,
@@ -97,17 +100,16 @@ testStable('native HTTP RPC preserves int64 IDs, bytes, typed failures and setti
           };
 
           yield* client['settings.saveAppSettings'](settings);
-          assert.deepEqual(yield* client['settings.appSettings']({}), settings);
-          assert.equal(yield* client['auth.publicAccount']({}), undefined);
-          assert.equal(
+          expect(yield* client['settings.appSettings']({})).toStrictEqual(settings);
+          assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+          assert.strictEqual(
             yield* client['projects.setExam']({ id: large, examOn: '2028-02-29' }),
             true
           );
-          assert.equal(
+          assert.ok(
             failureKind(
               yield* Effect.flip(client['projects.setExam']({ id: large, examOn: '2026-02-29' }))
-            ),
-            'invalid_input'
+            ) === 'invalid_input'
           );
         })
       )
@@ -116,7 +118,7 @@ testStable('native HTTP RPC preserves int64 IDs, bytes, typed failures and setti
       bytes: Uint8Array;
     };
 
-    assert.deepEqual(Buffer.from(snapshot.bytes), Buffer.from('hello'));
+    expect(Buffer.from(snapshot.bytes)).toStrictEqual(Buffer.from('hello'));
   } finally {
     await f.close();
   }
@@ -141,8 +143,8 @@ testStable('native listener enforces browser origins and exposes the RPC endpoin
         }
       });
 
-      assert.equal(response.status, 204);
-      assert.equal(response.headers.get('access-control-allow-origin'), origin);
+      assert.strictEqual(response.status, 204);
+      assert.strictEqual(response.headers.get('access-control-allow-origin'), origin);
     }
 
     const denied = await fetch(`${f.server.url}/rpc`, {
@@ -150,8 +152,8 @@ testStable('native listener enforces browser origins and exposes the RPC endpoin
       headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' }
     });
 
-    assert.equal(denied.status, 204);
-    assert.equal(
+    assert.strictEqual(denied.status, 204);
+    assert.strictEqual(
       (
         await fetch(`${f.server.url}/rpc`, {
           method: 'POST',
@@ -160,8 +162,11 @@ testStable('native listener enforces browser origins and exposes the RPC endpoin
       ).status,
       403
     );
-    assert.equal(denied.headers.get('access-control-allow-origin'), null);
-    assert.equal((await fetch(`${f.server.url}/api/listProjects`, { method: 'POST' })).status, 404);
+    assert.ok(denied.headers.get('access-control-allow-origin') === null);
+    assert.strictEqual(
+      (await fetch(`${f.server.url}/api/listProjects`, { method: 'POST' })).status,
+      404
+    );
   } finally {
     await f.close();
   }
@@ -183,10 +188,10 @@ testStable(
       );
       const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
 
-      socket.on('error', (error: NodeJS.ErrnoException) => assert.equal(error.code, 'ECONNRESET'));
+      socket.on('error', (error: NodeJS.ErrnoException) => assert.ok(error.code === 'ECONNRESET'));
       await f.server.close();
       await closed;
-      await assert.rejects(fetch(`${f.server.url}/rpc`));
+      await expect(fetch(`${f.server.url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
       socket.destroy();
       await f.close();
@@ -226,16 +231,16 @@ testStable(
               sourceIds: [source.id]
             });
 
-            assert.equal(message.parts[0]?.sourceId, source.id);
-            assert.equal(message.parts[0]?.sourceName, 'notes.txt');
+            assert.strictEqual(message.parts[0]?.sourceId, source.id);
+            assert.ok(message.parts[0]?.sourceName === 'notes.txt');
             const shared = yield* client['conversations.postMessage']({
               sessionId: session.id,
               text: '',
               sourceIds: [foreign.id]
             });
 
-            assert.equal(shared.parts[0]?.sourceId, foreign.id);
-            assert.equal(
+            assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
+            assert.strictEqual(
               (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items
                 .length,
               2

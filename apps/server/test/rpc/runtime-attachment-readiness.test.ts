@@ -14,13 +14,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Conversations } from '#server/features/conversations/index';
@@ -49,7 +49,7 @@ testStable(
     });
     const address = peer.address();
 
-    if (!address || typeof address === 'string') throw new Error('missing source peer address');
+    assert.ok(!(!address || typeof address === 'string'), 'missing source peer address');
 
     const evidenceUrl = `http://127.0.0.1:${address.port}/evidence.txt`;
     const server = fixture.manage(await serve(fixture.app));
@@ -95,8 +95,8 @@ testStable(
         yield* Effect.sleep('25 millis');
       }
 
-      assert.equal(waiting, true);
-      assert.equal(
+      assert.ok(waiting === true);
+      assert.strictEqual(
         fixture.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length,
         0
       );
@@ -108,7 +108,7 @@ testStable(
         )
       );
 
-      assert.equal(before.pendingAttachments?.length, 1);
+      assert.strictEqual(before.pendingAttachments?.length, 1);
       release();
       let authentication = false;
 
@@ -121,9 +121,8 @@ testStable(
         yield* Effect.sleep('25 millis');
       }
 
-      assert.equal(
-        authentication,
-        true,
+      assert.ok(
+        authentication === true,
         'the registered wake subscription must resume the actual dispatched reply'
       );
       const after = yield* Effect.promise(() =>
@@ -134,9 +133,9 @@ testStable(
         )
       );
 
-      assert.equal(after.pendingAttachments, undefined);
-      assert.equal(after.messages[0]?.attachments[0]?.sourceId, source.id);
-      assert.equal(
+      assert.strictEqual(after.pendingAttachments, undefined);
+      assert.strictEqual(after.messages[0]?.attachments[0]?.sourceId, source.id);
+      assert.strictEqual(
         after.messages[0]?.attachments[0]?.snapshotId,
         (yield* client['sources.sourceProcessing']({ id: source.id })).documentId
       );

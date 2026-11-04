@@ -12,14 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { MaterialId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import {

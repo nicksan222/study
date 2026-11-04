@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
@@ -38,7 +37,7 @@ testStable('canonical server error imports retain typed Effect failure enforceme
       "import { Effect } from 'effect'; import { StudyError } from '#server/shared/errors/index'; const operation = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('public contracts error imports preserve the same typed Effect failure boundary', () => {
@@ -47,7 +46,7 @@ testStable('public contracts error imports preserve the same typed Effect failur
       "import {Effect} from 'effect'; import {StudyError} from '@study/contracts/errors'; Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('enforces the Effect contract in browser operations', () => {
@@ -62,7 +61,7 @@ testStable('enforces the Effect contract in browser operations', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('keeps typed failures in native untraced generators', () => {

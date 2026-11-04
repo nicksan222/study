@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintFiles } from './utils.ts';
 
@@ -27,7 +26,7 @@ testStable('production config rejects four nested control-flow blocks', () => {
     true
   );
 
-  assert.equal(
+  assert.strictEqual(
     diagnostics.filter(({ code }) => code === 'eslint(max-depth)').length,
     1,
     JSON.stringify(diagnostics)
@@ -53,7 +52,7 @@ testStable('production config rejects four nested callbacks', () => {
     true
   );
 
-  assert.equal(
+  assert.strictEqual(
     diagnostics.filter(({ code }) => code === 'eslint(max-nested-callbacks)').length,
     1,
     JSON.stringify(diagnostics)
@@ -83,5 +82,5 @@ testStable('production config accepts guard clauses and three callback levels', 
     true
   );
 
-  assert.deepEqual(diagnostics, []);
+  expect(diagnostics).toStrictEqual([]);
 });

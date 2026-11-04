@@ -14,14 +14,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { createRpcWebHandler } from '#server/platform/rpc/index';
@@ -111,11 +112,11 @@ testStable('serves unary values, typed failures and binary codecs over HTTP', as
         Effect.gen(function* () {
           const client = yield* makeStudyClient(Group, { baseUrl: url });
 
-          assert.equal(yield* client.echo({ value: 'hello' }), 'hello');
+          assert.strictEqual(yield* client.echo({ value: 'hello' }), 'hello');
           const data = { id: 9007199254740993n, bytes: new Uint8Array([0, 128, 255]) };
 
-          assert.deepEqual(yield* client.wire(data), data);
-          assert.deepEqual(yield* Effect.flip(client.fail()), { kind: 'not_found' });
+          expect(yield* client.wire(data)).toStrictEqual(data);
+          expect(yield* Effect.flip(client.fail())).toStrictEqual({ kind: 'not_found' });
         })
       )
     );
@@ -134,7 +135,7 @@ testStable('cancels a streaming handler when its client scope closes', async () 
       )
     );
 
-    assert.deepEqual(Array.from(values), [1]);
+    expect(Array.from(values)).toStrictEqual([1]);
     await Promise.race([
       ended,
       new Promise<never>((_, reject) =>
@@ -157,13 +158,13 @@ testStable(
         }
       });
 
-      assert.equal(allowed.headers.get('access-control-allow-origin'), 'tauri://localhost');
+      assert.ok(allowed.headers.get('access-control-allow-origin') === 'tauri://localhost');
       const denied = await fetch(`${url}/rpc`, {
         method: 'POST',
         headers: { origin: 'https://evil.example' }
       });
 
-      assert.equal(denied.status, 403);
+      assert.strictEqual(denied.status, 403);
     });
   }
 );
@@ -179,17 +180,17 @@ testStable('retries discovery on a later call without replaying the failed call'
             baseUrl: () => {
               discoveries++;
 
-              if (discoveries === 1) throw new Error('unavailable');
+              assert.ok(!(discoveries === 1), 'unavailable');
 
               return url;
             }
           });
 
           yield* Effect.flip(client.echo({ value: 'first' }));
-          assert.equal(discoveries, 1);
-          assert.equal(yield* client.echo({ value: 'second' }), 'second');
-          assert.equal(discoveries, 2);
-          assert.equal(calls(), 1);
+          assert.strictEqual(discoveries, 1);
+          assert.strictEqual(yield* client.echo({ value: 'second' }), 'second');
+          assert.strictEqual(discoveries, 2);
+          assert.strictEqual(calls(), 1);
         })
       )
     );

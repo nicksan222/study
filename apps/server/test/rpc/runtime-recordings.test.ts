@@ -13,12 +13,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -49,7 +49,10 @@ testStable(
               id: recording.id,
               samples: [-32768, 0, 32767]
             });
-            assert.equal((yield* client['recordings.recording']({ id: recording.id })).samples, 3n);
+            assert.strictEqual(
+              (yield* client['recordings.recording']({ id: recording.id })).samples,
+              3n
+            );
             const post = yield* client['recordings.postRecording']({
               session: session.id,
               recording: recording.id,
@@ -64,9 +67,9 @@ testStable(
               if (result.messageId !== null) {
                 const message = yield* client['conversations.message']({ id: result.messageId });
 
-                assert.equal(message.recordedIn, result.sourceId);
-                assert.equal(message.parts[0]?.sourceId, result.sourceId);
-                assert.equal(
+                assert.strictEqual(message.recordedIn, result.sourceId);
+                assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
+                assert.strictEqual(
                   (yield* client['recordings.recordings']({ limit: 10 })).items.length,
                   0
                 );
@@ -76,8 +79,8 @@ testStable(
                   name: 'Lecture.wav'
                 });
 
-                assert.deepEqual(replayed, result);
-                assert.equal(
+                expect(replayed).toStrictEqual(result);
+                assert.strictEqual(
                   (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 }))
                     .items.length,
                   1

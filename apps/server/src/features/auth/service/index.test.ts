@@ -14,13 +14,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
 import { preferences } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Layer } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager, SignIn } from '#server/platform/ai/auth/index';
@@ -47,8 +46,12 @@ testStable('auth uses private SQLite account and guards refresh rotation', async
         Effect.gen(function* () {
           const auth = yield* Auth;
 
-          assert.deepEqual(yield* auth.status(), { signedIn: false, email: null, sharing: false });
-          assert.equal(yield* auth.publicAccount(), undefined);
+          expect(yield* auth.status()).toStrictEqual({
+            signedIn: false,
+            email: null,
+            sharing: false
+          });
+          assert.strictEqual(yield* auth.publicAccount(), undefined);
           const account = {
             subject: 'person',
             clientId: 'client',
@@ -61,11 +64,11 @@ testStable('auth uses private SQLite account and guards refresh rotation', async
           );
           const first = yield* auth.startSignIn({});
 
-          assert.equal(yield* auth.cancelSignIn({ attemptId: 'stale' }), false);
-          assert.equal(yield* auth.cancelSignIn({ attemptId: first.attemptId }), true);
-          assert.equal(
-            (yield* Effect.flip(auth.finishSignIn({ attemptId: first.attemptId }))).kind,
-            'invalid_input'
+          assert.strictEqual(yield* auth.cancelSignIn({ attemptId: 'stale' }), false);
+          assert.strictEqual(yield* auth.cancelSignIn({ attemptId: first.attemptId }), true);
+          assert.ok(
+            (yield* Effect.flip(auth.finishSignIn({ attemptId: first.attemptId }))).kind ===
+              'invalid_input'
           );
         }).pipe(Effect.provide(layer))
       )
@@ -108,7 +111,7 @@ testStable('persisted account is public-safe and refresh rotation is atomic', as
         Effect.gen(function* () {
           const auth = yield* Auth;
 
-          assert.deepEqual(yield* auth.publicAccount(), {
+          expect(yield* auth.publicAccount()).toStrictEqual({
             subject: 'person',
             email: 'p@example.test',
             sharing: true
@@ -120,9 +123,9 @@ testStable('persisted account is public-safe and refresh rotation is atomic', as
           );
           const row = context.db.orm.select().from(preferences).get();
 
-          assert.equal(JSON.parse(row!.value).refreshToken, 'rotated');
+          assert.ok(JSON.parse(row!.value).refreshToken === 'rotated');
           yield* auth.signOut();
-          assert.equal((yield* auth.status()).signedIn, false);
+          assert.ok((yield* auth.status()).signedIn === false);
         }).pipe(Effect.provide(layer))
       )
     );
@@ -158,14 +161,14 @@ testStable('concurrent finish rejects and cancelling closes the real listener', 
           );
 
           yield* Effect.yieldNow;
-          assert.equal(
-            (yield* Effect.flip(auth.finishSignIn({ attemptId: attempt.attemptId }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(auth.finishSignIn({ attemptId: attempt.attemptId }))).kind ===
+              'invalid_input'
           );
-          assert.equal(yield* auth.cancelSignIn({ attemptId: attempt.attemptId }), true);
+          assert.strictEqual(yield* auth.cancelSignIn({ attemptId: attempt.attemptId }), true);
           yield* Fiber.await(pending);
           yield* Effect.promise(async () => {
-            await assert.rejects(fetch(callback));
+            await expect(fetch(callback)).rejects.toSatisfy(() => true);
           });
         }).pipe(Effect.provide(layer))
       )
@@ -206,10 +209,10 @@ testStable('failed sign-out persistence restores the account and session', async
             sql`CREATE TRIGGER reject_auth_delete BEFORE DELETE ON preferences WHEN OLD.scope = 'private.chatgpt' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
           );
           assert.ok(yield* Effect.flip(auth.signOut()));
-          assert.equal((yield* auth.status()).signedIn, true);
-          assert.equal(
-            JSON.parse(context.db.orm.select().from(preferences).get()!.value).refreshToken,
-            'secret'
+          assert.ok((yield* auth.status()).signedIn === true);
+          assert.ok(
+            JSON.parse(context.db.orm.select().from(preferences).get()!.value).refreshToken ===
+              'secret'
           );
         }).pipe(Effect.provide(layer))
       )
@@ -246,7 +249,7 @@ testStable('closing the service scope closes an unfinished listener', async () =
       )
     );
 
-    await assert.rejects(fetch(url));
+    await expect(fetch(url)).rejects.toSatisfy(() => true);
   } finally {
     await manager.dispose();
     context.close();
@@ -297,7 +300,7 @@ testStable('cancelling during listener acquisition releases the acquired listene
           yield* auth.cancelSignIn({});
           release();
           yield* Fiber.await(starting);
-          yield* Effect.promise(() => assert.rejects(fetch(callback)));
+          yield* Effect.promise(() => expect(fetch(callback)).rejects.toSatisfy(() => true));
         }).pipe(Effect.provide(layer))
       )
     );

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -14,7 +13,7 @@ testStable('reports the prohibited pattern', () => {
     false
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('recognizes aliases without flagging unrelated or shadowed helpers', () => {
@@ -25,7 +24,7 @@ testStable('recognizes aliases without flagging unrelated or shadowed helpers', 
       'const defineAgent = (x: any) => x; const a = defineAgent({});'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('rejects inline schema shapes, constructed models and per-agent limits', () => {
@@ -34,7 +33,7 @@ testStable('rejects inline schema shapes, constructed models and per-agent limit
       "import { defineAgent as define } from '#server/platform/definitions/define-agent'; import { Schema } from 'effect'; export const a = define({ id: 'a', input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({ id: Schema.String }), model: provider('x'), instructions: 'a', prompt: 'b' });"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('checks wrapped aliased definitions, identity and canonical schemas', () => {
@@ -44,7 +43,7 @@ testStable('checks wrapped aliased definitions, identity and canonical schemas',
     'src/features/example/agents/other.ts': "export const otherAgent = { id: 'other' };"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('accepts canonical schema transformations and rejects unrelated schemas', () => {
@@ -55,7 +54,7 @@ testStable('accepts canonical schema transformations and rejects unrelated schem
       "import { defineAgent } from '#server/platform/definitions/define-agent'; import { z } from 'zod'; defineAgent({ id: 'bad', input: z.string(), output: z.string(), model: 'tiny', instructions: '', prompt: '' });"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -70,7 +69,7 @@ testStable(
         "import {defineAgent} from '../elsewhere/runtime/define-agent'; export const fakeAgent = defineAgent({id:'fake',input: x,output:y,model:'medium',instructions:'x',prompt:f});"
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/agents/grade.ts')));
   }
 );
@@ -81,7 +80,7 @@ testStable('local export lists and default exports cannot publish raw agents', (
     'src/features/example/agents/other.ts': 'export default { id: 1 };'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('agents in feature-owned folders also require canonical definitions', () => {
@@ -89,5 +88,5 @@ testStable('agents in feature-owned folders also require canonical definitions',
     'src/features/sources/agents/vision.ts': 'export const vision = { generate() {} };'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

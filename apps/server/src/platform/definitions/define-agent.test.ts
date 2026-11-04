@@ -7,15 +7,14 @@
  * │ - Asserts: defineAgent preserves schemas and rejects invalid identifiers.                │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Invokes #server/platform/definitions/define-agent directly with node:test; no            │
+ * │ Invokes #server/platform/definitions/define-agent directly with Vitest   ; no            │
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
@@ -30,6 +29,6 @@ testStable('defineAgent preserves schemas and rejects invalid identifiers', () =
     prompt: ({ prompt }) => prompt
   });
 
-  assert.equal(definition.input, input);
+  assert.strictEqual(definition.input, input);
   assert.throws(() => defineAgent({ ...definition, id: '' }), RangeError);
 });

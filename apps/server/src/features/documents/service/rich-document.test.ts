@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
@@ -23,9 +22,11 @@ import { createBlock, validBlockTextRange } from '@study/contracts/sources/docum
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -155,7 +156,7 @@ testStable(
             });
 
             assert.ok(original.version);
-            assert.deepEqual(original.version.document, content);
+            expect(original.version.document).toStrictEqual(content);
             const copy = yield* create('Retained copy', copyContent);
 
             assert.ok(copy.version);
@@ -168,10 +169,10 @@ testStable(
             });
             const revised = yield* rpc['documents.version']({ id: edit.submittedVersionId });
 
-            assert.deepEqual(
-              revised.document.blocks.map((block) => block.id),
-              [inserted.id, ...content.blocks.toReversed().map((block) => block.id)]
-            );
+            expect(revised.document.blocks.map((block) => block.id)).toStrictEqual([
+              inserted.id,
+              ...content.blocks.toReversed().map((block) => block.id)
+            ]);
 
             for (const image of [
               createBlock({ type: 'image', sourceId: setup.image.id, revision: 999, alt: '' }),
@@ -182,11 +183,10 @@ testStable(
                 alt: ''
               })
             ])
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   create('Missing image revision', { ...content, blocks: [image] })
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
 
             for (const rows of [
@@ -212,8 +212,8 @@ testStable(
               const empty = yield* create('Empty structure', emptyContent);
 
               assert.ok(empty.version);
-              assert.deepEqual(empty.version.document, emptyContent);
-              assert.equal(
+              expect(empty.version.document).toStrictEqual(emptyContent);
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['materials.requestMaterialGeneration']({
                     projectId: setup.collection.id,
@@ -221,8 +221,7 @@ testStable(
                     kind: 'diagram',
                     inputs: [{ kind: 'document', versionId: empty.version.id }]
                   })
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
             }
 
@@ -279,7 +278,7 @@ testStable(
           ]
         }
       ])
-        assert.equal(Schema.is(documentSchema)(invalid), false);
+        assert.ok(Schema.is(documentSchema)(invalid) === false);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -290,7 +289,7 @@ testStable(
             blocks: [{ ...content.blocks[0]!, anchor: { type: 'page' as const, page: 1 } }]
           };
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: randomUUID(),
@@ -299,8 +298,7 @@ testStable(
                 inputs: [],
                 citations: []
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           yield* sources.replaceSource({
             id: setup.image.id,
@@ -308,7 +306,7 @@ testStable(
             name: 'replacement.txt',
             bytes: new TextEncoder().encode('Different current bytes')
           });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: randomUUID(),
@@ -322,19 +320,17 @@ testStable(
                 inputs: [],
                 citations: []
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(services()))
       );
       const range = { blockId: content.blocks[0]!.id, start: 6, end: 8 };
 
-      assert.equal(validBlockTextRange(content, range), true);
-      assert.equal(validBlockTextRange(content, { ...range, start: 7 }), false);
-      assert.equal(validBlockTextRange(content, { ...range, end: 100 }), false);
-      assert.equal(
-        validBlockTextRange({ ...content, blocks: content.blocks.toReversed() }, range),
-        true
+      assert.ok(validBlockTextRange(content, range) === true);
+      assert.ok(validBlockTextRange(content, { ...range, start: 7 }) === false);
+      assert.ok(validBlockTextRange(content, { ...range, end: 100 }) === false);
+      assert.ok(
+        validBlockTextRange({ ...content, blocks: content.blocks.toReversed() }, range) === true
       );
       const snapshotId = saved.original.version.snapshotId;
 
@@ -355,25 +351,22 @@ testStable(
           const sources = yield* Sources;
 
           yield* projects.deleteProject({ id: setup.collection.id });
-          assert.deepEqual(
-            (yield* docs.version({ id: saved.original.version!.id })).document,
+          expect((yield* docs.version({ id: saved.original.version!.id })).document).toStrictEqual(
             content
           );
-          assert.deepEqual(
-            (yield* docs.version({ id: saved.copy.version!.id })).document,
+          expect((yield* docs.version({ id: saved.copy.version!.id })).document).toStrictEqual(
             copyContent
           );
-          assert.deepEqual(
-            (yield* sources.sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes,
-            new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
-          );
-          assert.equal(
+          expect(
+            (yield* sources.sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
+          ).toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+          assert.strictEqual(
             context.db.orm.get(
               sql`SELECT count(*) n FROM document_assets WHERE source_id=${setup.image.id}`
             )?.n,
             3n
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {

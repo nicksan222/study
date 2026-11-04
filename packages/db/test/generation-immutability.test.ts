@@ -1,13 +1,25 @@
-import assert from 'node:assert/strict';
 import { cpSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { createTestDatabase } from '../src/testing.ts';
+
+function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+  try {
+    run();
+  } catch (error) {
+    assert.ok(matches(error), 'Thrown error did not match');
+
+    return;
+  }
+
+  assert.fail('Expected function to throw');
+}
 
 const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
  INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(1,'Input',1,1);
@@ -210,7 +222,7 @@ testStable('upgrade rejects a historical receipt pointing to an unrelated draft 
       sqlite.close();
     }
 
-    assert.throws(
+    assertThrowsMatching(
       () => location.open(),
       (error: unknown) =>
         error instanceof Error &&
@@ -221,12 +233,11 @@ testStable('upgrade rejects a historical receipt pointing to an unrelated draft 
     const retained = Db.open(location.path, previous);
 
     try {
-      assert.deepEqual(
+      expect(
         retained.orm.get('SELECT result_version_id FROM material_generation_requests')
-          ?.result_version_id,
-        2n
-      );
-      assert.equal(
+          ?.result_version_id
+      ).toStrictEqual(2n);
+      assert.strictEqual(
         retained.orm.get(
           "SELECT COUNT(*) AS count FROM pragma_table_info('material_versions') WHERE name='generation_request_id'"
         )?.count,
@@ -351,23 +362,23 @@ for (const stage of ['publication', 'receipt']) {
             ? "UPDATE material_versions SET status='published',published_at=2 WHERE id=2"
             : `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='multiple'`;
 
-        assert.throws(
+        assertThrowsMatching(
           () => db.exec(write),
           (error: unknown) => error instanceof Error && 'errcode' in error && error.errcode === 1811
         );
-        assert.equal(
+        assert.strictEqual(
           db.orm.get(
             "SELECT result_version_id FROM material_generation_requests WHERE id='multiple'"
           )?.result_version_id,
           null
         );
-        assert.equal(
+        assert.strictEqual(
           db.orm.get('SELECT status FROM material_versions WHERE id=2')?.status,
           stage === 'publication' ? 'draft' : 'published'
         );
         db.exec('INSERT INTO project_documents(project_id,document_id) VALUES(1,3)');
         assert.doesNotThrow(() => db.exec(write));
-        assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+        expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
       } finally {
         close();
       }
@@ -396,13 +407,12 @@ testStable(
       assert.throws(publish);
       db.exec('DELETE FROM material_evidence_inputs WHERE version_id=2 AND document_version_id=3');
       assert.doesNotThrow(publish);
-      assert.deepEqual(
+      expect(
         db.orm
           .all('SELECT document_version_id FROM material_evidence_inputs WHERE version_id=2')
-          .map((row) => row.document_version_id),
-        [1n]
-      );
-      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+          .map((row) => row.document_version_id)
+      ).toStrictEqual([1n]);
+      expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {
       close();
     }
@@ -468,9 +478,9 @@ testStable(
           "SELECT result_version_id,result_hash FROM material_generation_requests WHERE id='request'"
         );
 
-        assert.equal(receipt?.result_version_id, 2n);
+        assert.strictEqual(receipt?.result_version_id, 2n);
 
-        assert.equal(receipt?.result_hash, '0'.repeat(64));
+        assert.strictEqual(receipt?.result_hash, '0'.repeat(64));
 
         assert.doesNotThrow(() =>
           db.exec(
@@ -478,7 +488,7 @@ testStable(
           )
         );
 
-        assert.throws(
+        assertThrowsMatching(
           () =>
             db.exec(
               "UPDATE material_generation_requests SET result_version_id=NULL,result_hash=NULL WHERE id='request'"
@@ -486,7 +496,7 @@ testStable(
           triggerConstraint
         );
 
-        assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+        expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
       } finally {
         db.close();
       }
@@ -539,46 +549,46 @@ testStable(
           'SELECT id,instruction,content_snapshot_id FROM study_document_versions WHERE instruction IS NOT NULL ORDER BY id'
         );
 
-        assert.equal(versions.length, 2);
-        assert.deepEqual(
-          versions.map((v) => v.instruction),
-          ['OLD_PRIVATE_INSTRUCTION_8', 'OTHER_PRIVATE_INSTRUCTION_8']
-        );
+        assert.strictEqual(versions.length, 2);
+        expect(versions.map((v) => v.instruction)).toStrictEqual([
+          'OLD_PRIVATE_INSTRUCTION_8',
+          'OTHER_PRIVATE_INSTRUCTION_8'
+        ]);
 
         for (const version of versions) {
           assertImmutableDocumentMetadata(db, version.id);
 
-          assert.throws(
+          assertThrowsMatching(
             () =>
               db.orm.run(
                 sql`UPDATE blocks SET text='overwritten' WHERE document_id=${version.content_snapshot_id}`
               ),
             triggerConstraint
           );
-          assert.throws(
+          assertThrowsMatching(
             () =>
               db.orm.run(sql`DELETE FROM study_document_citations WHERE version_id=${version.id}`),
             triggerConstraint
           );
         }
 
-        assert.equal(
+        assert.strictEqual(
           db.orm.get("SELECT 1 FROM sqlite_schema WHERE name='session_generation_retirements'"),
           undefined
         );
         db.exec('DELETE FROM sessions WHERE id=1');
-        assert.deepEqual(retainedSessionLibrary(db), before);
-        assert.equal(
+        expect(retainedSessionLibrary(db)).toStrictEqual(before);
+        assert.strictEqual(
           db.orm.get("SELECT 1 FROM session_run_contexts WHERE request_id='private-1'"),
           undefined
         );
-        assert.equal(
+        assert.strictEqual(
           db.orm.get(
             "SELECT instruction FROM study_document_transform_requests WHERE id='document/private-1'"
           )?.instruction,
           'OLD_PRIVATE_INSTRUCTION_8'
         );
-        assert.equal(
+        assert.strictEqual(
           db.orm.get(
             "SELECT session_id FROM study_document_transform_requests WHERE id='document/private-1'"
           )?.session_id,
@@ -586,8 +596,8 @@ testStable(
         );
         db.close();
         db = location.open();
-        assert.deepEqual(retainedSessionLibrary(db), before);
-        assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+        expect(retainedSessionLibrary(db)).toStrictEqual(before);
+        expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
       } finally {
         db.close();
       }
@@ -688,7 +698,7 @@ function assertImmutableDocumentMetadata(db: Db, versionId: bigint) {
     'published_at=7',
     'document_id=999'
   ])
-    assert.throws(
+    assertThrowsMatching(
       () =>
         db.orm.run(
           sql.raw(`UPDATE study_document_versions SET ${assignment} WHERE id=${versionId}`)

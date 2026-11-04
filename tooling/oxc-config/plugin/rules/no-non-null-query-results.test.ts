@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -12,7 +11,7 @@ testStable('no-non-null-query-results guards production and accepts safe alterna
     'src/fixture.test.ts': 'store.db.orm.select().from(table).get()!; rows.find(x => x.id === id)!;'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -23,7 +22,7 @@ testStable('no-non-null-query-results handles aliases and avoids unrelated bindi
       'const cache = new Map(); cache.get(key)!; const custom = { get() { return 1; } }; custom.get()!;'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -33,5 +32,5 @@ testStable('missing rows cannot be asserted into required query results', () => 
     'src/good.ts': 'const missing = null; function local(undefined: number) { return undefined!; }'
   });
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });

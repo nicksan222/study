@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -13,7 +12,7 @@ testStable('no-error-message-matching guards production and accepts safe alterna
       "try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -25,7 +24,7 @@ testStable('no-error-message-matching handles aliases and avoids unrelated bindi
       "try { run(); } catch (error) { const x = error instanceof Known ? { message: error.message } : classify(error); function nested(error) { if (error.message.includes('x')) run(); } }"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -39,6 +38,6 @@ testStable('collection ambiguity and missing receipts branch on typed kinds', ()
     true
   );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/unsafe.ts')));
 });

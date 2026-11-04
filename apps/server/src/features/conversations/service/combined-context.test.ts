@@ -12,14 +12,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -91,17 +91,13 @@ testStable(
           };
           const capture = yield* client('conversations.captureSessionContext', intent);
 
-          assert.deepEqual(
-            capture.messages.map((item) => item.text),
-            ['First', 'Second']
-          );
-          assert.equal(capture.inputs.length, 2);
-          assert.equal(capture.inputs[1]!.scope.kind, 'blocks');
-          assert.deepEqual(
-            capture.inputs[1]!.excerpts[0]!.content,
+          expect(capture.messages.map((item) => item.text)).toStrictEqual(['First', 'Second']);
+          assert.strictEqual(capture.inputs.length, 2);
+          assert.ok(capture.inputs[1]!.scope.kind === 'blocks');
+          expect(capture.inputs[1]!.excerpts[0]!.content).toStrictEqual(
             structuredContent.blocks[0]!.content
           );
-          assert.deepEqual(capture.inputs[0]!.input, {
+          expect(capture.inputs[0]!.input).toStrictEqual({
             kind: 'document',
             versionId: material.version!.id
           });
@@ -112,7 +108,9 @@ testStable(
           });
 
           yield* client('conversations.postMessage', { sessionId: second.id, text: 'Later' });
-          assert.deepEqual(yield* client('conversations.captureSessionContext', intent), capture);
+          expect(yield* client('conversations.captureSessionContext', intent)).toStrictEqual(
+            capture
+          );
           const changed = yield* Effect.flip(
             client('conversations.captureSessionContext', {
               ...intent,
@@ -120,7 +118,7 @@ testStable(
             })
           );
 
-          assert.equal(changed.kind, 'invalid_input');
+          assert.ok(changed.kind === 'invalid_input');
           const duplicate = yield* Effect.flip(
             client('conversations.captureSessionContext', {
               ...intent,
@@ -129,7 +127,7 @@ testStable(
             })
           );
 
-          assert.equal(duplicate.kind, 'invalid_input');
+          assert.ok(duplicate.kind === 'invalid_input');
           const large = yield* client('conversations.createSession', { title: 'Large context' });
 
           for (let index = 0; index < 2; index++)
@@ -146,7 +144,7 @@ testStable(
             })
           );
 
-          assert.equal(oversized.kind, 'invalid_input');
+          assert.ok(oversized.kind === 'invalid_input');
           const sourceOnly = yield* client('conversations.createSession', {
             title: 'Sources only'
           });
@@ -170,15 +168,15 @@ testStable(
             })
           );
 
-          assert.equal(deletedInput.kind, 'not_found');
+          assert.ok(deletedInput.kind === 'not_found');
           yield* client('conversations.deleteSession', { id: second.id });
-          assert.equal(
+          assert.strictEqual(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM session_run_contexts WHERE request_id=${capture.requestId}`
             ),
             undefined
           );
-          assert.equal(
+          assert.strictEqual(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM session_context_documents WHERE request_id=${capture.requestId}`
             ),
@@ -189,13 +187,13 @@ testStable(
               sql`SELECT 1 FROM session_retired_intents WHERE request_id=${capture.requestId}`
             )
           );
-          assert.equal((yield* materials.transform({ requestId: generation.id })).cancelled, true);
+          assert.ok((yield* materials.transform({ requestId: generation.id })).cancelled === true);
 
           const unavailable = yield* Effect.flip(
             client('conversations.sessionContext', { requestId: capture.requestId })
           );
 
-          assert.equal(unavailable.kind, 'not_found');
+          assert.ok(unavailable.kind === 'not_found');
           const retry = yield* Effect.flip(
             conversations.retryDocumentTransform({
               requestId: generation.id,
@@ -203,7 +201,7 @@ testStable(
             })
           );
 
-          assert.equal(retry.kind, 'not_found');
+          assert.ok(retry.kind === 'not_found');
         }).pipe(
           Effect.scoped,
           Effect.provide(ConversationsRpcLive.pipe(Layer.provideMerge(fixture.domain())))

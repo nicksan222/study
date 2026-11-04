@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { assertFinalStorage } from './final-storage.ts';
@@ -55,42 +55,38 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       connection.close();
       connection = Db.open(path);
 
-      assert.equal(connection.orm.get(sql`SELECT id FROM content_snapshots WHERE id=42`)?.id, 42n);
-      assert.equal(
+      assert.strictEqual(
+        connection.orm.get(sql`SELECT id FROM content_snapshots WHERE id=42`)?.id,
+        42n
+      );
+      assert.strictEqual(
         connection.orm.get(sql`SELECT text FROM blocks WHERE document_id=42`)?.text,
         'Retained'
       );
-      assert.deepEqual(
-        {
-          ...connection.orm.get(sql`SELECT source_id,revision,document_id FROM source_processing`)
-        },
-        { source_id: 7n, revision: 3n, document_id: 42n }
-      );
-      assert.deepEqual(
-        {
-          ...connection.orm.get(sql`SELECT c.document_id,c.block_id,b.text
+      expect({
+        ...connection.orm.get(sql`SELECT source_id,revision,document_id FROM source_processing`)
+      }).toStrictEqual({ source_id: 7n, revision: 3n, document_id: 42n });
+      expect({
+        ...connection.orm.get(sql`SELECT c.document_id,c.block_id,b.text
         FROM citations c JOIN blocks b ON b.document_id=c.document_id AND b.editing_id=c.block_id
         WHERE c.version_id=11 AND c.marker=1`)
-        },
-        { document_id: 42n, block_id: 'retained-block', text: 'Retained' }
-      );
+      }).toStrictEqual({ document_id: 42n, block_id: 'retained-block', text: 'Retained' });
       assertFinalStorage(connection);
-      assert.equal(
+      assert.strictEqual(
         connection.orm.get(
           sql`SELECT source_revision FROM citations WHERE version_id=11 AND marker=1`
         )?.source_revision,
         3n
       );
-      assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
-      assert.deepEqual(
+      expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(
         connection.orm
           .all(
             sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name IN('chunks_fts_ai','chunks_fts_au','chunks_fts_ad','message_fts_ai','message_fts_ad','message_fts_finish') ORDER BY name`
           )
-          .filter((row) => triggers.some((trigger) => trigger.name === row.name)),
-        triggers
-      );
-      assert.equal(
+          .filter((row) => triggers.some((trigger) => trigger.name === row.name))
+      ).toStrictEqual(triggers);
+      assert.strictEqual(
         connection.orm.get(
           sql`SELECT name FROM sqlite_schema WHERE type='table' AND name='documents'`
         ),
@@ -100,12 +96,12 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const identity = connection.contentIdentity();
 
       await connection.snapshot(backupPath);
-      assert.equal(Db.validateSnapshot(backupPath), connection.schemaIdentity());
+      assert.strictEqual(Db.validateSnapshot(backupPath), connection.schemaIdentity());
       const restored = Db.openSnapshot(backupPath);
 
       try {
-        assert.equal(restored.contentIdentity(), identity);
-        assert.deepEqual(restored.orm.all(sql`PRAGMA foreign_key_check`), []);
+        assert.strictEqual(restored.contentIdentity(), identity);
+        expect(restored.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         restored.close();
       }

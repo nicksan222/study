@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -23,7 +22,7 @@ testStable('Drizzle imports and exports belong exclusively to the database packa
     true
   );
 
-  assert.equal(diagnostics.length, 8, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => !filename.includes('/packages/db/')));
 });
 
@@ -41,7 +40,7 @@ testStable('Drizzle require calls respect lexical bindings and createRequire ali
     true
   );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/server/src/bad.ts')));
 });
 
@@ -57,7 +56,7 @@ testStable('Drizzle namespace createRequire and global loader forms stay behind 
     true
   );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts')));
 });
 
@@ -71,6 +70,6 @@ testStable('TypeScript CommonJS import declarations cannot bypass the database f
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics[0]?.filename.endsWith('/apps/server/src/direct.cts'));
 });

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -14,7 +13,7 @@ testStable('synchronous-transactions guards production and accepts safe alternat
       "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(async () => 1); db.transaction(() => Promise.resolve(1));"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -26,7 +25,7 @@ testStable('synchronous-transactions handles aliases and avoids unrelated bindin
       "import { Db } from '@study/db'; function f(Db) { const db = Db.open(path); db.transaction(async () => 1); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -40,7 +39,7 @@ testStable(
         "import * as E from 'effect/Effect'; import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => E.isEffect(1)); function f(E) { db.transaction(() => E.succeed(1)); }"
     });
 
-    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
   }
 );
@@ -53,7 +52,7 @@ testStable('named block callbacks and constant database aliases stay synchronous
       'const db = { transaction: f => f() }; const work = () => Promise.resolve(1); db.transaction(work);'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('factory-owned database callbacks cannot start asynchronous transactions', () => {
@@ -61,5 +60,5 @@ testStable('factory-owned database callbacks cannot start asynchronous transacti
     'src/features/items/store/index.ts': `import { defineStore, storeMutation as command } from '#server/platform/definitions/define-store'; defineStore({ make: ({db}) => ({queries: {}, mutations: {save: command({ run(input) { db.transaction(async () => 1); } })}}) });`
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

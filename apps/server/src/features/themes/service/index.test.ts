@@ -13,12 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { Themes } from '#server/features/themes/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -38,46 +37,43 @@ testStable('themes catalog, mutations and selection preserve transactional rules
         const themes = yield* Themes;
 
         assert.ok(Option.isNone(yield* themes.findTheme('missing')));
-        assert.equal((yield* Effect.flip(themes.theme('missing'))).kind, 'not_found');
+        assert.ok((yield* Effect.flip(themes.theme('missing'))).kind === 'not_found');
         yield* themes.importTheme({ json: json('a') });
         yield* themes.importTheme({ json: json('b') });
-        assert.equal(
-          (yield* Effect.flip(themes.importTheme({ json: json('a') }))).kind,
-          'invalid_input'
+        assert.ok(
+          (yield* Effect.flip(themes.importTheme({ json: json('a') }))).kind === 'invalid_input'
         );
-        assert.equal((yield* themes.saveTheme({ json: json('a', 'Changed') })).name, 'Changed');
+        assert.ok((yield* themes.saveTheme({ json: json('a', 'Changed') })).name === 'Changed');
         const page = yield* themes.themes({ limit: 1 });
 
-        assert.equal(page.items[0]?.id, 'a');
-        assert.equal(page.items[0]?.builtin, false);
-        assert.equal(page.next, 'a');
-        assert.equal((yield* themes.themes({ limit: 1, before: 'a' })).next, null);
-        assert.equal(JSON.parse(yield* themes.exportTheme({ id: 'a' })).colors.primary, 'red');
-        assert.equal(
+        assert.ok(page.items[0]?.id === 'a');
+        assert.ok(page.items[0]?.builtin === false);
+        assert.ok(page.next === 'a');
+        assert.ok((yield* themes.themes({ limit: 1, before: 'a' })).next === null);
+        assert.ok(JSON.parse(yield* themes.exportTheme({ id: 'a' })).colors.primary === 'red');
+        assert.ok(
           (yield* Effect.flip(
             themes.importTheme({ json: json('bad').replace(' red ', 'nonsense') })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         yield* themes.selectTheme({ id: 'a' });
-        assert.equal((yield* Effect.flip(themes.selectTheme({ id: 'missing' }))).kind, 'not_found');
-        assert.equal(yield* themes.selectedTheme(), 'a');
+        assert.ok((yield* Effect.flip(themes.selectTheme({ id: 'missing' }))).kind === 'not_found');
+        assert.strictEqual(yield* themes.selectedTheme(), 'a');
         context.db.orm.run(
           sql`CREATE TRIGGER reject_selection BEFORE UPDATE ON preferences WHEN NEW.scope = 'theme' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
         );
         yield* Effect.flip(themes.deleteTheme({ id: 'a' }));
-        assert.equal((yield* themes.theme('a')).id, 'a');
-        assert.equal(yield* themes.selectedTheme(), 'a');
+        assert.ok((yield* themes.theme('a')).id === 'a');
+        assert.strictEqual(yield* themes.selectedTheme(), 'a');
         context.db.orm.run(sql`DROP TRIGGER reject_selection`);
         yield* themes.deleteTheme({ id: 'a' });
-        assert.equal(yield* themes.selectedTheme(), null);
+        assert.strictEqual(yield* themes.selectedTheme(), null);
         context.db.orm.run(sql`UPDATE themes SET builtin = 1 WHERE id = 'b'`);
-        assert.equal((yield* themes.themes({ limit: 100 })).items[0]?.builtin, true);
-        assert.equal(
-          (yield* Effect.flip(themes.saveTheme({ json: json('b') }))).kind,
-          'invalid_input'
+        assert.ok((yield* themes.themes({ limit: 100 })).items[0]?.builtin === true);
+        assert.ok(
+          (yield* Effect.flip(themes.saveTheme({ json: json('b') }))).kind === 'invalid_input'
         );
-        assert.equal((yield* Effect.flip(themes.deleteTheme({ id: 'b' }))).kind, 'invalid_input');
+        assert.ok((yield* Effect.flip(themes.deleteTheme({ id: 'b' }))).kind === 'invalid_input');
       }).pipe(Effect.provide(layer))
     );
   } finally {

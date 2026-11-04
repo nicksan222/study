@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule, root } from '../test/utils.ts';
 
@@ -31,14 +30,15 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
     true
   );
 
-  assert.deepEqual(
+  expect(
     diagnostics
       .map(({ code, filename, message }) => {
-        assert.equal(code, 'study(package-boundary)');
+        assert.strictEqual(code, 'study(package-boundary)');
 
         return [filename.split('/').slice(-4).join('/'), message];
       })
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  ).toStrictEqual(
     [
       ['packages/ui/src/app.ts', '@study/ui cannot depend on @study/web; use its owning layer.'],
       ['packages/ui/src/bad.ts', '@study/ui cannot depend on @study/server; use its owning layer.'],
@@ -87,25 +87,24 @@ testStable('source and test directory imports cannot bypass package boundaries',
     true
   );
 
-  assert.deepEqual(
+  expect(
     diagnostics
       .map(({ code, filename, message }) => {
-        assert.equal(code, 'study(package-boundary)');
+        assert.strictEqual(code, 'study(package-boundary)');
 
         return [filename.split('/').at(-1), message];
       })
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  ).toStrictEqual([
     [
-      [
-        'absolute.ts',
-        'Import @study/db through its public package exports instead of a source path.'
-      ],
-      [
-        'relative.ts',
-        'Import @study/server through its public package exports instead of a source path.'
-      ]
+      'absolute.ts',
+      'Import @study/db through its public package exports instead of a source path.'
+    ],
+    [
+      'relative.ts',
+      'Import @study/server through its public package exports instead of a source path.'
     ]
-  );
+  ]);
 });
 
 testStable(
@@ -124,14 +123,13 @@ testStable(
       true
     );
 
-    assert.deepEqual(
+    expect(
       diagnostics.map(({ code, filename, message }) => {
-        assert.equal(code, 'study(package-boundary)');
+        assert.strictEqual(code, 'study(package-boundary)');
 
         return [filename.split('/').at(-1), message];
-      }),
-      [['example.ts', '@study/web cannot import Node builtins in browser code.']]
-    );
+      })
+    ).toStrictEqual([['example.ts', '@study/web cannot import Node builtins in browser code.']]);
   }
 );
 
@@ -160,20 +158,19 @@ testStable(
       }
     );
 
-    assert.deepEqual(
+    expect(
       diagnostics
         .map(({ code, filename, message }) => {
-          assert.equal(code, 'study(package-boundary)');
+          assert.strictEqual(code, 'study(package-boundary)');
 
           return [filename.split('/').at(-1), message];
         })
-        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
-      [
-        ['blocked.ts', '@study/ui/private is not a public package export.'],
-        ['conditional.ts', '@study/ui/conditional is not a public package export.'],
-        ['pattern.ts', '@study/ui/internal/secret is not a public package export.']
-      ]
-    );
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    ).toStrictEqual([
+      ['blocked.ts', '@study/ui/private is not a public package export.'],
+      ['conditional.ts', '@study/ui/conditional is not a public package export.'],
+      ['pattern.ts', '@study/ui/internal/secret is not a public package export.']
+    ]);
   }
 );
 
@@ -191,7 +188,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
     assert.match(diagnostics[0]!.message, /cannot import Node builtins/);
   }
 );
@@ -208,7 +205,7 @@ testStable('contracts are recognized and unknown workspace packages fail closed'
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable('checks typed and aliased loader edges while honoring shadowing', () => {
@@ -221,7 +218,7 @@ testStable('checks typed and aliased loader edges while honoring shadowing', () 
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable('loader edges follow lexical bindings and direct createRequire calls', () => {
@@ -234,7 +231,7 @@ testStable('loader edges follow lexical bindings and direct createRequire calls'
     true
   );
 
-  assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -251,7 +248,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
     assert.ok(diagnostics[0]?.filename.endsWith('/server.ts'));
   }
 );

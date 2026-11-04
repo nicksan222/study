@@ -13,11 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { citations } from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
 import { createStudyTest } from '#testing/server-test';
@@ -62,108 +62,99 @@ testStable(
           text: 'Keep [3] and [1, 3].'
         });
 
-        assert.equal(
-          edited.versions.find((version) => version.id === edited.activeVersionId)?.text,
-          'Keep [2] and [1, 2].'
+        assert.ok(
+          edited.versions.find((version) => version.id === edited.activeVersionId)?.text ===
+            'Keep [2] and [1, 2].'
         );
-        assert.deepEqual(
+        expect(
           edited.citations.map(({ marker, sourceName, anchor, quote }) => ({
             marker,
             sourceName,
             anchor,
             quote
-          })),
-          [
-            {
-              marker: 1,
-              sourceName: 'Source 1',
-              anchor: { type: 'page', page: 1 },
-              quote: 'Evidence 1'
-            },
-            {
-              marker: 2,
-              sourceName: 'Source 3',
-              anchor: { type: 'page', page: 3 },
-              quote: 'Evidence 3'
-            }
-          ]
-        );
+          }))
+        ).toStrictEqual([
+          {
+            marker: 1,
+            sourceName: 'Source 1',
+            anchor: { type: 'page', page: 1 },
+            quote: 'Evidence 1'
+          },
+          {
+            marker: 2,
+            sourceName: 'Source 3',
+            anchor: { type: 'page', page: 3 },
+            quote: 'Evidence 3'
+          }
+        ]);
         const exact = yield* conversations.messageVersionCitations({
           sessionId: session.id,
           messageId: original.id,
           versionId: original.activeVersionId
         });
 
-        assert.deepEqual(
-          exact.citations.map((c) => c.marker),
-          [1, 2, 3]
-        );
+        expect(exact.citations.map((c) => c.marker)).toStrictEqual([1, 2, 3]);
         assert.ok(exact.citations.every((c) => c.evidence?.availability === 'unavailable'));
-        assert.equal(
+        assert.strictEqual(
           (yield* conversations.message(original.id)).activeVersionId,
           edited.activeVersionId
         );
-        assert.deepEqual(
+        expect(
           (yield* conversations.messageVersionCitations({
             sessionId: session.id,
             messageId: original.id,
             versionId: edited.activeVersionId!
-          })).citations,
-          edited.citations
-        );
+          })).citations
+        ).toStrictEqual(edited.citations);
         const other = yield* conversations.createSession({ title: 'Other' });
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             conversations.messageVersionCitations({
               sessionId: other.id,
               messageId: original.id,
               versionId: original.activeVersionId
             })
-          )).kind,
-          'not_found'
+          )).kind === 'not_found'
         );
         const note = yield* conversations.postMessage({
           sessionId: session.id,
           text: 'No evidence'
         });
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             conversations.messageVersionCitations({
               sessionId: session.id,
               messageId: original.id,
               versionId: note.activeVersionId!
             })
-          )).kind,
-          'not_found'
+          )).kind === 'not_found'
         );
-        assert.deepEqual(
+        expect(
           (yield* conversations.messageVersionCitations({
             sessionId: session.id,
             messageId: note.id,
             versionId: note.activeVersionId!
-          })).citations,
-          []
-        );
+          })).citations
+        ).toStrictEqual([]);
         const historical = yield* conversations.setActiveVersion({
           messageId: original.id,
           versionId: original.activeVersionId
         });
 
-        assert.equal(historical.citations.length, 3);
+        assert.strictEqual(historical.citations.length, 3);
         yield* conversations.deleteMessage(note.id);
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             conversations.messageVersionCitations({
               sessionId: session.id,
               messageId: note.id,
               versionId: note.activeVersionId!
             })
-          )).kind,
-          'not_found'
+          )).kind === 'not_found'
         );
-        assert.equal(
+        assert.strictEqual(
           historical.versions.find((version) => version.id === historical.activeVersionId)?.text,
           original.versions[0]?.text
         );

@@ -12,21 +12,21 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { healthSchema, searchInputSchema } from '@study/contracts/system/rpc';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { healthData } from './health.ts';
 
 testStable('health reports the lifecycle state in the canonical health shape', () => {
-  assert.deepEqual(Schema.decodeUnknownSync(healthSchema)(healthData(true)), {
+  expect(Schema.decodeUnknownSync(healthSchema)(healthData(true))).toStrictEqual({
     protocolVersion: 1,
     workersRunning: true,
     testMode: false
   });
-  assert.equal(healthData(false).workersRunning, false);
+  assert.ok(healthData(false).workersRunning === false);
 });
 
 testStable('search input rejects out-of-bounds limits and invalid project IDs', () => {
@@ -35,5 +35,5 @@ testStable('search input rejects out-of-bounds limits and invalid project IDs', 
   assert.throws(() => decode({ query: 'a', limit: 101 }));
   assert.throws(() => decode({ query: 'a', limit: 0 }));
   assert.throws(() => decode({ query: 'a', project: 0n }));
-  assert.equal(decode({ query: '' }).limit, 30);
+  assert.strictEqual(decode({ query: '' }).limit, 30);
 });

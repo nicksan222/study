@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Db, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { ManagedBackups } from '#server/platform/database/backups';
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
@@ -57,18 +57,19 @@ testStable(
       const blocker = join(root, 'restore.sqlite.writing');
 
       mkdirSync(blocker);
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))));
-      assert.equal(f.app.store.db.contentIdentity(), before);
-      assert.equal((await f.app.nativeRuntime.runPromise(api.restoreStatus())).state, 'idle');
-      assert.equal(existsSync(join(root, 'scratch.sqlite')), false);
+      await expect(
+        f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
+      ).rejects.toSatisfy(() => true);
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      assert.ok((await f.app.nativeRuntime.runPromise(api.restoreStatus())).state === 'idle');
+      assert.ok(existsSync(join(root, 'scratch.sqlite')) === false);
       rmSync(blocker, { recursive: true });
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
       await f.reopen();
       await f.reopen();
-      assert.equal(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
-        'applied'
+      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
     } finally {
       await f.close();
@@ -92,17 +93,19 @@ testStable(
 
       const reopened = await f.api();
 
-      assert.equal(f.app.store.db.contentIdentity(), before);
-      assert.deepEqual(await f.app.nativeRuntime.runPromise(reopened.restoreStatus()), {
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      expect(await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).toStrictEqual({
         state: 'activation-failed',
         backupId: preview.backup.id,
         recoveryCopy: true
       });
-      await assert.rejects(f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery()));
-      assert.equal(existsSync(join(root, 'restore.json')), true);
+      await expect(
+        f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery())
+      ).rejects.toSatisfy(() => true);
+      assert.ok(existsSync(join(root, 'restore.json')) === true);
       rmSync(blocker, { recursive: true });
       await f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery());
-      assert.deepEqual(await f.app.nativeRuntime.runPromise(reopened.restoreStatus()), {
+      expect(await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).toStrictEqual({
         state: 'idle',
         backupId: null,
         recoveryCopy: false
@@ -114,7 +117,7 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(reopened.acceptRestore(acceptance(retry)));
       await f.reopen();
-      assert.equal(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
     } finally {
       await f.close();
     }
@@ -135,7 +138,7 @@ testStable(
       const blocker = join(root, 'restore.json.writing');
 
       try {
-        await assert.rejects(
+        await expect(
           ManagedBackups.activate(ownership.path, {
             ...backupPolicy,
             async validate(db) {
@@ -145,9 +148,9 @@ testStable(
               mkdirSync(blocker);
             }
           })
-        );
-        assert.equal(existsSync(join(root, 'previous.sqlite')), true);
-        assert.equal(existsSync(join(root, 'restore.sqlite')), false);
+        ).rejects.toSatisfy(() => true);
+        assert.ok(existsSync(join(root, 'previous.sqlite')) === true);
+        assert.ok(existsSync(join(root, 'restore.sqlite')) === false);
       } finally {
         await ownership.release();
         rmSync(blocker, { recursive: true, force: true });
@@ -157,15 +160,14 @@ testStable(
 
       const identity = f.app.store.db.contentIdentity();
 
-      assert.equal(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
       await f.reopen();
-      assert.equal(f.app.store.db.contentIdentity(), identity);
+      assert.strictEqual(f.app.store.db.contentIdentity(), identity);
 
       const reopened = await f.api();
 
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).state,
-        'applied'
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).state === 'applied'
       );
 
       const next = await f.app.nativeRuntime.runPromise(reopened.createBackup());
@@ -174,11 +176,11 @@ testStable(
         reopened.previewRestore({ id: next.id })
       );
 
-      await assert.rejects(
+      await expect(
         f.app.nativeRuntime.runPromise(reopened.acceptRestore(acceptance(another)))
-      );
+      ).rejects.toSatisfy(() => true);
       await f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery());
-      assert.equal(f.app.store.db.contentIdentity(), identity);
+      assert.strictEqual(f.app.store.db.contentIdentity(), identity);
     } finally {
       await f.close();
     }
@@ -209,8 +211,8 @@ testStable(
         writeFileSync(join(root, name), 'private interrupted bytes');
 
       await f.reopen();
-      assert.deepEqual(readdirSync(root), [backup.id + '.studybackup']);
-      assert.equal(
+      expect(readdirSync(root)).toStrictEqual([backup.id + '.studybackup']);
+      assert.strictEqual(
         (await f.app.nativeRuntime.runPromise((await f.api()).backups()))[0]?.id,
         backup.id
       );
@@ -249,13 +251,13 @@ testStable(
       }
 
       await f.reopen();
-      assert.equal(f.app.store.db.contentIdentity(), before);
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
-        'activation-failed'
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state ===
+          'activation-failed'
       );
       await f.reopen();
-      assert.equal(f.app.store.db.contentIdentity(), before);
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
     } finally {
       await f.close();
     }
@@ -280,7 +282,7 @@ testStable(
       const ownership = await acquireDatabaseOwnership(f.location.path);
 
       try {
-        await assert.rejects(
+        await expect(
           ManagedBackups.activate(ownership.path, {
             ...backupPolicy,
             async validate(db) {
@@ -289,13 +291,13 @@ testStable(
               mkdirSync(staged);
             }
           })
-        );
+        ).rejects.toSatisfy(() => true);
 
         const current = Db.openSnapshot(ownership.path);
 
         try {
-          assert.equal(current.contentIdentity(), before);
-          assert.equal(
+          assert.strictEqual(current.contentIdentity(), before);
+          assert.strictEqual(
             current.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM study_documents`)!.n,
             2n
           );
@@ -310,11 +312,10 @@ testStable(
       }
 
       await f.reopen();
-      assert.equal(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
       await f.reopen();
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
-        'applied'
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
     } finally {
       rmSync(saved, { force: true });

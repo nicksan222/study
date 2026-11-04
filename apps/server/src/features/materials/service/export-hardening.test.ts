@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
@@ -23,9 +21,11 @@ import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { eq, and } from '@study/db';
 import { material_flashcard_entries } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -119,19 +119,19 @@ for (const retirement of ['deletion', 'prune'] as const) {
                 ? yield* rpc('documents.previewHistory', scope)
                 : yield* rpc('documents.previewDeletion', { id: ancestor.id });
 
-            assert.deepEqual(preview.blockedVersionIds, [ancestor.version.id]);
+            expect(preview.blockedVersionIds).toStrictEqual([ancestor.version.id]);
             const attempted =
               retirement === 'prune'
                 ? rpc('documents.retireHistory', { ...scope, token: preview.token })
                 : rpc('documents.delete', { documentId: ancestor.id, token: preview.token });
 
-            assert.equal((yield* Effect.flip(attempted)).kind, 'invalid_input');
-            assert.deepEqual(yield* rpc('documents.exportFile', key), before);
+            assert.ok((yield* Effect.flip(attempted)).kind === 'invalid_input');
+            expect(yield* rpc('documents.exportFile', key)).toStrictEqual(before);
 
             for (const descendant of chain.slice(1).reverse()) {
               const selected = yield* rpc('documents.previewDeletion', { id: descendant.id });
 
-              assert.deepEqual(selected.blockedVersionIds, []);
+              expect(selected.blockedVersionIds).toStrictEqual([]);
               yield* rpc('documents.delete', { documentId: descendant.id, token: selected.token });
             }
 
@@ -140,17 +140,16 @@ for (const retirement of ['deletion', 'prune'] as const) {
                 ? yield* rpc('documents.previewHistory', scope)
                 : yield* rpc('documents.previewDeletion', { id: ancestor.id });
 
-            assert.deepEqual(released.blockedVersionIds, []);
+            expect(released.blockedVersionIds).toStrictEqual([]);
 
             if (retirement === 'prune')
               yield* rpc('documents.retireHistory', { ...scope, token: released.token });
             else yield* rpc('documents.delete', { documentId: ancestor.id, token: released.token });
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 rpc('documents.exportFile', { id: ancestor.version.id, format: 'markdown' })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
           }).pipe(Effect.scoped, Effect.provide(f.handlers))
         );
@@ -242,18 +241,17 @@ testStable(
               const text = new TextDecoder().decode(file.bytes);
               const decoded = Schema.decodeUnknownSync(codec)(text);
 
-              assert.deepEqual(decoded, { schemaVersion: 1, version, citations });
-              assert.deepEqual(
-                Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(decoded)),
-                decoded
-              );
-              assert.equal(JSON.parse(text).version.id, String(version.id));
-              assert.deepEqual(decoded.citations[0]!.target, {
+              expect(decoded).toStrictEqual({ schemaVersion: 1, version, citations });
+              expect(
+                Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(decoded))
+              ).toStrictEqual(decoded);
+              assert.strictEqual(JSON.parse(text).version.id, String(version.id));
+              expect(decoded.citations[0]!.target).toStrictEqual({
                 blockId: document.blocks[0]!.id,
                 start: 0,
                 end: 8
               });
-              assert.equal(file.mediaType, 'application/json');
+              assert.ok(file.mediaType === 'application/json');
               // Exercise a legal identity beyond Number's exact range without changing SQLite rows.
               const wide = {
                 ...version,
@@ -261,7 +259,7 @@ testStable(
               };
               const wideFile = serializeMaterialVersion(wide, 'aid_json', citations);
 
-              assert.equal(
+              assert.strictEqual(
                 Schema.decodeUnknownSync(codec)(new TextDecoder().decode(wideFile.bytes)).version
                   .id,
                 wide.id
@@ -336,7 +334,7 @@ testStable(
             assert.ok(text.includes('"a=b"'));
             assert.ok(text.includes('"é😀"'));
             assert.ok(file.omissions.some((o) => o.code === 'csv_structure'));
-            assert.equal(file.mediaType, 'text/csv; charset=utf-8');
+            assert.ok(file.mediaType === 'text/csv; charset=utf-8');
             assert.ok(text.endsWith('\r\n'));
           })
         ).pipe(Effect.provide(f.handlers))
@@ -413,8 +411,8 @@ testStable(
             // Each resolved citation reserves four bytes in addition to its encoded JSON.
             const exact = new TextEncoder().encode(serialized).length + 4;
 
-            assert.deepEqual(yield* snapshot(exact), single);
-            assert.equal((yield* Effect.flip(snapshot(exact - 1))).kind, 'invalid_input');
+            expect(yield* snapshot(exact)).toStrictEqual(single);
+            assert.ok((yield* Effect.flip(snapshot(exact - 1))).kind === 'invalid_input');
             yield* rpc('materials.setCitations', {
               id: claim.version.id,
               citations: [
@@ -439,20 +437,19 @@ testStable(
               )
             );
 
-            assert.deepEqual(actual, expected);
+            expect(actual).toStrictEqual(expected);
             const preview = yield* docs('documents.previewDeletion', { id: later.id });
 
-            assert.deepEqual(preview.blockedVersionIds, [later.version!.id]);
-            assert.equal(
+            expect(preview.blockedVersionIds).toStrictEqual([later.version!.id]);
+            assert.ok(
               (yield* Effect.flip(
                 docs('documents.delete', { documentId: later.id, token: preview.token })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.equal((yield* Effect.flip(snapshot(exact))).kind, 'invalid_input');
+            assert.ok((yield* Effect.flip(snapshot(exact))).kind === 'invalid_input');
             const bounded = yield* snapshot(MAX_EXPORT_BYTES);
 
-            assert.equal(bounded.citations.length, 3);
+            assert.strictEqual(bounded.citations.length, 3);
             assert.ok(
               JSON.stringify(bounded, (_, value) =>
                 typeof value === 'bigint' ? String(value) : value
@@ -530,7 +527,7 @@ testStable(
             ] as const;
 
             for (const { kind, mime, path, status, reason } of cases) {
-              assert.deepEqual(yield* rpc('sources.importCapability', { kind, mime }), {
+              expect(yield* rpc('sources.importCapability', { kind, mime })).toStrictEqual({
                 kind,
                 recognized: kind !== 'other',
                 path,
@@ -569,11 +566,13 @@ testStable(
     const budget = exportBudget(lengths.reduce((total, bytes) => total + bytes, 0));
 
     values.forEach((value) => budget.consume(value));
-    assert.equal(budget.remaining(), 0);
-    assert.throws(() => budget.consume(null), { kind: 'invalid_input' });
+    assert.strictEqual(budget.remaining(), 0);
+    expect(() => budget.consume(null)).toThrow(expect.objectContaining({ kind: 'invalid_input' }));
     const exact = 'é'.repeat((MAX_EXPORT_BYTES - 2) / 2);
 
     exportBudget().consume(exact);
-    assert.throws(() => exportBudget().consume(exact + 'a'), { kind: 'invalid_input' });
+    expect(() => exportBudget().consume(exact + 'a')).toThrow(
+      expect.objectContaining({ kind: 'invalid_input' })
+    );
   }
 );

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { description, framedHeader, header } from '../test/file-description.ts';
 import { lintFiles, lintRule, lintRulePaths } from '../test/utils.ts';
@@ -20,8 +19,7 @@ testStable(
       'packages/other/apps/server/main.ts': 'export {};'
     };
 
-    assert.deepEqual(
-      lintRulePaths('server-file-description', files),
+    expect(lintRulePaths('server-file-description', files)).toStrictEqual(
       Object.keys(files)
         .filter((path) => path.startsWith('apps/server/'))
         .sort()
@@ -30,7 +28,7 @@ testStable(
 );
 
 testStable('accepts framed leading headers, licenses, shebangs, wrapping and CRLF', () => {
-  assert.deepEqual(
+  expect(
     lintRule('server-file-description', {
       'src/one.ts': header + '\n\nexport {};',
       'src/license.ts': '/* Copyright Study */\n' + header + '\n\nexport {};',
@@ -51,9 +49,8 @@ testStable('accepts framed leading headers, licenses, shebangs, wrapping and CRL
           )
           .replace('with their platform dependencies.', 'with their\n  platform dependencies.')
       )
-    }),
-    []
-  );
+    })
+  ).toStrictEqual([]);
 });
 
 testStable('rejects missing, late, nested and declaration-level descriptions', () => {
@@ -69,7 +66,7 @@ testStable('rejects missing, late, nested and declaration-level descriptions', (
 
   const diagnostics = lintRule('server-file-description', files);
 
-  assert.equal(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ code }) => code === 'study(server-file-description)'));
 });
 
@@ -100,7 +97,7 @@ testStable('requires substantive overview, responsibility bullets and boundary p
     invalid.map((content, index) => ['src/invalid-' + index + '.ts', framedHeader(content)])
   );
 
-  assert.equal(lintRule('server-file-description', files).length, invalid.length);
+  assert.strictEqual(lintRule('server-file-description', files).length, invalid.length);
 });
 
 testStable(
@@ -124,8 +121,8 @@ testStable(
 
     const diagnostics = lintRule('server-file-description', files);
 
-    assert.equal(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
-    assert.equal(
+    assert.strictEqual(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
+    assert.strictEqual(
       diagnostics.filter(({ message }) => message.startsWith('Leave a blank line')).length,
       2
     );

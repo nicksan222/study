@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import {
   defaultWorkspacePreferences,
   Appearance,
@@ -24,8 +22,10 @@ import {
 } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -43,27 +43,27 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
       Effect.gen(function* () {
         const settings = yield* Settings;
 
-        assert.deepEqual(yield* settings.appSettings(), {
+        expect(yield* settings.appSettings()).toStrictEqual({
           language: Language.ENGLISH,
           appearance: Appearance.DARK,
           zoomPercent: 100,
           onboarded: false
         });
-        assert.deepEqual(yield* settings.sidebarSettings(), { settledDocumentThreshold: 1 });
+        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledDocumentThreshold: 1 });
         yield* settings.saveSidebarSettings({ settledDocumentThreshold: 3 });
-        assert.deepEqual(yield* settings.sidebarSettings(), { settledDocumentThreshold: 3 });
+        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledDocumentThreshold: 3 });
         const invalidSidebar = yield* Effect.flip(
           settings.saveSidebarSettings({ settledDocumentThreshold: 0 })
         );
 
-        assert.equal(invalidSidebar.kind, 'invalid_input');
-        assert.deepEqual(yield* settings.sidebarSettings(), { settledDocumentThreshold: 3 });
-        assert.deepEqual(yield* settings.materialSettings(), { sift: true });
-        assert.deepEqual(yield* settings.reviewSettings(), { newCardsPerDay: 20 });
-        assert.equal(yield* settings.language(), 'english');
-        assert.equal(yield* settings.model('tiny'), 'gpt-6-luna');
-        assert.equal(yield* settings.model('medium'), 'gpt-6.1-sol');
-        assert.equal(yield* settings.model('smart'), 'gpt-6-astra');
+        assert.ok(invalidSidebar.kind === 'invalid_input');
+        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledDocumentThreshold: 3 });
+        expect(yield* settings.materialSettings()).toStrictEqual({ sift: true });
+        expect(yield* settings.reviewSettings()).toStrictEqual({ newCardsPerDay: 20 });
+        assert.strictEqual(yield* settings.language(), 'english');
+        assert.strictEqual(yield* settings.model('tiny'), 'gpt-6-luna');
+        assert.strictEqual(yield* settings.model('medium'), 'gpt-6.1-sol');
+        assert.strictEqual(yield* settings.model('smart'), 'gpt-6-astra');
         const app = {
           language: Language.ITALIAN,
           appearance: Appearance.LIGHT,
@@ -72,10 +72,10 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
         };
 
         yield* settings.saveAppSettings(app);
-        assert.deepEqual(yield* settings.appSettings(), app);
-        assert.equal(yield* settings.language(), 'italian');
+        expect(yield* settings.appSettings()).toStrictEqual(app);
+        assert.strictEqual(yield* settings.language(), 'italian');
         yield* settings.saveAppSettings({ ...app, appearance: Appearance.SYSTEM });
-        assert.equal((yield* settings.appSettings()).appearance, Appearance.SYSTEM);
+        assert.strictEqual((yield* settings.appSettings()).appearance, Appearance.SYSTEM);
         yield* settings.saveAppSettings(app);
         const llm = {
           tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.GPT6_ASTRA },
@@ -84,25 +84,25 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
         };
 
         yield* settings.saveLlmSettings(llm);
-        assert.deepEqual(yield* settings.llmSettings(), {
+        expect(yield* settings.llmSettings()).toStrictEqual({
           ...llm,
           medium: { ...llm.medium, model: undefined },
           smart: { ...llm.smart, model: undefined }
         });
-        assert.equal(yield* settings.model('tiny'), 'gpt-6-astra');
+        assert.strictEqual(yield* settings.model('tiny'), 'gpt-6-astra');
         yield* settings.saveMaterialSettings({ sift: false });
         yield* settings.saveReviewSettings({ newCardsPerDay: 42 });
-        assert.deepEqual(yield* settings.materialSettings(), { sift: false });
-        assert.deepEqual(yield* settings.reviewSettings(), { newCardsPerDay: 42 });
+        expect(yield* settings.materialSettings()).toStrictEqual({ sift: false });
+        expect(yield* settings.reviewSettings()).toStrictEqual({ newCardsPerDay: 42 });
         const invalid = yield* Effect.flip(settings.saveAppSettings({ ...app, zoomPercent: 10 }));
 
-        assert.equal(invalid.kind, 'invalid_input');
-        assert.deepEqual(yield* settings.appSettings(), app);
+        assert.ok(invalid.kind === 'invalid_input');
+        expect(yield* settings.appSettings()).toStrictEqual(app);
         context.db.orm.run(
           sql`CREATE TRIGGER reject_app BEFORE INSERT ON preferences WHEN NEW.scope = 'app' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
         );
         yield* Effect.flip(settings.saveAppSettings({ ...app, zoomPercent: 150 }));
-        assert.deepEqual(yield* settings.appSettings(), app);
+        expect(yield* settings.appSettings()).toStrictEqual(app);
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -125,7 +125,7 @@ testStable(
         Effect.gen(function* () {
           const settings = yield* Settings;
 
-          assert.deepEqual(yield* settings.appearancePreferences(), {
+          expect(yield* settings.appearancePreferences()).toStrictEqual({
             contrast: 100,
             glassOpacity: 80,
             animationDurationMs: 150
@@ -135,7 +135,7 @@ testStable(
             glassOpacity: 90,
             animationDurationMs: 0
           });
-          assert.deepEqual(yield* settings.appearancePreferences(), {
+          expect(yield* settings.appearancePreferences()).toStrictEqual({
             contrast: 115,
             glassOpacity: 90,
             animationDurationMs: 0
@@ -148,9 +148,9 @@ testStable(
             })
           );
 
-          assert.equal(invalid.kind, 'invalid_input');
-          assert.equal((yield* settings.appearancePreferences()).contrast, 115);
-          assert.equal((yield* settings.appSettings()).zoomPercent, 100);
+          assert.ok(invalid.kind === 'invalid_input');
+          assert.strictEqual((yield* settings.appearancePreferences()).contrast, 115);
+          assert.strictEqual((yield* settings.appSettings()).zoomPercent, 100);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -174,12 +174,12 @@ testStable(
         Effect.gen(function* () {
           const settings = yield* Settings;
 
-          assert.deepEqual(yield* settings.concurrencySettings(), {
+          expect(yield* settings.concurrencySettings()).toStrictEqual({
             maxConcurrentAi: 2,
             maxQueuedAi: 16
           });
           yield* settings.saveConcurrencySettings({ maxConcurrentAi: 8, maxQueuedAi: 0 });
-          assert.deepEqual(yield* settings.concurrencySettings(), {
+          expect(yield* settings.concurrencySettings()).toStrictEqual({
             maxConcurrentAi: 8,
             maxQueuedAi: 0
           });
@@ -191,16 +191,16 @@ testStable(
             { maxConcurrentAi: 2, maxQueuedAi: -1 },
             { maxConcurrentAi: 2, maxQueuedAi: 65 }
           ])
-            assert.equal(
-              (yield* Effect.flip(settings.saveConcurrencySettings(invalid))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(settings.saveConcurrencySettings(invalid))).kind ===
+                'invalid_input'
             );
 
-          assert.deepEqual(yield* settings.concurrencySettings(), {
+          expect(yield* settings.concurrencySettings()).toStrictEqual({
             maxConcurrentAi: 8,
             maxQueuedAi: 0
           });
-          assert.equal((yield* settings.appSettings()).zoomPercent, 100);
+          assert.strictEqual((yield* settings.appSettings()).zoomPercent, 100);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -224,7 +224,7 @@ testStable(
         Effect.gen(function* () {
           const settings = yield* Settings;
 
-          assert.deepEqual(yield* settings.workspacePreferences(), defaultWorkspacePreferences);
+          expect(yield* settings.workspacePreferences()).toStrictEqual(defaultWorkspacePreferences);
           const saved = {
             ...defaultWorkspacePreferences,
             autosaveIntervalSeconds: 8,
@@ -234,7 +234,7 @@ testStable(
           };
 
           yield* settings.saveWorkspacePreferences(saved);
-          assert.deepEqual(yield* settings.workspacePreferences(), saved);
+          expect(yield* settings.workspacePreferences()).toStrictEqual(saved);
 
           for (const invalid of [
             { ...saved, autosaveIntervalSeconds: 0 },
@@ -243,20 +243,23 @@ testStable(
             { ...saved, editorFontSize: 13 },
             { ...saved, readerFontSize: 25 }
           ])
-            assert.equal(
-              (yield* Effect.flip(settings.saveWorkspacePreferences(invalid))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(settings.saveWorkspacePreferences(invalid))).kind ===
+                'invalid_input'
             );
 
-          assert.deepEqual(yield* settings.workspacePreferences(), saved);
+          expect(yield* settings.workspacePreferences()).toStrictEqual(saved);
           context.db.orm.run(
             sql`DELETE FROM preferences WHERE scope = 'workspace' AND key = 'spellcheck'`
           );
-          assert.deepEqual(yield* settings.workspacePreferences(), { ...saved, spellcheck: true });
+          expect(yield* settings.workspacePreferences()).toStrictEqual({
+            ...saved,
+            spellcheck: true
+          });
           context.db.orm.run(
             sql`UPDATE preferences SET value = '999' WHERE scope = 'workspace' AND key = 'editorFontSize'`
           );
-          assert.deepEqual(yield* settings.workspacePreferences(), defaultWorkspacePreferences);
+          expect(yield* settings.workspacePreferences()).toStrictEqual(defaultWorkspacePreferences);
         }).pipe(Effect.provide(layer))
       );
     } finally {

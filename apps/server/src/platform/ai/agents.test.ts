@@ -15,12 +15,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema, Stream } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
@@ -105,11 +105,10 @@ testStable('generates validated output through the Responses provider', async ()
   await peer(
     (_req, res) => send(res, 'Biology'),
     async (base, auth) => {
-      assert.equal(
-        await Effect.runPromise(
+      assert.ok(
+        (await Effect.runPromise(
           generateAgent(definition, 'cells').pipe(Effect.provide(service(base, auth)))
-        ),
-        'Biology'
+        )) === 'Biology'
       );
     }
   );
@@ -119,11 +118,11 @@ testStable('rejects malformed structured output', async () => {
   await peer(
     (_req, res) => send(res, '{"count":"wrong"}'),
     async (base, auth) => {
-      await assert.rejects(
+      await expect(
         Effect.runPromise(
           generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
         )
-      );
+      ).rejects.toSatisfy(() => true);
     }
   );
 });
@@ -192,9 +191,9 @@ testStable('executes a source tool and sends its result back to the provider', a
         )
       );
 
-      assert.equal(output, 'Cells use energy.');
-      assert.deepEqual(queries, ['cell']);
-      assert.match(bodies[1], /Cells use energy/);
+      assert.ok(output === 'Cells use energy.');
+      expect(queries).toStrictEqual(['cell']);
+      expect(bodies[1]).toMatch(/Cells use energy/);
     }
   );
 });
@@ -267,7 +266,7 @@ testStable(
           )
         )
       );
-      const rejected = assert.rejects(running);
+      const rejected = expect(running).rejects.toSatisfy(() => true);
 
       try {
         await Promise.race([
@@ -276,13 +275,13 @@ testStable(
             setTimeout(() => reject(Error('delta was buffered')), 500)
           )
         ]);
-        assert.deepEqual(seen, [{ type: 'text-delta', text: 'partial' }]);
+        expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
       } finally {
         release();
       }
 
       await rejected;
-      assert.deepEqual(seen, [{ type: 'text-delta', text: 'partial' }]);
+      expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
     } finally {
       release();
       await auth.dispose();
@@ -302,15 +301,14 @@ testStable('retries rate-limited requests up to the configured limit', async () 
       else send(res, 'ok');
     },
     async (base, auth) => {
-      assert.equal(
-        await Effect.runPromise(
+      assert.ok(
+        (await Effect.runPromise(
           generateAgent(definition, 'x', { maxRetries: 1 }).pipe(
             Effect.provide(service(base, auth))
           )
-        ),
-        'ok'
+        )) === 'ok'
       );
-      assert.equal(calls, 2);
+      assert.strictEqual(calls, 2);
     }
   );
 });
@@ -359,8 +357,8 @@ testStable('cancellation after a delta never publishes completion', async () => 
           { signal: controller.signal }
         );
 
-        await assert.rejects(running);
-        assert.deepEqual(seen, [{ type: 'text-delta', text: 'partial' }]);
+        await expect(running).rejects.toSatisfy(() => true);
+        expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
       }
     );
   } finally {
@@ -374,7 +372,7 @@ testStable('rejects empty model output without publishing completion', async () 
     async (base, auth) => {
       const seen: unknown[] = [];
 
-      await assert.rejects(
+      await expect(
         Effect.runPromise(
           streamAgent(definition, 'x').pipe(
             Stream.tap((event) => {
@@ -388,11 +386,8 @@ testStable('rejects empty model output without publishing completion', async () 
             Effect.provide(service(base, auth))
           )
         )
-      );
-      assert.equal(
-        seen.some((event) => (event as { type: string }).type === 'complete'),
-        false
-      );
+      ).rejects.toSatisfy(() => true);
+      assert.ok(seen.some((event) => (event as { type: string }).type === 'complete') === false);
     }
   );
 });
@@ -413,11 +408,10 @@ testStable('preserves conversation history in the native reply request', async (
         { role: 'user' as const, content: 'Read these' }
       ];
 
-      assert.equal(
-        await Effect.runPromise(
+      assert.ok(
+        (await Effect.runPromise(
           generateAgent(replyAgent, { messages }).pipe(Effect.provide(service(base, auth)))
-        ),
-        'read'
+        )) === 'read'
       );
 
       for (const value of ['Earlier request', 'Earlier answer', 'Read these'])
@@ -453,8 +447,8 @@ testStable('transcribes image and PDF bytes through the native vision API', asyn
           }).pipe(Effect.provide(service(base, auth)))
         );
 
-        assert.equal(result.pages[0].blocks[0].text, 'read');
-        assert.match(body, new RegExp(expected));
+        assert.ok(result.pages[0].blocks[0].text === 'read');
+        expect(body).toMatch(new RegExp(expected));
       }
     );
   }
@@ -481,10 +475,10 @@ testStable('rejects invalid request limits before making a provider request', as
           )
         );
 
-        assert.equal(error.kind, 'invalid_input');
+        assert.ok(error.kind === 'invalid_input');
       }
 
-      assert.equal(calls, 0);
+      assert.strictEqual(calls, 0);
     }
   );
 });
@@ -499,8 +493,8 @@ testStable('preserves the provider error kind and cause after retries are exhaus
         Effect.flip(generateAgent(definition, 'x')).pipe(Effect.provide(service(base, auth)))
       );
 
-      assert.equal(error.kind, 'rate_limited');
-      assert.equal((error.cause as { name: string }).name, 'ChatGptRequestError');
+      assert.ok(error.kind === 'rate_limited');
+      assert.ok((error.cause as { name: string }).name === 'ChatGptRequestError');
     }
   );
 });
@@ -541,10 +535,10 @@ testStable(
             )
           );
 
-        assert.equal((await run()).questions[0]?.kind, 'single_choice');
+        assert.ok((await run()).questions[0]?.kind === 'single_choice');
         validAnswer = false;
-        await assert.rejects(run());
-        assert.equal(requests, 2);
+        await expect(run()).rejects.toSatisfy(() => true);
+        assert.strictEqual(requests, 2);
       }
     );
   }
@@ -578,8 +572,8 @@ testStable(
           )
         );
 
-        assert.equal(failure.kind, 'unsupported');
-        assert.equal(calls, 0);
+        assert.ok(failure.kind === 'unsupported');
+        assert.strictEqual(calls, 0);
       }
     );
   }
@@ -613,8 +607,8 @@ testStable('slow consumers receive all large deltas and the validated completion
       );
       const deltas = events.filter((event) => event.type === 'text-delta');
 
-      assert.equal(deltas.map((event) => event.text).join(''), delta.repeat(count));
-      assert.deepEqual(events.at(-1), { type: 'complete', output: delta.repeat(count) });
+      assert.strictEqual(deltas.map((event) => event.text).join(''), delta.repeat(count));
+      expect(events.at(-1)).toStrictEqual({ type: 'complete', output: delta.repeat(count) });
     }
   );
 });
@@ -630,7 +624,7 @@ testStable('never retries a failed response after publishing a delta', async () 
     async (base, auth) => {
       const seen: string[] = [];
 
-      await assert.rejects(
+      await expect(
         Effect.runPromise(
           streamAgent(definition, 'x', { maxRetries: 3 }).pipe(
             Stream.tap((event) => {
@@ -644,9 +638,9 @@ testStable('never retries a failed response after publishing a delta', async () 
             Effect.provide(service(base, auth))
           )
         )
-      );
-      assert.deepEqual(seen, ['text-delta']);
-      assert.equal(calls, 1);
+      ).rejects.toSatisfy(() => true);
+      expect(seen).toStrictEqual(['text-delta']);
+      assert.strictEqual(calls, 1);
     }
   );
 });
@@ -678,9 +672,9 @@ testStable('cancelling before the first delta closes the request without retries
       while (calls === 0) await new Promise((resolve) => setTimeout(resolve, 5));
 
       controller.abort();
-      await assert.rejects(running);
+      await expect(running).rejects.toSatisfy(() => true);
       await requestClosed;
-      assert.equal(calls, 1);
+      assert.strictEqual(calls, 1);
     }
   );
 });
@@ -708,6 +702,6 @@ testStable('decoder exceptions remain typed input failures before provider work'
     )
   );
 
-  assert.equal(failure.kind, 'invalid_input');
-  assert.equal(failure.message, 'Invalid agent input');
+  assert.ok(failure.kind === 'invalid_input');
+  assert.ok(failure.message === 'Invalid agent input');
 });

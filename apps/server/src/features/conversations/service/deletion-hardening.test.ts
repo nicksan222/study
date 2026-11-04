@@ -10,14 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sessionDeletionRequestedSchema } from '@study/contracts/events';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Option } from 'effect';
 import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import {
@@ -53,9 +53,8 @@ testStable(
 
           assert.ok(Option.isNone(yield* status.findSessionDeletion(saved.session.id)));
 
-          assert.equal(
-            (yield* Effect.flip(status.sessionDeletion(saved.session.id))).kind,
-            'not_found'
+          assert.ok(
+            (yield* Effect.flip(status.sessionDeletion(saved.session.id))).kind === 'not_found'
           );
 
           const owned = yield* ownership.deletionOwnership(saved.session.id);
@@ -68,7 +67,7 @@ testStable(
 
           const retained = yield* correlations.deletionCorrelation(saved.session.id);
 
-          assert.equal(
+          assert.strictEqual(
             (yield* status.sessionDeletion(saved.session.id)).operationId,
             accepted.operationId
           );
@@ -77,14 +76,15 @@ testStable(
 
           assert.ok(retained.correlations.includes(saved.capture.requestId));
 
-          assert.deepEqual((yield* ownership.deletionOwnership(saved.session.id)).contextIds, []);
+          expect((yield* ownership.deletionOwnership(saved.session.id)).contextIds).toStrictEqual(
+            []
+          );
 
-          assert.deepEqual(
+          expect(
             yield* transaction((tx) =>
               tx.store(SessionDeletionCorrelationStore).deletionCorrelation(saved.session.id)
-            ),
-            retained
-          );
+            )
+          ).toStrictEqual(retained);
         }).pipe(Effect.provide(fixture.domain()))
       );
 
@@ -96,7 +96,7 @@ testStable(
 
           const correlations = yield* useStore(SessionDeletionCorrelationStore);
 
-          assert.equal((yield* status.sessionDeletion(saved.session.id)).attempt, 1);
+          assert.strictEqual((yield* status.sessionDeletion(saved.session.id)).attempt, 1);
 
           assert.ok(
             (yield* correlations.deletionCorrelation(saved.session.id)).correlations.includes(
@@ -175,7 +175,7 @@ for (const state of ['running', 'suspended'] as const) {
                 payload: { event: { ...event, eventId: `${accepted.operationId}/older` } }
               });
 
-              assert.deepEqual(yield* chats.retrySessionDeletion(saved.session.id), accepted);
+              expect(yield* chats.retrySessionDeletion(saved.session.id)).toStrictEqual(accepted);
 
               yield* engine.execute(probe, {
                 executionId: 'other-operation',
@@ -198,21 +198,21 @@ for (const state of ['running', 'suspended'] as const) {
                 Workflows.correlatedExecutions(tx, accepted.operationId, event.eventId)
               );
 
-              assert.deepEqual(runs.map((run) => run.id).sort(), [
+              expect(runs.map((run) => run.id).sort()).toStrictEqual([
                 'current-held',
                 'current-terminal'
               ]);
 
-              assert.equal(
+              assert.strictEqual(
                 (yield* transaction((tx) =>
                   Workflows.correlatedExecutions(tx, accepted.operationId)
                 )).length,
                 3
               );
 
-              assert.deepEqual(yield* chats.retrySessionDeletion(saved.session.id), accepted);
+              expect(yield* chats.retrySessionDeletion(saved.session.id)).toStrictEqual(accepted);
 
-              assert.equal(deletionEvents(fixture).length, 1);
+              assert.strictEqual(deletionEvents(fixture).length, 1);
 
               if (state === 'running') yield* Deferred.succeed(release, undefined);
               else
@@ -227,22 +227,21 @@ for (const state of ['running', 'suspended'] as const) {
 
               const retry = yield* chats.retrySessionDeletion(saved.session.id);
 
-              assert.equal(retry.operationId, accepted.operationId);
+              assert.strictEqual(retry.operationId, accepted.operationId);
 
-              assert.equal(retry.attempt, 2);
+              assert.strictEqual(retry.attempt, 2);
 
-              assert.equal(deletionEvents(fixture).length, 2);
+              assert.strictEqual(deletionEvents(fixture).length, 2);
               // No attempt-2 execution exists yet: old terminal owners cannot cause a third attempt.
-              assert.deepEqual(yield* chats.retrySessionDeletion(saved.session.id), retry);
+              expect(yield* chats.retrySessionDeletion(saved.session.id)).toStrictEqual(retry);
 
-              assert.deepEqual(
+              expect(
                 yield* chats.failSessionDeletion({
                   sessionId: saved.session.id,
                   errorKind: 'internal',
                   attempt: 1
-                }),
-                retry
-              );
+                })
+              ).toStrictEqual(retry);
 
               yield* withTestPublication(
                 fixture.context,
@@ -251,9 +250,9 @@ for (const state of ['running', 'suspended'] as const) {
                   .pipe(Effect.asVoid)
               );
 
-              assert.deepEqual(yield* chats.sessionDeletion(saved.session.id), retry);
+              expect(yield* chats.sessionDeletion(saved.session.id)).toStrictEqual(retry);
 
-              assert.notEqual(
+              assert.notStrictEqual(
                 fixture.context.db.orm
                   .select()
                   .from(s.material_generation_requests)
@@ -267,7 +266,7 @@ for (const state of ['running', 'suspended'] as const) {
                 payload: { event }
               });
 
-              assert.deepEqual(yield* chats.sessionDeletion(saved.session.id), retry);
+              expect(yield* chats.sessionDeletion(saved.session.id)).toStrictEqual(retry);
 
               yield* engine.execute(sessionDeletionWorkflow, {
                 executionId: 'current-cleanup',
@@ -276,22 +275,21 @@ for (const state of ['running', 'suspended'] as const) {
 
               const completed = yield* chats.sessionDeletion(saved.session.id);
 
-              assert.equal(completed.status, 'completed');
+              assert.ok(completed.status === 'completed');
 
-              assert.equal(completed.attempt, 2);
+              assert.strictEqual(completed.attempt, 2);
 
-              assert.deepEqual(
+              expect(
                 yield* chats.failSessionDeletion({
                   sessionId: saved.session.id,
                   errorKind: 'internal',
                   attempt: 1
-                }),
-                completed
-              );
+                })
+              ).toStrictEqual(completed);
 
-              assert.deepEqual(yield* chats.retrySessionDeletion(saved.session.id), completed);
+              expect(yield* chats.retrySessionDeletion(saved.session.id)).toStrictEqual(completed);
 
-              assert.equal(deletionEvents(fixture).length, 2);
+              assert.strictEqual(deletionEvents(fixture).length, 2);
             }).pipe(Effect.provide(fixture.services()))
           )
         );

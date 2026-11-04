@@ -11,16 +11,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -104,20 +105,19 @@ testStable(
               ].map((table) => context.db.orm.select().from(table).all().length);
             const empty = counts();
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 rpc('conversations.ask', { ...input, expectedSelectionRevision: 0n })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.deepEqual(counts(), empty);
+            expect(counts()).toStrictEqual(empty);
 
             // Abort at the final outbox insert, after note, capture and pending reply writes.
             context.db.orm.run(
               sql`CREATE TRIGGER reject_ask_outbox BEFORE INSERT ON workflow_events WHEN NEW.type='ConversationGenerationRequested' BEGIN SELECT RAISE(ABORT,'injected Ask commit failure'); END`
             );
             yield* Effect.flip(rpc('conversations.ask', input));
-            assert.deepEqual(counts(), empty);
+            expect(counts()).toStrictEqual(empty);
             context.db.orm.run(sql`DROP TRIGGER reject_ask_outbox`);
             // An uncommitted key still has to match the displayed selection revision.
             yield* rpc('conversations.updateSessionSelection', {
@@ -125,11 +125,10 @@ testStable(
               expectedRevision: 1n,
               targets: []
             });
-            assert.equal(
-              (yield* Effect.flip(rpc('conversations.ask', input))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(rpc('conversations.ask', input))).kind === 'invalid_input'
             );
-            assert.deepEqual(counts(), empty);
+            expect(counts()).toStrictEqual(empty);
             const submitted = { ...input, expectedSelectionRevision: 2n };
             const duplicates = yield* Effect.all(
               [rpc('conversations.ask', submitted), rpc('conversations.ask', submitted)],
@@ -137,19 +136,16 @@ testStable(
             );
             const result = duplicates[0]!;
 
-            assert.deepEqual(duplicates[1], result);
-            assert.deepEqual(
-              counts().map((n, i) => n - empty[i]!),
-              [2, 2, 1, 1, 1]
-            );
+            expect(duplicates[1]).toStrictEqual(result);
+            expect(counts().map((n, i) => n - empty[i]!)).toStrictEqual([2, 2, 1, 1, 1]);
             const captured = yield* rpc('conversations.inspectSessionContext', {
               requestId: result.requestId
             });
 
-            assert.equal(captured.throughMessageId, result.userMessageId);
-            assert.equal(captured.messages.at(-1)?.versionId, result.userVersionId);
-            assert.equal(captured.messages.at(-1)?.text, 'Explain this');
-            assert.equal(
+            assert.strictEqual(captured.throughMessageId, result.userMessageId);
+            assert.strictEqual(captured.messages.at(-1)?.versionId, result.userVersionId);
+            assert.ok(captured.messages.at(-1)?.text === 'Explain this');
+            assert.strictEqual(
               (yield* rpc('conversations.message', { id: result.messageId })).replyTo,
               result.userMessageId
             );
@@ -162,19 +158,17 @@ testStable(
               { ...submitted, sourceIds: [source.id] },
               { ...submitted, threadRoot: root.parts[0]!.id }
             ])
-              assert.equal(
-                (yield* Effect.flip(rpc('conversations.ask', changed))).kind,
-                'invalid_input'
+              assert.ok(
+                (yield* Effect.flip(rpc('conversations.ask', changed))).kind === 'invalid_input'
               );
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 rpc('conversations.requestReply', {
                   sessionId: session.id,
                   intentKey: submitted.intentKey
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
             yield* withTestPublication(
               context,
@@ -197,30 +191,27 @@ testStable(
                 }
               ]
             });
-            assert.deepEqual(
+            expect(
               yield* rpc('conversations.ask', {
                 ...submitted,
                 text: 'Explain this',
                 sourceIds: []
-              }),
-              result
-            );
-            assert.deepEqual(
-              yield* rpc('conversations.inspectSessionContext', { requestId: result.requestId }),
-              captured
-            );
+              })
+            ).toStrictEqual(result);
+            expect(
+              yield* rpc('conversations.inspectSessionContext', { requestId: result.requestId })
+            ).toStrictEqual(captured);
             // Replay must retain the captured user version even after its note is edited.
             const editedNote = yield* rpc('conversations.editMessage', {
               messageId: result.userMessageId,
               text: 'Edited after capture'
             });
 
-            assert.notEqual(editedNote.activeVersionId, result.userVersionId);
-            assert.deepEqual(yield* rpc('conversations.ask', submitted), result);
-            assert.deepEqual(
-              yield* rpc('conversations.inspectSessionContext', { requestId: result.requestId }),
-              captured
-            );
+            assert.notStrictEqual(editedNote.activeVersionId, result.userVersionId);
+            expect(yield* rpc('conversations.ask', submitted)).toStrictEqual(result);
+            expect(
+              yield* rpc('conversations.inspectSessionContext', { requestId: result.requestId })
+            ).toStrictEqual(captured);
             const rewrite = yield* rpc('conversations.rewriteMessage', {
               messageId: result.messageId,
               origin: 'improve'
@@ -254,36 +245,31 @@ testStable(
               versionId: result.versionId
             };
 
-            assert.deepEqual(yield* rpc('conversations.replyVersion', key), {
+            expect(yield* rpc('conversations.replyVersion', key)).toStrictEqual({
               state: 'available',
               requestId: result.requestId
             });
-            assert.deepEqual(
-              yield* rpc('conversations.replyVersion', { ...key, versionId: rewrite.versionId }),
-              { state: 'available', requestId: rewrite.requestId }
-            );
-            assert.deepEqual(
-              yield* rpc('conversations.replyVersion', { ...key, versionId: reanswer.versionId }),
-              { state: 'available', requestId: reanswer.requestId }
-            );
-            assert.deepEqual(
+            expect(
+              yield* rpc('conversations.replyVersion', { ...key, versionId: rewrite.versionId })
+            ).toStrictEqual({ state: 'available', requestId: rewrite.requestId });
+            expect(
+              yield* rpc('conversations.replyVersion', { ...key, versionId: reanswer.versionId })
+            ).toStrictEqual({ state: 'available', requestId: reanswer.requestId });
+            expect(
               yield* rpc('conversations.replyVersion', {
                 ...key,
                 versionId: edited.activeVersionId!
-              }),
-              { state: 'manual' }
-            );
-            assert.equal(
+              })
+            ).toStrictEqual({ state: 'manual' });
+            assert.ok(
               (yield* Effect.flip(
                 rpc('conversations.replyVersion', { ...key, sessionId: other.id })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 rpc('conversations.replyVersion', { ...key, versionId: result.userVersionId })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
             const attachmentInput = {
               sessionId: other.id,
@@ -296,8 +282,8 @@ testStable(
             const threaded = yield* rpc('conversations.ask', attachmentInput);
             const attached = yield* rpc('conversations.message', { id: threaded.userMessageId });
 
-            assert.equal(attached.threadRoot, root.parts[0]!.id);
-            assert.equal(attached.parts[0]?.sourceId, source.id);
+            assert.strictEqual(attached.threadRoot, root.parts[0]!.id);
+            assert.strictEqual(attached.parts[0]?.sourceId, source.id);
             const attachmentSnapshot = yield* rpc('conversations.replySnapshot', {
               requestId: threaded.requestId
             });
@@ -307,7 +293,7 @@ testStable(
                 (part) => part.sourceId === source.id && part.messageId === threaded.userMessageId
               )
             );
-            assert.equal(
+            assert.strictEqual(
               attachmentSnapshot.context?.messages.at(-1)?.versionId,
               threaded.userVersionId
             );
@@ -322,15 +308,14 @@ testStable(
               .get();
 
             yield* (yield* Sources).setSourceProject({ id: source.id, projectId: movedProject.id });
-            assert.deepEqual(yield* rpc('conversations.ask', attachmentInput), threaded);
-            assert.deepEqual(
+            expect(yield* rpc('conversations.ask', attachmentInput)).toStrictEqual(threaded);
+            expect(
               yield* rpc('conversations.replyVersion', {
                 sessionId: other.id,
                 messageId: threaded.messageId,
                 versionId: threaded.versionId
-              }),
-              { state: 'available', requestId: threaded.requestId }
-            );
+              })
+            ).toStrictEqual({ state: 'available', requestId: threaded.requestId });
 
             return {
               submitted,
@@ -352,38 +337,34 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
 
-            assert.deepEqual(yield* rpc('conversations.ask', saved.submitted), saved.result);
-            assert.deepEqual(
+            expect(yield* rpc('conversations.ask', saved.submitted)).toStrictEqual(saved.result);
+            expect(
               yield* rpc('conversations.inspectSessionContext', {
                 requestId: saved.result.requestId
-              }),
-              saved.captured
-            );
-            assert.deepEqual(yield* rpc('conversations.replyVersion', saved.key), {
+              })
+            ).toStrictEqual(saved.captured);
+            expect(yield* rpc('conversations.replyVersion', saved.key)).toStrictEqual({
               state: 'available',
               requestId: saved.result.requestId
             });
-            assert.deepEqual(
+            expect(
               yield* rpc('conversations.replyVersion', {
                 ...saved.key,
                 versionId: saved.rewrite.versionId
-              }),
-              { state: 'available', requestId: saved.rewrite.requestId }
-            );
-            assert.deepEqual(
+              })
+            ).toStrictEqual({ state: 'available', requestId: saved.rewrite.requestId });
+            expect(
               yield* rpc('conversations.replyVersion', {
                 ...saved.key,
                 versionId: saved.reanswer.versionId
-              }),
-              { state: 'available', requestId: saved.reanswer.requestId }
-            );
-            assert.deepEqual(
+              })
+            ).toStrictEqual({ state: 'available', requestId: saved.reanswer.requestId });
+            expect(
               yield* rpc('conversations.replyVersion', {
                 ...saved.key,
                 versionId: saved.manualVersionId
-              }),
-              { state: 'manual' }
-            );
+              })
+            ).toStrictEqual({ state: 'manual' });
           }).pipe(Effect.provide(handlers()))
         )
       );
@@ -425,10 +406,7 @@ testStable(
           const result = yield* c.ask(input);
           const note = yield* c.message(result.userMessageId);
 
-          assert.deepEqual(
-            note.parts.map((part) => part.sourceId),
-            [first.id, second.id]
-          );
+          expect(note.parts.map((part) => part.sourceId)).toStrictEqual([first.id, second.id]);
           const counts = () => [
             f.context.db.orm.select().from(s.messages).all().length,
             f.context.db.orm.select().from(s.session_run_contexts).all().length,
@@ -437,13 +415,13 @@ testStable(
           ];
           const committed = counts();
 
-          assert.equal(
-            (yield* Effect.flip(c.ask({ ...input, sourceIds: [second.id, first.id] }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(c.ask({ ...input, sourceIds: [second.id, first.id] }))).kind ===
+              'invalid_input'
           );
-          assert.deepEqual(counts(), committed);
-          assert.deepEqual(yield* c.ask(input), result);
-          assert.deepEqual(counts(), committed);
+          expect(counts()).toStrictEqual(committed);
+          expect(yield* c.ask(input)).toStrictEqual(result);
+          expect(counts()).toStrictEqual(committed);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -492,12 +470,12 @@ for (const mode of ['history', 'material', 'session'] as const) {
             const result = yield* c.ask(input);
             const captured = yield* c.inspectSessionContext({ requestId: result.requestId });
 
-            assert.equal(captured.selectionRevision, 1n);
-            assert.deepEqual(captured.inputs[0]?.input, {
+            assert.strictEqual(captured.selectionRevision, 1n);
+            expect(captured.inputs[0]?.input).toStrictEqual({
               kind: 'document',
               versionId: material.version!.id
             });
-            assert.equal(captured.messages.at(-1)?.versionId, result.userVersionId);
+            assert.strictEqual(captured.messages.at(-1)?.versionId, result.userVersionId);
             yield* withTestPublication(
               f.context,
               c
@@ -536,31 +514,29 @@ for (const mode of ['history', 'material', 'session'] as const) {
               });
 
               assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   docs.retireHistory({
                     documentId: saved.material.id,
                     keepLatest: 1,
                     token: preview.token
                   })
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
             } else if (mode === 'material') {
               const preview = yield* docs.previewDeletion({ id: saved.material.id });
 
               assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   docs.delete({ documentId: saved.material.id, token: preview.token })
-                )).kind,
-                'invalid_input'
+                )).kind === 'invalid_input'
               );
             }
 
             const chats = yield* Conversations;
 
-            assert.deepEqual(yield* chats.ask(saved.input), saved.result);
+            expect(yield* chats.ask(saved.input)).toStrictEqual(saved.result);
             yield* chats.deleteSession(saved.session.id);
           }).pipe(Effect.provide(f.domain()))
         );
@@ -571,19 +547,22 @@ for (const mode of ['history', 'material', 'session'] as const) {
             const c = yield* Conversations;
             const count = f.context.db.orm.select().from(s.messages).all().length;
 
-            assert.equal((yield* Effect.flip(c.ask(saved.input))).kind, 'not_found');
-            assert.equal(f.context.db.orm.select().from(s.messages).all().length, count);
+            assert.ok((yield* Effect.flip(c.ask(saved.input))).kind === 'not_found');
+            assert.strictEqual(f.context.db.orm.select().from(s.messages).all().length, count);
             const key = {
               sessionId: saved.session.id,
               messageId: saved.result.messageId,
               versionId: saved.result.versionId
             };
 
-            assert.equal((yield* Effect.flip(c.replyVersion(key))).kind, 'not_found');
+            assert.ok((yield* Effect.flip(c.replyVersion(key))).kind === 'not_found');
             const docs = yield* Documents;
 
-            assert.equal((yield* docs.document({ id: saved.material.id })).id, saved.material.id);
-            assert.equal(
+            assert.strictEqual(
+              (yield* docs.document({ id: saved.material.id })).id,
+              saved.material.id
+            );
+            assert.strictEqual(
               f.context.db.orm
                 .select()
                 .from(s.session_run_contexts)

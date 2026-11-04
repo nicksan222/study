@@ -16,14 +16,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -99,10 +98,13 @@ testStable(
             discard: true
           });
           yield* awaitStatus(engine, 'Suspended');
-          assert.equal(calls, 1);
-          assert.equal(yield* notifyConfigurationChanged(context, engine, revision), 0);
-          assert.equal(calls, 1);
-          assert.equal(context.db.orm.select().from(workflow_configuration_waits).all().length, 1);
+          assert.strictEqual(calls, 1);
+          assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 0);
+          assert.strictEqual(calls, 1);
+          assert.strictEqual(
+            context.db.orm.select().from(workflow_configuration_waits).all().length,
+            1
+          );
         }).pipe(Effect.provide(services()), Effect.scoped)
       );
       context.close();
@@ -113,12 +115,15 @@ testStable(
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
           yield* engine.register(workflow, () => retryResumableActivity(activity));
-          assert.equal(yield* notifyConfigurationChanged(context, engine, revision), 1);
+          assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
           const complete = yield* awaitStatus(engine, 'Complete');
 
-          assert.equal(complete._tag, 'Complete');
-          assert.equal(calls, 2);
-          assert.equal(context.db.orm.select().from(workflow_configuration_waits).all().length, 0);
+          assert.ok(complete._tag === 'Complete');
+          assert.strictEqual(calls, 2);
+          assert.strictEqual(
+            context.db.orm.select().from(workflow_configuration_waits).all().length,
+            0
+          );
         }).pipe(Effect.provide(services()), Effect.scoped)
       );
     } finally {
@@ -192,9 +197,9 @@ testStable(
           });
           yield* wait('race', 'Suspended');
           ready = true;
-          assert.equal(yield* notifyConfigurationChanged(context, engine, revision), 1);
+          assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
           yield* wait('race', 'Complete');
-          assert.equal(calls, 2);
+          assert.strictEqual(calls, 2);
 
           ready = false;
           yield* engine.execute(workflow, {
@@ -208,15 +213,17 @@ testStable(
           revision = 'after-cancellation';
           yield* notifyConfigurationChanged(context, engine, revision);
           yield* wait('cancel', 'Complete');
-          assert.equal(calls, 3);
-          assert.equal(context.db.orm.select().from(workflow_configuration_waits).all().length, 0);
-          assert.equal(
+          assert.strictEqual(calls, 3);
+          assert.strictEqual(
+            context.db.orm.select().from(workflow_configuration_waits).all().length,
+            0
+          );
+          assert.ok(
             context.db.orm
               .select()
               .from(workflow_executions)
               .all()
-              .find((row) => row.execution_id === 'cancel')?.status,
-            'cancelled'
+              .find((row) => row.execution_id === 'cancel')?.status === 'cancelled'
           );
         }).pipe(Effect.provide(services), Effect.scoped)
       );
@@ -272,7 +279,7 @@ for (const kind of ['invalid_input', 'transient'] as const) {
               const state = yield* engine.poll(workflow, 'limit');
 
               if (Option.isSome(state) && state.value._tag === 'Complete') {
-                assert.equal(calls, kind === 'transient' ? 3 : 1);
+                assert.strictEqual(calls, kind === 'transient' ? 3 : 1);
 
                 return;
               }

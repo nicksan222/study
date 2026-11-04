@@ -15,13 +15,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
 
 import { StudyError } from '@study/contracts/errors';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Schema } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { generateAgent, layer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
@@ -86,8 +86,8 @@ testStable(
 
           yield* Effect.yieldNow;
           yield* Fiber.interrupt(queued);
-          assert.equal(queuedChecks, 0);
-          assert.equal(responses.length, 2);
+          assert.strictEqual(queuedChecks, 0);
+          assert.strictEqual(responses.length, 2);
           const rejected = yield* Effect.forkChild(
             run(
               Effect.sync(() => {
@@ -97,7 +97,7 @@ testStable(
           );
 
           yield* Effect.yieldNow;
-          assert.equal(queuedChecks, 0);
+          assert.strictEqual(queuedChecks, 0);
 
           for (const res of responses) {
             res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -116,11 +116,11 @@ testStable(
             res.end();
           }
 
-          assert.equal(yield* Fiber.join(first), 'ok');
-          assert.equal(yield* Fiber.join(second), 'ok');
-          assert.equal((yield* Effect.flip(Fiber.join(rejected))).kind, 'cancelled');
-          assert.equal(queuedChecks, 1);
-          assert.equal(responses.length, 2);
+          assert.strictEqual(yield* Fiber.join(first), 'ok');
+          assert.strictEqual(yield* Fiber.join(second), 'ok');
+          assert.ok((yield* Effect.flip(Fiber.join(rejected))).kind === 'cancelled');
+          assert.strictEqual(queuedChecks, 1);
+          assert.strictEqual(responses.length, 2);
         })
       );
     } finally {

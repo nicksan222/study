@@ -1,13 +1,13 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { replySnapshotSchema } from '@study/contracts/conversations/schemas';
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { requireRow } from './rows.ts';
@@ -112,17 +112,16 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('retire','capture',0,'{"private":"body"}');`);
       db.close();
       db = Db.open(path, migrations);
-      assert.deepEqual(
+      expect(
         db.orm
           .all(
             sql`SELECT request_id,part_id,revision,snapshot_id FROM conversation_reply_sources ORDER BY request_id`
           )
-          .map((row) => ({ ...row })),
-        [
-          { request_id: 'pending', part_id: 12n, revision: 2n, snapshot_id: null },
-          { request_id: 'ready', part_id: 11n, revision: 1n, snapshot_id: 1n }
-        ]
-      );
+          .map((row) => ({ ...row }))
+      ).toStrictEqual([
+        { request_id: 'pending', part_id: 12n, revision: 2n, snapshot_id: null },
+        { request_id: 'ready', part_id: 11n, revision: 1n, snapshot_id: 1n }
+      ]);
       const ready = JSON.parse(
         String(
           requireRow(
@@ -133,7 +132,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         )
       );
 
-      assert.deepEqual(ready.messages[0].attachments[0], {
+      expect(ready.messages[0].attachments[0]).toStrictEqual({
         partId: '11',
         sourceId: '1',
         sourceName: 'Input',
@@ -144,24 +143,24 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema)))(
         JSON.stringify(ready)
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT text FROM message_versions WHERE id=3`)).text,
         'Completed answer'
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT generation_request_id FROM message_versions WHERE id=3`))
           .generation_request_id,
         'ambiguous'
       );
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(sql`SELECT 1 FROM conversation_reply_requests WHERE request_id='ambiguous'`),
         undefined
       );
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(sql`SELECT 1 FROM session_run_contexts WHERE request_id='ambiguous'`),
         undefined
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(
             sql`SELECT request_id FROM session_retired_intents WHERE request_id='ambiguous'`
@@ -169,15 +168,12 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         ).request_id,
         'ambiguous'
       );
-      assert.deepEqual(
-        {
-          ...db.orm.get(
-            sql`SELECT status,payload,owner_token FROM workflow_executions WHERE execution_id='retire'`
-          )
-        },
-        { status: 'cancelled', payload: '{}', owner_token: null }
-      );
-      assert.equal(
+      expect({
+        ...db.orm.get(
+          sql`SELECT status,payload,owner_token FROM workflow_executions WHERE execution_id='retire'`
+        )
+      }).toStrictEqual({ status: 'cancelled', payload: '{}', owner_token: null });
+      assert.strictEqual(
         db.orm.get(sql`SELECT 1 FROM workflow_activities WHERE execution_id='retire'`),
         undefined
       );
@@ -191,17 +187,17 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         db!.exec("UPDATE conversation_reply_sources SET revision=3 WHERE request_id='pending'")
       );
       db.exec('DELETE FROM sessions WHERE id=1');
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT count(*) AS n FROM conversation_reply_sources`)).n,
         0n
       );
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       const identity = db.schemaIdentity();
 
       db.close();
       db = Db.open(path, migrations);
-      assert.equal(db.schemaIdentity(), identity);
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      assert.strictEqual(db.schemaIdentity(), identity);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db?.close();
       rmSync(folder, { recursive: true, force: true });
@@ -217,7 +213,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     const db = Db.open(':memory:', migrations);
 
     try {
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       assert.ok(
         db.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='conversation_reply_sources_capture'`)
       );

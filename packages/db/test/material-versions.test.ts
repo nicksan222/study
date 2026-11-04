@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
-import type { TestContext } from 'node:test';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 
 import type { Db } from '../src/index.ts';
 import { material_quiz_choices } from '../src/schema.ts';
@@ -12,7 +11,7 @@ function fixture(t: TestContext) {
   const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   const db = location.open();
 
-  t.after(() => {
+  t.onTestFinished(() => {
     db.close();
     location.cleanup();
   });
@@ -89,11 +88,11 @@ testStable(
         "INSERT INTO material_versions(material_id,kind,number,created_at) VALUES(999,'diagram',2,1)"
       )
     );
-    assert.equal(
+    assert.strictEqual(
       db.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_file_versions'`),
       undefined
     );
-    assert.equal(
+    assert.strictEqual(
       db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_versions`)?.n,
       1n
     );
@@ -167,7 +166,7 @@ testStable(
       'INSERT INTO material_evidence_inputs(version_id,position,document_version_id) VALUES(3,2,5)'
     );
     publish(db, 3n);
-    assert.equal(
+    assert.strictEqual(
       db.orm.get(sql`SELECT count(*) n FROM material_evidence_inputs WHERE version_id=3`)?.n,
       3n
     );
@@ -176,8 +175,8 @@ testStable(
       db.exec('UPDATE material_evidence_inputs SET version_id=1 WHERE version_id=3')
     );
     db.exec('DELETE FROM projects WHERE id=1');
-    assert.equal(db.orm.get(sql`SELECT count(*) n FROM study_document_versions`)?.n, 4n);
-    assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM study_document_versions`)?.n, 4n);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
@@ -207,7 +206,7 @@ testStable(
     db.exec(
       'INSERT INTO material_version_parents(version_id,parent_version_id,material_id) VALUES(4,1,1),(4,2,1)'
     );
-    assert.equal(
+    assert.strictEqual(
       db.orm.get<{ payload: string }>(
         sql`SELECT payload FROM material_diagram_versions WHERE version_id=1`
       )?.payload,
@@ -222,18 +221,17 @@ testStable(
     const db = fixture(t);
 
     original(db);
-    assert.equal(db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)?.n, 2n);
-    assert.equal(db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-    assert.deepEqual(
-      db.orm.get(sql`SELECT bytes FROM source_snapshots WHERE source_id=1`)?.bytes,
-      new Uint8Array([0, 1, 2, 3])
-    );
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)?.n, 2n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+    expect(
+      db.orm.get(sql`SELECT bytes FROM source_snapshots WHERE source_id=1`)?.bytes
+    ).toStrictEqual(new Uint8Array([0, 1, 2, 3]));
     assert.throws(() =>
       db.exec(
         "INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,0,X'01','audio','audio/wav')"
       )
     );
-    assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
@@ -273,7 +271,7 @@ testStable(
  DELETE FROM projects WHERE id=1;`);
 
     for (const table of ['sources', 'source_snapshots'])
-      assert.equal(db.orm.get(sql.raw(`SELECT count(*) n FROM ${table}`))?.n, 2n);
+      assert.strictEqual(db.orm.get(sql.raw(`SELECT count(*) n FROM ${table}`))?.n, 2n);
 
     for (const table of [
       'content_snapshots',
@@ -283,9 +281,9 @@ testStable(
       'session_documents',
       'session_materials'
     ])
-      assert.equal(db.orm.get(sql.raw(`SELECT count(*) n FROM ${table}`))?.n, 1n);
+      assert.strictEqual(db.orm.get(sql.raw(`SELECT count(*) n FROM ${table}`))?.n, 1n);
 
-    assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
@@ -300,15 +298,14 @@ testStable('correct quiz answers roundtrip through the ORM boolean codec', (t) =
   db.exec(
     "INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES(1,1,'single_choice',0,'yes',1),(2,1,'single_choice',1,'no',0)"
   );
-  assert.deepEqual(
+  expect(
     db.orm
       .select()
       .from(material_quiz_choices)
       .orderBy(material_quiz_choices.id)
       .all()
-      .map((c) => c.is_correct),
-    [true, false]
-  );
+      .map((c) => c.is_correct)
+  ).toStrictEqual([true, false]);
 });
 
 testStable(
@@ -322,7 +319,10 @@ testStable(
  INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(2,1,1);
  INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,2,1,1);
  UPDATE sources SET project_id=2 WHERE id=1;`);
-    assert.equal(db.orm.get(sql`SELECT source_id FROM material_evidence_inputs`)?.source_id, 2n);
+    assert.strictEqual(
+      db.orm.get(sql`SELECT source_id FROM material_evidence_inputs`)?.source_id,
+      2n
+    );
   }
 );
 
@@ -369,8 +369,8 @@ testStable(
  INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(1,1,1);
  INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,1,1,1);
  DELETE FROM material_versions WHERE id=1;`);
-    assert.equal(db.orm.get(sql`SELECT count(*) n FROM content_snapshots`)?.n, 1n);
-    assert.equal(db.orm.get(sql`SELECT count(*) n FROM source_extraction_revisions`)?.n, 1n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM content_snapshots`)?.n, 1n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM source_extraction_revisions`)?.n, 1n);
   }
 );
 
@@ -408,7 +408,7 @@ testStable('material citations enforce positive unsigned 32 bit markers', (t) =>
 
   for (const marker of [1n, 4294967295n]) insert(marker);
 
-  assert.equal(
+  assert.strictEqual(
     db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_evidence_citations`)?.n,
     2n
   );
@@ -435,9 +435,8 @@ testStable('fresh canonical migrations preserve all published citation mutation 
   ])
     assert.throws(() => db.orm.run(statement));
 
-  assert.deepEqual(
-    db.orm.all(sql`SELECT marker,anchor,quote FROM material_evidence_citations WHERE version_id=2`),
-    [{ marker: 1n, anchor: '{"type":"authored"}', quote: 'Original quote' }]
-  );
-  assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+  expect(
+    db.orm.all(sql`SELECT marker,anchor,quote FROM material_evidence_citations WHERE version_id=2`)
+  ).toStrictEqual([{ marker: 1n, anchor: '{"type":"authored"}', quote: 'Original quote' }]);
+  expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
 });

@@ -11,12 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Recordings } from '#server/features/recordings/index';

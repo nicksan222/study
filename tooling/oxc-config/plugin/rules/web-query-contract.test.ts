@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -16,7 +15,7 @@ testStable('keeps Effects and runtime execution out of React and query definitio
     true
   );
 
-  assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
 
 testStable('requires shared query definitions rather than inline request functions', () => {
@@ -33,13 +32,13 @@ testStable('requires shared query definitions rather than inline request functio
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable(
   'allows Schema validation, type contracts, query adapters and startup appearance',
   () => {
-    assert.deepEqual(
+    expect(
       lintRule(
         'web-query-contract',
         {
@@ -56,9 +55,8 @@ testStable(
           'apps/web/src/lib/effect/runtime.test.ts': `import { Effect } from 'effect';`
         },
         true
-      ),
-      []
-    );
+      )
+    ).toStrictEqual([]);
   }
 );
 
@@ -77,13 +75,13 @@ testStable('rejects nested generators including aliased Effect imports', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
   'Material pagination and import mutation definitions belong to shared query modules',
   () => {
-    assert.equal(
+    assert.strictEqual(
       lintRule(
         'web-query-contract',
         {
@@ -94,7 +92,7 @@ testStable(
       ).length,
       3
     );
-    assert.deepEqual(
+    expect(
       lintRule(
         'web-query-contract',
         {
@@ -102,16 +100,15 @@ testStable(
           'apps/web/src/features/material-library/import-operation.ts': `import {useMutation} from '@tanstack/react-query'; import {importMutationOptions} from './material-library.queries'; export const useImport = () => useMutation(importMutationOptions());`
         },
         true
-      ),
-      []
-    );
+      )
+    ).toStrictEqual([]);
   }
 );
 
 testStable(
   'creation recovery consumes shared infinite query options without moving page requests into the component',
   () => {
-    assert.deepEqual(
+    expect(
       lintRule(
         'web-query-contract',
         {
@@ -122,9 +119,8 @@ testStable(
     `
         },
         true
-      ),
-      []
-    );
+      )
+    ).toStrictEqual([]);
     const diagnostics = lintRule(
       'web-query-contract',
       {
@@ -136,14 +132,14 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
 
 testStable(
   'unavailable session reconciliation consumes shared selection, thread and generation options',
   () => {
-    assert.deepEqual(
+    expect(
       lintRule(
         'web-query-contract',
         {
@@ -161,9 +157,8 @@ testStable(
     `
         },
         true
-      ),
-      []
-    );
+      )
+    ).toStrictEqual([]);
     const diagnostics = lintRule(
       'web-query-contract',
       {
@@ -176,6 +171,6 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
