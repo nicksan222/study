@@ -432,3 +432,38 @@ testStable('application shutdown closes an unfinished sign-in callback', async (
 
   await listenerClosed(redirect);
 });
+
+testStable('ChatGPT host identity is valid, distinct, and survives server restart', async () => {
+  const first = await fixture();
+  let hostId: string | null = null;
+  const start = (baseUrl: string) =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* makeStudyClient(StudyRpc, { baseUrl });
+          const attempt = yield* client['auth.startSignIn']({});
+          const hostId = new URL(attempt.url).searchParams.get('ext_agent_host_id');
+          yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId });
+          return hostId;
+        })
+      )
+    );
+
+  try {
+    hostId = await start(first.url);
+    expect(hostId).toMatch(
+      /^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
+    expect(await start(first.url)).toBe(hostId);
+    await first.reopen();
+    expect(await start(first.url)).toBe(hostId);
+  } finally {
+    await first.close();
+  }
+  const second = await fixture();
+  try {
+    expect(await start(second.url)).not.toBe(hostId);
+  } finally {
+    await second.close();
+  }
+});

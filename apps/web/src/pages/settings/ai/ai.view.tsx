@@ -4,6 +4,7 @@ import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 import { SignInActions } from '@study/ui/sign-in-actions';
+import { Spinner } from '@study/ui/spinner';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -51,14 +52,15 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
                 }
               >
                 {model.attempt ? (
-                  <SignInActions url={model.attempt.url} linkLabel={t('AiSettingsOpenSignIn')}>
-                    <Button variant="outline" disabled={model.pending} onClick={model.finish}>
-                      {t('AiSettingsFinishSignIn')}
-                    </Button>
-                    <Button variant="ghost" disabled={model.cancelling} onClick={model.cancel}>
-                      {t('AiSettingsCancelSignIn')}
-                    </Button>
-                  </SignInActions>
+                  model.popupBlocked ? (
+                    <SignInActions url={model.attempt.url} linkLabel={t('AiSettingsOpenSignIn')}>
+                      <Button variant="ghost" disabled={model.cancelling} onClick={model.cancel}>
+                        {t('AiSettingsCancelSignIn')}
+                      </Button>
+                    </SignInActions>
+                  ) : (
+                    <Spinner size="md" label={t('AiSettingsWaiting')} />
+                  )
                 ) : model.data.status.signedIn ? (
                   <Button variant="outline" disabled={model.pending} onClick={model.signOut}>
                     {t('AiSettingsSignOut')}
@@ -70,11 +72,6 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
                 )}
               </Settings.Row>
             </Settings.Group>
-            {model.attempt && (
-              <Settings.Empty>
-                {t(model.finishing ? 'AiSettingsWaiting' : 'AiSettingsSignInInstructions')}
-              </Settings.Empty>
-            )}
           </Settings.Section>
           <Settings.Section title={t('AiSettingsModels')}>
             <Settings.Group>

@@ -66,6 +66,28 @@ export const AuthStore = defineStore({
         })
       },
       mutations: {
+        ensureHostId: storeMutation({
+          input: Schema.Void,
+          output: Schema.String,
+          run: () => {
+            const row = db.orm
+              .select()
+              .from(preferences)
+              .where(sql`${preferences.scope} = ${scope} AND ${preferences.key} = ${'host-id'}`)
+              .get();
+
+            if (row) return Schema.decodeUnknownSync(Schema.String)(JSON.parse(row.value));
+
+            const hostId = `urn:uuid:${randomUUID()}`;
+
+            db.orm
+              .insert(preferences)
+              .values({ scope, key: 'host-id', value: JSON.stringify(hostId) })
+              .run();
+
+            return hostId;
+          }
+        }),
         sanitizeBackup: storeMutation({
           input: Schema.Void,
           output: Schema.Void,

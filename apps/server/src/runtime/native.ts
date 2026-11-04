@@ -68,7 +68,7 @@ export function nativeLayers(
   store: ServerContext,
   manager: AuthManager,
   issuer: string,
-  hostId: string,
+  hostId: string | undefined,
   lifecycle: WorkerLifecycle['Service'],
   control: WorkflowControl['Service'],
   request?: typeof fetch

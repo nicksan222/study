@@ -254,11 +254,13 @@ function* makeAuth() {
 
           const { version } = yield* cancel();
 
+          const resolvedHostId =
+            hostId ?? (yield* transaction((tx) => tx.store(AuthStore).ensureHostId(undefined)));
           const scope = yield* Scope.make();
 
           const signin = yield* acquireSignIn({
             issuer,
-            hostId,
+            hostId: resolvedHostId,
             reconsent: input.reconsent,
             fetch: request
           }).pipe(Scope.provide(scope), Effect.mapError(authFailure));

@@ -25,6 +25,12 @@ export function useAiSettings() {
   const client = useQueryClient();
   const query = useQuery(aiSettingsQueryOptions());
   const [attempt, setAttempt] = useState<SignInAttempt>();
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  const browser = useRef<Window | null>(null);
+  const closeBrowser = () => {
+    browser.current?.close();
+    browser.current = null;
+  };
   const owned = useRef<SignInAttempt | undefined>(undefined);
   const mounted = useRef(true);
   const finishing = useRef<AbortController | undefined>(undefined);
@@ -40,21 +46,37 @@ export function useAiSettings() {
 
       owned.current = value;
       setAttempt(value);
-    }
+      if (browser.current && !browser.current.closed) browser.current.location.replace(value.url);
+      else setPopupBlocked(true);
+      finishing.current = new AbortController();
+      finish.mutate({ attemptId: value.attemptId, signal: finishing.current.signal });
+    },
+    onError: closeBrowser
   });
   const finish = useMutation({
     ...finishSignInOptions(),
-    onSuccess: () => {
+    onSuccess: (_result, input) => {
+      if (owned.current?.attemptId !== input.attemptId) return;
+
       owned.current = undefined;
       setAttempt(undefined);
+      closeBrowser();
 
       return refresh();
+    },
+    onError: (_error, input) => {
+      if (owned.current?.attemptId !== input.attemptId) return;
+
+      owned.current = undefined;
+      setAttempt(undefined);
+      closeBrowser();
     }
   });
   const cancel = useMutation({
     ...cancelSignInOptions(),
     onSuccess: () => {
       finishing.current?.abort();
+      closeBrowser();
       owned.current = undefined;
       setAttempt(undefined);
       finish.reset();
@@ -72,6 +94,7 @@ export function useAiSettings() {
     return () => {
       mounted.current = false;
       finishing.current?.abort();
+      closeBrowser();
 
       if (owned.current) void disposeSignIn(owned.current.attemptId).catch(() => {});
     };
@@ -99,9 +122,9 @@ export function useAiSettings() {
       signOut,
       save
     ]),
-    finishing: finish.isPending,
     cancelling: cancel.isPending,
     attempt,
+    popupBlocked,
     retry: () => {
       start.reset();
       finish.reset();
@@ -110,12 +133,13 @@ export function useAiSettings() {
       save.reset();
       void query.refetch();
     },
-    start: () => start.mutate(),
-    finish: () => {
-      if (!attempt) return;
-
-      finishing.current = new AbortController();
-      finish.mutate({ attemptId: attempt.attemptId, signal: finishing.current.signal });
+    start: () => {
+      finish.reset();
+      cancel.reset();
+      browser.current = window.open('about:blank', '_blank');
+      if (browser.current) browser.current.opener = null;
+      setPopupBlocked(browser.current === null);
+      start.mutate();
     },
     cancel: () => {
       if (attempt) cancel.mutate(attempt.attemptId);

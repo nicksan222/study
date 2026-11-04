@@ -145,7 +145,7 @@ export class App {
           store,
           auth,
           issuer,
-          options.hostId ?? 'study',
+          options.hostId,
           {
             started: Effect.sync(() => workers.started),
             start: Effect.tryPromise({

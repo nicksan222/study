@@ -20,12 +20,11 @@ testStable('renders connected account and localized model controls without reque
     loading: false,
     error: false,
     pending: false,
-    finishing: false,
     cancelling: false,
     attempt: undefined,
+    popupBlocked: false,
     retry: vi.fn(),
     start: vi.fn(),
-    finish: vi.fn(),
     cancel: vi.fn(),
     signOut: vi.fn(),
     setModel: vi.fn()

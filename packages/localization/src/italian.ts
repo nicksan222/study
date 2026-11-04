@@ -958,10 +958,8 @@ export const italian = Object.freeze({
   AiSettingsSignIn: 'Accedi a ChatGPT',
   AiSettingsSignOut: 'Esci',
   AiSettingsOpenSignIn: 'Apri l’accesso a ChatGPT',
-  AiSettingsFinishSignIn: 'Ho completato l’accesso',
   AiSettingsCancelSignIn: 'Annulla accesso',
-  AiSettingsSignInInstructions: 'Apri il link, completa l’accesso nel browser e conferma qui.',
-  AiSettingsWaiting: 'In attesa dell’accesso a ChatGPT. Puoi annullare e riprovare.',
+  AiSettingsWaiting: 'In attesa dell’accesso a ChatGPT.',
   AiSettingsFailed:
     'Impossibile aggiornare le impostazioni IA. Riprova per verificare la connessione.',
   AiSettingsModels: 'Modelli per attività',
