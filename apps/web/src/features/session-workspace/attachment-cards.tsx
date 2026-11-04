@@ -13,6 +13,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { sourceOptions as attachmentSourceOptions } from '../source-library';
 import { appearances } from './attachment-appearance';
 import { useAttachmentMedia } from './attachment-cards.queries';
+import { ItemContextMenu } from './item-context-menu';
 import { notebookTargetId } from './notebook-index';
 import { SessionReadError } from './status';
 
@@ -65,24 +66,19 @@ function AttachmentCard({
     .filter(Boolean)
     .join(' · ');
 
-  if (compact)
-    return (
-      <WorkspaceAttachments.Item
-        render={attachmentTarget({
-          part,
-          source: source.data,
-          retry: () => void source.refetch(),
-          failed: !!source.error,
-          onOpenSource
-        })}
-        title={part.sourceName}
-      >
-        <Icon aria-hidden="true" />
-        <span>{part.sourceName}</span>
-      </WorkspaceAttachments.Item>
-    );
-
-  return (
+  const target = attachmentTarget({
+    part,
+    source: source.data,
+    retry: () => void source.refetch(),
+    failed: !!source.error,
+    onOpenSource
+  });
+  const card = compact ? (
+    <WorkspaceAttachments.Item render={target} title={part.sourceName}>
+      <Icon aria-hidden="true" />
+      <span>{part.sourceName}</span>
+    </WorkspaceAttachments.Item>
+  ) : (
     <Notebook.IndexTarget
       id={indexSessionId ? notebookTargetId(indexSessionId, 'attachment', part.id) : undefined}
       tabIndex={indexSessionId ? -1 : undefined}
@@ -101,18 +97,22 @@ function AttachmentCard({
             <SourcePreview part={part} />
           ) : undefined
         }
-        render={attachmentTarget({
-          part,
-          source: source.data,
-          retry: () => void source.refetch(),
-          failed: !!source.error,
-          onOpenSource
-        })}
+        render={target}
       />
       {source.error && (
         <SessionReadError error={source.error} retry={() => void source.refetch()} />
       )}
     </Notebook.IndexTarget>
+  );
+
+  return (
+    <ItemContextMenu
+      target={target}
+      disabled={!source.data && !source.error}
+      label={t(source.error && !source.data ? 'Retry' : 'OpenMaterial')}
+    >
+      {card}
+    </ItemContextMenu>
   );
 }
 

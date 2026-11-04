@@ -742,3 +742,59 @@ testStable(
     expect(editNote).not.toHaveBeenCalled();
   }
 );
+
+testStable('opens note actions on right click and edits the exact selected note', async () => {
+  mount(<VersionedNote />);
+  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
+  await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'SessionEditNote' }));
+  expect(await screen.findByRole('dialog')).toBeVisible();
+  expect(screen.getByRole('textbox', { name: 'SessionEditNote' })).toHaveValue('Current note');
+  expect(editNote).not.toHaveBeenCalled();
+});
+
+testStable(
+  'restricts historical note context actions to activating the selected version',
+  async () => {
+    mount(<VersionedNote />);
+    fireEvent.click(screen.getByRole('button', { name: 'SessionPreviousVersion' }));
+    fireEvent.contextMenu(screen.getByText('Historical note'), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(await screen.findByRole('menuitem', { name: 'SessionImprove' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByRole('menuitem', { name: 'SessionEditNote' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    await userEvent.setup().click(screen.getByRole('menuitem', { name: 'SessionUseVersion' }));
+    expect(await screen.findByRole('dialog')).toBeVisible();
+    expect(screen.getByRole('dialog')).toHaveTextContent('Historical note');
+    expect(activateVersion).not.toHaveBeenCalled();
+  }
+);
+
+testStable(
+  'keeps pending assistant message context actions disabled and hides note editing',
+  async () => {
+    const pending = {
+      ...message,
+      role: 'assistant' as const,
+      versions: message.versions.map((version) => ({ ...version, status: 'pending' as const }))
+    };
+    mount(<VersionedNote value={pending} />);
+    fireEvent.contextMenu(screen.getByText('Current note'), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(await screen.findByRole('menuitem', { name: 'SessionImprove' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.queryByRole('menuitem', { name: 'SessionEditNote' })).toBeNull();
+  }
+);

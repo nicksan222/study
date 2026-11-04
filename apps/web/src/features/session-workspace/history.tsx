@@ -25,6 +25,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { CapturedInputLink } from '../source-library';
 import { AttachmentCards } from './attachment-cards';
+import { ItemContextMenu } from './item-context-menu';
 import { MessageActions } from './message-actions';
 import { NoteContent, NoteSummary } from './note-editor';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
@@ -187,16 +188,21 @@ function DocumentEntry({
   const version = message.versions.find((item) => item.id === message.activeVersionId);
 
   return (
-    <Desk.DocumentCard
-      title={<NoteSummary value={version?.text ?? ''} fallback={t('SessionNewPage')} />}
-      preview={
-        message.description || (
-          <NoteSummary value={version?.text.split('\n').slice(1).join('\n') ?? ''} fallback="" />
-        )
-      }
-      onOpen={() => onOpen(message)}
-      active={active}
-    />
+    <ItemContextMenu
+      label={t('SessionOpenPage')}
+      target={<button type="button" onClick={() => onOpen(message)} />}
+    >
+      <Desk.DocumentCard
+        title={<NoteSummary value={version?.text ?? ''} fallback={t('SessionNewPage')} />}
+        preview={
+          message.description || (
+            <NoteSummary value={version?.text.split('\n').slice(1).join('\n') ?? ''} fallback="" />
+          )
+        }
+        onOpen={() => onOpen(message)}
+        active={active}
+      />
+    </ItemContextMenu>
   );
 }
 

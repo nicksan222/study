@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { useMessageActions } from './message-actions.queries';
+import { MessageContextMenu } from './message-context-menu';
 import { MessageVersionStepper } from './message-version-stepper';
 import { NoteEditor } from './note-editor';
 import { ExecutionStatus, SessionError } from './status';
@@ -39,8 +40,10 @@ export function MessageActions({
 
   return (
     <>
-      {children}
-      <MessageToolbar model={model} onVersionChange={onVersionChange} />
+      <MessageContextMenu model={model}>
+        {children}
+        <MessageToolbar model={model} onVersionChange={onVersionChange} />
+      </MessageContextMenu>
       <MessageEditDialog model={model} />
       {!draft.mode && <MessageRecovery model={model} />}
     </>
