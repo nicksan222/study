@@ -14,7 +14,7 @@
 import { Effect } from 'effect';
 import { HttpRouter, HttpServerResponse } from 'effect/http';
 
-import { Auth } from '#server/features/auth/service/index';
+import { Auth } from '#server/features/auth/index';
 import { signInCallbackPage } from '#server/platform/ai/auth/index';
 
 export const authCallbackRoutes = HttpRouter.add('GET', '/auth/callback', (request) =>

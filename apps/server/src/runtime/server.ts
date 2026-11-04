@@ -18,10 +18,10 @@ import { StudyRpc } from '@study/contracts/rpc';
 import { Effect, Exit, Layer, Scope } from 'effect';
 import { HttpRouter } from 'effect/http';
 
-import { authCallbackRoutes } from '#server/features/auth/rpc/callback';
 import { serveRpc } from '#server/platform/rpc/node';
 
 import { runNative } from './layers.ts';
+import { authCallbackRoutes } from './request.ts';
 import type { App } from './service.ts';
 
 export interface ServeOptions {
