@@ -46,8 +46,10 @@ export function useAiSettings() {
 
       owned.current = value;
       setAttempt(value);
+
       if (browser.current && !browser.current.closed) browser.current.location.replace(value.url);
       else setPopupBlocked(true);
+
       finishing.current = new AbortController();
       finish.mutate({ attemptId: value.attemptId, signal: finishing.current.signal });
     },
@@ -137,7 +139,9 @@ export function useAiSettings() {
       finish.reset();
       cancel.reset();
       browser.current = window.open('about:blank', '_blank');
+
       if (browser.current) browser.current.opener = null;
+
       setPopupBlocked(browser.current === null);
       start.mutate();
     },
