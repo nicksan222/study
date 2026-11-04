@@ -81,7 +81,21 @@ export class Db {
 
     checkSize(Number(this.sqlite.prepare('PRAGMA page_count').get()!.page_count));
 
-    return backup(this.sqlite, path, { progress: ({ totalPages }) => checkSize(totalPages) });
+    return (async () => {
+      // Node 26's native backup can settle without flushing promise continuations.
+      // Keep an idle loop waking until delivery, rather than waiting for unrelated I/O.
+      const wakeup = setInterval(() => undefined, 100);
+
+      wakeup.unref();
+
+      try {
+        return await backup(this.sqlite, path, {
+          progress: ({ totalPages }) => checkSize(totalPages)
+        });
+      } finally {
+        clearInterval(wakeup);
+      }
+    })();
   }
 
   /** Stable logical fingerprint, independent of WAL/checkpoint and backup header counters. */

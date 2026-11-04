@@ -1,12 +1,43 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { testStable } from '@study/testing/node';
 
 import { Db } from '../src/db.ts';
 import { sql } from '../src/index.ts';
 import { createTestDatabase } from '../src/testing.ts';
+
+const execute = promisify(execFile);
+
+testStable('online backup delivers completion while the event loop is otherwise idle', async () => {
+  const location = createTestDatabase();
+
+  const db = location.open();
+
+  db.close();
+
+  const env = { ...process.env };
+
+  delete env.NODE_TEST_CONTEXT;
+  env.STUDY_BACKUP_IDLE_SOURCE = location.path;
+  env.STUDY_BACKUP_IDLE_TARGET = join(location.dir, 'idle.sqlite');
+
+  try {
+    const result = await execute(
+      process.execPath,
+      ['--test', fileURLToPath(new URL('./fixtures/backup-idle.ts', import.meta.url))],
+      { timeout: 15000, env }
+    );
+
+    assert.match(result.stdout, /pass 1/);
+  } finally {
+    location.cleanup();
+  }
+});
 
 testStable(
   'online backup during a concurrent transaction yields one coherent committed snapshot',
