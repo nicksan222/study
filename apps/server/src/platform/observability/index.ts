@@ -109,6 +109,12 @@ export const recordConfigurationWait = () => recordMetric(Metric.update(configur
 export const recordPublicationRejection = (count = 1) =>
   recordMetric(Metric.update(publicationRejection, count));
 
+/** Report callback rejection without retaining authorization payloads or ambient metadata. */
+export const recordAuthCallbackRejection = () =>
+  Effect.logWarning('auth.callback.rejected').pipe(
+    Effect.provideService(References.CurrentLogAnnotations, {})
+  );
+
 const allowed = new Set([
   'operation',
   'requestId',

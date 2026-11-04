@@ -20,8 +20,8 @@ import { HttpRouter } from 'effect/http';
 
 import { serveRpc } from '#server/platform/rpc/node';
 
+import { authCallbackRoutes } from './auth-callback.ts';
 import { runNative } from './layers.ts';
-import { authCallbackRoutes } from './request.ts';
 import type { App } from './service.ts';
 
 export interface ServeOptions {
