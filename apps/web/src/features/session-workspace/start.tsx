@@ -116,6 +116,7 @@ function useSessionStart() {
 
     if (!text.trim() && !selectedFiles.length) {
       cache.setQueryData(['session-workspace', 'creation'], {});
+
       return;
     }
 

@@ -6,21 +6,27 @@ import { webFile } from '../web-files.ts';
 import { children } from './jsx-state.ts';
 
 const functions = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
+
 const loadingName = /^(?:Loading|LoadingSkeleton|Spinner|Loader(?:Circle|Pinwheel)?(?:Icon)?)$/;
+
 const message =
   'Keep initial page loading in the shared route transition. Component loading indicators are allowed.';
 
 function owner(node: ESTree.Node): ESTree.Node | undefined {
   let parent: ESTree.Node | null = node.parent;
+
   while (parent && !functions.has(parent.type)) parent = parent.parent;
+
   return parent ?? undefined;
 }
 
 function name(node: ESTree.Node): string {
   if (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression')
     return node.id?.name ?? '';
+
   if (node.parent?.type === 'VariableDeclarator' && node.parent.id.type === 'Identifier')
     return node.parent.id.name;
+
   return '';
 }
 
@@ -31,6 +37,7 @@ function loadingTag(node: ESTree.JSXOpeningElement, aliases: ReadonlySet<string>
       : node.name.type === 'JSXMemberExpression'
         ? node.name.property.name
         : '';
+
   return loadingName.test(tag) || aliases.has(tag);
 }
 
@@ -44,14 +51,18 @@ function loadingKey(node: ESTree.Node | undefined): boolean {
 
 function visual(node: ESTree.Node | null | undefined, aliases: ReadonlySet<string>): boolean {
   if (!node) return false;
+
   if (node.type === 'JSXOpeningElement' && loadingTag(node, aliases)) return true;
+
   if (node.type === 'CallExpression' && loadingKey(node.arguments[0])) return true;
+
   if (
     node.type === 'Literal' &&
     typeof node.value === 'string' &&
     /animate-(?:spin|pulse)|loading-skeleton|loading-placeholder/.test(node.value)
   )
     return true;
+
   return children(node).some((child) => visual(child, aliases));
 }
 
@@ -77,22 +88,29 @@ function emptyReturn(node: ESTree.Node | null): boolean {
 
 function loading(node: ESTree.Node): boolean {
   if (node.type === 'Identifier') return /^(?:is)?(?:loading|pending|fetching)$/i.test(node.name);
+
   if (node.type === 'MemberExpression')
     return /^(?:is)?(?:loading|pending|fetching)$/i.test(propertyName(node.property) ?? '');
+
   if (node.type === 'LogicalExpression') return loading(node.left) || loading(node.right);
+
   if (node.type === 'BinaryExpression')
     return [node.left, node.right].some(
       (value) => value.type === 'Literal' && ['pending', 'loading'].includes(String(value.value))
     );
+
   return false;
 }
 
 function initialReturn(node: ESTree.ReturnStatement, fn: ESTree.Node): boolean {
   let parent: ESTree.Node | null = node.parent;
+
   while (parent && parent !== fn) {
     if (parent.type === 'IfStatement' && loading(parent.test)) return true;
+
     parent = parent.parent;
   }
+
   return false;
 }
 
@@ -100,7 +118,9 @@ export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     const path = webFile(context.filename);
+
     if (!path) return {};
+
     const aliases = new Set<string>();
 
     return {
@@ -115,17 +135,21 @@ export default defineRule({
       },
       Property(node) {
         const key = propertyName(node.key);
+
         if (
           !['pendingComponent', 'defaultPendingComponent'].includes(key ?? '') ||
           !(path.startsWith('routes/') || path === 'app/router.ts')
         )
           return;
+
         const value = node.value;
+
         if (
           (value.type === 'Identifier' && value.name === 'RoutePending') ||
           (value.type === 'Literal' && value.value === null)
         )
           return;
+
         context.report({
           node,
           message:
@@ -134,25 +158,35 @@ export default defineRule({
       },
       ArrowFunctionExpression(node) {
         if (!/(?:Page(?:View)?|Screen)$/.test(name(node))) return;
+
         if (conditionalVisual(node.body, aliases)) context.report({ node: node.body, message });
       },
       LogicalExpression(node) {
         const fn = owner(node);
+
         if (!fn || !/(?:Page(?:View)?|Screen)$/.test(name(fn))) return;
+
         if (node.operator === '&&' && loading(node.left) && visual(node.right, aliases))
           context.report({ node, message });
       },
       ReturnStatement(node) {
         const fn = owner(node);
+
         if (!fn) return;
+
         const component = name(fn);
+
         if (component === 'RoutePending') {
           if (!emptyReturn(node.argument)) context.report({ node, message });
+
           return;
         }
+
         if (!pageFunction(component, path)) return;
+
         if (initialReturn(node, fn) && visual(node.argument, aliases))
           context.report({ node, message });
+
         if (conditionalVisual(node.argument, aliases)) context.report({ node, message });
       }
     };

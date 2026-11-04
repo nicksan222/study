@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises session draft reuse and first-capture persistence against real SQLite.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies empty drafts are reused across concurrent requests and collections.           │
+ * │ - Confirms captured notes and attachments prevent subsequent draft reuse.                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Calls real conversation services and isolated stores without replacing application       │
+ * │ dependencies.                                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import assert from 'node:assert/strict';
 
 import { recordings } from '@study/db/schema';
@@ -133,6 +147,7 @@ testStable('first send atomically creates a visible session and first message', 
         const conversations = yield* Conversations;
         const initialMessage = { text: 'First saved note' };
         const session = yield* conversations.createUntitledSession({ initialMessage });
+
         assert.deepEqual(
           (yield* conversations.sessions({ limit: 100 })).items.map((item) => item.id),
           [session.id]

@@ -78,12 +78,14 @@ testStable('rejects custom loading text and raw animation in initial page return
 
 testStable('keeps the shared route pending boundary free of visual loading', () => {
   const path = 'apps/web/src/app/shell/route-feedback.tsx';
+
   assert.equal(lint('export function RoutePending() { return <Spinner />; }', path).length, 1);
   assert.deepEqual(lint('export function RoutePending() { return null; }', path), []);
 });
 
 testStable('requires route definitions to reuse the shared pending boundary', () => {
   const path = 'apps/web/src/routes/library.tsx';
+
   assert.equal(lint('const route = { pendingComponent: () => <Spinner /> };', path).length, 1);
   assert.deepEqual(lint('const route = { pendingComponent: RoutePending };', path), []);
 });

@@ -176,7 +176,9 @@ export const SessionStore = defineStore({
                 .set({ title, updated_at: now })
                 .where(eq(sessions.id, draft.id))
                 .returning()
-                .get()!;
+                .get();
+
+              if (!reused) throw new StudyError('not_found', 'session not found');
 
               return present(reused);
             }
