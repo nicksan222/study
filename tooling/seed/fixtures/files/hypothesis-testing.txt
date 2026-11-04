@@ -1,0 +1,13 @@
+Statistics — Hypothesis testing and interpretation
+
+A statistical test starts with a null model and an alternative. The null often specifies a reference parameter value, while the alternative describes the direction or kind of departure being examined. The analysis plan should identify the test statistic and decision rule before inspecting results.
+
+The p-value is the probability, assuming the null model and its assumptions, of a test statistic at least as extreme as the observed statistic. It is not the probability that the null is true and does not measure the size or practical importance of an effect.
+
+A Type I error occurs when a true null is rejected. A Type II error occurs when a specified false null is not rejected. Power is one minus the Type II error probability for a particular alternative. Power depends on effect size, variation, sample size and the test design.
+
+Worked example: a two-sided test gives p = 0.03 at a prespecified alpha of 0.05. The decision rule rejects the null. A report should still give the effect estimate, an uncertainty interval, sample design and relevant assumptions. A threshold alone is not a scientific conclusion.
+
+Running many tests increases the chance of at least one false positive. Multiplicity adjustments or a clearly defined exploratory analysis can help avoid presenting a chance discovery as a prespecified finding. Choosing only significant results for publication distorts the evidence base.
+
+Revision prompt: explain why a very small effect can have a small p-value in a huge sample, and why a meaningful effect may be uncertain in a small noisy sample. Distinguish absence of evidence from evidence of absence.

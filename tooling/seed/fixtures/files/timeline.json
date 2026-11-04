@@ -1,0 +1,25 @@
+{
+  "title": "Europa e industrializzazione",
+  "events": [
+    {
+      "year": 1764,
+      "event": "Spinning Jenny: meccanizzazione della filatura"
+    },
+    {
+      "year": 1815,
+      "event": "Conclusione del Congresso di Vienna"
+    },
+    {
+      "year": 1830,
+      "event": "Rivoluzioni e richieste costituzionali"
+    },
+    {
+      "year": 1848,
+      "event": "Rivoluzioni in molte regioni europee"
+    },
+    {
+      "year": 1861,
+      "event": "Proclamazione del Regno d’Italia"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+Membrane transport — Gradients, channels and pumps
+
+The plasma membrane is a selectively permeable lipid bilayer. Small nonpolar molecules such as oxygen can cross it by simple diffusion. Ions and many polar molecules require membrane proteins because the hydrophobic core creates an energetic barrier.
+
+Diffusion reflects random molecular motion. When concentrations differ, more particles move from the higher-concentration side to the lower-concentration side than in the reverse direction. At equilibrium, particles continue to move even though there is no net flux.
+
+Facilitated diffusion uses channels or carriers and proceeds down an electrochemical gradient. Channels provide a selective pathway. Carriers bind a solute and change conformation. Neither process necessarily requires direct ATP hydrolysis.
+
+Primary active transport couples uphill transport directly to energy use. The sodium–potassium ATPase moves three sodium ions out of a typical animal cell and two potassium ions in for each ATP hydrolysed. This contributes to ion gradients and is electrogenic.
+
+Secondary active transport couples downhill movement of one species to uphill movement of another. A sodium–glucose symporter can use the sodium gradient maintained by the sodium–potassium pump. The symporter therefore depends indirectly on metabolic energy.
+
+Worked check: if an inhibitor blocks ATP production, predict the immediate and later effects on simple oxygen diffusion, the sodium–potassium pump and sodium-dependent glucose uptake. Explain why the loss of a gradient may lag behind the loss of ATP.

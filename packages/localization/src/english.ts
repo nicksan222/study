@@ -1732,5 +1732,11 @@ export const english = Object.freeze({
   SearchShortcut: 'Ctrl/⌘ K',
   SettingsGroupApplication: 'Application',
   SettingsGroupLearning: 'Learning',
-  SettingsGroupIntelligence: 'AI'
+  SettingsGroupIntelligence: 'AI',
+  SeedHelp:
+    'bun seed resets the development database and installs bundled sample coursework. This deletes all existing database content, including settings and credentials. Stop Study first. Override the target with STUDY_DATABASE.',
+  SeedResetting:
+    'Replacing database content at {path} with sample coursework. Study must be stopped.',
+  SeedComplete:
+    'Seeded {projects} projects, {sessions} sessions, {sources} sources, {documents} documents and {materials} study materials.'
 } as const);

@@ -5,11 +5,12 @@ import { App, serve } from '@study/server/runtime';
 import { createServer } from 'vite-plus';
 import type { ViteDevServer } from 'vite-plus';
 
+import { developmentDatabasePath } from './database-path.ts';
 import { studyRpcProxy } from './rpc-proxy.ts';
 
 const root = resolve(import.meta.dirname, '../..');
 
-const database = process.env.STUDY_DATABASE ?? resolve(root, 'target/web/study.sqlite');
+const database = developmentDatabasePath();
 
 await mkdir(dirname(database), { recursive: true });
 

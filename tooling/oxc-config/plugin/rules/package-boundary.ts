@@ -28,6 +28,7 @@ const allowed: Record<Owner, readonly Owner[]> = {
   '@study/testing': [],
   '@study/tooling': [
     '@study/contracts',
+    '@study/localization',
     '@study/theme',
     '@study/testing',
     '@study/db',

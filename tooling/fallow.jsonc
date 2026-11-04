@@ -7,6 +7,8 @@
   // Build output and generated framework wiring are not authored source.
   "ignorePatterns": [
     "target/**",
+    // Source fixtures are imported as bytes, never executed as tooling modules.
+    "tooling/seed/fixtures/files/**",
     "graphify-out/**",
     "apps/web/src/routeTree.gen.ts",
     "apps/desktop/src-tauri/gen/**"

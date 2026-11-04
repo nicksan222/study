@@ -22,6 +22,7 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
       'apps/web/src/dynamic.ts': "export const db = import('../../../packages/db/src/index.ts');\n",
       'apps/desktop/src/bad.ts': "import '@study/server/client';\n",
       'apps/landing/src/bad.ts': "import '@study/ui/button';\n",
+      'tooling/seed/index.ts': "import '@study/localization';\n",
       'packages/ai/src/good.ts': "import '@study/localization';\n",
       'apps/server/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
       'apps/web/src/good.ts': "import '@study/ui/button';\nimport '@study/server/client';\n",

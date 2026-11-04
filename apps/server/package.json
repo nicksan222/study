@@ -8,7 +8,8 @@
   },
   "exports": {
     "./client": "./src/client/index.ts",
-    "./runtime": "./src/runtime/index.ts"
+    "./runtime": "./src/runtime/index.ts",
+    "./runtime/ownership": "./src/runtime/ownership.ts"
   },
   "scripts": {
     "test": "vp test run --config ../../vite.config.ts --project server",
