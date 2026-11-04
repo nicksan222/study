@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -19,7 +18,7 @@ export const view = <div className="layout"><Control className="p-2" /><Shell.He
     );
     const violations = diagnostics.filter(({ code }) => code.includes('shared-ui-variants'));
 
-    assert.equal(violations.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(violations.length, 3, JSON.stringify(diagnostics));
   }
 );
 
@@ -32,5 +31,5 @@ testStable('computed literal style props cannot bypass shared UI variants', () =
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import { assert } from 'vite-plus/test';
 
 /** Migration assertions require the row itself before inspecting its retained fields. */
 export function requireRow<T>(value: T | null | undefined): T {

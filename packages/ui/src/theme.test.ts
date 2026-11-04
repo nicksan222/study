@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
 import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import {
   createThemeStore,
@@ -15,11 +14,11 @@ testStable('resolves appearance and merges common and variant overrides', () => 
     dark: { background: 'black' }
   } as const;
 
-  assert.deepEqual(resolveTheme(theme, 'system', 'dark'), {
+  expect(resolveTheme(theme, 'system', 'dark')).toStrictEqual({
     appearance: 'dark',
     colors: { background: 'black', foreground: 'white' }
   });
-  assert.equal(resolveTheme(theme, 'light', 'dark').appearance, 'light');
+  assert.strictEqual(resolveTheme(theme, 'light', 'dark').appearance, 'light');
 });
 
 testStable('store snapshots are immutable, stable, and notify only on changes', () => {
@@ -32,19 +31,19 @@ testStable('store snapshots are immutable, stable, and notify only on changes', 
   const initial = store.getSnapshot();
 
   colors.background = 'blue';
-  assert.equal(initial.colors.background, 'red');
+  assert.strictEqual(initial.colors.background, 'red');
   assert.ok(Object.isFrozen(initial.colors));
   let calls = 0;
   const unsubscribe = store.subscribe(() => calls++);
 
   store.setSystemAppearance('light');
-  assert.equal(store.getSnapshot(), initial);
+  assert.strictEqual(store.getSnapshot(), initial);
   store.setSystemAppearance('dark');
-  assert.equal(calls, 1);
-  assert.equal(store.getSnapshot().appearance, 'dark');
+  assert.strictEqual(calls, 1);
+  assert.strictEqual(store.getSnapshot().appearance, 'dark');
   unsubscribe();
   store.setAppearance('light');
-  assert.equal(calls, 1);
+  assert.strictEqual(calls, 1);
 });
 
 testStable('DOM adapter removes stale variables when themes change and cleans up', () => {
@@ -55,15 +54,15 @@ testStable('DOM adapter removes stale variables when themes change and cleans up
   });
   const cleanup = applyThemeToDocument(store, document);
 
-  assert.equal(element.style.getPropertyValue('--foreground'), 'white');
+  assert.strictEqual(element.style.getPropertyValue('--foreground'), 'white');
   store.setAppearance('dark');
-  assert.equal(element.style.getPropertyValue('--foreground'), '');
-  assert.equal(element.style.getPropertyValue('--background'), 'black');
-  assert.equal(element.style.colorScheme, 'dark');
+  assert.strictEqual(element.style.getPropertyValue('--foreground'), '');
+  assert.strictEqual(element.style.getPropertyValue('--background'), 'black');
+  assert.strictEqual(element.style.colorScheme, 'dark');
   assert.ok(element.classList.contains('dark'));
   cleanup();
   store.setAppearance('light');
-  assert.equal(element.style.getPropertyValue('--background'), '');
+  assert.strictEqual(element.style.getPropertyValue('--background'), '');
 });
 
 testStable('system appearance observer updates store and removes listener', () => {
@@ -80,25 +79,24 @@ testStable('system appearance observer updates store and removes listener', () =
   const store = createThemeStore();
   const cleanup = observeSystemAppearance(store, media as unknown as MediaQueryList);
 
-  assert.equal(store.getSnapshot().appearance, 'dark');
+  assert.strictEqual(store.getSnapshot().appearance, 'dark');
   listener?.({ matches: false });
-  assert.equal(store.getSnapshot().appearance, 'light');
+  assert.strictEqual(store.getSnapshot().appearance, 'light');
   cleanup();
-  assert.equal(listener, undefined);
+  assert.strictEqual(listener, undefined);
 });
 
 testStable('undefined overrides inherit common colors or release the previous override', () => {
-  assert.deepEqual(
-    resolveTheme({ colors: { background: 'red' }, dark: { background: undefined } }, 'dark').colors,
-    { background: 'red' }
-  );
+  expect(
+    resolveTheme({ colors: { background: 'red' }, dark: { background: undefined } }, 'dark').colors
+  ).toStrictEqual({ background: 'red' });
   const element = document.documentElement;
   const store = createThemeStore({ theme: { colors: { background: 'red' } } });
   const cleanup = applyThemeToDocument(store, document);
 
   store.setTheme({ colors: { background: undefined } });
-  assert.equal(element.style.getPropertyValue('--background'), '');
-  assert.deepEqual(store.getSnapshot().colors, {});
+  assert.strictEqual(element.style.getPropertyValue('--background'), '');
+  expect(store.getSnapshot().colors).toStrictEqual({});
   cleanup();
 });
 
@@ -111,12 +109,12 @@ testStable('document adapter restores existing inline declarations and prioritie
   const store = createThemeStore({ appearance: 'light', theme: { colors: { background: 'red' } } });
   const cleanup = applyThemeToDocument(store, document);
 
-  assert.equal(element.style.getPropertyValue('--background'), 'red');
+  assert.strictEqual(element.style.getPropertyValue('--background'), 'red');
   cleanup();
-  assert.equal(element.style.getPropertyValue('--background'), 'blue');
-  assert.equal(element.style.getPropertyPriority('--background'), 'important');
-  assert.equal(element.style.getPropertyValue('color-scheme'), 'light dark');
-  assert.equal(element.style.getPropertyPriority('color-scheme'), 'important');
+  assert.strictEqual(element.style.getPropertyValue('--background'), 'blue');
+  assert.strictEqual(element.style.getPropertyPriority('--background'), 'important');
+  assert.strictEqual(element.style.getPropertyValue('color-scheme'), 'light dark');
+  assert.strictEqual(element.style.getPropertyPriority('color-scheme'), 'important');
   assert.ok(element.classList.contains('dark'));
   element.style.removeProperty('--background');
   element.style.removeProperty('color-scheme');

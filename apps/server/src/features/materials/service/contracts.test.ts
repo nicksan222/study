@@ -13,34 +13,36 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { materialContentDetailSchema } from '@study/contracts/materials/schemas';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 testStable('Materials rejects retired source and authored document kinds', () => {
   for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document'])
-    assert.equal(
-      Schema.is(materialContentDetailSchema)({ kind, sourceId: 1n, source: {}, extracted: null }),
-      false
+    assert.ok(
+      Schema.is(materialContentDetailSchema)({
+        kind,
+        sourceId: 1n,
+        source: {},
+        extracted: null
+      }) === false
     );
 
-  assert.equal(
+  assert.ok(
     Schema.is(materialContentDetailSchema)({
       kind: 'diagram',
       format: 'mermaid',
       payload: 'flowchart LR; A-->B'
-    }),
-    true
+    }) === true
   );
 });
 
 testStable('native materials RPC names cover the complete public API', async () => {
   const { MaterialsRpc } = await import('@study/contracts/materials/rpc');
 
-  assert.deepEqual(
-    [...MaterialsRpc.requests.keys()].sort(),
+  expect([...MaterialsRpc.requests.keys()].sort()).toStrictEqual(
     [
       'exportMaterialVersion',
       'previewHistoryPrune',

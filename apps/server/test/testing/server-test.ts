@@ -9,14 +9,13 @@
  * │   application, wake, and disposal helpers.                                               │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Consumes automatic.ts TestState and runtime App; Node TestContext hooks own cleanup of   │
+ * │ Consumes automatic.ts TestState and runtime App; Vitest TestContext hooks own cleanup of │
  * │ registered resources.                                                                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { TestContext } from 'node:test';
-
 import { Db } from '@study/db';
+import type { TestContext } from 'vite-plus/test';
 
 import { App } from '#server/runtime/service';
 

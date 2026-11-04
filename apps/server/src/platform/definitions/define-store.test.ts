@@ -16,14 +16,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { StudyError } from '@study/contracts/errors';
 import type { SourceId } from '@study/contracts/ids';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Option, Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -113,23 +112,21 @@ testStable(
           Effect.provideService(Database, { store: b })
         )
       );
-      assert.equal(
-        await Effect.runPromise(
+      assert.ok(
+        (await Effect.runPromise(
           Effect.runSync(useStore(bound).pipe(Effect.provideService(Database, { store: a }))).value(
             'key'
           )
-        ),
-        'first'
+        )) === 'first'
       );
-      assert.equal(
-        await Effect.runPromise(
+      assert.ok(
+        (await Effect.runPromise(
           Effect.runSync(useStore(bound).pipe(Effect.provideService(Database, { store: b }))).value(
             'key'
           )
-        ),
-        'second'
+        )) === 'second'
       );
-      assert.equal(bindings, 2);
+      assert.strictEqual(bindings, 2);
     } finally {
       a.close();
       b.close();
@@ -146,7 +143,7 @@ testStable(
     const context = new ServerContext(location.open());
 
     try {
-      assert.equal(
+      assert.strictEqual(
         await Effect.runPromise(
           Effect.runSync(
             useStore(items).pipe(Effect.provideService(Database, { store: context }))
@@ -156,15 +153,14 @@ testStable(
       );
       let leaked: { insert(value: string): string } | undefined;
 
-      assert.equal(
-        await Effect.runPromise(
+      assert.ok(
+        (await Effect.runPromise(
           transaction((tx) => {
             leaked = tx.store(items);
 
             return leaked.insert('ok');
           }).pipe(Effect.provideService(Database, { store: context }))
-        ),
-        'ok'
+        )) === 'ok'
       );
       assert.throws(() => leaked!.insert('later'), /transaction.*active/i);
     } finally {
@@ -200,7 +196,7 @@ testStable('transaction rolls back a write when a later step throws', async () =
   });
 
   try {
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         transaction((tx) => {
           tx.store(preferences).insert('rolled-back');
@@ -208,8 +204,8 @@ testStable('transaction rolls back a write when a later step throws', async () =
           throw new Error('stop');
         }).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
-    assert.equal(
+    ).rejects.toSatisfy(() => true);
+    assert.strictEqual(
       context.db.orm.get(sql`SELECT key FROM preferences WHERE scope = 'test'`),
       undefined
     );
@@ -224,40 +220,42 @@ testStable('rejects invalid query names and decodes inputs before executing', as
   const context = new ServerContext(location.open());
 
   try {
-    assert.throws(
-      () =>
-        Effect.runSync(
-          useStore(
-            defineStore({
-              name: 'test/Bad',
-              entity: { singular: 'item', plural: 'items' },
+    expect(() =>
+      Effect.runSync(
+        useStore(
+          defineStore({
+            name: 'test/Bad',
+            entity: { singular: 'item', plural: 'items' },
 
-              make: () => ({
-                queries: {
-                  list: storeQuery({
-                    input: Schema.Number,
-                    output: Schema.Number,
-                    role: 'required',
-                    run: (id) => id
-                  })
-                },
-                mutations: {}
-              })
+            make: () => ({
+              queries: {
+                list: storeQuery({
+                  input: Schema.Number,
+                  output: Schema.Number,
+                  role: 'required',
+                  run: (id) => id
+                })
+              },
+              mutations: {}
             })
-          ).pipe(Effect.provideService(Database, { store: context }))
-        ),
-      (error: unknown) =>
-        error instanceof Error &&
-        error.cause instanceof Error &&
-        /must be named item/.test(error.cause.message)
+          })
+        ).pipe(Effect.provideService(Database, { store: context }))
+      )
+    ).toThrow(
+      expect.toSatisfy(
+        (error: unknown) =>
+          error instanceof Error &&
+          error.cause instanceof Error &&
+          /must be named item/.test(error.cause.message)
+      )
     );
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         Effect.runSync(
           useStore(items).pipe(Effect.provideService(Database, { store: context }))
         ).item('bad' as never)
       )
-    );
+    ).rejects.toSatisfy(() => true);
   } finally {
     context.close();
     location.cleanup();
@@ -269,7 +267,7 @@ testStable('rejects asynchronous transaction results before committing', async (
   const context = new ServerContext(location.open());
 
   try {
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         transaction((() => {
           context.db.orm.run(
@@ -279,8 +277,8 @@ testStable('rejects asynchronous transaction results before committing', async (
           return Promise.resolve('bad');
         }) as never).pipe(Effect.provideService(Database, { store: context }))
       )
-    );
-    assert.equal(
+    ).rejects.toSatisfy(() => true);
+    assert.strictEqual(
       context.db.orm.get(sql`SELECT key FROM preferences WHERE scope = 'test'`),
       undefined
     );
@@ -369,14 +367,14 @@ testStable(
     });
 
     try {
-      await assert.rejects(
+      await expect(
         Effect.runPromise(
           transaction((tx) => tx.store(store).insert('bad')).pipe(
             Effect.provideService(Database, { store: context })
           )
         )
-      );
-      assert.equal(
+      ).rejects.toSatisfy(() => true);
+      assert.strictEqual(
         context.db.orm.get(sql`SELECT key FROM preferences WHERE scope = 'test'`),
         undefined
       );
@@ -422,10 +420,10 @@ testStable('transaction steps inherit the transaction span and emit safe timing'
     );
     const serialized = JSON.stringify(entries);
 
-    assert.match(serialized, /test\/Items.insert/);
-    assert.match(serialized, /durationMs/);
-    assert.match(serialized, /request/);
-    assert.doesNotMatch(serialized, /secret/);
+    expect(serialized).toMatch(/test\/Items.insert/);
+    expect(serialized).toMatch(/durationMs/);
+    expect(serialized).toMatch(/request/);
+    expect(serialized).not.toMatch(/secret/);
   } finally {
     context.close();
     location.cleanup();
@@ -453,13 +451,13 @@ testStable('collection queries enforce cardinality even with a permissive schema
   const context = new ServerContext(location.open());
 
   try {
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         Effect.runSync(
           useStore(store).pipe(Effect.provideService(Database, { store: context }))
         ).items({ limit: 1 })
       )
-    );
+    ).rejects.toSatisfy(() => true);
   } finally {
     context.close();
     location.cleanup();
@@ -490,24 +488,23 @@ testStable(
     const context = new ServerContext(location.open());
 
     try {
-      assert.deepEqual(
+      expect(
         await Effect.runPromise(
           Effect.runSync(
             useStore(store).pipe(Effect.provideService(Database, { store: context }))
           ).items({ limit: 1 })
-        ),
-        result
-      );
+        )
+      ).toStrictEqual(result);
 
       for (const value of [[1, 2], { items: [1, 2], nextCursor: null }, { items: [1] }]) {
         result = value;
-        await assert.rejects(
+        await expect(
           Effect.runPromise(
             Effect.runSync(
               useStore(store).pipe(Effect.provideService(Database, { store: context }))
             ).items({ limit: 1 })
           )
-        );
+        ).rejects.toSatisfy(() => true);
       }
     } finally {
       context.close();
@@ -547,7 +544,7 @@ testStable(
         useStore(missing).pipe(Effect.provideService(Database, { store: context }))
       ).item(1);
 
-      assert.equal((await Effect.runPromise(Effect.flip(read))).kind, 'not_found');
+      assert.ok((await Effect.runPromise(Effect.flip(read))).kind === 'not_found');
     } finally {
       context.close();
       location.cleanup();
@@ -573,20 +570,20 @@ testStable(
         read.pipe(Effect.provideService(Database, { store: b }))
       );
 
-      assert.equal(await Effect.runPromise(left.item(7)), 7);
-      assert.equal(await Effect.runPromise(right.item(9)), 9);
-      assert.equal('insert' in left, false);
-      assert.equal(
-        await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: a }))),
-        'selected'
+      assert.strictEqual(await Effect.runPromise(left.item(7)), 7);
+      assert.strictEqual(await Effect.runPromise(right.item(9)), 9);
+      assert.ok('insert' in left === false);
+      assert.ok(
+        (await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: a })))) ===
+          'selected'
       );
-      assert.equal(
-        await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: b }))),
-        'selected'
+      assert.ok(
+        (await Effect.runPromise(write.pipe(Effect.provideService(Database, { store: b })))) ===
+          'selected'
       );
-      assert.equal('make' in items, false);
-      assert.equal('key' in items, false);
-      assert.equal('layer' in items, false);
+      assert.ok('make' in items === false);
+      assert.ok('key' in items === false);
+      assert.ok('layer' in items === false);
     } finally {
       a.close();
       b.close();
@@ -638,13 +635,12 @@ testStable('a reusable read and write effect select each provided SQLite databas
   try {
     await Effect.runPromise(write('left').pipe(Effect.provideService(Database, { store: a })));
     await Effect.runPromise(write('right').pipe(Effect.provideService(Database, { store: b })));
-    assert.equal(
-      await Effect.runPromise(read.pipe(Effect.provideService(Database, { store: a }))),
-      'left'
+    assert.ok(
+      (await Effect.runPromise(read.pipe(Effect.provideService(Database, { store: a })))) === 'left'
     );
-    assert.equal(
-      await Effect.runPromise(read.pipe(Effect.provideService(Database, { store: b }))),
-      'right'
+    assert.ok(
+      (await Effect.runPromise(read.pipe(Effect.provideService(Database, { store: b })))) ===
+        'right'
     );
   } finally {
     a.close();
@@ -691,13 +687,13 @@ testStable(
               })
             )
           );
-          assert.equal(
+          assert.strictEqual(
             context.db.orm.get(
               sql`SELECT event_id FROM workflow_events WHERE event_id='outbox-atomic'`
             ),
             undefined
           );
-          assert.equal(
+          assert.strictEqual(
             context.db.orm.get(sql`SELECT key FROM preferences WHERE scope='atomic'`),
             undefined
           );
@@ -707,7 +703,7 @@ testStable(
               tx.emit(event);
             })
           );
-          assert.equal(
+          assert.strictEqual(
             context.db.orm.get<{ created_at: bigint }>(
               sql`SELECT created_at FROM workflow_events WHERE event_id='outbox-atomic'`
             )?.created_at,
@@ -775,12 +771,11 @@ testStable(
           })
         )
       );
-      assert.deepEqual(
+      expect(
         context.db.orm
           .all<{ key: string }>(sql`SELECT key FROM preferences WHERE scope='nested' ORDER BY key`)
-          .map((row) => row.key),
-        ['after', 'before']
-      );
+          .map((row) => row.key)
+      ).toStrictEqual(['after', 'before']);
     } finally {
       context.close();
       location.cleanup();
@@ -889,8 +884,8 @@ testStable('unbranded and role-swapped operation descriptors fail at binding', a
         useStore(invalid).pipe(Effect.provideService(Database, { store: context }), Effect.flip)
       );
 
-      assert.equal(error.kind, 'internal');
-      assert.match(String(error.cause), /require store(Query|Mutation) descriptors/);
+      assert.ok(error.kind === 'internal');
+      expect(String(error.cause)).toMatch(/require store(Query|Mutation) descriptors/);
     }
   } finally {
     context.close();
@@ -906,7 +901,7 @@ testStable(
     let entered = false;
 
     try {
-      await assert.rejects(
+      await expect(
         Effect.runPromise(
           transaction((async () => {
             entered = true;
@@ -918,10 +913,10 @@ testStable(
             return 'invalid';
           }) as never).pipe(Effect.provideService(Database, { store: context }))
         )
-      );
+      ).rejects.toSatisfy(() => true);
       await Promise.resolve();
-      assert.equal(entered, false);
-      assert.equal(
+      assert.ok(entered === false);
+      assert.strictEqual(
         context.db.orm.get(sql`SELECT key FROM preferences WHERE scope='escaped-async'`),
         undefined
       );
@@ -964,7 +959,7 @@ for (const [role, name] of [
         useStore(invalid).pipe(Effect.provideService(Database, { store: context }), Effect.flip)
       );
 
-      assert.equal(error.kind, 'internal');
+      assert.ok(error.kind === 'internal');
       assert.ok(error.cause instanceof TypeError);
     } finally {
       context.close();

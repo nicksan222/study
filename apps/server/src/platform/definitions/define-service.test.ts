@@ -9,16 +9,16 @@
  * │   failure identity and fields.                                                           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Invokes #server/platform/definitions/define-service directly with node:test; no          │
+ * │ Invokes #server/platform/definitions/define-service directly with Vitest   ; no          │
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyError } from '@study/contracts/errors';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Cause, Context, Effect, Exit, Fiber, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { defineService } from '#server/platform/definitions/define-service';
 
@@ -47,7 +47,7 @@ testStable('service acquires dependencies and runs operations', async () => {
     );
   }
 
-  assert.equal(await result, 'Hello, Ada');
+  assert.ok((await result) === 'Hello, Ada');
 });
 
 testStable('service preserves typed failure identity and fields', async () => {
@@ -64,8 +64,8 @@ testStable('service preserves typed failure identity and fields', async () => {
     }).pipe(Effect.provide(service.layer))
   );
 
-  assert.equal(result, failure);
-  assert.deepEqual(result, { _tag: 'Conflict', revision: 42 });
+  assert.strictEqual(result, failure);
+  expect(result).toStrictEqual({ _tag: 'Conflict', revision: 42 });
 });
 
 testStable('service preserves a StudyError and its cause', async () => {
@@ -81,9 +81,9 @@ testStable('service preserves a StudyError and its cause', async () => {
     )
   );
 
-  assert.equal(result, failure);
-  assert.equal(result.cause, cause);
-  assert.equal(result.retryAfterMs, 123);
+  assert.strictEqual(result, failure);
+  assert.strictEqual(result.cause, cause);
+  assert.strictEqual(result.retryAfterMs, 123);
 });
 
 testStable('service suspends and normalizes synchronous construction throws', async () => {
@@ -104,7 +104,7 @@ testStable('service suspends and normalizes synchronous construction throws', as
     }).pipe(Effect.provide(service.layer))
   );
 
-  assert.equal(result.cause, cause);
+  assert.strictEqual(result.cause, cause);
   assert.ok(result instanceof StudyError);
 });
 
@@ -156,8 +156,8 @@ testStable('service operations remain lazy and cancellable', async () => {
       const instance = yield* service;
       const operation = instance.wait();
 
-      assert.equal(started, 0);
-      assert.equal(constructed, 0);
+      assert.strictEqual(started, 0);
+      assert.strictEqual(constructed, 0);
       const fiber = yield* Effect.forkChild(operation);
 
       yield* Effect.yieldNow;
@@ -168,9 +168,9 @@ testStable('service operations remain lazy and cancellable', async () => {
       assert.ok(Cause.hasInterruptsOnly(exit.cause));
     }).pipe(Effect.provide(service.layer))
   );
-  assert.equal(started, 1);
-  assert.equal(constructed, 1);
-  assert.equal(cancelled, 1);
+  assert.strictEqual(started, 1);
+  assert.strictEqual(constructed, 1);
+  assert.strictEqual(cancelled, 1);
 });
 
 class Publication extends Context.Service<Publication, string>()('test/Publication') {}
@@ -234,9 +234,9 @@ testStable('service methods retain their individual capability requirements', as
   );
   const typed: Effect.Effect<string, StudyError, Publication> = action;
 
-  assert.equal(
-    await Effect.runPromise(typed.pipe(Effect.provideService(Publication, 'current'))),
-    'published:current'
+  assert.ok(
+    (await Effect.runPromise(typed.pipe(Effect.provideService(Publication, 'current')))) ===
+      'published:current'
   );
 });
 

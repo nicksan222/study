@@ -13,10 +13,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
@@ -46,10 +45,10 @@ testStable(
       Effect.gen(function* () {
         const projects = yield* (yield* Projects).projects({ limit: 10 });
 
-        assert.equal(projects.items[0]?.name, 'Physics');
+        assert.ok(projects.items[0]?.name === 'Physics');
         const snapshot = yield* (yield* Sources).sourceSnapshot({ id: source.id, revision: 1 });
 
-        assert.equal(new TextDecoder().decode(snapshot.bytes), 'Hello');
+        assert.ok(new TextDecoder().decode(snapshot.bytes) === 'Hello');
       })
     );
   }

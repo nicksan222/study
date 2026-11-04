@@ -10,7 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, readdirSync } from 'node:fs';
 
@@ -19,8 +18,9 @@ import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
 import type { BackupManifest } from '@study/contracts/system/backups';
 import { sql } from '@study/db';
 import type { Db } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -142,26 +142,25 @@ testStable(
 
       const { repack } = await import('#testing/managed-backups');
 
-      await assert.rejects(
+      await expect(
         f.app.nativeRuntime.runPromise(
           api.importBackup({ bytes: repack(originalPacket.manifest, patched) })
         )
-      );
+      ).rejects.toSatisfy(() => true);
 
       for (const change of changes) {
-        await assert.rejects(
+        await expect(
           f.app.nativeRuntime.runPromise(
             api.importBackup({ bytes: changedArtifact(f.location.dir, bytes, change) })
           )
-        );
-        assert.equal(f.app.store.db.contentIdentity(), before);
-        assert.equal(existsSync(f.location.path + '.backups/scratch.sqlite'), false);
+        ).rejects.toSatisfy(() => true);
+        assert.strictEqual(f.app.store.db.contentIdentity(), before);
+        assert.ok(existsSync(f.location.path + '.backups/scratch.sqlite') === false);
       }
 
-      assert.deepEqual(
-        (await f.app.nativeRuntime.runPromise(api.backups())).map((b) => b.id),
-        [backup.id]
-      );
+      expect((await f.app.nativeRuntime.runPromise(api.backups())).map((b) => b.id)).toStrictEqual([
+        backup.id
+      ]);
     } finally {
       await f.close();
     }
@@ -196,23 +195,26 @@ testStable(
         oversizedManifest.toString('base64'),
         missingBody.toString('base64')
       ])
-        await assert.rejects(f.app.nativeRuntime.runPromise(api.importBackup({ bytes })));
+        await expect(f.app.nativeRuntime.runPromise(api.importBackup({ bytes }))).rejects.toSatisfy(
+          () => true
+        );
 
-      assert.equal((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
+      assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
 
       for (let index = 1; index < MAX_MANAGED_BACKUPS; index++)
         await f.app.nativeRuntime.runPromise(api.createBackup());
 
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
-      assert.equal(
+      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
+        () => true
+      );
+      assert.strictEqual(
         (await f.app.nativeRuntime.runPromise(api.backups())).length,
         MAX_MANAGED_BACKUPS
       );
-      assert.equal(
+      assert.ok(
         readdirSync(f.location.path + '.backups').some(
           (name) => name.endsWith('.writing') || name.startsWith('scratch.sqlite')
-        ),
-        false
+        ) === false
       );
     } finally {
       await f.close();

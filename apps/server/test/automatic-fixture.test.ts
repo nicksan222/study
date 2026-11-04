@@ -5,7 +5,7 @@
  * │ tests.                                                                                   │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Spawns automatic-fixture-scenario.ts in child Node test processes for success,         │
+ * │ - Spawns automatic-fixture-scenario.ts in child Vitest processes for success,            │
  * │   failure, retry, cleanup, and concurrency modes. It asserts fixture files and           │
  * │   directories are removed.                                                               │
  * │                                                                                          │
@@ -15,21 +15,20 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
-const preload = fileURLToPath(new URL('./testing/preload.ts', import.meta.url));
+const runner = fileURLToPath(new URL('../../../node_modules/vitest/vitest.mjs', import.meta.url));
 
-// These fixtures expose machine-readable lifecycle markers even on success.
-const reporter = 'tap';
+const config = fileURLToPath(new URL('./testing/automatic-fixture.config.ts', import.meta.url));
 
-const scenario = fileURLToPath(new URL('./testing/automatic-fixture-scenario.ts', import.meta.url));
+const runnerArgs = [runner, 'run', '--config', config, '--reporter=verbose', '--silent=false'];
 
 for (const mode of [
   'success',
@@ -46,16 +45,14 @@ for (const mode of [
     const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: mode };
 
     delete env.NODE_TEST_CONTEXT;
-    const child = spawnSync(
-      process.execPath,
-      ['--import', preload, '--test', `--test-reporter=${reporter}`, scenario],
-      {
-        encoding: 'utf8',
-        env
-      }
-    );
+    const child = spawnSync(process.execPath, runnerArgs, {
+      encoding: 'utf8',
+      env
+    });
 
-    assert.equal(
+    const output = child.stdout + child.stderr;
+
+    assert.strictEqual(
       child.status,
       ['failure', 'setup-failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode) ? 1 : 0,
       child.stderr + child.stdout
@@ -64,32 +61,36 @@ for (const mode of [
       (match) => JSON.parse(match[1]!) as string
     );
 
-    assert.equal(paths.length, ['success', 'concurrent'].includes(mode) ? 2 : 1, child.stdout);
-    assert.equal(new Set(paths).size, paths.length);
+    assert.strictEqual(
+      paths.length,
+      ['success', 'concurrent'].includes(mode) ? 2 : 1,
+      child.stdout
+    );
+    assert.strictEqual(new Set(paths).size, paths.length);
 
     for (const path of paths) {
       assert.match(
         path,
         /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.db$/
       );
-      assert.equal(existsSync(path), false, path);
-      assert.equal(existsSync(dirname(path)), false, dirname(path));
+      assert.strictEqual(existsSync(path), false, path);
+      assert.strictEqual(existsSync(dirname(path)), false, dirname(path));
     }
 
     if (['success', 'failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
-      assert.match(child.stdout, /LIVE_SQL_DURING_DISPOSAL/);
-      assert.match(child.stdout, /EXTRA_CONNECTION_CLOSED/);
+      assert.match(output, /LIVE_SQL_DURING_DISPOSAL/);
+      assert.match(output, /EXTRA_CONNECTION_CLOSED/);
     }
 
     if (['retry-sync', 'retry-async'].includes(mode))
-      assert.match(child.stdout, /RETRIED_CLOSE_BEFORE_FILE_CLEANUP/);
+      assert.match(output, /RETRIED_CLOSE_BEFORE_FILE_CLEANUP/);
 
     if (['cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
-      if (mode === 'failure-cleanup-throw') assert.match(child.stdout, /intentional test failure/);
-      else assert.match(child.stdout, /Test resource cleanup failed/);
+      if (mode === 'failure-cleanup-throw') assert.match(output, /intentional test failure/);
+      else assert.match(output, /intentional disposer failure/);
 
-      assert.match(child.stdout, /CLEANUP_THROWN/);
-      assert.match(child.stdout, /CLEANUP_AFTER_THROW/);
+      assert.match(output, /CLEANUP_THROWN/);
+      assert.match(output, /CLEANUP_AFTER_THROW/);
     }
   });
 }
@@ -100,7 +101,7 @@ testStable('concurrent test files use separate databases and remove them', async
   const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
 
   delete env.NODE_TEST_CONTEXT;
-  const args = ['--import', preload, '--test', `--test-reporter=${reporter}`, scenario];
+  const args = runnerArgs;
   const results = await Promise.all([
     exec(process.execPath, args, { env }),
     exec(process.execPath, args, { env })
@@ -109,8 +110,8 @@ testStable('concurrent test files use separate databases and remove them', async
     [...stdout.matchAll(/FIXTURE_PATH (".*")/g)].map((match) => JSON.parse(match[1]!) as string)
   );
 
-  assert.equal(paths.length, 4);
-  assert.equal(new Set(paths).size, 4);
+  assert.strictEqual(paths.length, 4);
+  assert.strictEqual(new Set(paths).size, 4);
 
-  for (const path of paths) assert.equal(existsSync(dirname(path)), false);
+  for (const path of paths) assert.strictEqual(existsSync(dirname(path)), false);
 });

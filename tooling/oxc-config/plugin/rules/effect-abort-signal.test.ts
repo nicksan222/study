@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
@@ -71,7 +70,7 @@ testStable('enforces the Effect contract in browser operations', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('propagates the signal from native callback bridges', () => {

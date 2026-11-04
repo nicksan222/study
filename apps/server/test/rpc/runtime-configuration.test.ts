@@ -16,11 +16,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -62,15 +61,15 @@ testStable(
           );
           savedRevision = yield* configuration.revision;
 
-          assert.notEqual(savedRevision, before);
-          assert.deepEqual(yield* auth.publicAccount(), publicAccount);
-          assert.match(savedRevision, /^[a-f0-9]{64}$/);
+          assert.notStrictEqual(savedRevision, before);
+          expect(yield* auth.publicAccount()).toStrictEqual(publicAccount);
+          expect(savedRevision).toMatch(/^[a-f0-9]{64}$/);
           assert.ok(!savedRevision.includes('private-token'));
         })
       );
       await app.close();
       app = await App.open({ path: location.path });
-      assert.equal(
+      assert.strictEqual(
         await app.nativeRuntime.runPromise(
           Effect.flatMap(WorkflowConfiguration, (configuration) => configuration.revision)
         ),
@@ -97,11 +96,11 @@ testStable(
           const language = () =>
             typeof agents.language === 'string' ? Effect.succeed(agents.language) : agents.language;
 
-          assert.equal(yield* language(), 'english');
+          assert.strictEqual(yield* language(), 'english');
           const current = yield* settings.appSettings();
 
           yield* settings.saveAppSettings({ ...current, language: 2 });
-          assert.equal(yield* language(), 'italian');
+          assert.strictEqual(yield* language(), 'italian');
         })
       );
     } finally {

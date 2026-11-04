@@ -14,10 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { SignIn, acquireSignIn } from '#server/platform/ai/providers/chatgpt/signin';
 
@@ -29,7 +28,7 @@ testStable('PKCE sign-in verifies identity and returns the issued account', asyn
     fetch: async (_url, init) => {
       const form = new URLSearchParams(init?.body as string);
 
-      assert.equal(form.get('grant_type'), 'authorization_code');
+      assert.ok(form.get('grant_type') === 'authorization_code');
       assert.ok(form.get('code_verifier'));
       const claims = {
         iss: 'https://auth.example',
@@ -50,19 +49,19 @@ testStable('PKCE sign-in verifies identity and returns the issued account', asyn
   const url = new URL(signIn.url);
 
   nonce = url.searchParams.get('nonce')!;
-  assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
+  assert.ok(url.searchParams.get('code_challenge_method') === 'S256');
   const finish = signIn.finish(5000);
   const callback = new URL(url.searchParams.get('redirect_uri')!);
 
   callback.searchParams.set('state', url.searchParams.get('state')!);
   callback.searchParams.set('code', 'code');
   callback.searchParams.set('client_id', 'issued');
-  assert.equal((await fetch(callback)).status, 200);
+  assert.strictEqual((await fetch(callback)).status, 200);
   const result = await finish;
 
-  assert.equal(result.account.subject, 'user');
-  assert.equal(result.account.sharing, true);
-  assert.equal(result.account.refreshToken, 'refresh');
+  assert.ok(result.account.subject === 'user');
+  assert.ok(result.account.sharing === true);
+  assert.ok(result.account.refreshToken === 'refresh');
 });
 
 testStable('abandoned sign-in expires and closes its listener', async () => {
@@ -77,8 +76,8 @@ testStable('abandoned sign-in expires and closes its listener', async () => {
         const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
 
         yield* Effect.sleep(60);
-        yield* Effect.promise(() => assert.rejects(fetch(callback)));
-        yield* Effect.promise(() => assert.rejects(signIn.finish(1000), /expired|cancel/i));
+        yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
+        yield* Effect.promise(() => expect(signIn.finish(1000)).rejects.toThrow(/expired|cancel/i));
       })
     )
   );
@@ -93,8 +92,8 @@ testStable('disposing sign-in cancels a waiting finish and closes the listener',
   const finishing = signIn.finish(5000);
 
   signIn.dispose();
-  await assert.rejects(finishing, /cancel/i);
-  await assert.rejects(fetch(callback));
+  await expect(finishing).rejects.toThrow(/cancel/i);
+  await expect(fetch(callback)).rejects.toThrow();
 });
 
 testStable('callback failure shows both localized messages', async () => {
@@ -102,13 +101,15 @@ testStable('callback failure shows both localized messages', async () => {
     issuer: 'https://auth.example',
     hostId: 'host'
   });
-  const finishing = assert.rejects(signIn.finish(5000), /mismatch/i);
+  const finishing = (async () => {
+    await expect(signIn.finish(5000)).rejects.toThrow(/mismatch/i);
+  })();
   const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
   const response = await fetch(callback);
   const page = await response.text();
 
-  assert.match(page, /The sign-in did not complete/);
-  assert.match(page, /accesso non è riuscito/);
+  expect(page).toMatch(/The sign-in did not complete/);
+  expect(page).toMatch(/accesso non è riuscito/);
   await finishing;
 });
 
@@ -131,14 +132,15 @@ testStable('malformed token response and ID claims do not leak their contents', 
 
     callback.searchParams.set('state', url.searchParams.get('state')!);
     callback.searchParams.set('code', 'code');
-    const failure = assert.rejects(
-      signIn.finish(5000),
-      (error) =>
-        !String(error).includes('secret-token-body') &&
-        !String(error).includes('secret-identity') &&
-        error instanceof Error &&
-        error.cause === undefined
-    );
+    const failure = (async () => {
+      await expect(signIn.finish(5000)).rejects.toSatisfy(
+        (error) =>
+          !String(error).includes('secret-token-body') &&
+          !String(error).includes('secret-identity') &&
+          error instanceof Error &&
+          error.cause === undefined
+      );
+    })();
 
     await fetch(callback);
     await failure;
@@ -169,7 +171,7 @@ testStable(
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
 
-    if (!address || typeof address === 'string') throw new Error('No loopback address');
+    assert.ok(!(!address || typeof address === 'string'), 'No loopback address');
 
     try {
       await Effect.runPromise(
@@ -189,14 +191,16 @@ testStable(
           callback.searchParams.set('state', url.searchParams.get('state')!);
           callback.searchParams.set('code', 'code');
           const finishing = signIn.finish(5000);
-          const rejected = assert.rejects(finishing, /timed out/);
+          const rejected = (async () => {
+            await expect(finishing).rejects.toThrow(/timed out/);
+          })();
 
           yield* Effect.promise(() => fetch(callback));
           yield* Effect.promise(() => bodyStarted);
           yield* TestClock.adjust('5 seconds');
           yield* Effect.promise(() => rejected);
           yield* Effect.promise(() => bodyClosed);
-          yield* Effect.promise(() => assert.rejects(fetch(callback)));
+          yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
         }).pipe(Effect.provide(TestClock.layer()))
       );
     } finally {

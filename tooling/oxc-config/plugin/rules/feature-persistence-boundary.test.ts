@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -13,7 +12,7 @@ testStable(
       'src/features/documents/store.ts': `import { content_snapshots } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
     });
 
-    assert.equal(diagnostics.length, 3);
+    assert.strictEqual(diagnostics.length, 3);
   }
 );
 
@@ -35,7 +34,7 @@ testStable('recognizes aliases and SQL without confusing unrelated APIs or reads
     'src/features/projects/store.test.ts': `import { sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.update(sessions);`
   });
 
-  assert.equal(diagnostics.length, 4);
+  assert.strictEqual(diagnostics.length, 4);
 });
 
 testStable('every exported database table has an explicit ownership policy', async () => {
@@ -48,7 +47,7 @@ testStable('every exported database table has an explicit ownership policy', asy
     .map((table) => (table as unknown as Record<symbol, string>)[Symbol.for('drizzle:Name')])
     .sort();
 
-  assert.deepEqual(Object.keys(tableOwners).sort(), tables);
+  expect(Object.keys(tableOwners).sort()).toStrictEqual(tables);
 });
 
 testStable('table ownership applies to contextual native factory receivers', () => {
@@ -61,7 +60,7 @@ testStable('table ownership applies to contextual native factory receivers', () 
     `
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -75,8 +74,7 @@ testStable(
       'src/features/learning/store.ts': `import { project_materials, project_sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.delete(project_materials); db.delete(project_sessions);`
     });
 
-    assert.deepEqual(
-      diagnostics.map(({ message }) => message).sort(),
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
       [
         'Feature materials may not write project_sessions.',
         'Feature conversations may not write project_materials.',
@@ -111,7 +109,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
       'Feature materials may not write source_extraction_revisions.',
       'Feature materials may not write source_recording_imports.',
       'Feature materials may not write source_recording_imports.'
@@ -141,7 +139,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
       'Feature learning may not write blocks.',
       'Feature learning may not write document_assets.',
       'Feature materials may not write document_assets.',
@@ -176,7 +174,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
       'Feature conversations may not write session_materials.',
       'Feature conversations may not write study_document_versions.',
       'Feature materials may not write session_run_contexts.',
@@ -206,7 +204,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
       'Feature conversations may not write material_evidence_citations.',
       'Feature conversations may not write material_evidence_inputs.',
       'Feature conversations may not write material_generation_requests.'
@@ -238,7 +236,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
       'Feature conversations may not write study_document_edit_receipts.',
       'Feature conversations may not write study_document_proposal_receipts.',
       'Feature conversations may not write study_document_proposals.',
@@ -279,8 +277,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(
-      diagnostics.map(({ message }) => message).sort(),
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
       [
         'Feature conversations may not write study_document_annotations.',
         'Feature conversations may not write study_document_annotation_revisions.',
@@ -310,7 +307,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
       'Feature conversations may not write study_document_proposal_receipts.',
       'Feature conversations may not write study_document_transform_requests.',
       'Feature documents may not write session_deletion_correlations.',
@@ -348,8 +345,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(
-      diagnostics.map(({ message }) => message).sort(),
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
       [
         'Feature materials may not write source_extraction_revisions.',
         'Feature sources may not write material_deletion_members.',
@@ -381,8 +377,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(
-      diagnostics.map(({ message }) => message).sort(),
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
       [
         'Feature materials may not write source_extraction_revisions.',
         'Feature materials may not write session_retired_intents.',
@@ -423,7 +418,7 @@ testStable(
     `
     });
 
-    assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
+    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
       'Feature learning may not write material_history_members.',
       'Feature learning may not write material_history_prunes.',
       'Feature learning may not write material_history_requests.',
@@ -449,7 +444,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/store/backup.ts')));
   }
 );

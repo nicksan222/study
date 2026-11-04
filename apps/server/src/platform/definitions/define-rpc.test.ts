@@ -9,15 +9,13 @@
  * │   creation is lazy and scoped, and operations retain their dependencies.                 │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Invokes #server/platform/definitions/define-rpc directly with node:test; no application  │
+ * │ Invokes #server/platform/definitions/define-rpc directly with Vitest   ; no application  │
  * │ or database fixture is involved.                                                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyError, failureSchema } from '@study/contracts/errors';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import {
   Cause,
   Context,
@@ -31,6 +29,8 @@ import {
   Stream
 } from 'effect';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
@@ -63,7 +63,7 @@ testStable('maps StudyError through native RPC without losing retryAfterMs', asy
     )
   );
 
-  assert.deepEqual(result, { kind: 'rate_limited', message: 'slow', retryAfterMs: 42 });
+  expect(result).toStrictEqual({ kind: 'rate_limited', message: 'slow', retryAfterMs: 42 });
 });
 
 class Initialization extends Context.Service<Initialization, string>()('test/RpcInitialization') {}
@@ -96,7 +96,7 @@ testStable(
       })
     );
 
-    assert.equal(acquisitions, 0);
+    assert.strictEqual(acquisitions, 0);
 
     for (const prefix of ['Hello ', 'Ciao ']) {
       const value = await Effect.runPromise(
@@ -116,11 +116,11 @@ testStable(
         )
       );
 
-      assert.equal(value, prefix + 'Ada!');
+      assert.strictEqual(value, prefix + 'Ada!');
     }
 
-    assert.equal(acquisitions, 2);
-    assert.equal(releases, 2);
+    assert.strictEqual(acquisitions, 2);
+    assert.strictEqual(releases, 2);
   }
 );
 
@@ -141,7 +141,7 @@ for (const wrapped of [false, true])
       )
     );
 
-    assert.deepEqual(result, { kind: 'transient', message: 'retry', retryAfterMs: 17 });
+    expect(result).toStrictEqual({ kind: 'transient', message: 'retry', retryAfterMs: 17 });
   });
 
 testStable('native dequeue handlers retain streaming failures', async () => {
@@ -172,7 +172,7 @@ testStable('native dequeue handlers retain streaming failures', async () => {
     )
   );
 
-  assert.deepEqual(result, { kind: 'transient', message: 'queue failed', retryAfterMs: 9 });
+  expect(result).toStrictEqual({ kind: 'transient', message: 'queue failed', retryAfterMs: 9 });
 });
 
 testStable('stream cancellation releases the handler resource', async () => {
@@ -212,7 +212,7 @@ testStable('stream cancellation releases the handler resource', async () => {
       })
     )
   );
-  assert.equal(released, 1);
+  assert.strictEqual(released, 1);
 });
 
 testStable('preserves unrelated typed errors, initialization failures and defects', async () => {
@@ -232,7 +232,7 @@ testStable('preserves unrelated typed errors, initialization failures and defect
     }).pipe(Effect.provide(layer))
   );
 
-  assert.equal(result, other);
+  assert.strictEqual(result, other);
   const initialization = new StudyError('config', 'initialization');
   const failed = defineRpc(
     Group,
@@ -242,7 +242,7 @@ testStable('preserves unrelated typed errors, initialization failures and defect
     >
   );
 
-  assert.equal(
+  assert.strictEqual(
     await Effect.runPromise(Layer.build(failed).pipe(Effect.scoped, Effect.flip)),
     initialization
   );

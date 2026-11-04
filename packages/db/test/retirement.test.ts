@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 
@@ -67,13 +67,12 @@ testStable(
       try {
         const db = connection.orm;
 
-        assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
-        assert.deepEqual(
+        expect(db.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        expect(
           db.all(
             sql`SELECT name, sql FROM sqlite_schema WHERE type='trigger' AND (tbl_name='message_versions') AND name LIKE 'message_fts_%' ORDER BY name`
-          ),
-          triggerSql
-        );
+          )
+        ).toStrictEqual(triggerSql);
 
         assert.ok(
           db.get(
@@ -101,54 +100,54 @@ testStable(
           'artifact_note_snapshots',
           'question_citations'
         ])
-          assert.equal(
+          assert.strictEqual(
             db.get(sql`SELECT name FROM sqlite_schema WHERE type='table' AND name=${table}`),
             undefined
           );
 
-        assert.equal(
+        assert.strictEqual(
           db
             .all(sql`PRAGMA table_info(message_versions)`)
             .some((c) => c.name === 'owner_job_id' || c.name === 'owner_attempt'),
           false
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT active_version_id FROM messages WHERE id=1`)?.active_version_id,
           1n
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT source_id FROM citations WHERE version_id=1`)?.source_id,
           1n
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT source_id FROM content_snapshots WHERE id=1`)?.source_id,
           1n
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT due FROM material_card_schedules WHERE card_id=1`)?.due,
           99n
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT rating FROM material_card_reviews WHERE card_id=1`)?.rating,
           'good'
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT status FROM workflow_executions WHERE execution_id='exec'`)?.status,
           'running'
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'photosynthesis'`)
             ?.rowid,
           1n
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT rowid FROM catalog_fts WHERE catalog_fts MATCH 'Retired'`),
           undefined
         );
         connection.exec(
           "INSERT INTO message_versions(message_id,number,origin,status,text,created_at) VALUES(1,3,'answer','complete','mitochondria',1)"
         );
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`)?.rowid,
           9007199254740994n
         );
@@ -160,7 +159,7 @@ testStable(
         );
         assert.ok(db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`));
         connection.exec('DELETE FROM message_versions WHERE number=4');
-        assert.equal(
+        assert.strictEqual(
           db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`),
           undefined
         );
@@ -184,10 +183,10 @@ function assertLibraryRetention(connection: Db) {
   const db = connection.orm;
 
   connection.exec('DELETE FROM projects WHERE id=1');
-  assert.equal(db.get(sql`SELECT id FROM materials WHERE id=1`)?.id, 1n);
-  assert.equal(
+  assert.strictEqual(db.get(sql`SELECT id FROM materials WHERE id=1`)?.id, 1n);
+  assert.strictEqual(
     db.get(sql`SELECT card_id FROM material_card_schedules WHERE card_id=1`)?.card_id,
     1n
   );
-  assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
+  expect(db.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
 }

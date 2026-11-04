@@ -1,9 +1,9 @@
-import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { parseTheme, themeColorKeys } from '@study/theme';
 import { and, eq } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { themes, preferences } from '../src/schema.ts';
 import { createTestDatabase } from '../src/testing.ts';
@@ -44,7 +44,9 @@ testStable(
         for (const mode of ['light', 'dark'] as const) {
           const colors = theme[mode]!;
 
-          assert.deepEqual(Object.keys(colors).sort(), [...themeColorKeys].sort(), `${id} ${mode}`);
+          expect(Object.keys(colors).sort(), `${id} ${mode}`).toStrictEqual(
+            [...themeColorKeys].sort()
+          );
 
           verifyContrast(colors, id, mode);
         }
@@ -113,9 +115,9 @@ testStable('upgrading retires T3 Chat while preserving custom themes and their i
       .get();
     const custom = db.orm.select().from(themes).where(eq(themes.id, 'catppuccin')).get();
 
-    assert.equal(selected?.value, JSON.stringify('tokyo-night'));
-    assert.equal(custom?.definition.name, 'My custom palette');
-    assert.equal(custom?.builtin, false);
+    assert.strictEqual(selected?.value, JSON.stringify('tokyo-night'));
+    assert.strictEqual(custom?.definition.name, 'My custom palette');
+    assert.strictEqual(custom?.builtin, false);
     assert.ok(
       !db.orm
         .select()

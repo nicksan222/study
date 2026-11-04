@@ -7,15 +7,14 @@
  * │ - Asserts: workflow retains versioned identity and native schemas.                       │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Invokes #server/platform/definitions/define-workflow directly with node:test; no         │
+ * │ Invokes #server/platform/definitions/define-workflow directly with Vitest   ; no         │
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 
@@ -29,7 +28,7 @@ testStable('workflow retains versioned identity and native schemas', () => {
     idempotencyKey: (p) => p.id
   });
 
-  assert.equal(workflow._tag, 'study/test/v2');
-  assert.equal(workflow.version, 2);
-  assert.equal(workflow.idempotencyKey({ id: 'abc' }), 'abc');
+  assert.ok(workflow._tag === 'study/test/v2');
+  assert.strictEqual(workflow.version, 2);
+  assert.ok(workflow.idempotencyKey({ id: 'abc' }) === 'abc');
 });

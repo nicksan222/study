@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -38,10 +37,11 @@ testStable('database connection and schema factories stay with their owners', ()
     true
   );
 
-  assert.deepEqual(
+  expect(
     diagnostics
       .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  ).toStrictEqual(
     [
       [
         'server/src/core-migrate.ts',
@@ -100,10 +100,11 @@ testStable('owner reexports cannot evade ownership by preceding imports', () => 
     true
   );
 
-  assert.deepEqual(
+  expect(
     diagnostics
       .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  ).toStrictEqual(
     [
       ...Array.from({ length: 3 }, () => [
         'db/src/db.ts',
@@ -126,6 +127,6 @@ testStable(
       'src/runtime/composition.ts': "import { Db } from '@study/db'; Db.openSnapshot(path);"
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );

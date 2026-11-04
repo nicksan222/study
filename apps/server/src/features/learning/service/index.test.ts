@@ -14,7 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
@@ -23,8 +22,10 @@ import type { QuizAttemptId, QuizChoiceId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
@@ -45,16 +46,14 @@ testStable('missing attempts are optional or typed failures', async () => {
         const id = 999n as QuizAttemptId;
 
         assert.ok(Option.isNone(yield* learning.findAttempt(id)));
-        assert.equal((yield* Effect.flip(learning.attempt(id))).kind, 'not_found');
+        assert.ok((yield* Effect.flip(learning.attempt(id))).kind === 'not_found');
         const projectId = Schema.decodeUnknownSync(projectIdSchema)(999n);
 
-        assert.equal(
-          (yield* Effect.flip(learning.dueCards({ projectId, limit: 10 }))).kind,
-          'not_found'
+        assert.ok(
+          (yield* Effect.flip(learning.dueCards({ projectId, limit: 10 }))).kind === 'not_found'
         );
-        assert.equal(
-          (yield* Effect.flip(learning.attempts({ projectId, limit: 10 }))).kind,
-          'not_found'
+        assert.ok(
+          (yield* Effect.flip(learning.attempts({ projectId, limit: 10 }))).kind === 'not_found'
         );
       }).pipe(
         Effect.provide(
@@ -258,9 +257,9 @@ testStable(
           });
           const event = decodeEvent(db.select().from(s.workflowEvents).all()[0]!.payload);
 
-          assert.equal(event.type, 'QuizAnswerSubmitted');
-          assert.equal(event.type === 'QuizAnswerSubmitted' && event.attemptId, a.id);
-          assert.equal(
+          assert.ok(event.type === 'QuizAnswerSubmitted');
+          assert.strictEqual(event.type === 'QuizAnswerSubmitted' && event.attemptId, a.id);
+          assert.ok(
             (yield* Effect.flip(
               learning.answerQuestion({
                 ...input,
@@ -269,52 +268,46 @@ testStable(
                   choiceIds: [1n as QuizChoiceId]
                 }
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
 
-          if (event.type !== 'QuizAnswerSubmitted') throw new Error('wrong event');
+          assert.ok(!(event.type !== 'QuizAnswerSubmitted'), 'wrong event');
 
           const otherAttempt = yield* learning.startQuiz({ versionId: otherVersion.id });
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               learning.answerQuestion({ ...input, questionId: otherQuestion.id })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(learning.gradingSnapshot({ ...event, attemptId: otherAttempt.id })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               learning.gradingSnapshot({ ...event, questionId: otherQuestion.id })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(learning.answerQuestion({ ...input, questionId: nextQuestion.id })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               learning.gradingSnapshot({ ...event, questionId: nextQuestion.id })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const snapshot = yield* learning.gradingSnapshot(event);
 
-          assert.equal(snapshot.prompt, 'Question');
-          assert.equal(snapshot.referenceAnswer, 'Reference');
-          assert.equal(snapshot.learnerAnswer, 'answer');
-          assert.equal(snapshot.versionId, version.id);
+          assert.ok(snapshot.prompt === 'Question');
+          assert.ok(snapshot.referenceAnswer === 'Reference');
+          assert.ok(snapshot.learnerAnswer === 'answer');
+          assert.strictEqual(snapshot.versionId, version.id);
 
-          assert.equal(
-            (yield* Effect.flip(learning.gradingSnapshot({ ...event, eventId: 'forged' }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(learning.gradingSnapshot({ ...event, eventId: 'forged' }))).kind ===
+              'invalid_input'
           );
 
           const grade = {
@@ -331,18 +324,17 @@ testStable(
           yield* transaction((tx) =>
             tx.store(AttemptStore).publishGrade({ ...grade, score: 1 })
           ).pipe(Effect.provideService(Database, { store: context }));
-          assert.equal(db.select().from(s.material_quiz_responses).get()?.score, 0.5);
+          assert.strictEqual(db.select().from(s.material_quiz_responses).get()?.score, 0.5);
           yield* learning.answerQuestion({
             ...input,
             answer: { type: 'open', answer: 'new answer' }
           });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               transaction((tx) => tx.store(AttemptStore).publishGrade(grade)).pipe(
                 Effect.provideService(Database, { store: context })
               )
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           db.run(
             sql`CREATE TRIGGER reject_quiz_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'rejected'); END`
@@ -350,7 +342,7 @@ testStable(
           yield* Effect.flip(
             learning.answerQuestion({ ...input, answer: { type: 'open', answer: 'rolled back' } })
           );
-          assert.equal(db.select().from(s.material_quiz_responses).get()?.answer, 'new answer');
+          assert.ok(db.select().from(s.material_quiz_responses).get()?.answer === 'new answer');
           db.run(sql`DROP TRIGGER reject_quiz_event`);
           yield* learning.gradeResponse({
             attemptId: a.id,
@@ -360,10 +352,10 @@ testStable(
           });
           const done = yield* learning.finishQuiz({ attemptId: a.id });
 
-          assert.equal(done.questions[0]?.score, 0.5);
-          assert.equal(done.questions[1]?.score, 1);
-          assert.equal((yield* Effect.flip(learning.answerQuestion(input))).kind, 'invalid_input');
-          assert.equal(db.select().from(s.workflowEvents).all().length, 2);
+          assert.strictEqual(done.questions[0]?.score, 0.5);
+          assert.strictEqual(done.questions[1]?.score, 1);
+          assert.ok((yield* Effect.flip(learning.answerQuestion(input))).kind === 'invalid_input');
+          assert.strictEqual(db.select().from(s.workflowEvents).all().length, 2);
 
           for (const [index, questionId] of [q.id, nextQuestion.id].entries()) {
             const foreignEvent: QuizAnswerSubmitted = {
@@ -374,9 +366,8 @@ testStable(
             };
 
             context.transaction(() => emitEvent(context, foreignEvent, Date.now()));
-            assert.equal(
-              (yield* Effect.flip(learning.gradingSnapshot(foreignEvent))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(learning.gradingSnapshot(foreignEvent))).kind === 'invalid_input'
             );
           }
         }).pipe(
@@ -469,11 +460,11 @@ testStable('daily allowance limits new cards and review schedules persist', asyn
         const learning = yield* Learning;
         const page = yield* learning.dueCards({ projectId: project.id, limit: 10 });
 
-        assert.equal(page.items.length, 1);
+        assert.strictEqual(page.items.length, 1);
         const settings = yield* Settings;
 
         yield* settings.saveReviewSettings({ newCardsPerDay: 2 });
-        assert.equal(
+        assert.strictEqual(
           (yield* learning.dueCards({ projectId: project.id, limit: 10 })).items.length,
           2
         );
@@ -481,13 +472,16 @@ testStable('daily allowance limits new cards and review schedules persist', asyn
         const cardId = page.items[0]!.snapshot.card_id;
 
         yield* learning.reviewCard({ versionId: version.id, cardId, rating: 'good' });
-        assert.equal((yield* learning.card({ versionId: version.id, cardId })).schedule?.reps, 1n);
-        assert.equal(
+        assert.strictEqual(
+          (yield* learning.card({ versionId: version.id, cardId })).schedule?.reps,
+          1n
+        );
+        assert.strictEqual(
           (yield* learning.reviewHistory({ versionId: version.id, cardId, limit: 10 })).items
             .length,
           1
         );
-        assert.equal(
+        assert.strictEqual(
           (yield* learning.dueCards({ projectId: project.id, limit: 10 })).items.length,
           0
         );
@@ -555,7 +549,7 @@ testStable('practice starts idempotently with two captured pending slots', async
           inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
 
-        assert.equal(first.epoch, second.epoch);
+        assert.strictEqual(first.epoch, second.epoch);
         context.db.orm
           .update(s.learning_practice_slots)
           .set({ failure_kind: 'config' })
@@ -563,22 +557,18 @@ testStable('practice starts idempotently with two captured pending slots', async
           .run();
         const failed = yield* learning.practice({ projectId: project.id });
 
-        assert.equal(failed.slots[0]!.status, 'failed');
-        assert.equal(failed.slots[0]!.failureKind, 'config');
+        assert.ok(failed.slots[0]!.status === 'failed');
+        assert.ok(failed.slots[0]!.failureKind === 'config');
         const retried = yield* learning.retryPracticeQuestion({ slotId: first.slots[0]!.slotId });
 
-        assert.equal(retried.status, 'pending');
-        assert.equal(retried.slotId, first.slots[0]!.slotId);
+        assert.ok(retried.status === 'pending');
+        assert.strictEqual(retried.slotId, first.slots[0]!.slotId);
         yield* learning.retryPracticeQuestion({ slotId: first.slots[0]!.slotId });
-        assert.deepEqual(
-          first.slots.map((slot) => slot.kind),
-          ['choice', 'choice']
-        );
-        assert.deepEqual(
-          first.slots.map((slot) => slot.slotId),
+        expect(first.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
+        expect(first.slots.map((slot) => slot.slotId)).toStrictEqual(
           second.slots.map((slot) => slot.slotId)
         );
-        assert.equal(
+        assert.strictEqual(
           context.db.orm
             .select()
             .from(s.workflowEvents)
@@ -588,10 +578,10 @@ testStable('practice starts idempotently with two captured pending slots', async
         );
         const stopped = yield* learning.stopPractice({ projectId: project.id });
 
-        assert.equal(stopped.enabled, false);
-        assert.equal(stopped.slots.length, 0);
+        assert.ok(stopped.enabled === false);
+        assert.strictEqual(stopped.slots.length, 0);
         yield* materials.openGenerationScope({ scopeId: first.epoch!, projectId: project.id });
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.requestMaterialGenerationOnce({
               requestId: first.slots[0]!.slotId,
@@ -604,16 +594,15 @@ testStable('practice starts idempotently with two captured pending slots', async
                 questionSpec: { count: 1, kind: 'choice' }
               }
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         const restarted = yield* learning.startPractice({
           projectId: project.id,
           inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
 
-        assert.notEqual(restarted.epoch, first.epoch);
-        assert.equal(restarted.slots.length, 2);
+        assert.notStrictEqual(restarted.epoch, first.epoch);
+        assert.strictEqual(restarted.slots.length, 2);
       }).pipe(
         Effect.provide(
           Learning.layer

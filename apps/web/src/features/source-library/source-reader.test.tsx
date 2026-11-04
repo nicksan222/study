@@ -4,7 +4,7 @@ import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect } from 'effect';
-import { expect, vi } from 'vite-plus/test';
+import { assert, expect, vi } from 'vite-plus/test';
 
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
@@ -103,7 +103,7 @@ testStable(
 
       clearTimeout(timers.mock.results[scheduled]!.value);
 
-      if (typeof callback !== 'function') throw new Error('Expected a download cleanup callback');
+      assert.isFunction(callback, 'Expected a download cleanup callback');
 
       callback();
       expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:historical-original');

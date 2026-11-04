@@ -13,15 +13,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Exit, Layer, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/service/index';
@@ -107,7 +106,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
       }).pipe(Effect.provide(domain))
     );
 
-    await assert.rejects(
+    await expect(
       Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -122,7 +121,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
           }).pipe(Effect.provide(services))
         )
       )
-    );
+    ).rejects.toSatisfy(() => true);
   } finally {
     context.close();
     location.cleanup();
@@ -278,7 +277,7 @@ testStable(
           const exact = yield* sources.currentExtraction({ id: source.id });
 
           assert.ok(exact);
-          assert.equal(context.db.orm.select().from(s.materials).all().length, 0);
+          assert.strictEqual(context.db.orm.select().from(s.materials).all().length, 0);
 
           return {
             projectId: project.id,
@@ -365,7 +364,7 @@ testStable(
               JSON.stringify(payload),
               undefined
             );
-            assert.equal(journal.claim(event.requestId, 'validation-checkpoint'), true);
+            assert.ok(journal.claim(event.requestId, 'validation-checkpoint') === true);
             journal.saveActivity(
               event.requestId,
               'validation-checkpoint',
@@ -380,7 +379,7 @@ testStable(
 
           let rejected: unknown;
 
-          await assert.rejects(execute(), (error) => {
+          await expect(execute()).rejects.toSatisfy((error) => {
             rejected = error;
 
             return true;
@@ -395,17 +394,17 @@ testStable(
                 value.type === 'MaterialGenerationFailed' && value.requestId === event.requestId
             );
 
-          assert.equal(
+          assert.strictEqual(
             failures.length,
             1,
             JSON.stringify(rejected, (_key, value) =>
               value instanceof Error ? { message: value.message, cause: value.cause } : value
             )
           );
-          assert.equal(failures[0]?.causationId, event.eventId);
+          assert.strictEqual(failures[0]?.causationId, event.eventId);
           const completedCalls = calls;
 
-          assert.equal(
+          assert.strictEqual(
             completedCalls - beforeCorrection,
             failure === 'publication' ? 4 : 2,
             JSON.stringify(rejected, (_key, value) =>
@@ -425,7 +424,7 @@ testStable(
           context = new ServerContext(location.open());
           const replayed = await execute();
 
-          assert.equal(
+          assert.strictEqual(
             calls,
             completedCalls,
             'reopening must reuse both completed diagram attempts'
@@ -441,18 +440,18 @@ testStable(
 
         const id = await execute();
 
-        assert.match(bodies.at(-1)!, /alpha evidence/);
+        expect(bodies.at(-1)!).toMatch(/alpha evidence/);
         const before = calls;
 
         context.close();
         context = new ServerContext(location.open());
-        assert.equal(await execute(), id);
-        assert.equal(calls, before);
+        assert.strictEqual(await execute(), id);
+        assert.strictEqual(calls, before);
         const version = await Effect.runPromise(
           Effect.flatMap(Materials, (m) => m.materialVersion({ id })).pipe(Effect.provide(domain()))
         );
 
-        assert.equal(version.kind, kind);
+        assert.strictEqual(version.kind, kind);
 
         return version;
       };
@@ -490,14 +489,14 @@ testStable(
       assertQuizQuestionShapes();
 
       function assertQuizQuestionShapes() {
-        assert.equal(quiz.content.kind, 'quiz');
+        assert.ok(quiz.content.kind === 'quiz');
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
         const [single, multiple, open] = quiz.content.questions;
 
-        assert.equal(single?.kind, 'single_choice');
-        assert.equal(multiple?.kind, 'multiple_choice');
+        assert.ok(single?.kind === 'single_choice');
+        assert.ok(multiple?.kind === 'multiple_choice');
 
         if (
           single?.kind !== 'single_choice' ||
@@ -506,15 +505,13 @@ testStable(
         )
           throw Error('wrong questions');
 
-        assert.deepEqual(
-          single.choices.map((choice) => choice.isCorrect),
-          [true, false]
-        );
-        assert.deepEqual(
-          multiple.choices.map((choice) => choice.isCorrect),
-          [true, true, false]
-        );
-        assert.equal(open.referenceAnswer, 'alpha');
+        expect(single.choices.map((choice) => choice.isCorrect)).toStrictEqual([true, false]);
+        expect(multiple.choices.map((choice) => choice.isCorrect)).toStrictEqual([
+          true,
+          true,
+          false
+        ]);
+        assert.ok(open.referenceAnswer === 'alpha');
       }
 
       await generate(
@@ -550,8 +547,8 @@ testStable(
         ],
         ['diagram', { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA["alpha"]' }]
       ] as const) {
-        await assert.rejects(generate(kind, content));
-        assert.equal(
+        await expect(generate(kind, content)).rejects.toSatisfy(() => true);
+        assert.strictEqual(
           context.db.orm
             .select()
             .from(s.material_generation_requests)
@@ -617,16 +614,16 @@ testStable(
       await archive();
       const beforeStale = calls;
 
-      await assert.rejects(executeEvent(stale));
-      assert.equal(calls, beforeStale);
+      await expect(executeEvent(stale)).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, beforeStale);
       await unarchive();
       const resolver = await request();
 
       duringModel = async () => {
         await archive();
       };
-      await assert.rejects(executeEvent(resolver));
-      assert.equal(calls, beforeStale);
+      await expect(executeEvent(resolver)).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, beforeStale);
       await unarchive();
       const racing = await request();
 
@@ -635,32 +632,30 @@ testStable(
       duringCall = async () => {
         await archive();
       };
-      await assert.rejects(executeEvent(racing));
-      assert.equal(
+      await expect(executeEvent(racing)).rejects.toSatisfy(() => true);
+      assert.ok(
         (
           await Effect.runPromise(
             Effect.flatMap(Materials, (m) => m.materialGeneration({ requestId: racing.requestId }))
               .pipe(Effect.provide(domain()))
               .pipe(Effect.result)
           )
-        )._tag,
-        'Failure'
+        )._tag === 'Failure'
       );
       await unarchive();
       const forged = await request();
 
       tool = false;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q [99]', back: 'A' }] });
-      await assert.rejects(executeEvent(forged));
-      assert.equal(
+      await expect(executeEvent(forged)).rejects.toSatisfy(() => true);
+      assert.ok(
         (
           await Effect.runPromise(
             Effect.flatMap(Materials, (m) =>
               m.materialGeneration({ requestId: forged.requestId })
             ).pipe(Effect.provide(domain()))
           )
-        ).resultVersionId,
-        null
+        ).resultVersionId === null
       );
       const failures = () =>
         context.db.orm
@@ -673,11 +668,11 @@ testStable(
               item.type === 'MaterialGenerationFailed' && item.generationEventId === forged.eventId
           );
 
-      assert.equal(failures().length, 1);
-      assert.equal(failures()[0]!.causationId, forged.eventId);
-      assert.equal(failures()[0]!.correlationId, forged.requestId);
-      await assert.rejects(executeEvent(forged));
-      assert.equal(failures().length, 1);
+      assert.strictEqual(failures().length, 1);
+      assert.strictEqual(failures()[0]!.causationId, forged.eventId);
+      assert.strictEqual(failures()[0]!.correlationId, forged.requestId);
+      await expect(executeEvent(forged)).rejects.toSatisfy(() => true);
+      assert.strictEqual(failures().length, 1);
       await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.retryMaterialGenerationOnce({
@@ -692,14 +687,16 @@ testStable(
 
       assertEventType(retry, 'MaterialGenerationRequested', 'wrong retry event');
 
-      await assert.rejects(executeEvent({ ...retry, eventId: 'forged-retry' }));
+      await expect(executeEvent({ ...retry, eventId: 'forged-retry' })).rejects.toSatisfy(
+        () => true
+      );
       tool = true;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q [1]', back: 'A' }] });
       const retryVersion = await executeEvent(retry);
       const callsAfterRetry = calls;
 
-      assert.equal(await executeEvent(retry), retryVersion);
-      assert.equal(calls, callsAfterRetry);
+      assert.strictEqual(await executeEvent(retry), retryVersion);
+      assert.strictEqual(calls, callsAfterRetry);
       await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.retryMaterialGenerationOnce({
@@ -708,13 +705,12 @@ testStable(
           })
         ).pipe(Effect.provide(domain()))
       );
-      assert.equal(
+      assert.ok(
         context.db.orm
           .select()
           .from(s.workflowEvents)
           .all()
-          .some((row) => row.eventId === 'after-receipt'),
-        false
+          .some((row) => row.eventId === 'after-receipt') === false
       );
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -748,8 +744,8 @@ testStable(
 
       const beforeClosed = calls;
 
-      await assert.rejects(executeEvent(closedEvent));
-      assert.equal(calls, beforeClosed);
+      await expect(executeEvent(closedEvent)).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, beforeClosed);
       const closedFailures = context.db.orm
         .select()
         .from(s.workflowEvents)
@@ -761,7 +757,7 @@ testStable(
             item.generationEventId === closedEvent.eventId
         );
 
-      assert.equal(closedFailures.length, 1);
+      assert.strictEqual(closedFailures.length, 1);
       const cancelled = await request();
 
       tool = false;
@@ -769,22 +765,22 @@ testStable(
       duringCall = async () => {
         await cancel!();
       };
-      await assert.rejects(executeEvent(cancelled));
+      await expect(executeEvent(cancelled)).rejects.toSatisfy(() => true);
       const cancelledState = await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.materialGeneration({ requestId: cancelled.requestId, verifyOnly: true })
         ).pipe(Effect.provide(domain()))
       );
 
-      assert.equal(cancelledState.resultVersionId, null);
-      assert.equal(cancelledState.cancelled, true);
+      assert.ok(cancelledState.resultVersionId === null);
+      assert.ok(cancelledState.cancelled === true);
       const blocked = await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           Effect.flip(m.materialGeneration({ requestId: cancelled.requestId }))
         ).pipe(Effect.provide(domain()))
       );
 
-      assert.equal(blocked.kind, 'cancelled');
+      assert.ok(blocked.kind === 'cancelled');
     } finally {
       await auth.dispose();
       context.close();

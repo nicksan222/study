@@ -12,12 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Sources } from '#server/features/sources/index';
 import {
@@ -57,8 +56,8 @@ testStable(
               before: before.document.blocks[0]!.text,
               after
             });
-            assert.equal((yield* sources.sourceProcessing(source.id)).revision, 1);
-            assert.equal(
+            assert.strictEqual((yield* sources.sourceProcessing(source.id)).revision, 1);
+            assert.strictEqual(
               (yield* sources.extraction({
                 sourceId: source.id,
                 revision: 1n,
@@ -92,16 +91,16 @@ testStable(
           const scope = { sourceId: source.id, keepLatest: 1 };
           const preview = yield* sources.previewHistory(scope);
 
-          assert.deepEqual(
-            preview.candidates.map((item) => item.snapshotId),
-            [first.documentId, corrected[0]!.documentId]
-          );
-          assert.deepEqual(preview.blockedSnapshotIds, []);
+          expect(preview.candidates.map((item) => item.snapshotId)).toStrictEqual([
+            first.documentId,
+            corrected[0]!.documentId
+          ]);
+          expect(preview.blockedSnapshotIds).toStrictEqual([]);
           f.context.db.exec(
             "CREATE TRIGGER reject_private_source_retirement BEFORE INSERT ON workflow_events WHEN NEW.type='SourceHistoryPruned' BEGIN SELECT RAISE(ABORT,'injected rollback'); END"
           );
           yield* Effect.flip(sources.retireHistory({ ...scope, token: preview.token }));
-          assert.equal(
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'First corrected evidence')>0`
             )?.n,
@@ -116,19 +115,19 @@ testStable(
           );
           f.context.db.exec('DROP TRIGGER reject_private_source_retirement');
           yield* sources.retireHistory({ ...scope, token: preview.token });
-          assert.equal(
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'First corrected evidence')>0`
             )?.n,
             0n
           );
-          assert.equal(
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_events WHERE instr(payload,'First corrected evidence')>0`
             )?.n,
             0n
           );
-          assert.equal(
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_executions WHERE instr(payload,'First corrected evidence')>0 OR instr(result,'First corrected evidence')>0`
             )?.n,
@@ -137,7 +136,7 @@ testStable(
           assertScrubbed(f, 'First corrected evidence', false);
           const currentEvent = correctionEvents.at(-1)!;
 
-          assert.equal(
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_retired_correlations WHERE correlation_id=${currentEvent.correlationId} AND event_type='SourceIndexed'`
             )?.n,
@@ -148,7 +147,7 @@ testStable(
               sql`SELECT 1 FROM workflow_events WHERE correlation_id=${currentEvent.correlationId} AND type='SourceIndexed' AND payload!='{}'`
             )
           );
-          assert.equal(
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_activities WHERE name='correct-source' AND instr(result,'Current corrected evidence')>0`
             )?.n,
@@ -156,32 +155,29 @@ testStable(
           );
 
           for (const snapshotId of [first.documentId, corrected[0]!.documentId])
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 sources.extraction({ sourceId: source.id, revision: 1n, snapshotId })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
 
-          assert.equal(
+          assert.ok(
             (yield* sources.extraction({ sourceId: source.id, revision: 1n, snapshotId: current }))
-              .document.blocks[0]?.text,
-            'Current corrected evidence'
+              .document.blocks[0]?.text === 'Current corrected evidence'
           );
-          assert.deepEqual(
-            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
-            bytes
-          );
+          expect(
+            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+          ).toStrictEqual(bytes);
         }).pipe(Effect.provide(f.domain()))
       );
       f.reopen();
 
       for (const event of correctionEvents) {
-        assert.equal(event.type, 'SourceCorrectionRequested');
+        assert.ok(event.type === 'SourceCorrectionRequested');
 
-        if (event.type !== 'SourceCorrectionRequested') throw new Error('Unexpected fixture event');
+        assert.ok(!(event.type !== 'SourceCorrectionRequested'), 'Unexpected fixture event');
 
-        await assert.rejects(
+        await expect(
           Effect.runPromise(
             Effect.scoped(
               Effect.gen(function* () {
@@ -196,50 +192,49 @@ testStable(
               }).pipe(Effect.provide(f.services()))
             )
           )
-        );
+        ).rejects.toSatisfy(() => true);
       }
 
       const pending = await processSource(f, true);
 
-      assert.notEqual(pending.documentId, current);
+      assert.notStrictEqual(pending.documentId, current);
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
           const history = yield* sources.extractions({ sourceId: source.id, limit: 10 });
 
-          assert.deepEqual(
-            history.items.map((item) => item.snapshotId),
-            [pending.documentId, current]
+          expect(history.items.map((item) => item.snapshotId)).toStrictEqual([
+            pending.documentId,
+            current
+          ]);
+          assert.ok(
+            (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text ===
+              'Pending correction completes'
           );
-          assert.equal(
-            (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text,
-            'Pending correction completes'
-          );
-          assert.deepEqual(
-            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
-            bytes
-          );
+          expect(
+            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+          ).toStrictEqual(bytes);
           // Retiring a correction input must keep its retained output's ownership identity.
           const scope = { sourceId: source.id, keepLatest: 1 };
           const preview = yield* sources.previewHistory(scope);
 
           yield* sources.retireHistory({ ...scope, token: preview.token });
           assertScrubbed(f, 'Current corrected evidence', false);
-          assert.equal(
-            (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text,
-            'Pending correction completes'
+          assert.ok(
+            (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text ===
+              'Pending correction completes'
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
-      assert.equal(
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
+      assert.strictEqual(
         f.context.db.orm.get(
           sql`SELECT count(*) n FROM source_snapshots WHERE source_id=${source.id}`
         )?.n,
         1n
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

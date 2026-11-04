@@ -14,7 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { ProjectId } from '@study/contracts/ids';
@@ -23,9 +22,11 @@ import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
@@ -91,11 +92,11 @@ testStable(
             inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
           });
 
-          assert.equal(request.title, 'Cards');
-          assert.deepEqual(request.inputs, [
+          assert.ok(request.title === 'Cards');
+          expect(request.inputs).toStrictEqual([
             { kind: 'document' as const, versionId: doc.version.id }
           ]);
-          assert.equal(
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(workflowEvents)
@@ -163,14 +164,13 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       const base = { projectId: project.id, title: 'Generated', kind: 'quiz' as const };
 
       for (const id of [foreign.version.id, draft.id, archived.version.id]) {
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.requestMaterialGeneration({
               ...base,
               inputs: [{ kind: 'document' as const, versionId: id }]
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
       }
 
@@ -199,7 +199,10 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
           }))
         })
       );
-      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
+      assert.strictEqual(
+        context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
+        0
+      );
       context.db.exec(
         "CREATE TRIGGER reject_generation_event BEFORE INSERT ON workflow_events WHEN new.type='MaterialGenerationRequested' BEGIN SELECT RAISE(ABORT, 'rejected'); END"
       );
@@ -209,8 +212,11 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
           inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
         })
       );
-      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
-      assert.equal(context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length, 0);
+      assert.strictEqual(
+        context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
+        0
+      );
+      assert.strictEqual(context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length, 0);
       context.db.exec('DROP TRIGGER reject_generation_event');
       const request = yield* client('materials.requestMaterialGeneration', {
         ...base,
@@ -222,14 +228,14 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       requestId = request.id;
       versionId = doc.version.id;
       documentId = doc.version.snapshotId;
-      assert.equal(snapshot.instruction, 'Focus');
+      assert.ok(snapshot.instruction === 'Focus');
       const event = context.db.orm
         .select()
         .from(workflowEvents)
         .all()
         .find((row) => row.eventId === request.id)!;
 
-      assert.deepEqual(decodeEvent(event.payload), {
+      expect(decodeEvent(event.payload)).toStrictEqual({
         type: 'MaterialGenerationRequested',
         eventId: request.id,
         causationId: null,
@@ -273,19 +279,25 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
         const materials = yield* Materials;
         const snapshot = yield* materials.materialGeneration({ requestId });
 
-        assert.deepEqual(snapshot.inputs, [{ kind: 'document', versionId }]);
+        expect(snapshot.inputs).toStrictEqual([{ kind: 'document', versionId }]);
         const docs = yield* Documents;
         const exact = snapshot.inputs[0];
 
         assert.ok(exact?.kind === 'document');
-        assert.equal((yield* docs.version({ id: exact.versionId })).snapshotId, documentId);
+        assert.strictEqual((yield* docs.version({ id: exact.versionId })).snapshotId, documentId);
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${snapshot.projectId}`);
-        assert.equal(
+        assert.strictEqual(
           (yield* materials.materialGeneration({ requestId: otherRequestId })).id,
           otherRequestId
         );
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 2);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length, 2);
+        assert.strictEqual(
+          context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
+          2
+        );
+        assert.strictEqual(
+          context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length,
+          2
+        );
       }).pipe(Effect.provide(makeServices()))
     );
   } finally {
@@ -325,12 +337,12 @@ testStable(
             request
           });
 
-          assert.deepEqual(replay, first);
-          assert.equal(
+          expect(replay).toStrictEqual(first);
+          assert.strictEqual(
             context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
             1
           );
-          assert.equal(
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(workflowEvents)
@@ -338,14 +350,13 @@ testStable(
               .filter((event) => event.type === 'MaterialGenerationRequested').length,
             1
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({
                 requestId: 'slot-1',
                 request: { ...request, title: 'Changed' }
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(services))
       );
@@ -386,46 +397,42 @@ testStable(
           yield* materials.openGenerationScope(scope);
           yield* materials.openGenerationScope(scope);
           yield* materials.requestMaterialGenerationOnce({ requestId: 'slot', request });
-          assert.equal(
-            (yield* materials.materialGeneration({ requestId: 'slot' })).questionSpec?.kind,
-            'open'
+          assert.ok(
+            (yield* materials.materialGeneration({ requestId: 'slot' })).questionSpec?.kind ===
+              'open'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({
                 requestId: 'slot',
                 request: { ...request, questionSpec: { count: 1, kind: 'choice' } }
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(materials.openGenerationScope({ ...scope, projectId: other.id })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
           yield* materials.closeGenerationScope(scope);
           yield* materials.openGenerationScope(scope);
-          assert.equal(
-            (yield* Effect.flip(materials.materialGeneration({ requestId: 'slot' }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(materials.materialGeneration({ requestId: 'slot' }))).kind ===
+              'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({ requestId: 'new', request })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           yield* materials.closeGenerationScope({ ...scope, scopeId: 'early' });
           yield* materials.openGenerationScope({ ...scope, scopeId: 'early' });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({
                 requestId: 'early-slot',
                 request: { ...request, scopeId: 'early' }
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(services))
       );
@@ -472,19 +479,18 @@ testStable(
             .all()
             .map((row) => decodeEvent(row.payload));
 
-          assert.equal(
+          assert.strictEqual(
             events.filter((event) => event.type === 'MaterialGenerationRequested').length,
             2
           );
-          assert.equal(
-            (yield* materials.materialGeneration({ requestId: 'request', eventId: 'retry' })).id,
-            'request'
+          assert.ok(
+            (yield* materials.materialGeneration({ requestId: 'request', eventId: 'retry' })).id ===
+              'request'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.materialGeneration({ requestId: 'request', eventId: 'forged' })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           yield* materials.requestMaterialGenerationOnce({
             requestId: 'other-request',
@@ -495,30 +501,27 @@ testStable(
               inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
             }
           });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({
                 requestId: 'other-request',
                 retryId: 'retry'
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({
                 requestId: 'request',
                 retryId: 'other-request'
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           yield* materials.closeGenerationScope({ scopeId: 'scope', projectId: project.id });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry-2' })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(services))
       );

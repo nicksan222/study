@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import {
   parseTheme,
@@ -19,7 +18,7 @@ testStable('portable themes round trip and reject unsafe or unknown data', () =>
     dark: { primary: 'rgb(1, 2, 3)' }
   };
 
-  assert.deepEqual(parseTheme(serializeTheme(theme)), theme);
+  expect(parseTheme(serializeTheme(theme))).toStrictEqual(theme);
 
   for (const input of [
     '{',
@@ -58,10 +57,10 @@ testStable('normalizes metadata and accepts supported CSS color spaces in every 
       })
     );
 
-    assert.equal(parsed.name, 'Tema è bello');
-    assert.equal(parsed.colors?.primary, color);
-    assert.equal(parsed.light?.background, color);
-    assert.equal(parsed.dark?.foreground, color);
+    assert.strictEqual(parsed.name, 'Tema è bello');
+    assert.strictEqual(parsed.colors?.primary, color);
+    assert.strictEqual(parsed.light?.background, color);
+    assert.strictEqual(parsed.dark?.foreground, color);
   }
 });
 
@@ -115,7 +114,7 @@ testStable(
     const file = { version: 1 as const, id: 'a'.repeat(128), name: 'A'.repeat(128), colors };
     const json = JSON.stringify(file);
 
-    assert.deepEqual(parseTheme(json.padEnd(65536, ' ')), file);
+    expect(parseTheme(json.padEnd(65536, ' '))).toStrictEqual(file);
     assert.throws(() => parseTheme(json.padEnd(65537, ' ')), ThemeFileError);
   }
 );
@@ -132,9 +131,9 @@ testStable('export validates, normalizes and round trips without mutating its in
   const before = JSON.stringify(file);
   const exported = serializeTheme(file);
 
-  assert.equal(JSON.stringify(file), before);
-  assert.equal(serializeTheme(parseTheme(exported)), exported);
-  assert.equal(parseTheme(exported).name, 'Export');
+  assert.strictEqual(JSON.stringify(file), before);
+  assert.strictEqual(serializeTheme(parseTheme(exported)), exported);
+  assert.strictEqual(parseTheme(exported).name, 'Export');
   assert.throws(
     () => serializeTheme({ ...file, colors: { primary: 'not-a-color' } }),
     ThemeFileError
@@ -151,9 +150,8 @@ testStable('CSS rendering merges common colors before each appearance override',
     dark: { background: 'black' }
   });
 
-  assert.match(css, /:root \{\n  --primary: blue;\n  --foreground: white;/);
-  assert.match(
-    css,
+  expect(css).toMatch(/:root \{\n  --primary: blue;\n  --foreground: white;/);
+  expect(css).toMatch(
     /:root\.dark \{\n  --primary: red;\n  --foreground: white;\n  --background: black;/
   );
 });

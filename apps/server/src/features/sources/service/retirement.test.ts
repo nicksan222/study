@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { createBlock, plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -43,12 +43,11 @@ testStable(
           Layer.succeed(WorkflowControl, {
             cancel: ({ id }) =>
               Effect.sync(() => {
-                assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n, 0n);
-                assert.equal(
+                assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n, 0n);
+                assert.ok(
                   context.db.orm.get(
                     sql`SELECT payload FROM workflow_executions WHERE execution_id=${id}`
-                  )?.payload,
-                  '{}'
+                  )?.payload === '{}'
                 );
                 cancelled.push(id);
               })
@@ -81,29 +80,27 @@ testStable(
           context.db.exec(
             `INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('source-run','decode',0,'{"private":"Original private bytes"}')`
           );
-          assert.equal(yield* sources.deleteSource({ id: source.id }), true);
-          assert.deepEqual(cancelled, ['source-run']);
-          assert.equal(context.db.orm.get(sql`SELECT 1 FROM source_snapshots`), undefined);
-          assert.equal(context.db.orm.get(sql`SELECT 1 FROM workflow_activities`), undefined);
-          assert.equal(
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          expect(cancelled).toStrictEqual(['source-run']);
+          assert.strictEqual(context.db.orm.get(sql`SELECT 1 FROM source_snapshots`), undefined);
+          assert.strictEqual(context.db.orm.get(sql`SELECT 1 FROM workflow_activities`), undefined);
+          assert.ok(
             context.db.orm.get(
               sql`SELECT payload FROM workflow_events WHERE correlation_id=${request.requestId}`
-            )?.payload,
-            '{}'
+            )?.payload === '{}'
           );
-          assert.equal(
+          assert.ok(
             context.db.orm.get(
               sql`SELECT status FROM workflow_executions WHERE execution_id='source-run'`
-            )?.status,
-            'cancelled'
+            )?.status === 'cancelled'
           );
-          assert.equal(
+          assert.strictEqual(
             context.db.orm.get(
               sql`SELECT correlation_id FROM workflow_retired_executions WHERE execution_id='source-run'`
             )?.correlation_id,
             request.requestId
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -143,15 +140,13 @@ testStable(
           });
           const request = yield* conversations.requestReply({ sessionId: session.id });
 
-          assert.equal(
-            (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             context.db.orm.get(
               sql`SELECT snapshot_id FROM conversation_reply_sources WHERE request_id=${request.requestId}`
-            )?.snapshot_id,
-            null
+            )?.snapshot_id === null
           );
           const published = yield* transaction((tx) =>
             tx.store(SourceStore).publishSourceDocument({
@@ -184,8 +179,11 @@ testStable(
             context,
             conversations.sealReplyAttachments({ requestId: request.requestId }).pipe(
               Effect.tap((sealed) => {
-                assert.equal(sealed.messages[0].attachments[0].revision, 1n);
-                assert.equal(sealed.messages[0].attachments[0].snapshotId, published.documentId);
+                assert.strictEqual(sealed.messages[0].attachments[0].revision, 1n);
+                assert.strictEqual(
+                  sealed.messages[0].attachments[0].snapshotId,
+                  published.documentId
+                );
 
                 return Effect.void;
               })
@@ -197,19 +195,21 @@ testStable(
             name: 'replacement.txt',
             bytes: new TextEncoder().encode('Replacement')
           });
-          assert.equal(
+          assert.strictEqual(
             (yield* conversations.replySnapshot({ requestId: request.requestId })).messages[0]
               .attachments[0].snapshotId,
             published.documentId
           );
-          assert.equal(
-            (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
+          assert.strictEqual(
+            context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
+            0n
+          );
           yield* conversations.deleteSession(session.id);
-          assert.equal(yield* sources.deleteSource({ id: source.id }), true);
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -266,9 +266,9 @@ testStable(
           );
           const own = yield* sources.previewDeletion({ id: source.id });
 
-          assert.deepEqual(own.blockedBy, []);
-          assert.equal(own.revisionCount, 1n);
-          assert.equal(own.extractionCount, 1n);
+          expect(own.blockedBy).toStrictEqual([]);
+          assert.strictEqual(own.revisionCount, 1n);
+          assert.strictEqual(own.extractionCount, 1n);
           const authored = yield* documents.create({
             createKey: 'external-image',
             title: 'External image',
@@ -287,23 +287,22 @@ testStable(
             citations: []
           });
 
-          assert.deepEqual((yield* sources.previewDeletion({ id: source.id })).blockedBy, [
+          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([
             'image_assets'
           ]);
-          assert.equal(
-            (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
           const preview = yield* documents.previewDeletion({ id: authored.id });
 
           yield* documents.delete({ documentId: authored.id, token: preview.token });
-          assert.deepEqual((yield* sources.previewDeletion({ id: source.id })).blockedBy, []);
-          assert.equal(yield* sources.deleteSource({ id: source.id }), true);
-          assert.equal(
+          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([]);
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM document_assets WHERE source_id=${source.id}`),
             undefined
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {

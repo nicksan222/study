@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
@@ -21,9 +20,11 @@ import { createBlock, correctBlockText } from '@study/contracts/sources/document
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -114,11 +115,11 @@ testStable(
               snapshotId: first
             };
 
-            assert.equal(
+            assert.strictEqual(
               requireRow(context.db.orm.get(sql`SELECT count(*) n FROM materials`)).n,
               0n
             );
-            assert.equal(
+            assert.strictEqual(
               requireRow(context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)).n,
               0n
             );
@@ -161,11 +162,11 @@ testStable(
             const citation = original.citations[0];
 
             assert.ok(citation);
-            assert.equal(citation.evidence?.availability, 'available');
+            assert.ok(citation.evidence?.availability === 'available');
 
             if (citation.evidence?.availability === 'available') {
-              assert.equal(citation.evidence.excerpt, '😀');
-              assert.equal(citation.evidence.precision, 'exact');
+              assert.ok(citation.evidence.excerpt === '😀');
+              assert.ok(citation.evidence.precision === 'exact');
             }
 
             const copy = yield* rpc['documents.copySource']({
@@ -223,7 +224,7 @@ testStable(
             const support = () =>
               rpc['documents.assessments']({ versionId: claim.version!.id, marker: 1, limit: 10 });
 
-            assert.equal((yield* support()).items[0]?.state, 'assessed');
+            assert.ok((yield* support()).items[0]?.state === 'assessed');
             yield* sources.correctBlock({
               id: source.id,
               documentId: first,
@@ -231,87 +232,88 @@ testStable(
               before: block.text,
               after: 'A😀B corrected'
             });
-            assert.equal(yield* sources.currentExtraction({ id: source.id }), null);
-            assert.equal((yield* sources.extraction(input)).document.blocks[0]?.text, block.text);
-            assert.equal((yield* support()).items[0]?.state, 'stale');
+            assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
+            assert.strictEqual(
+              (yield* sources.extraction(input)).document.blocks[0]?.text,
+              block.text
+            );
+            assert.ok((yield* support()).items[0]?.state === 'stale');
             const corrected = yield* publish({
               blocks: [correctBlockText(block, 'A😀B corrected')],
               meta: { ...meta, corrected: true }
             });
 
-            assert.notEqual(corrected, first);
-            assert.equal(
+            assert.notStrictEqual(corrected, first);
+            assert.strictEqual(
               (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
               corrected
             );
             const afterCorrection = yield* rpc['conversations.message']({ id: request.messageId });
 
-            assert.deepEqual(afterCorrection.citations, original.citations);
+            expect(afterCorrection.citations).toStrictEqual(original.citations);
             const edited = yield* rpc['conversations.editMessage']({
               messageId: request.messageId,
               text: 'Qualified historic citation [1]'
             });
 
-            assert.deepEqual(edited.citations, original.citations);
+            expect(edited.citations).toStrictEqual(original.citations);
             const restored = yield* rpc['conversations.setActiveVersion']({
               messageId: request.messageId,
               versionId: original.activeVersionId!
             });
 
-            assert.deepEqual(restored.citations, original.citations);
+            expect(restored.citations).toStrictEqual(original.citations);
             yield* sources.replaceSource({
               id: source.id,
               expectedRevision: 1,
               name: 'replacement.txt',
               bytes: new TextEncoder().encode('replacement')
             });
-            assert.equal(yield* sources.currentExtraction({ id: source.id }), null);
-            assert.equal(
+            assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
+            assert.ok(
               new TextDecoder().decode(
                 (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-              ),
-              'A😀B original'
+              ) === 'A😀B original'
             );
-            assert.equal((yield* sources.extraction(input)).document.blocks[0]?.text, block.text);
-            assert.deepEqual(
-              (yield* rpc['conversations.message']({ id: request.messageId })).citations,
-              original.citations
+            assert.strictEqual(
+              (yield* sources.extraction(input)).document.blocks[0]?.text,
+              block.text
             );
+            expect(
+              (yield* rpc['conversations.message']({ id: request.messageId })).citations
+            ).toStrictEqual(original.citations);
             const retainedCitations = new Set(
               stored.map((old) => `${old.version_id}:${old.marker}`)
             );
 
-            assert.deepEqual(
+            expect(
               context.db.orm
                 .select()
                 .from(s.citations)
                 .all()
-                .filter((row) => retainedCitations.has(`${row.version_id}:${row.marker}`)),
-              stored
-            );
-            assert.deepEqual((yield* rpc['documents.version']({ id: claim.version.id })).inputs, [
-              input
-            ]);
-            assert.equal(
+                .filter((row) => retainedCitations.has(`${row.version_id}:${row.marker}`))
+            ).toStrictEqual(stored);
+            expect(
+              (yield* rpc['documents.version']({ id: claim.version.id })).inputs
+            ).toStrictEqual([input]);
+            assert.strictEqual(
               (yield* rpc['documents.version']({ id: copy.version.id })).document.blocks[0]?.text,
               block.text
             );
-            assert.deepEqual(
-              (yield* rpc['documents.annotation']({ id: annotation.annotation.id })).target,
-              annotation.annotation.target
-            );
+            expect(
+              (yield* rpc['documents.annotation']({ id: annotation.annotation.id })).target
+            ).toStrictEqual(annotation.annotation.target);
             assert.ok(
               (yield* sources.previewDeletion({ id: source.id })).blockedBy.includes('exact_inputs')
             );
-            assert.equal(
-              (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
             );
-            assert.equal(
+            assert.strictEqual(
               requireRow(context.db.orm.get(sql`SELECT count(*) n FROM materials`)).n,
               0n
             );
-            assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+            expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(handlers))
         )
       );

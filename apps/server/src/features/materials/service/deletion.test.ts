@@ -11,17 +11,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 /** Genuine learning deletion uses exact output ownership; Documents and Sources retain their independent lifetimes. */
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema, Exit } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -118,18 +118,17 @@ testStable(
             const rpc = yield* RpcTest.makeClient(MaterialsRpc);
             const preview = yield* rpc['materials.previewDeletion']({ materialId: saved.root.id });
 
-            assert.deepEqual(preview.versionIds, [saved.root.version.id]);
-            assert.deepEqual(preview.sessionIds, [saved.session.id]);
+            expect(preview.versionIds).toStrictEqual([saved.root.version.id]);
+            expect(preview.sessionIds).toStrictEqual([saved.session.id]);
             const input = { materialId: saved.root.id, token: preview.token };
             const accepted = yield* rpc['materials.requestDeletion'](input);
 
-            assert.equal(accepted.status, 'pending');
-            assert.deepEqual(accepted.materialIds, [saved.root.id]);
-            assert.deepEqual(yield* rpc['materials.requestDeletion'](input), accepted);
-            assert.equal(
+            assert.ok(accepted.status === 'pending');
+            expect(accepted.materialIds).toStrictEqual([saved.root.id]);
+            expect(yield* rpc['materials.requestDeletion'](input)).toStrictEqual(accepted);
+            assert.ok(
               (yield* Effect.flip(rpc['materials.materialVersion']({ id: saved.root.version.id })))
-                .kind,
-              'not_found'
+                .kind === 'not_found'
             );
 
             return input;
@@ -146,30 +145,29 @@ testStable(
           const docs = yield* Documents;
           const chats = yield* Conversations;
 
-          assert.deepEqual((yield* m.material({ id: saved.kept.id })).version, saved.kept.version);
-          assert.deepEqual(yield* docs.version({ id: saved.evidence.id }), saved.evidence);
-          assert.deepEqual(
-            yield* chats.sessionContext({ requestId: saved.capture.requestId }),
+          expect((yield* m.material({ id: saved.kept.id })).version).toStrictEqual(
+            saved.kept.version
+          );
+          expect(yield* docs.version({ id: saved.evidence.id })).toStrictEqual(saved.evidence);
+          expect(yield* chats.sessionContext({ requestId: saved.capture.requestId })).toStrictEqual(
             saved.capture
           );
-          assert.equal(
+          assert.ok(
             (yield* chats.thread({ sessionId: saved.session.id, limit: 10 })).items[0]?.versions[0]
-              ?.text,
-            'Retained raw note'
+              ?.text === 'Retained raw note'
           );
           const completed = yield* m.deletion({ materialId: saved.root.id });
 
-          assert.equal(completed.status, 'completed');
-          assert.deepEqual(yield* m.requestDeletion(input), completed);
-          assert.deepEqual(
-            (yield* m.materials({ limit: 10, archived: false })).items.map((item) => item.id),
-            [saved.kept.id]
-          );
+          assert.ok(completed.status === 'completed');
+          expect(yield* m.requestDeletion(input)).toStrictEqual(completed);
+          expect(
+            (yield* m.materials({ limit: 10, archived: false })).items.map((item) => item.id)
+          ).toStrictEqual([saved.kept.id]);
         }).pipe(Effect.provide(f.domain()))
       );
       assertScrubbed(f, 'ORIGINAL_DELETE_ONLY');
       assertScrubbed(f, 'PRIVATE_DESCRIPTION_DELETE_ONLY');
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -194,27 +192,24 @@ testStable(
           });
           const first = yield* m.previewDeletion({ materialId: root.id });
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(m.requestDeletion({ materialId: other.id, token: first.token })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
           yield* m.createVersion({ materialId: root.id, content: content('New'), publish: true });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(m.requestDeletion({ materialId: root.id, token: first.token })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
           const second = yield* m.previewDeletion({ materialId: root.id });
           const session = yield* chats.createUntitledSession({});
 
           yield* m.attach({ materialId: root.id, sessionId: session.id });
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(m.requestDeletion({ materialId: root.id, token: second.token })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
-          assert.equal(f.context.db.orm.select().from(s.material_deletions).all().length, 0);
+          assert.strictEqual(f.context.db.orm.select().from(s.material_deletions).all().length, 0);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -238,14 +233,19 @@ testStable(
       f.context.db.exec(
         "CREATE TRIGGER reject_material_intent BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialDeletionRequested' BEGIN SELECT RAISE(ABORT,'injected'); END"
       );
-      await assert.rejects(acceptMaterialDeletion(f, root.id));
-      assert.equal(f.context.db.orm.select().from(s.material_deletions).all().length, 0);
-      assert.equal(f.context.db.orm.select().from(s.material_deletion_members).all().length, 0);
-      assert.equal(f.context.db.orm.select().from(s.material_deletion_requests).all().length, 0);
+      await expect(acceptMaterialDeletion(f, root.id)).rejects.toSatisfy(() => true);
+      assert.strictEqual(f.context.db.orm.select().from(s.material_deletions).all().length, 0);
+      assert.strictEqual(
+        f.context.db.orm.select().from(s.material_deletion_members).all().length,
+        0
+      );
+      assert.strictEqual(
+        f.context.db.orm.select().from(s.material_deletion_requests).all().length,
+        0
+      );
       await Effect.runPromise(
         Effect.gen(function* () {
-          assert.deepEqual(
-            (yield* (yield* Materials).material({ id: root.id })).version,
+          expect((yield* (yield* Materials).material({ id: root.id })).version).toStrictEqual(
             root.version
           );
         }).pipe(Effect.provide(f.domain()))
@@ -292,15 +292,15 @@ for (const doubleFailure of [false, true])
           )
         );
 
-        assert.equal(failed.status, doubleFailure ? 'pending' : 'failed');
+        assert.strictEqual(failed.status, doubleFailure ? 'pending' : 'failed');
 
         await Effect.runPromise(
           awaitNativeStatus(f, `material-cleanup/${accepted.operationId}/1`, 'completed')
         );
 
-        assert.equal(
-          workflowStore(f.context).execution(`material-cleanup/${accepted.operationId}/1`)!.status,
-          'completed'
+        assert.ok(
+          workflowStore(f.context).execution(`material-cleanup/${accepted.operationId}/1`)!
+            .status === 'completed'
         );
 
         f.context.db.orm.run(sql.raw('DROP TRIGGER reject_material_scrub'));
@@ -315,7 +315,7 @@ for (const doubleFailure of [false, true])
 
             const retry = yield* m.retryDeletion({ materialId: root.id });
 
-            assert.equal(retry.attempt, 2);
+            assert.strictEqual(retry.attempt, 2);
 
             const stale = yield* m.failMaterialDeletion({
               materialId: root.id,
@@ -323,13 +323,13 @@ for (const doubleFailure of [false, true])
               errorKind: 'internal'
             });
 
-            assert.equal(stale.status, 'pending');
+            assert.ok(stale.status === 'pending');
 
-            assert.equal(stale.attempt, 2);
+            assert.strictEqual(stale.attempt, 2);
           }).pipe(Effect.provide(f.domain()))
         );
 
-        assert.equal(materialDeletionEvent(f, root.id).attempt, 2);
+        assert.strictEqual(materialDeletionEvent(f, root.id).attempt, 2);
 
         await cleanupMaterial(f, root.id);
 
@@ -341,9 +341,9 @@ for (const doubleFailure of [false, true])
 
             const completed = yield* m.deletion({ materialId: root.id });
 
-            assert.equal(completed.status, 'completed');
+            assert.ok(completed.status === 'completed');
 
-            assert.deepEqual(yield* m.retryDeletion({ materialId: root.id }), completed);
+            expect(yield* m.retryDeletion({ materialId: root.id })).toStrictEqual(completed);
           }).pipe(Effect.provide(f.domain()))
         );
       } finally {
@@ -437,19 +437,16 @@ testStable(
               payload: { event: deletion }
             });
 
-            assert.equal(
-              (yield* m.deletion({ materialId: output.material_id })).status,
-              'completed'
+            assert.ok(
+              (yield* m.deletion({ materialId: output.material_id })).status === 'completed'
             );
 
-            assert.equal(
-              workflowStore(f.context).execution('retire-material-run')?.status,
-              'cancelled'
+            assert.ok(
+              workflowStore(f.context).execution('retire-material-run')?.status === 'cancelled'
             );
 
-            assert.equal(
-              workflowStore(f.context).execution('keep-material-run')?.status,
-              'suspended'
+            assert.ok(
+              workflowStore(f.context).execution('keep-material-run')?.status === 'suspended'
             );
 
             yield* engine.deferredDone(gate, {
@@ -459,7 +456,7 @@ testStable(
               exit: Exit.void
             });
 
-            assert.equal(
+            assert.strictEqual(
               workflowStore(f.context).deferred('retire-material-run', gate.name),
               undefined
             );

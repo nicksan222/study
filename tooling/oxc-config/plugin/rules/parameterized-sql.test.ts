@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -12,7 +11,7 @@ testStable('parameterized-sql guards production and accepts safe alternatives', 
     'src/fixture.test.ts': "import { sql as query } from 'drizzle-orm'; query.raw(input);"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -24,7 +23,7 @@ testStable('parameterized-sql handles aliases and avoids unrelated bindings', ()
       'const sql = { raw: value => value }; sql.raw(input); const db = { exec: value => value }; db.exec(input);'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -34,7 +33,7 @@ testStable('constant database aliases do not permit connection-level SQL executi
       "import type { ServerContext } from '#server/runtime/context'; function operation(ctx: ServerContext) { const db = ctx.db; db.exec('DROP TABLE jobs'); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('facade sql aliases and namespaces retain parameter binding checks', () => {
@@ -45,6 +44,6 @@ testStable('facade sql aliases and namespaces retain parameter binding checks', 
       "import { sql as query } from '@study/db'; import * as database from '@study/db'; query.raw('SELECT 1'); database.sql.raw(`SELECT 1`); function f(database, query) { database.sql.raw(input); query.raw(input); }"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });

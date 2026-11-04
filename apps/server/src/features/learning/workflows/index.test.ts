@@ -14,7 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 
@@ -23,10 +22,11 @@ import { plainBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import type { Context } from 'effect';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/service/index';
@@ -96,7 +96,7 @@ testStable(
     await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
     const address = peer.address();
 
-    if (!address || typeof address === 'string') throw new Error('missing address');
+    assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
     const base = `http://127.0.0.1:${address.port}`;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
@@ -207,7 +207,7 @@ testStable(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        if (event.type !== 'QuizAnswerSubmitted') throw new Error('wrong event');
+        assert.ok(!(event.type !== 'QuizAnswerSubmitted'), 'wrong event');
 
         return event;
       };
@@ -229,13 +229,13 @@ testStable(
       const old = await submit('same');
       const current = await submit('same');
 
-      await assert.rejects(execute(old, 'stale'));
-      assert.equal(calls, 0);
+      await expect(execute(old, 'stale')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 0);
       context.db.orm.run(
         sql`CREATE TRIGGER fail_grade BEFORE UPDATE OF score ON material_quiz_responses BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
       );
-      await assert.rejects(execute(current, 'replay'));
-      assert.equal(calls, 1);
+      await expect(execute(current, 'replay')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 1);
       context.db.orm.run(sql`DROP TRIGGER fail_grade`);
       context.db.orm.run(
         sql`DELETE FROM workflow_activities WHERE execution_id = 'replay' AND name = 'publish-grade'`
@@ -246,15 +246,15 @@ testStable(
       context.close();
       context = new ServerContext(location.open());
       await execute(current, 'replay');
-      assert.equal(calls, 1);
-      assert.equal(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 0.5);
+      assert.strictEqual(calls, 1);
+      assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 0.5);
       const racing = await submit('racing');
 
       duringCall = async () => {
         await submit('newer');
       };
-      await assert.rejects(execute(racing, 'race'));
-      assert.equal(context.db.orm.select().from(s.material_quiz_responses).get()?.score, null);
+      await expect(execute(racing, 'race')).rejects.toSatisfy(() => true);
+      assert.ok(context.db.orm.select().from(s.material_quiz_responses).get()?.score === null);
       const manualRace = await submit('manual race');
 
       duringCall = async () => {
@@ -270,10 +270,9 @@ testStable(
         );
       };
       await execute(manualRace, 'manual-race');
-      assert.equal(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
-      assert.equal(
-        context.db.orm.select().from(s.material_quiz_responses).get()?.feedback,
-        'Manual race'
+      assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
+      assert.ok(
+        context.db.orm.select().from(s.material_quiz_responses).get()?.feedback === 'Manual race'
       );
       const manual = await submit('manual');
 
@@ -287,16 +286,16 @@ testStable(
           })
         )
       );
-      await assert.rejects(execute(manual, 'manual'));
-      assert.equal(calls, 3);
-      assert.equal(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
+      await expect(execute(manual, 'manual')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 3);
+      assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
       const finished = await submit('finished');
 
       await run(
         Effect.flatMap(Learning, (learning) => learning.finishQuiz({ attemptId: attempt.id }))
       );
-      await assert.rejects(execute(finished, 'finished'));
-      assert.equal(calls, 3);
+      await expect(execute(finished, 'finished')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 3);
     } finally {
       await auth.dispose();
       context.close();
@@ -368,7 +367,7 @@ testStable(
                 .find((row) => row.type === 'PracticeSlotRequested')!.payload
             );
 
-            if (event.type !== 'PracticeSlotRequested') throw new Error('wrong event');
+            assert.ok(!(event.type !== 'PracticeSlotRequested'), 'wrong event');
 
             assert.ok(yield* learning.practiceSlot(event.slotId));
             yield* engine.register(practiceSlotWorkflow, practiceSlotHandler);
@@ -385,11 +384,11 @@ testStable(
               executionId: 'practice-b',
               payload: { event }
             });
-            assert.equal(
+            assert.strictEqual(
               context.db.orm.select().from(s.material_generation_requests).all().length,
               1
             );
-            assert.equal(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -426,8 +425,8 @@ testStable(
               .run();
             const derived = (yield* learning.practice({ projectId: project.id })).slots[0]!;
 
-            assert.equal(derived.status, 'failed');
-            assert.equal(derived.failureKind, 'config');
+            assert.ok(derived.status === 'failed');
+            assert.ok(derived.failureKind === 'config');
             yield* engine.register(practiceFailureWorkflow, practiceFailureHandler);
             const failedEvent = {
               type: 'MaterialGenerationFailed' as const,
@@ -443,7 +442,7 @@ testStable(
               errorKind: 'config' as const
             };
 
-            assert.equal(
+            assert.strictEqual(
               yield* engine.execute(practiceFailureWorkflow, {
                 executionId: 'record-failure',
                 payload: { event: failedEvent }
@@ -452,16 +451,16 @@ testStable(
             );
             const failed = (yield* learning.practice({ projectId: project.id })).slots[0]!;
 
-            assert.equal(failed.status, 'failed');
-            assert.equal(failed.failureKind, 'config');
+            assert.ok(failed.status === 'failed');
+            assert.ok(failed.failureKind === 'config');
             const retried = yield* learning.retryPracticeQuestion({ slotId: event.slotId });
 
-            assert.equal(retried.slotId, failed.slotId);
-            assert.equal(retried.ordinal, failed.ordinal);
-            assert.equal(retried.kind, failed.kind);
-            assert.deepEqual(retried.inputs, failed.inputs);
+            assert.strictEqual(retried.slotId, failed.slotId);
+            assert.strictEqual(retried.ordinal, failed.ordinal);
+            assert.strictEqual(retried.kind, failed.kind);
+            expect(retried.inputs).toStrictEqual(failed.inputs);
             yield* learning.retryPracticeQuestion({ slotId: event.slotId });
-            assert.equal(
+            assert.strictEqual(
               yield* engine.execute(practiceFailureWorkflow, {
                 executionId: 'stale-failure',
                 payload: { event: failedEvent }
@@ -480,14 +479,16 @@ testStable(
                   value.eventId !== event.eventId
               );
 
-            if (!retryEvent || retryEvent.type !== 'PracticeSlotRequested')
-              throw new Error('missing retry event');
+            assert.ok(
+              !(!retryEvent || retryEvent.type !== 'PracticeSlotRequested'),
+              'missing retry event'
+            );
 
             yield* engine.execute(practiceSlotWorkflow, {
               executionId: 'practice-retry',
               payload: { event: retryEvent }
             });
-            assert.equal(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -504,8 +505,10 @@ testStable(
                 (value) => value.type === 'PracticeSlotRequested' && value.slotId !== event.slotId
               );
 
-            if (!secondEvent || secondEvent.type !== 'PracticeSlotRequested')
-              throw new Error('missing second slot');
+            assert.ok(
+              !(!secondEvent || secondEvent.type !== 'PracticeSlotRequested'),
+              'missing second slot'
+            );
 
             yield* engine.execute(practiceSlotWorkflow, {
               executionId: 'practice-second',
@@ -544,11 +547,11 @@ testStable(
               (slot) => slot.slotId === secondEvent.slotId
             )!;
 
-            assert.equal(cancelledSlot.status, 'failed');
-            assert.equal(cancelledSlot.failureKind, 'cancelled');
-            assert.equal(
-              (yield* learning.retryPracticeQuestion({ slotId: secondEvent.slotId })).status,
-              'pending'
+            assert.ok(cancelledSlot.status === 'failed');
+            assert.ok(cancelledSlot.failureKind === 'cancelled');
+            assert.ok(
+              (yield* learning.retryPracticeQuestion({ slotId: secondEvent.slotId })).status ===
+                'pending'
             );
             const publisher = Workflow.make('practice-test-publisher', {
               payload: { id: Schema.String },
@@ -606,16 +609,16 @@ testStable(
                 )!.payload
             );
 
-            if (publication.type !== 'MaterialPublished') throw new Error('wrong publication');
+            assert.ok(!(publication.type !== 'MaterialPublished'), 'wrong publication');
 
-            assert.equal(
+            assert.strictEqual(
               yield* engine.execute(practicePublicationWorkflow, {
                 executionId: 'attach-practice',
                 payload: { event: publication }
               }),
               true
             );
-            assert.equal(
+            assert.strictEqual(
               yield* engine.execute(practicePublicationWorkflow, {
                 executionId: 'attach-practice-again',
                 payload: { event: publication }
@@ -625,21 +628,20 @@ testStable(
             const snapshot = yield* learning.practice({ projectId: project.id });
             const ready = snapshot.slots.find((slot) => slot.slotId === event.slotId)!;
 
-            assert.equal(ready.versionId, versionId);
+            assert.strictEqual(ready.versionId, versionId);
             const attempt = yield* learning.attempt(ready.attemptId!);
             const question = attempt.questions[0]!;
 
-            if (question.kind === 'open') throw new Error('wrong question kind');
+            assert.ok(!(question.kind === 'open'), 'wrong question kind');
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 learning.answerQuestion({
                   attemptId: ready.attemptId!,
                   questionId: question.id,
                   answer: { type: 'choice', choiceIds: [question.choices[0]!.id] }
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
 
             yield* learning.answerPracticeQuestion({
@@ -650,14 +652,13 @@ testStable(
               slotId: ready.slotId,
               answer: { type: 'choice', choiceIds: [question.choices[0]!.id] }
             });
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 learning.answerPracticeQuestion({
                   slotId: ready.slotId,
                   answer: { type: 'choice', choiceIds: [question.choices[1]!.id] }
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
             assert.throws(() =>
               context.db.orm
@@ -667,12 +668,12 @@ testStable(
             );
             const refilled = yield* learning.practice({ projectId: project.id });
 
-            assert.deepEqual(
-              refilled.slots.map((slot) => slot.kind),
-              ['choice', 'open']
+            expect(refilled.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
+            assert.strictEqual(
+              context.db.orm.select().from(s.material_quiz_attempts).all().length,
+              1
             );
-            assert.equal(context.db.orm.select().from(s.material_quiz_attempts).all().length, 1);
-            assert.equal(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -691,16 +692,15 @@ testStable(
               answer: { type: 'choice', choiceIds: [question.choices[0]!.id] }
             });
 
-            assert.equal(replay.status, 'completed');
-            assert.equal(replay.id, ready.attemptId);
-            assert.equal(
+            assert.ok(replay.status === 'completed');
+            assert.strictEqual(replay.id, ready.attemptId);
+            assert.ok(
               (yield* Effect.flip(
                 learning.answerPracticeQuestion({
                   slotId: ready.slotId,
                   answer: { type: 'choice', choiceIds: [question.choices[1]!.id] }
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
             const manualOutput = yield* materials.create({
               projectId: project.id,
@@ -719,7 +719,7 @@ testStable(
               materialVersionId: manualOutput.version.id
             };
 
-            assert.equal(
+            assert.strictEqual(
               yield* engine.execute(practicePublicationWorkflow, {
                 executionId: 'manual-practice',
                 payload: { event: manual }

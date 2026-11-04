@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -11,7 +10,7 @@ testStable('reports the prohibited pattern', () => {
     false
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('recognizes aliases and destructuring without confusing shadowed process', () => {
@@ -22,7 +21,7 @@ testStable('recognizes aliases and destructuring without confusing shadowed proc
     'src/a.test.ts': 'const value = process.env.KEY;'
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -35,6 +34,6 @@ testStable(
       'src/runtime/main.ts': 'const x = process.env.X;'
     });
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );

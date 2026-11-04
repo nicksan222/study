@@ -13,13 +13,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -55,7 +55,7 @@ testStable('native System RPC returns published quiz search identities', async (
           const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
           const result = yield* client['system.search']({ query: 'solar', limit: 1 });
 
-          assert.deepEqual(result.hits[0]?.target, {
+          expect(result.hits[0]?.target).toStrictEqual({
             type: 'question',
             materialId: 1n,
             versionId: 1n,
@@ -67,16 +67,16 @@ testStable('native System RPC returns published quiz search identities', async (
             kinds: ['session', 'message']
           });
 
-          assert.deepEqual(filtered.hits, []);
+          expect(filtered.hits).toStrictEqual([]);
           const material = yield* client['system.search']({
             query: 'astronomy',
             limit: 10,
             kinds: ['material']
           });
 
-          assert.equal(
-            material.hits[0]?.target.type === 'material' && material.hits[0].target.materialKind,
-            'quiz'
+          assert.ok(
+            material.hits[0]?.target.type === 'material' &&
+              material.hits[0].target.materialKind === 'quiz'
           );
           const other = yield* client['system.search']({
             query: 'solar',
@@ -84,7 +84,7 @@ testStable('native System RPC returns published quiz search identities', async (
             project: 2n as never
           });
 
-          assert.equal(other.hits.length, 0);
+          assert.strictEqual(other.hits.length, 0);
         })
       )
     );

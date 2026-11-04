@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
@@ -61,7 +61,7 @@ testStable(
           const document = yield* rpc['documents.create'](input);
 
           assert.ok(document.version);
-          assert.equal((yield* rpc['documents.create'](input)).id, document.id);
+          assert.strictEqual((yield* rpc['documents.create'](input)).id, document.id);
           const renamed = yield* rpc['documents.updateMetadata']({
             id: document.id,
             title: 'HTTP renamed',
@@ -70,7 +70,7 @@ testStable(
             expectedDescription: null
           });
 
-          assert.equal(renamed.title, 'HTTP renamed');
+          assert.ok(renamed.title === 'HTTP renamed');
           const rejectedMetadata = yield* Effect.flip(
             rpc['documents.updateMetadata']({
               id: document.id,
@@ -82,7 +82,7 @@ testStable(
           );
 
           assert.ok('kind' in rejectedMetadata);
-          assert.equal(rejectedMetadata.kind, 'invalid_input');
+          assert.ok(rejectedMetadata.kind === 'invalid_input');
           const session = yield* rpc['conversations.createSession']({ title: 'HTTP source links' });
           const source = yield* rpc['sources.createSource']({
             name: 'source.txt',
@@ -92,12 +92,12 @@ testStable(
 
           yield* rpc['sources.attachSource']({ sessionId: session.id, sourceId: source.id });
           yield* rpc['sources.attachSource']({ sessionId: session.id, sourceId: source.id });
-          assert.equal(
+          assert.strictEqual(
             (yield* rpc['sources.sessionSources']({ sessionId: session.id, limit: 100 })).length,
             1
           );
           yield* rpc['sources.detachSource']({ sessionId: session.id, sourceId: source.id });
-          assert.equal(
+          assert.strictEqual(
             (yield* rpc['sources.sessionSources']({ sessionId: session.id, limit: 100 })).length,
             0
           );
@@ -109,7 +109,7 @@ testStable(
             document: input.document
           });
 
-          assert.equal(saved.outcome, 'saved');
+          assert.ok(saved.outcome === 'saved');
           const latest = yield* rpc['documents.version']({ id: saved.submittedVersionId });
           const annotation = yield* rpc['documents.createAnnotation']({
             target: {
@@ -126,39 +126,37 @@ testStable(
             note: 'HTTP exact note'
           });
 
-          assert.equal(
-            (yield* rpc['documents.annotation']({ id: annotation.annotation.id })).note,
-            'HTTP exact note'
+          assert.ok(
+            (yield* rpc['documents.annotation']({ id: annotation.annotation.id })).note ===
+              'HTTP exact note'
           );
-          assert.equal(
+          assert.ok(
             (yield* rpc['documents.annotations']({
               documentId: document.id,
               versionId: latest.id,
               limit: 10,
               includeDeleted: false
-            })).items[0].note,
-            'HTTP exact note'
+            })).items[0].note === 'HTTP exact note'
           );
           yield* rpc['documents.archive']({ id: document.id, archived: true });
-          assert.equal(
+          assert.strictEqual(
             (yield* rpc['documents.documents']({ limit: 10, archived: false })).items.length,
             0
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* rpc['documents.documents']({ limit: 10, archived: true })).items[0]?.id,
             document.id
           );
-          assert.equal(
-            (yield* rpc['documents.exportVersion']({ id: latest.id })).format,
-            'canonical_json'
+          assert.ok(
+            (yield* rpc['documents.exportVersion']({ id: latest.id })).format === 'canonical_json'
           );
         })
       )
     );
-    assert.equal(
+    assert.strictEqual(
       fixture.store.db.orm.get(sql`SELECT count(*) AS n FROM materials WHERE kind='document'`)?.n,
       0n
     );
-    assert.deepEqual(fixture.store.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    expect(fixture.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );

@@ -1,23 +1,35 @@
-import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { TestContext } from 'node:test';
 
 import { versionIdSchema } from '@study/contracts/ids';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { eq, sql } from 'drizzle-orm';
 import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import * as schema from '../src/schema.ts';
+
+function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+  try {
+    run();
+  } catch (error) {
+    assert.ok(matches(error), 'Thrown error did not match');
+
+    return;
+  }
+
+  assert.fail('Expected function to throw');
+}
 
 function newDb(t: TestContext) {
   const folder = mkdtempSync(join(tmpdir(), 'study-constraints-'));
   const connection = Db.open(join(folder, 'study.db'));
 
-  t.after(() => {
+  t.onTestFinished(() => {
     connection.close();
     rmSync(folder, { recursive: true, force: true });
   });
@@ -91,10 +103,10 @@ function checkViolation(error: unknown): boolean {
 testStable('message instructions are nullable but otherwise nonblank and bounded', (t) => {
   const { db, version } = newDb(t);
 
-  assert.equal(version.instruction, null);
+  assert.strictEqual(version.instruction, null);
 
   for (const instruction of ['', '   ', '\t\n\r', '\u00a0\u2003\ufeff', 'x'.repeat(100001)])
-    assert.throws(
+    assertThrowsMatching(
       () =>
         db
           .update(schema.message_versions)
@@ -108,7 +120,7 @@ testStable('message instructions are nullable but otherwise nonblank and bounded
     .set({ origin: 'instruction', instruction: 'x'.repeat(100000) })
     .where(eq(schema.message_versions.id, version.id))
     .run();
-  assert.equal(db.select().from(schema.message_versions).get()?.instruction?.length, 100000);
+  assert.strictEqual(db.select().from(schema.message_versions).get()?.instruction?.length, 100000);
 });
 
 testStable('message citations enforce unsigned 32 bit positive markers', (t) => {
@@ -116,7 +128,7 @@ testStable('message citations enforce unsigned 32 bit positive markers', (t) => 
   const citation = { source_name: 'N', anchor: '{}', quote: 'Quote' };
 
   for (const marker of [0n, -1n, 4294967296n]) {
-    assert.throws(
+    assertThrowsMatching(
       () =>
         db
           .insert(schema.citations)
@@ -132,7 +144,7 @@ testStable('message citations enforce unsigned 32 bit positive markers', (t) => 
       .run();
   }
 
-  assert.equal(db.select().from(schema.citations).all().length, 2);
+  assert.strictEqual(db.select().from(schema.citations).all().length, 2);
 });
 
 testStable(
@@ -141,7 +153,7 @@ testStable(
     const folder = mkdtempSync(join(tmpdir(), 'study-constraint-migration-'));
     const path = join(folder, 'study.db');
 
-    t.after(() => rmSync(folder, { recursive: true, force: true }));
+    t.onTestFinished(() => rmSync(folder, { recursive: true, force: true }));
     const first = Db.open(path);
     const original = first.orm;
 
@@ -160,13 +172,13 @@ testStable(
 
     const connection = Db.open(path);
 
-    t.after(() => connection.close());
+    t.onTestFinished(() => connection.close());
     const db = connection.orm;
 
-    assert.equal(db.select().from(schema.messages).get()?.active_version_id, version.id);
-    assert.equal(db.select().from(schema.citations).all().length, 1);
-    assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
-    assert.equal(
+    assert.strictEqual(db.select().from(schema.messages).get()?.active_version_id, version.id);
+    assert.strictEqual(db.select().from(schema.citations).all().length, 1);
+    expect(db.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'photosynthesis'`)?.rowid,
       version.id
     );
@@ -183,12 +195,12 @@ testStable(
       .returning()
       .get();
 
-    assert.equal(
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`)?.rowid,
       next.id
     );
     db.delete(schema.message_versions).where(eq(schema.message_versions.id, next.id)).run();
-    assert.equal(
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`),
       undefined
     );
@@ -208,7 +220,7 @@ testStable(
       .set({ status: 'complete', text: 'chlorophyll' })
       .where(eq(schema.message_versions.id, pending.id))
       .run();
-    assert.equal(
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`)?.rowid,
       pending.id
     );
@@ -223,7 +235,7 @@ for (const table of ['message_versions'] as const)
         const folder = mkdtempSync(join(tmpdir(), 'study-migration-sequences-'));
         const path = join(folder, 'study.db');
 
-        t.after(() => rmSync(folder, { recursive: true, force: true }));
+        t.onTestFinished(() => rmSync(folder, { recursive: true, force: true }));
         const first = Db.open(path);
         const original = first.orm;
 
@@ -249,7 +261,7 @@ for (const table of ['message_versions'] as const)
         };
         const lower = insert(original, 0n);
 
-        assert.equal(insert(original, 1n, highest), highest);
+        assert.strictEqual(insert(original, 1n, highest), highest);
         original
           .delete(target)
           .where(sql`${target.id} = ${highest}`)
@@ -264,12 +276,12 @@ for (const table of ['message_versions'] as const)
         first.close();
         const connection = Db.open(path);
 
-        t.after(() => connection.close());
-        assert.equal(
+        t.onTestFinished(() => connection.close());
+        assert.strictEqual(
           connection.orm.get(sql`SELECT seq FROM sqlite_sequence WHERE name = ${table}`)?.seq,
           highest
         );
-        assert.equal(insert(connection.orm, 2n), highest + 1n);
-        assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
+        assert.strictEqual(insert(connection.orm, 2n), highest + 1n);
+        expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       }
     );

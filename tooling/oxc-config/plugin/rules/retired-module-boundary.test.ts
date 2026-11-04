@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -9,7 +8,7 @@ testStable('retired-module-boundary rejects forbidden edges', () => {
     'src/runtime/main.ts': "import type { Agent } from '@study/ai';"
   });
 
-  assert.equal(diagnostics.length, 1);
+  assert.strictEqual(diagnostics.length, 1);
 });
 
 testStable(
@@ -26,7 +25,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
@@ -37,7 +36,7 @@ testStable('production imports cannot use retired transport or server trees', ()
     'src/features/source/source.rpc.test.ts': "import '#server/domains/jobs/service';"
   });
 
-  assert.equal(diagnostics.length, 8, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
 });
 
 testStable('retired transports are rejected in test files too', () => {
@@ -46,7 +45,7 @@ testStable('retired transports are rejected in test files too', () => {
       "import type { Client } from '@trpc/client'; const load = require; load('superjson'); function f(require: any) { require('superjson'); }"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -61,7 +60,7 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -72,7 +71,7 @@ testStable('retired contracts and implementation paths are rejected even from te
     'src/domains/abandoned.test.ts': 'export const abandoned = true;'
   });
 
-  assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
 testStable('retired runtime adapters cannot return as imports or unreferenced source files', () => {
@@ -82,5 +81,5 @@ testStable('retired runtime adapters cannot return as imports or unreferenced so
     'src/runtime/request.ts': 'export const runOperation = () => {};'
   });
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });

@@ -11,17 +11,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import type { transformPublicationSchema } from '@study/contracts/documents/transform';
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -107,7 +106,7 @@ testStable(
             preferences: {}
           });
 
-          assert.equal(selectedBlock.inputs[0]!.excerpts[0]!.blockId, block.id);
+          assert.strictEqual(selectedBlock.inputs[0]!.excerpts[0]!.blockId, block.id);
           yield* conversations.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 2n,
@@ -143,13 +142,12 @@ testStable(
             const first = yield* client('documents.requestTransform', requestInput);
             const replay = yield* client('documents.requestTransform', requestInput);
 
-            assert.equal(first.id, replay.id);
-            assert.equal(first.sessionId, setup.session.id);
-            assert.equal(
+            assert.strictEqual(first.id, replay.id);
+            assert.strictEqual(first.sessionId, setup.session.id);
+            assert.ok(
               (yield* Effect.flip(
                 client('documents.requestTransform', { ...requestInput, title: 'Changed' })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
 
             return first;
@@ -178,8 +176,8 @@ testStable(
             requestId: request.id
           });
 
-          assert.equal(retained.inputs[0]!.excerpts[0]!.text, 'alpha selected');
-          assert.deepEqual(retained.preferences, { language: 'italian', detail: 'brief' });
+          assert.ok(retained.inputs[0]!.excerpts[0]!.text === 'alpha selected');
+          expect(retained.preferences).toStrictEqual({ language: 'italian', detail: 'brief' });
         }).pipe(Effect.provide(domain))
       );
       const output = paragraph('Sintesi [1]');
@@ -217,33 +215,33 @@ testStable(
         );
       const before = context.db.orm.select().from(s.study_documents).all().length;
 
-      await assert.rejects(
+      await expect(
         publish({
           ...publication,
           citations: [{ ...publication.citations[0]!, quote: 'private before' }]
         })
-      );
-      await assert.rejects(
+      ).rejects.toSatisfy(() => true);
+      await expect(
         publish({
           ...publication,
           document: { blocks: [{ ...output, id: setup.block.id }], meta }
         })
-      );
+      ).rejects.toSatisfy(() => true);
       context.db.orm.run(
         sql`CREATE TRIGGER reject_transform_event BEFORE INSERT ON workflow_events WHEN NEW.type='DocumentPublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
       );
-      await assert.rejects(publish(publication));
-      assert.equal(context.db.orm.select().from(s.study_documents).all().length, before);
+      await expect(publish(publication)).rejects.toSatisfy(() => true);
+      assert.strictEqual(context.db.orm.select().from(s.study_documents).all().length, before);
       context.db.orm.run(sql`DROP TRIGGER reject_transform_event`);
       await publish(publication);
       await publish(publication);
-      assert.equal(context.db.orm.select().from(s.study_documents).all().length, before + 1);
-      await assert.rejects(
+      assert.strictEqual(context.db.orm.select().from(s.study_documents).all().length, before + 1);
+      await expect(
         publish({
           ...publication,
           report: { notes: [{ kind: 'limit', explanation: 'Different', blockIds: [] }] }
         })
-      );
+      ).rejects.toSatisfy(() => true);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Documents;
@@ -252,20 +250,20 @@ testStable(
           });
 
           assert.ok(result.resultVersionId);
-          assert.deepEqual(result.report, publication.report);
+          expect(result.report).toStrictEqual(publication.report);
           const derivative = yield* materials.version({ id: result.resultVersionId });
 
-          assert.deepEqual(derivative.inputs, [{ kind: 'document', versionId: setup.versionId }]);
+          expect(derivative.inputs).toStrictEqual([
+            { kind: 'document', versionId: setup.versionId }
+          ]);
           assert.ok(derivative.document.blocks.length);
-          assert.deepEqual(
-            (yield* materials.document({ id: derivative.documentId })).projectIds,
-            []
-          );
-          assert.deepEqual(
-            (yield* materials.version({ id: setup.versionId })).document,
+          expect(
+            (yield* materials.document({ id: derivative.documentId })).projectIds
+          ).toStrictEqual([]);
+          expect((yield* materials.version({ id: setup.versionId })).document).toStrictEqual(
             setup.original.version!.document
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* materials.documents({
               sessionId: setup.session.id,
               archived: false,
@@ -292,23 +290,22 @@ testStable(
               requestId: request.id
             });
 
-            assert.equal(read.cancelled, false);
-            assert.equal(read.resultVersionId, result.resultVersionId);
+            assert.ok(read.cancelled === false);
+            assert.strictEqual(read.resultVersionId, result.resultVersionId);
           }
 
           const cancelled = yield* materials.cancelTransform({ requestId: request.id });
 
-          assert.equal(cancelled.cancelled, false);
-          assert.equal(cancelled.resultVersionId, result.resultVersionId);
+          assert.ok(cancelled.cancelled === false);
+          assert.strictEqual(cancelled.resultVersionId, result.resultVersionId);
           yield* (yield* Conversations).deleteSession(setup.session.id);
-          assert.equal(
+          assert.strictEqual(
             (yield* materials.version({ id: result.resultVersionId })).id,
             result.resultVersionId
           );
-          assert.deepEqual(
-            (yield* materials.version({ id: result.resultVersionId })).citations[0]?.target,
-            publication.citations[0]!.target
-          );
+          expect(
+            (yield* materials.version({ id: result.resultVersionId })).citations[0]?.target
+          ).toStrictEqual(publication.citations[0]!.target);
         }).pipe(Effect.provide(domain))
       );
     } finally {
@@ -359,23 +356,23 @@ testStable(
             if (mode === 'cancel') {
               const cancelled = yield* materials.cancelTransform({ requestId: request.id });
 
-              assert.equal(cancelled.cancelled, true);
+              assert.ok(cancelled.cancelled === true);
               const persisted = context.db.orm.get<{ cancelled: bigint }>(
                 sql`SELECT cancelled FROM study_document_transform_requests WHERE id = ${request.id}`
               );
 
-              assert.equal(persisted?.cancelled, 1n);
+              assert.strictEqual(persisted?.cancelled, 1n);
               const duplicate = yield* chats.requestDocumentTransform({
                 contextRequestId: capture.requestId,
                 title: mode,
                 operations: ['explain']
               });
 
-              assert.equal(duplicate.id, request.id);
-              assert.equal((yield* materials.transform({ requestId: request.id })).cancelled, true);
+              assert.strictEqual(duplicate.id, request.id);
+              assert.ok((yield* materials.transform({ requestId: request.id })).cancelled === true);
             } else yield* chats.deleteSession(session.id);
 
-            assert.equal(
+            assert.strictEqual(
               (yield* Effect.flip(
                 (yield* Conversations).retryDocumentTransform({
                   requestId: request.id,
@@ -404,10 +401,10 @@ testStable(
               )
             );
 
-            assert.equal(failure.kind, mode === 'cancel' ? 'cancelled' : 'not_found');
+            assert.strictEqual(failure.kind, mode === 'cancel' ? 'cancelled' : 'not_found');
           }
 
-          assert.equal(
+          assert.strictEqual(
             (yield* materials.documents({ archived: false, limit: 10 })).items.length,
             0
           );

@@ -11,15 +11,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { ContentInput } from '@study/contracts/inputs';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { Activity, DurableDeferred, WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import {
@@ -225,7 +225,7 @@ for (const kind of ['document', 'source'] as const)
               { kind: 'sources', query: 'Historical exact' },
               { kind: 'output', output: 'PRIVATE_REPLY_CHECKPOINT [1]' }
             );
-            await assert.rejects(
+            await expect(
               Effect.runPromise(
                 Effect.scoped(
                   Effect.gen(function* () {
@@ -239,7 +239,7 @@ for (const kind of ['document', 'source'] as const)
                   })
                 ).pipe(Effect.provide(f.services()))
               )
-            );
+            ).rejects.toSatisfy(() => true);
             assert.ok(
               workflowStore(f.context)
                 .activity('checkpoint-reply', 'generate-reply', 1)
@@ -289,15 +289,14 @@ for (const kind of ['document', 'source'] as const)
                 });
 
                 assert.ok(preview.blockedSnapshotIds.includes(input.snapshotId));
-                assert.equal(
+                assert.ok(
                   (yield* Effect.flip(
                     sources.retireHistory({
                       sourceId: input.sourceId,
                       keepLatest: 1,
                       token: preview.token
                     })
-                  )).kind,
-                  'invalid_input'
+                  )).kind === 'invalid_input'
                 );
               }).pipe(Effect.provide(f.domain()))
             );
@@ -353,7 +352,7 @@ for (const kind of ['document', 'source'] as const)
                   versionId: saved.completed.versionId
                 });
 
-                assert.equal(before.citations[0]?.evidence?.availability, 'available');
+                assert.ok(before.citations[0]?.evidence?.availability === 'available');
                 yield* chats.deleteSession(saved.session.id);
                 yield* engine.execute(sessionDeletionWorkflow, {
                   executionId: 'raw-input-cleanup',
@@ -361,16 +360,14 @@ for (const kind of ['document', 'source'] as const)
                 });
 
                 if (!checkpoint)
-                  assert.equal(
-                    workflowStore(f.context).execution('pending-reply')?.status,
-                    'cancelled'
+                  assert.ok(
+                    workflowStore(f.context).execution('pending-reply')?.status === 'cancelled'
                   );
 
-                assert.equal(
-                  workflowStore(f.context).execution('independent-reply')?.status,
-                  'suspended'
+                assert.ok(
+                  workflowStore(f.context).execution('independent-reply')?.status === 'suspended'
                 );
-                assert.equal((yield* chats.sessionDeletion(saved.session.id)).status, 'completed');
+                assert.ok((yield* chats.sessionDeletion(saved.session.id)).status === 'completed');
               })
             ).pipe(Effect.provide(f.services()))
           );
@@ -379,21 +376,17 @@ for (const kind of ['document', 'source'] as const)
             Effect.gen(function* () {
               const chats = yield* Conversations;
 
-              assert.equal(
-                (yield* Effect.flip(chats.message(saved.completed.messageId))).kind,
-                'not_found'
+              assert.ok(
+                (yield* Effect.flip(chats.message(saved.completed.messageId))).kind === 'not_found'
               );
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(chats.replySnapshot({ requestId: saved.pending.requestId })))
-                  .kind,
-                'not_found'
+                  .kind === 'not_found'
               );
-              assert.deepEqual(
-                yield* chats.replySnapshot({ requestId: saved.unrelated.requestId }),
-                saved.unrelatedSnapshot
-              );
-              assert.deepEqual(
-                yield* chats.thread({ sessionId: saved.other.id, limit: 20 }),
+              expect(
+                yield* chats.replySnapshot({ requestId: saved.unrelated.requestId })
+              ).toStrictEqual(saved.unrelatedSnapshot);
+              expect(yield* chats.thread({ sessionId: saved.other.id, limit: 20 })).toStrictEqual(
                 saved.otherThread
               );
 
@@ -403,28 +396,26 @@ for (const kind of ['document', 'source'] as const)
                 const scope = { documentId: old.documentId, keepLatest: 1 };
                 const preview = yield* docs.previewHistory(scope);
 
-                assert.deepEqual(preview.blockedVersionIds, []);
+                expect(preview.blockedVersionIds).toStrictEqual([]);
                 yield* docs.retireHistory({ ...scope, token: preview.token });
-                assert.equal(
-                  (yield* docs.document({ id: old.documentId })).version?.document.blocks[0]?.text,
-                  'Current exact evidence'
+                assert.ok(
+                  (yield* docs.document({ id: old.documentId })).version?.document.blocks[0]
+                    ?.text === 'Current exact evidence'
                 );
               } else {
                 const sources = yield* Sources;
                 const scope = { sourceId: input.sourceId, keepLatest: 1 };
                 const preview = yield* sources.previewHistory(scope);
 
-                assert.deepEqual(preview.blockedSnapshotIds, []);
+                expect(preview.blockedSnapshotIds).toStrictEqual([]);
                 yield* sources.retireHistory({ ...scope, token: preview.token });
-                assert.equal(
+                assert.ok(
                   (yield* sources.currentExtraction({ id: input.sourceId }))?.document.blocks[0]
-                    ?.text,
-                  'Current exact evidence'
+                    ?.text === 'Current exact evidence'
                 );
-                assert.deepEqual(
-                  (yield* sources.exportRevision({ sourceId: input.sourceId, revision: 1n })).bytes,
-                  new TextEncoder().encode('Historical exact evidence')
-                );
+                expect(
+                  (yield* sources.exportRevision({ sourceId: input.sourceId, revision: 1n })).bytes
+                ).toStrictEqual(new TextEncoder().encode('Historical exact evidence'));
               }
             }).pipe(Effect.provide(f.domain()))
           );
@@ -434,7 +425,7 @@ for (const kind of ['document', 'source'] as const)
           assertScrubbed(f, 'PRIVATE_REPLY_CHECKPOINT');
           const calls = f.bodies.length;
 
-          await assert.rejects(
+          await expect(
             Effect.runPromise(
               Effect.scoped(
                 Effect.gen(function* () {
@@ -448,9 +439,9 @@ for (const kind of ['document', 'source'] as const)
                 })
               ).pipe(Effect.provide(f.services()))
             )
-          );
-          assert.equal(f.bodies.length, calls);
-          assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          ).rejects.toSatisfy(() => true);
+          assert.strictEqual(f.bodies.length, calls);
+          expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         } finally {
           await f.close();
         }

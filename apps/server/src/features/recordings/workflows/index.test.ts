@@ -14,14 +14,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Projects } from '#server/features/projects/index';
@@ -63,16 +62,15 @@ for (const deleteCommittedMessage of [false, true])
             const recording = yield* recordings.createRecording(session.id);
 
             yield* recordings.appendRecording({ id: recording.id, samples: [-32768, 0, 32767] });
-            assert.equal((yield* recordings.recording(recording.id)).samples, 3n);
-            assert.equal(
+            assert.strictEqual((yield* recordings.recording(recording.id)).samples, 3n);
+            assert.ok(
               (yield* Effect.flip(
                 recordings.postRecording({
                   session: other.id,
                   recording: recording.id,
                   name: 'wrong.wav'
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
             context.db.orm.run(
               sql`CREATE TRIGGER fail_recording_event BEFORE INSERT ON workflow_events WHEN NEW.type='RecordingPostRequested' BEGIN SELECT RAISE(ABORT,'unavailable'); END`
@@ -84,22 +82,27 @@ for (const deleteCommittedMessage of [false, true])
                 name: 'lecture.wav'
               })
             );
-            assert.equal(context.db.orm.select().from(tables.recording_posts).all().length, 0);
+            assert.strictEqual(
+              context.db.orm.select().from(tables.recording_posts).all().length,
+              0
+            );
             context.db.orm.run(sql`DROP TRIGGER fail_recording_event`);
             const input = { session: session.id, recording: recording.id, name: 'lecture.wav' };
             const post = yield* recordings.postRecording(input);
 
-            assert.deepEqual(yield* recordings.postRecording(input), post);
-            assert.equal(
+            expect(yield* recordings.postRecording(input)).toStrictEqual(post);
+            assert.ok(
               (yield* Effect.flip(recordings.appendRecording({ id: recording.id, samples: [1] })))
-                .kind,
-              'invalid_input'
+                .kind === 'invalid_input'
             );
-            assert.equal(
-              (yield* Effect.flip(recordings.deleteRecording(recording.id))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(recordings.deleteRecording(recording.id))).kind ===
+                'invalid_input'
             );
-            assert.equal(context.db.orm.select().from(tables.recording_posts).all().length, 1);
+            assert.strictEqual(
+              context.db.orm.select().from(tables.recording_posts).all().length,
+              1
+            );
             assert.throws(() =>
               context.db.orm.run(
                 sql`UPDATE recording_chunks SET pcm=x'0100' WHERE recording_id=${recording.id}`
@@ -123,7 +126,7 @@ for (const deleteCommittedMessage of [false, true])
           context.db.orm.select().from(tables.workflowEvents).all().at(-1)!.payload
         );
 
-        if (event.type !== 'RecordingPostRequested') throw new Error('unexpected event');
+        assert.ok(!(event.type !== 'RecordingPostRequested'), 'unexpected event');
 
         const execute = () =>
           Effect.runPromise(
@@ -152,9 +155,12 @@ for (const deleteCommittedMessage of [false, true])
         context.db.orm.run(
           sql`CREATE TRIGGER fail_recording_checkpoint BEFORE INSERT ON workflow_activities WHEN NEW.name='attach-recording' BEGIN SELECT RAISE(ABORT,'checkpoint unavailable'); END`
         );
-        await assert.rejects(execute());
-        assert.equal(context.db.orm.select().from(tables.source_recording_imports).all().length, 1);
-        assert.equal(
+        await expect(execute()).rejects.toSatisfy(() => true);
+        assert.strictEqual(
+          context.db.orm.select().from(tables.source_recording_imports).all().length,
+          1
+        );
+        assert.strictEqual(
           context.db.orm.select().from(tables.conversation_recording_posts).all().length,
           1
         );
@@ -182,8 +188,8 @@ for (const deleteCommittedMessage of [false, true])
 
         assert.ok(result.messageId);
         assert.ok(result.sourceId);
-        assert.deepEqual(await execute(), result);
-        assert.equal(context.db.orm.select().from(tables.sources).all().length, 1);
+        expect(await execute()).toStrictEqual(result);
+        assert.strictEqual(context.db.orm.select().from(tables.sources).all().length, 1);
         const caused = context.db.orm
           .select()
           .from(tables.workflowEvents)
@@ -191,16 +197,16 @@ for (const deleteCommittedMessage of [false, true])
           .map((row) => decodeEvent(row.payload))
           .find((item) => item.type === 'SourceProcessingRequested');
 
-        assert.equal(caused?.causationId, event.eventId);
-        assert.equal(caused?.correlationId, event.correlationId);
-        assert.equal(caused?.depth, 1);
-        assert.equal(
+        assert.strictEqual(caused?.causationId, event.eventId);
+        assert.strictEqual(caused?.correlationId, event.correlationId);
+        assert.strictEqual(caused?.depth, 1);
+        assert.strictEqual(
           context.db.orm.select().from(tables.messages).all().length,
           deleteCommittedMessage ? 0 : 1
         );
         const blob = context.db.orm.select().from(tables.source_blobs).all()[0]!;
 
-        assert.deepEqual([...blob.bytes.subarray(44)], [0, 128, 0, 0, 255, 127]);
+        expect([...blob.bytes.subarray(44)]).toStrictEqual([0, 128, 0, 0, 255, 127]);
         assert.throws(() =>
           context.db.orm.run(
             sql`UPDATE source_blobs SET bytes=x'0100' WHERE source_id=${result.sourceId}`
@@ -213,28 +219,30 @@ for (const deleteCommittedMessage of [false, true])
           Effect.gen(function* () {
             const recordings = yield* Recordings;
 
-            assert.deepEqual(
-              yield* recordings.recordingPost({ requestId: result.requestId }),
+            expect(yield* recordings.recordingPost({ requestId: result.requestId })).toStrictEqual(
               result
             );
-            assert.equal((yield* recordings.recordings({ limit: 10 })).items.length, 0);
+            assert.strictEqual((yield* recordings.recordings({ limit: 10 })).items.length, 0);
             const messages = yield* (yield* Conversations).thread({
               sessionId: pending.session.id,
               limit: 10
             });
 
-            assert.equal(messages.items.length, deleteCommittedMessage ? 0 : 1);
+            assert.strictEqual(messages.items.length, deleteCommittedMessage ? 0 : 1);
 
             if (!deleteCommittedMessage)
-              assert.equal(messages.items[0]?.recordedIn, result.sourceId);
+              assert.strictEqual(messages.items[0]?.recordedIn, result.sourceId);
 
             yield* (yield* Projects).deleteProject({ id: pending.project.id });
-            assert.equal(context.db.orm.select().from(tables.recording_posts).all().length, 1);
-            assert.equal(
+            assert.strictEqual(
+              context.db.orm.select().from(tables.recording_posts).all().length,
+              1
+            );
+            assert.strictEqual(
               context.db.orm.select().from(tables.conversation_recording_posts).all().length,
               1
             );
-            assert.equal(
+            assert.strictEqual(
               context.db.orm.select().from(tables.source_recording_imports).all().length,
               1
             );

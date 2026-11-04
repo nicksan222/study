@@ -13,15 +13,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { MaterialVersionId, StudyDocumentVersionId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
@@ -103,56 +103,50 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           ]
         };
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(materials.publishMaterialGeneration({ ...value, citations: [] })))
-            .kind,
-          'invalid_input'
+            .kind === 'invalid_input'
         );
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
               content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD' }
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
               citations: [{ ...value.citations[0]!, quote: 'forged' }]
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
               citations: [{ ...value.citations[0]!, blockOrdinal: 100 }]
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
               citations: [value.citations[0]!, value.citations[0]!]
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
               citations: [{ ...value.citations[0]!, marker: 0n }]
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         const other = yield* projects.createProject({ name: 'Other' });
         const foreign = yield* documents.create({
@@ -167,7 +161,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           }
         });
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
@@ -178,8 +172,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
                 }
               ]
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         context.db.exec(
           "CREATE TRIGGER reject_generated_event BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialPublished' BEGIN SELECT RAISE(ABORT, 'rejected'); END"
@@ -187,10 +180,9 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         const count = context.db.orm.all(sql`SELECT * FROM materials`).length;
 
         yield* Effect.flip(materials.publishMaterialGeneration(value));
-        assert.equal(context.db.orm.all(sql`SELECT * FROM materials`).length, count);
-        assert.equal(
-          (yield* materials.materialGeneration({ requestId: request.id })).resultVersionId,
-          null
+        assert.strictEqual(context.db.orm.all(sql`SELECT * FROM materials`).length, count);
+        assert.ok(
+          (yield* materials.materialGeneration({ requestId: request.id })).resultVersionId === null
         );
         context.db.exec('DROP TRIGGER reject_generated_event');
         const quiz = yield* materials.requestMaterialGeneration({
@@ -207,17 +199,16 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           referenceAnswer: 'A'
         };
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               requestId: quiz.id,
               citations: value.citations,
               content: { kind: 'quiz', questions: [question, question] }
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               requestId: quiz.id,
@@ -237,8 +228,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
                 ]
               }
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         yield* materials.publishMaterialGeneration({
           requestId: quiz.id,
@@ -248,24 +238,23 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         const result = yield* materials.publishMaterialGeneration(value);
 
         yield* materials.closeGenerationScope(scope);
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({ ...value, requestId: late.id })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(yield* materials.publishMaterialGeneration(value), result);
-        assert.equal(
+        assert.strictEqual(yield* materials.publishMaterialGeneration(value), result);
+        assert.strictEqual(
           (yield* materials.materialGeneration({ requestId: request.id })).resultVersionId,
           result
         );
 
-        assert.equal((yield* materials.materialVersion({ id: result })).creator, 'agent');
+        assert.ok((yield* materials.materialVersion({ id: result })).creator === 'agent');
         const published = yield* materials.materialVersion({ id: result });
 
-        assert.equal(published.operation, 'generate');
-        assert.deepEqual(published.inputs, [{ kind: 'document', versionId: doc.version!.id }]);
-        assert.deepEqual((yield* materials.citations({ id: result, limit: 10 })).items, [
+        assert.ok(published.operation === 'generate');
+        expect(published.inputs).toStrictEqual([{ kind: 'document', versionId: doc.version!.id }]);
+        expect((yield* materials.citations({ id: result, limit: 10 })).items).toStrictEqual([
           {
             marker: 1n,
             input: { kind: 'document', versionId: doc.version!.id },
@@ -276,20 +265,19 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         ]);
         const blocked = yield* documents.previewDeletion({ id: doc.id });
 
-        assert.deepEqual(blocked.blockedVersionIds, [doc.version!.id]);
+        expect(blocked.blockedVersionIds).toStrictEqual([doc.version!.id]);
         assert.throws(() =>
           context.db.orm.run(
             sql`UPDATE material_generation_requests SET result_hash='changed' WHERE id=${request.id}`
           )
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
               content: { ...value.content, cards: [{ front: 'Changed', back: 'A' }] }
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
 
         for (const content of [
@@ -315,8 +303,8 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           });
           const version = yield* materials.materialVersion({ id });
 
-          assert.equal(version.kind, content.kind);
-          assert.equal(version.instruction, 'Focus');
+          assert.strictEqual(version.kind, content.kind);
+          assert.ok(version.instruction === 'Focus');
         }
 
         const stale = yield* materials.requestMaterialGeneration({
@@ -327,17 +315,16 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         });
 
         yield* documents.archive({ id: doc.id, archived: true });
-        assert.equal(
-          (yield* Effect.flip(materials.materialGeneration({ requestId: stale.id }))).kind,
-          'invalid_input'
+        assert.ok(
+          (yield* Effect.flip(materials.materialGeneration({ requestId: stale.id }))).kind ===
+            'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({ ...value, requestId: stale.id })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(yield* materials.publishMaterialGeneration(value), result);
+        assert.strictEqual(yield* materials.publishMaterialGeneration(value), result);
         const events = context.db.orm.all<{
           type: string;
           causation_id: string;
@@ -347,12 +334,15 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           sql`SELECT type, causation_id, correlation_id, depth FROM workflow_events WHERE causation_id=${request.id}`
         );
 
-        assert.equal(events.length, 1);
-        assert.equal(events[0]!.correlation_id, request.id);
-        assert.equal(events[0]!.depth, 1n);
+        assert.strictEqual(events.length, 1);
+        assert.strictEqual(events[0]!.correlation_id, request.id);
+        expect(events[0]!.depth).toBe(1n);
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${project.id}`);
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${other.id}`);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 6);
+        assert.strictEqual(
+          context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
+          6
+        );
         complete = true;
       }).pipe(Effect.provide(services))
     ).pipe(Effect.orDie)
@@ -375,7 +365,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           )
         );
 
-        assert.equal(error.kind, 'internal');
+        assert.ok(error.kind === 'internal');
       }).pipe(Effect.provide(services))
     );
     await Effect.runPromise(
@@ -391,7 +381,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         }).pipe(Effect.provide(workflowEngineLayer(context)))
       )
     );
-    assert.equal(complete, true);
+    assert.isTrue(complete);
   } finally {
     context.close();
     location.cleanup();
@@ -469,11 +459,11 @@ testStable('receipt persists across reopen and a new workflow execution', async 
           };
 
           if (replay) {
-            assert.equal(
+            assert.strictEqual(
               (yield* materials.materialGeneration({ requestId })).resultVersionId,
               resultId
             );
-            assert.equal(yield* materials.publishMaterialGeneration(value), resultId);
+            assert.strictEqual(yield* materials.publishMaterialGeneration(value), resultId);
           } else resultId = yield* materials.publishMaterialGeneration(value);
         }).pipe(Effect.provide(services))
       ).pipe(Effect.orDie)
@@ -496,11 +486,11 @@ testStable('receipt persists across reopen and a new workflow execution', async 
     context.close();
     context = new ServerContext(location.open());
     await run('second-generation', true);
-    assert.equal(
+    assert.strictEqual(
       context.db.orm.all(sql`SELECT * FROM workflow_events WHERE causation_id=${requestId}`).length,
       1
     );
-    assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+    expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   } finally {
     context.close();
     location.cleanup();

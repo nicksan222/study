@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql as dbSql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 
@@ -53,7 +52,7 @@ testStable(
 
       assert.throws(() => db.exec('DELETE FROM material_diagram_versions WHERE version_id=2'));
 
-      assert.equal(
+      assert.strictEqual(
         db.orm.get<{ n: bigint }>(
           dbSql`SELECT count(*) n FROM material_diagram_versions WHERE version_id=2`
         )?.n,
@@ -129,14 +128,14 @@ testStable(
         )
       );
 
-      assert.equal(
+      assert.strictEqual(
         db.orm.get<{ n: bigint }>(
           dbSql`SELECT count(*) n FROM material_diagram_versions WHERE version_id IN(3,4)`
         )?.n,
         2n
       );
 
-      assert.deepEqual(db.orm.all(dbSql`PRAGMA foreign_key_check`), []);
+      expect(db.orm.all(dbSql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db.close();
     }
@@ -196,12 +195,12 @@ testStable(
       db.exec(
         'DELETE FROM sessions WHERE id=1; DELETE FROM source_extraction_revisions WHERE snapshot_id=1; DELETE FROM content_snapshots WHERE id=1'
       );
-      assert.equal(db.orm.get(dbSql`SELECT 1 FROM content_snapshots WHERE id=1`), undefined);
-      assert.equal(
+      assert.strictEqual(db.orm.get(dbSql`SELECT 1 FROM content_snapshots WHERE id=1`), undefined);
+      assert.strictEqual(
         db.orm.get(dbSql`SELECT document_id FROM source_processing WHERE source_id=1`)?.document_id,
         2n
       );
-      assert.deepEqual(db.orm.all(dbSql`PRAGMA foreign_key_check`), []);
+      expect(db.orm.all(dbSql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db.close();
     }

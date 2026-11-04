@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
@@ -22,9 +21,10 @@ import type { Block } from '@study/contracts/sources/document';
 import { blockContentSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Fiber, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -119,9 +119,9 @@ function assertProviderCapture(
   capture: CapturedContext,
   input: CapturedContext['inputs'][number] | undefined
 ) {
-  assert.match(instructions, /propose a revision of that exact target Document only/);
+  expect(instructions).toMatch(/propose a revision of that exact target Document only/);
 
-  assert.equal(captured.instruction, 'Clarify');
+  assert.ok(captured.instruction === 'Clarify');
 
   const expectedRoles = capture.inputs.map((entry) =>
     input === undefined
@@ -131,25 +131,20 @@ function assertProviderCapture(
         : 'supporting_evidence'
   );
 
-  assert.deepEqual(
-    captured.inputs.map((entry: { role: string }) => entry.role),
-    expectedRoles
-  );
+  expect(captured.inputs.map((entry: { role: string }) => entry.role)).toStrictEqual(expectedRoles);
 
-  assert.deepEqual(
+  expect(
     captured.inputs[2].excerpts.map((excerpt: { text: string; start: number; end: number }) => [
       excerpt.text,
       excerpt.start,
       excerpt.end
-    ]),
-    [['alpha evidence', 14, 28]]
-  );
+    ])
+  ).toStrictEqual([['alpha evidence', 14, 28]]);
 
-  assert.equal(captured.editTarget === undefined, input === undefined);
+  assert.strictEqual(captured.editTarget === undefined, input === undefined);
 
   if (input)
-    assert.deepEqual(
-      captured.editTarget,
+    expect(captured.editTarget).toStrictEqual(
       JSON.parse(
         json({
           input: input.input,
@@ -180,21 +175,20 @@ function assertGeneratedIdentity(value: {
 
     const allInputIds = capturedBlockIds(value.capture, value.selectedId);
 
-    assert.equal(version.status, value.input ? 'draft' : 'published');
+    assert.strictEqual(version.status, value.input ? 'draft' : 'published');
 
-    assert.equal(new Set(ids).size, ids.length);
+    assert.strictEqual(new Set(ids).size, ids.length);
 
     if (value.input?.document) {
-      assert.equal(version.documentId, value.input.documentId);
+      assert.strictEqual(version.documentId, value.input.documentId);
 
-      assert.deepEqual(
-        ids.slice(1, value.retained.length),
+      expect(ids.slice(1, value.retained.length)).toStrictEqual(
         value.retained.slice(1).map((block) => block.id)
       );
 
       assert.ok(!ids.includes(value.retained[0]!.id));
 
-      if (value.remintCode) assert.notEqual(ids.at(-1), value.codeId);
+      if (value.remintCode) assert.notStrictEqual(ids.at(-1), value.codeId);
 
       const comparison = yield* (yield* Documents).compareProposal({
         requestId: value.requestId
@@ -209,7 +203,7 @@ function assertGeneratedIdentity(value: {
       requestId: value.requestId
     });
 
-    assert.deepEqual(generation.report?.notes[0]!.blockIds, ids);
+    expect(generation.report?.notes[0]!.blockIds).toStrictEqual(ids);
   });
 }
 
@@ -281,7 +275,7 @@ testStable(
             preferences: {}
           });
 
-          assert.equal(whole.inputs[2]?.input.kind, 'document');
+          assert.ok(whole.inputs[2]?.input.kind === 'document');
 
           yield* chats.updateSessionSelection({
             sessionId: session.id,
@@ -330,16 +324,15 @@ testStable(
 
             const request = yield* chats.requestDocumentTransform(value);
 
-            assert.equal((yield* chats.requestDocumentTransform(value)).id, request.id);
+            assert.strictEqual((yield* chats.requestDocumentTransform(value)).id, request.id);
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 chats.requestDocumentTransform({
                   ...value,
                   editTargetVersionId: target === a ? b.version.id : a.version.id
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
 
             requests.push({ capture, request, target });
@@ -363,9 +356,12 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      assert.notEqual(setup.requests[0]!.capture.requestId, setup.requests[1]!.capture.requestId);
+      assert.notStrictEqual(
+        setup.requests[0]!.capture.requestId,
+        setup.requests[1]!.capture.requestId
+      );
 
-      assert.deepEqual(setup.requests[0]!.capture.inputs, setup.requests[1]!.capture.inputs);
+      expect(setup.requests[0]!.capture.inputs).toStrictEqual(setup.requests[1]!.capture.inputs);
 
       const prompts = [];
 
@@ -438,11 +434,14 @@ testStable(
         );
       }
 
-      assert.notDeepEqual(prompts[0].editTarget, prompts[1].editTarget);
+      expect(prompts[0].editTarget).not.toStrictEqual(prompts[1].editTarget);
 
-      assert.equal(f.context.db.orm.select().from(s.study_document_proposals).all().length, 2);
+      assert.strictEqual(
+        f.context.db.orm.select().from(s.study_document_proposals).all().length,
+        2
+      );
 
-      assert.equal(f.bodies.length, 6);
+      assert.strictEqual(f.bodies.length, 6);
     } finally {
       await f.close();
     }
@@ -563,25 +562,25 @@ for (const barrier of ['cancel', 'delete'] as const) {
 
         const after = output();
 
-        assert.deepEqual(after.documents, before.documents);
+        expect(after.documents).toStrictEqual(before.documents);
 
-        assert.deepEqual(after.blocks, before.blocks);
+        expect(after.blocks).toStrictEqual(before.blocks);
 
-        assert.deepEqual(after.proposals, []);
+        expect(after.proposals).toStrictEqual([]);
 
-        assert.deepEqual(after.proposalReceipts, []);
+        expect(after.proposalReceipts).toStrictEqual([]);
 
-        assert.deepEqual(after.published, before.published);
+        expect(after.published).toStrictEqual(before.published);
 
-        assert.equal(f.bodies.length, 2);
+        assert.strictEqual(f.bodies.length, 2);
 
         f.reopen();
 
-        await assert.rejects(
+        await expect(
           f.executeAuthored(f.authoredEvent(setup.request.id), `target-fence-reopen-${barrier}`)
-        );
+        ).rejects.toSatisfy(() => true);
 
-        assert.equal(f.bodies.length, 2);
+        assert.strictEqual(f.bodies.length, 2);
 
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -603,14 +602,14 @@ for (const barrier of ['cancel', 'delete'] as const) {
               })
             );
 
-            assert.equal(
+            assert.strictEqual(
               (yield* (yield* Documents).document({ id: setup.target.id })).version?.id,
               setup.target.version.id
             );
           }).pipe(Effect.provide(f.domain()))
         );
 
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

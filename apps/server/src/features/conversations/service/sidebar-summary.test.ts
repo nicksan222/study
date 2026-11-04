@@ -14,15 +14,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/service/index';
 import { Documents } from '#server/features/documents/index';
@@ -61,13 +62,12 @@ testStable(
           const session = yield* conversations.createSession({ title: 'Study' });
 
           yield* conversations.setSessionSettled({ id: session.id, settled: true });
-          assert.equal((yield* conversations.sessionSummaries({})).items[0]?.settledOverride, true);
+          assert.ok((yield* conversations.sessionSummaries({})).items[0]?.settledOverride === true);
           yield* conversations.setSessionSettled({ id: session.id, settled: true });
-          assert.equal((yield* conversations.sessionSummaries({})).items[0]?.settledOverride, true);
+          assert.ok((yield* conversations.sessionSummaries({})).items[0]?.settledOverride === true);
           yield* conversations.setSessionSettled({ id: session.id, settled: false });
-          assert.equal(
-            (yield* conversations.sessionSummaries({})).items[0]?.settledOverride,
-            false
+          assert.ok(
+            (yield* conversations.sessionSummaries({})).items[0]?.settledOverride === false
           );
           const missing = yield* Effect.flip(
             conversations.setSessionSettled({
@@ -76,7 +76,7 @@ testStable(
             })
           );
 
-          assert.equal(missing.kind, 'not_found');
+          assert.ok(missing.kind === 'not_found');
           const document = {
             blocks: [plainBlock('paragraph', 'Notes', { type: 'authored' })],
             meta
@@ -90,7 +90,7 @@ testStable(
             inputs: [],
             citations: []
           });
-          assert.equal(
+          assert.strictEqual(
             (yield* conversations.sessionSummaries({})).items[0]?.generatedDocumentCount,
             0n
           );
@@ -122,7 +122,7 @@ testStable(
           assert.ok(generated);
           const summary = (yield* conversations.sessionSummaries({})).items[0];
 
-          assert.deepEqual(summary, {
+          expect(summary).toStrictEqual({
             id: session.id,
             generatedDocumentCount: 1n,
             settledOverride: false,
@@ -130,7 +130,7 @@ testStable(
             activity: 'idle'
           });
           yield* library.archive({ id: generated.id, archived: true });
-          assert.equal(
+          assert.strictEqual(
             (yield* conversations.sessionSummaries({})).items[0]?.generatedDocumentCount,
             0n
           );
@@ -153,13 +153,13 @@ testStable(
               updated_at: note.createdAt
             })
             .run();
-          assert.equal((yield* conversations.sessionSummaries({})).items[0]?.activity, 'answering');
+          assert.ok((yield* conversations.sessionSummaries({})).items[0]?.activity === 'answering');
           context.db.orm
             .update(workflow_executions)
             .set({ status: 'completed' })
             .where(eq(workflow_executions.execution_id, 'sidebar-test'))
             .run();
-          assert.equal((yield* conversations.sessionSummaries({})).items[0]?.running, false);
+          assert.ok((yield* conversations.sessionSummaries({})).items[0]?.running === false);
         }).pipe(Effect.provide(layer))
       );
     } finally {

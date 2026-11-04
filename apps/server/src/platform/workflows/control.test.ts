@@ -11,16 +11,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sourceProcessingRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Layer } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Workflows } from '#server/features/workflows/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -78,11 +78,10 @@ testStable(
               Workflows.retireCorrelations(tx, [event.correlationId], [event.type]);
               Workflows.scrubRetiredCorrelations(tx, [event.correlationId]);
             });
-            assert.equal(
+            assert.ok(
               context.db.orm.get(
                 sql`SELECT status FROM workflow_executions WHERE execution_id=${id}`
-              )?.status,
-              'cancelled'
+              )?.status === 'cancelled'
             );
             yield* cancelExecution(context, [workflow], { id, mode: 'unsafe' });
             yield* Deferred.await(stopped).pipe(Effect.timeout('5 seconds'));
@@ -94,16 +93,13 @@ testStable(
           )
         )
       );
-      assert.equal(calls, 1);
-      assert.deepEqual(
-        {
-          ...context.db.orm.get(
-            sql`SELECT payload,result,owner_token,status FROM workflow_executions WHERE execution_id=${id}`
-          )
-        },
-        { payload: '{}', result: null, owner_token: null, status: 'cancelled' }
-      );
-      assert.equal(
+      assert.strictEqual(calls, 1);
+      expect({
+        ...context.db.orm.get(
+          sql`SELECT payload,result,owner_token,status FROM workflow_executions WHERE execution_id=${id}`
+        )
+      }).toStrictEqual({ payload: '{}', result: null, owner_token: null, status: 'cancelled' });
+      assert.strictEqual(
         context.db.orm.get(sql`SELECT 1 FROM workflow_activities WHERE execution_id=${id}`),
         undefined
       );

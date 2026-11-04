@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -19,7 +18,7 @@ testStable('service factories use the domain identity in service and index entri
     'src/domains/projects/store.ts': 'export function helper() {}'
   });
 
-  assert.deepEqual(diagnostics.map((d) => d.filename.split('/apps/server/')[1]).sort(), [
+  expect(diagnostics.map((d) => d.filename.split('/apps/server/')[1]).sort()).toStrictEqual([
     'src/features/empty/index.ts',
     'src/features/jobs/index.ts',
     'src/features/sources/service/index.ts'
@@ -34,7 +33,7 @@ testStable('service identity checks follow aliases without accepting shadowed fa
       "import { defineService } from '#server/platform/definitions/define-service'; function build(defineService) { return defineService('study/Jobs', make); } export const Jobs = build(custom);"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.match(diagnostics[0].filename, /jobs\/service\/index.ts/);
 });
 
@@ -46,5 +45,5 @@ testStable('feature service uses canonical platform factory and identity', () =>
       "import { defineService } from '#server/platform/definitions/define-service'; export const ProjectService = defineService('study/Project', make);"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

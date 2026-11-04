@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { Effect } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';

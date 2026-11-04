@@ -16,8 +16,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import {
   sourceIndexedSchema,
   sourceDeletedSchema,
@@ -25,11 +23,13 @@ import {
 } from '@study/contracts/events';
 import { workflow_executions, workflowReceipts } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Context, Effect, Schema } from 'effect';
 import type { Scope, Layer } from 'effect';
 import type { Workflow } from 'effect/workflow';
 import { WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
@@ -65,18 +65,18 @@ testStable(
       ]
     });
 
-    assert.equal(registration.definition, workflow);
-    assert.equal(calls, 0);
-    assert.equal(registration.triggers[0]!.workflow, workflow);
-    assert.equal(registration.triggers[0]!.workflowVersion, 3);
-    assert.equal(registration.triggers[0]!.subscription, 'test-a');
-    assert.equal(registration.triggers[1]!.subscription, 'test-b');
-    assert.deepEqual(registration.triggers[1]!.emits, ['SourceIndexed']);
-    assert.equal(registration.triggers[0]!.enabled(), false);
+    assert.strictEqual(registration.definition, workflow);
+    assert.strictEqual(calls, 0);
+    assert.strictEqual(registration.triggers[0]!.workflow, workflow);
+    assert.strictEqual(registration.triggers[0]!.workflowVersion, 3);
+    assert.ok(registration.triggers[0]!.subscription === 'test-a');
+    assert.ok(registration.triggers[1]!.subscription === 'test-b');
+    expect(registration.triggers[1]!.emits).toStrictEqual(['SourceIndexed']);
+    assert.ok(registration.triggers[0]!.enabled() === false);
     enabled = true;
-    assert.equal(registration.triggers[0]!.enabled(), true);
-    assert.equal(calls, 2);
-    assert.equal(registration.triggers[1]!.enabled(), true);
+    assert.ok(registration.triggers[0]!.enabled() === true);
+    assert.strictEqual(calls, 2);
+    assert.ok(registration.triggers[1]!.enabled() === true);
   }
 );
 
@@ -251,14 +251,14 @@ testStable(
 
     try {
       context.transaction(() => emitEvent(context, event('recover'), 1));
-      assert.equal(dispatchPending(context, registration.triggers, 2), 0);
+      assert.strictEqual(dispatchPending(context, registration.triggers, 2), 0);
       enabled = true;
-      assert.equal(dispatchPending(context, registration.triggers, 3), 1);
+      assert.strictEqual(dispatchPending(context, registration.triggers, 3), 1);
       const [persisted] = context.db.orm.select().from(workflow_executions).all();
 
-      assert.equal(persisted!.version, 3n);
-      assert.equal(persisted!.workflow_tag, 'test-registration/v3');
-      assert.equal(context.db.orm.select().from(workflowReceipts).all()[0]!.workflowVersion, 3n);
+      expect(persisted!.version).toBe(3n);
+      assert.ok(persisted!.workflow_tag === 'test-registration/v3');
+      expect(context.db.orm.select().from(workflowReceipts).all()[0]!.workflowVersion).toBe(3n);
       context.close();
       context = new ServerContext(location.open());
 
@@ -278,17 +278,16 @@ testStable(
               yield* Effect.sleep('5 millis');
             }
 
-            assert.equal(
-              context.db.orm.select().from(workflow_executions).all()[0]?.status,
-              'completed'
+            assert.ok(
+              context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed'
             );
             yield* recoverWorkflowEngine(context, engine, [registration.definition]);
           }).pipe(Effect.provide(registration.layer), Effect.provide(workflowEngineLayer(context)))
         )
       );
-      assert.equal(executions, 1);
-      assert.equal(dispatchPending(context, registration.triggers, 4), 0);
-      assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 1);
+      assert.strictEqual(executions, 1);
+      assert.strictEqual(dispatchPending(context, registration.triggers, 4), 0);
+      assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 1);
     } finally {
       context.close();
       location.cleanup();
@@ -325,7 +324,7 @@ testStable(
         () => dispatchPending(context, asynchronous.triggers, 1),
         /boolean synchronously/
       );
-      assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 0);
+      assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
     } finally {
       context.close();
       location.cleanup();
@@ -374,7 +373,7 @@ testStable(
       }
     }
 
-    assert.deepEqual(observed, ['first', 'second']);
-    assert.equal(releases, 2);
+    expect(observed).toStrictEqual(['first', 'second']);
+    assert.strictEqual(releases, 2);
   }
 );

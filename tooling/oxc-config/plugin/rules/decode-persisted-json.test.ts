@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -12,7 +11,7 @@ testStable('decode-persisted-json guards production and accepts safe alternative
     'src/fixture.test.ts': 'const body = JSON.parse(row.body) as ArtifactBody;'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -23,7 +22,7 @@ testStable('decode-persisted-json handles aliases and avoids unrelated bindings'
       'function f(JSON) { return JSON.parse(value) as Body; } const value = Schema.decodeUnknownSync(bodySchema)(JSON.parse(row.body));'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -33,7 +32,7 @@ testStable('decode-persisted-json covers direct unsafe forms', () => {
     'src/good.ts': 'const raw: unknown = JSON.parse(row.body);'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -50,7 +49,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -68,7 +67,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -92,7 +91,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -114,7 +113,7 @@ testStable('annotation history and assessment payloads require canonical schema 
     `
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -131,6 +130,6 @@ testStable(
       'src/features/workflows/store/index.ts': `const unsafe: ExecutionMetadata = JSON.parse(row.payload);`
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );

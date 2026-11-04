@@ -14,13 +14,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Stream } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient, workflowSnapshots } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -85,14 +84,14 @@ for (const hinted of [true, false])
 
               const pages = yield* Fiber.join(fiber).pipe(Effect.timeout('3 seconds'));
 
-              assert.equal(pages[0]?.items.length, 0);
-              assert.equal(pages[1]?.items[0]?.id, 'subscription');
+              assert.strictEqual(pages[0]?.items.length, 0);
+              assert.ok(pages[1]?.items[0]?.id === 'subscription');
               const reseeded = yield* workflowSnapshots(client, { limit: 10 }).pipe(
                 Stream.take(1),
                 Stream.runCollect
               );
 
-              assert.equal(reseeded[0]?.items[0]?.id, 'subscription');
+              assert.ok(reseeded[0]?.items[0]?.id === 'subscription');
             })
           )
         );
@@ -102,7 +101,7 @@ for (const hinted of [true, false])
             setTimeout(() => reject(Error('listener not released')), 2000)
           )
         ]);
-        assert.equal(listeners, 0);
+        assert.strictEqual(listeners, 0);
       } finally {
         await server.close();
         await app.close();

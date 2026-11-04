@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -9,7 +8,7 @@ testStable('ai-boundary rejects forbidden edges', () => {
     'src/domains/jobs/service.ts': "import { generateText } from 'ai';"
   });
 
-  assert.equal(diagnostics.length, 1);
+  assert.strictEqual(diagnostics.length, 1);
 });
 
 testStable('platform AI runtime owns generation and respects lexical shadowing', () => {
@@ -19,7 +18,7 @@ testStable('platform AI runtime owns generation and respects lexical shadowing',
     'src/platform/ai/agents.ts': "import { generateText } from 'ai'; generateText({});"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -32,7 +31,7 @@ testStable(
       'src/platform/ai/agents.ts': "import { generateText } from 'ai'; generateText({});"
     });
 
-    assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
   }
 );
 
@@ -45,7 +44,7 @@ testStable('model work stays in checkpointed workflow activities', () => {
     'src/platform/ai/agents.ts': "import {streamText} from 'ai'; streamText({});"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('destructured generation aliases cannot bypass checkpoint ownership', () => {
@@ -56,7 +55,7 @@ testStable('destructured generation aliases cannot bypass checkpoint ownership',
       "import * as api from '#server/platform/ai/agents'; const ns = api; ns.streamAgent(agent,input);"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('the agent factory may describe SDK messages but cannot execute SDK generation', () => {
@@ -66,7 +65,7 @@ testStable('the agent factory may describe SDK messages but cannot execute SDK g
     'src/features/sources/service.ts': "import type {ModelMessage} from 'ai';"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -77,7 +76,7 @@ testStable(
         "import {Effect} from 'effect'; import {Activity} from 'effect/workflow'; import {generateAgent} from '#server/platform/ai/agents'; Activity.make({execute:Effect.gen(function*(){yield* generateAgent(agent,input); yield* generateAgent(agent,input,{maxRetries:1,preflight:Effect.void}); const options={maxRetries:0,preflight:check}; yield* generateAgent(agent,input,options);})});"
     });
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -102,7 +101,7 @@ testStable(
     `
     });
 
-    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
     assert.ok(diagnostics[0].filename.endsWith('/workflows/unguarded.ts'));
   }
 );

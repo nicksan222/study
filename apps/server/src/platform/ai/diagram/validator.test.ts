@@ -10,12 +10,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { diagramFeedback } from './validator.ts';
 
@@ -36,19 +36,17 @@ testStable('diagram parser does not inherit application preloads', async () => {
     { timeout: 30000 }
   );
 
-  assert.equal(result.stderr, '');
+  assert.ok(result.stderr === '');
 });
 
 testStable('diagram parser reports syntax errors and retains directive restrictions', async () => {
-  assert.match(
-    (await Effect.runPromise(diagramFeedback('flowchart TD\nA["broken'))) ?? '',
+  expect((await Effect.runPromise(diagramFeedback('flowchart TD\nA["broken'))) ?? '').toMatch(
     /The flowchart needs fixing:/
   );
-  assert.equal(
-    await Effect.runPromise(
+  assert.ok(
+    (await Effect.runPromise(
       diagramFeedback('flowchart TD\nA --> B\nclick A "https://example.com"')
-    ),
-    'Use a flowchart TD or LR without directives, styles, or click handlers.'
+    )) === 'Use a flowchart TD or LR without directives, styles, or click handlers.'
   );
-  assert.equal(await Effect.runPromise(diagramFeedback('flowchart LR\nA --> B')), undefined);
+  assert.strictEqual(await Effect.runPromise(diagramFeedback('flowchart LR\nA --> B')), undefined);
 });

@@ -14,12 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { ProjectId } from '@study/contracts/ids';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -42,27 +41,26 @@ testStable(
           const absent = 99999n as ProjectId;
 
           assert.ok(Option.isNone(yield* projects.findProject(absent)));
-          assert.equal((yield* Effect.flip(projects.project(absent))).kind, 'not_found');
+          assert.ok((yield* Effect.flip(projects.project(absent))).kind === 'not_found');
           const first = yield* projects.createProject({ name: ' Physics ' });
           const second = yield* projects.createProject({ name: '😀'.repeat(100) });
 
-          assert.equal(first.name, 'Physics');
+          assert.ok(first.name === 'Physics');
           const page = yield* projects.projects({ limit: 1 });
 
-          assert.equal(page.next, second.id);
-          assert.equal((yield* projects.projects({ limit: 1, before: second.id })).next, null);
-          assert.equal(
+          assert.strictEqual(page.next, second.id);
+          assert.ok((yield* projects.projects({ limit: 1, before: second.id })).next === null);
+          assert.ok(
             (yield* Effect.flip(projects.renameProject({ id: first.id, name: '😀'.repeat(101) })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
-          assert.equal(
-            (yield* Effect.flip(projects.setExam({ id: first.id, examOn: '2025-2-29' }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(projects.setExam({ id: first.id, examOn: '2025-2-29' }))).kind ===
+              'invalid_input'
           );
-          assert.equal((yield* projects.project(first.id)).name, 'Physics');
-          assert.equal(yield* projects.setExam({ id: first.id, examOn: '2024-2-29' }), true);
-          assert.equal((yield* projects.project(first.id)).examOn, '2024-02-29');
+          assert.ok((yield* projects.project(first.id)).name === 'Physics');
+          assert.strictEqual(yield* projects.setExam({ id: first.id, examOn: '2024-2-29' }), true);
+          assert.ok((yield* projects.project(first.id)).examOn === '2024-02-29');
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -95,11 +93,11 @@ testStable(
           const projects = yield* Projects;
           const id = 9007199254740993n as ProjectId;
 
-          assert.equal((yield* projects.project(id)).id, id);
+          assert.strictEqual((yield* projects.project(id)).id, id);
           const created = yield* projects.createProject({ name: 'Next' });
 
-          assert.equal(created.id, 9007199254740994n);
-          assert.equal(
+          assert.strictEqual(created.id, 9007199254740994n);
+          assert.strictEqual(
             (yield* projects.projects({ limit: 1, before: created.id })).items[0]?.id,
             id
           );
@@ -107,9 +105,9 @@ testStable(
             sql`CREATE TRIGGER reject_rename BEFORE UPDATE ON projects BEGIN SELECT RAISE(ABORT, 'rejected'); END`
           );
           yield* Effect.flip(projects.renameProject({ id, name: 'New' }));
-          assert.equal((yield* projects.project(id)).name, 'Large');
-          assert.equal(yield* projects.deleteProject({ id }), true);
-          assert.equal(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
+          assert.ok((yield* projects.project(id)).name === 'Large');
+          assert.strictEqual(yield* projects.deleteProject({ id }), true);
+          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
         }).pipe(Effect.provide(layer))
       );
       assert.throws(() =>

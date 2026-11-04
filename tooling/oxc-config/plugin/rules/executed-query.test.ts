@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -10,7 +9,7 @@ testStable('reports executed-query', () => {
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.select().from(items); }"
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('only reports obvious discarded builders on typed owners', () => {
@@ -21,7 +20,7 @@ testStable('only reports obvious discarded builders on typed owners', () => {
       "import type { Db } from '@study/db'; function f(db: Db, other) { const q = db.orm.select(); db.orm.select().all(); other.orm.select(); db.orm.run(sql); return db.orm.select(); }"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('factory query callbacks must execute discarded builders', () => {
@@ -32,5 +31,5 @@ testStable('factory query callbacks must execute discarded builders', () => {
     `
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -13,13 +13,13 @@ testStable('isolated fixtures use real migrated databases and remove their files
   const other = second.open();
 
   try {
-    assert.notEqual(first.path, second.path);
+    assert.notStrictEqual(first.path, second.path);
     db.orm.run(sql`INSERT INTO projects (name, created_at, updated_at) VALUES ('first', 0, 0)`);
-    assert.equal(
+    assert.strictEqual(
       db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM projects`)!.count,
       1n
     );
-    assert.equal(
+    assert.strictEqual(
       other.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM projects`)!.count,
       0n
     );
@@ -30,6 +30,6 @@ testStable('isolated fixtures use real migrated databases and remove their files
     second.cleanup();
   }
 
-  assert.equal(existsSync(first.dir), false);
-  assert.equal(existsSync(second.dir), false);
+  assert.strictEqual(existsSync(first.dir), false);
+  assert.strictEqual(existsSync(second.dir), false);
 });

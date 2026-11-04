@@ -14,14 +14,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { materialSearchInputSchema } from '@study/contracts/system/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -68,7 +68,7 @@ testStable(
             }
 
             assert.ok(waiting, 'reply must wait durably for account setup');
-            assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_clocks`).length, 0);
+            assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_clocks`).length, 0);
             const untitled = yield* client['conversations.createUntitledSession']({
               project: project.id
             });
@@ -97,11 +97,11 @@ testStable(
 
             const message = yield* client['conversations.message']({ id: request.messageId });
 
-            assert.equal(
-              message.versions.find((version) => version.id === request.versionId)?.status,
-              'pending'
+            assert.ok(
+              message.versions.find((version) => version.id === request.versionId)?.status ===
+                'pending'
             );
-            assert.equal(
+            assert.strictEqual(
               (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items
                 .length,
               2
@@ -138,12 +138,12 @@ testStable(
             };
             const result = yield* client['conversations.ask'](input);
 
-            assert.equal(
+            assert.strictEqual(
               (yield* client['conversations.message']({ id: result.userMessageId }))
                 .activeVersionId,
               result.userVersionId
             );
-            assert.deepEqual(yield* client['conversations.ask'](input), result);
+            expect(yield* client['conversations.ask'](input)).toStrictEqual(result);
 
             return { input, result };
           })
@@ -159,16 +159,15 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            assert.deepEqual(yield* client['conversations.ask'](saved.input), saved.result);
-            assert.deepEqual(
+            expect(yield* client['conversations.ask'](saved.input)).toStrictEqual(saved.result);
+            expect(
               yield* client['conversations.replyVersion']({
                 sessionId: saved.input.sessionId,
                 messageId: saved.result.messageId,
                 versionId: saved.result.versionId
-              }),
-              { state: 'available', requestId: saved.result.requestId }
-            );
-            assert.equal(
+              })
+            ).toStrictEqual({ state: 'available', requestId: saved.result.requestId });
+            assert.strictEqual(
               (yield* client['conversations.thread']({
                 sessionId: saved.input.sessionId,
                 limit: 10
@@ -211,23 +210,22 @@ testStable(
               })
             );
 
-            assert.equal(found.semantic, false);
-            assert.equal(found.hits.length, 1);
-            assert.equal(found.hits[0]?.kind, 'material');
-            assert.deepEqual(found.hits[0]?.target, {
+            assert.ok(found.semantic === false);
+            assert.strictEqual(found.hits.length, 1);
+            assert.ok(found.hits[0]?.kind === 'material');
+            expect(found.hits[0]?.target).toStrictEqual({
               type: 'material',
               materialId: material.id,
               versionId: material.version.id,
               materialKind: 'diagram'
             });
-            assert.deepEqual(
+            expect(
               yield* client['system.materialSearch']({
                 query: 'NativeSearchToken',
                 limit: 1,
                 project: project.id
-              }),
-              { semantic: false, hits: [] }
-            );
+              })
+            ).toStrictEqual({ semantic: false, hits: [] });
           })
         )
       );

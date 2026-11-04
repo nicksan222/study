@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 
@@ -36,29 +36,25 @@ testMigration({ migration: 'material_metadata_migration', retention: 'permanent'
       connection.close();
       connection = undefined;
       connection = Db.open(path);
-      assert.deepEqual(
+      expect(
         connection.orm
           .all(
             sql`SELECT name,replace(replace(sql,'documents','content_snapshots'),'"','') AS sql FROM sqlite_schema WHERE type='trigger' AND name IN('material_identity_update','material_versions_start_draft','material_diagram_versions_insert_draft') ORDER BY name`
           )
-          .filter((row) => triggers.some((trigger) => trigger.name === row.name)),
-        triggers
-      );
-      assert.deepEqual(
-        {
-          ...connection.orm.get(
-            sql`SELECT id,title,description,create_key,creation_intent FROM materials WHERE id=42`
-          )
-        },
-        {
-          id: 42n,
-          title: 'Existing diagram',
-          description: null,
-          create_key: null,
-          creation_intent: null
-        }
-      );
-      assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
+          .filter((row) => triggers.some((trigger) => trigger.name === row.name))
+      ).toStrictEqual(triggers);
+      expect({
+        ...connection.orm.get(
+          sql`SELECT id,title,description,create_key,creation_intent FROM materials WHERE id=42`
+        )
+      }).toStrictEqual({
+        id: 42n,
+        title: 'Existing diagram',
+        description: null,
+        create_key: null,
+        creation_intent: null
+      });
+      expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       assert.throws(() =>
         connection!.orm.run(sql`UPDATE materials SET description=${'x'.repeat(241)} WHERE id=42`)
       );

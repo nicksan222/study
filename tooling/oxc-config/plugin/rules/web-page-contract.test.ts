@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -15,11 +14,11 @@ testStable('requires page presentation and behavioral tests beside each page', (
     true
   );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('accepts tested static pages without inventing asynchronous logic', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-page-contract',
       {
@@ -29,9 +28,8 @@ testStable('accepts tested static pages without inventing asynchronous logic', (
         'apps/web/src/pages/home/page.view.test.tsx': `export {};`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable('keeps route modules declarative and page composition free of state', () => {
@@ -47,7 +45,7 @@ testStable('keeps route modules declarative and page composition free of state',
     true
   );
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable(
@@ -67,14 +65,14 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 testStable(
   'route boundaries reference imported components and may validate or redirect inline',
   () => {
-    assert.deepEqual(
+    expect(
       lintRule(
         'web-page-contract',
         {
@@ -87,8 +85,7 @@ testStable(
     `
         },
         true
-      ),
-      []
-    );
+      )
+    ).toStrictEqual([]);
   }
 );

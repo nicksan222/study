@@ -12,14 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
@@ -101,11 +100,10 @@ testStable(
             note: 'My explicit reasoning'
           };
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               rpc['documents.assessCitation']({ ...value, evidenceRange: { ...target, end: 7 } })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const first = yield* rpc['documents.assessCitation'](value);
           const second = yield* rpc['documents.assessCitation']({
@@ -114,11 +112,11 @@ testStable(
           });
           const page = yield* rpc['documents.assessments']({ versionId: version.id, limit: 1 });
 
-          assert.equal(page.items[0]!.id, second.id);
-          assert.equal(page.items[0]!.state, 'assessed');
-          assert.equal(page.items[0]!.assessment.independentVerification, false);
-          assert.equal(page.nextCursor, second.id);
-          assert.equal(
+          assert.strictEqual(page.items[0]!.id, second.id);
+          assert.ok(page.items[0]!.state === 'assessed');
+          assert.ok(page.items[0]!.assessment.independentVerification === false);
+          assert.strictEqual(page.nextCursor, second.id);
+          assert.strictEqual(
             (yield* rpc['documents.assessments']({
               versionId: version.id,
               limit: 1,
@@ -147,10 +145,10 @@ testStable(
           const stale = yield* rpc['documents.assessments']({ versionId: version.id, limit: 10 });
 
           assert.ok(stale.items.every((item) => item.state === 'stale'));
-          assert.equal(stale.items[1]!.assessment.note, value.note);
-          assert.equal(
-            (yield* rpc['documents.version']({ id: exact.id })).document.blocks[0]!.text,
-            'Evidence 😀'
+          assert.strictEqual(stale.items[1]!.assessment.note, value.note);
+          assert.ok(
+            (yield* rpc['documents.version']({ id: exact.id })).document.blocks[0]!.text ===
+              'Evidence 😀'
           );
         }).pipe(Effect.scoped, Effect.provide(DocumentsRpcLive.pipe(Layer.provideMerge(services))))
       );

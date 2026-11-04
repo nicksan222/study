@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -113,8 +113,8 @@ for (const mode of ['history', 'delete'] as const)
             yield* Conversations;
             const output = yield* docs.version({ id: resultId });
 
-            assert.notEqual(output.documentId, saved.input.id);
-            assert.deepEqual(output.inputs, [
+            assert.notStrictEqual(output.documentId, saved.input.id);
+            expect(output.inputs).toStrictEqual([
               { kind: 'document', versionId: saved.input.version.id }
             ]);
             const copy = yield* docs.create({
@@ -134,13 +134,13 @@ for (const mode of ['history', 'delete'] as const)
             yield* Effect.flip(
               docs.delete({ documentId: output.documentId, token: failedPreview.token })
             );
-            assert.equal(
+            assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'INTENTIONAL_AUTHORED_BODY')>0`
               )?.n,
               1n
             );
-            assert.equal(
+            assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT count(*) n FROM workflow_retired_correlations WHERE correlation_id=${saved.request.id}`
               )?.n,
@@ -159,11 +159,11 @@ for (const mode of ['history', 'delete'] as const)
               const scope = { documentId: output.documentId, keepLatest: 1 };
               const preview = yield* docs.previewHistory(scope);
 
-              assert.deepEqual(preview.versionIds, [output.id]);
+              expect(preview.versionIds).toStrictEqual([output.id]);
               yield* docs.retireHistory({ ...scope, token: preview.token });
-              assert.equal(
-                (yield* docs.version({ id: current.submittedVersionId })).document.blocks[0]?.text,
-                'Current authored body'
+              assert.ok(
+                (yield* docs.version({ id: current.submittedVersionId })).document.blocks[0]
+                  ?.text === 'Current authored body'
               );
             } else {
               const preview = yield* docs.previewDeletion({ id: output.documentId });
@@ -171,9 +171,9 @@ for (const mode of ['history', 'delete'] as const)
               yield* docs.delete({ documentId: output.documentId, token: preview.token });
             }
 
-            assert.equal((yield* Effect.flip(docs.version({ id: output.id }))).kind, 'not_found');
+            assert.ok((yield* Effect.flip(docs.version({ id: output.id }))).kind === 'not_found');
             // Retirement must scrub native output while the independent raw session still exists.
-            assert.equal(
+            assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'INTENTIONAL_AUTHORED_BODY')>0`
               )?.n,
@@ -198,16 +198,17 @@ for (const mode of ['history', 'delete'] as const)
         f.reopen();
         assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM sessions WHERE id=${saved.session.id}`));
         assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
-        assert.equal(
+        assert.ok(
           f.context.db.orm.get(
             sql`SELECT result FROM workflow_deferreds WHERE execution_id='independent-native'`
-          )?.result,
-          '"Independent private content"'
+          )?.result === '"Independent private content"'
         );
         const callsBeforeReplay = f.bodies.length;
 
-        await assert.rejects(f.executeAuthored(event, 'retired-body-session-retained-replay'));
-        assert.equal(f.bodies.length, callsBeforeReplay);
+        await expect(
+          f.executeAuthored(event, 'retired-body-session-retained-replay')
+        ).rejects.toSatisfy(() => true);
+        assert.strictEqual(f.bodies.length, callsBeforeReplay);
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Documents;
@@ -229,7 +230,7 @@ for (const mode of ['history', 'delete'] as const)
 
             const released = yield* docs.previewDeletion({ id: saved.input.id });
 
-            assert.deepEqual(released.blockedVersionIds, []);
+            expect(released.blockedVersionIds).toStrictEqual([]);
             yield* docs.delete({ documentId: saved.input.id, token: released.token });
           }).pipe(Effect.provide(f.domain()))
         );
@@ -241,28 +242,27 @@ for (const mode of ['history', 'delete'] as const)
 
             const chats = yield* Conversations;
 
-            assert.deepEqual(yield* docs.version({ id: retained.copy.id }), retained.copy);
-            assert.equal((yield* Effect.flip(docs.version({ id: resultId }))).kind, 'not_found');
-            assert.equal(
+            expect(yield* docs.version({ id: retained.copy.id })).toStrictEqual(retained.copy);
+            assert.ok((yield* Effect.flip(docs.version({ id: resultId }))).kind === 'not_found');
+            assert.ok(
               (yield* Effect.flip(chats.sessionContext({ requestId: saved.capture.requestId })))
-                .kind,
-              'not_found'
+                .kind === 'not_found'
             );
             const request = yield* docs.transform({ requestId: saved.request.id });
 
-            assert.equal(request.resultVersionId, resultId);
-            assert.equal(request.instruction, 'Retained authored generation instruction');
+            assert.strictEqual(request.resultVersionId, resultId);
+            assert.ok(request.instruction === 'Retained authored generation instruction');
           }).pipe(Effect.provide(f.domain()))
         );
         const receipt = f.context.db.orm.select().from(s.study_document_generation_requests).get();
 
-        assert.equal(receipt?.document_id, retained.outputId);
-        assert.equal(receipt.result_version_id, resultId);
-        assert.equal(
+        assert.ok(receipt);
+        assert.strictEqual(receipt.document_id, retained.outputId);
+        assert.strictEqual(receipt.result_version_id, resultId);
+        assert.ok(
           f.context.db.orm.get(
             sql`SELECT instruction FROM study_document_versions WHERE id=${resultId}`
-          )?.instruction,
-          'Retained authored generation instruction'
+          )?.instruction === 'Retained authored generation instruction'
         );
 
         for (const mutation of [
@@ -274,15 +274,17 @@ for (const mode of ['history', 'delete'] as const)
 
         const calls = f.bodies.length;
 
-        await assert.rejects(f.executeAuthored(event, 'late-retired-authored-generation'));
-        assert.equal(f.bodies.length, calls);
-        assert.equal(
+        await expect(
+          f.executeAuthored(event, 'late-retired-authored-generation')
+        ).rejects.toSatisfy(() => true);
+        assert.strictEqual(f.bodies.length, calls);
+        assert.strictEqual(
           f.context.db.orm.get(
             sql`SELECT count(*) n FROM blocks WHERE text LIKE '%INTENTIONAL_AUTHORED_BODY%'`
           )?.n,
           0n
         );
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

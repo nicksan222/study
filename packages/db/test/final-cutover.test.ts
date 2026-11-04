@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { assertFinalStorage } from './final-storage.ts';
@@ -90,7 +90,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         sql`SELECT id FROM study_documents WHERE title='Last old authored output'`
       )!.id;
 
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(
             sql`SELECT text FROM blocks b JOIN study_document_versions v ON v.content_snapshot_id=b.document_id WHERE v.document_id=${late}`
@@ -98,21 +98,21 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
         ).text,
         'Late body'
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT text FROM blocks WHERE document_id=300`)).text,
         'Native body'
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT document_id FROM session_documents WHERE session_id=9`))
           .document_id,
         late
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT source_id FROM session_sources WHERE session_id=9`))
           .source_id,
         1n
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(
             sql`SELECT document_version_id FROM material_evidence_inputs WHERE version_id=70`
@@ -122,35 +122,35 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
           db.orm.get(sql`SELECT id FROM study_document_versions WHERE document_id=${late}`)
         ).id
       );
-      assert.equal(requireRow(db.orm.get(sql`SELECT count(*) n FROM materials`)).n, 1n);
-      assert.equal(requireRow(db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)).n, 1n);
-      assert.equal(
+      assert.strictEqual(requireRow(db.orm.get(sql`SELECT count(*) n FROM materials`)).n, 1n);
+      assert.strictEqual(
+        requireRow(db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)).n,
+        1n
+      );
+      assert.strictEqual(
         requireRow(db.orm.get(sql`SELECT text FROM message_versions WHERE id=1`)).text,
         'Completed raw answer'
       );
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(sql`SELECT 1 FROM session_run_contexts WHERE request_id='old-context'`),
         undefined
       );
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(sql`SELECT 1 FROM conversation_reply_requests WHERE request_id='old-context'`),
         undefined
       );
-      assert.equal(
+      assert.strictEqual(
         requireRow(
           db.orm.get(sql`SELECT request_id FROM session_retired_intents WHERE intent_key='old-key'`)
         ).request_id,
         'old-context'
       );
-      assert.deepEqual(
-        {
-          ...db.orm.get(
-            sql`SELECT payload,owner_token,status FROM workflow_executions WHERE execution_id='old-native'`
-          )
-        },
-        { payload: '{}', owner_token: null, status: 'cancelled' }
-      );
-      assert.equal(
+      expect({
+        ...db.orm.get(
+          sql`SELECT payload,owner_token,status FROM workflow_executions WHERE execution_id='old-native'`
+        )
+      }).toStrictEqual({ payload: '{}', owner_token: null, status: 'cancelled' });
+      assert.strictEqual(
         db.orm.get(sql`SELECT 1 FROM workflow_activities WHERE execution_id='old-native'`),
         undefined
       );
@@ -168,7 +168,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
 
       db.close();
       db = Db.open(path, migrations);
-      assert.equal(db.schemaIdentity(), identity);
+      assert.strictEqual(db.schemaIdentity(), identity);
       assertFinalStorage(db);
     } finally {
       db?.close();

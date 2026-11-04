@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -19,8 +18,8 @@ testStable('workflow pagination queries can use the matching SQLite indexes', ()
       )
     ];
 
-    assert.match(plans[0]![0]!.detail, /workflow_executions_pagination_idx/);
-    assert.match(plans[1]![0]!.detail, /workflow_executions_correlation_pagination_idx/);
+    expect(plans[0]![0]!.detail).toMatch(/workflow_executions_pagination_idx/);
+    expect(plans[1]![0]!.detail).toMatch(/workflow_executions_correlation_pagination_idx/);
   } finally {
     db.close();
     location.cleanup();

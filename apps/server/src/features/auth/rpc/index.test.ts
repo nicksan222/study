@@ -13,14 +13,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { AuthRpc } from '@study/contracts/auth/rpc';
 import { preferences } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';
@@ -64,18 +63,17 @@ testStable('auth RPC exposes only public account and operations', async () => {
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(AuthRpc, { flatten: true });
 
-          assert.deepEqual(yield* client('auth.publicAccount', {}), {
+          expect(yield* client('auth.publicAccount', {})).toStrictEqual({
             subject: 'person',
             email: undefined,
             sharing: true
           });
-          assert.deepEqual(yield* client('auth.status', {}), {
+          expect(yield* client('auth.status', {})).toStrictEqual({
             signedIn: true,
             email: null,
             sharing: true
           });
-          assert.deepEqual(
-            [...AuthRpc.requests.keys()].sort(),
+          expect([...AuthRpc.requests.keys()].sort()).toStrictEqual(
             [
               'auth.status',
               'auth.publicAccount',

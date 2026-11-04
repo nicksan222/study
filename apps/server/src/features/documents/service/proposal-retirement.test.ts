@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -62,7 +62,7 @@ for (const apply of [false, true])
             const chats = yield* Conversations;
             const proposed = yield* docs.version({ id: proposedId });
 
-            assert.equal(proposed.status, 'draft');
+            assert.ok(proposed.status === 'draft');
 
             if (!apply)
               yield* docs.save({
@@ -88,7 +88,7 @@ for (const apply of [false, true])
             const applied = apply ? yield* chats.applyDocumentProposal(applyInput) : null;
 
             if (applied) {
-              assert.equal(applied.outcome, 'applied');
+              assert.ok(applied.outcome === 'applied');
               assert.ok(applied.resultVersionId);
             }
 
@@ -100,8 +100,8 @@ for (const apply of [false, true])
             });
             const copy = yield* docs.version({ id: keep.resultVersionId });
 
-            assert.deepEqual(copy.inputs, proposed.inputs);
-            assert.deepEqual(copy.citations, proposed.citations);
+            expect(copy.inputs).toStrictEqual(proposed.inputs);
+            expect(copy.citations).toStrictEqual(proposed.citations);
             const history = yield* docs.previewHistory({
               documentId: saved.library.id,
               keepLatest: 1
@@ -136,14 +136,14 @@ for (const apply of [false, true])
             yield* docs.delete({ documentId: copy.documentId, token: removeCopy.token });
             const removeTarget = yield* docs.previewDeletion({ id: saved.library.id });
 
-            assert.deepEqual(removeTarget.blockedVersionIds, []);
+            expect(removeTarget.blockedVersionIds).toStrictEqual([]);
             yield* docs.delete({ documentId: saved.library.id, token: removeTarget.token });
             const released = yield* docs.previewHistory({
               documentId: additional.id,
               keepLatest: 1
             });
 
-            assert.deepEqual(released.blockedVersionIds, []);
+            expect(released.blockedVersionIds).toStrictEqual([]);
             yield* docs.retireHistory({
               documentId: additional.id,
               keepLatest: 1,
@@ -161,56 +161,54 @@ for (const apply of [false, true])
             const docs = yield* Documents;
             const chats = yield* Conversations;
 
-            assert.deepEqual(
-              yield* docs.version({ id: retained.independent.id }),
+            expect(yield* docs.version({ id: retained.independent.id })).toStrictEqual(
               retained.independent
             );
-            assert.equal(
-              (yield* Effect.flip(docs.version({ id: retained.copy.id }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(docs.version({ id: retained.copy.id }))).kind === 'not_found'
             );
-            assert.equal((yield* Effect.flip(docs.version({ id: proposedId }))).kind, 'not_found');
-            assert.equal(
-              (yield* Effect.flip(docs.version({ id: additional.version!.id }))).kind,
-              'not_found'
+            assert.ok((yield* Effect.flip(docs.version({ id: proposedId }))).kind === 'not_found');
+            assert.ok(
+              (yield* Effect.flip(docs.version({ id: additional.version!.id }))).kind ===
+                'not_found'
             );
-            assert.deepEqual(yield* chats.keepDocumentProposal(retained.keepInput), {
+            expect(yield* chats.keepDocumentProposal(retained.keepInput)).toStrictEqual({
               ...retained.keep,
               replayed: true
             });
 
             if (retained.applied)
-              assert.deepEqual(yield* chats.applyDocumentProposal(retained.applyInput), {
+              expect(yield* chats.applyDocumentProposal(retained.applyInput)).toStrictEqual({
                 ...retained.applied,
                 replayed: true
               });
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 chats.keepDocumentProposal({ ...retained.keepInput, key: 'new-after-retirement' })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(chats.sessionContext({ requestId: saved.capture.requestId })))
-                .kind,
-              'not_found'
+                .kind === 'not_found'
             );
           }).pipe(Effect.provide(f.domain()))
         );
-        assert.equal(
+        assert.strictEqual(
           f.context.db.orm.select().from(s.study_document_proposals).get()?.proposed_version_id,
           proposedId
         );
-        assert.equal(
+        assert.strictEqual(
           f.context.db.orm.select().from(s.study_document_proposal_receipts).all().length,
           apply ? 2 : 1
         );
         const calls = f.bodies.length;
 
-        await assert.rejects(f.executeAuthored(event, 'retired-proposal-replay'));
-        assert.equal(f.bodies.length, calls);
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        await expect(f.executeAuthored(event, 'retired-proposal-replay')).rejects.toSatisfy(
+          () => true
+        );
+        assert.strictEqual(f.bodies.length, calls);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

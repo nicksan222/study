@@ -1,10 +1,10 @@
-import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { eq, sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import { material_generation_scopes } from '../src/schema.ts';
@@ -37,12 +37,12 @@ function privateConnection(path: string) {
   const db = Db.open(path);
 
   try {
-    assert.equal(db.path, path);
-    assert.equal(db.orm.get(sql.raw('PRAGMA journal_mode'))?.journal_mode, 'wal');
-    assert.equal(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
-    assert.equal(db.orm.get(sql.raw('PRAGMA busy_timeout'))?.timeout, 30000n);
+    assert.strictEqual(db.path, path);
+    assert.strictEqual(db.orm.get(sql.raw('PRAGMA journal_mode'))?.journal_mode, 'wal');
+    assert.strictEqual(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
+    assert.strictEqual(db.orm.get(sql.raw('PRAGMA busy_timeout'))?.timeout, 30000n);
 
-    if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
+    if (process.platform !== 'win32') assert.strictEqual(statSync(path).mode & 0o777, 0o600);
 
     initialize(db);
     db.transaction(() => insert(db, 'persisted'));
@@ -55,9 +55,9 @@ function privateConnection(path: string) {
   const reopened = Db.open(path);
 
   try {
-    if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600);
+    if (process.platform !== 'win32') assert.strictEqual(statSync(path).mode & 0o777, 0o600);
 
-    assert.deepEqual(values(reopened), ['persisted']);
+    expect(values(reopened)).toStrictEqual(['persisted']);
   } finally {
     reopened.close();
   }
@@ -71,27 +71,27 @@ function nestedCommits(path: string) {
     const outside = db.orm;
     const marker = {};
 
-    assert.equal(
+    assert.strictEqual(
       db.transaction(() => {
-        assert.notEqual(db.orm, outside);
+        assert.notStrictEqual(db.orm, outside);
         const outer = db.orm;
 
-        assert.equal(
+        assert.strictEqual(
           db.transaction(() => {
-            assert.notEqual(db.orm, outer);
+            assert.notStrictEqual(db.orm, outer);
             insert(db, 'nested');
 
             return marker;
           }),
           marker
         );
-        assert.equal(db.orm, outer);
+        assert.strictEqual(db.orm, outer);
 
         return 42;
       }),
       42
     );
-    assert.equal(db.orm, outside);
+    assert.strictEqual(db.orm, outside);
     assert.throws(
       () =>
         db.transaction(() => {
@@ -102,8 +102,8 @@ function nestedCommits(path: string) {
         }),
       /stop/
     );
-    assert.equal(db.orm, outside);
-    assert.deepEqual(values(db), ['nested']);
+    assert.strictEqual(db.orm, outside);
+    expect(values(db)).toStrictEqual(['nested']);
   } finally {
     db.close();
   }
@@ -127,7 +127,7 @@ function caughtNestedFailure(path: string) {
       );
       insert(db, 'after');
     });
-    assert.deepEqual(values(db), ['before', 'after']);
+    expect(values(db)).toStrictEqual(['before', 'after']);
   } finally {
     db.close();
   }
@@ -147,7 +147,7 @@ function rejectedAsyncCallbacks(path: string) {
         }),
       TypeError
     );
-    assert.equal(invoked, false);
+    assert.strictEqual(invoked, false);
 
     // oxlint-disable-next-line unicorn/no-thenable -- Exercise rejection of thenable transaction callbacks.
     for (const thenable of [{ then() {} }, Object.assign(() => {}, { then() {} })]) {
@@ -162,7 +162,7 @@ function rejectedAsyncCallbacks(path: string) {
       );
     }
 
-    assert.deepEqual(values(db), []);
+    expect(values(db)).toStrictEqual([]);
   } finally {
     db.close();
   }
@@ -190,7 +190,7 @@ testStable(
 testStable('opens an in-memory database and closes the underlying connection', () => {
   const db = Db.open(':memory:');
 
-  assert.equal(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
+  assert.strictEqual(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
   db.close();
   assert.throws(() => db.exec('SELECT 1'), /not open/);
 });
@@ -226,13 +226,13 @@ async function expiredAsyncScopes() {
       TypeError
     );
     await continuation;
-    assert.deepEqual(values(db), []);
+    expect(values(db)).toStrictEqual([]);
     db.transaction(() => {
       continuation = Promise.resolve().then(() => assertExpiredCommit(db));
       insert(db, 'committed');
     });
     await continuation;
-    assert.deepEqual(values(db), ['committed']);
+    expect(values(db)).toStrictEqual(['committed']);
   } finally {
     db.close();
   }
@@ -253,7 +253,7 @@ testStable(
         db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1);
         INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at)
         VALUES('open',1,1,1,1),('closed',1,0,1,1),('retained',1,1,1,1)`);
-        assert.equal(
+        assert.strictEqual(
           db.orm
             .select()
             .from(material_generation_scopes)
@@ -261,7 +261,7 @@ testStable(
             .get()?.enabled,
           true
         );
-        assert.equal(
+        assert.strictEqual(
           db.orm
             .select()
             .from(material_generation_scopes)
@@ -277,8 +277,8 @@ testStable(
             .returning()
             .get();
 
-          assert.equal(row?.enabled, false);
-          assert.equal(row?.project_id, 1n);
+          assert.strictEqual(row?.enabled, false);
+          assert.strictEqual(row?.project_id, 1n);
         });
       } finally {
         db.close();
@@ -289,8 +289,8 @@ testStable(
       try {
         const rows = reopened.orm.select().from(material_generation_scopes).all();
 
-        assert.equal(rows.length, 3);
-        assert.deepEqual(Object.fromEntries(rows.map((row) => [row.id, row.enabled])), {
+        assert.strictEqual(rows.length, 3);
+        expect(Object.fromEntries(rows.map((row) => [row.id, row.enabled]))).toStrictEqual({
           open: false,
           closed: false,
           retained: true

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -15,7 +14,7 @@ testStable('rejects custom alert prose and retry controls', () => {
     }
   `);
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('checks boolean error branches, early returns, and status comparisons', () => {
@@ -29,7 +28,7 @@ testStable('checks boolean error branches, early returns, and status comparisons
     }
   `);
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
 testStable('handles negation, compound guards, and error branches passed as props', () => {
@@ -42,11 +41,11 @@ testStable('handles negation, compound guards, and error branches passed as prop
     }
   `);
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('accepts canonical imports, aliases, namespaces, and feature wrappers', () => {
-  assert.deepEqual(
+  expect(
     lint(`
     import { ErrorState as Failure } from '@study/ui/error-state';
     import * as Feedback from '@study/ui/error-state';
@@ -56,9 +55,8 @@ testStable('accepts canonical imports, aliases, namespaces, and feature wrappers
         {state.isError ? <section><Feedback.ErrorState title="Failed" /></section> : <Content />}
       </>;
     }
-  `),
-    []
-  );
+  `)
+  ).toStrictEqual([]);
 });
 
 testStable('does not trust a same-named local implementation or a shadowed import', () => {
@@ -70,7 +68,7 @@ testStable('does not trust a same-named local implementation or a shadowed impor
     }
   `);
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('does not let the success branch supply the canonical error presentation', () => {
@@ -81,11 +79,11 @@ testStable('does not let the success branch supply the canonical error presentat
     }
   `);
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('accepts ordinary field validation, live statuses, and non-render error guards', () => {
-  assert.deepEqual(
+  expect(
     lint(`
     export function View({ fieldError, state, error }) {
       function retry() { if (error) return; }
@@ -96,9 +94,8 @@ testStable('accepts ordinary field validation, live statuses, and non-render err
         {!error && <Content />}
       </form>;
     }
-  `),
-    []
-  );
+  `)
+  ).toStrictEqual([]);
 });
 
 testStable('checks aliases of custom error markup and skips null recovery branches', () => {
@@ -107,11 +104,10 @@ testStable('checks aliases of custom error markup and skips null recovery branch
     export function View({ error }) { return error ? failure : null; }
   `);
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.deepEqual(
-    lint(`export function View({ error }) { if (error) return null; return <Content />; }`),
-    []
-  );
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  expect(
+    lint(`export function View({ error }) { if (error) return null; return <Content />; }`)
+  ).toStrictEqual([]);
 });
 
 testStable('checks custom component alerts but accepts the canonical component itself', () => {
@@ -122,11 +118,11 @@ testStable('checks custom component alerts but accepts the canonical component i
     }
   `);
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('ignores tests, server code and canonical UI implementations', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'shared-error-state',
       {
@@ -135,9 +131,8 @@ testStable('ignores tests, server code and canonical UI implementations', () => 
         'packages/ui/src/components/error-state.tsx': 'const view = <p role="alert">Failed</p>;'
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable('checks shared button aliases used as a whole error presentation', () => {
@@ -146,26 +141,25 @@ testStable('checks shared button aliases used as a whole error presentation', ()
     export function View({ error }) { return error && <RetryButton>{t('Retry')}</RetryButton>; }
   `);
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable(
   'retains canonical Sidebar.Message alerts without allowing raw sidebar implementations',
   () => {
-    assert.deepEqual(
+    expect(
       lint(`
     import { Sidebar as AppSidebar } from '@study/ui/sidebar';
     import * as UI from '@study/ui/sidebar';
     export function View({ error }) { return <>{error && <AppSidebar.Message role="alert">Failed</AppSidebar.Message>}<UI.Sidebar.Message role="alert">Failed</UI.Sidebar.Message></>; }
-  `),
-      []
-    );
+  `)
+    ).toStrictEqual([]);
     const diagnostics = lint(`
     import { Sidebar } from '@study/ui/sidebar';
     export function View({ error, Sidebar }) { return <>{error && <Sidebar.Message role="alert">Failed</Sidebar.Message>}<p role="alert">Failed</p></>; }
   `);
 
-    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
@@ -176,9 +170,9 @@ testStable('checks named error presenters even when they omit alert semantics', 
     const SessionError = () => { return <div>Failed</div>; };
   `);
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('declared error presenters without function bodies do not crash traversal', () => {
-  assert.deepEqual(lint('declare function SessionError(): JSX.Element;'), []);
+  expect(lint('declare function SessionError(): JSX.Element;')).toStrictEqual([]);
 });

@@ -8,15 +8,15 @@
  * │   ID pages preserve lookahead failures.                                                  │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Invokes #server/platform/definitions/page-by-id directly with node:test; no application  │
+ * │ Invokes #server/platform/definitions/page-by-id directly with Vitest   ; no application  │
  * │ or database fixture is involved.                                                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { pageById } from '#server/platform/definitions/page-by-id';
 
@@ -31,29 +31,31 @@ testStable(
         return input.before === undefined ? [{ id: 3 }, { id: 2 }] : [{ id: 1 }];
       });
 
-    assert.deepEqual(await Effect.runPromise(pageById(query, { limit: 2 })), {
+    expect(await Effect.runPromise(pageById(query, { limit: 2 }))).toStrictEqual({
       items: [{ id: 3 }, { id: 2 }],
       next: 2
     });
-    assert.deepEqual(calls, [{ limit: 2 }, { limit: 1, before: 2 }]);
+    expect(calls).toStrictEqual([{ limit: 2 }, { limit: 1, before: 2 }]);
     calls.length = 0;
-    assert.deepEqual(await Effect.runPromise(pageById(query, { limit: 2, before: 2 })), {
+    expect(await Effect.runPromise(pageById(query, { limit: 2, before: 2 }))).toStrictEqual({
       items: [{ id: 1 }],
       next: null
     });
-    assert.deepEqual(calls, [{ limit: 2, before: 2 }]);
+    expect(calls).toStrictEqual([{ limit: 2, before: 2 }]);
 
     const terminal = ({ before }: { limit: number; before?: number }) =>
       Effect.succeed(before === undefined ? [{ id: 1 }] : []);
 
-    assert.deepEqual(await Effect.runPromise(pageById(terminal, { limit: 1 })), {
+    expect(await Effect.runPromise(pageById(terminal, { limit: 1 }))).toStrictEqual({
       items: [{ id: 1 }],
       next: null
     });
-    assert.deepEqual(await Effect.runPromise(pageById(() => Effect.succeed([]), { limit: 1 })), {
-      items: [],
-      next: null
-    });
+    expect(await Effect.runPromise(pageById(() => Effect.succeed([]), { limit: 1 }))).toStrictEqual(
+      {
+        items: [],
+        next: null
+      }
+    );
   }
 );
 
@@ -65,5 +67,5 @@ testStable('ID pages preserve lookahead failures', async () => {
     { limit: 1 }
   );
 
-  assert.equal(await Effect.runPromise(Effect.flip(result)), failure);
+  assert.strictEqual(await Effect.runPromise(Effect.flip(result)), failure);
 });

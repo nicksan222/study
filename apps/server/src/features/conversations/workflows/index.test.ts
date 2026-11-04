@@ -13,7 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 
 import type { messageVersionSchema } from '@study/contracts/conversations/schemas';
@@ -23,11 +22,12 @@ import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/service/index';
 import { Documents } from '#server/features/documents/index';
@@ -238,25 +238,35 @@ testStable(
       const stale = await request();
 
       await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(stale.messageId)));
-      await assert.rejects(execute(stale, 'stale'));
-      assert.equal(calls, 0);
+      await expect(execute(stale, 'stale')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 0);
       const resolverRace = await request();
 
       duringModelResolution = async () => {
         await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(resolverRace.messageId)));
       };
-      await assert.rejects(execute(resolverRace, 'model-resolution-race'));
-      assert.equal(calls, 0, 'stale context must not reach the provider after model resolution');
+      await expect(execute(resolverRace, 'model-resolution-race')).rejects.toSatisfy(() => true);
+      assert.strictEqual(
+        calls,
+        0,
+        'stale context must not reach the provider after model resolution'
+      );
       const languageRace = await request();
 
       duringLanguageResolution = async () => {
         await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(languageRace.messageId)));
       };
-      await assert.rejects(execute(languageRace, 'language-resolution-race'));
-      assert.equal(calls, 0, 'stale context must not reach the provider after language resolution');
+      await expect(execute(languageRace, 'language-resolution-race')).rejects.toSatisfy(() => true);
+      assert.strictEqual(
+        calls,
+        0,
+        'stale context must not reach the provider after language resolution'
+      );
       const current = await request('brief');
 
-      await assert.rejects(execute({ ...current, messageId: first.id }, 'wrong-target'));
+      await expect(execute({ ...current, messageId: first.id }, 'wrong-target')).rejects.toSatisfy(
+        () => true
+      );
       await run(
         Effect.flatMap(Conversations, (c) => c.replySnapshot({ requestId: current.requestId }))
       );
@@ -264,9 +274,9 @@ testStable(
       context.db.orm.run(
         sql`CREATE TRIGGER fail_reply BEFORE UPDATE OF status ON message_versions WHEN NEW.status = 'complete' BEGIN SELECT RAISE(ABORT, 'unavailable'); END`
       );
-      await assert.rejects(execute(current, 'replay'));
-      assert.equal(calls, 1);
-      assert.match(bodies[0]!, /detail.*brief/);
+      await expect(execute(current, 'replay')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 1);
+      expect(bodies[0]!).toMatch(/detail.*brief/);
       context.db.orm.run(sql`DROP TRIGGER fail_reply`);
       context.db.orm.run(
         sql`DELETE FROM workflow_activities WHERE execution_id = 'replay' AND name = 'publish-reply'`
@@ -277,14 +287,13 @@ testStable(
       context.close();
       context = new ServerContext(location.open());
       await execute(current, 'replay');
-      assert.equal(calls, 1);
-      assert.equal(
+      assert.strictEqual(calls, 1);
+      assert.ok(
         context.db.orm
           .select()
           .from(s.message_versions)
           .all()
-          .find((v) => v.id === current.versionId)?.text,
-        'A plain answer'
+          .find((v) => v.id === current.versionId)?.text === 'A plain answer'
       );
       const reanswer = await run(
         Effect.flatMap(Conversations, (c) => c.reanswer({ messageId: current.messageId }))
@@ -301,9 +310,9 @@ testStable(
         Effect.flatMap(Conversations, (c) => c.message(current.messageId))
       );
 
-      assert.equal(reanswer.messageId, current.messageId);
-      assert.equal(answered.versions.length, 2);
-      assert.equal(latestVersion(answered.versions).text, 'Another answer');
+      assert.strictEqual(reanswer.messageId, current.messageId);
+      assert.strictEqual(answered.versions.length, 2);
+      assert.ok(latestVersion(answered.versions).text === 'Another answer');
       const rewrite = await run(
         Effect.flatMap(Conversations, (c) =>
           c.rewriteMessage({
@@ -325,8 +334,8 @@ testStable(
       );
       const beforeRewrite = calls;
 
-      await assert.rejects(execute(rewriteEvent, 'rewrite'));
-      assert.equal(calls, beforeRewrite + 1);
+      await expect(execute(rewriteEvent, 'rewrite')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, beforeRewrite + 1);
       context.db.orm.run(sql`DROP TRIGGER fail_rewrite`);
       context.db.orm.run(
         sql`DELETE FROM workflow_activities WHERE execution_id = 'rewrite' AND name = 'publish-reply'`
@@ -337,18 +346,18 @@ testStable(
       context.close();
       context = new ServerContext(location.open());
       await execute(rewriteEvent, 'rewrite');
-      assert.equal(calls, beforeRewrite + 1);
+      assert.strictEqual(calls, beforeRewrite + 1);
       const rewritten = await run(
         Effect.flatMap(Conversations, (c) => c.message(current.messageId))
       );
 
-      assert.equal(rewrite.messageId, current.messageId);
-      assert.equal(latestVersion(rewritten.versions).origin, 'instruction');
-      assert.equal(latestVersion(rewritten.versions).instruction, 'Use bullet points');
-      assert.match(bodies.at(-1)!, /Another answer/);
-      assert.equal(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
-      assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
-      assert.match(bodies.at(-1)!, /detail.*detailed/);
+      assert.strictEqual(rewrite.messageId, current.messageId);
+      assert.ok(latestVersion(rewritten.versions).origin === 'instruction');
+      assert.ok(latestVersion(rewritten.versions).instruction === 'Use bullet points');
+      expect(bodies.at(-1)!).toMatch(/Another answer/);
+      assert.strictEqual(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
+      expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
+      expect(bodies.at(-1)!).toMatch(/detail.*detailed/);
       const userRewrite = await run(
         Effect.flatMap(Conversations, (c) =>
           c.rewriteMessage({ messageId: first.id, origin: 'summarize' })
@@ -362,11 +371,11 @@ testStable(
 
       output = 'Short question';
       await execute(userEvent, 'rewrite-user');
-      assert.doesNotMatch(bodies.at(-1)!, /Preferences: \{\}/);
+      expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
       const userResult = await run(Effect.flatMap(Conversations, (c) => c.message(first.id)));
 
-      assert.equal(latestVersion(userResult.versions).origin, 'summarize');
-      assert.equal(userResult.activeVersionId, userRewrite.versionId);
+      assert.ok(latestVersion(userResult.versions).origin === 'summarize');
+      assert.strictEqual(userResult.activeVersionId, userRewrite.versionId);
       const oldRequest = await run(
         Effect.flatMap(Conversations, (c) =>
           c.rewriteMessage({ messageId: current.messageId, origin: 'improve' })
@@ -388,11 +397,11 @@ testStable(
         )
       );
 
-      assert.notEqual(oldRequest.versionId, newer.versionId);
+      assert.notStrictEqual(oldRequest.versionId, newer.versionId);
       const callsBeforeOld = calls;
 
-      await assert.rejects(execute(oldEvent, 'superseded'));
-      assert.equal(calls, callsBeforeOld);
+      await expect(execute(oldEvent, 'superseded')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, callsBeforeOld);
       const newerEvent = decodeEvent(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
@@ -404,8 +413,8 @@ testStable(
           c.editMessage({ messageId: current.messageId, text: 'Manual edit' })
         )
       );
-      await assert.rejects(execute(newerEvent, 'manual-edit'));
-      assert.equal(calls, callsBeforeOld);
+      await expect(execute(newerEvent, 'manual-edit')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, callsBeforeOld);
       output = 'A plain answer';
       await post();
       const racing = await request();
@@ -413,15 +422,15 @@ testStable(
       duringCall = async () => {
         await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(racing.messageId)));
       };
-      await assert.rejects(execute(racing, 'race'));
+      await expect(execute(racing, 'race')).rejects.toSatisfy(() => true);
       output = 'Fake [1]';
       const fake = await request();
 
-      await assert.rejects(execute(fake, 'fake'));
-      assert.match(bodies.at(-1)!, /Manual edit/);
-      assert.match(bodies.at(-1)!, /"role":"assistant"/);
-      assert.match(bodies.at(-1)!, /"role":"user"/);
-      assert.equal(
+      await expect(execute(fake, 'fake')).rejects.toSatisfy(() => true);
+      expect(bodies.at(-1)!).toMatch(/Manual edit/);
+      expect(bodies.at(-1)!).toMatch(/"role":"assistant"/);
+      expect(bodies.at(-1)!).toMatch(/"role":"user"/);
+      assert.strictEqual(
         context.db.orm
           .select()
           .from(s.message_versions)
@@ -431,7 +440,7 @@ testStable(
       );
       const retryAfterInvalidOutput = await request();
 
-      assert.notEqual(retryAfterInvalidOutput.requestId, fake.requestId);
+      assert.notStrictEqual(retryAfterInvalidOutput.requestId, fake.requestId);
       const groundedSession = await run(
         Effect.flatMap(Conversations, (c) =>
           c.createSession({ project: project.id, title: 'Grounded' })
@@ -556,8 +565,8 @@ testStable(
       toolCall = true;
       output = 'Grounded [1]';
       await execute(grounded, 'grounded');
-      assert.match(bodies.at(-1)!, /alpha old evidence/);
-      assert.doesNotMatch(bodies.at(-1)!, /alpha new evidence/);
+      expect(bodies.at(-1)!).toMatch(/alpha old evidence/);
+      expect(bodies.at(-1)!).not.toMatch(/alpha new evidence/);
 
       await run(
         Effect.flatMap(Conversations, (c) =>
@@ -580,8 +589,8 @@ testStable(
       duringToolCall = async () => {
         await run(Effect.flatMap(Conversations, (c) => c.deleteMessage(toolRace.messageId)));
       };
-      await assert.rejects(execute(toolRace, 'tool-step-race'));
-      assert.equal(
+      await expect(execute(toolRace, 'tool-step-race')).rejects.toSatisfy(() => true);
+      assert.strictEqual(
         calls,
         callsBeforeToolRace + 1,
         'a stale tool round trip must not start another provider call'
@@ -605,8 +614,8 @@ testStable(
       duringCall = async () => {
         await cancel!();
       };
-      await assert.rejects(execute(cancelled, 'cancelled'));
-      assert.notEqual(
+      await expect(execute(cancelled, 'cancelled')).rejects.toSatisfy(() => true);
+      assert.notStrictEqual(
         context.db.orm
           .select()
           .from(s.message_versions)
@@ -614,13 +623,12 @@ testStable(
           .find((v) => v.id === cancelled.versionId)?.status,
         'complete'
       );
-      assert.equal(
+      assert.ok(
         context.db.orm
           .select()
           .from(s.citations)
           .all()
-          .find((c) => c.version_id === grounded.versionId)?.quote,
-        'alpha old evidence'
+          .find((c) => c.version_id === grounded.versionId)?.quote === 'alpha old evidence'
       );
       const attachmentAnswer = await run(
         Effect.flatMap(Conversations, (c) => c.message(grounded.messageId))
@@ -631,8 +639,8 @@ testStable(
         )
       );
 
-      assert.equal(attachmentAnswer.citations[0]?.sourceId, source.id);
-      assert.deepEqual(attachmentEdit.citations, attachmentAnswer.citations);
+      assert.strictEqual(attachmentAnswer.citations[0]?.sourceId, source.id);
+      expect(attachmentEdit.citations).toStrictEqual(attachmentAnswer.citations);
       const selected = await run(
         Effect.gen(function* () {
           const materials = yield* Documents;
@@ -730,22 +738,21 @@ testStable(
       toolCall = true;
       output = 'Exact answer [1] [2] [3]';
       await execute(selectedEvent, 'selected-range');
-      assert.match(bodies.at(-1)!, /alpha selected passage/);
-      assert.doesNotMatch(bodies.at(-1)!, /secret before|secret after|New unrelated message/);
+      expect(bodies.at(-1)!).toMatch(/alpha selected passage/);
+      expect(bodies.at(-1)!).not.toMatch(/secret before|secret after|New unrelated message/);
       const selectedAnswer = await run(
         Effect.flatMap(Conversations, (c) => c.message(selected.messageId))
       );
 
-      assert.equal(selectedAnswer.citations[0]?.quote, 'alpha selected passage');
-      assert.equal(selectedAnswer.citations[0]?.rangeStart, 14);
-      assert.deepEqual(
-        selectedAnswer.citations.map((citation) => [citation.rangeStart, citation.rangeEnd]),
-        [
-          [14, 36],
-          [14, 19],
-          [50, 55]
-        ]
-      );
+      assert.ok(selectedAnswer.citations[0]?.quote === 'alpha selected passage');
+      assert.strictEqual(selectedAnswer.citations[0]?.rangeStart, 14);
+      expect(
+        selectedAnswer.citations.map((citation) => [citation.rangeStart, citation.rangeEnd])
+      ).toStrictEqual([
+        [14, 36],
+        [14, 19],
+        [50, 55]
+      ]);
       await execute(selectedEvent, 'selected-range');
       const selectedEdit = await run(
         Effect.flatMap(Conversations, (c) =>
@@ -753,7 +760,7 @@ testStable(
         )
       );
 
-      assert.deepEqual(selectedEdit.citations, selectedAnswer.citations);
+      expect(selectedEdit.citations).toStrictEqual(selectedAnswer.citations);
       await assertLongHistoryPreservesEarlyMessages();
 
       async function assertLongHistoryPreservesEarlyMessages() {
@@ -787,7 +794,7 @@ testStable(
           )
         );
 
-        assert.equal(earlySnapshot.messages.at(-1)?.text, 'Early message');
+        assert.ok(earlySnapshot.messages.at(-1)?.text === 'Early message');
       }
     } finally {
       await auth.dispose();

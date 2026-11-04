@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { Db } from '../src/db.ts';
 import { sql } from '../src/index.ts';
@@ -27,13 +27,11 @@ testStable('online backup delivers completion while the event loop is otherwise 
   env.STUDY_BACKUP_IDLE_TARGET = join(location.dir, 'idle.sqlite');
 
   try {
-    const result = await execute(
+    await execute(
       process.execPath,
-      ['--test', fileURLToPath(new URL('./fixtures/backup-idle.ts', import.meta.url))],
+      [fileURLToPath(new URL('./fixtures/backup-idle.ts', import.meta.url))],
       { timeout: 15000, env }
     );
-
-    assert.match(result.stdout, /pass 1/);
   } finally {
     location.cleanup();
   }
@@ -74,11 +72,11 @@ testStable(
             sql`SELECT revision,length(payload) bytes FROM backup_pair ORDER BY id`
           );
 
-          assert.equal(rows.length, 2);
-          assert.equal(rows[0]!.revision, rows[1]!.revision);
+          assert.strictEqual(rows.length, 2);
+          assert.strictEqual(rows[0]!.revision, rows[1]!.revision);
           assert.ok(rows[0]!.revision === 1n || rows[0]!.revision === 2n);
-          assert.equal(rows[0]!.bytes, 1024n * 1024n);
-          assert.equal(
+          assert.strictEqual(rows[0]!.bytes, 1024n * 1024n);
+          assert.strictEqual(
             snapshot.orm.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)!
               .integrity_check,
             'ok'
@@ -107,7 +105,7 @@ testStable(
 
     try {
       await db.snapshot(target);
-      assert.equal(Db.validateSnapshot(target), db.schemaIdentity());
+      assert.strictEqual(Db.validateSnapshot(target), db.schemaIdentity());
 
       const untrusted = Db.openSnapshot(target);
 
@@ -121,7 +119,7 @@ testStable(
 
       assert.throws(() => Db.validateSnapshot(target));
       assert.throws(() => Db.openSnapshot(target));
-      assert.equal(db.schemaIdentity().length, 64);
+      assert.strictEqual(db.schemaIdentity().length, 64);
     } finally {
       db.close();
       location.cleanup();
@@ -138,7 +136,7 @@ testStable('snapshot allocation bounds reject before creating a destination file
 
   try {
     assert.throws(() => db.snapshot(target, 1), RangeError);
-    assert.equal(existsSync(target), false);
+    assert.strictEqual(existsSync(target), false);
   } finally {
     db.close();
     location.cleanup();

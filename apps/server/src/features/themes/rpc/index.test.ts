@@ -13,13 +13,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { ThemesRpc } from '@study/contracts/themes/rpc';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { assert } from 'vite-plus/test';
 
 import { Themes } from '#server/features/themes/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -41,21 +40,20 @@ testStable('native themes RPC exposes the catalog and typed failures', async () 
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(ThemesRpc, { flatten: true });
 
-          assert.equal(
-            (yield* Effect.flip(client('themes.theme', { id: 'missing' }))).kind,
-            'not_found'
+          assert.ok(
+            (yield* Effect.flip(client('themes.theme', { id: 'missing' }))).kind === 'not_found'
           );
           assert.ok(Option.isNone(yield* client('themes.findTheme', { id: 'missing' })));
-          assert.equal(
-            (yield* Effect.flip(client('themes.importTheme', { json: '{}' }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(client('themes.importTheme', { json: '{}' }))).kind ===
+              'invalid_input'
           );
           yield* client('themes.importTheme', {
             json: JSON.stringify({ version: 1, id: 'rpc-test', name: 'RPC' })
           });
           yield* client('themes.selectTheme', { id: 'rpc-test' });
-          assert.equal(yield* client('themes.selectedTheme', {}), 'rpc-test');
-          assert.equal((yield* client('themes.theme', { id: 'rpc-test' })).name, 'RPC');
+          assert.strictEqual(yield* client('themes.selectedTheme', {}), 'rpc-test');
+          assert.ok((yield* client('themes.theme', { id: 'rpc-test' })).name === 'RPC');
         }).pipe(Effect.provide(handlers))
       )
     );

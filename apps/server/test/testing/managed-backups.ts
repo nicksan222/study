@@ -14,7 +14,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { TestContext } from 'node:test';
 
 import { createBlock } from '@study/contracts/sources/document';
 import { backupManifestSchema } from '@study/contracts/system/backups';
@@ -22,6 +21,7 @@ import type { BackupManifest, RestorePreview } from '@study/contracts/system/bac
 import { Db } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Schema } from 'effect';
+import type { TestContext } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { System } from '#server/features/system/index';
@@ -65,7 +65,7 @@ export async function backupFixture(t?: TestContext) {
     return App.open({
       path: location.path,
       onPhase: (phase) =>
-        t?.log(
+        console.debug(
           `study-test-phase:fixture-startup:${phase} elapsedMs=${Math.round(performance.now() - started)}`
         ),
       fetch: async (input) => {

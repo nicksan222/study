@@ -13,16 +13,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import type { ContentSnapshotId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
@@ -90,10 +91,9 @@ for (const [name, text] of [
               projectId: null
             });
 
-            assert.deepEqual(
-              (yield* materials.materials({ archived: false, limit: 10 })).items,
-              []
-            );
+            expect(
+              (yield* materials.materials({ archived: false, limit: 10 })).items
+            ).toStrictEqual([]);
             const state = yield* sources.sourceProcessing(source.id);
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
@@ -162,7 +162,7 @@ for (const [name, text] of [
             }
 
             for (let replay = 0; replay < 2; replay++) {
-              assert.equal((yield* Effect.flip(execution)).kind, 'invalid_input');
+              assert.ok((yield* Effect.flip(execution)).kind === 'invalid_input');
               const failure = context.db.orm
                 .select()
                 .from(tables.workflowEvents)
@@ -170,21 +170,21 @@ for (const [name, text] of [
                 .map((row) => decodeEvent(row.payload))
                 .findLast((event) => event.type === 'SourceProcessingFailed');
 
-              assert.equal(
+              assert.strictEqual(
                 failure?.type === 'SourceProcessingFailed' && failure.sourceId,
                 source.id
               );
-              assert.equal(
+              assert.strictEqual(
                 (yield* sources.sourceProcessing(source.id)).documentId,
                 retainedDocumentId
               );
             }
 
-            assert.equal(
+            assert.strictEqual(
               context.db.orm.select().from(tables.content_snapshots).all().length,
               retainedDocumentId === null ? 0 : 1
             );
-            assert.equal(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(tables.workflowEvents)
@@ -192,13 +192,12 @@ for (const [name, text] of [
                 .filter((row) => row.type === 'SourceProcessingFailed').length,
               1
             );
-            assert.deepEqual(
-              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
-              new Uint8Array(bytes)
-            );
+            expect(
+              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+            ).toStrictEqual(new Uint8Array(bytes));
 
             if (retainedDocumentId !== null)
-              assert.equal(
+              assert.strictEqual(
                 (yield* sources.document({
                   id: retainedDocumentId,
                   sourceId: source.id,

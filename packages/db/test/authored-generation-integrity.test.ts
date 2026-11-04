@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -127,7 +126,7 @@ for (const [name, mutation, retained] of mutations)
 
         receipt(f.db);
       });
-      assert.equal(
+      assert.strictEqual(
         f.db.orm.get(
           "SELECT result_version_id FROM study_document_generation_requests WHERE id='document/capture'"
         )?.result_version_id,
@@ -199,11 +198,11 @@ testStable(
     try {
       retain(f.db);
       receipt(f.db);
-      assert.equal(
+      assert.strictEqual(
         f.db.orm.get('SELECT status FROM study_document_versions WHERE id=4')?.status,
         'draft'
       );
-      assert.equal(
+      assert.strictEqual(
         f.db.orm.get(
           "SELECT id FROM study_document_versions WHERE document_id=1 AND status='published' ORDER BY number DESC LIMIT 1"
         )?.id,
@@ -220,7 +219,7 @@ testStable(
       ])
         assert.throws(() => f.db.exec(mutation));
 
-      assert.deepEqual(f.db.orm.all('PRAGMA foreign_key_check'), []);
+      expect(f.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {
       f.close();
     }

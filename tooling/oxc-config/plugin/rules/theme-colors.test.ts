@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 import { hasRawColor, hasRawColorClass, cssColorViolations } from '../theme-color-values.ts';
@@ -15,7 +14,7 @@ testStable('raw CSS colors are rejected but semantic colors and ordinary words a
     'rebeccapurple',
     'darkslateblue'
   ])
-    assert.equal(hasRawColor(value), true, value);
+    assert.strictEqual(hasRawColor(value), true, value);
 
   for (const value of [
     'var(--background)',
@@ -24,7 +23,7 @@ testStable('raw CSS colors are rejected but semantic colors and ordinary words a
     'color-mix(in srgb, var(--foreground), transparent)',
     'blueprint'
   ])
-    assert.equal(hasRawColor(value), false, value);
+    assert.strictEqual(hasRawColor(value), false, value);
 });
 
 testStable(
@@ -43,7 +42,7 @@ testStable(
       'inset-shadow-black',
       '[color:red]'
     ])
-      assert.equal(hasRawColorClass(value), true, value);
+      assert.strictEqual(hasRawColorClass(value), true, value);
 
     for (const value of [
       'bg-background text-foreground',
@@ -51,7 +50,7 @@ testStable(
       'text-current',
       'bg-[var(--background)]'
     ])
-      assert.equal(hasRawColorClass(value), false, value);
+      assert.strictEqual(hasRawColorClass(value), false, value);
   }
 );
 
@@ -60,7 +59,7 @@ testStable('CSS checks declarations while ignoring comments and non-color text',
     '/* color: #abc; */ .x { color: red; background: var(--background); box-shadow: 0 1px rgb(0 0 0 / 20%); content: "blue"; }'
   );
 
-  assert.equal(violations.length, 2);
+  assert.strictEqual(violations.length, 2);
 });
 
 testStable(
@@ -75,7 +74,7 @@ testStable(
     );
     const violations = diagnostics.filter(({ code }) => code.includes('theme-colors'));
 
-    assert.equal(violations.length, 5, JSON.stringify(diagnostics));
+    assert.strictEqual(violations.length, 5, JSON.stringify(diagnostics));
   }
 );
 
@@ -89,7 +88,7 @@ testStable('theme colors rule covers template values, SVG fills and named arbitr
     true
   );
 
-  assert.equal(
+  assert.strictEqual(
     diagnostics.filter(({ code }) => code.includes('theme-colors')).length,
     4,
     JSON.stringify(diagnostics)

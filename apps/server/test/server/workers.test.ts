@@ -14,13 +14,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
@@ -49,7 +48,7 @@ testStable(
         )
       );
 
-      assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
+      assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
       await server.close();
       await app.close();
       app = await App.open({ path: location.path });
@@ -60,7 +59,7 @@ testStable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
             yield* client['system.startWorkers']({});
-            assert.equal((yield* client['system.health']({})).workersRunning, true);
+            assert.ok((yield* client['system.health']({})).workersRunning === true);
 
             for (let i = 0; i < 100; i++) {
               const state = yield* client['sources.sourceProcessing']({ id: source.id });
@@ -74,7 +73,7 @@ testStable(
                   )
                 );
                 yield* client['system.stopWorkers']({});
-                assert.equal((yield* client['system.health']({})).workersRunning, false);
+                assert.ok((yield* client['system.health']({})).workersRunning === false);
 
                 return;
               }
@@ -134,9 +133,9 @@ testStable(
               ) {
                 const message = yield* client['conversations.message']({ id: request.messageId });
 
-                assert.equal(
-                  message.versions.find((version) => version.id === request.versionId)?.status,
-                  'pending'
+                assert.ok(
+                  message.versions.find((version) => version.id === request.versionId)?.status ===
+                    'pending'
                 );
 
                 return;
@@ -153,13 +152,16 @@ testStable(
       await app.close();
       app = await App.open({ path: location.path });
       server = await serve(app);
-      assert.equal(app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length, 1);
+      assert.strictEqual(
+        app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length,
+        1
+      );
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            assert.equal(yield* client['auth.publicAccount']({}), undefined);
+            assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
           })
         )
       );

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -56,7 +55,7 @@ testStable('practice keeps bounded immutable slots and durable control epochs', 
       db.exec("UPDATE learning_practice_slots SET status='pending' WHERE id='slot-0'")
     );
     db.exec('DELETE FROM projects WHERE id=1');
-    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+    expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
   } finally {
     db.close();
     location.cleanup();

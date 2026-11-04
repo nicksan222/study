@@ -12,14 +12,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { documentTransformFixture } from '#testing/document-transform';
@@ -115,11 +115,11 @@ testStable(
             "CREATE TRIGGER reject_retirement BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT,'injected'); END"
           );
           yield* Effect.flip(docs.retireHistory({ ...scope, token: preview.token }));
-          assert.equal(
-            (yield* docs.annotation({ id: hidden.annotation.id })).note,
-            'Retained note on retired body'
+          assert.ok(
+            (yield* docs.annotation({ id: hidden.annotation.id })).note ===
+              'Retained note on retired body'
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* docs.annotations({ documentId: document.id, includeDeleted: false, limit: 10 }))
               .items.length,
             3
@@ -140,9 +140,8 @@ testStable(
           Effect.gen(function* () {
             const docs = yield* Documents;
 
-            assert.equal(
-              (yield* Effect.flip(docs.annotation({ id: saved.hidden }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(docs.annotation({ id: saved.hidden }))).kind === 'not_found'
             );
             const first = yield* docs.annotations({
               documentId: saved.documentId,
@@ -150,11 +149,8 @@ testStable(
               limit: 1
             });
 
-            assert.deepEqual(
-              first.items.map((item) => item.id),
-              [saved.sibling]
-            );
-            assert.equal(first.nextCursor, saved.sibling);
+            expect(first.items.map((item) => item.id)).toStrictEqual([saved.sibling]);
+            assert.strictEqual(first.nextCursor, saved.sibling);
             const second = yield* docs.annotations({
               documentId: saved.documentId,
               includeDeleted: false,
@@ -162,40 +158,34 @@ testStable(
               cursor: first.nextCursor!
             });
 
-            assert.deepEqual(
-              second.items.map((item) => item.id),
-              [saved.moved]
-            );
-            assert.equal(second.nextCursor, null);
+            expect(second.items.map((item) => item.id)).toStrictEqual([saved.moved]);
+            assert.ok(second.nextCursor === null);
             const history = yield* docs.annotationHistory({ id: saved.moved, limit: 1 });
 
-            assert.equal(history.items[0]?.revision, 3n);
-            assert.equal(history.nextCursor, 3n);
+            assert.strictEqual(history.items[0]?.revision, 3n);
+            assert.strictEqual(history.nextCursor, 3n);
             const prior = yield* docs.annotationHistory({
               id: saved.moved,
               limit: 10,
               cursor: history.nextCursor!
             });
 
-            assert.deepEqual(
-              prior.items.map((item) => [item.revision, item.note]),
-              [
-                [2n, 'Revised note'],
-                [1n, 'Retained original note']
-              ]
-            );
-            assert.equal(prior.nextCursor, null);
+            expect(prior.items.map((item) => [item.revision, item.note])).toStrictEqual([
+              [2n, 'Revised note'],
+              [1n, 'Retained original note']
+            ]);
+            assert.ok(prior.nextCursor === null);
           }).pipe(Effect.provide(f.domain()))
         );
 
       await visible();
       f.reopen();
       await visible();
-      assert.equal(
+      assert.strictEqual(
         f.context.db.orm.select().from(s.study_document_annotation_revisions).all().length,
         5
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -282,8 +272,8 @@ for (const mode of ['delete', 'prune'] as const)
         f.context.db.exec(
           "CREATE TRIGGER reject_retirement BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT,'injected'); END"
         );
-        await assert.rejects(Effect.runPromise(retire()));
-        assert.equal(
+        await expect(Effect.runPromise(retire())).rejects.toSatisfy(() => true);
+        assert.strictEqual(
           f.context.db.orm.select().from(s.study_document_citation_assessments).all().length,
           2
         );
@@ -295,11 +285,10 @@ for (const mode of ['delete', 'prune'] as const)
           Effect.gen(function* () {
             const docs = yield* Documents;
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 docs.assessments({ versionId: saved.removed.version.id, marker: 1, limit: 10 })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
             const kept = yield* docs.assessments({
               versionId: saved.kept.version.id,
@@ -307,11 +296,11 @@ for (const mode of ['delete', 'prune'] as const)
               limit: 10
             });
 
-            assert.equal(kept.items[0]?.state, 'assessed');
-            assert.equal(kept.items[0]?.assessment.note, 'Retained judgment');
+            assert.ok(kept.items[0]?.state === 'assessed');
+            assert.ok(kept.items[0]?.assessment.note === 'Retained judgment');
           }).pipe(Effect.provide(f.domain()))
         );
-        assert.equal(
+        assert.strictEqual(
           f.context.db.orm.select().from(s.study_document_citation_assessments).all().length,
           1
         );
@@ -364,7 +353,7 @@ for (const mode of ['delete', 'prune'] as const)
                 ? yield* docs.previewDeletion({ id: evidence.id })
                 : yield* docs.previewHistory({ documentId: evidence.id, keepLatest: 1 });
 
-            assert.deepEqual(blocked.blockedVersionIds, [evidence.version.id]);
+            expect(blocked.blockedVersionIds).toStrictEqual([evidence.version.id]);
             const rejected =
               mode === 'delete'
                 ? docs.delete({ documentId: evidence.id, token: blocked.token })
@@ -374,7 +363,7 @@ for (const mode of ['delete', 'prune'] as const)
                     token: blocked.token
                   });
 
-            assert.equal((yield* Effect.flip(rejected)).kind, 'invalid_input');
+            assert.ok((yield* Effect.flip(rejected)).kind === 'invalid_input');
             const intent = {
               documentId: claim.id,
               expectedVersionId: claim.version.id,
@@ -383,10 +372,10 @@ for (const mode of ['delete', 'prune'] as const)
             };
             const edit = yield* docs.save(intent);
 
-            assert.deepEqual(yield* docs.save(intent), { ...edit, replayed: true });
+            expect(yield* docs.save(intent)).toStrictEqual({ ...edit, replayed: true });
             const conflict = yield* docs.save({ ...intent, key: 'conflict' });
 
-            assert.equal(conflict.outcome, 'conflict');
+            assert.ok(conflict.outcome === 'conflict');
             const restored = yield* docs.restore({
               documentId: claim.id,
               expectedVersionId: edit.submittedVersionId,
@@ -401,8 +390,8 @@ for (const mode of ['delete', 'prune'] as const)
             ]) {
               const v = yield* docs.version({ id });
 
-              assert.deepEqual(v.inputs, [input]);
-              assert.deepEqual(v.citations, [citation]);
+              expect(v.inputs).toStrictEqual([input]);
+              expect(v.citations).toStrictEqual([citation]);
             }
 
             const removeClaim = yield* docs.previewDeletion({ id: claim.id });
@@ -413,7 +402,7 @@ for (const mode of ['delete', 'prune'] as const)
                 ? yield* docs.previewDeletion({ id: evidence.id })
                 : yield* docs.previewHistory({ documentId: evidence.id, keepLatest: 1 });
 
-            assert.deepEqual(preview.blockedVersionIds, []);
+            expect(preview.blockedVersionIds).toStrictEqual([]);
 
             if (mode === 'delete')
               yield* docs.delete({ documentId: evidence.id, token: preview.token });
@@ -433,11 +422,11 @@ for (const mode of ['delete', 'prune'] as const)
           Effect.gen(function* () {
             const docs = yield* Documents;
 
-            assert.equal(
-              (yield* Effect.flip(docs.version({ id: saved.evidence.version.id }))).kind,
-              'not_found'
+            assert.ok(
+              (yield* Effect.flip(docs.version({ id: saved.evidence.version.id }))).kind ===
+                'not_found'
             );
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 docs.create({
                   createKey: randomUUID(),
@@ -446,15 +435,14 @@ for (const mode of ['delete', 'prune'] as const)
                   inputs: [saved.input],
                   citations: [saved.citation]
                 })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
 
             if (mode === 'prune') {
               const current = yield* docs.document({ id: saved.evidence.id });
 
               assert.ok(current.version);
-              assert.equal(
+              assert.ok(
                 (yield* Effect.flip(
                   docs.restore({
                     documentId: current.id,
@@ -462,13 +450,12 @@ for (const mode of ['delete', 'prune'] as const)
                     restoreVersionId: saved.evidence.version.id,
                     key: 'no-retired-restore'
                   })
-                )).kind,
-                'not_found'
+                )).kind === 'not_found'
               );
             }
           }).pipe(Effect.provide(f.domain()))
         );
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 /** Authored proposal receipts survive session cleanup without retired Material tombstones. */
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { documentTransformFixture } from '#testing/document-transform';
@@ -61,7 +61,7 @@ testStable(
           const keep = yield* chats.keepDocumentProposal(keepValue);
           const apply = yield* chats.applyDocumentProposal(applyValue);
 
-          assert.equal(apply.outcome, 'applied');
+          assert.ok(apply.outcome === 'applied');
           assert.ok(keep.resultVersionId);
           assert.ok(apply.resultVersionId);
 
@@ -77,11 +77,11 @@ testStable(
           Effect.gen(function* () {
             const chats = yield* Conversations;
 
-            assert.deepEqual(yield* chats.keepDocumentProposal(keepValue), {
+            expect(yield* chats.keepDocumentProposal(keepValue)).toStrictEqual({
               ...retained.keep,
               replayed: true
             });
-            assert.deepEqual(yield* chats.applyDocumentProposal(applyValue), {
+            expect(yield* chats.applyDocumentProposal(applyValue)).toStrictEqual({
               ...retained.apply,
               replayed: true
             });
@@ -95,7 +95,7 @@ testStable(
               chats.applyDocumentProposal({ ...applyValue, requestId: 'different' }),
               chats.applyDocumentProposal({ ...applyValue, key: keepValue.key })
             ])
-              assert.equal((yield* Effect.flip(action)).kind, 'invalid_input');
+              assert.ok((yield* Effect.flip(action)).kind === 'invalid_input');
           }).pipe(Effect.provide(f.domain()))
         );
       const receipts = () =>
@@ -111,7 +111,7 @@ testStable(
         ])
           assert.throws(() => f.context.db.orm.run(mutation));
 
-        assert.deepEqual(receipts(), beforeReceipts);
+        expect(receipts()).toStrictEqual(beforeReceipts);
       };
 
       await checkReplay();
@@ -129,12 +129,12 @@ testStable(
       await cleanup(f, saved.session.id);
       await checkReplay();
       rejectForged();
-      assert.deepEqual(await libraryState(f, retained.ids), before);
+      expect(await libraryState(f, retained.ids)).toStrictEqual(before);
       assertScrubbed(f, marker);
       f.reopen();
       await checkReplay();
       rejectForged();
-      assert.deepEqual(await libraryState(f, retained.ids), before);
+      expect(await libraryState(f, retained.ids)).toStrictEqual(before);
       assertScrubbed(f, marker);
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -144,10 +144,10 @@ testStable(
             chats.keepDocumentProposal({ ...keepValue, key: 'brand-new' }),
             chats.applyDocumentProposal({ ...applyValue, key: 'brand-new' })
           ])
-            assert.equal((yield* Effect.flip(action)).kind, 'not_found');
+            assert.ok((yield* Effect.flip(action)).kind === 'not_found');
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

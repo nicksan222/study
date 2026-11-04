@@ -13,15 +13,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 
 import { eq } from '@study/db';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/service/index';
 import { Sources } from '#server/features/sources/service/index';
@@ -82,7 +83,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
   await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
   const address = peer.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   const base = `http://127.0.0.1:${address.port}`;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
@@ -141,11 +142,11 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
           });
           const request = yield* conversations.requestReply({ sessionId: session.id });
 
-          assert.equal(
+          assert.strictEqual(
             (yield* conversations.replyReadiness({ requestId: request.requestId })).length,
             1
           );
-          assert.equal(
+          assert.strictEqual(
             dispatchPending(context, conversationReplyRegistration.triggers, Date.now()),
             1
           );
@@ -176,8 +177,8 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             result = yield* engine.poll(conversationReplyWorkflow, receipt.executionId);
           }
 
-          assert.equal(result.value._tag, 'Suspended');
-          assert.equal(calls, 0);
+          assert.ok(result.value._tag === 'Suspended');
+          assert.strictEqual(calls, 0);
           const sourceEvent = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -223,7 +224,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             executionId: receipt.executionId,
             payload: { event: generation }
           });
-          assert.equal(calls, 1);
+          assert.strictEqual(calls, 1);
           const row = context.db.orm
             .select()
             .from(tables.conversation_reply_requests)
@@ -231,8 +232,8 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .get()!;
           const snapshot = JSON.parse(row.snapshot);
 
-          assert.equal(snapshot.pendingAttachments, undefined);
-          assert.equal(snapshot.messages[0].attachments.length, 1);
+          assert.strictEqual(snapshot.pendingAttachments, undefined);
+          assert.strictEqual(snapshot.messages[0].attachments.length, 1);
 
           const earlySession = yield* conversations.createSession({
             project: project.id,
@@ -264,7 +265,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             requestId: earlyRequest.requestId
           });
 
-          assert.equal(earlySnapshot.pendingAttachments?.[0]?.partId, threadRoot);
+          assert.strictEqual(earlySnapshot.pendingAttachments?.[0]?.partId, threadRoot);
           const earlyIngestion = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -316,7 +317,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             executionId: earlyReceipt.executionId,
             payload: { event: earlyEvent }
           });
-          assert.equal(calls, 2);
+          assert.strictEqual(calls, 2);
 
           const failedSession = yield* conversations.createSession({
             project: project.id,
@@ -377,8 +378,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .get()!;
           const failedEvent = decodeEvent(failedRow.payload);
 
-          if (failedEvent.type !== 'ConversationGenerationRequested')
-            throw new Error('wrong event');
+          assert.ok(!(failedEvent.type !== 'ConversationGenerationRequested'), 'wrong event');
 
           const failedReceipt = context.db.orm
             .select()
@@ -392,8 +392,8 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             })
           );
 
-          assert.equal(earlyFailure.kind, 'invalid_input');
-          assert.equal(calls, 2);
+          assert.ok(earlyFailure.kind === 'invalid_input');
+          assert.strictEqual(calls, 2);
 
           for (const mode of [
             'delete',
@@ -476,8 +476,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
               .get()!;
             const nextEvent = decodeEvent(eventRow.payload);
 
-            if (nextEvent.type !== 'ConversationGenerationRequested')
-              throw new Error('wrong event');
+            assert.ok(!(nextEvent.type !== 'ConversationGenerationRequested'), 'wrong event');
 
             const nextReceipt = context.db.orm
               .select()
@@ -497,21 +496,20 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
               nextResult = yield* engine.poll(conversationReplyWorkflow, nextReceipt.executionId);
             }
 
-            assert.equal(nextResult.value._tag, 'Suspended');
+            assert.ok(nextResult.value._tag === 'Suspended');
 
             if (['delete', 'later-pending', 'ready-reference'].includes(mode)) {
-              assert.equal(
-                (yield* Effect.flip(sources.deleteSource({ id: nextSource.id }))).kind,
-                'invalid_input'
+              assert.ok(
+                (yield* Effect.flip(sources.deleteSource({ id: nextSource.id }))).kind ===
+                  'invalid_input'
               );
-              assert.deepEqual(
-                yield* conversations.inspectReplySnapshot({ requestId: nextRequest.requestId }),
-                captured
-              );
+              expect(
+                yield* conversations.inspectReplySnapshot({ requestId: nextRequest.requestId })
+              ).toStrictEqual(captured);
               yield* conversations.deleteSession(nextSession.id);
-              assert.equal(yield* sources.deleteSource({ id: nextSource.id }), true);
-              assert.equal(calls, 2);
-              assert.equal(
+              assert.strictEqual(yield* sources.deleteSource({ id: nextSource.id }), true);
+              assert.strictEqual(calls, 2);
+              assert.strictEqual(
                 context.db.orm
                   .select()
                   .from(tables.conversation_reply_requests)
@@ -539,12 +537,11 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
                 const replacement = yield* sources.sourceProcessing(nextSource.id);
                 const accepted = captured.pendingAttachments![0]!;
 
-                assert.equal(BigInt(replacement.revision), accepted.inputRevision);
-                assert.notEqual(replacement.requestId, accepted.requestId);
-                assert.deepEqual(
-                  yield* conversations.inspectReplySnapshot({ requestId: nextRequest.requestId }),
-                  captured
-                );
+                assert.strictEqual(BigInt(replacement.revision), accepted.inputRevision);
+                assert.notStrictEqual(replacement.requestId, accepted.requestId);
+                expect(
+                  yield* conversations.inspectReplySnapshot({ requestId: nextRequest.requestId })
+                ).toStrictEqual(captured);
               }
 
               if (mode === 'unsupported') {
@@ -610,9 +607,8 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
                 yield* Effect.sleep('10 millis');
               }
 
-              assert.equal(
-                completed,
-                true,
+              assert.ok(
+                completed === true,
                 `source invalidation must resume the blocked ${mode} reply`
               );
             }
@@ -624,9 +620,9 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
               })
             );
 
-            assert.equal(error.kind, 'invalid_input');
-            assert.equal(calls, 2);
-            assert.equal(
+            assert.ok(error.kind === 'invalid_input');
+            assert.strictEqual(calls, 2);
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(tables.conversation_reply_requests)
@@ -740,7 +736,7 @@ testStable(
               result = yield* engine.poll(conversationReplyWorkflow, receipt.executionId);
             }
 
-            assert.equal(result.value._tag, 'Suspended');
+            assert.ok(result.value._tag === 'Suspended');
 
             return {
               sessionId: session.id,
@@ -766,9 +762,9 @@ testStable(
               conversationAttachmentWakeWorkflow,
               conversationAttachmentWakeHandler
             );
-            assert.equal(
-              (yield* Effect.flip(sources.deleteSource({ id: saved.sourceId }))).kind,
-              'invalid_input'
+            assert.ok(
+              (yield* Effect.flip(sources.deleteSource({ id: saved.sourceId }))).kind ===
+                'invalid_input'
             );
             const conversations = yield* Conversations;
 
@@ -793,8 +789,8 @@ testStable(
               executionId: 'reopen-cleanup',
               payload: { event: cleanup }
             });
-            assert.equal(workflowStore(context).execution(saved.executionId)?.status, 'cancelled');
-            assert.equal(yield* sources.deleteSource({ id: saved.sourceId }), true);
+            assert.ok(workflowStore(context).execution(saved.executionId)?.status === 'cancelled');
+            assert.strictEqual(yield* sources.deleteSource({ id: saved.sourceId }), true);
             const deleted = context.db.orm
               .select()
               .from(tables.workflowEvents)
@@ -809,7 +805,7 @@ testStable(
               executionId: 'reopen-wake',
               payload: { event: deleted }
             });
-            assert.equal(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(tables.conversation_reply_requests)

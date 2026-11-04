@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
@@ -25,8 +24,8 @@ testStable(
         assert.throws(() => db.exec(mutation));
 
       db.exec('DELETE FROM projects WHERE id=1');
-      assert.equal(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
-      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+      assert.strictEqual(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
+      expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {
       db.close();
       location.cleanup();

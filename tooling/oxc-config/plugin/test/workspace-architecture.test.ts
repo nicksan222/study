@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import {
   dependencyIdentity,
@@ -30,8 +29,8 @@ testStable('the lockfile cannot split Effect schema identity or Drizzle instance
     'node_modules/drizzle-orm': { version: '1.0.0-rc.5' }
   };
 
-  assert.deepEqual(dependencyIdentity(packages, '4.0.7'), []);
-  assert.equal(
+  expect(dependencyIdentity(packages, '4.0.7')).toStrictEqual([]);
+  assert.strictEqual(
     dependencyIdentity(
       {
         ...packages,
@@ -47,7 +46,7 @@ testStable('the lockfile cannot split Effect schema identity or Drizzle instance
 testStable(
   'workspace ownership permits the target design and rejects retired packages even when unused',
   () => {
-    assert.deepEqual(workspaceArchitecture(valid), []);
+    expect(workspaceArchitecture(valid)).toStrictEqual([]);
     const issues = workspaceArchitecture({
       ...valid,
       'packages/ai': { name: '@study/ai' },
@@ -57,7 +56,7 @@ testStable(
       }
     });
 
-    assert.equal(issues.length, 4, issues.join('\n'));
+    assert.strictEqual(issues.length, 4, issues.join('\n'));
   }
 );
 
@@ -73,7 +72,7 @@ testStable(
       }
     });
 
-    assert.equal(issues.length, 4, issues.join('\n'));
+    assert.strictEqual(issues.length, 4, issues.join('\n'));
     assert.ok(
       workspaceArchitecture({ 'apps/server': valid['apps/server'] }).some((issue) =>
         issue.includes('packages/contracts')
@@ -91,7 +90,7 @@ testStable(
       'packages/contracts': { ...valid['packages/contracts'], dependencies: { effect: '4.0.5' } }
     });
 
-    assert.equal(issues.length, 3, issues.join('\n'));
+    assert.strictEqual(issues.length, 3, issues.join('\n'));
   }
 );
 
@@ -104,5 +103,5 @@ testStable('retired transport dependencies are rejected in every manifest sectio
     }
   });
 
-  assert.equal(issues.length, 3, issues.join('\n'));
+  assert.strictEqual(issues.length, 3, issues.join('\n'));
 });

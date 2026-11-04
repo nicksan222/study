@@ -15,11 +15,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { workflow_clocks, workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { workflowStore } from '#server/platform/workflows/store';
@@ -93,19 +93,19 @@ testStable(
       });
       const first = store.recoverable(['known']);
 
-      assert.equal(first.length, 1000);
+      assert.strictEqual(first.length, 1000);
       assert.ok(first.every((row) => row.execution_id.startsWith('ready-')));
       const clocks = store.dueClocks(['known']);
 
-      assert.equal(clocks.length, 1000);
+      assert.strictEqual(clocks.length, 1000);
       assert.ok(clocks.every((row) => row.execution_id.startsWith('ready-')));
 
-      for (const row of first) assert.equal(store.claim(row.execution_id, 'owner'), true);
+      for (const row of first) assert.ok(store.claim(row.execution_id, 'owner') === true);
 
       for (const clock of clocks) store.removeClock(clock.execution_id, clock.name);
 
-      assert.equal(store.recoverable(['known']).length, 2);
-      assert.equal(store.dueClocks(['known']).length, 2);
+      assert.strictEqual(store.recoverable(['known']).length, 2);
+      assert.strictEqual(store.dueClocks(['known']).length, 2);
     } finally {
       context.close();
       location.cleanup();
@@ -143,9 +143,9 @@ testStable(
 
             yield* engine.register(workflow, () => Effect.never);
             yield* recoverWorkflowEngine(context, engine, [workflow]);
-            assert.equal(store.recoverable([workflow._tag]).length, 1);
+            assert.strictEqual(store.recoverable([workflow._tag]).length, 1);
             yield* recoverWorkflowEngine(context, engine, [workflow]);
-            assert.equal(store.recoverable([workflow._tag]).length, 0);
+            assert.strictEqual(store.recoverable([workflow._tag]).length, 0);
           }).pipe(Effect.provide(workflowEngineLayer(context)))
         )
       );
@@ -197,19 +197,19 @@ testStable(
             .run();
         }
       });
-      assert.deepEqual(
-        store.recoverable(['known']).map((row) => [row.execution_id, row.result]),
-        [
-          ['safe', '"__interrupt_safe__"'],
-          ['unsafe', '"__interrupt_unsafe__"']
-        ]
-      );
-      assert.deepEqual(
-        store.dueClocks(['known']).map((row) => row.execution_id),
-        ['safe', 'suspended', 'unsafe']
-      );
-      assert.deepEqual(store.recoverable([]), []);
-      assert.deepEqual(store.dueClocks([]), []);
+      expect(
+        store.recoverable(['known']).map((row) => [row.execution_id, row.result])
+      ).toStrictEqual([
+        ['safe', '"__interrupt_safe__"'],
+        ['unsafe', '"__interrupt_unsafe__"']
+      ]);
+      expect(store.dueClocks(['known']).map((row) => row.execution_id)).toStrictEqual([
+        'safe',
+        'suspended',
+        'unsafe'
+      ]);
+      expect(store.recoverable([])).toStrictEqual([]);
+      expect(store.dueClocks([])).toStrictEqual([]);
     } finally {
       context.close();
       location.cleanup();
@@ -267,12 +267,12 @@ testStable(
 
             yield* engine.register(workflow, () => Effect.never);
             yield* recoverWorkflowEngine(context, engine, [workflow]);
-            assert.equal(store.dueClocks([workflow._tag]).length, 1);
+            assert.strictEqual(store.dueClocks([workflow._tag]).length, 1);
             yield* recoverWorkflowEngine(context, engine, [workflow]);
-            assert.equal(store.dueClocks([workflow._tag]).length, 0);
-            assert.equal(context.db.orm.select().from(workflow_clocks).all().length, 1);
+            assert.strictEqual(store.dueClocks([workflow._tag]).length, 0);
+            assert.strictEqual(context.db.orm.select().from(workflow_clocks).all().length, 1);
             assert.ok(store.deferred('1000', 'gate'));
-            assert.equal(store.deferred('1001', 'gate'), undefined);
+            assert.strictEqual(store.deferred('1001', 'gate'), undefined);
           }).pipe(Effect.provide(workflowEngineLayer(context)))
         )
       );

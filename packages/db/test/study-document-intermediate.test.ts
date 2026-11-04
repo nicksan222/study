@@ -1,12 +1,12 @@
-import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { testMigration } from '@study/testing/node';
+import { testMigration } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 
@@ -26,7 +26,7 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
     let db: Db | undefined;
 
     try {
-      assert.equal(
+      assert.strictEqual(
         createHash('sha256')
           .update(readFileSync(join(migrations, applied, 'migration.sql')))
           .digest('hex'),
@@ -49,33 +49,33 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
    INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(1,1,1,1,1);
    INSERT INTO study_document_inputs(version_id,position,message_version_id) VALUES(1,0,1);
    UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1;`);
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(sql`SELECT hash FROM __drizzle_migrations WHERE name=${applied}`)?.hash,
         appliedHash
       );
       db.close();
       db = undefined;
       db = Db.open(path);
-      assert.equal(
+      assert.strictEqual(
         db.orm.get(sql`SELECT exact_message_version_id FROM study_document_inputs`)
           ?.exact_message_version_id,
         1n
       );
-      assert.equal(db.orm.get(sql`SELECT text FROM blocks WHERE document_id=1`)?.text, 'Retained');
-      db.exec('DELETE FROM sessions WHERE id=1;');
-      assert.deepEqual(
-        {
-          ...db.orm.get(
-            sql`SELECT message_version_id,exact_message_version_id FROM study_document_inputs`
-          )
-        },
-        { message_version_id: null, exact_message_version_id: 1n }
+      assert.strictEqual(
+        db.orm.get(sql`SELECT text FROM blocks WHERE document_id=1`)?.text,
+        'Retained'
       );
-      assert.deepEqual(db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      db.exec('DELETE FROM sessions WHERE id=1;');
+      expect({
+        ...db.orm.get(
+          sql`SELECT message_version_id,exact_message_version_id FROM study_document_inputs`
+        )
+      }).toStrictEqual({ message_version_id: null, exact_message_version_id: 1n });
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       const reference = Db.open(':memory:');
 
       try {
-        assert.equal(db.schemaIdentity(), reference.schemaIdentity());
+        assert.strictEqual(db.schemaIdentity(), reference.schemaIdentity());
       } finally {
         reference.close();
       }
@@ -83,15 +83,15 @@ testMigration({ migration: 'document_domains_cutover', retention: 'permanent' })
       const backup = join(folder, 'intermediate-backup.db');
 
       await db.snapshot(backup);
-      assert.equal(Db.validateSnapshot(backup), db.schemaIdentity());
+      assert.strictEqual(Db.validateSnapshot(backup), db.schemaIdentity());
       const schema = db.schemaIdentity();
 
       db.close();
       db = undefined;
       db = Db.open(path);
-      assert.equal(db.schemaIdentity(), schema);
-      assert.equal(db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n, 1n);
-      assert.equal(
+      assert.strictEqual(db.schemaIdentity(), schema);
+      assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM study_documents`)?.n, 1n);
+      assert.strictEqual(
         db.orm.get(sql`SELECT count(*) AS n FROM __drizzle_migrations WHERE name=${applied}`)?.n,
         1n
       );

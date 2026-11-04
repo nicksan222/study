@@ -14,13 +14,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { workflow_clocks } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Clock, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
+import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { workflowStore } from '#server/platform/workflows/store';
@@ -39,17 +38,17 @@ testStable('SQLite workflow leases and due clocks follow the native test clock',
           const store = workflowStore(context);
 
           store.start('one', 'test', '{}', undefined);
-          assert.equal(store.claim('one', 'first'), true);
+          assert.ok(store.claim('one', 'first') === true);
           store.clock('one', 'wake', 'deferred', 110_000n, 'first');
-          assert.equal(store.dueClocks(['test']).length, 0);
+          assert.strictEqual(store.dueClocks(['test']).length, 0);
           const sleeping = yield* Effect.forkChild(Effect.sleep('10 seconds'));
 
           yield* TestClock.adjust('10 seconds');
           yield* Fiber.join(sleeping);
-          assert.equal(store.dueClocks(['test']).length, 1);
-          assert.equal(store.claim('one', 'second'), false);
+          assert.strictEqual(store.dueClocks(['test']).length, 1);
+          assert.ok(store.claim('one', 'second') === false);
           yield* TestClock.adjust('20 seconds');
-          assert.equal(store.claim('one', 'second'), true);
+          assert.ok(store.claim('one', 'second') === true);
           assert.throws(() => store.assertOwner('one', 'first'));
         } finally {
           context.close();
@@ -107,14 +106,17 @@ testStable('native durable sleep persists and fires at the controlled deadline',
             for (let i = 0; i < 100 && !context.db.orm.select().from(workflow_clocks).get(); i++)
               yield* Effect.yieldNow;
 
-            assert.equal(context.db.orm.select().from(workflow_clocks).get()?.due_at, 110_000n);
+            assert.strictEqual(
+              context.db.orm.select().from(workflow_clocks).get()?.due_at,
+              110_000n
+            );
             yield* TestClock.adjust('9 seconds');
-            assert.equal(completed, false);
+            assert.ok(completed === false);
             yield* TestClock.adjust('1 second');
 
             for (let i = 0; i < 100 && !completed; i++) yield* Effect.yieldNow;
 
-            assert.equal(completed, true);
+            assert.isTrue(completed);
           }).pipe(Effect.provide(workflowEngineLayer(context)))
         );
       } finally {

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -11,7 +10,7 @@ testStable('reports the prohibited pattern', () => {
     false
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('allows single assertions and skips tests while catching angle assertions', () => {
@@ -21,5 +20,5 @@ testStable('allows single assertions and skips tests while catching angle assert
     'src/a.test.ts': 'const a = value as unknown as string;'
   });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

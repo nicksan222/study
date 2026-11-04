@@ -13,11 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { strict as assert } from 'node:assert';
 import { createServer } from 'node:http';
 
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { fetchPage as fetchPageEffect, requestBytes, streamingFetch } from './index.ts';
 
@@ -32,8 +32,7 @@ const fetchPage = (
 ) => Effect.runPromise(fetchPageEffect(url, options), { signal: options.signal });
 
 testStable('HTTP transport failures preserve their private cause', async () => {
-  await assert.rejects(
-    fetchPage('http://127.0.0.1:0'),
+  await expect(fetchPage('http://127.0.0.1:0')).rejects.toSatisfy(
     (error: unknown) =>
       error instanceof Error &&
       'kind' in error &&
@@ -76,28 +75,34 @@ testStable('HTTP redirects, response size, timeout and cancellation are bounded'
   try {
     const address = server.address();
 
-    if (!address || typeof address === 'string') throw new Error();
+    assert.ok(!(!address || typeof address === 'string'));
 
     const base = `http://127.0.0.1:${address.port}`;
     const page = await fetchPage(base + '/redirect');
 
-    assert.equal(new TextDecoder().decode(page.bytes), '<p>hello</p>');
-    assert.equal(page.url, base + '/page');
-    await assert.rejects(fetchPage(base + '/page', { maxBytes: 3 }), {
+    assert.ok(new TextDecoder().decode(page.bytes) === '<p>hello</p>');
+    assert.strictEqual(page.url, base + '/page');
+    await expect(fetchPage(base + '/page', { maxBytes: 3 })).rejects.toMatchObject({
       kind: 'invalid_input'
     });
-    await assert.rejects(fetchPage(base + '/stream', { maxBytes: 3 }), { kind: 'invalid_input' });
-    await assert.rejects(fetchPage(base + '/redirect', { maxRedirects: 0 }), {
+    await expect(fetchPage(base + '/stream', { maxBytes: 3 })).rejects.toMatchObject({
       kind: 'invalid_input'
     });
-    await assert.rejects(fetchPage(base + '/slow', { timeoutMs: 20 }), {
+    await expect(fetchPage(base + '/redirect', { maxRedirects: 0 })).rejects.toMatchObject({
+      kind: 'invalid_input'
+    });
+    await expect(fetchPage(base + '/slow', { timeoutMs: 20 })).rejects.toMatchObject({
       kind: 'transient'
     });
-    await assert.rejects(fetchPage(base + '/slow-body', { timeoutMs: 20 }), { kind: 'transient' });
+    await expect(fetchPage(base + '/slow-body', { timeoutMs: 20 })).rejects.toMatchObject({
+      kind: 'transient'
+    });
     const controller = new AbortController();
 
     controller.abort();
-    await assert.rejects(fetchPage(base + '/page', { signal: controller.signal }));
+    await expect(fetchPage(base + '/page', { signal: controller.signal })).rejects.toSatisfy(
+      () => true
+    );
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -131,7 +136,7 @@ testStable(
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
 
-    if (!address || typeof address === 'string') throw new Error('missing address');
+    assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
     const base = `http://127.0.0.1:${address.port}`;
 
@@ -141,14 +146,14 @@ testStable(
         ['/server', 'transient'],
         ['/missing', 'invalid_input']
       ])
-        await assert.rejects(fetchPage(base + path), { kind });
+        await expect(fetchPage(base + path)).rejects.toMatchObject({ kind });
 
       const controller = new AbortController();
       const pending = fetchPage(base + '/slow', { signal: controller.signal });
 
       await startedPromise;
       controller.abort();
-      await assert.rejects(pending);
+      await expect(pending).rejects.toSatisfy(() => true);
       await closedPromise;
     } finally {
       server.closeAllConnections();
@@ -168,7 +173,7 @@ testStable('bounded POST reads token responses and times out while reading the b
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   const base = `http://127.0.0.1:${address.port}`;
 
@@ -177,13 +182,12 @@ testStable('bounded POST reads token responses and times out while reading the b
       requestBytes(base, { body: 'form', timeoutMs: 1000, maxBytes: 128 })
     );
 
-    assert.equal(new TextDecoder().decode(response.bytes), '{"ok":true}');
-    await assert.rejects(
+    assert.ok(new TextDecoder().decode(response.bytes) === '{"ok":true}');
+    await expect(
       Effect.runPromise(
         requestBytes(base + '/slow', { body: 'form', timeoutMs: 20, maxBytes: 128 })
-      ),
-      { kind: 'transient' }
-    );
+      )
+    ).rejects.toMatchObject({ kind: 'transient' });
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -204,7 +208,7 @@ testStable('streaming fetch keeps its scoped request alive until cancellation', 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   try {
     const response = await streamingFetch(
@@ -214,7 +218,7 @@ testStable('streaming fetch keeps its scoped request alive until cancellation', 
     );
     const reader = response.body!.getReader();
 
-    assert.equal(new TextDecoder().decode((await reader.read()).value), 'first');
+    assert.ok(new TextDecoder().decode((await reader.read()).value) === 'first');
     await reader.cancel();
     await closedPromise;
   } finally {
@@ -233,7 +237,7 @@ testStable('streaming fetch enforces byte limits without a content length', asyn
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   try {
     const response = await streamingFetch(
@@ -242,7 +246,7 @@ testStable('streaming fetch enforces byte limits without a content length', asyn
       { timeoutMs: 1000, maxBytes: 7 }
     );
 
-    await assert.rejects(response.text(), { kind: 'transient' });
+    await expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -265,7 +269,7 @@ testStable('streaming fetch body deadline follows the native clock', async () =>
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
 
-  if (!address || typeof address === 'string') throw new Error('missing address');
+  assert.ok(!(!address || typeof address === 'string'), 'missing address');
 
   try {
     await Effect.runPromise(
@@ -278,7 +282,9 @@ testStable('streaming fetch body deadline follows the native clock', async () =>
             { timeoutMs: 1000, maxBytes: 128, clock }
           )
         );
-        const result = assert.rejects(response.text(), { kind: 'transient' });
+        const result = (async () => {
+          await expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
+        })();
 
         yield* TestClock.adjust('1 second');
         yield* Effect.promise(() => result);

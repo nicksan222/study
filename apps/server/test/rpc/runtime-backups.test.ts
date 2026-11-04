@@ -11,7 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -21,8 +20,9 @@ import { createBlock } from '@study/contracts/sources/document';
 import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
 import { Db, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Auth } from '#server/features/auth/index';
@@ -48,8 +48,7 @@ import { inTestPhase } from '#testing/progress';
 testStable('System native API inventory includes the managed backup lifecycle', async () => {
   const { SystemRpc } = await import('@study/contracts/system/rpc');
 
-  assert.deepEqual(
-    [...SystemRpc.requests.keys()].sort(),
+  expect([...SystemRpc.requests.keys()].sort()).toStrictEqual(
     [
       'system.acceptRestore',
       'system.createBackup',
@@ -88,20 +87,20 @@ testStable(
 
             const backup = yield* client['system.createBackup']({});
 
-            assert.equal(backup.scope.documents, 1);
-            assert.equal(backup.credentials, 'excluded');
+            assert.strictEqual(backup.scope.documents, 1);
+            assert.ok(backup.credentials === 'excluded');
 
             const list = yield* client['system.listBackups']({});
 
-            assert.equal(list[0]?.id, backup.id);
+            assert.strictEqual(list[0]?.id, backup.id);
 
             const bytes = yield* client['system.readBackup']({ id: backup.id });
 
-            assert.equal(packet(Buffer.from(bytes, 'base64')).manifest.sha256, backup.sha256);
+            assert.strictEqual(packet(Buffer.from(bytes, 'base64')).manifest.sha256, backup.sha256);
           })
         )
       );
-      assert.equal(f.app.store.db.contentIdentity(), before);
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
     } finally {
       await server.close();
       await f.close();
@@ -144,22 +143,21 @@ testStable(
 
       const bytes = await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id }));
 
-      assert.equal(Buffer.from(bytes, 'base64').includes(Buffer.from(marker)), false);
-      assert.equal(Buffer.from(bytes, 'base64').includes(Buffer.from(previousMarker)), false);
-      assert.equal(
+      assert.ok(Buffer.from(bytes, 'base64').includes(Buffer.from(marker)) === false);
+      assert.ok(Buffer.from(bytes, 'base64').includes(Buffer.from(previousMarker)) === false);
+      assert.ok(
         f.app.store.db.orm
           .select()
           .from(s.preferences)
           .all()
-          .some((row) => row.value.includes(marker)),
-        true
+          .some((row) => row.value.includes(marker)) === true
       );
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))).state,
-        'restart-required'
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))).state ===
+          'restart-required'
       );
       await f.reopen();
 
@@ -167,19 +165,17 @@ testStable(
         Effect.flatMap(Auth, (auth) => auth.status())
       );
 
-      assert.equal(status.signedIn, false);
-      assert.equal(
+      assert.ok(status.signedIn === false);
+      assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).acceptRestore(acceptance(preview))))
-          .state,
-        'applied'
+          .state === 'applied'
       );
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
-        'applied'
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
-      assert.equal(
-        readFileSync(f.location.path + '.backups/previous.sqlite').includes(Buffer.from(marker)),
-        true
+      assert.ok(
+        readFileSync(f.location.path + '.backups/previous.sqlite').includes(Buffer.from(marker)) ===
+          true
       );
     } finally {
       await f.close();
@@ -321,37 +317,40 @@ testStable(
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
-      assert.equal(db.select().from(s.projects).get()!.name, 'Replaced content');
+      assert.ok(db.select().from(s.projects).get()!.name === 'Replaced content');
       await f.reopen();
 
       const restored = f.app.store.db.orm;
 
-      assert.equal(restored.select().from(s.projects).get()!.name, 'Collection');
-      assert.equal(restored.select().from(s.sessions).get()!.title, 'Session');
-      assert.deepEqual(restored.select().from(s.material_quiz_questions).all(), expected.questions);
-      assert.deepEqual(restored.select().from(s.material_quiz_attempts).all(), expected.attempts);
-      assert.deepEqual(restored.select().from(s.document_assets).all(), expected.imageRoots);
-      assert.equal(restored.select().from(s.learning_practice_controls).get()!.enabled, false);
-      assert.equal(restored.select().from(s.learning_practice_slots).get()!.status, 'cancelled');
-      assert.deepEqual(restored.select().from(s.content_snapshots).all(), expected.documents);
-      assert.deepEqual(restored.select().from(s.blocks).all(), expected.blocks);
-      assert.deepEqual(restored.select().from(s.source_snapshots).all(), expected.assets);
-      assert.deepEqual(restored.select().from(s.source_blobs).all(), expected.originals);
-      assert.deepEqual(
-        restored.select().from(s.study_document_annotation_revisions).all(),
+      assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
+      assert.ok(restored.select().from(s.sessions).get()!.title === 'Session');
+      expect(restored.select().from(s.material_quiz_questions).all()).toStrictEqual(
+        expected.questions
+      );
+      expect(restored.select().from(s.material_quiz_attempts).all()).toStrictEqual(
+        expected.attempts
+      );
+      expect(restored.select().from(s.document_assets).all()).toStrictEqual(expected.imageRoots);
+      assert.ok(restored.select().from(s.learning_practice_controls).get()!.enabled === false);
+      assert.ok(restored.select().from(s.learning_practice_slots).get()!.status === 'cancelled');
+      expect(restored.select().from(s.content_snapshots).all()).toStrictEqual(expected.documents);
+      expect(restored.select().from(s.blocks).all()).toStrictEqual(expected.blocks);
+      expect(restored.select().from(s.source_snapshots).all()).toStrictEqual(expected.assets);
+      expect(restored.select().from(s.source_blobs).all()).toStrictEqual(expected.originals);
+      expect(restored.select().from(s.study_document_annotation_revisions).all()).toStrictEqual(
         expected.annotations
       );
-      assert.equal(
-        restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name,
-        'notes.txt'
+      assert.ok(
+        restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name ===
+          'notes.txt'
       );
 
       const status = await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus());
 
-      assert.equal(status.recoveryCopy, true);
+      assert.ok(status.recoveryCopy === true);
       await f.app.nativeRuntime.runPromise((await f.api()).discardRestoreRecovery());
-      assert.equal(existsSync(f.location.path + '.backups/previous.sqlite'), false);
-      assert.equal(restored.select().from(s.projects).get()!.name, 'Collection');
+      assert.ok(existsSync(f.location.path + '.backups/previous.sqlite') === false);
+      assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
     } finally {
       await f.close();
     }
@@ -410,11 +409,13 @@ testStable(
       ];
 
       for (const bytes of variants) {
-        await assert.rejects(f.app.nativeRuntime.runPromise(api.importBackup({ bytes })));
-        assert.equal(f.app.store.db.contentIdentity(), target);
+        await expect(f.app.nativeRuntime.runPromise(api.importBackup({ bytes }))).rejects.toSatisfy(
+          () => true
+        );
+        assert.strictEqual(f.app.store.db.contentIdentity(), target);
       }
 
-      assert.equal((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
+      assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
     } finally {
       await f.close();
     }
@@ -431,42 +432,49 @@ testStable(
 
       const creating = f.app.nativeRuntime.runPromise(api.createBackup());
 
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
+      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
+        () => true
+      );
 
       const backup = await creating;
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
-      await assert.rejects(
+      await expect(
         f.app.nativeRuntime.runPromise(
           api.acceptRestore({
             ...acceptance(preview),
             token: Schema.decodeUnknownSync(restoreTokenSchema)(randomUUID())
           })
         )
-      );
+      ).rejects.toSatisfy(() => true);
       await createDocument(f.app, 'Changed target');
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))));
+      await expect(
+        f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
+      ).rejects.toSatisfy(() => true);
 
       const fresh = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
       const accepted = await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh)));
 
-      assert.deepEqual(
-        await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh))),
-        accepted
+      expect(
+        await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh)))
+      ).toStrictEqual(accepted);
+      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
+        () => true
       );
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id })));
+      await expect(
+        f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }))
+      ).rejects.toSatisfy(() => true);
       await createDocument(f.app, 'Changed after acceptance');
 
       const before = f.app.store.db.contentIdentity();
 
       await f.reopen();
-      assert.equal(f.app.store.db.contentIdentity(), before);
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
-        'target-changed'
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state ===
+          'target-changed'
       );
     } finally {
       await f.close();
@@ -492,8 +500,10 @@ testStable(
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: old.id }));
 
-      assert.equal(preview.blockedByCurrentBarriers, true);
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))));
+      assert.ok(preview.blockedByCurrentBarriers === true);
+      await expect(
+        f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
+      ).rejects.toSatisfy(() => true);
 
       const retained = await f.app.nativeRuntime.runPromise(api.createBackup());
 
@@ -510,12 +520,12 @@ testStable(
         freshApi.previewRestore({ id: imported.id })
       );
 
-      assert.equal(newPreview.blockedByCurrentBarriers, false);
+      assert.ok(newPreview.blockedByCurrentBarriers === false);
       await fresh.app.nativeRuntime.runPromise(freshApi.acceptRestore(acceptance(newPreview)));
       await fresh.reopen();
-      assert.equal(
-        fresh.app.store.db.orm.select().from(s.session_deletions).get()!.operation_id,
-        'del-session'
+      assert.ok(
+        fresh.app.store.db.orm.select().from(s.session_deletions).get()!.operation_id ===
+          'del-session'
       );
     } finally {
       await f.close();
@@ -538,10 +548,12 @@ testStable(
 
       const api = await f.api();
 
-      await assert.rejects(f.app.nativeRuntime.runPromise(api.createBackup()));
-      assert.equal(f.app.store.db.contentIdentity(), before);
-      assert.equal(existsSync(f.location.path + '.backups/scratch.sqlite'), false);
-      assert.equal(f.app.store.db.orm.select().from(s.session_deletions).get()!.status, 'failed');
+      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
+        () => true
+      );
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      assert.ok(existsSync(f.location.path + '.backups/scratch.sqlite') === false);
+      assert.ok(f.app.store.db.orm.select().from(s.session_deletions).get()!.status === 'failed');
     } finally {
       await f.close();
     }
@@ -570,13 +582,13 @@ testStable(
         Buffer.from('interrupted staging')
       );
       await f.reopen();
-      assert.equal(f.app.store.db.contentIdentity(), before);
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
 
       const reopenedApi = await f.api();
 
-      assert.equal(
-        (await f.app.nativeRuntime.runPromise(reopenedApi.restoreStatus())).state,
-        'activation-failed'
+      assert.ok(
+        (await f.app.nativeRuntime.runPromise(reopenedApi.restoreStatus())).state ===
+          'activation-failed'
       );
       await f.app.nativeRuntime.runPromise(reopenedApi.discardRestoreRecovery());
 
@@ -586,7 +598,7 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(reopenedApi.acceptRestore(acceptance(retry)));
       await f.reopen();
-      assert.equal(f.app.store.db.orm.select().from(s.study_documents).all().length, 0);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 0);
     } finally {
       await f.close();
     }
@@ -633,7 +645,7 @@ testStable(
       );
 
       // Live captured work remains owned and unchanged by backup preparation.
-      assert.equal(db.select().from(s.workflow_executions).get()!.status, 'suspended');
+      assert.ok(db.select().from(s.workflow_executions).get()!.status === 'suspended');
 
       const preview = await inTestPhase(t, 'restore-preview', () =>
         f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }))
@@ -650,24 +662,23 @@ testStable(
       await inTestPhase(t, 'previous-snapshot', () =>
         old.snapshot(f.location.path + '.backups/previous.sqlite')
       );
-      t.log('study-test-phase:replacement-sync:start');
+      console.debug('study-test-phase:replacement-sync:start');
       old.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;');
       old.close();
       renameSync(f.location.path + '.backups/restore.sqlite', f.location.path);
-      t.log('study-test-phase:replacement-sync:complete');
+      console.debug('study-test-phase:replacement-sync:complete');
       await inTestPhase(t, 'reopen-after-replacement', () => f.reopen());
 
-      t.log('study-test-phase:retirement-assertions:start');
+      console.debug('study-test-phase:retirement-assertions:start');
 
       const restored = f.app.store.db.orm;
 
-      assert.equal(restored.select().from(s.workflow_executions).get()!.status, 'cancelled');
-      assert.equal(restored.select().from(s.workflow_executions).get()!.owner_token, null);
-      assert.equal(restored.select().from(s.workflow_activities).all().length, 0);
-      assert.equal(restored.select().from(s.workflow_configuration_waits).all().length, 0);
-      assert.equal(
-        restored.select().from(s.workflow_retired_executions).get()!.execution_id,
-        'captured'
+      assert.ok(restored.select().from(s.workflow_executions).get()!.status === 'cancelled');
+      assert.ok(restored.select().from(s.workflow_executions).get()!.owner_token === null);
+      assert.strictEqual(restored.select().from(s.workflow_activities).all().length, 0);
+      assert.strictEqual(restored.select().from(s.workflow_configuration_waits).all().length, 0);
+      assert.ok(
+        restored.select().from(s.workflow_retired_executions).get()!.execution_id === 'captured'
       );
 
       const nativeStore = workflowStore(f.app.store);
@@ -678,24 +689,23 @@ testStable(
       assert.throws(() =>
         nativeStore.saveActivity('captured', 'old-owner', 'late', 0, 'private checkpoint')
       );
-      assert.equal(nativeStore.saveDeferred('captured', 'late', 'private completion'), false);
-      assert.deepEqual(nativeStore.execution('captured'), terminal);
-      t.log('study-test-phase:retirement-assertions:complete');
+      assert.ok(nativeStore.saveDeferred('captured', 'late', 'private completion') === false);
+      expect(nativeStore.execution('captured')).toStrictEqual(terminal);
+      console.debug('study-test-phase:retirement-assertions:complete');
       await inTestPhase(t, 'workers-start', () => f.app.workers.start());
       await inTestPhase(t, 'workers-stop', () => f.app.workers.stop());
-      assert.deepEqual(f.requests, []);
-      assert.equal(restored.select().from(s.workflow_executions).all().length, 1);
-      assert.equal(
-        restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name,
-        'work.txt'
+      expect(f.requests).toStrictEqual([]);
+      assert.strictEqual(restored.select().from(s.workflow_executions).all().length, 1);
+      assert.ok(
+        restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name ===
+          'work.txt'
       );
-      assert.equal(
+      assert.ok(
         (
           await inTestPhase(t, 'restore-status', async () =>
             f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())
           )
-        ).state,
-        'applied'
+        ).state === 'applied'
       );
     } finally {
       await inTestPhase(t, 'test-finally', () => f.close());
@@ -721,9 +731,9 @@ testStable(
       const before = f.app.store.db.contentIdentity();
 
       await f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }));
-      assert.equal(readFileSync(external, 'utf8'), 'External copy');
-      assert.equal(f.app.store.db.contentIdentity(), before);
-      assert.equal((await f.app.nativeRuntime.runPromise(api.backups())).length, 0);
+      assert.ok(readFileSync(external, 'utf8') === 'External copy');
+      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 0);
     } finally {
       await f.close();
     }

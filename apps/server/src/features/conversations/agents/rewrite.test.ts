@@ -12,9 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { expect } from 'vite-plus/test';
 
 import { rewriteAgent } from './rewrite.ts';
 
@@ -31,9 +30,9 @@ for (const origin of ['improve', 'summarize'] as const)
       preferences: {}
     });
 
-    assert.deepEqual(prompt.slice(0, -1), messages);
-    assert.deepEqual(prompt.at(-2), messages.at(-1));
-    assert.deepEqual(prompt.at(-1), { role: 'user', content: `Task: ${origin}. ` });
+    expect(prompt.slice(0, -1)).toStrictEqual(messages);
+    expect(prompt.at(-2)).toStrictEqual(messages.at(-1));
+    expect(prompt.at(-1)).toStrictEqual({ role: 'user', content: `Task: ${origin}. ` });
   });
 
 testStable(
@@ -47,8 +46,8 @@ testStable(
       preferences: { language: 'italian', detail: 'brief' }
     });
 
-    assert.deepEqual(prompt.slice(0, -1), messages);
-    assert.deepEqual(prompt.at(-1), {
+    expect(prompt.slice(0, -1)).toStrictEqual(messages);
+    expect(prompt.at(-1)).toStrictEqual({
       role: 'user',
       content:
         'Task: instruction. Keep qualifiers\nPreferences: {"language":"italian","detail":"brief"}'

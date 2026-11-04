@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { eq, sql } from '@study/db';
 import {
@@ -27,9 +25,11 @@ import {
   source_extraction_revisions
 } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/service/index';
 import { Projects } from '#server/features/projects/index';
@@ -155,10 +155,9 @@ testStable(
           ]
         };
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(withPublicationGuard(context, conversations.publishReply(input))))
-            .kind,
-          'internal'
+            .kind === 'internal'
         );
         const workflow = Workflow.make('reply-publication-test', {
           payload: { id: Schema.String },
@@ -200,11 +199,11 @@ testStable(
                   { ...input, requestId: 'missing' }
                 ]) {
                   yield* Effect.flip(conversations.publishReply(bad));
-                  assert.equal(
-                    (yield* conversations.message(request.messageId)).versions[0]?.status,
-                    'pending'
+                  assert.ok(
+                    (yield* conversations.message(request.messageId)).versions[0]?.status ===
+                      'pending'
                   );
-                  assert.equal(context.db.orm.all(sql`SELECT * FROM citations`).length, 0);
+                  assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 0);
                 }
 
                 const historicSession = yield* conversations.createSession({
@@ -220,12 +219,11 @@ testStable(
                 });
 
                 yield* conversations.editMessage({ messageId: historicQuestion.id, text: 'new' });
-                assert.equal(
+                assert.ok(
                   (yield* conversations.replySnapshot({ requestId: historic.requestId }))
-                    .messages[0]?.text,
-                  'old'
+                    .messages[0]?.text === 'old'
                 );
-                assert.equal(
+                assert.strictEqual(
                   yield* conversations.publishReply({
                     requestId: historic.requestId,
                     text: 'answer',
@@ -233,20 +231,19 @@ testStable(
                   }),
                   historic.versionId
                 );
-                assert.equal(
-                  (yield* conversations.message(historic.messageId)).versions[0]?.status,
-                  'complete'
+                assert.ok(
+                  (yield* conversations.message(historic.messageId)).versions[0]?.status ===
+                    'complete'
                 );
                 yield* conversations.deleteMessage(historic.messageId);
-                assert.equal(
+                assert.ok(
                   (yield* Effect.flip(
                     conversations.publishReply({
                       requestId: historic.requestId,
                       text: 'answer',
                       citations: []
                     })
-                  )).kind,
-                  'not_found'
+                  )).kind === 'not_found'
                 );
                 const revision = context.db.orm
                   .select()
@@ -254,12 +251,12 @@ testStable(
                   .where(eq(sessions.id, session.id))
                   .get()!.context_revision;
 
-                assert.equal(yield* conversations.publishReply(input), request.versionId);
+                assert.strictEqual(yield* conversations.publishReply(input), request.versionId);
                 const message = yield* conversations.message(request.messageId);
 
-                assert.equal(message.activeVersionId, request.versionId);
-                assert.equal(message.versions[0]?.text, 'Answer [1]');
-                assert.deepEqual(message.citations, [
+                assert.strictEqual(message.activeVersionId, request.versionId);
+                assert.ok(message.versions[0]?.text === 'Answer [1]');
+                expect(message.citations).toStrictEqual([
                   {
                     origin: 'agent',
                     support: { state: 'unassessed' },
@@ -291,7 +288,7 @@ testStable(
                     quote: 'quoted passage'
                   }
                 ]);
-                assert.equal(yield* conversations.publishReply(input), request.versionId);
+                assert.strictEqual(yield* conversations.publishReply(input), request.versionId);
                 yield* Effect.flip(conversations.publishReply({ ...input, text: 'Changed [1]' }));
                 yield* Effect.flip(
                   conversations.publishReply({
@@ -299,13 +296,13 @@ testStable(
                     citations: [{ ...input.citations[0]!, quote: 'quoted' }]
                   })
                 );
-                assert.equal(
+                assert.strictEqual(
                   context.db.orm.select().from(sessions).where(eq(sessions.id, session.id)).get()!
                     .context_revision,
                   revision + 1n
                 );
-                assert.equal(context.db.orm.all(sql`SELECT * FROM citations`).length, 1);
-                assert.equal(
+                assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 1);
+                assert.strictEqual(
                   context.db.orm.all(
                     sql`SELECT * FROM workflow_events WHERE type = 'ConversationGenerationRequested'`
                   ).length,

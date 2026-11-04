@@ -82,6 +82,8 @@ export const lint = {
     'study/feature-persistence-boundary': 'error',
     'study/harness-boundary': 'error',
     'study/test-classification': 'error',
+    'study/assertion-boundary': 'error',
+    'study/test-guard-assertions': 'error',
     'study/feature-layout': 'error',
     'study/server-layer-boundary': 'error',
     'study/ai-boundary': 'error',
@@ -190,6 +192,7 @@ export const lint = {
     'typescript/unbound-method': 'off',
     'jsx-a11y/prefer-tag-over-role': 'off',
     'vitest/require-to-throw-message': 'off',
+    'vitest/valid-expect': ['error', { maxArgs: 2 }],
     'react/refs': 'off',
     'vitest/no-conditional-expect': 'off',
     'typescript/restrict-template-expressions': 'off',
@@ -235,20 +238,6 @@ export const lint = {
                 message:
                   'Use extensionless #server/* or #testing/* package imports across directories.'
               }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      files: ['**/*.test.{ts,tsx,js,mjs,cjs}'],
-      rules: {
-        // Node's test runner owns registration promises and reports callback failures.
-        'typescript/no-floating-promises': [
-          'error',
-          {
-            allowForKnownSafeCalls: [
-              { from: 'package', package: 'node:test', name: ['test', 'it', 'describe'] }
             ]
           }
         ]

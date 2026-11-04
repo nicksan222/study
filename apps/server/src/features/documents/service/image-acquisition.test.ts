@@ -12,15 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { sourceIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Sources } from '#server/features/sources/index';
@@ -93,18 +94,18 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 document: image()
               });
 
-              assert.equal(alternative.outcome, 'conflict');
+              assert.ok(alternative.outcome === 'conflict');
               draftId = alternative.submittedVersionId;
             }
 
             const preview = yield* sources.previewDeletion({ id: source.id });
 
-            if (owner === 'none') assert.deepEqual(preview.blockedBy, []);
+            if (owner === 'none') expect(preview.blockedBy).toStrictEqual([]);
             else {
               assert.ok(preview.blockedBy.includes('image_assets'));
-              assert.equal(
-                (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
-                'invalid_input'
+              assert.ok(
+                (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind ===
+                  'invalid_input'
               );
               const independent = yield* create();
 
@@ -117,16 +118,15 @@ for (const owner of ['none', 'draft', 'published'] as const)
                   'image_assets'
                 )
               );
-              assert.deepEqual(
-                (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
-                bytes
-              );
+              expect(
+                (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+              ).toStrictEqual(bytes);
               const independentPreview = yield* docs.previewDeletion({ id: independent.id });
 
               yield* docs.delete({ documentId: independent.id, token: independentPreview.token });
 
               if (draftId)
-                assert.equal((yield* Effect.flip(docs.version({ id: draftId }))).kind, 'not_found');
+                assert.ok((yield* Effect.flip(docs.version({ id: draftId }))).kind === 'not_found');
             }
 
             yield* sources.deleteSource({ id: source.id });
@@ -141,7 +141,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
             const docs = yield* Documents;
             const sources = yield* Sources;
 
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 docs.create({
                   createKey: randomUUID(),
@@ -150,25 +150,26 @@ for (const owner of ['none', 'draft', 'published'] as const)
                   inputs: [],
                   citations: []
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 sources.exportRevision({ sourceId: saved.source.id, revision: 1n })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
           }).pipe(Effect.provide(f.domain()))
         );
-        assert.equal(f.context.db.orm.get(sql`SELECT count(*) n FROM document_assets`)?.n, 0n);
-        assert.equal(
+        assert.strictEqual(
+          f.context.db.orm.get(sql`SELECT count(*) n FROM document_assets`)?.n,
+          0n
+        );
+        assert.strictEqual(
           f.context.db.orm.get(
             sql`SELECT count(*) n FROM source_snapshots WHERE source_id=${saved.source.id}`
           )?.n,
           0n
         );
-        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }
@@ -250,7 +251,7 @@ testStable(
               alt: 'Fake revision'
             }
           ])
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 docs.save({
                   documentId: saved.document.id,
@@ -258,11 +259,10 @@ testStable(
                   key: randomUUID(),
                   document: { ...saved.body, blocks: [createBlock(content)] }
                 })
-              )).kind,
-              'invalid_input'
+              )).kind === 'invalid_input'
             );
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.save({
                 documentId: saved.document.id,
@@ -270,20 +270,16 @@ testStable(
                 key: 'foreign-identities',
                 document: { ...saved.body, blocks: [saved.unrelated.document.blocks[0]!] }
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.deepEqual(
-        {
-          assets: f.context.db.orm.select().from(s.document_assets).all(),
-          versions: f.context.db.orm.select().from(s.study_document_versions).all(),
-          blocks: f.context.db.orm.select().from(s.blocks).all()
-        },
-        before
-      );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect({
+        assets: f.context.db.orm.select().from(s.document_assets).all(),
+        versions: f.context.db.orm.select().from(s.study_document_versions).all(),
+        blocks: f.context.db.orm.select().from(s.blocks).all()
+      }).toStrictEqual(before);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

@@ -12,15 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { createBlock, encodeBlockContent } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
@@ -112,31 +113,31 @@ testStable(
         Effect.gen(function* () {
           const materials = yield* Materials;
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({
                 requestId: 'historical-empty',
                 retryId: 'must-not-publish'
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* materials.materialGeneration({
               requestId: 'historical-empty',
               verifyOnly: true
-            })).resultVersionId,
-            null
+            })).resultVersionId === null
           );
-          assert.equal(
-            (yield* (yield* Documents).version({ id: saved.version.id })).status,
-            'published'
+          assert.ok(
+            (yield* (yield* Documents).version({ id: saved.version.id })).status === 'published'
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.deepEqual(f.context.db.orm.select().from(s.workflowEvents).all(), before);
-      assert.equal(f.context.db.orm.select().from(s.material_evidence_inputs).all().length, 1);
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      expect(f.context.db.orm.select().from(s.workflowEvents).all()).toStrictEqual(before);
+      assert.strictEqual(
+        f.context.db.orm.select().from(s.material_evidence_inputs).all().length,
+        1
+      );
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -154,7 +155,7 @@ testStable(
           const docs = yield* Documents;
           const block = paragraph('Evidence');
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: randomUUID(),
@@ -163,11 +164,10 @@ testStable(
                 inputs: [],
                 citations: []
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(f.context.db.orm.select().from(s.study_documents).all().length, 0);
-          assert.equal(f.context.db.orm.select().from(s.content_snapshots).all().length, 0);
+          assert.strictEqual(f.context.db.orm.select().from(s.study_documents).all().length, 0);
+          assert.strictEqual(f.context.db.orm.select().from(s.content_snapshots).all().length, 0);
           const original = yield* docs.create({
             createKey: randomUUID(),
             title: 'Draft alternatives',
@@ -191,10 +191,10 @@ testStable(
           };
           const conflict = yield* docs.save(intent);
 
-          assert.equal(conflict.outcome, 'conflict');
+          assert.ok(conflict.outcome === 'conflict');
           const draft = yield* docs.version({ id: conflict.submittedVersionId });
 
-          assert.equal(draft.status, 'draft');
+          assert.ok(draft.status === 'draft');
 
           return { draft, intent, conflict };
         }).pipe(Effect.provide(f.domain()))
@@ -216,9 +216,12 @@ testStable(
         Effect.gen(function* () {
           const docs = yield* Documents;
 
-          assert.deepEqual(yield* docs.version({ id: saved.draft.id }), saved.draft);
-          assert.deepEqual(yield* docs.save(saved.intent), { ...saved.conflict, replayed: true });
-          assert.equal(
+          expect(yield* docs.version({ id: saved.draft.id })).toStrictEqual(saved.draft);
+          expect(yield* docs.save(saved.intent)).toStrictEqual({
+            ...saved.conflict,
+            replayed: true
+          });
+          assert.ok(
             (yield* Effect.flip(
               docs.restore({
                 documentId: saved.intent.documentId,
@@ -226,8 +229,7 @@ testStable(
                 restoreVersionId: saved.draft.id,
                 key: 'invalid-draft-restore'
               })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const restored = yield* docs.save({
             documentId: saved.intent.documentId,
@@ -236,14 +238,14 @@ testStable(
             key: 'adopt-alternative'
           });
 
-          assert.equal(restored.outcome, 'saved');
-          assert.equal(
-            (yield* docs.version({ id: restored.submittedVersionId })).document.blocks[0]?.text,
-            'Retained alternative'
+          assert.ok(restored.outcome === 'saved');
+          assert.ok(
+            (yield* docs.version({ id: restored.submittedVersionId })).document.blocks[0]?.text ===
+              'Retained alternative'
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.equal(
+      assert.strictEqual(
         f.context.db.orm.select().from(s.workflowEvents).all().length,
         before.length + 1
       );
@@ -290,19 +292,19 @@ testStable(
             document: { blocks: [{ ...replacement, id: oldBlock.id }], meta }
           });
 
-          assert.equal(edit.outcome, 'saved');
+          assert.ok(edit.outcome === 'saved');
           const scope = { documentId: original.id, keepLatest: 1 };
           const preview = yield* docs.previewHistory(scope);
 
           yield* docs.retireHistory({ ...scope, token: preview.token });
-          assert.equal(f.context.db.orm.select().from(s.document_assets).all().length, 2);
+          assert.strictEqual(f.context.db.orm.select().from(s.document_assets).all().length, 2);
           const remove = yield* docs.previewDeletion({ id: original.id });
 
           yield* docs.delete({ documentId: original.id, token: remove.token });
-          assert.equal(f.context.db.orm.select().from(s.document_assets).all().length, 1);
-          assert.deepEqual((yield* sources.previewDeletion({ id: other.id })).blockedBy, []);
+          assert.strictEqual(f.context.db.orm.select().from(s.document_assets).all().length, 1);
+          expect((yield* sources.previewDeletion({ id: other.id })).blockedBy).toStrictEqual([]);
           yield* sources.deleteSource({ id: other.id });
-          assert.deepEqual((yield* sources.previewDeletion({ id: first.id })).blockedBy, [
+          expect((yield* sources.previewDeletion({ id: first.id })).blockedBy).toStrictEqual([
             'image_assets'
           ]);
 
@@ -322,15 +324,16 @@ testStable(
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          assert.deepEqual(
-            (yield* (yield* Sources).sourceSnapshot({ id: saved.first.id, revision: 1 })).bytes,
-            bytes
+          expect(
+            (yield* (yield* Sources).sourceSnapshot({ id: saved.first.id, revision: 1 })).bytes
+          ).toStrictEqual(bytes);
+          expect(yield* (yield* Documents).version({ id: saved.copy.id })).toStrictEqual(
+            saved.copy
           );
-          assert.deepEqual(yield* (yield* Documents).version({ id: saved.copy.id }), saved.copy);
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
-      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA integrity_check`), [
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA integrity_check`)).toStrictEqual([
         { integrity_check: 'ok' }
       ]);
     } finally {

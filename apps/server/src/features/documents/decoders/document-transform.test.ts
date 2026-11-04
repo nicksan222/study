@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import {
@@ -22,8 +20,9 @@ import {
 import { sourceIdSchema } from '@study/contracts/ids';
 import { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
 import { createBlock } from '@study/contracts/sources/document';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { standardSchema } from '#server/platform/ai/schema';
 
@@ -110,7 +109,7 @@ testStable(
   () => {
     const { context, publication, image } = fixture();
 
-    assert.equal(authorizedTransformAssets(context).length, 1);
+    assert.strictEqual(authorizedTransformAssets(context).length, 1);
     const copied = createBlock(image.content);
     const withImage = {
       ...publication,
@@ -144,7 +143,7 @@ testStable(
       }))
     });
 
-    assert.equal(authorizedTransformAssets(range).length, 0);
+    assert.strictEqual(authorizedTransformAssets(range).length, 0);
     assert.throws(() => validateDocumentTransform(range, withImage));
     assert.throws(() =>
       validateDocumentTransform(context, {
@@ -255,7 +254,7 @@ testStable(
       ]
     });
 
-    assert.equal(result.contextRequestId, 'capture');
+    assert.ok(result.contextRequestId === 'capture');
   }
 );
 
@@ -270,7 +269,7 @@ testStable(
       JSON.parse(JSON.stringify(output))
     );
 
-    assert.equal(result.issues, undefined);
+    assert.strictEqual(result.issues, undefined);
   }
 );
 

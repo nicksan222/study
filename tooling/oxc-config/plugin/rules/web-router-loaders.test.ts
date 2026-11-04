@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -14,11 +13,11 @@ testStable('library and practice routes declare loading and search dependencies'
     true
   );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 testStable('allows loaded routes, redirects, and pages without data requirements', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-router-loaders',
       {
@@ -27,9 +26,8 @@ testStable('allows loaded routes, redirects, and pages without data requirements
         'apps/web/src/routes/Help.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/Help')({ component: Page });`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable('canonical Material browse and read routes retain loader requirements', () => {
@@ -42,8 +40,8 @@ testStable('canonical Material browse and read routes retain loader requirements
     true
   );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.deepEqual(
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  expect(
     lintRule(
       'web-router-loaders',
       {
@@ -51,7 +49,6 @@ testStable('canonical Material browse and read routes retain loader requirements
         'apps/web/src/routes/materials.$materialId.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/materials/$materialId')({staticData: {section: 'library'}, loaderDeps: deps, beforeLoad: validate, loader: load, component: ReaderPage});`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });

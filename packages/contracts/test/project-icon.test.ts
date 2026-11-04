@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
+import { assert } from 'vite-plus/test';
 
 import { projectInitials, projectIconSchema } from '../src/projects/schemas.ts';
 
@@ -15,7 +14,7 @@ testStable('subject initials are deterministic Unicode-aware monograms', () => {
     ['123 calculus', '1C'],
     ['😀', 'S']
   ])
-    assert.equal(projectInitials(name!), initials);
+    assert.strictEqual(projectInitials(name!), initials);
 });
 testStable('subject icon variants validate their own values and a closed color palette', () => {
   for (const icon of [

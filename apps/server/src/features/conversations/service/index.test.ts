@@ -14,13 +14,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { SessionId } from '@study/contracts/ids';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Projects } from '#server/features/projects/index';
@@ -57,49 +57,45 @@ testStable(
             title: 'Second'
           });
 
-          assert.equal(first.title, 'First');
-          assert.equal(first.titleSource, 'user');
+          assert.ok(first.title === 'First');
+          assert.ok(first.titleSource === 'user');
           const page = yield* conversations.sessions({ limit: 1 });
 
-          assert.equal(page.items[0]?.id, second.id);
-          assert.deepEqual(page.next, { updatedAt: second.updatedAt, id: second.id });
-          assert.equal(
+          assert.strictEqual(page.items[0]?.id, second.id);
+          expect(page.next).toStrictEqual({ updatedAt: second.updatedAt, id: second.id });
+          assert.strictEqual(
             (yield* conversations.sessions({ limit: 1, before: page.next! })).items[0]?.id,
             first.id
           );
           const global = yield* conversations.createSession({ title: 'Projectless' });
 
-          assert.deepEqual(
+          expect(
             (yield* conversations.sessions({ limit: 1, project: project.id })).items.map(
               (item) => item.id
-            ),
-            [second.id]
-          );
+            )
+          ).toStrictEqual([second.id]);
           const scoped = yield* conversations.sessions({ limit: 1, project: project.id });
 
-          assert.deepEqual(
+          expect(
             (yield* conversations.sessions({
               limit: 1,
               project: project.id,
               before: scoped.next!
-            })).items.map((item) => item.id),
-            [first.id]
-          );
-          assert.deepEqual(
+            })).items.map((item) => item.id)
+          ).toStrictEqual([first.id]);
+          expect(
             (yield* conversations.sessions({ limit: 100, project: null })).items.map(
               (item) => item.id
-            ),
-            [global.id]
-          );
-          assert.equal((yield* conversations.sessions({ limit: 1 })).items[0]?.id, global.id);
+            )
+          ).toStrictEqual([global.id]);
+          assert.strictEqual((yield* conversations.sessions({ limit: 1 })).items[0]?.id, global.id);
           const absent = 999n as SessionId;
 
           assert.ok(Option.isNone(yield* conversations.findSession(absent)));
-          assert.equal((yield* Effect.flip(conversations.session(absent))).kind, 'not_found');
-          assert.equal(
+          assert.ok((yield* Effect.flip(conversations.session(absent))).kind === 'not_found');
+          assert.ok(
             (yield* Effect.flip(conversations.createSession({ project: project.id, title: ' ' })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
         }).pipe(Effect.provide(layer))
       );
@@ -133,7 +129,7 @@ testStable('messages retain immutable versions and paginate in chronological ord
         };
         const first = yield* conversations.postMessage(input);
 
-        assert.equal((yield* conversations.postMessage(input)).id, first.id);
+        assert.strictEqual((yield* conversations.postMessage(input)).id, first.id);
         const second = yield* conversations.postMessage({ sessionId: session.id, text: 'second' });
         const edited = yield* conversations.editMessage({
           messageId: first.id,
@@ -141,65 +137,58 @@ testStable('messages retain immutable versions and paginate in chronological ord
           expectedActiveVersionId: first.activeVersionId!
         });
 
-        assert.equal(
+        assert.strictEqual(
           (yield* conversations.postMessage(input)).activeVersionId,
           edited.activeVersionId
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             conversations.editMessage({
               messageId: first.id,
               text: 'stale writer',
               expectedActiveVersionId: first.activeVersionId!
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(conversations.postMessage({ ...input, text: 'different payload' })))
-            .kind,
-          'invalid_input'
+            .kind === 'invalid_input'
         );
 
-        assert.deepEqual(
-          edited.versions.map((v) => v.text),
-          [pageText, 'changed']
-        );
-        assert.equal(edited.versions[1]?.basedOn, first.activeVersionId);
-        assert.equal(
+        expect(edited.versions.map((v) => v.text)).toStrictEqual([pageText, 'changed']);
+        assert.strictEqual(edited.versions[1]?.basedOn, first.activeVersionId);
+        assert.ok(
           (yield* Effect.flip(
             conversations.setActiveVersion({
               messageId: second.id,
               versionId: edited.versions[0]!.id
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         const restored = yield* conversations.setActiveVersion({
           messageId: first.id,
           versionId: first.activeVersionId!
         });
 
-        assert.equal(restored.activeVersionId, first.activeVersionId);
-        assert.deepEqual(
-          (yield* conversations.thread({ sessionId: session.id, limit: 2 })).items.map((m) => m.id),
-          [first.id, second.id]
-        );
+        assert.strictEqual(restored.activeVersionId, first.activeVersionId);
+        expect(
+          (yield* conversations.thread({ sessionId: session.id, limit: 2 })).items.map((m) => m.id)
+        ).toStrictEqual([first.id, second.id]);
         const page = yield* conversations.thread({ sessionId: session.id, limit: 1 });
 
-        assert.equal(page.items[0]?.id, second.id);
-        assert.equal(page.next, second.id);
-        assert.equal(
+        assert.strictEqual(page.items[0]?.id, second.id);
+        assert.strictEqual(page.next, second.id);
+        assert.strictEqual(
           (yield* conversations.thread({ sessionId: session.id, limit: 1, before: page.next! }))
             .items[0]?.id,
           first.id
         );
-        assert.equal(yield* conversations.deleteMessage(first.id), true);
-        assert.equal((yield* Effect.flip(conversations.message(first.id))).kind, 'not_found');
+        assert.strictEqual(yield* conversations.deleteMessage(first.id), true);
+        assert.ok((yield* Effect.flip(conversations.message(first.id))).kind === 'not_found');
         const { message_versions } = yield* Effect.promise(() => import('@study/db/schema'));
         const { eq } = yield* Effect.promise(() => import('@study/db'));
 
-        assert.equal(
+        assert.strictEqual(
           context.db.orm
             .select()
             .from(message_versions)
@@ -262,8 +251,8 @@ testStable(
             sourceIds: [foreign.id]
           });
 
-          assert.equal(shared.parts[0]?.sourceId, foreign.id);
-          assert.equal(
+          assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
+          assert.strictEqual(
             (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.length,
             1
           );
@@ -273,25 +262,19 @@ testStable(
             sourceIds: [b.id, a.id]
           });
 
-          assert.deepEqual(
-            message.parts.map((p) => p.sourceName),
-            ['b.txt', 'a.txt']
-          );
+          expect(message.parts.map((p) => p.sourceName)).toStrictEqual(['b.txt', 'a.txt']);
           context.db.orm.delete(sources).where(eq(sources.id, b.id)).run();
           const edited = yield* conversations.editMessage({
             messageId: message.id,
             text: 'edited'
           });
 
-          assert.deepEqual(
-            edited.parts.map((p) => [p.sourceId, p.sourceName]),
-            [
-              [null, 'b.txt'],
-              [a.id, 'a.txt']
-            ]
-          );
-          assert.equal((yield* conversations.deleteSession(session.id)).status, 'pending');
-          assert.equal((yield* Effect.flip(conversations.message(message.id))).kind, 'not_found');
+          expect(edited.parts.map((p) => [p.sourceId, p.sourceName])).toStrictEqual([
+            [null, 'b.txt'],
+            [a.id, 'a.txt']
+          ]);
+          assert.ok((yield* conversations.deleteSession(session.id)).status === 'pending');
+          assert.ok((yield* Effect.flip(conversations.message(message.id))).kind === 'not_found');
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -338,8 +321,8 @@ testStable(
           yield* conversations.editMessage({ messageId: message.id, text: 'new' });
           const page = yield* conversations.sessions({ limit: 1 });
 
-          assert.equal(page.items[0]?.id, first.id);
-          assert.equal(
+          assert.strictEqual(page.items[0]?.id, first.id);
+          assert.strictEqual(
             (yield* conversations.sessions({ limit: 1, before: page.next! })).items[0]?.id,
             second.id
           );
@@ -349,7 +332,7 @@ testStable(
             .where(eq(sessions.id, first.id))
             .run();
           yield* conversations.deleteMessage(message.id);
-          assert.equal((yield* conversations.sessions({ limit: 1 })).items[0]?.id, first.id);
+          assert.strictEqual((yield* conversations.sessions({ limit: 1 })).items[0]?.id, first.id);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -379,16 +362,14 @@ testStable(
             title: 'Chat'
           });
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(conversations.postMessage({ sessionId: session.id, text: '  ' })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               conversations.postMessage({ sessionId: session.id, text: '😀'.repeat(100001) })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
           const message = yield* conversations.postMessage({
             sessionId: session.id,
@@ -408,20 +389,18 @@ testStable(
             .returning()
             .get();
 
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(
               conversations.setActiveVersion({ messageId: message.id, versionId: unfinished.id })
-            )).kind,
-            'invalid_input'
+            )).kind === 'invalid_input'
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* conversations.message(message.id)).activeVersionId,
             message.activeVersionId
           );
-          assert.equal(
+          assert.ok(
             (yield* Effect.flip(conversations.editMessage({ messageId: message.id, text: ' ' })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
         }).pipe(Effect.provide(layer))
       );
@@ -455,8 +434,8 @@ testStable('reply request persists its context and rejects another pending reque
         );
         const events = context.db.orm.select().from(workflowEvents).all();
 
-        assert.equal(events.length, 1);
-        assert.deepEqual(decodeEvent(events[0]!.payload), {
+        assert.strictEqual(events.length, 1);
+        expect(decodeEvent(events[0]!.payload)).toStrictEqual({
           type: 'ConversationGenerationRequested',
           eventId: events[0]!.eventId,
           causationId: null,
@@ -468,18 +447,18 @@ testStable('reply request persists its context and rejects another pending reque
         });
         const target = yield* conversations.message(request.messageId);
 
-        assert.equal(target.activeVersionId, request.versionId);
-        assert.equal(target.versions[0]?.status, 'pending');
-        assert.equal(snapshot.messages[0]?.versionId, message.activeVersionId);
-        assert.equal(snapshot.messages[0]?.text, 'hello');
-        assert.equal(
-          (yield* Effect.flip(conversations.requestReply({ sessionId: session.id }))).kind,
-          'invalid_input'
+        assert.strictEqual(target.activeVersionId, request.versionId);
+        assert.ok(target.versions[0]?.status === 'pending');
+        assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
+        assert.ok(snapshot.messages[0]?.text === 'hello');
+        assert.ok(
+          (yield* Effect.flip(conversations.requestReply({ sessionId: session.id }))).kind ===
+            'invalid_input'
         );
         yield* conversations.editMessage({ messageId: message.id, text: 'changed' });
-        assert.equal(
-          (yield* conversations.replySnapshot({ requestId: request.requestId })).messages[0]?.text,
-          'hello'
+        assert.ok(
+          (yield* conversations.replySnapshot({ requestId: request.requestId })).messages[0]
+            ?.text === 'hello'
         );
         yield* withTestPublication(
           context,
@@ -487,11 +466,10 @@ testStable('reply request persists its context and rejects another pending reque
         );
         const replacement = yield* conversations.requestReply({ sessionId: session.id });
 
-        assert.notEqual(replacement.requestId, request.requestId);
-        assert.equal(
+        assert.notStrictEqual(replacement.requestId, request.requestId);
+        assert.ok(
           (yield* conversations.replySnapshot({ requestId: replacement.requestId })).messages[0]
-            ?.text,
-          'changed'
+            ?.text === 'changed'
         );
         const editedReply = yield* conversations.editMessage({
           messageId: replacement.messageId,
@@ -499,14 +477,13 @@ testStable('reply request persists its context and rejects another pending reque
         });
         const afterEdit = yield* conversations.requestReply({ sessionId: session.id });
 
-        assert.equal(
+        assert.strictEqual(
           (yield* conversations.message(editedReply.id)).activeVersionId,
           editedReply.activeVersionId
         );
-        assert.equal(
+        assert.ok(
           (yield* conversations.replySnapshot({ requestId: afterEdit.requestId })).messages.at(-1)
-            ?.text,
-          'Keep this complete edit'
+            ?.text === 'Keep this complete edit'
         );
       }).pipe(Effect.provide(layer))
     );
@@ -610,9 +587,9 @@ testStable(
             requestId: saved.request.requestId
           });
 
-          assert.equal(snapshot.messages[0]?.versionId, saved.message.activeVersionId);
-          assert.equal(snapshot.messages[0]?.attachments[0]?.snapshotId, saved.document.id);
-          assert.equal(snapshot.messages[0]?.attachments[0]?.sourceName, 'a.txt');
+          assert.strictEqual(snapshot.messages[0]?.versionId, saved.message.activeVersionId);
+          assert.strictEqual(snapshot.messages[0]?.attachments[0]?.snapshotId, saved.document.id);
+          assert.ok(snapshot.messages[0]?.attachments[0]?.sourceName === 'a.txt');
           yield* conversations.setActiveVersion({
             messageId: saved.message.id,
             versionId: saved.edited.activeVersionId!
@@ -621,10 +598,9 @@ testStable(
             messageId: saved.message.id,
             versionId: saved.message.activeVersionId!
           });
-          assert.deepEqual(
-            yield* conversations.replySnapshot({ requestId: saved.request.requestId }),
-            snapshot
-          );
+          expect(
+            yield* conversations.replySnapshot({ requestId: saved.request.requestId })
+          ).toStrictEqual(snapshot);
         }).pipe(Effect.provide(layer()))
       );
     } finally {
@@ -655,12 +631,15 @@ testStable('outbox failure rolls back reply request and pending message', async 
           sql`CREATE TRIGGER fail_reply_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'event failed'); END`
         );
         yield* Effect.flip(conversations.requestReply({ sessionId: session.id }));
-        assert.equal(
+        assert.strictEqual(
           (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.length,
           1
         );
-        assert.equal(context.db.orm.select().from(conversation_reply_requests).all().length, 0);
-        assert.equal(context.db.orm.select().from(workflowEvents).all().length, 0);
+        assert.strictEqual(
+          context.db.orm.select().from(conversation_reply_requests).all().length,
+          0
+        );
+        assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 0);
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -721,8 +700,8 @@ testStable('reply captures pending attachments and invalidates deleted context',
         const request = yield* conversations.requestReply({ sessionId: session.id });
         const pending = yield* conversations.replySnapshot({ requestId: request.requestId });
 
-        assert.equal(pending.pendingAttachments?.length, 1);
-        assert.equal(pending.pendingAttachments?.[0]?.sourceId, source.id);
+        assert.strictEqual(pending.pendingAttachments?.length, 1);
+        assert.strictEqual(pending.pendingAttachments?.[0]?.sourceId, source.id);
         const document = context.db.orm
           .insert(content_snapshots)
           .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
@@ -745,7 +724,7 @@ testStable('reply captures pending attachments and invalidates deleted context',
           .set({ project_id: project.id })
           .where(eq(sources.id, source.id))
           .run();
-        assert.equal(
+        assert.strictEqual(
           (yield* conversations.replyReadiness({ requestId: request.requestId })).length,
           0
         );
@@ -754,14 +733,14 @@ testStable('reply captures pending attachments and invalidates deleted context',
           .set({ request_id: 'replacement', revision: 2n })
           .where(eq(source_processing.source_id, source.id))
           .run();
-        assert.equal(
-          (yield* Effect.flip(conversations.replySnapshot({ requestId: request.requestId }))).kind,
-          'invalid_input'
+        assert.ok(
+          (yield* Effect.flip(conversations.replySnapshot({ requestId: request.requestId })))
+            .kind === 'invalid_input'
         );
         yield* conversations.deleteMessage(message.id);
-        assert.equal(
-          (yield* Effect.flip(conversations.replySnapshot({ requestId: request.requestId }))).kind,
-          'not_found'
+        assert.ok(
+          (yield* Effect.flip(conversations.replySnapshot({ requestId: request.requestId })))
+            .kind === 'not_found'
         );
       }).pipe(Effect.provide(layer))
     );
@@ -794,9 +773,9 @@ testStable('reply history captures a bounded recent window and total text budget
         const request = yield* conversations.requestReply({ sessionId: session.id });
         const history = yield* conversations.replySnapshot({ requestId: request.requestId });
 
-        assert.equal(history.messages.length, 50);
-        assert.equal(history.messages[0]?.text, 'message 10');
-        assert.equal(history.messages.at(-1)?.text, 'message 59');
+        assert.strictEqual(history.messages.length, 50);
+        assert.ok(history.messages[0]?.text === 'message 10');
+        assert.ok(history.messages.at(-1)?.text === 'message 59');
         const largeSession = yield* conversations.createSession({
           project: project.id,
           title: 'Large'
@@ -811,8 +790,8 @@ testStable('reply history captures a bounded recent window and total text budget
         const large = yield* conversations.requestReply({ sessionId: largeSession.id });
         const largeHistory = yield* conversations.replySnapshot({ requestId: large.requestId });
 
-        assert.equal(largeHistory.messages.length, 2);
-        assert.equal(largeHistory.messages[0]?.text[0], '1');
+        assert.strictEqual(largeHistory.messages.length, 2);
+        assert.ok(largeHistory.messages[0]?.text[0] === '1');
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -843,8 +822,8 @@ testStable('untitled sessions capture title requests and reject stale context', 
             )
           );
 
-        assert.equal(session.titleSource, 'provisional');
-        assert.equal(session.title, 'New session');
+        assert.ok(session.titleSource === 'provisional');
+        assert.ok(session.title === 'New session');
         const settingsLayer = Settings.layer.pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))
         );
@@ -863,7 +842,7 @@ testStable('untitled sessions capture title requests and reject stale context', 
           .createUntitledSession({ project: project.id })
           .pipe(Effect.provide(settingsLayer));
 
-        assert.equal(italian.title, 'Nuova sessione');
+        assert.ok(italian.title === 'Nuova sessione');
         const message = yield* conversations.postMessage({
           sessionId: session.id,
           text: 'Study cells'
@@ -871,12 +850,12 @@ testStable('untitled sessions capture title requests and reject stale context', 
         const request = yield* conversations.requestTitle({ sessionId: session.id });
         const snapshot = yield* conversations.titleSnapshot({ requestId: request.requestId });
 
-        assert.equal(snapshot.messages[0]?.versionId, message.activeVersionId);
-        assert.equal(snapshot.messages[0]?.text, 'Study cells');
+        assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
+        assert.ok(snapshot.messages[0]?.text === 'Study cells');
         yield* conversations.editMessage({ messageId: message.id, text: 'Study plants' });
-        assert.equal(
-          (yield* Effect.flip(conversations.titleSnapshot({ requestId: request.requestId }))).kind,
-          'invalid_input'
+        assert.ok(
+          (yield* Effect.flip(conversations.titleSnapshot({ requestId: request.requestId })))
+            .kind === 'invalid_input'
         );
       }).pipe(Effect.provide(layer))
     );
@@ -907,9 +886,9 @@ testStable('title context selects the latest fifty messages within its text budg
         const request = yield* conversations.requestTitle({ sessionId: session.id });
         const snapshot = yield* conversations.titleSnapshot({ requestId: request.requestId });
 
-        assert.equal(snapshot.messages.length, 50);
-        assert.equal(snapshot.messages[0]?.text, 'message 1');
-        assert.equal(snapshot.messages[49]?.text, 'message 50');
+        assert.strictEqual(snapshot.messages.length, 50);
+        assert.ok(snapshot.messages[0]?.text === 'message 1');
+        assert.ok(snapshot.messages[49]?.text === 'message 50');
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -944,7 +923,7 @@ testStable(
             projectId: project.id
           });
 
-          assert.equal((yield* sources.sourceProcessing(source.id)).documentId, null);
+          assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
           const session = yield* conversations.createUntitledSession({ project: project.id });
 
           yield* conversations.postMessage({
@@ -954,7 +933,7 @@ testStable(
           });
           const pending = yield* conversations.requestTitle({ sessionId: session.id });
 
-          assert.equal(
+          assert.strictEqual(
             (yield* conversations.titleSnapshot({ requestId: pending.requestId })).messages.length,
             1
           );
@@ -969,9 +948,9 @@ testStable(
           const request = yield* conversations.requestTitle({ sessionId: large.id });
           const captured = yield* conversations.titleSnapshot({ requestId: request.requestId });
 
-          assert.equal(captured.messages.length, 2);
-          assert.equal(captured.messages[0]?.text[0], '1');
-          assert.equal(
+          assert.strictEqual(captured.messages.length, 2);
+          assert.ok(captured.messages[0]?.text[0] === '1');
+          assert.strictEqual(
             captured.messages.reduce((n, m) => n + m.text.length, 0),
             160000
           );
@@ -1042,11 +1021,10 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
         });
         const part = root.parts[0]!.id;
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             conversations.postMessage({ sessionId: other.id, text: 'bad', threadRoot: part })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         const one = yield* conversations.postMessage({
           sessionId: session.id,
@@ -1059,20 +1037,17 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
           threadRoot: part
         });
 
-        assert.deepEqual(
-          (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.map(
-            (m) => m.id
-          ),
-          [root.id]
-        );
+        expect(
+          (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items.map((m) => m.id)
+        ).toStrictEqual([root.id]);
         const page = yield* conversations.thread({
           sessionId: session.id,
           threadRoot: part,
           limit: 1
         });
 
-        assert.equal(page.items[0]?.id, two.id);
-        assert.equal(
+        assert.strictEqual(page.items[0]?.id, two.id);
+        assert.strictEqual(
           (yield* conversations.thread({
             sessionId: session.id,
             threadRoot: part,
@@ -1087,15 +1062,12 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
         });
         const reply = yield* conversations.message(request.messageId);
 
-        assert.equal(reply.threadRoot, part);
-        assert.equal(reply.replyTo, two.id);
+        assert.strictEqual(reply.threadRoot, part);
+        assert.strictEqual(reply.replyTo, two.id);
         const snapshot = yield* conversations.replySnapshot({ requestId: request.requestId });
 
-        assert.deepEqual(
-          snapshot.messages.map((m) => m.text),
-          ['root', 'one', 'two']
-        );
-        assert.equal(snapshot.messages[0]?.attachments[0]?.partId, part);
+        expect(snapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
+        assert.strictEqual(snapshot.messages[0]?.attachments[0]?.partId, part);
         const { message_versions } = yield* Effect.promise(() => import('@study/db/schema'));
         const { eq } = yield* Effect.promise(() => import('@study/db'));
 
@@ -1109,11 +1081,8 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
           requestId: reanswer.requestId
         });
 
-        assert.deepEqual(
-          reanswerSnapshot.messages.map((m) => m.text),
-          ['root', 'one', 'two']
-        );
-        assert.equal((yield* conversations.message(reanswer.messageId)).threadRoot, part);
+        expect(reanswerSnapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
+        assert.strictEqual((yield* conversations.message(reanswer.messageId)).threadRoot, part);
         context.db.orm
           .update(message_versions)
           .set({ status: 'complete', text: 'another answer' })
@@ -1127,10 +1096,12 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
           requestId: rewrite.requestId
         });
 
-        assert.deepEqual(
-          rewriteSnapshot.messages.map((m) => m.text),
-          ['root', 'one', 'two', 'another answer']
-        );
+        expect(rewriteSnapshot.messages.map((m) => m.text)).toStrictEqual([
+          'root',
+          'one',
+          'two',
+          'another answer'
+        ]);
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -1159,8 +1130,8 @@ testStable('posting a message can request a reply explicitly or by assistant men
         });
         const items = (yield* conversations.thread({ sessionId: session.id, limit: 10 })).items;
 
-        assert.equal(items.length, 2);
-        assert.equal(items[1]?.replyTo, posted.id);
+        assert.strictEqual(items.length, 2);
+        assert.strictEqual(items[1]?.replyTo, posted.id);
         const second = yield* conversations.createSession({
           project: project.id,
           title: 'Mention'
@@ -1170,7 +1141,7 @@ testStable('posting a message can request a reply explicitly or by assistant men
           text: 'Hello @study!'
         });
 
-        assert.equal(
+        assert.strictEqual(
           (yield* conversations.thread({ sessionId: second.id, limit: 10 })).items[1]?.replyTo,
           mention.id
         );
@@ -1191,7 +1162,7 @@ testStable('posting a message can request a reply explicitly or by assistant men
           yield* conversations.postMessage({ sessionId: target.id, text });
           const thread = yield* conversations.thread({ sessionId: target.id, limit: 10 });
 
-          assert.equal(thread.items.length, replies ? 2 : 1, text);
+          assert.strictEqual(thread.items.length, replies ? 2 : 1, text);
         }
       }).pipe(Effect.provide(layer))
     );
@@ -1237,7 +1208,7 @@ testStable(
             requestReply: false
           });
 
-          assert.equal(
+          assert.strictEqual(
             (yield* sources.sessionSources({ sessionId: session.id, limit: 100 }))[0].id,
             source.id
           );
@@ -1250,29 +1221,32 @@ testStable(
             sessionId: session.id
           });
 
-          assert.deepEqual(authored.projectIds, [project.id]);
+          expect(authored.projectIds).toStrictEqual([project.id]);
           yield* sessions.deleteMessage(message.id);
-          assert.equal(
+          assert.strictEqual(
             (yield* sources.sessionSources({ sessionId: session.id, limit: 100 }))[0].id,
             source.id
           );
           yield* sessions.deleteSession(session.id);
-          assert.equal(
-            (yield* documents.document({ id: authored.id })).version!.document.blocks[0].text,
-            'Authored body'
+          assert.ok(
+            (yield* documents.document({ id: authored.id })).version!.document.blocks[0].text ===
+              'Authored body'
           );
-          assert.deepEqual((yield* documents.document({ id: authored.id })).projectIds, [
+          expect((yield* documents.document({ id: authored.id })).projectIds).toStrictEqual([
             project.id
           ]);
-          assert.equal(
+          assert.strictEqual(
             (yield* documents.documents({ projectId: project.id, limit: 100, archived: false }))
               .items[0].id,
             authored.id
           );
-          assert.equal((yield* sources.source(source.id)).name, 'session.txt');
-          assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM session_sources`)?.n, 0n);
-          assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM messages`)?.n, 0n);
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          assert.ok((yield* sources.source(source.id)).name === 'session.txt');
+          assert.strictEqual(
+            context.db.orm.get(sql`SELECT count(*) n FROM session_sources`)?.n,
+            0n
+          );
+          assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM messages`)?.n, 0n);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {

@@ -13,16 +13,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { eq, sql } from '@study/db';
 import type { messages } from '@study/db/schema';
 import { sessions, sources } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import type { Context } from 'effect';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -116,9 +115,9 @@ testStable('recording publication posts once and rejects changed or deleted resu
         messageId = yield* service.postRecordingMessage(input);
         const message = yield* service.message(messageId);
 
-        assert.equal(message.versions[0]?.text, '');
-        assert.equal(message.parts[0]?.sourceId, source.id);
-        assert.equal(
+        assert.ok(message.versions[0]?.text === '');
+        assert.strictEqual(message.parts[0]?.sourceId, source.id);
+        assert.strictEqual(
           context.db.orm.select().from(sessions).where(eq(sessions.id, session.id)).get()!
             .context_revision,
           1n
@@ -132,12 +131,12 @@ testStable('recording publication posts once and rejects changed or deleted resu
       Effect.gen(function* () {
         const service = yield* Conversations;
 
-        assert.equal(yield* service.postRecordingMessage(input), messageId);
-        assert.equal(
-          (yield* Effect.flip(service.postRecordingMessage({ ...input, durationMs: 1235 }))).kind,
-          'invalid_input'
+        assert.strictEqual(yield* service.postRecordingMessage(input), messageId);
+        assert.ok(
+          (yield* Effect.flip(service.postRecordingMessage({ ...input, durationMs: 1235 })))
+            .kind === 'invalid_input'
         );
-        assert.equal(
+        assert.strictEqual(
           context.db.orm.select().from(sessions).where(eq(sessions.id, input.sessionId)).get()!
             .context_revision,
           1n
@@ -158,20 +157,18 @@ testStable('recording publication posts once and rejects changed or deleted resu
           .returning()
           .get();
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             service.postRecordingMessage({
               ...input,
               requestId: 'wrong-project',
               sourceId: wrongSource.id
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(service.postRecordingMessage({ ...input, sourceId: wrongSource.id })))
-            .kind,
-          'invalid_input'
+            .kind === 'invalid_input'
         );
         const attachment = context.db.orm
           .insert(sources)
@@ -188,15 +185,14 @@ testStable('recording publication posts once and rejects changed or deleted resu
           .returning()
           .get();
 
-        assert.equal(
+        assert.ok(
           (yield* Effect.flip(
             service.postRecordingMessage({
               ...input,
               requestId: 'wrong-origin',
               sourceId: attachment.id
             })
-          )).kind,
-          'invalid_input'
+          )).kind === 'invalid_input'
         );
         context.db.orm.run(
           sql`CREATE TEMP TRIGGER fail_recording_context BEFORE UPDATE OF context_revision ON sessions BEGIN SELECT RAISE(ABORT, 'injected context failure'); END`
@@ -205,26 +201,28 @@ testStable('recording publication posts once and rejects changed or deleted resu
           service.postRecordingMessage({ ...input, requestId: 'context-rollback' })
         );
         context.db.orm.run(sql`DROP TRIGGER fail_recording_context`);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM conversation_recording_posts`).length, 1);
+        assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
+        assert.strictEqual(
+          context.db.orm.all(sql`SELECT * FROM conversation_recording_posts`).length,
+          1
+        );
         context.db.orm.run(
           sql`CREATE TEMP TRIGGER fail_recording_receipt BEFORE INSERT ON conversation_recording_posts BEGIN SELECT RAISE(ABORT, 'injected failure'); END`
         );
         yield* Effect.flip(service.postRecordingMessage({ ...input, requestId: 'rollback' }));
         context.db.orm.run(sql`DROP TRIGGER fail_recording_receipt`);
-        assert.equal(
+        assert.strictEqual(
           context.db.orm.select().from(sessions).where(eq(sessions.id, input.sessionId)).get()!
             .context_revision,
           1n
         );
-        assert.equal(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
+        assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
         yield* service.deleteMessage(messageId);
-        assert.equal(yield* service.postRecordingMessage(input), messageId);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM messages`).length, 0);
+        assert.strictEqual(yield* service.postRecordingMessage(input), messageId);
+        assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 0);
         yield* service.deleteSession(input.sessionId);
-        assert.equal(
-          (yield* Effect.flip(service.postRecordingMessage(input))).kind,
-          'invalid_input'
+        assert.ok(
+          (yield* Effect.flip(service.postRecordingMessage(input))).kind === 'invalid_input'
         );
       }).pipe(Effect.orDie)
     );

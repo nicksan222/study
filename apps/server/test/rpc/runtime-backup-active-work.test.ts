@@ -11,12 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -133,40 +134,40 @@ for (const action of ['apply', 'keep'] as const)
           action === 'apply' ? c.applyDocumentProposal(input) : c.keepDocumentProposal(input)
         );
 
-        assert.deepEqual(replay, { ...outcome, replayed: true });
-        assert.equal(
+        expect(replay).toStrictEqual({ ...outcome, replayed: true });
+        assert.strictEqual(
           (await app.nativeRuntime.runPromise(m.version({ id: outcome.resultVersionId }))).id,
           outcome.resultVersionId
         );
-        assert.equal(
+        assert.strictEqual(
           (await app.nativeRuntime.runPromise(m.version({ id: proposed }))).id,
           proposed
         );
-        assert.deepEqual(
+        expect(
           await app.nativeRuntime.runPromise(
             c.inspectSessionContext({ requestId: saved.capture.requestId })
-          ),
-          saved.capture
-        );
+          )
+        ).toStrictEqual(saved.capture);
 
         const late = { ...input, key: 'new-action' };
 
-        assert.equal(
+        assert.ok(
           (
             await app.nativeRuntime.runPromise(
               Effect.flip(
                 action === 'apply' ? c.applyDocumentProposal(late) : c.keepDocumentProposal(late)
               )
             )
-          ).kind,
-          'not_found'
+          ).kind === 'not_found'
         );
 
         const before = app.store.db.orm.select().from(s.study_document_versions).all();
 
         await app.workers.start();
         await app.workers.stop();
-        assert.deepEqual(app.store.db.orm.select().from(s.study_document_versions).all(), before);
+        expect(app.store.db.orm.select().from(s.study_document_versions).all()).toStrictEqual(
+          before
+        );
       } finally {
         await target?.close();
         await source.close();
@@ -257,15 +258,14 @@ testStable(
         m.materialGeneration({ requestId: saved.generation.id, verifyOnly: true })
       );
 
-      assert.equal(generation.cancelled, true);
-      assert.equal(generation.resultVersionId, null);
+      assert.ok(generation.cancelled === true);
+      assert.ok(generation.resultVersionId === null);
 
       const learning = await app.nativeRuntime.runPromise(Learning);
 
-      assert.equal(
+      assert.ok(
         (await app.nativeRuntime.runPromise(learning.practice({ projectId: saved.project.id })))
-          .enabled,
-        false
+          .enabled === false
       );
       assert.ok(
         app.store.db.orm
@@ -274,16 +274,20 @@ testStable(
           .all()
           .every((slot) => slot.status === 'cancelled')
       );
-      assert.deepEqual(app.store.db.orm.select().from(s.material_quiz_responses).all(), attempts);
-      assert.equal(
+      expect(app.store.db.orm.select().from(s.material_quiz_responses).all()).toStrictEqual(
+        attempts
+      );
+      assert.strictEqual(
         (await app.nativeRuntime.runPromise(m.materialVersion({ id: saved.quiz.version.id }))).id,
         saved.quiz.version.id
       );
       await app.workers.start();
       await app.workers.stop();
-      assert.equal(app.store.db.orm.select().from(s.workflow_executions).all().length, 0);
-      assert.deepEqual(target.requests, []);
-      assert.deepEqual(app.store.db.orm.select().from(s.material_quiz_responses).all(), attempts);
+      assert.strictEqual(app.store.db.orm.select().from(s.workflow_executions).all().length, 0);
+      expect(target.requests).toStrictEqual([]);
+      expect(app.store.db.orm.select().from(s.material_quiz_responses).all()).toStrictEqual(
+        attempts
+      );
 
       const fresh = await app.nativeRuntime.runPromise(
         learning.startPractice({
@@ -292,8 +296,8 @@ testStable(
         })
       );
 
-      assert.equal(fresh.enabled, true);
-      assert.notEqual(fresh.epoch, saved.practice.epoch);
+      assert.ok(fresh.enabled === true);
+      assert.notStrictEqual(fresh.epoch, saved.practice.epoch);
     } finally {
       await target?.close();
       await source.close();
@@ -349,8 +353,8 @@ testStable(
       assert.ok(before.some((row) => row.id === completed.documentId));
       await app.workers.start();
       await app.workers.stop();
-      assert.deepEqual(app.store.db.orm.select().from(s.content_snapshots).all(), before);
-      assert.deepEqual(target.requests, []);
+      expect(app.store.db.orm.select().from(s.content_snapshots).all()).toStrictEqual(before);
+      expect(target.requests).toStrictEqual([]);
       assert.ok(
         app.store.db.orm
           .select()

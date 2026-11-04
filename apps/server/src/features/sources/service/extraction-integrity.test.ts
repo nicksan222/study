@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Sources } from '#server/features/sources/index';
 import { SourceStore } from '#server/features/sources/store/index';
@@ -76,13 +76,13 @@ testStable(
           ])
             assert.throws(() => context.db.orm.run(statement));
 
-          assert.equal((yield* sources.currentExtraction({ id: source.id }))?.snapshotId, id);
-          assert.equal(yield* sources.deleteSource({ id: source.id }), true);
-          assert.equal(
+          assert.strictEqual((yield* sources.currentExtraction({ id: source.id }))?.snapshotId, id);
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM content_snapshots WHERE id=${id}`),
             undefined
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(
           Effect.provide(Sources.layer),
           Effect.provide(Layer.succeed(Database, { store: context }))

@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { MaterialId, ContentSnapshotId } from '@study/contracts/ids';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { eq } from '@study/db';
@@ -19,6 +17,7 @@ import * as s from '@study/db/schema';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import {

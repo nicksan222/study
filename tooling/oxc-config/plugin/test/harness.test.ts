@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from './utils.ts';
 
@@ -9,7 +8,7 @@ testStable('isolated rule ignores unrelated default lint violations', () => {
     'src/shared/unused.ts': 'const unused = 1;\n'
   });
 
-  assert.deepEqual(diagnostics, []);
+  expect(diagnostics).toStrictEqual([]);
 });
 
 testStable('isolated rule loads the plugin and reports its diagnostic and path', () => {
@@ -17,7 +16,7 @@ testStable('isolated rule loads the plugin and reports its diagnostic and path',
     'src/shared/bad.ts': "export * from '#server/runtime/context';\n"
   });
 
-  assert.equal(diagnostics.length, 1);
-  assert.equal(diagnostics[0]!.code, 'study(browser-boundary)');
+  assert.strictEqual(diagnostics.length, 1);
+  assert.strictEqual(diagnostics[0]!.code, 'study(browser-boundary)');
   assert.ok(diagnostics[0]!.filename.endsWith('/src/shared/bad.ts'));
 });

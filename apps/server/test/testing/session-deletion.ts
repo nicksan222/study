@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import type { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
@@ -22,6 +21,7 @@ import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import {
@@ -149,9 +149,9 @@ export function deletionEvent(fixture: DeletionFixture, id: SessionId) {
 
   const event = decodeEvent(row.payload);
 
-  assert.equal(event.type, 'SessionDeletionRequested');
+  assert.ok(event.type === 'SessionDeletionRequested');
 
-  assert.equal(event.sessionId, id);
+  assert.strictEqual(event.sessionId, id);
 
   return event;
 }
@@ -245,7 +245,7 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly StudyDoc
           note: 'Independent retained annotation'
         });
 
-        assert.equal(created.outcome, 'saved');
+        assert.ok(created.outcome === 'saved');
       }
     }).pipe(Effect.provide(fixture.domain()))
   );
@@ -294,7 +294,7 @@ export function awaitNativeStatus(
       yield* Effect.sleep('5 millis');
     }
 
-    assert.equal(workflowStore(fixture.context).execution(id)?.status, status);
+    assert.strictEqual(workflowStore(fixture.context).execution(id)?.status, status);
   });
 }
 

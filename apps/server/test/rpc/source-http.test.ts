@@ -15,14 +15,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { sourceIdSchema } from '@study/contracts/ids';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
@@ -56,17 +55,17 @@ testStable(
             const absent = yield* Effect.flip(client['sources.source']({ id: missing }));
 
             assert.ok('kind' in absent);
-            assert.equal(absent.kind, 'not_found');
+            assert.ok(absent.kind === 'not_found');
             const created = yield* client['sources.createSource']({
               name: 'notes.txt',
               bytes: new TextEncoder().encode('Study notes'),
               projectId: null
             });
 
-            assert.equal(typeof created.id, 'bigint');
+            assert.ok(typeof created.id === 'bigint');
             assert.ok(created.sha256 instanceof Uint8Array);
-            assert.equal(created.sha256.length, 32);
-            assert.deepEqual(yield* client['sources.source']({ id: created.id }), created);
+            assert.strictEqual(created.sha256.length, 32);
+            expect(yield* client['sources.source']({ id: created.id })).toStrictEqual(created);
             const state = yield* client['sources.sourceProcessing']({ id: created.id });
             const stale = yield* Effect.flip(
               client['sources.requestSourceProcessing']({
@@ -76,15 +75,15 @@ testStable(
             );
 
             assert.ok('kind' in stale);
-            assert.equal(stale.kind, 'invalid_input');
-            assert.equal(context.db.orm.select().from(workflowEvents).all().length, 1);
+            assert.ok(stale.kind === 'invalid_input');
+            assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 1);
             const renewed = yield* client['sources.requestSourceProcessing']({
               id: created.id,
               expectedRevision: state.revision
             });
 
-            assert.notEqual(renewed.requestId, state.requestId);
-            assert.equal(context.db.orm.select().from(workflowEvents).all().length, 2);
+            assert.notStrictEqual(renewed.requestId, state.requestId);
+            assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 2);
             const response = yield* Effect.promise(() =>
               fetch(`${url}/rpc`, {
                 method: 'POST',
@@ -92,12 +91,12 @@ testStable(
               })
             );
 
-            assert.equal(response.status, 403);
+            assert.strictEqual(response.status, 403);
           })
         )
       );
 
-      await assert.rejects(fetch(`${url}/rpc`));
+      await expect(fetch(`${url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
       context.close();
       location.cleanup();

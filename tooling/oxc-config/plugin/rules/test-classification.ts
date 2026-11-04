@@ -26,9 +26,7 @@ function workspaceRoot(filename: string): string {
 }
 
 function adapterPath(filename: string): boolean {
-  return ['node', 'vitest'].some(
-    (name) => filename === resolve(workspaceRoot(filename), `packages/testing/src/${name}.ts`)
-  );
+  return filename === resolve(workspaceRoot(filename), 'packages/testing/src/vitest.ts');
 }
 
 function importName(node: any): string | undefined {
@@ -99,13 +97,13 @@ export default defineRule({
 
     function report(
       node: any,
-      message = 'Register every test with testStable, testRegression, testMigration or testCharacterization from @study/testing/node or @study/testing/vitest.'
+      message = 'Register every test with testStable, testRegression, testMigration or testCharacterization from @study/testing/vitest.'
     ) {
       context.report({ node, message });
     }
 
     function adapterSource(source: string): boolean {
-      return /^@study\/testing\/(?:node|vitest)$/.test(source);
+      return /^@study\/testing\/vitest$/.test(source);
     }
 
     function approved(node: any, name?: string): boolean {
@@ -132,11 +130,7 @@ export default defineRule({
 
       if (classification(node.object)) return true;
 
-      return (
-        classifications.has(memberName(node)!) &&
-        node.object.type === 'CallExpression' &&
-        approved(node.object.callee, 'subtests')
-      );
+      return classification(node.object);
     }
 
     function contextAnnotation(definition: any): boolean {
@@ -147,7 +141,8 @@ export default defineRule({
       const specifier = binding(context, annotation.typeName)?.defs[0]?.node;
 
       return (
-        specifier?.parent?.source?.value === 'node:test' && importName(specifier) === 'TestContext'
+        /^(?:node:test|vitest|vite-plus\/test)$/.test(specifier?.parent?.source?.value ?? '') &&
+        importName(specifier) === 'TestContext'
       );
     }
 
@@ -206,7 +201,7 @@ export default defineRule({
       if (source.startsWith('.') && adapterPath(resolve(dirname(filename), source))) {
         report(
           node,
-          'Import the classified test API through @study/testing/node or @study/testing/vitest; relative paths are forbidden.'
+          'Import the classified test API through @study/testing/vitest; relative paths are forbidden.'
         );
 
         return;
@@ -288,7 +283,7 @@ export default defineRule({
         if (memberName(node) === 'test' && testContext(node.object))
           report(
             node,
-            'Register nested tests through subtests(context) so each child declares its classification.'
+            'Declare classified tests during suite collection instead of registering runtime subtests.'
           );
 
         if (forbidden.has(memberName(node)!) && classification(node.object))
@@ -302,7 +297,7 @@ export default defineRule({
         )
           report(
             node,
-            'Register nested tests through subtests(context) instead of extracting raw test methods.'
+            'Declare classified tests during suite collection instead of extracting runtime test methods.'
           );
       }
     };

@@ -1,13 +1,13 @@
-import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
 import { App, serve } from '@study/server/runtime';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { createServer } from 'vite-plus';
+import { assert } from 'vite-plus/test';
 
 import { studyRpcProxy } from './rpc-proxy.ts';
 
@@ -41,7 +41,7 @@ testStable(
               const settings = yield* client['settings.appSettings']({});
               const themes = yield* client['themes.themes']({ limit: 100 });
 
-              assert.equal(settings.appearance, 2);
+              assert.strictEqual(settings.appearance, 2);
               assert.ok(themes.items.some((theme) => theme.id === 't3-code' && theme.builtin));
             })
           )

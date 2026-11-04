@@ -5,6 +5,7 @@ import definitionRules from './definition-rules.ts';
 import factoryRules from './factory-rules.ts';
 import observabilityRules from './observability-rules.ts';
 import persistenceRules from './persistence-rules.ts';
+import assertionBoundary from './rules/assertion-boundary.ts';
 import browserBoundary from './rules/browser-boundary.ts';
 import contextIdentity from './rules/context-identity.ts';
 import databaseOwnership from './rules/database-ownership.ts';
@@ -41,6 +42,7 @@ import sharedLoading from './rules/shared-loading.ts';
 import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
 import testClassification from './rules/test-classification.ts';
+import testGuardAssertions from './rules/test-guard-assertions.ts';
 import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
 import webBoundaries from './rules/web-boundaries.ts';
@@ -54,6 +56,8 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'assertion-boundary': assertionBoundary,
+    'test-guard-assertions': testGuardAssertions,
     'test-classification': testClassification,
     'shared-loading': sharedLoading,
     'shared-error-state': sharedErrorState,

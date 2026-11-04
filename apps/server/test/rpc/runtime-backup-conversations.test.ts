@@ -11,12 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Conversations } from '#server/features/conversations/index';
@@ -113,7 +113,7 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
           targetApi.previewRestore({ id: imported.id })
         );
 
-        assert.equal(preview.blockedByCurrentBarriers, false);
+        assert.ok(preview.blockedByCurrentBarriers === false);
         await target.app.nativeRuntime.runPromise(targetApi.acceptRestore(acceptance(preview)));
         await target.reopen();
 
@@ -121,36 +121,32 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
 
         const conversations = await app.nativeRuntime.runPromise(Conversations);
 
-        assert.deepEqual(
-          await app.nativeRuntime.runPromise(conversations.message(captured.message.id)),
-          captured.before
-        );
-        assert.equal(
+        expect(
+          await app.nativeRuntime.runPromise(conversations.message(captured.message.id))
+        ).toStrictEqual(captured.before);
+        assert.ok(
           app.store.db.orm
             .select()
             .from(s.message_versions)
             .all()
-            .some((v) => v.id === captured.request.versionId),
-          false
+            .some((v) => v.id === captured.request.versionId) === false
         );
 
         if (operation === 'answer' || operation === 'ask')
-          assert.equal(
+          assert.ok(
             app.store.db.orm
               .select()
               .from(s.messages)
               .all()
-              .some((m) => m.id === captured.request.messageId),
-            false
+              .some((m) => m.id === captured.request.messageId) === false
           );
 
         // The capture is inspectable, but the old execution and consumed intent have no authority.
-        assert.deepEqual(
+        expect(
           await app.nativeRuntime.runPromise(
             conversations.inspectSessionContext({ requestId: captured.request.requestId })
-          ),
-          context
-        );
+          )
+        ).toStrictEqual(context);
 
         for (const action of [
           conversations
@@ -168,10 +164,10 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
             })
             .pipe(Effect.asVoid)
         ])
-          assert.equal((await app.nativeRuntime.runPromise(Effect.flip(action))).kind, 'not_found');
+          assert.ok((await app.nativeRuntime.runPromise(Effect.flip(action))).kind === 'not_found');
 
         if (operation === 'ask') {
-          assert.equal(
+          assert.ok(
             (
               await app.nativeRuntime.runPromise(
                 Effect.flip(
@@ -183,35 +179,33 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
                   })
                 )
               )
-            ).kind,
-            'not_found'
+            ).kind === 'not_found'
           );
         }
 
         await app.workers.start();
         await app.workers.stop();
-        assert.equal(app.store.db.orm.select().from(s.workflow_executions).all().length, 0);
-        assert.deepEqual(target.requests, []);
+        assert.strictEqual(app.store.db.orm.select().from(s.workflow_executions).all().length, 0);
+        expect(target.requests).toStrictEqual([]);
 
         const fresh = await app.nativeRuntime.runPromise(
           conversations.requestReply({ sessionId: captured.session.id, intentKey: 'fresh-intent' })
         );
 
-        assert.notEqual(fresh.requestId, captured.request.requestId);
-        assert.equal(
+        assert.notStrictEqual(fresh.requestId, captured.request.requestId);
+        assert.ok(
           (
             await app.nativeRuntime.runPromise(
               conversations.replySnapshot({ requestId: fresh.requestId })
             )
-          ).messages[0]?.text,
-          'Exact completed message'
+          ).messages[0]?.text === 'Exact completed message'
         );
         // A second backup retires only the fresh pending work; importing restored data is idempotent.
 
         const next = await app.nativeRuntime.runPromise((await target.api()).createBackup());
 
-        assert.equal(next.scope.sessions, backup.scope.sessions);
-        assert.equal(next.scope.tombstones, 0);
+        assert.strictEqual(next.scope.sessions, backup.scope.sessions);
+        assert.strictEqual(next.scope.tombstones, 0);
       } finally {
         await server.close();
         await target?.close();
@@ -254,12 +248,11 @@ testStable(
 
       const restored = await target.app.nativeRuntime.runPromise(Conversations);
 
-      assert.deepEqual(
+      expect(
         await target.app.nativeRuntime.runPromise(
           restored.inspectSessionContext({ requestId: capture.requestId })
-        ),
-        capture
-      );
+        )
+      ).toStrictEqual(capture);
 
       const error = await target.app.nativeRuntime.runPromise(
         Effect.flip(
@@ -271,8 +264,8 @@ testStable(
         )
       );
 
-      assert.equal(error.kind, 'not_found');
-      assert.equal(
+      assert.ok(error.kind === 'not_found');
+      assert.strictEqual(
         target.app.store.db.orm.select().from(s.material_generation_requests).all().length,
         0
       );
@@ -376,21 +369,19 @@ testStable(
 
       const c = await app.nativeRuntime.runPromise(Conversations);
 
-      assert.deepEqual(
-        await app.nativeRuntime.runPromise(c.message(requested.request.messageId)),
-        before
-      );
-      assert.deepEqual(
+      expect(
+        await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
+      ).toStrictEqual(before);
+      expect(
         await app.nativeRuntime.runPromise(
           c.replyVersion({
             sessionId: requested.session.id,
             messageId: requested.request.messageId,
             versionId: requested.request.versionId
           })
-        ),
-        { state: 'retired', requestId: requested.request.requestId }
-      );
-      assert.equal(
+        )
+      ).toStrictEqual({ state: 'retired', requestId: requested.request.requestId });
+      assert.ok(
         (
           await app.nativeRuntime.runPromise(
             Effect.flip(
@@ -402,24 +393,21 @@ testStable(
               })
             )
           )
-        ).kind,
-        'not_found'
+        ).kind === 'not_found'
       );
-      assert.deepEqual(
+      expect(
         await app.nativeRuntime.runPromise(
           c.inspectReplySnapshot({ requestId: requested.request.requestId })
-        ),
-        snapshot
-      );
-      assert.equal(
+        )
+      ).toStrictEqual(snapshot);
+      assert.ok(
         (
           await app.nativeRuntime.runPromise(
             Effect.flip(c.replySnapshot({ requestId: requested.request.requestId }))
           )
-        ).kind,
-        'not_found'
+        ).kind === 'not_found'
       );
-      assert.equal(
+      assert.ok(
         (
           await app.nativeRuntime.runPromise(
             Effect.flip(
@@ -435,13 +423,11 @@ testStable(
               )
             )
           )
-        ).kind,
-        'not_found'
+        ).kind === 'not_found'
       );
-      assert.deepEqual(
-        await app.nativeRuntime.runPromise(c.message(requested.request.messageId)),
-        before
-      );
+      expect(
+        await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
+      ).toStrictEqual(before);
     } finally {
       await target?.close();
       await source.close();

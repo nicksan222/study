@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
@@ -77,7 +76,7 @@ testStable('void and await do not execute Effects but terminal runtime pipelines
       "import { Effect } from 'effect'; Effect.sync(() => work()).pipe(Effect.runSync); void Effect.sync(() => work()).pipe(Effect.runPromise);"
   });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
@@ -93,7 +92,7 @@ testStable('enforces the Effect contract in browser operations', () => {
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 testStable('consumes v4 constructors, scheduler values and untraced operations', () => {

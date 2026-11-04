@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
+import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -15,11 +14,11 @@ testStable('views cannot fetch, run page hooks or own application state', () => 
     true
   );
 
-  assert.equal(diagnostics.length, 9, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
 });
 
 testStable('views accept presentation hooks, declarative links and type-only contracts', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-presentation-purity',
       {
@@ -27,9 +26,8 @@ testStable('views accept presentation hooks, declarative links and type-only con
         'apps/web/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable(
@@ -52,12 +50,12 @@ testStable(
       true
     );
 
-    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
 testStable('presentation permits shadowed names and prop callbacks', () => {
-  assert.deepEqual(
+  expect(
     lintRule(
       'web-presentation-purity',
       {
@@ -68,9 +66,8 @@ testStable('presentation permits shadowed names and prop callbacks', () => {
     `
       },
       true
-    ),
-    []
-  );
+    )
+  ).toStrictEqual([]);
 });
 
 testStable('extension-correct localization aliases remain presentation-safe', () => {
@@ -84,5 +81,5 @@ testStable('extension-correct localization aliases remain presentation-safe', ()
     true
   );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

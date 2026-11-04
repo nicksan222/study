@@ -13,14 +13,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import type { ProjectId } from '@study/contracts/ids';
 import { ProjectsRpc } from '@study/contracts/projects/rpc';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/service/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -43,31 +43,29 @@ testStable('native RPC handlers return projects and typed failures', async () =>
           const client = yield* RpcTest.makeClient(ProjectsRpc, { flatten: true });
           const id = 999n as ProjectId;
 
-          assert.deepEqual(
-            (yield* Effect.flip(client('projects.project', { id }))).kind,
+          expect((yield* Effect.flip(client('projects.project', { id }))).kind).toStrictEqual(
             'not_found'
           );
           assert.ok(Option.isNone(yield* client('projects.findProject', { id })));
-          assert.deepEqual(
-            (yield* Effect.flip(client('projects.createProject', { name: ' ' }))).kind,
-            'invalid_input'
-          );
+          expect(
+            (yield* Effect.flip(client('projects.createProject', { name: ' ' }))).kind
+          ).toStrictEqual('invalid_input');
           const created = yield* client('projects.createProject', { name: 'Test' });
 
-          assert.deepEqual(created.icon, { kind: 'automatic', color: 'neutral' });
+          expect(created.icon).toStrictEqual({ kind: 'automatic', color: 'neutral' });
           const custom = yield* client('projects.setIcon', {
             id: created.id,
             icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
           });
 
-          assert.deepEqual(custom.icon, { kind: 'monogram', value: 'BIO', color: 'neutral' });
-          assert.deepEqual((yield* client('projects.project', { id: created.id })).icon, {
+          expect(custom.icon).toStrictEqual({ kind: 'monogram', value: 'BIO', color: 'neutral' });
+          expect((yield* client('projects.project', { id: created.id })).icon).toStrictEqual({
             kind: 'monogram',
             value: 'BIO',
             color: 'neutral'
           });
           yield* client('projects.renameProject', { id: created.id, name: 'Cell Biology' });
-          assert.deepEqual((yield* client('projects.project', { id: created.id })).icon, {
+          expect((yield* client('projects.project', { id: created.id })).icon).toStrictEqual({
             kind: 'monogram',
             value: 'BIO',
             color: 'neutral'
@@ -77,17 +75,16 @@ testStable('native RPC handlers return projects and typed failures', async () =>
             icon: { kind: 'automatic', color: 'neutral' }
           });
 
-          assert.deepEqual(automatic.icon, { kind: 'automatic', color: 'neutral' });
-          assert.deepEqual(automatic.name, 'Cell Biology');
-          assert.deepEqual(
+          expect(automatic.icon).toStrictEqual({ kind: 'automatic', color: 'neutral' });
+          expect(automatic.name).toStrictEqual('Cell Biology');
+          expect(
             (yield* Effect.flip(
               client('projects.setIcon', {
                 id,
                 icon: { kind: 'monogram', value: 'A', color: 'neutral' }
               })
-            )).kind,
-            'not_found'
-          );
+            )).kind
+          ).toStrictEqual('not_found');
         }).pipe(Effect.provide(handlers))
       )
     );

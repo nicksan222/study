@@ -11,16 +11,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { failureSchema } from '@study/contracts/errors';
 import { sourceProcessingRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Exit, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import {
@@ -78,7 +78,7 @@ testStable(
 
       const event = decodeEvent(persistedEvent.payload);
 
-      if (event.type !== 'RecordingPostRequested') throw new Error('Expected recording event');
+      assert.ok(!(event.type !== 'RecordingPostRequested'), 'Expected recording event');
 
       await Effect.runPromise(
         Effect.scoped(
@@ -181,10 +181,9 @@ testStable(
 
             const sourceEvent = decodeEvent(sourceEventRow.payload);
 
-            if (sourceEvent.type !== 'SourceProcessingRequested')
-              throw new Error('Expected source event');
+            assert.ok(!(sourceEvent.type !== 'SourceProcessingRequested'), 'Expected source event');
 
-            assert.equal(sourceEvent.correlationId, event.correlationId);
+            assert.strictEqual(sourceEvent.correlationId, event.correlationId);
 
             yield* engine.execute(sourceReader, {
               executionId: 'shared-source-reader',
@@ -201,25 +200,31 @@ testStable(
               payload: { event: deletionEvent(fixture, saved.session.id) }
             });
 
-            assert.equal((yield* chats.sessionDeletion(saved.session.id)).status, 'completed');
+            assert.ok((yield* chats.sessionDeletion(saved.session.id)).status === 'completed');
 
-            assert.equal(
-              workflowStore(fixture.context).execution('recording-in-flight')?.status,
-              'cancelled'
+            assert.ok(
+              workflowStore(fixture.context).execution('recording-in-flight')?.status ===
+                'cancelled'
             );
 
-            assert.equal(
-              workflowStore(fixture.context).execution('shared-source-reader')?.status,
-              'suspended'
+            assert.ok(
+              workflowStore(fixture.context).execution('shared-source-reader')?.status ===
+                'suspended'
             );
 
-            assert.equal(fixture.context.db.orm.select().from(s.recordings).all().length, 0);
+            assert.strictEqual(fixture.context.db.orm.select().from(s.recordings).all().length, 0);
 
-            assert.equal(fixture.context.db.orm.select().from(s.recording_chunks).all().length, 0);
+            assert.strictEqual(
+              fixture.context.db.orm.select().from(s.recording_chunks).all().length,
+              0
+            );
 
-            assert.equal(fixture.context.db.orm.select().from(s.recording_posts).all().length, 0);
+            assert.strictEqual(
+              fixture.context.db.orm.select().from(s.recording_posts).all().length,
+              0
+            );
 
-            assert.equal(
+            assert.strictEqual(
               fixture.context.db.orm.select().from(s.conversation_recording_posts).all().length,
               0
             );
@@ -231,7 +236,7 @@ testStable(
               exit: Exit.void
             });
 
-            assert.equal(
+            assert.strictEqual(
               workflowStore(fixture.context).deferred('recording-in-flight', recordingGate.name),
               undefined
             );
@@ -251,7 +256,7 @@ testStable(
               )
             );
 
-            assert.equal(rejected.kind, 'invalid_input');
+            assert.ok(rejected.kind === 'invalid_input');
 
             yield* engine.deferredDone(sourceGate, {
               workflowName: sourceReader._tag,
@@ -265,19 +270,18 @@ testStable(
               payload: { event: sourceEvent }
             });
 
-            assert.deepEqual(bytes, snapshot.bytes);
+            expect(bytes).toStrictEqual(snapshot.bytes);
 
-            assert.deepEqual(
-              (yield* sources.sourceSnapshot({ id: imported.source_id, revision: 1 })).bytes,
-              snapshot.bytes
-            );
+            expect(
+              (yield* sources.sourceSnapshot({ id: imported.source_id, revision: 1 })).bytes
+            ).toStrictEqual(snapshot.bytes);
 
-            assert.equal(
+            assert.strictEqual(
               fixture.context.db.orm.select().from(s.source_recording_imports).all().length,
               1
             );
 
-            assert.equal(
+            assert.strictEqual(
               fixture.context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -293,7 +297,7 @@ testStable(
 
       fixture.reopen();
 
-      assert.equal(
+      assert.strictEqual(
         dispatchPending(
           fixture.context,
           [
@@ -313,7 +317,7 @@ testStable(
 
       const native = workflowStore(fixture.context);
 
-      assert.equal(native.claim('recording-in-flight', 'stale-recording-owner'), false);
+      assert.ok(native.claim('recording-in-flight', 'stale-recording-owner') === false);
 
       native.checkpoint(
         'recording-in-flight',
@@ -332,12 +336,12 @@ testStable(
         )
       );
 
-      assert.equal(
-        native.saveDeferred('recording-in-flight', 'late-recording', JSON.stringify({ marker })),
-        false
+      assert.ok(
+        native.saveDeferred('recording-in-flight', 'late-recording', JSON.stringify({ marker })) ===
+          false
       );
 
-      assert.equal(
+      assert.strictEqual(
         fixture.context.db.orm.select().from(s.conversation_recording_posts).all().length,
         0
       );

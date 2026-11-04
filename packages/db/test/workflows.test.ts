@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
-
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
+import { assert } from 'vite-plus/test';
 
 import {
   workflow_executions,
@@ -21,6 +20,6 @@ testStable('workflow journals define durable identities and foreign keys', () =>
 
     assert.ok(config.primaryKeys.length || config.columns.some((column) => column.primary));
 
-    if (table !== workflow_executions) assert.equal(config.foreignKeys.length, 1);
+    if (table !== workflow_executions) assert.strictEqual(config.foreignKeys.length, 1);
   }
 });

@@ -10,15 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
-
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Exit, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
+import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
@@ -62,16 +61,14 @@ testStable(
             const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
             const status = yield* client('conversations.deleteSession', { id: saved.session.id });
 
-            assert.equal(status.status, 'pending');
+            assert.ok(status.status === 'pending');
 
-            assert.deepEqual(
-              yield* client('conversations.sessionDeletion', { id: saved.session.id }),
-              status
-            );
-            assert.deepEqual(
-              yield* client('conversations.retrySessionDeletion', { id: saved.session.id }),
-              status
-            );
+            expect(
+              yield* client('conversations.sessionDeletion', { id: saved.session.id })
+            ).toStrictEqual(status);
+            expect(
+              yield* client('conversations.retrySessionDeletion', { id: saved.session.id })
+            ).toStrictEqual(status);
             const rejected = [
               client('conversations.renameSession', {
                 id: saved.session.id,
@@ -93,27 +90,28 @@ testStable(
             ];
 
             for (const action of rejected)
-              assert.equal((yield* Effect.flip(action)).kind, 'not_found');
+              assert.ok((yield* Effect.flip(action)).kind === 'not_found');
 
-            assert.deepEqual(
-              yield* client('conversations.deleteSession', { id: saved.session.id }),
-              status
-            );
+            expect(
+              yield* client('conversations.deleteSession', { id: saved.session.id })
+            ).toStrictEqual(status);
             assert.ok(
               Option.isNone(yield* client('conversations.findSession', { id: saved.session.id }))
             );
-            assert.equal((yield* client('conversations.sessions', { limit: 10 })).items.length, 1);
-            assert.equal(
+            assert.strictEqual(
+              (yield* client('conversations.sessions', { limit: 10 })).items.length,
+              1
+            );
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.postMessage', {
                   sessionId: saved.session.id,
                   text: 'late message',
                   requestReply: false
                 })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
-            assert.equal(
+            assert.ok(
               (yield* Effect.flip(
                 client('conversations.captureSessionContext', {
                   sessionId: saved.session.id,
@@ -121,8 +119,7 @@ testStable(
                   instruction: '',
                   preferences: {}
                 })
-              )).kind,
-              'not_found'
+              )).kind === 'not_found'
             );
 
             return status;
@@ -131,7 +128,7 @@ testStable(
       );
       // The original generation event is still queued, but may never start after acceptance.
 
-      assert.equal(
+      assert.strictEqual(
         dispatchPending(
           fixture.context,
           [
@@ -155,25 +152,24 @@ testStable(
           const chats = yield* Conversations;
           const status = yield* chats.sessionDeletion(saved.session.id);
 
-          assert.equal(status.status, 'completed');
-          assert.equal(status.operationId, accepted.operationId);
+          assert.ok(status.status === 'completed');
+          assert.strictEqual(status.operationId, accepted.operationId);
           assert.ok(status.completedAt !== null);
-          assert.deepEqual(yield* chats.deleteSession(saved.session.id), status);
-          assert.equal(
-            (yield* (yield* Documents).version({ id: saved.library.version.id })).status,
-            'published'
+          expect(yield* chats.deleteSession(saved.session.id)).toStrictEqual(status);
+          assert.ok(
+            (yield* (yield* Documents).version({ id: saved.library.version.id })).status ===
+              'published'
           );
           const retainedThread = yield* chats.thread({ sessionId: saved.other.id, limit: 10 });
           const otherMessage = retainedThread.items[0];
 
-          assert.deepEqual(retainedThread, otherThread);
+          expect(retainedThread).toStrictEqual(otherThread);
 
           assert.ok(otherMessage);
-          assert.equal(otherMessage.sessionId, saved.other.id);
-          assert.equal(
+          assert.strictEqual(otherMessage.sessionId, saved.other.id);
+          assert.ok(
             otherMessage.versions.find((version) => version.id === otherMessage.activeVersionId)
-              ?.text,
-            'Other conversation'
+              ?.text === 'Other conversation'
           );
 
           return status;
@@ -182,15 +178,14 @@ testStable(
 
       assertScrubbed(fixture, marker, true);
       fixture.reopen();
-      assert.deepEqual(
+      expect(
         await Effect.runPromise(
           Effect.flatMap(Conversations, (chats) => chats.sessionDeletion(saved.session.id)).pipe(
             Effect.provide(fixture.domain())
           )
-        ),
-        done
-      );
-      assert.equal(
+        )
+      ).toStrictEqual(done);
+      assert.strictEqual(
         dispatchPending(
           fixture.context,
           [
@@ -231,19 +226,19 @@ testStable(
           const chats = yield* Conversations;
 
           yield* Effect.flip(chats.deleteSession(saved.session.id));
-          assert.equal((yield* chats.session(saved.session.id)).id, saved.session.id);
-          assert.equal(
-            (yield* chats.sessionContext({ requestId: saved.capture.requestId })).instruction,
-            'ROLLBACK_DELETE_8-instruction'
+          assert.strictEqual((yield* chats.session(saved.session.id)).id, saved.session.id);
+          assert.ok(
+            (yield* chats.sessionContext({ requestId: saved.capture.requestId })).instruction ===
+              'ROLLBACK_DELETE_8-instruction'
           );
         }).pipe(Effect.provide(fixture.domain()))
       );
-      assert.equal(fixture.context.db.orm.select().from(s.session_deletions).all().length, 0);
-      assert.equal(
+      assert.strictEqual(fixture.context.db.orm.select().from(s.session_deletions).all().length, 0);
+      assert.strictEqual(
         fixture.context.db.orm.select().from(s.workflow_retired_correlations).all().length,
         0
       );
-      assert.equal(
+      assert.strictEqual(
         fixture.context.db.orm.select().from(s.workflow_retired_correlations).all().length,
         0
       );
@@ -278,9 +273,9 @@ testStable(
           const chats = yield* Conversations;
           const failed = yield* chats.sessionDeletion(saved.session.id);
 
-          assert.equal(failed.status, 'failed');
-          assert.equal(failed.completedAt, null);
-          assert.equal(failed.errorKind, 'internal');
+          assert.ok(failed.status === 'failed');
+          assert.ok(failed.completedAt === null);
+          assert.ok(failed.errorKind === 'internal');
           assert.ok(
             !JSON.stringify(failed, (_, value) =>
               typeof value === 'bigint' ? String(value) : value
@@ -295,22 +290,21 @@ testStable(
           const chats = yield* Conversations;
           const retry = yield* chats.retrySessionDeletion(saved.session.id);
 
-          assert.equal(retry.operationId, accepted.operationId);
-          assert.equal(retry.attempt, 2);
-          assert.equal(retry.status, 'pending');
-          assert.deepEqual(yield* chats.retrySessionDeletion(saved.session.id), retry);
+          assert.strictEqual(retry.operationId, accepted.operationId);
+          assert.strictEqual(retry.attempt, 2);
+          assert.ok(retry.status === 'pending');
+          expect(yield* chats.retrySessionDeletion(saved.session.id)).toStrictEqual(retry);
         }).pipe(Effect.provide(fixture.domain()))
       );
       await cleanup(fixture, saved.session.id);
       assertScrubbed(fixture, marker, true);
-      assert.equal(
-        await Effect.runPromise(
+      assert.ok(
+        (await Effect.runPromise(
           Effect.flatMap(Conversations, (chats) => chats.sessionDeletion(saved.session.id)).pipe(
             Effect.map((value) => value.status),
             Effect.provide(fixture.domain())
           )
-        ),
-        'completed'
+        )) === 'completed'
       );
     } finally {
       await fixture.close();
@@ -343,13 +337,12 @@ testStable(
         )
       );
       await cleanup(fixture, saved.session.id).catch(() => undefined);
-      assert.equal(
-        workflowStore(fixture.context).execution(`cleanup/${accepted.operationId}/1`)?.status,
-        'completed'
+      assert.ok(
+        workflowStore(fixture.context).execution(`cleanup/${accepted.operationId}/1`)?.status ===
+          'completed'
       );
-      assert.equal(
-        fixture.context.db.orm.select().from(s.session_deletions).get()?.status,
-        'pending'
+      assert.ok(
+        fixture.context.db.orm.select().from(s.session_deletions).get()?.status === 'pending'
       );
       fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_private_retirement'));
       fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_failure_settlement'));
@@ -359,17 +352,16 @@ testStable(
           const chats = yield* Conversations;
           const retry = yield* chats.retrySessionDeletion(saved.session.id);
 
-          assert.equal(retry.operationId, accepted.operationId);
-          assert.equal(retry.attempt, 2);
-          assert.equal(retry.status, 'pending');
-          assert.deepEqual(yield* chats.retrySessionDeletion(saved.session.id), retry);
+          assert.strictEqual(retry.operationId, accepted.operationId);
+          assert.strictEqual(retry.attempt, 2);
+          assert.ok(retry.status === 'pending');
+          expect(yield* chats.retrySessionDeletion(saved.session.id)).toStrictEqual(retry);
         }).pipe(Effect.provide(fixture.domain()))
       );
       await cleanup(fixture, saved.session.id);
       assertScrubbed(fixture, marker, true);
-      assert.equal(
-        fixture.context.db.orm.select().from(s.session_deletions).get()?.status,
-        'completed'
+      assert.ok(
+        fixture.context.db.orm.select().from(s.session_deletions).get()?.status === 'completed'
       );
     } finally {
       await fixture.close();
@@ -404,7 +396,7 @@ testStable(
         .get()!;
 
       assert.ok(receipt.result_version_id);
-      assert.equal(
+      assert.strictEqual(
         fixture.context.db.orm
           .select()
           .from(s.study_document_versions)
@@ -426,7 +418,7 @@ testStable(
       );
       await cleanup(fixture, saved.session.id);
       assertScrubbed(fixture, marker, true);
-      assert.equal(
+      assert.strictEqual(
         fixture.context.db.orm
           .select()
           .from(s.study_document_transform_requests)
@@ -440,7 +432,7 @@ testStable(
             id: receipt.result_version_id!
           });
 
-          assert.equal(result.status, 'published');
+          assert.ok(result.status === 'published');
           assert.ok(
             JSON.stringify(result.document, (_, value) =>
               typeof value === 'bigint' ? String(value) : value
@@ -456,13 +448,13 @@ testStable(
         .find((row) => row.correlationId === saved.request.id);
 
       assert.ok(libraryEvent);
-      assert.equal(libraryEvent.payload, '{}');
+      assert.ok(libraryEvent.payload === '{}');
 
-      assert.deepEqual(await libraryState(fixture, retainedIds), beforeDeletion);
+      expect(await libraryState(fixture, retainedIds)).toStrictEqual(beforeDeletion);
 
       fixture.reopen();
 
-      assert.deepEqual(await libraryState(fixture, retainedIds), beforeDeletion);
+      expect(await libraryState(fixture, retainedIds)).toStrictEqual(beforeDeletion);
 
       const native = workflowStore(fixture.context);
 
@@ -474,9 +466,9 @@ testStable(
         ),
         undefined
       );
-      assert.equal(native.execution('independent-library-consumer')?.status, 'running');
+      assert.ok(native.execution('independent-library-consumer')?.status === 'running');
 
-      assert.equal(native.claim('completed-before-delete', 'stale-owner'), false);
+      assert.ok(native.claim('completed-before-delete', 'stale-owner') === false);
       native.checkpoint(
         'completed-before-delete',
         'stale-owner',
@@ -492,9 +484,8 @@ testStable(
           JSON.stringify({ marker })
         )
       );
-      assert.equal(
-        native.saveDeferred('completed-before-delete', 'late', JSON.stringify({ marker })),
-        false
+      assert.ok(
+        native.saveDeferred('completed-before-delete', 'late', JSON.stringify({ marker })) === false
       );
       assert.throws(() =>
         native.start(
@@ -538,8 +529,10 @@ testStable(
           )
         )
       );
-      await assert.rejects(fixture.executeAuthored(event, 'late-provider-delete'));
-      assert.equal(fixture.bodies.length, 2);
+      await expect(fixture.executeAuthored(event, 'late-provider-delete')).rejects.toSatisfy(
+        () => true
+      );
+      assert.strictEqual(fixture.bodies.length, 2);
       await cleanup(fixture, saved.session.id);
       const request = fixture.context.db.orm
         .select()
@@ -547,8 +540,8 @@ testStable(
         .where(eq(s.study_document_transform_requests.id, saved.request.id))
         .get();
 
-      assert.equal(request?.result_version_id, null);
-      assert.equal(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.ok(request?.result_version_id === null);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
       assertScrubbed(fixture, marker, true);
 
       assertScrubbed(fixture, 'Late unpublished response');
@@ -627,14 +620,13 @@ testStable(
               executionId: 'suspended-cleanup',
               payload: { event: deletion }
             });
-            assert.equal((yield* chats.sessionDeletion(saved.session.id)).status, 'completed');
-            assert.equal(
-              workflowStore(fixture.context).execution('suspended-session-run')?.status,
-              'cancelled'
+            assert.ok((yield* chats.sessionDeletion(saved.session.id)).status === 'completed');
+            assert.ok(
+              workflowStore(fixture.context).execution('suspended-session-run')?.status ===
+                'cancelled'
             );
-            assert.equal(
-              workflowStore(fixture.context).execution('independent-run')?.status,
-              'suspended'
+            assert.ok(
+              workflowStore(fixture.context).execution('independent-run')?.status === 'suspended'
             );
             yield* engine.deferredDone(gate, {
               workflowName: documentTransformWorkflow._tag,
@@ -642,7 +634,7 @@ testStable(
               deferredName: gate.name,
               exit: Exit.void
             });
-            assert.equal(
+            assert.strictEqual(
               workflowStore(fixture.context).deferred('suspended-session-run', gate.name),
               undefined
             );
@@ -702,7 +694,7 @@ testStable(
           };
           const apply = yield* chats.applyDocumentProposal(applyValue);
 
-          assert.equal(apply.outcome, 'applied');
+          assert.ok(apply.outcome === 'applied');
           yield* chats.deleteSession(saved.session.id);
 
           return { keep, apply, applyValue };
@@ -719,21 +711,18 @@ testStable(
         .all();
 
       await cleanup(fixture, saved.session.id);
-      assert.deepEqual(
-        fixture.context.db.orm.select().from(s.study_document_proposals).all(),
+      expect(fixture.context.db.orm.select().from(s.study_document_proposals).all()).toStrictEqual(
         retainedProposal
       );
-      assert.deepEqual(
-        fixture.context.db.orm.select().from(s.study_document_proposal_receipts).all(),
-        retainedReceipts
-      );
-      assert.equal(
+      expect(
+        fixture.context.db.orm.select().from(s.study_document_proposal_receipts).all()
+      ).toStrictEqual(retainedReceipts);
+      assert.ok(
         fixture.context.db.orm
           .select()
           .from(s.study_document_versions)
           .where(eq(s.study_document_versions.id, retained.apply.proposedVersionId))
-          .get()?.status,
-        'draft'
+          .get()?.status === 'draft'
       );
       assertScrubbed(fixture, marker, true);
       fixture.reopen();
@@ -747,7 +736,7 @@ testStable(
             retained.apply.resultVersionId!,
             saved.library.version.id
           ])
-            assert.equal((yield* documents.version({ id })).status, 'published');
+            assert.ok((yield* documents.version({ id })).status === 'published');
 
           const kept = yield* chats.keepDocumentProposal({
             requestId: saved.request.id,
@@ -756,19 +745,18 @@ testStable(
           });
           const applied = yield* chats.applyDocumentProposal(retained.applyValue);
 
-          assert.deepEqual(kept, { ...retained.keep, replayed: true });
-          assert.deepEqual(applied, { ...retained.apply, replayed: true });
-          assert.equal(
+          expect(kept).toStrictEqual({ ...retained.keep, replayed: true });
+          expect(applied).toStrictEqual({ ...retained.apply, replayed: true });
+          assert.ok(
             (yield* Effect.flip(
               chats.keepDocumentProposal({
                 requestId: saved.request.id,
                 key: 'new-after-delete',
                 title: 'Late copy'
               })
-            )).kind,
-            'not_found'
+            )).kind === 'not_found'
           );
-          assert.equal(
+          assert.strictEqual(
             (yield* documents.version({ id: applied.resultVersionId! })).citations.length,
             1
           );

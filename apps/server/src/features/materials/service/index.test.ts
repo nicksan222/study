@@ -14,16 +14,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sessions, workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/node';
+import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
+import { expect } from 'vite-plus/test';
+import { assert } from 'vite-plus/test';
 
 import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
@@ -65,7 +66,7 @@ testStable(
             bytes: new TextEncoder().encode('Canonical source')
           });
 
-          assert.equal(
+          assert.strictEqual(
             (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
               .items.length,
             0
@@ -102,17 +103,17 @@ testStable(
             publish: false
           });
 
-          assert.equal(first.version.status, 'draft');
-          assert.equal(
-            (yield* Effect.flip(materials.deleteDraft({ id: first.version.id }))).kind,
-            'invalid_input'
+          assert.ok(first.version.status === 'draft');
+          assert.ok(
+            (yield* Effect.flip(materials.deleteDraft({ id: first.version.id }))).kind ===
+              'invalid_input'
           );
           const published = yield* materials.publishVersion({ id: first.version.id });
 
-          assert.equal(published.status, 'published');
-          assert.equal(
-            (yield* Effect.flip(materials.replaceDraft({ id: published.id, content }))).kind,
-            'invalid_input'
+          assert.ok(published.status === 'published');
+          assert.ok(
+            (yield* Effect.flip(materials.replaceDraft({ id: published.id, content }))).kind ===
+              'invalid_input'
           );
           const next = yield* materials.createVersion({
             materialId: first.id,
@@ -141,12 +142,12 @@ testStable(
           });
           const citations = yield* materials.citations({ id: next.id, limit: 1 });
 
-          assert.equal(citations.nextCursor, 1n);
-          assert.equal(
+          assert.strictEqual(citations.nextCursor, 1n);
+          assert.strictEqual(
             (yield* materials.citations({ id: next.id, limit: 1, cursor: 1n })).items[0]?.marker,
             2n
           );
-          assert.deepEqual((yield* materials.materialVersion({ id: next.id })).inputs, [input]);
+          expect((yield* materials.materialVersion({ id: next.id })).inputs).toStrictEqual([input]);
           yield* materials.publishVersion({ id: next.id });
           const foreign = yield* docs.create({
             createKey: randomUUID(),
@@ -168,7 +169,7 @@ testStable(
             inputs: [foreignInput]
           });
 
-          assert.deepEqual(shared.inputs, [foreignInput]);
+          expect(shared.inputs).toStrictEqual([foreignInput]);
           const session = context.db.orm
             .insert(sessions)
             .values({
@@ -181,26 +182,23 @@ testStable(
             .get();
 
           yield* materials.attach({ sessionId: session.id, materialId: first.id });
-          assert.deepEqual(
+          expect(
             (yield* materials.reorder({ sessionId: session.id, materialIds: [first.id] }))
-              .materialIds,
-            [first.id]
-          );
-          assert.equal(
+              .materialIds
+          ).toStrictEqual([first.id]);
+          assert.ok(
             (yield* Effect.flip(materials.reorder({ sessionId: session.id, materialIds: [] })))
-              .kind,
-            'invalid_input'
+              .kind === 'invalid_input'
           );
           yield* materials.detach({ sessionId: session.id, materialId: first.id });
           yield* materials.archive({ id: first.id });
-          assert.equal(
-            (yield* Effect.flip(materials.rename({ id: first.id, title: 'Rejected' }))).kind,
-            'invalid_input'
+          assert.ok(
+            (yield* Effect.flip(materials.rename({ id: first.id, title: 'Rejected' }))).kind ===
+              'invalid_input'
           );
           yield* materials.unarchive({ id: first.id });
-          assert.equal(
-            (yield* materials.rename({ id: first.id, title: '  Renamed  ' })).title,
-            'Renamed'
+          assert.ok(
+            (yield* materials.rename({ id: first.id, title: '  Renamed  ' })).title === 'Renamed'
           );
           const page = yield* materials.materials({
             projectId: project.id,
@@ -208,9 +206,9 @@ testStable(
             limit: 1
           });
 
-          assert.equal(page.items.length, 1);
+          assert.strictEqual(page.items.length, 1);
           assert.ok(Option.isSome(yield* materials.findMaterial({ id: first.id })));
-          assert.equal(
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(workflowEvents)
@@ -250,12 +248,12 @@ testStable('native materials RPC uses the service and maps canonical failures', 
           content
         });
 
-        assert.equal((yield* client('materials.material', { id: material.id })).title, 'Native');
+        assert.ok((yield* client('materials.material', { id: material.id })).title === 'Native');
         const failure = yield* Effect.flip(
           client('materials.replaceDraft', { id: material.version.id, content })
         );
 
-        assert.equal(failure.kind, 'invalid_input');
+        assert.ok(failure.kind === 'invalid_input');
         const exportFailure = yield* Effect.flip(
           client('materials.exportMaterialVersion', {
             id: Schema.decodeUnknownSync(
@@ -265,7 +263,7 @@ testStable('native materials RPC uses the service and maps canonical failures', 
           })
         );
 
-        assert.equal(exportFailure.kind, 'not_found');
+        assert.ok(exportFailure.kind === 'not_found');
       }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
     );
   } finally {
