@@ -20,7 +20,7 @@ testStable.each(['english', 'italian'] as const)(
 
     expect(await screen.findByRole('textbox', { name: t.SessionCompose })).toBeVisible();
     const main = within(screen.getByRole('main'));
-    expect(main.getByRole('button', { name: t.SessionNew })).toBeEnabled();
+    expect(main.getByRole('button', { name: t.SessionSaveNote })).toBeDisabled();
     expect(main.getByLabelText(t.SessionAttachFiles)).toBeInTheDocument();
   }
 );

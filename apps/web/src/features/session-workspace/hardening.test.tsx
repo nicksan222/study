@@ -276,11 +276,11 @@ testStable.each(['pending', 'failed', 'completed'] as const)(
       await waitFor(() => expect(rpc.retryDeletion).toHaveBeenCalledWith({ id }));
       await screen.findByText('SessionDeleting');
     } else {
-      await screen.findByText(status === 'pending' ? 'SessionDeleting' : 'SessionStartTitle');
+      await screen.findByText(status === 'pending' ? 'SessionDeleting' : 'SessionNotesTitle');
 
       if (status === 'completed') {
         expect(screen.queryByText('SessionDeleteHelp')).not.toBeInTheDocument();
-        expect(await screen.findByRole('button', { name: 'SessionNew' })).toBeEnabled();
+        expect(await screen.findByRole('textbox', { name: 'SessionCompose' })).toBeEnabled();
         await waitFor(() => expect(view.router.state.location.pathname).toBe('/sessions'));
         expect(view.router.state.location.search).toEqual({ project: '42' });
       }
@@ -299,11 +299,15 @@ testStable(
     rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
     const first = mount(<SessionWorkspace />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'SessionNew' }));
+    fireEvent.change(await openStarterComposer(), { target: { value: 'First capture' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
     await screen.findByText('SessionCreationUncertain');
     first.unmount();
     mount(<SessionWorkspace />, first.client);
-    expect(await screen.findByRole('button', { name: 'SessionNew' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
     expect(
       screen.queryByRole('button', { name: 'SessionCreationReviewed' })
     ).not.toBeInTheDocument();
@@ -322,9 +326,11 @@ testStable(
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'LibraryRefresh' })[0]!);
     fireEvent.click(await screen.findByRole('button', { name: 'SessionCreationReviewed' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'SessionNew' })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+    );
     expect(rpc.create).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
     await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(2));
   }
 );
@@ -334,9 +340,13 @@ testStable(
   async () => {
     rpc.create.mockRejectedValue(new StudyError('invalid_input', 'Rejected before commit'));
     mount(<SessionWorkspace />);
-    fireEvent.click(await screen.findByRole('button', { name: 'SessionNew' }));
+    fireEvent.change(await openStarterComposer(), { target: { value: 'First capture' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
     await screen.findByRole('alert');
-    expect(screen.getByRole('button', { name: 'SessionNew' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled();
     expect(screen.queryByText('SessionCreationUncertain')).not.toBeInTheDocument();
     expect(rpc.create).toHaveBeenCalledTimes(1);
   }
@@ -945,15 +955,21 @@ testStable(
     const input = await openStarterComposer();
 
     fireEvent.change(input, { target: { value: 'Cell cycle lecture' } });
-    fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
     fireEvent.change(input, { target: { value: 'Cell cycle lecture — checkpoint question' } });
     await act(async () => creation.resolve({ id } as typeof sessionSchema.Type));
     await waitFor(() =>
-      expect(view.client.getQueryData(['session-drafts', String(id), 'note'])).toMatchObject({
-        text: 'Cell cycle lecture — checkpoint question'
-      })
+      expect(view.client.getQueryData(['session-start-draft'])).toBe(
+        'Cell cycle lecture — checkpoint question'
+      )
     );
-    expect(rpc.create).toHaveBeenCalledTimes(1);
+    expect(rpc.create).toHaveBeenCalledExactlyOnceWith({
+      project: undefined,
+      initialMessage: { text: 'Cell cycle lecture', sourceIds: [] }
+    });
   }
 );
 
@@ -964,12 +980,15 @@ testStable('retains the start draft through an uncertain creation and remount', 
   fireEvent.change(await openStarterComposer(), {
     target: { value: 'Keep these notes' }
   });
-  fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
   await screen.findByText('SessionCreationUncertain');
   first.unmount();
   mount(<SessionWorkspace />, first.client);
   expect(await openStarterComposer()).toHaveValue('Keep these notes');
-  expect(screen.getByRole('button', { name: 'SessionNew' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
   expect(rpc.create).toHaveBeenCalledTimes(1);
 });
 
@@ -993,10 +1012,14 @@ testStable('fences repeated start shortcuts before the creation receipt arrives'
   mount(<SessionWorkspace />);
   const input = await openStarterComposer();
 
+  fireEvent.change(input, { target: { value: 'First capture' } });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+  );
   fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
   fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
   await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
-  expect(screen.getByRole('button', { name: 'SessionNew' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
 });
 
 testStable(
@@ -1016,7 +1039,7 @@ testStable(
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const upload = vi
       .spyOn(workspaceQueries, 'uploadSource')
-      .mockReturnValue(new Promise(() => {}));
+      .mockResolvedValue({ id: 44n } as Awaited<ReturnType<typeof workspaceQueries.uploadSource>>);
     const view = mount(<SessionWorkspace />, cache(), `?project=${project}`);
     const file = new File(['Cell cycle'], 'lecture.txt', { type: 'text/plain' });
 
@@ -1025,20 +1048,29 @@ testStable(
       target: { files: [file] }
     });
     expect(await screen.findByText('lecture.txt')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
-    await waitFor(() => expect(rpc.create).toHaveBeenCalledWith({ project }));
-    expect(upload).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
+    await waitFor(() =>
+      expect(rpc.create).toHaveBeenCalledWith({
+        project,
+        initialMessage: { text: '', sourceIds: [44n] }
+      })
+    );
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(upload.mock.calls[0]?.[0]).toBe(file);
     await act(async () => creation.resolve({ id } as typeof sessionSchema.Type));
-    await waitFor(() => expect(upload).toHaveBeenCalledExactlyOnceWith(file));
-    expect(view.client.getQueryData(attachmentKey(id))).toMatchObject([
-      { file, state: 'uploading' }
-    ]);
-    expect(view.client.getQueryData(['session-start-draft', String(project), 'files'])).toEqual([]);
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(view.client.getQueryData(['session-start-draft', 'files'])).toEqual([]);
   }
 );
 
 testStable('retains selected files across an uncertain create and starter remount', async () => {
   rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
+  vi.spyOn(workspaceQueries, 'uploadSource').mockResolvedValue({ id: 44n } as Awaited<
+    ReturnType<typeof workspaceQueries.uploadSource>
+  >);
   const first = mount(<SessionWorkspace />);
   const file = new File(['Retain me'], 'notes.txt', { type: 'text/plain' });
 
@@ -1046,12 +1078,15 @@ testStable('retains selected files across an uncertain create and starter remoun
   fireEvent.change(await screen.findByLabelText('SessionAttachFiles'), {
     target: { files: [file] }
   });
-  fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeEnabled()
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
   await screen.findByText('SessionCreationUncertain');
   first.unmount();
   mount(<SessionWorkspace />, first.client);
   expect(await screen.findByText('notes.txt')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'SessionNew' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'SessionSaveNote' })).toBeDisabled();
   expect(rpc.create).toHaveBeenCalledTimes(1);
 });
 
@@ -1432,7 +1467,7 @@ testStable('announces completion once when deleting from the active workspace di
 
   rpc.deletion.mockResolvedValue(receipt);
   await act(async () => completion.resolve(receipt));
-  await screen.findByText('SessionStartTitle');
+  await screen.findByText('SessionNotesTitle');
   await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   expect(notify).toHaveBeenCalledExactlyOnceWith({ title: 'SessionDeleted', type: 'success' });
   await waitFor(() => expect(view.router.state.location.pathname).toBe('/sessions'));

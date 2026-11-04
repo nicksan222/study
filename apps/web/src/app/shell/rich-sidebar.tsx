@@ -195,11 +195,7 @@ function SettledSessions(
   const more = Math.min(25, Math.max(0, sessions.length - visible));
 
   return (
-    <SidebarUI.SessionGroup
-      title={t('SidebarSettled')}
-      count={sessions.length}
-      variant="settled"
-    >
+    <SidebarUI.SessionGroup title={t('SidebarSettled')} count={sessions.length} variant="settled">
       <SidebarUI.SettledRows ref={rows}>
         {sessions.slice(0, visible).map((session) => (
           <RichSession

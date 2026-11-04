@@ -24,26 +24,28 @@ function name(node: ESTree.Node): string {
   return '';
 }
 
+function loadingTag(node: ESTree.JSXOpeningElement, aliases: ReadonlySet<string>): boolean {
+  const tag =
+    node.name.type === 'JSXIdentifier'
+      ? node.name.name
+      : node.name.type === 'JSXMemberExpression'
+        ? node.name.property.name
+        : '';
+  return loadingName.test(tag) || aliases.has(tag);
+}
+
+function loadingKey(node: ESTree.Node | undefined): boolean {
+  return (
+    node?.type === 'Literal' &&
+    typeof node.value === 'string' &&
+    /^(?:Loading[A-Z]|Searching$)/.test(node.value)
+  );
+}
+
 function visual(node: ESTree.Node | null | undefined, aliases: ReadonlySet<string>): boolean {
   if (!node) return false;
-  if (node.type === 'JSXOpeningElement') {
-    const tag =
-      node.name.type === 'JSXIdentifier'
-        ? node.name.name
-        : node.name.type === 'JSXMemberExpression'
-          ? node.name.property.name
-          : '';
-    if (loadingName.test(tag) || aliases.has(tag)) return true;
-  }
-  if (node.type === 'CallExpression') {
-    const key = node.arguments[0];
-    if (
-      key?.type === 'Literal' &&
-      typeof key.value === 'string' &&
-      /^(?:Loading[A-Z]|Searching$)/.test(key.value)
-    )
-      return true;
-  }
+  if (node.type === 'JSXOpeningElement' && loadingTag(node, aliases)) return true;
+  if (node.type === 'CallExpression' && loadingKey(node.arguments[0])) return true;
   if (
     node.type === 'Literal' &&
     typeof node.value === 'string' &&
@@ -51,6 +53,26 @@ function visual(node: ESTree.Node | null | undefined, aliases: ReadonlySet<strin
   )
     return true;
   return children(node).some((child) => visual(child, aliases));
+}
+
+function conditionalVisual(
+  node: ESTree.Node | null | undefined,
+  aliases: ReadonlySet<string>
+): boolean {
+  return (
+    node?.type === 'ConditionalExpression' && loading(node.test) && visual(node.consequent, aliases)
+  );
+}
+
+function pageFunction(component: string, path: string): boolean {
+  return (
+    /(?:Page(?:View)?|Screen)$/.test(component) ||
+    (path.startsWith('routes/') && /^(?:RouteComponent|Component)$/.test(component))
+  );
+}
+
+function emptyReturn(node: ESTree.Node | null): boolean {
+  return !node || (node.type === 'Literal' && node.value === null);
 }
 
 function loading(node: ESTree.Node): boolean {
@@ -112,12 +134,7 @@ export default defineRule({
       },
       ArrowFunctionExpression(node) {
         if (!/(?:Page(?:View)?|Screen)$/.test(name(node))) return;
-        if (
-          node.body.type === 'ConditionalExpression' &&
-          loading(node.body.test) &&
-          visual(node.body.consequent, aliases)
-        )
-          context.report({ node: node.body, message });
+        if (conditionalVisual(node.body, aliases)) context.report({ node: node.body, message });
       },
       LogicalExpression(node) {
         const fn = owner(node);
@@ -130,22 +147,13 @@ export default defineRule({
         if (!fn) return;
         const component = name(fn);
         if (component === 'RoutePending') {
-          if (node.argument && !(node.argument.type === 'Literal' && node.argument.value === null))
-            context.report({ node, message });
+          if (!emptyReturn(node.argument)) context.report({ node, message });
           return;
         }
-        const page =
-          /(?:Page(?:View)?|Screen)$/.test(component) ||
-          (path.startsWith('routes/') && /^(?:RouteComponent|Component)$/.test(component));
-        if (!page) return;
+        if (!pageFunction(component, path)) return;
         if (initialReturn(node, fn) && visual(node.argument, aliases))
           context.report({ node, message });
-        if (
-          node.argument?.type === 'ConditionalExpression' &&
-          loading(node.argument.test) &&
-          visual(node.argument.consequent, aliases)
-        )
-          context.report({ node, message });
+        if (conditionalVisual(node.argument, aliases)) context.report({ node, message });
       }
     };
   }
