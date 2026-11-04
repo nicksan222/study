@@ -28,6 +28,7 @@ __pycache__/
 # Native crash dumps; do not ignore source directories named core.
 /core
 /core.[0-9]*
+/apps/desktop/src-tauri/core
 .env
 .env.local
 
