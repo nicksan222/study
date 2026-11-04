@@ -1,4 +1,3 @@
-import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import type { ComponentProps } from 'react';
@@ -25,10 +24,6 @@ function Kind(props: ComponentProps<'span'>) {
   return <span {...props} className="session-start-kind" />;
 }
 
-function Submit(props: ComponentProps<typeof Button>) {
-  return <Button {...props} className="ui-composer-submit" />;
-}
-
 function Recovery(props: ComponentProps<'section'>) {
   return <section {...props} className="session-start-recovery" />;
 }
@@ -47,7 +42,6 @@ export const SessionStarter = {
   Files,
   Attachment,
   Kind,
-  Submit,
   Recovery,
   Actions,
   Sessions

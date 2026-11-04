@@ -5,11 +5,10 @@ import { ComposerSurface } from '@study/ui/composer';
 import { HomeHub } from '@study/ui/home-hub';
 import { Loading } from '@study/ui/loading';
 import { SessionStarter } from '@study/ui/session-start';
-import { Spinner } from '@study/ui/spinner';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { ArrowUp, NotebookPen, Paperclip, X } from 'lucide-react';
+import { NotebookPen, Paperclip, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -138,8 +137,6 @@ export function SessionStart() {
   const { t } = useI18n();
   const view = useSessionStart();
   const { state, flow } = view;
-  const [capturing, setCapturing] = useState(false);
-  const showCapture = capturing || !!view.draft.data || view.files.data.length > 0;
 
   if (state.isError && !flow.data.uncertain && !flow.data.id) {
     return (
@@ -154,43 +151,15 @@ export function SessionStart() {
           <HomeHub.Title>{t('SessionStartTitle')}</HomeHub.Title>
           <HomeHub.Description>{t('SessionStartHelp')}</HomeHub.Description>
         </HomeHub.Header>
-        <HomeHub.Actions>
-          <Button onClick={view.beginSession} disabled={view.blocked} aria-busy={flow.data.pending}>
-            {flow.data.pending ? (
-              <Spinner label={t('SessionPending')} aria-hidden="true" />
-            ) : (
-              <NotebookPen size={16} aria-hidden="true" />
-            )}
-            {t('SessionNew')}
-          </Button>
-          {!showCapture && (
-            <Button variant="outline" onClick={() => setCapturing(true)} disabled={view.blocked}>
-              <Paperclip size={16} aria-hidden="true" />
-              {t('SessionStartWithNote')}
-            </Button>
-          )}
-        </HomeHub.Actions>
-        {showCapture && (
-          <section aria-label={t('SessionStartWithNote')}>
-            <StarterComposer view={view} />
-            <SessionStarter.Hint id="session-start-hint">
-              {t('SessionStartDraftHelp')}
-            </SessionStarter.Hint>
-            <WorkspaceFooter />
-          </section>
-        )}
+        <section aria-label={t('SessionStartWithNote')}>
+          <StarterComposer view={view} />
+          <SessionStarter.Hint id="session-start-hint">
+            {t('SessionStartDraftHelp')}
+          </SessionStarter.Hint>
+          <WorkspaceFooter />
+        </section>
         <CreationStatus view={view} />
         <CreationRecovery view={view} />
-        <HomeHub.Navigation aria-label={t('Home')}>
-          <HomeHub.Entry render={<Link to="/library" search={{ project: view.search.project }} />}>
-            <HomeHub.Label>{t('collections.library')}</HomeHub.Label>
-            <HomeHub.Help>{t('workspace.libraryHelp')}</HomeHub.Help>
-          </HomeHub.Entry>
-          <HomeHub.Entry render={<Link to="/projects" search={{ project: view.search.project }} />}>
-            <HomeHub.Label>{t('Projects')}</HomeHub.Label>
-            <HomeHub.Help>{t('workspace.collectionsHelp')}</HomeHub.Help>
-          </HomeHub.Entry>
-        </HomeHub.Navigation>
       </HomeHub.Root>
     </SessionStarter.Root>
   );
@@ -306,15 +275,9 @@ function StarterComposer({ view }: { view: StartView }) {
           <NotebookPen size={18} aria-hidden="true" />
           {t('SessionNotebook')}
         </SessionStarter.Kind>
-        <SessionStarter.Submit
-          size="icon"
-          aria-label={t('SessionStartWithDraft')}
-          title={t('SessionStartWithDraft')}
-          disabled={blocked}
-          onClick={beginSession}
-        >
-          <ArrowUp size={20} aria-hidden="true" />
-        </SessionStarter.Submit>
+        <Button disabled={blocked} aria-busy={view.flow.data.pending} onClick={beginSession}>
+          {t('SessionNew')}
+        </Button>
       </ComposerSurface.Footer>
     </ComposerSurface.Root>
   );

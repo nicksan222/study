@@ -34,7 +34,7 @@ testStable.each(['0', '-1', '1.5', 'text', '9223372036854775808'])(
   async (identity) => {
     const { router } = renderPage('/sessions/' + identity);
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/home'));
-    expect(screen.queryByTestId('session-route')).not.toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe('/sessions'));
+    expect(await screen.findByTestId('session-route')).toHaveTextContent('starter');
   }
 );

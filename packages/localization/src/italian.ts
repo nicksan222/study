@@ -221,8 +221,8 @@ export const italian = Object.freeze({
   SessionWorkspaceContext: 'Il tuo spazio di studio',
   SessionStartWithNote: 'Aggiungi prima appunti o file',
   SessionStartWithDraft: 'Inizia con questi appunti',
-  SessionStartTitle: 'Un buon punto di partenza.',
-  SessionStartHelp: 'Riunisci appunti e file. Trasforma quello che impari in un documento.',
+  SessionStartTitle: 'Inizia una nuova sessione',
+  SessionStartHelp: 'Inizia a scrivere o aggiungi file da studiare insieme ai tuoi appunti.',
   SessionStartPlaceholder: 'Scrivi un appunto o una domanda su ciò che studi…',
   SessionStartDraftHelp:
     'La bozza si apre nella nuova sessione, pronta da salvare. Da lì puoi aggiungere i file.',

@@ -20,10 +20,12 @@ vi.mock('../lib/study-client/client', async () => {
   };
 });
 
-testStable.each(['/', '/unknown'])('opens Home for %s', async (url) => {
+testStable.each(['/', '/unknown'])('opens the session starter for %s', async (url) => {
   history.replaceState(null, '', url);
   render(<App />);
-  expect(await screen.findByRole('heading', { name: catalogs.english.Home })).toBeInTheDocument();
+  expect(
+    await screen.findByRole('heading', { name: catalogs.english.Sessions })
+  ).toBeInTheDocument();
 });
 
 testStable('opens a lowercase deep link without hash routing', async () => {

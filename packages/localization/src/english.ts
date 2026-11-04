@@ -216,8 +216,8 @@ export const english = Object.freeze({
   SessionWorkspaceContext: 'Your study space',
   SessionStartWithNote: 'Add notes or files first',
   SessionStartWithDraft: 'Start with these notes',
-  SessionStartTitle: 'A good place to start.',
-  SessionStartHelp: 'Bring your notes and files together. Turn what you learn into a document.',
+  SessionStartTitle: 'Start a new session',
+  SessionStartHelp: 'Start writing, or add files to study alongside your notes.',
   SessionStartPlaceholder: 'Write a note or ask about what you’re studying…',
   SessionStartDraftHelp:
     'Your draft opens in the new session, ready to save. Add files there as you go.',

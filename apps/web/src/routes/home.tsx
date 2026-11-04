@@ -1,8 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { Page } from '../pages/home/page';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/home')({
-  staticData: { title: 'Home', section: 'sessions', scope: 'project' },
-  component: Page
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: '/sessions', search, replace: true });
+  }
 });

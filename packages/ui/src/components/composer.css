@@ -64,6 +64,10 @@
   --composer-placeholder: color-mix(in srgb, var(--foreground) 65%, var(--card));
 }
 
+.ui-composer[data-variant='starter'] {
+  --composer-input-height: 10rem;
+}
+
 .ui-composer-submit {
   width: 2.25rem;
   height: 2.25rem;

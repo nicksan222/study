@@ -23,7 +23,6 @@ vi.mock('../lib/study-client/client', async () => {
 });
 
 const pages = [
-  'Home',
   'Sessions',
   'MediaList',
   'Projects',
@@ -93,8 +92,9 @@ testStable('opens the appearance popup from its direct settings route', async ()
 testStable('keeps Settings reachable while the sidebar is collapsed', async () => {
   const user = userEvent.setup();
 
+  history.replaceState(null, '', '/projects');
   render(<App />);
-  await screen.findByRole('heading', { name: catalogs.english.Home });
+  await screen.findByRole('heading', { name: catalogs.english.Projects });
 
   const toggle = screen.getByRole('button', { name: catalogs.english.ToggleSidebar });
 
