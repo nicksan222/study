@@ -4,13 +4,13 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
+import { SessionStart } from '#web/features/session-workspace/start.tsx';
+
 import { App } from '../app';
 
-vi.mock('#web/features/session-workspace/workspace.tsx', async () => {
-  const { SessionStart } = await import('#web/features/session-workspace/start.tsx');
-
-  return { SessionWorkspace: ({ id }: { id?: bigint }) => (id ? null : <SessionStart />) };
-});
+vi.mock('#web/features/session-workspace/workspace.tsx', () => ({
+  SessionWorkspace: ({ id }: { id?: bigint }) => (id ? null : <SessionStart />)
+}));
 
 const api = vi.hoisted(() => ({
   projects: vi.fn(),
