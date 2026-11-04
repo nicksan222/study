@@ -653,6 +653,30 @@ export const italian = Object.freeze({
     'La sessione potrebbe essere stata creata. Aggiorna l’elenco e aprila prima di crearne un’altra.',
   SessionBack: 'Torna alle sessioni',
   SessionSelection: 'Selezione attuale',
+  SessionSelectionBlockCount: 'Blocchi: {count}',
+  SessionSelectionPassageCount: 'Passaggi: {count}',
+  SessionSelectionGuide:
+    'Scegli cosa può usare Study quando fai una domanda o trasformi il materiale. Salva le modifiche quando hai finito.',
+  SessionSelectionIncluded: 'Materiale incluso',
+  SessionSelectionCapacity: '{count} elementi inclusi su 20',
+  SessionSelectionEmptyTitle: 'Scegli il materiale per questa sessione',
+  SessionSelectionEmptyHelp:
+    'Apri un documento o una fonte qui sotto per includerli. Puoi usare il documento intero, singoli blocchi o un passaggio.',
+  SessionSelectionAddMaterial: 'Aggiungi materiale',
+  SessionSelectionDocuments: 'Documenti',
+  SessionSelectionSources: 'Fonti',
+  SessionSelectionLimit: 'Hai incluso 20 elementi. Rimuovine uno per aggiungerne un altro.',
+  SessionSelectionNoMatches:
+    'Nessun materiale corrispondente nei risultati caricati. Prova un’altra ricerca o carica altri documenti.',
+  SessionSelectionLibraryEmpty:
+    'Il materiale pubblicato apparirà qui. Aggiungi una fonte o scrivi un documento per iniziare.',
+  SessionSelectionChooseBlocks: 'Oppure scegli i blocchi · {count} selezionati',
+  SessionSelectionAllBlocks: 'Mostra tutti i {count} blocchi',
+  SessionSelectionFewerBlocks: 'Mostra meno blocchi ({count} in totale)',
+  SessionSelectionChoosePassage: 'Scegli un passaggio specifico',
+  SessionSelectionPassageHelp:
+    'Scegli un blocco, evidenzia il testo che ti serve e poi usa il passaggio evidenziato.',
+  SessionSelectionReadContent: 'Leggi il contenuto incluso',
   SessionSelectionHelp:
     'Scegli versioni, blocchi o passaggi precisi. Salva la selezione prima di fare una domanda o trasformare. Rimuovere una selezione conserva il materiale nella libreria.',
   SessionWhole: 'Documento intero',

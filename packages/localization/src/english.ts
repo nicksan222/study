@@ -636,6 +636,30 @@ export const english = Object.freeze({
     'The session may have been created. Refresh the list and open it before creating another.',
   SessionBack: 'Back to sessions',
   SessionSelection: 'Current selection',
+  SessionSelectionBlockCount: 'Blocks: {count}',
+  SessionSelectionPassageCount: 'Passages: {count}',
+  SessionSelectionGuide:
+    'Choose what Study can use when you ask a question or transform material. Save your changes when you’re ready.',
+  SessionSelectionIncluded: 'Included material',
+  SessionSelectionCapacity: '{count} of 20 included',
+  SessionSelectionEmptyTitle: 'Choose material for this session',
+  SessionSelectionEmptyHelp:
+    'Open a document or source below to include it. You can use the whole document, individual blocks, or a passage.',
+  SessionSelectionAddMaterial: 'Add material',
+  SessionSelectionDocuments: 'Documents',
+  SessionSelectionSources: 'Sources',
+  SessionSelectionLimit: 'All 20 places are used. Remove an item to include another.',
+  SessionSelectionNoMatches:
+    'No matching material in the loaded results. Try another search or load more documents.',
+  SessionSelectionLibraryEmpty:
+    'Your published material will appear here. Add a source or write a document to get started.',
+  SessionSelectionChooseBlocks: 'Or choose blocks · {count} selected',
+  SessionSelectionAllBlocks: 'Show all {count} blocks',
+  SessionSelectionFewerBlocks: 'Show fewer blocks ({count} total)',
+  SessionSelectionChoosePassage: 'Choose a specific passage',
+  SessionSelectionPassageHelp:
+    'Choose a block, highlight the text you need, then use the highlighted passage.',
+  SessionSelectionReadContent: 'Read included content',
   SessionSelectionHelp:
     'Choose exact material versions, blocks or passages. Save your selection before asking or transforming. Removing a selection keeps the material in your library.',
   SessionWhole: 'Whole document',
