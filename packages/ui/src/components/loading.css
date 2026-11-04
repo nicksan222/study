@@ -57,3 +57,70 @@
   :is(.study-loading, .study-loading-skeleton)[data-layout='sidebar'] {
   display: none;
 }
+
+.study-loading-skeleton[data-layout='response'] {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 38rem);
+  padding: 1rem 0 1.25rem;
+}
+.study-loading-response-label {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.study-loading-skeleton[data-layout='response'] .study-loading-placeholder {
+  position: relative;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+.study-loading-skeleton[data-layout='response'] .study-loading-placeholder > span {
+  height: 0.625rem;
+  width: 94%;
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--muted-foreground) 12%, transparent);
+}
+.study-loading-skeleton[data-layout='response'] .study-loading-placeholder > span:nth-child(2) {
+  width: 78%;
+}
+.study-loading-skeleton[data-layout='response'] .study-loading-placeholder > span:last-child {
+  width: 48%;
+}
+.study-loading-skeleton[data-layout='response'] .study-loading-placeholder::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, var(--muted-foreground) 12%, transparent) 50%,
+    transparent 80%
+  );
+  mask-image:
+    linear-gradient(var(--foreground) 0 0), linear-gradient(var(--foreground) 0 0),
+    linear-gradient(var(--foreground) 0 0);
+  mask-size:
+    94% 0.625rem,
+    78% 0.625rem,
+    48% 0.625rem;
+  mask-position:
+    0 0,
+    0 1.375rem,
+    0 2.75rem;
+  mask-repeat: no-repeat;
+  animation: study-response-shimmer 2.4s ease-in-out infinite;
+}
+@keyframes study-response-shimmer {
+  from {
+    background-position: -38rem 0;
+  }
+  to {
+    background-position: 38rem 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-loading-skeleton[data-layout='response'] .study-loading-placeholder::after {
+    animation: none;
+    background: none;
+  }
+}

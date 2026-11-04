@@ -30,7 +30,7 @@ function LoadingSkeleton({
   ...props
 }: Omit<ComponentPropsWithRef<'div'>, 'children' | 'role'> & {
   label: string;
-  layout?: 'panel' | 'sidebar';
+  layout?: 'panel' | 'sidebar' | 'response';
 }) {
   return (
     <div
@@ -41,7 +41,9 @@ function LoadingSkeleton({
       data-layout={layout}
       className={cn('study-loading-skeleton', className)}
     >
-      <span className="sr-only">{label}</span>
+      <span className={layout === 'response' ? 'study-loading-response-label' : 'sr-only'}>
+        {label}
+      </span>
       <div aria-hidden="true" data-slot="loading-placeholder" className="study-loading-placeholder">
         <span />
         <span />

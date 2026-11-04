@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose
 } from '@study/ui/dialog';
-import { Loading } from '@study/ui/loading';
+import { Loading, LoadingSkeleton } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
@@ -244,7 +244,9 @@ function MessageEntry({
               <ChatMessageText text={version.text} />
             )}
           </MessageActions>
-          {version.status !== 'complete' && <Loading label={t('SessionPending')} />}
+          {version.status !== 'complete' && (
+            <LoadingSkeleton layout="response" label={t('SessionPending')} />
+          )}
         </>
       )}
       {message.parts.length > 0 && (
