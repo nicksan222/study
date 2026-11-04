@@ -12,12 +12,16 @@ export function webFile(filename: string): string | undefined {
 }
 
 export function webTarget(filename: string, source: string): string | undefined {
-  if (!source.startsWith('.') && !source.startsWith('/')) return undefined;
+  if (!source.startsWith('.') && !source.startsWith('/') && !source.startsWith('#web/'))
+    return undefined;
 
   const marker = '/apps/web/src/';
   const path = filename.replaceAll('\\', '/');
   const root = path.slice(0, path.lastIndexOf(marker) + marker.length);
-  const target = relative(root, resolve(dirname(filename), source)).replaceAll('\\', '/');
+  const resolved = source.startsWith('#web/')
+    ? resolve(root, source.slice(5))
+    : resolve(dirname(filename), source);
+  const target = relative(root, resolved).replaceAll('\\', '/');
 
   return target.startsWith('../') ? undefined : target.replace(/\.[cm]?[jt]sx?$/, '');
 }

@@ -1,10 +1,10 @@
-import { test } from 'node:test';
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use Effect.flatten instead of an identity flatMap callback.';
 
-test('prefers native flatten for pure identity callbacks', () => {
+testStable('prefers native flatten for pure identity callbacks', () => {
   assertDiagnostics(
     'effect-native-combinators',
     lintRule('effect-native-combinators', {
@@ -21,7 +21,7 @@ test('prefers native flatten for pure identity callbacks', () => {
   );
 });
 
-test('keeps callback shadowing and return bindings distinct', () => {
+testStable('keeps callback shadowing and return bindings distinct', () => {
   assertDiagnostics(
     'effect-native-combinators',
     lintRule('effect-native-combinators', {
@@ -32,7 +32,7 @@ test('keeps callback shadowing and return bindings distinct', () => {
   );
 });
 
-test('uses asVoid for pure output discard without removing callback work', () => {
+testStable('uses asVoid for pure output discard without removing callback work', () => {
   const discard = 'Use Effect.asVoid instead of a no-op output mapping.';
 
   assertDiagnostics(

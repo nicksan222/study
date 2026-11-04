@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use a finite positive concurrency limit for variable Effect batches.';
 
-test('reports unsafe server lifecycle syntax and permits bounded operations', () => {
+testStable('reports unsafe server lifecycle syntax and permits bounded operations', () => {
   const diagnostics = lintRule('effect-bounded-concurrency', {
     'src/workers/unsafe.ts':
       "import { Effect as E } from 'effect'; E.forEach(items, work, { concurrency: 'unbounded' });",
@@ -22,7 +23,7 @@ test('reports unsafe server lifecycle syntax and permits bounded operations', ()
   ]);
 });
 
-test('tracks named imports and rejects opaque limits and curried unbounded batches', () => {
+testStable('tracks named imports and rejects opaque limits and curried unbounded batches', () => {
   const diagnostics = lintRule('effect-bounded-concurrency', {
     'src/workers/example.ts':
       "import { forEach as each, all as collect } from 'effect/Effect'; each(work, { concurrency: 'unbounded' }); collect(items, { concurrency: count });"
@@ -34,7 +35,7 @@ test('tracks named imports and rejects opaque limits and curried unbounded batch
   ]);
 });
 
-test('ignores shadowed APIs and accepts literal record batches', () => {
+testStable('ignores shadowed APIs and accepts literal record batches', () => {
   const diagnostics = lintRule('effect-bounded-concurrency', {
     'src/workers/example.ts':
       "import { Effect as E } from 'effect'; E.all({ a, b }, { concurrency: 'unbounded' }); function f(E) { E.all(items, { concurrency: 'unbounded' }); }"
@@ -43,7 +44,7 @@ test('ignores shadowed APIs and accepts literal record batches', () => {
   assertDiagnostics('effect-bounded-concurrency', diagnostics, []);
 });
 
-test('rejects invalid numeric limits and spread batches', () => {
+testStable('rejects invalid numeric limits and spread batches', () => {
   const diagnostics = lintRule('effect-bounded-concurrency', {
     'src/workers/example.ts':
       "import * as E from 'effect/Effect'; E.all([...items], { concurrency: Infinity }); E.forEach(items, work, { concurrency: 0 });"
@@ -55,7 +56,7 @@ test('rejects invalid numeric limits and spread batches', () => {
   ]);
 });
 
-test('enforces the Effect contract in browser operations', () => {
+testStable('enforces the Effect contract in browser operations', () => {
   const diagnostics = lintRule(
     'effect-bounded-concurrency',
     {

@@ -6,7 +6,8 @@ import { Textarea } from '@study/ui/textarea';
 import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { toStudyError } from '../../lib/study-client/errors';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+
 import { useMessageActions } from './message-actions.queries';
 import { NoteEditor } from './note-editor';
 import { ExecutionStatus, SessionError } from './status';

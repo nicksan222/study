@@ -100,7 +100,7 @@ function impureViewImport(node: any, source: string): boolean {
   const hooks = names.some((name: string) => name.startsWith('use'));
   const presentationHook =
     source.startsWith('@study/ui/') ||
-    (/(?:^|\/)i18n$/.test(source) && names.every((name: string) => name === 'useI18n'));
+    (/(?:^|\/)i18n(?:\.tsx?)?$/.test(source) && names.every((name: string) => name === 'useI18n'));
 
   return (
     executionImport(source) ||

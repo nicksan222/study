@@ -1,7 +1,7 @@
 import { Button } from '@study/ui/button';
 import { DialogFooter, DialogClose } from '@study/ui/dialog';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
 
 export function DescriptionFooter({
   pending,

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('library and practice routes declare loading and search dependencies', () => {
+testStable('library and practice routes declare loading and search dependencies', () => {
   const diagnostics = lintRule(
     'web-router-loaders',
     {
@@ -16,7 +17,7 @@ test('library and practice routes declare loading and search dependencies', () =
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('allows loaded routes, redirects, and pages without data requirements', () => {
+testStable('allows loaded routes, redirects, and pages without data requirements', () => {
   assert.deepEqual(
     lintRule(
       'web-router-loaders',
@@ -31,7 +32,7 @@ test('allows loaded routes, redirects, and pages without data requirements', () 
   );
 });
 
-test('canonical Material browse and read routes retain loader requirements', () => {
+testStable('canonical Material browse and read routes retain loader requirements', () => {
   const diagnostics = lintRule(
     'web-router-loaders',
     {

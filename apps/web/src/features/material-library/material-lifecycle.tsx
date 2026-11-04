@@ -7,8 +7,9 @@ import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+
 import { useMaterialLifecycle, useDeletionRecovery } from './material-lifecycle.queries';
 
 function cleanupMessage(status: 'pending' | 'running' | 'failed' | 'completed') {

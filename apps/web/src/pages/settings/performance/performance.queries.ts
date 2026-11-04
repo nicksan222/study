@@ -4,7 +4,7 @@ import { mutationOptions, queryOptions } from '@tanstack/react-query';
 import {
   loadConcurrencySettings,
   saveConcurrencySettings
-} from '../../../lib/study-client/concurrency';
+} from '#web/lib/study-client/concurrency.ts';
 
 export type ConcurrencyField = keyof ConcurrencySettings;
 

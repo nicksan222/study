@@ -3,8 +3,8 @@ import { MaterialLibrary } from '@study/ui/material-library';
 import { Fragment, createElement } from 'react';
 import type { ReactNode } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
 function Inlines({ items }: { items: readonly Inline[] }) {
   return keyed(items).map(({ value: item, key }) => {

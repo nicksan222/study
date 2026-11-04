@@ -1,7 +1,7 @@
 import type { BackupId, acceptRestoreSchema } from '@study/contracts/system/backups';
 import { mutationOptions, queryOptions } from '@tanstack/react-query';
 
-import { request } from '../../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 export const backupMutationKeys = {
   create: ['settings-data', 'backup', 'create'],

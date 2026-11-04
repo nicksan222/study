@@ -1,7 +1,8 @@
 import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
-import { expect, it } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
 import { activityState } from './activity';
 
@@ -17,10 +18,10 @@ const execution: typeof executionSchema.Type = {
   updatedAtMs: 0n
 };
 
-it('shows failed completed workflows as failures', () => {
+testStable('shows failed completed workflows as failures', () => {
   expect(activityState(execution)).toBe('failure');
 });
 
-it('preserves cancellation pending rather than reporting completed', () => {
+testStable('preserves cancellation pending rather than reporting completed', () => {
   expect(activityState({ ...execution, outcome: null, status: 'cancelling' })).toBe('cancelling');
 });

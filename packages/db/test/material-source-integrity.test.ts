@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 
 import { createTestDatabase } from '../src/testing.ts';
@@ -35,7 +35,7 @@ function pin(db: ReturnType<ReturnType<typeof createTestDatabase>['open']>) {
     SELECT 1,id,1,json_object('id',CAST(id AS TEXT),'projectId',CAST(project_id AS TEXT),'projectName','Media','name',name,'kind',kind,'mime',mime,'origin',origin,'sizeBytes',CAST(size_bytes AS TEXT),'sha256',lower(hex(sha256)),'uri',uri,'createdAt',CAST(created_at AS TEXT)) FROM sources WHERE id=1`);
 }
 
-test('source-backed publication requires an immutable pin', () => {
+testStable('source-backed publication requires an immutable pin', () => {
   const location = createTestDatabase();
   const db = location.open();
 
@@ -63,7 +63,7 @@ test('source-backed publication requires an immutable pin', () => {
   }
 });
 
-test('publishing an old audio draft validates its pinned revision after replacement', () => {
+testStable('publishing an old audio draft validates its pinned revision after replacement', () => {
   const location = createTestDatabase();
   const db = location.open();
 
@@ -83,28 +83,31 @@ test('publishing an old audio draft validates its pinned revision after replacem
   }
 });
 
-test('publication rejects a draft pin that no longer matches its typed payload source', () => {
-  const location = createTestDatabase();
-  const db = location.open();
+testStable(
+  'publication rejects a draft pin that no longer matches its typed payload source',
+  () => {
+    const location = createTestDatabase();
+    const db = location.open();
 
-  try {
-    sourceDraft(db);
-    pin(db);
-    db.exec(`INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at)
+    try {
+      sourceDraft(db);
+      pin(db);
+      db.exec(`INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at)
       VALUES(2,1,'attachment','audio','audio/wav','other.wav',1,zeroblob(32),1);
       INSERT INTO source_blobs(source_id,bytes) VALUES(2,X'02');
       UPDATE material_audio_versions SET source_id=2 WHERE version_id=1;`);
-    assert.throws(() =>
-      db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=1")
-    );
-  } finally {
-    db.close();
-    location.cleanup();
+      assert.throws(() =>
+        db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=1")
+      );
+    } finally {
+      db.close();
+      location.cleanup();
+    }
   }
-});
+);
 
 for (const kind of ['audio', 'video', 'image', 'link'] as const)
-  test(`bound ${kind} format revisions retain exact metadata, source and byte pins`, () => {
+  testStable(`bound ${kind} format revisions retain exact metadata, source and byte pins`, () => {
     const location = createTestDatabase();
     const db = location.open();
 

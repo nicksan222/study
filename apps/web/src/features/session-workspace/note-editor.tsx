@@ -1,8 +1,8 @@
 import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui/rich-note';
 import type { ReactNode } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
 /** Adapts the shared text editor to the session's bilingual controls. */
 export function NoteEditor({

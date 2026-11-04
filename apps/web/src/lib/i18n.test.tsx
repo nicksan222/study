@@ -1,6 +1,7 @@
+import { testStable } from '@study/testing/vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import React from 'react';
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect } from 'vite-plus/test';
 
 import { LanguageProvider, useI18n } from './i18n.tsx';
 
@@ -15,7 +16,7 @@ function Copy({ name }: { name: string }) {
 }
 
 describe('desktop language provider', () => {
-  it('switches independently and preserves the server locale', () => {
+  testStable('switches independently and preserves the server locale', () => {
     const view = (locale: 'english' | 'italian') => (
       <>
         <LanguageProvider locale={locale}>
@@ -39,7 +40,7 @@ describe('desktop language provider', () => {
     cleanup();
   });
 
-  it('defaults to English outside a provider', () => {
+  testStable('defaults to English outside a provider', () => {
     render(<Copy name="default" />);
     expect(screen.getByTestId('default').textContent).toBe('english:Overview:1,234');
     cleanup();

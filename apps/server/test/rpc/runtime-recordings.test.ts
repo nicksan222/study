@@ -14,16 +14,16 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
 
-test(
+testStable(
   'HTTP recording capture hands durable WAV publication to the native worker',
   { timeout: 10000 },
   async () => {

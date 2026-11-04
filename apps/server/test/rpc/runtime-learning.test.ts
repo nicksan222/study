@@ -16,11 +16,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
@@ -32,7 +32,7 @@ import { transaction } from '#server/platform/definitions/define-store';
 import { App, serve } from '#server/runtime/index';
 
 for (const accountState of ['signed-out', 'not-shared'] as const)
-  test(
+  testStable(
     `an RPC open answer waits durably when ${accountState} and keeps a manual grade`,
     { timeout: 10000 },
     async () => {

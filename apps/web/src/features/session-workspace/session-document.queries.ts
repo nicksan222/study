@@ -12,9 +12,10 @@ import type { QueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
 import { useEffect } from 'react';
 
-import { repeatRequest } from '../../lib/study-client/repeat-request';
-import { request } from '../../lib/study-client/request';
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { repeatRequest } from '#web/lib/study-client/repeat-request.ts';
+import { request } from '#web/lib/study-client/request.ts';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
+
 import { authoredCopy, blankDocument } from '../document-editing';
 
 type Document = typeof materialDocumentSchema.Type;

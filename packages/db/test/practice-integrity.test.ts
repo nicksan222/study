@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-test('practice keeps bounded immutable slots and durable control epochs', () => {
+testStable('practice keeps bounded immutable slots and durable control epochs', () => {
   const location = createTestDatabase();
   const db = location.open();
 

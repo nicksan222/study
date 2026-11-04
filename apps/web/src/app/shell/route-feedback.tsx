@@ -3,7 +3,7 @@ import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { useRouter } from '@tanstack/react-router';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
 
 export function RoutePending() {
   const { t } = useI18n();

@@ -2,7 +2,7 @@ import type { ErrorKind } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { toStudyError } from '../../lib/study-client/errors';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 type NameDraft = { text: string; revision: number };
 

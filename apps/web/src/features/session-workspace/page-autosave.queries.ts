@@ -9,10 +9,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
-import { toStudyError } from '../../lib/study-client/errors';
-import { repeatRequest } from '../../lib/study-client/repeat-request';
-import { request } from '../../lib/study-client/request';
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+import { repeatRequest } from '#web/lib/study-client/repeat-request.ts';
+import { request } from '#web/lib/study-client/request.ts';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
+
 import { sessionKey } from './session-workspace.queries';
 
 export type PageTarget =

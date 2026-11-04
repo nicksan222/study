@@ -1,10 +1,11 @@
 import { searchResultSchema } from '@study/contracts/system/schemas';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
-import { expect, it } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
 import { filterSearchHits } from './sidebar.logic';
 
-it('includes messages in session filters and excludes other kinds', () => {
+testStable('includes messages in session filters and excludes other kinds', () => {
   const hits = Schema.decodeUnknownSync(searchResultSchema)({
     semantic: true,
     hits: [

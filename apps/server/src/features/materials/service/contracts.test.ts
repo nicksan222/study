@@ -14,12 +14,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { materialContentDetailSchema } from '@study/contracts/materials/schemas';
+import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
-test('source-backed material content uses the canonical public source shape', () => {
+testStable('source-backed material content uses the canonical public source shape', () => {
   const source = {
     id: 1n,
     name: 'source',
@@ -44,7 +44,7 @@ test('source-backed material content uses the canonical public source shape', ()
   assert.deepEqual(detail, { kind: 'file', sourceId: 1n, source, extracted: null });
 });
 
-test('native materials RPC names cover the complete public API', async () => {
+testStable('native materials RPC names cover the complete public API', async () => {
   const { MaterialsRpc } = await import('@study/contracts/materials/rpc');
 
   assert.deepEqual(

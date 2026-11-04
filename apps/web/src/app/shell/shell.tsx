@@ -3,7 +3,8 @@ import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Outlet, useMatches } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { Sidebar } from './sidebar';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */

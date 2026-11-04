@@ -13,9 +13,10 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
-import { request } from '../../lib/study-client/request';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { materialsOptions } from '../material-library';
 import { sessionPagesOptions } from '../session-workspace';
 import { SubjectIconEditor, SubjectIdentity } from '../subjects';

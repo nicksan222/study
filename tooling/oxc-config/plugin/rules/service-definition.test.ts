@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('service factories use the domain identity in service and index entries', () => {
+testStable('service factories use the domain identity in service and index entries', () => {
   const diagnostics = lintRule('service-definition', {
     'src/features/projects/service/index.ts':
       "import { defineService as define } from '#server/platform/definitions/define-service'; export const Projects = define('study/Projects', make);",
@@ -25,7 +26,7 @@ test('service factories use the domain identity in service and index entries', (
   ]);
 });
 
-test('service identity checks follow aliases without accepting shadowed factories', () => {
+testStable('service identity checks follow aliases without accepting shadowed factories', () => {
   const diagnostics = lintRule('service-definition', {
     'src/features/auth/service/index.ts':
       "import { defineService as factory } from '#server/platform/definitions/define-service'; const alias = factory; const service = alias('study/Auth', make); export { service as Auth };",
@@ -37,7 +38,7 @@ test('service identity checks follow aliases without accepting shadowed factorie
   assert.match(diagnostics[0].filename, /jobs\/service\/index.ts/);
 });
 
-test('feature service uses canonical platform factory and identity', () => {
+testStable('feature service uses canonical platform factory and identity', () => {
   const diagnostics = lintRule('service-definition', {
     'src/features/source/service/index.ts':
       "import { defineService as factory } from '#server/platform/definitions/define-service'; export const SourceService = factory('study/Wrong', make);",

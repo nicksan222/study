@@ -1,16 +1,18 @@
 import { citationPageSchema } from '@study/contracts/materials/rpc';
 import { catalogs } from '@study/localization';
+import { testStable } from '@study/testing/vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
-import type { StudyClient } from '../../lib/study-client/client';
+import type { StudyClient } from '#web/lib/study-client/client.ts';
+
 import { materialRpc, mountLibraryRoute } from './test/support';
 
-vi.mock('../../lib/study-client/request', () => ({ request: vi.fn() }));
+vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
-it.each([
+testStable.each([
   [
     'assessed',
     'contradicts',

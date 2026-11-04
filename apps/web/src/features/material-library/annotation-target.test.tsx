@@ -1,16 +1,18 @@
 import { blockIdSchema } from '@study/contracts/sources/schemas';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { TargetPicker, EvidenceTarget } from './annotation-target';
 import { exactDocument, importedVersion } from './test/support';
-vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('../../lib/study-client/request', () => ({ request: vi.fn() }));
+vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 function setup(rpc: object, child: ReactNode) {
   vi.mocked(request).mockImplementation((invoke) => invoke(rpc as never) as never);
@@ -24,7 +26,7 @@ function setup(rpc: object, child: ReactNode) {
   );
 }
 
-it('selects one canonical block and rejects a split UTF-16 surrogate pair', async () => {
+testStable('selects one canonical block and rejects a split UTF-16 surrogate pair', async () => {
   const owner = importedVersion();
   const doc = exactDocument(101n, 'A😀BC');
   const pick = vi.fn();
@@ -53,7 +55,7 @@ it('selects one canonical block and rejects a split UTF-16 surrogate pair', asyn
   expect(screen.getByLabelText('AnnotationPreview')).toHaveTextContent('😀');
 });
 
-it('does not show current text when retained document identity differs', async () => {
+testStable('does not show current text when retained document identity differs', async () => {
   const owner = importedVersion();
   const target = {
     materialId: owner.material_id,

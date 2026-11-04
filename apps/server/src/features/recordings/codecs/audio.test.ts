@@ -14,11 +14,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { encodeRecordingWav } from './audio.ts';
 
-test('encodes signed PCM samples as 16 kHz mono 16-bit WAV', () => {
+testStable('encodes signed PCM samples as 16 kHz mono 16-bit WAV', () => {
   const wav = encodeRecordingWav([new Uint8Array([0, 128, 255, 127])]);
 
   assert.equal(Buffer.from(wav.subarray(0, 4)).toString(), 'RIFF');
@@ -35,7 +36,7 @@ test('encodes signed PCM samples as 16 kHz mono 16-bit WAV', () => {
   assert.deepEqual([...wav.subarray(44)], [0, 128, 255, 127]);
 });
 
-test('rejects empty, malformed and over-one-hour PCM', () => {
+testStable('rejects empty, malformed and over-one-hour PCM', () => {
   assert.throws(() => encodeRecordingWav([]));
   assert.throws(() => encodeRecordingWav([new Uint8Array(1)]));
   assert.throws(() => encodeRecordingWav([new Uint8Array(16000 * 60 * 60 * 2 + 2)]));

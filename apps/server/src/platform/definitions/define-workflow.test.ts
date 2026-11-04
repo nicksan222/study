@@ -13,13 +13,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 
-test('workflow retains versioned identity and native schemas', () => {
+testStable('workflow retains versioned identity and native schemas', () => {
   const workflow = defineWorkflow({
     name: 'study/test',
     version: 2,

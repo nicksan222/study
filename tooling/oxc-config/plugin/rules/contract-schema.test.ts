@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('reports the prohibited pattern', () => {
+testStable('reports the prohibited pattern', () => {
   const diagnostics = lintRule(
     'contract-schema',
     { 'packages/contracts/src/user.ts': 'export interface User { id: string }' },
@@ -13,22 +14,25 @@ test('reports the prohibited pattern', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('recognizes Effect schema aliases and leaves unrelated values and derived types alone', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/user.ts':
-        "import { Schema as S } from 'effect'; const alias = S; export const User = alias.Struct({ value: S.Unknown }); export type User = typeof User.Type; function f(S: any) { return S.Unknown; }",
-      'packages/contracts/src/good.ts':
-        'const Schema = { Unknown: 1 }; export const value = Schema.Unknown; export type Result = string | number;'
-    },
-    true
-  );
+testStable(
+  'recognizes Effect schema aliases and leaves unrelated values and derived types alone',
+  () => {
+    const diagnostics = lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/user.ts':
+          "import { Schema as S } from 'effect'; const alias = S; export const User = alias.Struct({ value: S.Unknown }); export type User = typeof User.Type; function f(S: any) { return S.Unknown; }",
+        'packages/contracts/src/good.ts':
+          'const Schema = { Unknown: 1 }; export const value = Schema.Unknown; export type Result = string | number;'
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-test('rejects exported aliases to handwritten objects and inferred database types', () => {
+testStable('rejects exported aliases to handwritten objects and inferred database types', () => {
   const diagnostics = lintRule(
     'contract-schema',
     {
@@ -41,7 +45,7 @@ test('rejects exported aliases to handwritten objects and inferred database type
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('rejects handwritten brands tied to imported Effect Brand', () => {
+testStable('rejects handwritten brands tied to imported Effect Brand', () => {
   const diagnostics = lintRule(
     'contract-schema',
     {
@@ -54,22 +58,25 @@ test('rejects handwritten brands tied to imported Effect Brand', () => {
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('export lists, nested handwritten shapes and structural brands cannot bypass canonical schemas', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/a.ts':
-        'interface Hidden { id: string }; export { type Hidden as Public }; export type ProjectId = bigint & {readonly __brand: "Project"}; export type Data = Readonly<{value: string}>;',
-      'packages/contracts/src/b.ts':
-        'export type Plain = string | number; export type Derived = Readonly<typeof schema.Type>;'
-    },
-    true
-  );
+testStable(
+  'export lists, nested handwritten shapes and structural brands cannot bypass canonical schemas',
+  () => {
+    const diagnostics = lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/a.ts':
+          'interface Hidden { id: string }; export { type Hidden as Public }; export type ProjectId = bigint & {readonly __brand: "Project"}; export type Data = Readonly<{value: string}>;',
+        'packages/contracts/src/b.ts':
+          'export type Plain = string | number; export type Derived = Readonly<typeof schema.Type>;'
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  }
+);
 
-test('native RPC declarations specify payload, success and error schemas', () => {
+testStable('native RPC declarations specify payload, success and error schemas', () => {
   const diagnostics = lintRule(
     'contract-schema',
     {
@@ -82,11 +89,13 @@ test('native RPC declarations specify payload, success and error schemas', () =>
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('rich content remains schema-derived rather than a parallel public editor payload', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/documents.ts': `
+testStable(
+  'rich content remains schema-derived rather than a parallel public editor payload',
+  () => {
+    const diagnostics = lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/documents.ts': `
       import { Schema } from 'effect';
       interface Node { kind: string; children: readonly Node[] }
       export type Editor = Readonly<{ blocks: readonly Node[] }>;
@@ -94,18 +103,21 @@ test('rich content remains schema-derived rather than a parallel public editor p
       export type Canonical = typeof documentSchema.Type;
       export type Block = Canonical['blocks'][number];
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-test('run metadata derives from schemas instead of unchecked preference or parallel context objects', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/conversations/capture.ts': `
+testStable(
+  'run metadata derives from schemas instead of unchecked preference or parallel context objects',
+  () => {
+    const diagnostics = lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/conversations/capture.ts': `
       import { Schema } from 'effect';
       import { runPreferencesSchema, runSelectionContextSchema } from './context';
       export type Context = typeof runSelectionContextSchema.Type;
@@ -113,18 +125,21 @@ test('run metadata derives from schemas instead of unchecked preference or paral
       export interface ParallelContext { requestId: string; preferences: Record<string, string> }
       export const unchecked = Schema.Struct({ preferences: Schema.Unknown });
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-test('Material deletion scope and status derive from canonical schemas rather than parallel unchecked payloads', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/materials/deletion.ts': `
+testStable(
+  'Material deletion scope and status derive from canonical schemas rather than parallel unchecked payloads',
+  () => {
+    const diagnostics = lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/materials/deletion.ts': `
       import { Schema } from 'effect';
       import { materialIdSchema, materialVersionIdSchema } from '../ids';
       export const scope = Schema.Struct({ materialId: materialIdSchema, descendantIds: Schema.Array(materialIdSchema), versionIds: Schema.Array(materialVersionIdSchema) });
@@ -132,18 +147,21 @@ test('Material deletion scope and status derive from canonical schemas rather th
       export interface ParallelScope { materialId: number; descendantIds: number[] }
       export const unchecked = Schema.Struct({ selection: Schema.Unknown });
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-test('history policies, exact candidates and native operations derive from checked schemas', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/materials/history.ts': `
+testStable(
+  'history policies, exact candidates and native operations derive from checked schemas',
+  () => {
+    const diagnostics = lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/materials/history.ts': `
       import { Schema } from 'effect';
       import { materialIdSchema, materialVersionIdSchema } from '../ids';
       export const scope = Schema.Struct({ materialId: materialIdSchema, candidates: Schema.Array(materialVersionIdSchema) });
@@ -154,21 +172,22 @@ test('history policies, exact candidates and native operations derive from check
       export const unchecked = Schema.Struct({ policy: Schema.Unknown });
 
     `,
-      'packages/contracts/src/materials/rpc.ts': `
+        'packages/contracts/src/materials/rpc.ts': `
       import { Rpc } from 'effect/rpc';
       Rpc.make('previewHistoryPrune', { payload: scope, success: preview, error: failure });
 
       Rpc.make('requestHistoryPrune', { payload: scope, success: status });
 
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+  }
+);
 
-test('backup descriptors and restore acknowledgements use checked canonical schemas', () => {
+testStable('backup descriptors and restore acknowledgements use checked canonical schemas', () => {
   const diagnostics = lintRule(
     'contract-schema',
     {

@@ -10,8 +10,9 @@ import { Input } from '@study/ui/input';
 import { Textarea } from '@study/ui/textarea';
 import { Link } from '@tanstack/react-router';
 
-import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { DocumentReader } from '../document-presentation';
 import { BlockEditor, authoredCopy } from './block-editor';
 import { CreationLibraryReview } from './creation-library-review';

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -11,7 +12,7 @@ function lint(source: string) {
   );
 }
 
-test('requires shared loading UI in boolean and status-based JSX branches', () => {
+testStable('requires shared loading UI in boolean and status-based JSX branches', () => {
   const diagnostics = lint(`
     export function View({ isLoading, state, pending, isFetching }) {
       if (isLoading) return <p>Wait</p>;
@@ -23,7 +24,7 @@ test('requires shared loading UI in boolean and status-based JSX branches', () =
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('checks negated branches, reversed comparisons, and compound loading conditions', () => {
+testStable('checks negated branches, reversed comparisons, and compound loading conditions', () => {
   const diagnostics = lint(`
     export function View({ isLoading, state, enabled }) {
       return <>{!isLoading ? <Content /> : <p>Wait</p>}
@@ -37,9 +38,11 @@ test('checks negated branches, reversed comparisons, and compound loading condit
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('accepts imported loading components, aliases, namespaces, and wrapped indicators', () => {
-  assert.deepEqual(
-    lint(`
+testStable(
+  'accepts imported loading components, aliases, namespaces, and wrapped indicators',
+  () => {
+    assert.deepEqual(
+      lint(`
     import { Loading as Wait, LoadingSkeleton } from '@study/ui/loading';
     import * as Indicators from '@study/ui/loading';
     import { Spinner as Busy } from '@study/ui/spinner';
@@ -51,11 +54,12 @@ test('accepts imported loading components, aliases, namespaces, and wrapped indi
       </>;
     }
   `),
-    []
-  );
-});
+      []
+    );
+  }
+);
 
-test('a shared component in the success branch cannot satisfy the loading branch', () => {
+testStable('a shared component in the success branch cannot satisfy the loading branch', () => {
   const diagnostics = lint(`
     import { Loading } from '@study/ui/loading';
     export function View({ loading }) {
@@ -66,7 +70,7 @@ test('a shared component in the success branch cannot satisfy the loading branch
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('local lookalikes and shadowed imports cannot satisfy loading enforcement', () => {
+testStable('local lookalikes and shadowed imports cannot satisfy loading enforcement', () => {
   const diagnostics = lint(`
     import { Loading } from '@study/ui/loading';
     import { Spinner } from 'other-library';
@@ -77,7 +81,7 @@ test('local lookalikes and shadowed imports cannot satisfy loading enforcement',
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('requires shared Suspense fallbacks and resolves React aliases', () => {
+testStable('requires shared Suspense fallbacks and resolves React aliases', () => {
   const diagnostics = lint(`
     import { Suspense as Boundary } from 'react';
     import * as React from 'react';
@@ -90,7 +94,7 @@ test('requires shared Suspense fallbacks and resolves React aliases', () => {
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('accepts shared Suspense fallbacks and unrelated fallback props', () => {
+testStable('accepts shared Suspense fallbacks and unrelated fallback props', () => {
   assert.deepEqual(
     lint(`
     import { Suspense } from 'react';
@@ -104,7 +108,7 @@ test('accepts shared Suspense fallbacks and unrelated fallback props', () => {
   );
 });
 
-test('bans raw loading icons and animation utilities in application code', () => {
+testStable('bans raw loading icons and animation utilities in application code', () => {
   const diagnostics = lint(`
     import { LoaderCircle as Busy } from 'lucide-react';
     export function View() {
@@ -116,7 +120,7 @@ test('bans raw loading icons and animation utilities in application code', () =>
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test('requires shared indicators for busy regions and localized loading messages', () => {
+testStable('requires shared indicators for busy regions and localized loading messages', () => {
   const diagnostics = lint(`
     export function View({ busy }) {
       return <><section aria-busy={busy}><Content /></section>
@@ -127,7 +131,7 @@ test('requires shared indicators for busy regions and localized loading messages
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test('allows ordinary status messages, non-render guards, and success-only branches', () => {
+testStable('allows ordinary status messages, non-render guards, and success-only branches', () => {
   assert.deepEqual(
     lint(`
     export function View({ ready, loading, state }) {
@@ -143,7 +147,7 @@ test('allows ordinary status messages, non-render guards, and success-only branc
   );
 });
 
-test('ignores tests and keeps canonical loading implementations legal', () => {
+testStable('ignores tests and keeps canonical loading implementations legal', () => {
   assert.deepEqual(
     lintRule(
       'shared-loading',
@@ -158,7 +162,7 @@ test('ignores tests and keeps canonical loading implementations legal', () => {
   );
 });
 
-test('accepts conditional indicators in busy regions and localized button labels', () => {
+testStable('accepts conditional indicators in busy regions and localized button labels', () => {
   assert.deepEqual(
     lint(`
     import { Loading } from '@study/ui/loading';
@@ -174,7 +178,7 @@ test('accepts conditional indicators in busy regions and localized button labels
   );
 });
 
-test('checks loading branches passed as component props', () => {
+testStable('checks loading branches passed as component props', () => {
   const diagnostics = lint(`
     export function View({ loading }) {
       return <Picker status={loading && <p>Wait</p>} />;
@@ -184,7 +188,7 @@ test('checks loading branches passed as component props', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('does not mistake computed data lookups or boolean props for loading content', () => {
+testStable('does not mistake computed data lookups or boolean props for loading content', () => {
   assert.deepEqual(
     lint(`
     export function View({ loading, values, state }) {
@@ -196,7 +200,7 @@ test('does not mistake computed data lookups or boolean props for loading conten
   );
 });
 
-test('checks namespace loader icons and template animation classes', () => {
+testStable('checks namespace loader icons and template animation classes', () => {
   const source = [
     "import * as Icons from 'lucide-react';",
     'export function View({ size }) {',
@@ -208,7 +212,7 @@ test('checks namespace loader icons and template animation classes', () => {
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('checks default React Suspense imports and missing Suspense fallbacks', () => {
+testStable('checks default React Suspense imports and missing Suspense fallbacks', () => {
   const diagnostics = lint(`
     import React, { Suspense } from 'react';
     export function View() {
@@ -220,7 +224,7 @@ test('checks default React Suspense imports and missing Suspense fallbacks', () 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('checks aliased loading expressions in logical branches', () => {
+testStable('checks aliased loading expressions in logical branches', () => {
   const diagnostics = lint(`
     const placeholder = <p>Please wait</p>;
     export function View({ loading }) { return <>{loading && placeholder}</>; }
@@ -229,7 +233,7 @@ test('checks aliased loading expressions in logical branches', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('also rejects namespace loader icons inside shared UI components', () => {
+testStable('also rejects namespace loader icons inside shared UI components', () => {
   const diagnostics = lintRule(
     'shared-loading',
     {
@@ -244,7 +248,7 @@ test('also rejects namespace loader icons inside shared UI components', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('does not treat a computed property key as a loading flag', () => {
+testStable('does not treat a computed property key as a loading flag', () => {
   assert.deepEqual(
     lint(`
     export function View({ values, loading }) {
@@ -255,7 +259,7 @@ test('does not treat a computed property key as a loading flag', () => {
   );
 });
 
-test('accepts a busy region whose matching loading branch uses a shared indicator', () => {
+testStable('accepts a busy region whose matching loading branch uses a shared indicator', () => {
   assert.deepEqual(
     lint(`
     import { Loading } from '@study/ui/loading';
@@ -269,7 +273,7 @@ test('accepts a busy region whose matching loading branch uses a shared indicato
   );
 });
 
-test('a busy region cannot put its shared indicator only in the ready branch', () => {
+testStable('a busy region cannot put its shared indicator only in the ready branch', () => {
   const diagnostics = lint(`
     import { Loading } from '@study/ui/loading';
     export function View({ busy }) {
@@ -282,7 +286,7 @@ test('a busy region cannot put its shared indicator only in the ready branch', (
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('Material query pending states use the existing shared loading primitive', () => {
+testStable('Material query pending states use the existing shared loading primitive', () => {
   assert.equal(
     lintRule(
       'shared-loading',

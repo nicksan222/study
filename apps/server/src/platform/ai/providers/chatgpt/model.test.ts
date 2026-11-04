@@ -16,8 +16,8 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { titleAgent } from '#server/features/conversations/agents/title';
@@ -25,7 +25,7 @@ import { generateAgent, layer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
-test('Responses adapter retries 401 with rotated OAuth token and consumes SSE', async () => {
+testStable('Responses adapter retries 401 with rotated OAuth token and consumes SSE', async () => {
   const bodies: Record<string, unknown>[] = [];
   const headers: string[] = [];
   const server = createServer(async (req, res) => {

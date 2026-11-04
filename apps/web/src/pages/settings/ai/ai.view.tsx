@@ -5,7 +5,8 @@ import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 import { SignInActions } from '@study/ui/sign-in-actions';
 
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import type { AiSettingsModel } from './use-ai-settings';
 
 const tiers = [

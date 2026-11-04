@@ -4,13 +4,14 @@
 import satori from 'satori';
 import sharp from 'sharp';
 
-import interRegular from '../../../packages/ui/assets/fonts/Inter-Regular.ttf?inline';
-import interSemiBold from '../../../packages/ui/assets/fonts/Inter-SemiBold.ttf?inline';
-import full from '../../../packages/ui/assets/logo/study.svg?raw';
+import interRegular from '#brand/fonts/Inter-Regular.ttf?inline';
+import interSemiBold from '#brand/fonts/Inter-SemiBold.ttf?inline';
+import full from '#brand/logo/study.svg?raw';
+
 import { t } from './i18n/strings';
 import type { Lang } from './i18n/strings';
 
-export { default as small } from '../../../packages/ui/assets/logo/study-small.svg?raw';
+export { default as small } from '#brand/logo/study-small.svg?raw';
 
 /** A PNG for an endpoint to answer with. */
 const png = (bytes: Uint8Array) =>

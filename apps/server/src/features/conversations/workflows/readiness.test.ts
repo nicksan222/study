@@ -15,11 +15,11 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { test } from 'node:test';
 
 import { eq } from '@study/db';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
@@ -49,7 +49,7 @@ import {
   conversationAttachmentWakeRegistration
 } from './index.ts';
 
-test('indexed source wakes the dispatched reply using its persisted receipt', async () => {
+testStable('indexed source wakes the dispatched reply using its persisted receipt', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   let calls = 0;
@@ -615,7 +615,7 @@ test('indexed source wakes the dispatched reply using its persisted receipt', as
   }
 });
 
-test('a pending reply survives reopening and wakes on deletion', async () => {
+testStable('a pending reply survives reopening and wakes on deletion', async () => {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });

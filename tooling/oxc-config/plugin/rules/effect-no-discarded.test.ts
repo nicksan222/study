@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Consume Effect computations with yield*, return, or an approved runtime boundary.';
 
-test('reports misuse and accepts scoped alternatives', () => {
+testStable('reports misuse and accepts scoped alternatives', () => {
   assertDiagnostics(
     'effect-no-discarded',
     lintRule('effect-no-discarded', {
@@ -22,7 +23,7 @@ test('reports misuse and accepts scoped alternatives', () => {
     ]
   );
 });
-test('resolves imported namespaces, named imports, const aliases and shadowing', () => {
+testStable('resolves imported namespaces, named imports, const aliases and shadowing', () => {
   assertDiagnostics(
     'effect-no-discarded',
     lintRule('effect-no-discarded', {
@@ -36,22 +37,25 @@ test('resolves imported namespaces, named imports, const aliases and shadowing',
   );
 });
 
-test('checks known Effect values and pipelines without guessing arbitrary service returns', () => {
-  assertDiagnostics(
-    'effect-no-discarded',
-    lintRule('effect-no-discarded', {
-      'src/procedures/values.ts':
-        "import {Effect as E} from 'effect'; const task = E.gen(function* () { return 1; }); task; E.succeed(1).pipe(E.map(x => x)); unknownService.operation(); const fn = E.fn('named')(function* () { return 1; }); fn();"
-    }),
-    [
-      ['src/procedures/values.ts', message],
-      ['src/procedures/values.ts', message],
-      ['src/procedures/values.ts', message]
-    ]
-  );
-});
+testStable(
+  'checks known Effect values and pipelines without guessing arbitrary service returns',
+  () => {
+    assertDiagnostics(
+      'effect-no-discarded',
+      lintRule('effect-no-discarded', {
+        'src/procedures/values.ts':
+          "import {Effect as E} from 'effect'; const task = E.gen(function* () { return 1; }); task; E.succeed(1).pipe(E.map(x => x)); unknownService.operation(); const fn = E.fn('named')(function* () { return 1; }); fn();"
+      }),
+      [
+        ['src/procedures/values.ts', message],
+        ['src/procedures/values.ts', message],
+        ['src/procedures/values.ts', message]
+      ]
+    );
+  }
+);
 
-test('recognizes canonical Effect constants through imported aliases', () => {
+testStable('recognizes canonical Effect constants through imported aliases', () => {
   assertDiagnostics(
     'effect-no-discarded',
     lintRule('effect-no-discarded', {
@@ -65,7 +69,7 @@ test('recognizes canonical Effect constants through imported aliases', () => {
   );
 });
 
-test('void and await do not execute Effects but terminal runtime pipelines do', () => {
+testStable('void and await do not execute Effects but terminal runtime pipelines do', () => {
   const diagnostics = lintRule('effect-no-discarded', {
     'src/bad.ts':
       "import { Effect } from 'effect'; void Effect.sync(() => work()); async function operation() { await Effect.sync(() => work()); }",
@@ -77,7 +81,7 @@ test('void and await do not execute Effects but terminal runtime pipelines do', 
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test('enforces the Effect contract in browser operations', () => {
+testStable('enforces the Effect contract in browser operations', () => {
   const diagnostics = lintRule(
     'effect-no-discarded',
     {
@@ -92,7 +96,7 @@ test('enforces the Effect contract in browser operations', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('consumes v4 constructors, scheduler values and untraced operations', () => {
+testStable('consumes v4 constructors, scheduler values and untraced operations', () => {
   const diagnostics = lintRule('effect-no-discarded', {
     'src/bad.ts':
       "import {Effect as E} from 'effect'; E.flatten(task); E.asVoid(task); E.andThen(task, next); E.callback(resume => resume(E.void)); E.forkIn(task, scope); E.yieldNow; const run = E.fnUntraced(function* () { return 1; }); run(); E.fnUntracedEager(function* () { return 1; })();",
@@ -107,7 +111,7 @@ test('consumes v4 constructors, scheduler values and untraced operations', () =>
   );
 });
 
-test('recognizes applied data-last v4 computations', () => {
+testStable('recognizes applied data-last v4 computations', () => {
   assertDiagnostics(
     'effect-no-discarded',
     lintRule('effect-no-discarded', {
@@ -122,7 +126,7 @@ test('recognizes applied data-last v4 computations', () => {
   );
 });
 
-test('permits functions with terminal transformations that change the return type', () => {
+testStable('permits functions with terminal transformations that change the return type', () => {
   assertDiagnostics(
     'effect-no-discarded',
     lintRule('effect-no-discarded', {

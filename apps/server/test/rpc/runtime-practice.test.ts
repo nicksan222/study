@@ -17,10 +17,10 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
@@ -38,7 +38,7 @@ for (const mode of [
   'archived-before-request',
   'transient-exhausted'
 ] as const)
-  test(
+  testStable(
     `HTTP practice ${mode} recovers, replenishes and stops without further provider work`,
     { timeout: 20000 },
     async (t) => {

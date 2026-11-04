@@ -15,11 +15,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
@@ -45,7 +45,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 import { sourceIndexedWorkflow, sourceIndexedHandler } from './index.ts';
 
-test('source ingestion projects published materials and replay survives reopen', async () => {
+testStable('source ingestion projects published materials and replay survives reopen', async () => {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
@@ -574,110 +574,113 @@ test('source ingestion projects published materials and replay survives reopen',
   }
 });
 
-test('first extraction and fresh reprocessing preserve explicit pending membership removal', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
-  const services = Layer.mergeAll(
-    Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-    Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    ),
-    agentsLayer({
-      model: () => Effect.succeed(model),
-      language: 'en',
-      searchSources: () => Effect.succeed([])
-    }),
-    workflowEngineLayer(context)
-  );
+testStable(
+  'first extraction and fresh reprocessing preserve explicit pending membership removal',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
+    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
+    const services = Layer.mergeAll(
+      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+      Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
+      ),
+      agentsLayer({
+        model: () => Effect.succeed(model),
+        language: 'en',
+        searchSources: () => Effect.succeed([])
+      }),
+      workflowEngineLayer(context)
+    );
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const sources = yield* Sources;
-        const materials = yield* Materials;
-        const collection = yield* projects.createProject({ name: 'Removed before extraction' });
-        const source = yield* sources.createSource({
-          projectId: collection.id,
-          name: 'notes.txt',
-          bytes: new TextEncoder().encode('Notes')
-        });
-        const pending = (yield* materials.materials({
-          projectId: collection.id,
-          archived: false,
-          limit: 10
-        })).items[0]!;
-
-        yield* projects.removeMaterial({ projectId: collection.id, materialId: pending.id });
-        const engine = yield* WorkflowEngine.WorkflowEngine;
-
-        yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-        yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
-
-        for (const executionId of ['first', 'fresh']) {
-          if (executionId === 'fresh')
-            yield* sources.requestSourceProcessing({
-              id: source.id,
-              expectedRevision: (yield* sources.sourceProcessing(source.id)).revision
-            });
-
-          const requestRow = context.db.orm
-            .select()
-            .from(workflowEvents)
-            .all()
-            .filter((entry) => entry.type === 'SourceProcessingRequested')
-            .at(-1)!;
-          const request = decodeEvent(requestRow.payload);
-
-          assert.equal(request.type, 'SourceProcessingRequested');
-          yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'ingest-' + executionId,
-            payload: { event: request }
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const sources = yield* Sources;
+          const materials = yield* Materials;
+          const collection = yield* projects.createProject({ name: 'Removed before extraction' });
+          const source = yield* sources.createSource({
+            projectId: collection.id,
+            name: 'notes.txt',
+            bytes: new TextEncoder().encode('Notes')
           });
-          const indexedRow = context.db.orm
-            .select()
-            .from(workflowEvents)
-            .all()
-            .filter((entry) => entry.type === 'SourceIndexed')
-            .at(-1)!;
-          const indexed = decodeEvent(indexedRow.payload);
-
-          assert.equal(indexed.type, 'SourceIndexed');
-          const result = yield* engine.execute(sourceIndexedWorkflow, {
-            executionId: 'project-' + executionId,
-            payload: { event: indexed }
-          });
-
-          assert.equal(result.original.id, pending.id);
-          assert.equal(
-            (yield* materials.materials({
-              projectId: collection.id,
-              archived: false,
-              limit: 10
-            })).items.length,
-            0,
-            executionId + ' extraction preserves removal'
-          );
-        }
-
-        const destination = yield* projects.createProject({ name: 'Explicit destination' });
-
-        yield* sources.setSourceProject({ id: source.id, projectId: destination.id });
-        assert.equal(
-          (yield* materials.materials({
-            projectId: destination.id,
+          const pending = (yield* materials.materials({
+            projectId: collection.id,
             archived: false,
             limit: 10
-          })).items[0]?.id,
-          pending.id,
-          'explicit reassignment still adds membership'
-        );
-      }).pipe(Effect.scoped, Effect.provide(services))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+          })).items[0]!;
+
+          yield* projects.removeMaterial({ projectId: collection.id, materialId: pending.id });
+          const engine = yield* WorkflowEngine.WorkflowEngine;
+
+          yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
+          yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
+
+          for (const executionId of ['first', 'fresh']) {
+            if (executionId === 'fresh')
+              yield* sources.requestSourceProcessing({
+                id: source.id,
+                expectedRevision: (yield* sources.sourceProcessing(source.id)).revision
+              });
+
+            const requestRow = context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .filter((entry) => entry.type === 'SourceProcessingRequested')
+              .at(-1)!;
+            const request = decodeEvent(requestRow.payload);
+
+            assert.equal(request.type, 'SourceProcessingRequested');
+            yield* engine.execute(sourceIngestionWorkflow, {
+              executionId: 'ingest-' + executionId,
+              payload: { event: request }
+            });
+            const indexedRow = context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .filter((entry) => entry.type === 'SourceIndexed')
+              .at(-1)!;
+            const indexed = decodeEvent(indexedRow.payload);
+
+            assert.equal(indexed.type, 'SourceIndexed');
+            const result = yield* engine.execute(sourceIndexedWorkflow, {
+              executionId: 'project-' + executionId,
+              payload: { event: indexed }
+            });
+
+            assert.equal(result.original.id, pending.id);
+            assert.equal(
+              (yield* materials.materials({
+                projectId: collection.id,
+                archived: false,
+                limit: 10
+              })).items.length,
+              0,
+              executionId + ' extraction preserves removal'
+            );
+          }
+
+          const destination = yield* projects.createProject({ name: 'Explicit destination' });
+
+          yield* sources.setSourceProject({ id: source.id, projectId: destination.id });
+          assert.equal(
+            (yield* materials.materials({
+              projectId: destination.id,
+              archived: false,
+              limit: 10
+            })).items[0]?.id,
+            pending.id,
+            'explicit reassignment still adds membership'
+          );
+        }).pipe(Effect.scoped, Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);

@@ -2,7 +2,7 @@ import type { exportFormatSchema } from '@study/contracts/materials/export';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { downloadFile } from '@study/ui/download';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 type Format = typeof exportFormatSchema.Type;
 

@@ -6,9 +6,9 @@ import Icon from '../Icon.astro';
 import Shot from '../Shot.astro';
 import { pen } from '../rough';
 import { chars, draw, esc, keyed, pressed, words } from './text';
-import { href, t } from '../../i18n/strings';
-import type { Lang } from '../../i18n/strings';
-import { quizAnswer } from '../../i18n/landing/learn';
+import { href, t } from '#landing/i18n/strings.ts';
+import type { Lang } from '#landing/i18n/strings.ts';
+import { quizAnswer } from '#landing/i18n/landing/learn.ts';
 
 interface Props {
   lang: Lang;
@@ -373,7 +373,7 @@ const diagram = {
 </section>
 
 <script>
-  import { clear, ink, live, play, relayout, type, wait, PIECE_MS, STAGGER_MS, STEP_MS } from '../../scripts/ink';
+  import { clear, ink, live, play, relayout, type, wait, PIECE_MS, STAGGER_MS, STEP_MS } from '#landing/scripts/ink.ts';
 
   // Anchored arrows and marks redraw on this, once what they point at has moved.
   const settle = () => {

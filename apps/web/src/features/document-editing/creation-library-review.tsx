@@ -6,8 +6,8 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
-import { materialsOptions } from '../../lib/study-client/materials.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { materialsOptions } from '#web/lib/study-client/materials.queries.ts';
 
 /** A global, explicitly refreshed review for a possibly accepted unscoped creation. */
 export function CreationLibraryReview({

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Run Effects and construct ManagedRuntime only at approved application runtime boundaries.';
 
-test('reports misuse and accepts scoped alternatives', () => {
+testStable('reports misuse and accepts scoped alternatives', () => {
   assertDiagnostics(
     'effect-runtime-boundary',
     lintRule('effect-runtime-boundary', {
@@ -20,7 +21,7 @@ test('reports misuse and accepts scoped alternatives', () => {
     [['src/procedures/bad.ts', message]]
   );
 });
-test('resolves imported namespaces, named imports, const aliases and shadowing', () => {
+testStable('resolves imported namespaces, named imports, const aliases and shadowing', () => {
   assertDiagnostics(
     'effect-runtime-boundary',
     lintRule('effect-runtime-boundary', {
@@ -34,7 +35,7 @@ test('resolves imported namespaces, named imports, const aliases and shadowing',
   );
 });
 
-test('permits runtime adapters and tests but checks domain fixtures', () => {
+testStable('permits runtime adapters and tests but checks domain fixtures', () => {
   const code =
     "import { Effect as E, ManagedRuntime as M } from 'effect'; E.runPromise(E.void); M.make(layer);";
 
@@ -52,66 +53,82 @@ test('permits runtime adapters and tests but checks domain fixtures', () => {
   );
 });
 
-test('requires the durable worker to use scoped fibers rather than execute a detached runtime', () => {
-  assertDiagnostics(
-    'effect-runtime-boundary',
-    lintRule('effect-runtime-boundary', {
-      'src/runtime/workers.ts':
-        "import {Effect, Fiber} from 'effect'; const fiber = Effect.runFork(task); await Effect.runPromise(Fiber.interrupt(fiber));"
-    }),
-    [
-      ['src/runtime/workers.ts', message],
-      ['src/runtime/workers.ts', message]
-    ]
-  );
-});
+testStable(
+  'requires the durable worker to use scoped fibers rather than execute a detached runtime',
+  () => {
+    assertDiagnostics(
+      'effect-runtime-boundary',
+      lintRule('effect-runtime-boundary', {
+        'src/runtime/workers.ts':
+          "import {Effect, Fiber} from 'effect'; const fiber = Effect.runFork(task); await Effect.runPromise(Fiber.interrupt(fiber));"
+      }),
+      [
+        ['src/runtime/workers.ts', message],
+        ['src/runtime/workers.ts', message]
+      ]
+    );
+  }
+);
 
-test('target architecture limits execution and runtime construction to their explicit owners', () => {
-  const diagnostics = lintRule('effect-runtime-boundary', {
-    'src/runtime/request.ts': "import { Effect } from 'effect'; Effect.runPromise(task);",
-    'src/runtime/layers.ts': "import { ManagedRuntime } from 'effect'; ManagedRuntime.make(layer);",
-    'src/platform/ai/tool-adapter.ts': "import { Effect } from 'effect'; Effect.runPromise(tool);",
-    'src/domains/jobs/runner.ts': "import { Effect } from 'effect'; Effect.runFork(poll);",
-    'src/runtime/service.ts': "import { ManagedRuntime } from 'effect'; ManagedRuntime.make(layer);"
-  });
+testStable(
+  'target architecture limits execution and runtime construction to their explicit owners',
+  () => {
+    const diagnostics = lintRule('effect-runtime-boundary', {
+      'src/runtime/request.ts': "import { Effect } from 'effect'; Effect.runPromise(task);",
+      'src/runtime/layers.ts':
+        "import { ManagedRuntime } from 'effect'; ManagedRuntime.make(layer);",
+      'src/platform/ai/tool-adapter.ts':
+        "import { Effect } from 'effect'; Effect.runPromise(tool);",
+      'src/domains/jobs/runner.ts': "import { Effect } from 'effect'; Effect.runFork(poll);",
+      'src/runtime/service.ts':
+        "import { ManagedRuntime } from 'effect'; ManagedRuntime.make(layer);"
+    });
 
-  assertDiagnostics('effect-runtime-boundary', diagnostics, [
-    ['src/runtime/request.ts', message],
-    ['src/domains/jobs/runner.ts', message],
-    ['src/runtime/service.ts', message]
-  ]);
-});
+    assertDiagnostics('effect-runtime-boundary', diagnostics, [
+      ['src/runtime/request.ts', message],
+      ['src/domains/jobs/runner.ts', message],
+      ['src/runtime/service.ts', message]
+    ]);
+  }
+);
 
-test('context-taking runners stay at the scoped callback or synchronous observation bridge', () => {
-  const diagnostics = lintRule('effect-runtime-boundary', {
-    'src/domains/jobs/service.ts':
-      "import {Effect} from 'effect'; Effect.runSyncWith(context)(task); Effect.runPromiseWith(context)(task);",
-    'src/platform/observability/index.ts':
-      "import {Effect} from 'effect'; Effect.runSyncWith(context)(task); Effect.runPromise(task);",
-    'src/runtime/request.ts': "import {Effect} from 'effect'; Effect.runSyncWith(context)(task);"
-  });
+testStable(
+  'context-taking runners stay at the scoped callback or synchronous observation bridge',
+  () => {
+    const diagnostics = lintRule('effect-runtime-boundary', {
+      'src/domains/jobs/service.ts':
+        "import {Effect} from 'effect'; Effect.runSyncWith(context)(task); Effect.runPromiseWith(context)(task);",
+      'src/platform/observability/index.ts':
+        "import {Effect} from 'effect'; Effect.runSyncWith(context)(task); Effect.runPromise(task);",
+      'src/runtime/request.ts': "import {Effect} from 'effect'; Effect.runSyncWith(context)(task);"
+    });
 
-  assertDiagnostics('effect-runtime-boundary', diagnostics, [
-    ['src/domains/jobs/service.ts', message],
-    ['src/domains/jobs/service.ts', message],
-    ['src/platform/observability/index.ts', message],
-    ['src/runtime/request.ts', message]
-  ]);
-});
+    assertDiagnostics('effect-runtime-boundary', diagnostics, [
+      ['src/domains/jobs/service.ts', message],
+      ['src/domains/jobs/service.ts', message],
+      ['src/platform/observability/index.ts', message],
+      ['src/runtime/request.ts', message]
+    ]);
+  }
+);
 
-test('the scoped AI callback bridge is canonical and retired paths cannot execute Effects', () => {
-  const diagnostics = lintRule('effect-runtime-boundary', {
-    'src/platform/ai/tool-adapter.ts':
-      "import {Effect} from 'effect'; Effect.runPromiseExit(check);",
-    'src/ai/runtime/tool-adapter.ts': "import {Effect} from 'effect'; Effect.runPromiseExit(check);"
-  });
+testStable(
+  'the scoped AI callback bridge is canonical and retired paths cannot execute Effects',
+  () => {
+    const diagnostics = lintRule('effect-runtime-boundary', {
+      'src/platform/ai/tool-adapter.ts':
+        "import {Effect} from 'effect'; Effect.runPromiseExit(check);",
+      'src/ai/runtime/tool-adapter.ts':
+        "import {Effect} from 'effect'; Effect.runPromiseExit(check);"
+    });
 
-  assertDiagnostics('effect-runtime-boundary', diagnostics, [
-    ['src/ai/runtime/tool-adapter.ts', message]
-  ]);
-});
+    assertDiagnostics('effect-runtime-boundary', diagnostics, [
+      ['src/ai/runtime/tool-adapter.ts', message]
+    ]);
+  }
+);
 
-test('only the exported HTTP Promise bridge can execute an HTTP Effect', () => {
+testStable('only the exported HTTP Promise bridge can execute an HTTP Effect', () => {
   const diagnostics = lintRule('effect-runtime-boundary', {
     'src/platform/http/index.ts': `
       import { Effect as E } from 'effect';
@@ -135,7 +152,7 @@ test('only the exported HTTP Promise bridge can execute an HTTP Effect', () => {
   ]);
 });
 
-test('only the browser runtime adapter may execute browser operations', () => {
+testStable('only the browser runtime adapter may execute browser operations', () => {
   const code =
     "import { Effect as E, ManagedRuntime as M } from 'effect'; E.runPromise(E.void); E.runPromiseExitWith(context)(E.void); M.make(layer);";
   const diagnostics = lintRule(
@@ -151,13 +168,18 @@ test('only the browser runtime adapter may execute browser operations', () => {
   assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test('backup policy composition reuses the managed runtime instead of adding a synchronous runner', () => {
-  const diagnostics = lintRule('effect-runtime-boundary', {
-    'src/runtime/backups.ts':
-      "import { Effect as E } from 'effect'; const run = E.runSync; run(prepare);",
-    'src/runtime/composition.ts':
-      "import { runNative } from '#server/runtime/layers'; runNative(prepare);"
-  });
+testStable(
+  'backup policy composition reuses the managed runtime instead of adding a synchronous runner',
+  () => {
+    const diagnostics = lintRule('effect-runtime-boundary', {
+      'src/runtime/backups.ts':
+        "import { Effect as E } from 'effect'; const run = E.runSync; run(prepare);",
+      'src/runtime/composition.ts':
+        "import { runNative } from '#server/runtime/layers'; runNative(prepare);"
+    });
 
-  assertDiagnostics('effect-runtime-boundary', diagnostics, [['src/runtime/backups.ts', message]]);
-});
+    assertDiagnostics('effect-runtime-boundary', diagnostics, [
+      ['src/runtime/backups.ts', message]
+    ]);
+  }
+);

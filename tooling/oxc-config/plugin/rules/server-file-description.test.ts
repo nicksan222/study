@@ -1,31 +1,35 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { description, framedHeader, header } from '../test/file-description.ts';
 import { lintFiles, lintRule, lintRulePaths } from '../test/utils.ts';
 
-test('requires descriptions across server sources, tests, declarations and config only', () => {
-  const files = {
-    'apps/server/src/runtime/main.ts': 'export const value = 1;',
-    'apps/server/src/features/demo/index.ts': 'export {};',
-    'apps/server/test/example.test.ts': 'export {};',
-    'apps/server/config.ts': 'export {};',
-    'apps/server/script.mjs': 'export {};',
-    'apps/server/types.d.ts': 'export {};',
-    'apps/web/src/main.ts': 'export {};',
-    'packages/server/src/main.ts': 'export {};',
-    'packages/other/apps/server/main.ts': 'export {};'
-  };
+testStable(
+  'requires descriptions across server sources, tests, declarations and config only',
+  () => {
+    const files = {
+      'apps/server/src/runtime/main.ts': 'export const value = 1;',
+      'apps/server/src/features/demo/index.ts': 'export {};',
+      'apps/server/test/example.test.ts': 'export {};',
+      'apps/server/config.ts': 'export {};',
+      'apps/server/script.mjs': 'export {};',
+      'apps/server/types.d.ts': 'export {};',
+      'apps/web/src/main.ts': 'export {};',
+      'packages/server/src/main.ts': 'export {};',
+      'packages/other/apps/server/main.ts': 'export {};'
+    };
 
-  assert.deepEqual(
-    lintRulePaths('server-file-description', files),
-    Object.keys(files)
-      .filter((path) => path.startsWith('apps/server/'))
-      .sort()
-  );
-});
+    assert.deepEqual(
+      lintRulePaths('server-file-description', files),
+      Object.keys(files)
+        .filter((path) => path.startsWith('apps/server/'))
+        .sort()
+    );
+  }
+);
 
-test('accepts framed leading headers, licenses, shebangs, wrapping and CRLF', () => {
+testStable('accepts framed leading headers, licenses, shebangs, wrapping and CRLF', () => {
   assert.deepEqual(
     lintRule('server-file-description', {
       'src/one.ts': header + '\n\nexport {};',
@@ -52,7 +56,7 @@ test('accepts framed leading headers, licenses, shebangs, wrapping and CRLF', ()
   );
 });
 
-test('rejects missing, late, nested and declaration-level descriptions', () => {
+testStable('rejects missing, late, nested and declaration-level descriptions', () => {
   const files = {
     'src/absent.ts': 'export {};',
     'src/declaration.ts': '/** Returns the runtime. */\nexport function runtime() {}',
@@ -69,7 +73,7 @@ test('rejects missing, late, nested and declaration-level descriptions', () => {
   assert.ok(diagnostics.every(({ code }) => code === 'study(server-file-description)'));
 });
 
-test('requires substantive overview, responsibility bullets and boundary prose', () => {
+testStable('requires substantive overview, responsibility bullets and boundary prose', () => {
   const invalid = [
     description.replace('Composes the private server runtime and feature layers.', ''),
     description.replace('Composes the private server runtime and feature layers.', 'Runtime.'),
@@ -99,33 +103,36 @@ test('requires substantive overview, responsibility bullets and boundary prose',
   assert.equal(lintRule('server-file-description', files).length, invalid.length);
 });
 
-test('enforces frame corners, row padding, width and blank separation below the header', () => {
-  const files = {
-    'src/plain.ts': '/** @file Composes the private server runtime and feature layers. */',
-    'src/corner.ts': header.replace('╭', '┌'),
-    'src/line.ts': header.replace('─', '-'),
-    'src/row.ts': header.replace(' * │ Responsibilities:', ' * Responsibilities:'),
-    'src/padding.ts': header.replace(' * │ Responsibilities:', ' * │  Responsibilities:'),
-    'src/wide.ts': framedHeader(
-      description.replace(
-        'Composes the private server runtime and feature layers.',
-        'word '.repeat(30).trim()
-      )
-    ),
-    'src/no-gap.ts': header + '\nexport {};',
-    'src/comment-no-gap.ts': header + '\n// Another note\nexport {};'
-  };
+testStable(
+  'enforces frame corners, row padding, width and blank separation below the header',
+  () => {
+    const files = {
+      'src/plain.ts': '/** @file Composes the private server runtime and feature layers. */',
+      'src/corner.ts': header.replace('╭', '┌'),
+      'src/line.ts': header.replace('─', '-'),
+      'src/row.ts': header.replace(' * │ Responsibilities:', ' * Responsibilities:'),
+      'src/padding.ts': header.replace(' * │ Responsibilities:', ' * │  Responsibilities:'),
+      'src/wide.ts': framedHeader(
+        description.replace(
+          'Composes the private server runtime and feature layers.',
+          'word '.repeat(30).trim()
+        )
+      ),
+      'src/no-gap.ts': header + '\nexport {};',
+      'src/comment-no-gap.ts': header + '\n// Another note\nexport {};'
+    };
 
-  const diagnostics = lintRule('server-file-description', files);
+    const diagnostics = lintRule('server-file-description', files);
 
-  assert.equal(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
-  assert.equal(
-    diagnostics.filter(({ message }) => message.startsWith('Leave a blank line')).length,
-    2
-  );
-});
+    assert.equal(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
+    assert.equal(
+      diagnostics.filter(({ message }) => message.startsWith('Leave a blank line')).length,
+      2
+    );
+  }
+);
 
-test('production lint configuration enforces the framed header', () => {
+testStable('production lint configuration enforces the framed header', () => {
   const diagnostics = lintFiles({ 'test/undocumented.ts': 'export {};\n' });
 
   assert.ok(diagnostics.some(({ code }) => code === 'study(server-file-description)'));

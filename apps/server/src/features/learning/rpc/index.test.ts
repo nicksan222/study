@@ -14,12 +14,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { QuizAttemptId } from '@study/contracts/ids';
 import { LearningRpc } from '@study/contracts/learning/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
@@ -31,7 +31,7 @@ import { Database } from '#server/platform/database/database';
 
 import { LearningRpcLive } from './index.ts';
 
-test('native learning RPC maps missing attempts to typed failures', async () => {
+testStable('native learning RPC maps missing attempts to typed failures', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const handlers = LearningRpcLive.pipe(
@@ -62,7 +62,7 @@ test('native learning RPC maps missing attempts to typed failures', async () => 
   }
 });
 
-test('native practice RPC starts, reads, and stops project practice', async () => {
+testStable('native practice RPC starts, reads, and stops project practice', async () => {
   const s = await import('@study/db/schema');
   const location = createTestDatabase();
   const context = new ServerContext(location.open());

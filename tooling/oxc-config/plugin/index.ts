@@ -26,6 +26,7 @@ import featureOrchestration from './rules/feature-orchestration.ts';
 import harnessBoundary from './rules/harness-boundary.ts';
 import metricCardinality from './rules/metric-cardinality.ts';
 import nativeClock from './rules/native-clock.ts';
+import noDeepRelativeImports from './rules/no-deep-relative-imports.ts';
 import noErrorMessageMatching from './rules/no-error-message-matching.ts';
 import noLossyIds from './rules/no-lossy-ids.ts';
 import noNonNullQueryResults from './rules/no-non-null-query-results.ts';
@@ -39,6 +40,7 @@ import sharedErrorState from './rules/shared-error-state.ts';
 import sharedLoading from './rules/shared-loading.ts';
 import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
+import testClassification from './rules/test-classification.ts';
 import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
 import webBoundaries from './rules/web-boundaries.ts';
@@ -52,6 +54,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'test-classification': testClassification,
     'shared-loading': sharedLoading,
     'shared-error-state': sharedErrorState,
     'feature-orchestration': featureOrchestration,
@@ -93,6 +96,7 @@ export default definePlugin({
     'effect-v4-api': effectV4Api,
     'browser-boundary': browserBoundary,
     'package-boundary': packageBoundary,
+    'no-deep-relative-imports': noDeepRelativeImports,
     'theme-colors': themeRule,
     'shared-ui-variants': sharedUiVariants,
     'web-boundaries': webBoundaries,

@@ -5,8 +5,9 @@ import { Settings } from '@study/ui/settings';
 import { Palette, Settings2, Bot, GraduationCap, Database, Folder, PenLine } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { ProjectSettings } from '../../features/collections';
-import { useI18n } from '../../lib/i18n';
+import { ProjectSettings } from '#web/features/collections/index.ts';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { AiSettings } from './ai';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';

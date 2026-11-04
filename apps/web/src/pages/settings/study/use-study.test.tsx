@@ -1,13 +1,14 @@
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { useStudySettings } from './use-study';
 
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
 
-vi.mock('../../../lib/study-client/preferences', () => ({
+vi.mock('#web/lib/study-client/preferences.ts', () => ({
   loadReviewSettings: api.load,
   saveReviewSettings: api.save
 }));
@@ -29,21 +30,24 @@ function setup() {
   });
 }
 
-it('rejects empty, fractional and out-of-range values without sending a request', async () => {
-  const { result } = setup();
+testStable(
+  'rejects empty, fractional and out-of-range values without sending a request',
+  async () => {
+    const { result } = setup();
 
-  await waitFor(() => expect(result.current.draft).toBe('20'));
+    await waitFor(() => expect(result.current.draft).toBe('20'));
 
-  for (const value of ['', '-1', '1.5', '10001']) {
-    act(() => result.current.setDraft(value));
-    expect(result.current.valid).toBe(false);
-    act(() => result.current.save());
+    for (const value of ['', '-1', '1.5', '10001']) {
+      act(() => result.current.setDraft(value));
+      expect(result.current.valid).toBe(false);
+      act(() => result.current.save());
+    }
+
+    expect(api.save).not.toHaveBeenCalled();
   }
+);
 
-  expect(api.save).not.toHaveBeenCalled();
-});
-
-it('saves zero and reloads the committed allowance', async () => {
+testStable('saves zero and reloads the committed allowance', async () => {
   const { result } = setup();
 
   await waitFor(() => expect(result.current.draft).toBe('20'));
@@ -55,7 +59,7 @@ it('saves zero and reloads the committed allowance', async () => {
   expect(result.current.changed).toBe(false);
 });
 
-it('restores the saved allowance on failure and recovers by retrying', async () => {
+testStable('restores the saved allowance on failure and recovers by retrying', async () => {
   const { result } = setup();
 
   await waitFor(() => expect(result.current.draft).toBe('20'));

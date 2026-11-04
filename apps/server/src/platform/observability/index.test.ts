@@ -15,8 +15,8 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import type { Tracer } from 'effect';
 
 import { safeMetadata } from '#server/platform/observability/index';
@@ -25,7 +25,7 @@ function spanName(span: Tracer.AnySpan) {
   return span._tag === 'Span' ? span.name : 'external';
 }
 
-test('only approved scalar operation metadata reaches the log sink', () => {
+testStable('only approved scalar operation metadata reaches the log sink', () => {
   assert.deepEqual(
     safeMetadata({
       requestId: 'r1',
@@ -39,7 +39,7 @@ test('only approved scalar operation metadata reaches the log sink', () => {
   );
 });
 
-test('operation logs inherit only allowed annotations and carry a span', async () => {
+testStable('operation logs inherit only allowed annotations and carry a span', async () => {
   const { Effect, Logger, References, Context, Tracer, Option } = await import('effect');
   const { observeOperation } = await import('#server/platform/observability/index');
   const entries: Array<{ message: unknown; annotations: unknown; spans: unknown }> = [];
@@ -75,116 +75,122 @@ test('operation logs inherit only allowed annotations and carry a span', async (
   assert.doesNotMatch(serialized, /secret/);
 });
 
-test('operation metrics record outcomes and release active operations without inheriting identifiers', async () => {
-  const { Deferred, Effect, Fiber, Metric } = await import('effect');
-  const { TestClock } = await import('effect/testing');
-  const { observeOperation } = await import('#server/platform/observability/index');
-  const snapshots = await Effect.runPromise(
-    Effect.gen(function* () {
-      const started = yield* Deferred.make<void>();
-      const pending = yield* observeOperation(
-        'secret-operation',
-        Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never))
-      ).pipe(Effect.forkChild);
+testStable(
+  'operation metrics record outcomes and release active operations without inheriting identifiers',
+  async () => {
+    const { Deferred, Effect, Fiber, Metric } = await import('effect');
+    const { TestClock } = await import('effect/testing');
+    const { observeOperation } = await import('#server/platform/observability/index');
+    const snapshots = await Effect.runPromise(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>();
+        const pending = yield* observeOperation(
+          'secret-operation',
+          Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never))
+        ).pipe(Effect.forkChild);
 
-      yield* Deferred.await(started);
-      const during = yield* Metric.snapshot;
+        yield* Deferred.await(started);
+        const during = yield* Metric.snapshot;
 
-      yield* TestClock.adjust('2 seconds');
-      yield* Fiber.interrupt(pending);
-      yield* observeOperation('success', Effect.succeed('ok'));
-      yield* Effect.flip(observeOperation('failure', Effect.fail('private failure')));
+        yield* TestClock.adjust('2 seconds');
+        yield* Fiber.interrupt(pending);
+        yield* observeOperation('success', Effect.succeed('ok'));
+        yield* Effect.flip(observeOperation('failure', Effect.fail('private failure')));
 
-      return { during, after: yield* Metric.snapshot };
-    }).pipe(
-      Effect.provide(TestClock.layer()),
-      Effect.provideService(Metric.MetricRegistry, new Map()),
-      Effect.provideService(Metric.CurrentMetricAttributes, { requestId: 'private-id' })
-    )
-  );
-  const active = snapshots.during.find((s) => s.id === 'study.operation.active');
+        return { during, after: yield* Metric.snapshot };
+      }).pipe(
+        Effect.provide(TestClock.layer()),
+        Effect.provideService(Metric.MetricRegistry, new Map()),
+        Effect.provideService(Metric.CurrentMetricAttributes, { requestId: 'private-id' })
+      )
+    );
+    const active = snapshots.during.find((s) => s.id === 'study.operation.active');
 
-  assert.equal(active?.type, 'Gauge');
+    assert.equal(active?.type, 'Gauge');
 
-  assert.ok(active?.type === 'Gauge');
-  assert.equal(active.state.value, 1);
+    assert.ok(active?.type === 'Gauge');
+    assert.equal(active.state.value, 1);
 
-  const after = snapshots.after;
-  const gauge = after.find((s) => s.id === 'study.operation.active');
+    const after = snapshots.after;
+    const gauge = after.find((s) => s.id === 'study.operation.active');
 
-  assert.equal(gauge?.type, 'Gauge');
+    assert.equal(gauge?.type, 'Gauge');
 
-  assert.ok(gauge?.type === 'Gauge');
-  assert.equal(gauge.state.value, 0);
+    assert.ok(gauge?.type === 'Gauge');
+    assert.equal(gauge.state.value, 0);
 
-  const counts = after.filter((s) => s.id === 'study.operation.completed');
+    const counts = after.filter((s) => s.id === 'study.operation.completed');
 
-  assert.deepEqual(
-    counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? '')),
-    ['failure', 'interrupted', 'success']
-  );
+    assert.deepEqual(
+      counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? '')),
+      ['failure', 'interrupted', 'success']
+    );
 
-  for (const count of counts) {
-    assert.equal(count.type, 'Counter');
+    for (const count of counts) {
+      assert.equal(count.type, 'Counter');
 
-    assert.ok(count.type === 'Counter');
-    assert.equal(count.state.count, 1);
-  }
-
-  const duration = after.find((s) => s.id === 'study.operation.duration_ms');
-
-  assert.equal(duration?.type, 'Histogram');
-
-  assert.ok(duration?.type === 'Histogram');
-  assert.equal(duration.state.count, 3);
-  assert.ok(duration.state.sum >= 2000);
-
-  assert.doesNotMatch(
-    JSON.stringify(after),
-    /private-id|secret-operation|private failure|requestId/
-  );
-});
-
-test('metric labels admit only canonical finite values and hooks ignore ambient attributes', async () => {
-  const { Effect, Metric } = await import('effect');
-  const {
-    safeMetricLabels,
-    recordAiAdmission,
-    recordAiRetry,
-    recordConfigurationWait,
-    recordPublicationRejection
-  } = await import('#server/platform/observability/index');
-
-  assert.deepEqual(
-    safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' }),
-    {
-      outcome: 'success',
-      modelTier: 'smart',
-      errorKind: 'transient'
+      assert.ok(count.type === 'Counter');
+      assert.equal(count.state.count, 1);
     }
-  );
-  assert.deepEqual(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never), {});
-  const snapshots = await Effect.runPromise(
-    Effect.gen(function* () {
-      yield* recordAiAdmission();
-      yield* recordAiRetry();
-      yield* recordConfigurationWait();
-      yield* recordPublicationRejection();
 
-      return yield* Metric.snapshot;
-    }).pipe(
-      Effect.provideService(Metric.MetricRegistry, new Map()),
-      Effect.provideService(Metric.CurrentMetricAttributes, { requestId: 'secret' })
-    )
-  );
+    const duration = after.find((s) => s.id === 'study.operation.duration_ms');
 
-  assert.equal(snapshots.length, 4);
+    assert.equal(duration?.type, 'Histogram');
 
-  for (const snapshot of snapshots) {
-    assert.equal(snapshot.type, 'Counter');
+    assert.ok(duration?.type === 'Histogram');
+    assert.equal(duration.state.count, 3);
+    assert.ok(duration.state.sum >= 2000);
 
-    if (snapshot.type === 'Counter') assert.equal(snapshot.state.count, 1);
-
-    assert.doesNotMatch(JSON.stringify(snapshot.attributes ?? {}), /secret|requestId/);
+    assert.doesNotMatch(
+      JSON.stringify(after),
+      /private-id|secret-operation|private failure|requestId/
+    );
   }
-});
+);
+
+testStable(
+  'metric labels admit only canonical finite values and hooks ignore ambient attributes',
+  async () => {
+    const { Effect, Metric } = await import('effect');
+    const {
+      safeMetricLabels,
+      recordAiAdmission,
+      recordAiRetry,
+      recordConfigurationWait,
+      recordPublicationRejection
+    } = await import('#server/platform/observability/index');
+
+    assert.deepEqual(
+      safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' }),
+      {
+        outcome: 'success',
+        modelTier: 'smart',
+        errorKind: 'transient'
+      }
+    );
+    assert.deepEqual(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never), {});
+    const snapshots = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* recordAiAdmission();
+        yield* recordAiRetry();
+        yield* recordConfigurationWait();
+        yield* recordPublicationRejection();
+
+        return yield* Metric.snapshot;
+      }).pipe(
+        Effect.provideService(Metric.MetricRegistry, new Map()),
+        Effect.provideService(Metric.CurrentMetricAttributes, { requestId: 'secret' })
+      )
+    );
+
+    assert.equal(snapshots.length, 4);
+
+    for (const snapshot of snapshots) {
+      assert.equal(snapshot.type, 'Counter');
+
+      if (snapshot.type === 'Counter') assert.equal(snapshot.state.count, 1);
+
+      assert.doesNotMatch(JSON.stringify(snapshot.attributes ?? {}), /secret|requestId/);
+    }
+  }
+);

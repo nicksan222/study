@@ -1,6 +1,7 @@
-import { libraryQueryOptions } from '../../features/library';
-import type { AppSearch } from '../../lib/navigation/route-contract';
-import { projectsQueryOptions, sessionsQueryOptions } from '../../lib/study-client/study.queries';
+import { libraryQueryOptions } from '#web/features/library/index.ts';
+import type { AppSearch } from '#web/lib/navigation/route-contract.ts';
+import { projectsQueryOptions, sessionsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+
 import type { AppRouterContext } from '../router-context';
 
 export function loadSidebar({ context }: { context: AppRouterContext }) {

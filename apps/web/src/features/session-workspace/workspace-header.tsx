@@ -3,7 +3,8 @@ import { Sidebar } from '@study/ui/sidebar';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import type { ReactNode } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { SubjectIdentity } from '../subjects';
 
 /** Shows session identity and controls while keeping subject scope in navigation. */

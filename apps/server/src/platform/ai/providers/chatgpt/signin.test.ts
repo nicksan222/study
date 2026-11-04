@@ -15,13 +15,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { SignIn, acquireSignIn } from '#server/platform/ai/providers/chatgpt/signin';
 
-test('PKCE sign-in verifies identity and returns the issued account', async () => {
+testStable('PKCE sign-in verifies identity and returns the issued account', async () => {
   let nonce = '';
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
@@ -65,7 +65,7 @@ test('PKCE sign-in verifies identity and returns the issued account', async () =
   assert.equal(result.account.refreshToken, 'refresh');
 });
 
-test('abandoned sign-in expires and closes its listener', async () => {
+testStable('abandoned sign-in expires and closes its listener', async () => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -84,7 +84,7 @@ test('abandoned sign-in expires and closes its listener', async () => {
   );
 });
 
-test('disposing sign-in cancels a waiting finish and closes the listener', async () => {
+testStable('disposing sign-in cancels a waiting finish and closes the listener', async () => {
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
     hostId: 'host'
@@ -97,7 +97,7 @@ test('disposing sign-in cancels a waiting finish and closes the listener', async
   await assert.rejects(fetch(callback));
 });
 
-test('callback failure shows both localized messages', async () => {
+testStable('callback failure shows both localized messages', async () => {
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
     hostId: 'host'
@@ -112,7 +112,7 @@ test('callback failure shows both localized messages', async () => {
   await finishing;
 });
 
-test('malformed token response and ID claims do not leak their contents', async () => {
+testStable('malformed token response and ID claims do not leak their contents', async () => {
   for (const body of [
     'secret-token-body',
     JSON.stringify({
@@ -145,60 +145,63 @@ test('malformed token response and ID claims do not leak their contents', async 
   }
 });
 
-test('sign-in deadline interrupts a stalled loopback token body and releases both connections', async () => {
-  const { createServer } = await import('node:http');
-  const { Clock } = await import('effect');
-  const { TestClock } = await import('effect/testing');
-  let started!: () => void;
-  let closed!: () => void;
-  const bodyStarted = new Promise<void>((resolve) => {
-    started = resolve;
-  });
-  const bodyClosed = new Promise<void>((resolve) => {
-    closed = resolve;
-  });
-  const server = createServer((request, response) => {
-    request.on('close', closed);
-    response.writeHead(200, { 'content-type': 'application/json' });
-    response.write('{');
-    started();
-  });
+testStable(
+  'sign-in deadline interrupts a stalled loopback token body and releases both connections',
+  async () => {
+    const { createServer } = await import('node:http');
+    const { Clock } = await import('effect');
+    const { TestClock } = await import('effect/testing');
+    let started!: () => void;
+    let closed!: () => void;
+    const bodyStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const bodyClosed = new Promise<void>((resolve) => {
+      closed = resolve;
+    });
+    const server = createServer((request, response) => {
+      request.on('close', closed);
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.write('{');
+      started();
+    });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
 
-  if (!address || typeof address === 'string') throw new Error('No loopback address');
+    if (!address || typeof address === 'string') throw new Error('No loopback address');
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const clock = yield* Clock.Clock;
-        const signIn = yield* Effect.promise(() =>
-          SignIn.start({
-            issuer: `http://127.0.0.1:${address.port}`,
-            hostId: 'host',
-            clientId: 'client',
-            clock
-          })
-        );
-        const url = new URL(signIn.url);
-        const callback = new URL(url.searchParams.get('redirect_uri')!);
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const clock = yield* Clock.Clock;
+          const signIn = yield* Effect.promise(() =>
+            SignIn.start({
+              issuer: `http://127.0.0.1:${address.port}`,
+              hostId: 'host',
+              clientId: 'client',
+              clock
+            })
+          );
+          const url = new URL(signIn.url);
+          const callback = new URL(url.searchParams.get('redirect_uri')!);
 
-        callback.searchParams.set('state', url.searchParams.get('state')!);
-        callback.searchParams.set('code', 'code');
-        const finishing = signIn.finish(5000);
-        const rejected = assert.rejects(finishing, /timed out/);
+          callback.searchParams.set('state', url.searchParams.get('state')!);
+          callback.searchParams.set('code', 'code');
+          const finishing = signIn.finish(5000);
+          const rejected = assert.rejects(finishing, /timed out/);
 
-        yield* Effect.promise(() => fetch(callback));
-        yield* Effect.promise(() => bodyStarted);
-        yield* TestClock.adjust('5 seconds');
-        yield* Effect.promise(() => rejected);
-        yield* Effect.promise(() => bodyClosed);
-        yield* Effect.promise(() => assert.rejects(fetch(callback)));
-      }).pipe(Effect.provide(TestClock.layer()))
-    );
-  } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+          yield* Effect.promise(() => fetch(callback));
+          yield* Effect.promise(() => bodyStarted);
+          yield* TestClock.adjust('5 seconds');
+          yield* Effect.promise(() => rejected);
+          yield* Effect.promise(() => bodyClosed);
+          yield* Effect.promise(() => assert.rejects(fetch(callback)));
+        }).pipe(Effect.provide(TestClock.layer()))
+      );
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   }
-});
+);

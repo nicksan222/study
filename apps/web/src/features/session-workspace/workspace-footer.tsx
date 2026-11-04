@@ -1,7 +1,7 @@
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { CornerDownLeft, Folder } from 'lucide-react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
 
 export function WorkspaceFooter() {
   const { t } = useI18n();

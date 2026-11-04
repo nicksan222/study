@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('no-non-null-query-results guards production and accepts safe alternatives', () => {
+testStable('no-non-null-query-results guards production and accepts safe alternatives', () => {
   const diagnostics = lintRule('no-non-null-query-results', {
     'src/bad.ts': 'store.db.orm.select().from(table).get()!; rows.find(x => x.id === id)!;',
     'src/good.ts':
@@ -15,7 +16,7 @@ test('no-non-null-query-results guards production and accepts safe alternatives'
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test('no-non-null-query-results handles aliases and avoids unrelated bindings', () => {
+testStable('no-non-null-query-results handles aliases and avoids unrelated bindings', () => {
   const diagnostics = lintRule('no-non-null-query-results', {
     'src/bad.ts': 'db.orm.get(query)!; values.findFirst()!;',
     'src/good.ts':
@@ -26,7 +27,7 @@ test('no-non-null-query-results handles aliases and avoids unrelated bindings', 
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test('missing rows cannot be asserted into required query results', () => {
+testStable('missing rows cannot be asserted into required query results', () => {
   const diagnostics = lintRule('no-non-null-query-results', {
     'src/bad.ts': 'const a = null!; const b = undefined!; const c = (void 0)!;',
     'src/good.ts': 'const missing = null; function local(undefined: number) { return undefined!; }'

@@ -6,8 +6,8 @@ import type {
 } from '@study/contracts/materials/editing';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useI18n } from '../../lib/i18n';
-import { request } from '../../lib/study-client/request';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { request } from '#web/lib/study-client/request.ts';
 
 type Outcome = typeof documentProposalOutcomeSchema.Type;
 

@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { catalogs } from '../src/catalog.ts';
 import {
@@ -10,7 +11,7 @@ import {
   mediaSize,
   secondsTaken
 } from '../src/index.ts';
-test('catalog and formatting match the Rust examples', () => {
+testStable('catalog and formatting match the Rust examples', () => {
   assert.equal(text('italian', 'Home'), 'Panoramica');
   assert.equal(joined(['Question 1', '', 'PDF']), 'Question 1 · PDF');
   assert.equal(choiceLabel(1, 'Ribosomes'), 'B. Ribosomes');
@@ -35,7 +36,7 @@ import {
   citationLabel,
   mentionSuggestions
 } from '../src/index.ts';
-test('counts, dates, anchors and mentions', () => {
+testStable('counts, dates, anchors and mentions', () => {
   assert.equal(fileCount('english', 1), '1 file');
   assert.equal(sourceCount('italian', 2), '2 fonti');
   assert.equal(examCountdown('italian', -1), "L'esame è passato");
@@ -65,7 +66,7 @@ test('counts, dates, anchors and mentions', () => {
 });
 
 import { createLocalization, countText } from '../src/index.ts';
-test('localized plurals cover zero, one and many in both locales', () => {
+testStable('localized plurals cover zero, one and many in both locales', () => {
   for (const [locale, expected] of [
     ['english', ['0 sources', '1 source', '3 sources']],
     ['italian', ['0 fonti', '1 fonte', '3 fonti']]
@@ -76,7 +77,7 @@ test('localized plurals cover zero, one and many in both locales', () => {
     );
   }
 });
-test('locale-bound and server translations remain isolated', () => {
+testStable('locale-bound and server translations remain isolated', () => {
   const english = createLocalization('english');
   const italian = createLocalization('italian');
 
@@ -86,6 +87,6 @@ test('locale-bound and server translations remain isolated', () => {
   assert.equal(text('italian', 'Home'), 'Panoramica');
 });
 
-test('English and Italian catalogs have exactly the same message keys', () => {
+testStable('English and Italian catalogs have exactly the same message keys', () => {
   assert.deepEqual(Object.keys(catalogs.italian).sort(), Object.keys(catalogs.english).sort());
 });

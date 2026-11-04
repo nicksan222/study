@@ -3,6 +3,7 @@ import { StudyError } from '@study/contracts/errors';
 import { materialSummarySchema } from '@study/contracts/materials/schemas';
 import { sourceKinds } from '@study/contracts/sources/sniff';
 import { mediaSize } from '@study/localization';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -13,7 +14,7 @@ import {
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { Description } from './description';
 import { History } from './history';
@@ -27,10 +28,10 @@ const rpc = vi.hoisted(() => ({
   source: vi.fn()
 }));
 
-vi.mock('../../lib/i18n', () => ({
+vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
 }));
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (client: Record<string, unknown>) => unknown) =>
     invoke({
       'conversations.updateMessageDescription': rpc.update,
@@ -107,23 +108,26 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear());
 });
 
-it('saves trimmed descriptions against their original value and closes after success', async () => {
-  const { dialog, input } = await openDescription();
+testStable(
+  'saves trimmed descriptions against their original value and closes after success',
+  async () => {
+    const { dialog, input } = await openDescription();
 
-  expect(input).toHaveValue(message.description);
-  fireEvent.change(input, { target: { value: '  Focus on eigenvectors  ' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
-  await waitFor(() =>
-    expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
-      messageId: message.id,
-      description: 'Focus on eigenvectors',
-      expectedDescription: message.description
-    })
-  );
-  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-});
+    expect(input).toHaveValue(message.description);
+    fireEvent.change(input, { target: { value: '  Focus on eigenvectors  ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
+        messageId: message.id,
+        description: 'Focus on eigenvectors',
+        expectedDescription: message.description
+      })
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  }
+);
 
-it('keeps the entered description and shows an error when a save fails', async () => {
+testStable('keeps the entered description and shows an error when a save fails', async () => {
   rpc.update.mockRejectedValue(new StudyError('transient', 'Save unavailable'));
   const { dialog, input } = await openDescription();
 
@@ -135,7 +139,7 @@ it('keeps the entered description and shows an error when a save fails', async (
   expect(rpc.update).toHaveBeenCalledTimes(1);
 });
 
-it('clears a saved description when the field contains only whitespace', async () => {
+testStable('clears a saved description when the field contains only whitespace', async () => {
   const { dialog, input } = await openDescription();
 
   fireEvent.change(input, { target: { value: '   ' } });
@@ -149,19 +153,22 @@ it('clears a saved description when the field contains only whitespace', async (
   );
 });
 
-it('shows the stored description on the document card and opens the original message', async () => {
-  const onOpen = vi.fn();
+testStable(
+  'shows the stored description on the document card and opens the original message',
+  async () => {
+    const onOpen = vi.fn();
 
-  mount(<History id={message.sessionId} onOpen={onOpen} />);
-  const description = await screen.findByText('Review before the exam');
+    mount(<History id={message.sessionId} onOpen={onOpen} />);
+    const description = await screen.findByText('Review before the exam');
 
-  expect(description).toBeVisible();
-  expect(screen.queryByText('This body preview is secondary.')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: /Linear algebra/ }));
-  expect(onOpen).toHaveBeenCalledExactlyOnceWith(message);
-});
+    expect(description).toBeVisible();
+    expect(screen.queryByText('This body preview is secondary.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Linear algebra/ }));
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(message);
+  }
+);
 
-it.each(['text', undefined] as const)(
+testStable.each(['text', undefined] as const)(
   'keeps %s quick captures as literal text rather than document cards',
   async (format) => {
     const literal = '# A quick thought **with stars** and [a link](https://example.com)';
@@ -185,100 +192,106 @@ it.each(['text', undefined] as const)(
   }
 );
 
-it('shows a linked attachment card with kind and size for every canonical source kind', async () => {
-  const attached = Schema.decodeUnknownSync(chatMessageSchema)({
-    ...message,
-    format: 'text',
-    parts: sourceKinds.map((kind, index) => ({
-      id: BigInt(index + 1),
-      sourceId: BigInt(index + 100),
-      sourceName: `Attached ${kind}`,
-      sourceKind: kind
-    }))
-  });
+testStable(
+  'shows a linked attachment card with kind and size for every canonical source kind',
+  async () => {
+    const attached = Schema.decodeUnknownSync(chatMessageSchema)({
+      ...message,
+      format: 'text',
+      parts: sourceKinds.map((kind, index) => ({
+        id: BigInt(index + 1),
+        sourceId: BigInt(index + 100),
+        sourceName: `Attached ${kind}`,
+        sourceKind: kind
+      }))
+    });
 
-  rpc.thread.mockResolvedValue({ items: [attached], next: null });
-  rpc.material.mockImplementation(({ sourceId }: { sourceId: bigint }) =>
-    Promise.resolve({ id: sourceId + 1000n })
-  );
-  rpc.source.mockResolvedValue({ sizeBytes: 2048n });
-  const root = createRootRoute({
-    component: () => <History id={message.sessionId} onOpen={vi.fn()} />
-  });
-  const router = createRouter({
-    routeTree: root,
-    history: createMemoryHistory({ initialEntries: ['/'] })
-  });
+    rpc.thread.mockResolvedValue({ items: [attached], next: null });
+    rpc.material.mockImplementation(({ sourceId }: { sourceId: bigint }) =>
+      Promise.resolve({ id: sourceId + 1000n })
+    );
+    rpc.source.mockResolvedValue({ sizeBytes: 2048n });
+    const root = createRootRoute({
+      component: () => <History id={message.sessionId} onOpen={vi.fn()} />
+    });
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] })
+    });
 
-  mount(<RouterProvider router={router} />);
+    mount(<RouterProvider router={router} />);
 
-  for (const [index, kind] of sourceKinds.entries()) {
-    const link = await screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
+    for (const [index, kind] of sourceKinds.entries()) {
+      const link = await screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
 
-    expect(link).toHaveAttribute('href', `/materials/${index + 1100}`);
-    expect(
-      await within(link).findByText(
-        `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
-      )
-    ).toBeVisible();
-    expect(link.querySelector('svg')).not.toBeNull();
+      expect(link).toHaveAttribute('href', `/materials/${index + 1100}`);
+      expect(
+        await within(link).findByText(
+          `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
+        )
+      ).toBeVisible();
+      expect(link.querySelector('svg')).not.toBeNull();
+    }
+
+    expect(screen.getAllByRole('link')).toHaveLength(sourceKinds.length);
   }
+);
 
-  expect(screen.getAllByRole('link')).toHaveLength(sourceKinds.length);
-});
+testStable(
+  'places real document attachments in time order alongside plain notes and opens their material',
+  async () => {
+    const version = {
+      id: 100n,
+      material_id: 90n,
+      kind: 'document',
+      number: 1n,
+      status: 'published',
+      operation: 'original',
+      creator: 'user',
+      instruction: null,
+      language: null,
+      created_at: 2n,
+      published_at: 2n
+    };
+    const material = Schema.decodeUnknownSync(materialSummarySchema)({
+      id: 90n,
+      kind: 'document',
+      title: 'Working document',
+      description: 'A real editable attachment',
+      projectIds: [],
+      created_at: 2n,
+      updated_at: 2n,
+      archived_at: null,
+      version,
+      latestPublishedVersion: version,
+      latestDraftVersion: null
+    });
+    const earlier = {
+      ...message,
+      format: 'text' as const,
+      versions: [{ ...message.versions[0]!, text: 'Before the document' }]
+    };
+    const later = {
+      ...earlier,
+      id: Schema.decodeUnknownSync(chatMessageSchema)({ ...message, id: 72n }).id,
+      createdAt: 3n,
+      versions: [{ ...message.versions[0]!, text: 'After the document' }]
+    };
 
-it('places real document attachments in time order alongside plain notes and opens their material', async () => {
-  const version = {
-    id: 100n,
-    material_id: 90n,
-    kind: 'document',
-    number: 1n,
-    status: 'published',
-    operation: 'original',
-    creator: 'user',
-    instruction: null,
-    language: null,
-    created_at: 2n,
-    published_at: 2n
-  };
-  const material = Schema.decodeUnknownSync(materialSummarySchema)({
-    id: 90n,
-    kind: 'document',
-    title: 'Working document',
-    description: 'A real editable attachment',
-    projectIds: [],
-    created_at: 2n,
-    updated_at: 2n,
-    archived_at: null,
-    version,
-    latestPublishedVersion: version,
-    latestDraftVersion: null
-  });
-  const earlier = {
-    ...message,
-    format: 'text' as const,
-    versions: [{ ...message.versions[0]!, text: 'Before the document' }]
-  };
-  const later = {
-    ...earlier,
-    id: Schema.decodeUnknownSync(chatMessageSchema)({ ...message, id: 72n }).id,
-    createdAt: 3n,
-    versions: [{ ...message.versions[0]!, text: 'After the document' }]
-  };
+    rpc.thread.mockResolvedValue({ items: [later, earlier], next: null });
+    const open = vi.fn();
+    const view = mount(
+      <History id={message.sessionId} documents={[material]} onOpenMaterial={open} />
+    );
 
-  rpc.thread.mockResolvedValue({ items: [later, earlier], next: null });
-  const open = vi.fn();
-  const view = mount(
-    <History id={message.sessionId} documents={[material]} onOpenMaterial={open} />
-  );
+    await screen.findByText('Before the document');
+    const items = view.container.querySelectorAll('.session-entry, .session-desk-document');
 
-  await screen.findByText('Before the document');
-  const items = view.container.querySelectorAll('.session-entry, .session-desk-document');
-
-  expect(items).toHaveLength(3);
-  expect(items[0]).toHaveTextContent('Before the document');
-  expect(items[1]).toHaveTextContent('Working document');
-  expect(items[2]).toHaveTextContent('After the document');
-  fireEvent.click(screen.getByRole('button', { name: /Working document/ }));
-  expect(open).toHaveBeenCalledExactlyOnceWith(material);
-});
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent('Before the document');
+    expect(items[1]).toHaveTextContent('Working document');
+    expect(items[2]).toHaveTextContent('After the document');
+    fireEvent.click(screen.getByRole('button', { name: /Working document/ }));
+    expect(open).toHaveBeenCalledExactlyOnceWith(material);
+  }
+);

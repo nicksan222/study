@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
 
-test('reports unsafe server lifecycle syntax and permits bounded operations', () => {
+testStable('reports unsafe server lifecycle syntax and permits bounded operations', () => {
   const diagnostics = lintRule('effect-no-native-timers', {
     'src/workers/unsafe.ts': 'setTimeout(work, 100);',
     'src/workers/safe.ts': 'function f(setTimeout) { setTimeout(work, 100); }',
@@ -17,7 +18,7 @@ test('reports unsafe server lifecycle syntax and permits bounded operations', ()
   assertDiagnostics('effect-no-native-timers', diagnostics, [['src/workers/unsafe.ts', message]]);
 });
 
-test('rejects imported timers and global aliases', () => {
+testStable('rejects imported timers and global aliases', () => {
   const diagnostics = lintRule('effect-no-native-timers', {
     'src/workers/example.ts':
       "import { setTimeout as later } from 'node:timers'; const tick = globalThis.setInterval; tick(work, 10);"
@@ -29,7 +30,7 @@ test('rejects imported timers and global aliases', () => {
   ]);
 });
 
-test('permits the native callback transport adapter', () => {
+testStable('permits the native callback transport adapter', () => {
   const diagnostics = lintRule('effect-no-native-timers', {
     'src/runtime/server.ts': "import { setTimeout } from 'node:timers'; setTimeout(work, 1);"
   });
@@ -37,7 +38,7 @@ test('permits the native callback transport adapter', () => {
   assertDiagnostics('effect-no-native-timers', diagnostics, []);
 });
 
-test('ignores unrelated methods and shadowed globals', () => {
+testStable('ignores unrelated methods and shadowed globals', () => {
   const diagnostics = lintRule('effect-no-native-timers', {
     'src/workers/example.ts':
       'function f(globalThis) { globalThis.setTimeout(work, 1); } const other = { setTimeout() {} }; other.setTimeout();'
@@ -46,7 +47,7 @@ test('ignores unrelated methods and shadowed globals', () => {
   assertDiagnostics('effect-no-native-timers', diagnostics, []);
 });
 
-test('rejects native abort deadlines while preserving cancellation composition', () => {
+testStable('rejects native abort deadlines while preserving cancellation composition', () => {
   const diagnostics = lintRule('effect-no-native-timers', {
     'src/platform/ai/providers/example.ts': `
       AbortSignal.timeout(1000);
@@ -68,7 +69,7 @@ test('rejects native abort deadlines while preserving cancellation composition',
   ]);
 });
 
-test('enforces the Effect contract in browser operations', () => {
+testStable('enforces the Effect contract in browser operations', () => {
   const diagnostics = lintRule(
     'effect-no-native-timers',
     {
@@ -83,7 +84,7 @@ test('enforces the Effect contract in browser operations', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('allows a debounce timeout owned by a React hook effect', () => {
+testStable('allows a debounce timeout owned by a React hook effect', () => {
   assert.deepEqual(
     lintRule(
       'effect-no-native-timers',

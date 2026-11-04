@@ -14,7 +14,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertQuestionSpec } from './question-spec.ts';
 
@@ -30,7 +31,7 @@ const choice = {
   ]
 };
 
-test('a captured question specification enforces count and selected kind', () => {
+testStable('a captured question specification enforces count and selected kind', () => {
   assert.doesNotThrow(() =>
     assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open] })
   );

@@ -6,8 +6,8 @@
 import Icon from '../Icon.astro';
 import Logo from '../Logo.astro';
 import { keyed, words } from './text';
-import { downloadUrl, href, platforms, releases, repo, t } from '../../i18n/strings';
-import type { Lang } from '../../i18n/strings';
+import { downloadUrl, href, platforms, releases, repo, t } from '#landing/i18n/strings.ts';
+import type { Lang } from '#landing/i18n/strings.ts';
 
 interface Props {
   lang: Lang;
@@ -95,7 +95,7 @@ const docs = (slug: string) => href(lang, `docs/${slug}/`);
 </script>
 
 <script>
-  import { live, relayout, wait } from '../../scripts/ink';
+  import { live, relayout, wait } from '#landing/scripts/ink.ts';
 
   // The note writes, quickly, as soon as the Download it points at is in view, without waiting
   // its turn behind the section's other ink: the call's whole drawing settles within about a

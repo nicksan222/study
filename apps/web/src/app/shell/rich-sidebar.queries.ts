@@ -1,8 +1,8 @@
 import type { SessionId } from '@study/contracts/ids';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { request } from '../../lib/study-client/request';
-import { sidebarSettingsOptions } from '../../lib/study-client/sidebar.queries';
+import { request } from '#web/lib/study-client/request.ts';
+import { sidebarSettingsOptions } from '#web/lib/study-client/sidebar.queries.ts';
 
 /** Loads the threshold and periodically refreshes persisted session summaries. */
 export function useSidebarProgress() {

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('Drizzle imports and exports belong exclusively to the database package', () => {
+testStable('Drizzle imports and exports belong exclusively to the database package', () => {
   const diagnostics = lintRule(
     'drizzle-boundary',
     {
@@ -26,7 +27,7 @@ test('Drizzle imports and exports belong exclusively to the database package', (
   assert.ok(diagnostics.every(({ filename }) => !filename.includes('/packages/db/')));
 });
 
-test('Drizzle require calls respect lexical bindings and createRequire aliases', () => {
+testStable('Drizzle require calls respect lexical bindings and createRequire aliases', () => {
   const diagnostics = lintRule(
     'drizzle-boundary',
     {
@@ -44,7 +45,7 @@ test('Drizzle require calls respect lexical bindings and createRequire aliases',
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/server/src/bad.ts')));
 });
 
-test('Drizzle namespace createRequire and global loader forms stay behind the facade', () => {
+testStable('Drizzle namespace createRequire and global loader forms stay behind the facade', () => {
   const diagnostics = lintRule(
     'drizzle-boundary',
     {
@@ -60,7 +61,7 @@ test('Drizzle namespace createRequire and global loader forms stay behind the fa
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts')));
 });
 
-test('TypeScript CommonJS import declarations cannot bypass the database facade', () => {
+testStable('TypeScript CommonJS import declarations cannot bypass the database facade', () => {
   const diagnostics = lintRule(
     'drizzle-boundary',
     {

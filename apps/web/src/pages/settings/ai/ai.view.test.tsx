@@ -1,15 +1,16 @@
 import { catalogs } from '@study/localization';
+import { testStable } from '@study/testing/vitest';
 import { render, screen } from '@testing-library/react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { AiSettingsView } from './ai.view';
 import type { AiSettingsModel } from './use-ai-settings';
 
-vi.mock('../../../lib/i18n', () => ({
+vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: keyof typeof catalogs.italian) => catalogs.italian[key] })
 }));
 
-it('renders connected account and localized model controls without requests', () => {
+testStable('renders connected account and localized model controls without requests', () => {
   const fetch = vi.spyOn(globalThis, 'fetch');
   const model: AiSettingsModel = {
     data: {

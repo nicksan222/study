@@ -11,7 +11,7 @@ import {
   importTheme,
   saveTheme,
   deleteTheme
-} from '../../lib/study-client/operations';
+} from '#web/lib/study-client/operations.ts';
 
 export type AppearanceData = Awaited<ReturnType<typeof loadAppearance>>;
 

@@ -7,9 +7,10 @@ import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
 import { FileText, Network, Layers, GraduationCap } from 'lucide-react';
 
-import { useI18n } from '../../lib/i18n';
-import type { AppSearch } from '../../lib/navigation/route-contract';
-import type { Subjects } from '../../lib/study-client/operations';
+import { useI18n } from '#web/lib/i18n.tsx';
+import type { AppSearch } from '#web/lib/navigation/route-contract.ts';
+import type { Subjects } from '#web/lib/study-client/operations.ts';
+
 import { itemLocation } from './library.locations';
 import type { ItemFilter, LibraryItem } from './library.logic';
 

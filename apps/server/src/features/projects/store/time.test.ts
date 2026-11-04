@@ -14,9 +14,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Clock, Effect } from 'effect';
 import { TestClock } from 'effect/testing';
 
@@ -25,7 +25,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 
-test('project timestamps use the captured native clock in SQLite transactions', async () => {
+testStable('project timestamps use the captured native clock in SQLite transactions', async () => {
   const location = createTestDatabase();
 
   try {
@@ -60,7 +60,7 @@ test('project timestamps use the captured native clock in SQLite transactions', 
   }
 });
 
-test('project stores retain their own SQLite context', async () => {
+testStable('project stores retain their own SQLite context', async () => {
   const first = createTestDatabase();
   const second = createTestDatabase();
 

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('rejects upward dependencies, cross-page imports and private feature imports', () => {
+testStable('rejects upward dependencies, cross-page imports and private feature imports', () => {
   const diagnostics = lintRule(
     'web-boundaries',
     {
@@ -18,7 +19,7 @@ test('rejects upward dependencies, cross-page imports and private feature import
   assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
-test('allows composition, same-domain internals and explicit feature entry points', () => {
+testStable('allows composition, same-domain internals and explicit feature entry points', () => {
   assert.deepEqual(
     lintRule(
       'web-boundaries',
@@ -35,7 +36,7 @@ test('allows composition, same-domain internals and explicit feature entry point
   );
 });
 
-test('restricts the raw transport and root-level application files', () => {
+testStable('restricts the raw transport and root-level application files', () => {
   const diagnostics = lintRule(
     'web-boundaries',
     {
@@ -48,7 +49,7 @@ test('restricts the raw transport and root-level application files', () => {
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('canonical folders, type imports and alternate loaders cannot bypass ownership', () => {
+testStable('canonical folders, type imports and alternate loaders cannot bypass ownership', () => {
   const diagnostics = lintRule(
     'web-boundaries',
     {
@@ -67,7 +68,7 @@ test('canonical folders, type imports and alternate loaders cannot bypass owners
   assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
 
-test('permits Query while keeping raw RPC in the transport adapter', () => {
+testStable('permits Query while keeping raw RPC in the transport adapter', () => {
   assert.deepEqual(
     lintRule(
       'web-boundaries',
@@ -81,30 +82,49 @@ test('permits Query while keeping raw RPC in the transport adapter', () => {
   );
 });
 
-test('Material routes compose the feature entrypoint while internals stay feature-owned', () => {
-  assert.equal(
-    lintRule(
-      'web-boundaries',
-      {
-        'apps/web/src/routes/library.tsx': `import {LibraryPage} from '../features/material-library/library-page';`,
-        'apps/web/src/routes/materials.$materialId.tsx': `import {ReaderPage} from '../features/material-library/reader-page';`
-      },
-      true
-    ).length,
-    2
+testStable(
+  'Material routes compose the feature entrypoint while internals stay feature-owned',
+  () => {
+    assert.equal(
+      lintRule(
+        'web-boundaries',
+        {
+          'apps/web/src/routes/library.tsx': `import {LibraryPage} from '../features/material-library/library-page';`,
+          'apps/web/src/routes/materials.$materialId.tsx': `import {ReaderPage} from '../features/material-library/reader-page';`
+        },
+        true
+      ).length,
+      2
+    );
+    assert.deepEqual(
+      lintRule(
+        'web-boundaries',
+        {
+          'apps/web/src/routes/library.tsx': `import {LibraryPage, materialsOptions} from '../features/material-library';`,
+          'apps/web/src/routes/materials.$materialId.tsx': `import {ReaderPage, materialId} from '../features/material-library';`,
+          'apps/web/src/features/material-library/index.ts': `export {LibraryPage} from './library-page';`,
+          'apps/web/src/features/material-library/import-operation.ts': `import {importMutationOptions} from './material-library.queries';`,
+          'apps/web/src/app/shell/shell.tsx': `import './shell.css';`
+        },
+        true
+      ),
+      []
+    );
+  }
+);
+
+testStable('private web aliases preserve downward ownership and transport restrictions', () => {
+  const diagnostics = lintRule(
+    'web-boundaries',
+    {
+      'apps/web/src/lib/alias.ts':
+        "import '#web/pages/home/page.tsx'; import '#web/routeTree.gen.ts';",
+      'apps/web/src/pages/home/alias.ts': "import '#web/lib/study-client/client.ts';",
+      'apps/web/src/features/search/alias.ts': "import '#web/features/library/private.ts';",
+      'apps/web/src/app/alias.ts': "import '#web/features/library/index.ts';"
+    },
+    true
   );
-  assert.deepEqual(
-    lintRule(
-      'web-boundaries',
-      {
-        'apps/web/src/routes/library.tsx': `import {LibraryPage, materialsOptions} from '../features/material-library';`,
-        'apps/web/src/routes/materials.$materialId.tsx': `import {ReaderPage, materialId} from '../features/material-library';`,
-        'apps/web/src/features/material-library/index.ts': `export {LibraryPage} from './library-page';`,
-        'apps/web/src/features/material-library/import-operation.ts': `import {importMutationOptions} from './material-library.queries';`,
-        'apps/web/src/app/shell/shell.tsx': `import './shell.css';`
-      },
-      true
-    ),
-    []
-  );
+
+  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });

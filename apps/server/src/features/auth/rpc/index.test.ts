@@ -14,11 +14,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { AuthRpc } from '@study/contracts/auth/rpc';
 import { preferences } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
@@ -30,7 +30,7 @@ import { Database } from '#server/platform/database/database';
 
 import { AuthRpcLive } from './index.ts';
 
-test('auth RPC exposes only public account and operations', async () => {
+testStable('auth RPC exposes only public account and operations', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
 

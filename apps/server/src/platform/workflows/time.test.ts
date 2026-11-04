@@ -15,17 +15,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { workflow_clocks } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Clock, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
 
 import { ServerContext } from '#server/platform/database/context';
 import { workflowStore } from '#server/platform/workflows/store';
 
-test('SQLite workflow leases and due clocks follow the native test clock', async () => {
+testStable('SQLite workflow leases and due clocks follow the native test clock', async () => {
   const location = createTestDatabase();
 
   try {
@@ -61,7 +61,7 @@ test('SQLite workflow leases and due clocks follow the native test clock', async
   }
 });
 
-test('native durable sleep persists and fires at the controlled deadline', async () => {
+testStable('native durable sleep persists and fires at the controlled deadline', async () => {
   const { Schema } = await import('effect');
   const { DurableClock, Workflow, WorkflowEngine } = await import('effect/workflow');
   const { workflowEngineLayer } = await import('#server/platform/workflows/engine');

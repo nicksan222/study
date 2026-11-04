@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { positive } from './effect-lifecycle-syntax.ts';
 
-test('lifecycle counts must be safe integers so counters can make progress', () => {
+testStable('lifecycle counts must be safe integers so counters can make progress', () => {
   const literal = (value: number) => ({ type: 'Literal', value });
 
   assert.equal(positive(literal(Number.MAX_SAFE_INTEGER)), true);

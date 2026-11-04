@@ -3,7 +3,8 @@ import { Sidebar } from '@study/ui/sidebar';
 import { Settings } from 'lucide-react';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import { Page } from './page';
 
 /** Opens settings without leaving the workspace and preserves its resolved subject ownership. */

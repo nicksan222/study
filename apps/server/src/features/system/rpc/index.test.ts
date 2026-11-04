@@ -14,17 +14,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
 
-test('native System RPC returns published quiz search identities', async () => {
+testStable('native System RPC returns published quiz search identities', async () => {
   const location = createTestDatabase();
   const app = await App.open({ path: location.path });
   const server = await serve(app);

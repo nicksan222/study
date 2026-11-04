@@ -14,12 +14,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { eq, sql } from '@study/db';
 import type { messages } from '@study/db/schema';
 import { sessions, sources } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import type { Context } from 'effect';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
@@ -33,7 +33,7 @@ import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 import { Conversations } from './index.ts';
 
-test('recording publication posts once and rejects changed or deleted results', async () => {
+testStable('recording publication posts once and rejects changed or deleted results', async () => {
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const layer = () =>

@@ -1,9 +1,10 @@
+import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { RangeControl } from './range-control';
 
-it('keeps slider movement local until release and does not save twice on blur', () => {
+testStable('keeps slider movement local until release and does not save twice on blur', () => {
   const onCommit = vi.fn();
 
   render(

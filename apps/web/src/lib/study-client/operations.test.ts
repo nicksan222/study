@@ -1,7 +1,8 @@
 import { projectIdSchema } from '@study/contracts/ids';
+import { testStable } from '@study/testing/vitest';
 import { act, waitFor } from '@testing-library/react';
 import { Effect, Schema } from 'effect';
-import { beforeEach, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { listProjects, listMaterialsForProjects } from './operations';
 
@@ -35,13 +36,13 @@ beforeEach(() => {
   api.page.mockReset().mockReturnValue(Effect.succeed({ items: [], next: null }));
 });
 
-it('closes RPC resources after a completed request', async () => {
+testStable('closes RPC resources after a completed request', async () => {
   expect(await listProjects(new AbortController().signal)).toEqual([]);
   expect(api.opened).toBe(1);
   expect(api.closed).toBe(1);
 });
 
-it('closes the RPC scope when its owner cancels an in-flight operation', async () => {
+testStable('closes the RPC scope when its owner cancels an in-flight operation', async () => {
   api.page.mockReturnValue(Effect.never);
   const controller = new AbortController();
   const pending = listProjects(controller.signal).catch((error: unknown) => error);
@@ -54,20 +55,23 @@ it('closes the RPC scope when its owner cancels an in-flight operation', async (
   expect(api.closed).toBe(1);
 });
 
-it('preserves serialized domain failures and releases the RPC scope on failure', async () => {
-  api.page.mockReturnValue(
-    Effect.fail({
-      kind: 'rate_limited',
-      message: 'limited',
-      retryAfterMs: 500
-    })
-  );
-  await expect(listProjects()).rejects.toMatchObject({ kind: 'rate_limited', retryAfterMs: 500 });
+testStable(
+  'preserves serialized domain failures and releases the RPC scope on failure',
+  async () => {
+    api.page.mockReturnValue(
+      Effect.fail({
+        kind: 'rate_limited',
+        message: 'limited',
+        retryAfterMs: 500
+      })
+    );
+    await expect(listProjects()).rejects.toMatchObject({ kind: 'rate_limited', retryAfterMs: 500 });
 
-  expect(api.closed).toBe(1);
-});
+    expect(api.closed).toBe(1);
+  }
+);
 
-it('follows material cursors for each project within one owned RPC scope', async () => {
+testStable('follows material cursors for each project within one owned RPC scope', async () => {
   const project = Schema.decodeUnknownSync(projectIdSchema);
 
   api.materials.mockImplementation(({ cursor }) =>
@@ -84,7 +88,7 @@ it('follows material cursors for each project within one owned RPC scope', async
   expect(api.closed).toBe(1);
 });
 
-it('bounds concurrent project requests to four', async () => {
+testStable('bounds concurrent project requests to four', async () => {
   let active = 0;
   let peak = 0;
 

@@ -1,10 +1,11 @@
 import { catalogs } from '@study/localization';
+import { testStable } from '@study/testing/vitest';
 import { screen, within } from '@testing-library/react';
-import { expect, it } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
-import { renderPage } from '../../test/render-page';
+import { renderPage } from '#web/test/render-page.tsx';
 
-it.each(['english', 'italian'] as const)(
+testStable.each(['english', 'italian'] as const)(
   'preserves the exact selected project on all three Home links in %s',
   async (locale) => {
     renderPage('/home?project=9007199254740993', locale);
@@ -27,7 +28,7 @@ it.each(['english', 'italian'] as const)(
   }
 );
 
-it('offers unscoped links when no project is selected', async () => {
+testStable('offers unscoped links when no project is selected', async () => {
   renderPage('/home', 'english');
   const navigation = within(await screen.findByRole('navigation', { name: catalogs.english.Home }));
 

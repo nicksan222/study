@@ -1,11 +1,12 @@
 import { catalogs } from '@study/localization';
+import { testStable } from '@study/testing/vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { App } from '../app';
 
-vi.mock('../../features/session-workspace/workspace', () => ({ SessionWorkspace: () => null }));
+vi.mock('#web/features/session-workspace/workspace.tsx', () => ({ SessionWorkspace: () => null }));
 
 const api = vi.hoisted(() => ({
   projects: vi.fn(),
@@ -18,7 +19,7 @@ const api = vi.hoisted(() => ({
   createSession: vi.fn()
 }));
 
-vi.mock('../../lib/study-client/client', async () => {
+vi.mock('#web/lib/study-client/client.ts', async () => {
   const { Effect, Schema } = await import('effect');
   const { materialSummarySchema } = await import('@study/contracts/materials/schemas');
   const summary = (item: {
@@ -119,17 +120,20 @@ beforeEach(() => {
   api.createSession.mockReset().mockResolvedValue({ id: 7n });
 });
 
-it('switches subjects while keeping the section and clearing the selected item', async () => {
-  const user = userEvent.setup();
+testStable(
+  'switches subjects while keeping the section and clearing the selected item',
+  async () => {
+    const user = userEvent.setup();
 
-  await renderWithNavigation();
-  await user.click(await screen.findByLabelText('Biology'));
-  await user.click(await screen.findByRole('option', { name: 'History' }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=2'));
-  expect(await screen.findByLabelText('History')).toBeInTheDocument();
-});
+    await renderWithNavigation();
+    await user.click(await screen.findByLabelText('Biology'));
+    await user.click(await screen.findByRole('option', { name: 'History' }));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=2'));
+    expect(await screen.findByLabelText('History')).toBeInTheDocument();
+  }
+);
 
-it('searches within the selected subject and opens a result', async () => {
+testStable('searches within the selected subject and opens a result', async () => {
   api.search.mockResolvedValue({
     semantic: true,
     hits: [
@@ -156,7 +160,7 @@ it('searches within the selected subject and opens a result', async () => {
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/9?project=1'));
 });
 
-it('creates a real session in the selected subject', async () => {
+testStable('creates a real session in the selected subject', async () => {
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -168,7 +172,7 @@ it('creates a real session in the selected subject', async () => {
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/7?project=1'));
 });
 
-it('does not search another subject when the URL subject is missing', async () => {
+testStable('does not search another subject when the URL subject is missing', async () => {
   history.replaceState(null, '', '/sessions?project=99');
   const user = userEvent.setup();
 
@@ -183,7 +187,7 @@ it('does not search another subject when the URL subject is missing', async () =
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/7'));
 });
 
-it('opens search from the collapsed rail with the keyboard shortcut', async () => {
+testStable('opens search from the collapsed rail with the keyboard shortcut', async () => {
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -193,7 +197,7 @@ it('opens search from the collapsed rail with the keyboard shortcut', async () =
   await waitFor(() => expect(screen.getByRole('searchbox')).toHaveFocus());
 });
 
-it('creates a subject from the toolbar and selects it', async () => {
+testStable('creates a subject from the toolbar and selects it', async () => {
   api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
   const user = userEvent.setup();
 
@@ -206,7 +210,7 @@ it('creates a subject from the toolbar and selects it', async () => {
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=3'));
 });
 
-it('searches globally on Help while retaining the subject for navigation', async () => {
+testStable('searches globally on Help while retaining the subject for navigation', async () => {
   history.replaceState(null, '', '/help?project=1');
   const user = userEvent.setup();
 
@@ -218,7 +222,7 @@ it('searches globally on Help while retaining the subject for navigation', async
   );
 });
 
-it('lets the keyboard search and dismiss the subject picker', async () => {
+testStable('lets the keyboard search and dismiss the subject picker', async () => {
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -236,7 +240,7 @@ it('lets the keyboard search and dismiss the subject picker', async () => {
   await waitFor(() => expect(screen.queryByLabelText(en.FindSubject)).not.toBeInTheDocument());
 });
 
-it('ignores a subject list fetched before a new subject was created', async () => {
+testStable('ignores a subject list fetched before a new subject was created', async () => {
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -267,7 +271,7 @@ it('ignores a subject list fetched before a new subject was created', async () =
   ).toBeEnabled();
 });
 
-it('requests session kinds from the server before limiting search hits', async () => {
+testStable('requests session kinds from the server before limiting search hits', async () => {
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -285,7 +289,7 @@ it('requests session kinds from the server before limiting search hits', async (
   );
 });
 
-it('uses the body for sessions and a labeled navigation block above settings', async () => {
+testStable('uses the body for sessions and a labeled navigation block above settings', async () => {
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -310,7 +314,7 @@ it('uses the body for sessions and a labeled navigation block above settings', a
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/42?project=1'));
 });
 
-it('mixes sources and diagrams in Library while keeping Sessions separate', async () => {
+testStable('mixes sources and diagrams in Library while keeping Sessions separate', async () => {
   api.sources.mockResolvedValue({
     items: [
       { id: 10n, name: 'Cell slides.pdf', projectId: 1n, createdAt: 0n },
@@ -342,7 +346,7 @@ it('mixes sources and diagrams in Library while keeping Sessions separate', asyn
   expect(screen.getByRole('link', { name: 'Cell slides.pdf' })).not.toHaveAttribute('aria-current');
 });
 
-it('lists flashcards and quizzes together and follows material pagination', async () => {
+testStable('lists flashcards and quizzes together and follows material pagination', async () => {
   api.materials.mockImplementation(({ cursor }) =>
     Promise.resolve(
       cursor
@@ -354,7 +358,13 @@ it('lists flashcards and quizzes together and follows material pagination', asyn
           }
         : {
             items: [
-              { id: 21n, title: 'Cell cards', projectIds: [1n], kind: 'flashcards', updated_at: 0n }
+              {
+                id: 21n,
+                title: 'Cell cards',
+                projectIds: [1n],
+                kind: 'flashcards',
+                updated_at: 0n
+              }
             ],
             nextCursor: 21n
           }
@@ -380,7 +390,7 @@ it('lists flashcards and quizzes together and follows material pagination', asyn
   );
 });
 
-it('loads later project and session pages', async () => {
+testStable('loads later project and session pages', async () => {
   api.projects.mockImplementation(({ before }) =>
     Promise.resolve(
       before ? { items: [subjects[1]], next: null } : { items: [subjects[0]], next: 1n }
@@ -413,7 +423,7 @@ it('loads later project and session pages', async () => {
   expect(await screen.findByRole('option', { name: 'History' })).toBeInTheDocument();
 });
 
-it('loads later source pages in the library', async () => {
+testStable('loads later source pages in the library', async () => {
   api.sources.mockImplementation(({ before }) =>
     Promise.resolve(
       before
@@ -429,7 +439,7 @@ it('loads later source pages in the library', async () => {
   expect(await screen.findByRole('link', { name: 'Later file' })).toBeInTheDocument();
 });
 
-it.each([
+testStable.each([
   ['diagram', 'Diagrams'],
   ['flashcards', 'Flashcards'],
   ['quiz', 'Practice']
@@ -457,7 +467,7 @@ it.each([
   );
 });
 
-it('preserves projects loaded while project creation is in flight', async () => {
+testStable('preserves projects loaded while project creation is in flight', async () => {
   let finishLoad!: (value: { items: typeof subjects; next: null }) => void;
   let finishCreate!: (value: (typeof subjects)[number]) => void;
 
@@ -489,7 +499,7 @@ it('preserves projects loaded while project creation is in flight', async () => 
   expect(screen.getByRole('option', { name: 'History' })).toBeInTheDocument();
 });
 
-it('keeps session lists and subject search available on Pipelines', async () => {
+testStable('keeps session lists and subject search available on Pipelines', async () => {
   history.replaceState(null, '', '/pipelines?project=1');
   const user = userEvent.setup();
 
@@ -506,7 +516,7 @@ it('keeps session lists and subject search available on Pipelines', async () => 
   );
 });
 
-it('reuses library data when navigating between material pages', async () => {
+testStable('reuses library data when navigating between material pages', async () => {
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -520,7 +530,7 @@ it('reuses library data when navigating between material pages', async () => {
   expect(api.sources).toHaveBeenCalledOnce();
 });
 
-it('retries route loading after a library request fails', async () => {
+testStable('retries route loading after a library request fails', async () => {
   api.materials.mockRejectedValue(new Error('offline'));
   const user = userEvent.setup();
 
@@ -536,7 +546,7 @@ it('retries route loading after a library request fails', async () => {
   await waitFor(() => expect(within(main).queryByRole('alert')).not.toBeInTheDocument());
 });
 
-it('reloads library data from the selected project search dependency', async () => {
+testStable('reloads library data from the selected project search dependency', async () => {
   api.materials.mockImplementation(({ projectId }) =>
     Promise.resolve({
       items: [
@@ -563,7 +573,7 @@ it('reloads library data from the selected project search dependency', async () 
   expect(screen.queryByRole('link', { name: 'Biology map' })).not.toBeInTheDocument();
 });
 
-it('refreshes an initial session request after a session is created', async () => {
+testStable('refreshes an initial session request after a session is created', async () => {
   let finish!: (value: { items: [] }) => void;
 
   api.sessions.mockReturnValueOnce(
@@ -596,7 +606,7 @@ it('refreshes an initial session request after a session is created', async () =
   expect(await screen.findByRole('link', { name: 'Created session' })).toBeInTheDocument();
 });
 
-it.each(['/sessions/42', '/sessions/42?project=2'])(
+testStable.each(['/sessions/42', '/sessions/42?project=2'])(
   'uses the actual session owner for direct and mismatched links: %s',
   async (url) => {
     history.replaceState(null, '', url);
@@ -616,7 +626,7 @@ it.each(['/sessions/42', '/sessions/42?project=2'])(
   }
 );
 
-it('does not reveal a foreign subject while session ownership is loading', async () => {
+testStable('does not reveal a foreign subject while session ownership is loading', async () => {
   history.replaceState(null, '', '/sessions/42?project=2');
   api.session.mockReturnValue(new Promise(() => {}));
   await renderWithNavigation();
@@ -626,7 +636,7 @@ it('does not reveal a foreign subject while session ownership is loading', async
   expect(api.search).not.toHaveBeenCalled();
 });
 
-it('keeps projectless sessions independent of a foreign query parameter', async () => {
+testStable('keeps projectless sessions independent of a foreign query parameter', async () => {
   history.replaceState(null, '', '/sessions/42?project=2');
   api.session.mockResolvedValue({ id: 42n, projectIds: [] });
   await renderWithNavigation();
@@ -634,7 +644,7 @@ it('keeps projectless sessions independent of a foreign query parameter', async 
   expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
 });
 
-it('retries a failed session owner read from the subject picker error', async () => {
+testStable('retries a failed session owner read from the subject picker error', async () => {
   api.session.mockRejectedValue(new Error('offline'));
   await renderWithNavigation();
   const retry = await screen.findByRole('button', { name: en.SubjectsLoadError });

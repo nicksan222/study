@@ -6,7 +6,7 @@ import type {
 import { validDocumentTextRange } from '@study/contracts/sources/document';
 import { queryOptions } from '@tanstack/react-query';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 type Target = typeof evidenceTargetSchema.Type;
 

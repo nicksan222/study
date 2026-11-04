@@ -1,8 +1,9 @@
 import { projectIdSchema } from '@study/contracts/ids';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { useAppearance, usePage } from './use-page';
 
@@ -15,7 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), select: vi.fn() }));
 
-vi.mock('../../lib/study-client/operations', () => ({
+vi.mock('#web/lib/study-client/operations.ts', () => ({
   loadAppearance: api.load,
   updateAppSettings: api.save,
   saveAppearancePreferences: vi.fn(),
@@ -24,7 +25,7 @@ vi.mock('../../lib/study-client/operations', () => ({
   saveTheme: vi.fn(),
   deleteTheme: vi.fn()
 }));
-vi.mock('../../lib/appearance', () => ({ applyAppearance: vi.fn() }));
+vi.mock('#web/lib/appearance.ts', () => ({ applyAppearance: vi.fn() }));
 
 function setup<T>(hook: () => T) {
   const client = new QueryClient({
@@ -37,22 +38,25 @@ function setup<T>(hook: () => T) {
   return renderHook(hook, { wrapper });
 }
 
-it('persists system appearance as a partial change and reloads committed data', async () => {
-  const settings = { appearance: 2, language: 2, zoomPercent: 125, onboarded: true };
+testStable(
+  'persists system appearance as a partial change and reloads committed data',
+  async () => {
+    const settings = { appearance: 2, language: 2, zoomPercent: 125, onboarded: true };
 
-  api.load.mockResolvedValue({ settings, selected: null, themes: [] });
-  api.save.mockResolvedValue({});
-  const { result } = setup(useAppearance);
+    api.load.mockResolvedValue({ settings, selected: null, themes: [] });
+    api.save.mockResolvedValue({});
+    const { result } = setup(useAppearance);
 
-  await waitFor(() => expect(result.current.loading).toBe(false));
-  const calls = api.load.mock.calls.length;
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const calls = api.load.mock.calls.length;
 
-  act(() => result.current.setAppearance('system'));
-  await waitFor(() => expect(api.save).toHaveBeenCalledWith({ appearance: 3 }));
-  await waitFor(() => expect(api.load.mock.calls.length).toBeGreaterThan(calls));
-});
+    act(() => result.current.setAppearance('system'));
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ appearance: 3 }));
+    await waitFor(() => expect(api.load.mock.calls.length).toBeGreaterThan(calls));
+  }
+);
 
-it('keeps the saved selection and exposes recovery when a mutation fails', async () => {
+testStable('keeps the saved selection and exposes recovery when a mutation fails', async () => {
   api.load.mockResolvedValue({ settings: { appearance: 2 }, selected: 'ocean', themes: [] });
   api.select.mockRejectedValue(new Error('offline'));
   const { result } = setup(useAppearance);
@@ -63,7 +67,7 @@ it('keeps the saved selection and exposes recovery when a mutation fails', async
   expect(result.current.data?.selected).toBe('ocean');
 });
 
-it.each([
+testStable.each([
   [undefined, projectIdSchema.make(41n), projectIdSchema.make(41n), true],
   ['41', undefined, projectIdSchema.make(41n), true],
   [undefined, projectIdSchema.make(41n), projectIdSchema.make(42n), false],
@@ -83,7 +87,7 @@ it.each([
   }
 );
 
-it('clears a deleted stale URL subject without leaving the resolved session', () => {
+testStable('clears a deleted stale URL subject without leaving the resolved session', () => {
   router.scope = { project: '41' };
   router.navigate.mockClear();
   const { result } = setup(() => usePage(undefined, 'projects', projectIdSchema.make(42n)));

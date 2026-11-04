@@ -1,9 +1,10 @@
+import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect, it } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
 import { collectPages } from './pagination';
 
-it('collects pages in order, following cursors even after an empty page', async () => {
+testStable('collects pages in order, following cursors even after an empty page', async () => {
   const cursors: Array<number | undefined> = [];
   const pages = collectPages((cursor: number | undefined) =>
     Effect.sync(() => {
@@ -22,7 +23,7 @@ it('collects pages in order, following cursors even after an empty page', async 
   expect(cursors).toEqual([undefined, 1, 2, undefined, 1, 2]);
 });
 
-it('preserves a failed page and stops requesting subsequent pages', async () => {
+testStable('preserves a failed page and stops requesting subsequent pages', async () => {
   const failure = { kind: 'rate_limited' };
   const cursors: Array<number | undefined> = [];
   const result = collectPages((cursor: number | undefined) => {

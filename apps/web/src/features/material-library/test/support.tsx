@@ -12,13 +12,14 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { Effect, Schema } from 'effect';
 import { vi } from 'vite-plus/test';
 
-import { Providers } from '../../../app/providers';
-import { createAppRouter } from '../../../app/router';
-import { runRequest } from '../../../lib/effect/runtime';
-import { createStudyQueryClient } from '../../../lib/query-client';
-import type { StudyClient } from '../../../lib/study-client/client';
-import { toStudyError } from '../../../lib/study-client/errors';
-import { request } from '../../../lib/study-client/request';
+import { Providers } from '#web/app/providers.tsx';
+import { createAppRouter } from '#web/app/router.ts';
+import { runRequest } from '#web/lib/effect/runtime.ts';
+import { createStudyQueryClient } from '#web/lib/query-client.ts';
+import type { StudyClient } from '#web/lib/study-client/client.ts';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+import { request } from '#web/lib/study-client/request.ts';
+
 import { importReturn, libraryEntries, libraryReturn, librarySearches } from '../browse-state';
 
 export function deferred<T>() {

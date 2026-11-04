@@ -1,9 +1,9 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
 
 import { catalogs, createLocalization, text } from '@study/localization';
+import { testStable } from '@study/testing/node';
 
-test('translations require parameters and replace them literally', () => {
+testStable('translations require parameters and replace them literally', () => {
   const l = createLocalization('italian');
 
   assert.equal(l.t('Home'), 'Panoramica');
@@ -14,7 +14,7 @@ test('translations require parameters and replace them literally', () => {
   assert.equal(text('english', 'SubjectDueCards', { count: 3 }), '3 flashcards due');
 });
 
-test('localizations are immutable, isolated, and safe to destructure', () => {
+testStable('localizations are immutable, isolated, and safe to destructure', () => {
   const english = createLocalization('english');
   const italian = createLocalization('italian');
   const { t, count, number, date } = italian;
@@ -37,13 +37,13 @@ test('localizations are immutable, isolated, and safe to destructure', () => {
   );
 });
 
-test('date options accept individual Intl fields', () => {
+testStable('date options accept individual Intl fields', () => {
   const l = createLocalization('english');
 
   assert.equal(l.date(0, { year: 'numeric', timeZone: 'UTC' }), '1970');
 });
 
-test('catalog exports cannot mutate existing or future translators', () => {
+testStable('catalog exports cannot mutate existing or future translators', () => {
   assert.ok(Object.isFrozen(catalogs));
   assert.ok(Object.isFrozen(catalogs.english));
   assert.ok(Object.isFrozen(catalogs.italian));

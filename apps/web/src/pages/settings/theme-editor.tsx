@@ -6,7 +6,8 @@ import type { ThemeFile } from '@study/ui/theme';
 import { toastManager } from '@study/ui/toast';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import type { AppearanceModel } from './use-page';
 
 type Editor = { type: 'import' } | { type: 'create' | 'edit'; theme: ThemeFile };

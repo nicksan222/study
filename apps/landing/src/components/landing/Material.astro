@@ -5,8 +5,8 @@
 import Icon from '../Icon.astro';
 import { pen } from '../rough';
 import { draw, keyed, words } from './text';
-import { href, t } from '../../i18n/strings';
-import type { Lang } from '../../i18n/strings';
+import { href, t } from '#landing/i18n/strings.ts';
+import type { Lang } from '#landing/i18n/strings.ts';
 
 interface Props {
   lang: Lang;
@@ -116,7 +116,7 @@ const pencil = draw(ink.pencil(2, 4, 44));
 </section>
 
 <script>
-  import { ink, live, relayout, wait } from '../../scripts/ink';
+  import { ink, live, relayout, wait } from '#landing/scripts/ink.ts';
 
   const section = document.querySelector<HTMLElement>('#material');
 

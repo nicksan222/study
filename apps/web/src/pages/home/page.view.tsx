@@ -1,7 +1,7 @@
 import { HomeHub } from '@study/ui/home-hub';
 import { Link } from '@tanstack/react-router';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
 
 const links = [
   ['/sessions', 'Sessions', 'workspace.sessionsHelp'],

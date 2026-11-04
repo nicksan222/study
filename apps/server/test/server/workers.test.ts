@@ -15,17 +15,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
 
-test(
+testStable(
   'source workflow survives restart and makes its content discoverable',
   { timeout: 15000 },
   async () => {
@@ -99,7 +99,7 @@ test(
   }
 );
 
-test(
+testStable(
   'reply workflow records a durable sign-in wait across restart',
   { timeout: 15000 },
   async () => {

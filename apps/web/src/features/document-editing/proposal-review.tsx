@@ -5,8 +5,9 @@ import { ErrorState } from '@study/ui/error-state';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
-import { useI18n } from '../../lib/i18n';
-import { versionOptions } from '../../lib/study-client/materials.queries';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { versionOptions } from '#web/lib/study-client/materials.queries.ts';
+
 import { ComparisonView } from './document-actions';
 import { useProposalReview } from './proposal-review.queries';
 

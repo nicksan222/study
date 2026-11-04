@@ -13,12 +13,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { rewriteAgent } from './rewrite.ts';
 
 for (const origin of ['improve', 'summarize'] as const)
-  test(`rewrite ${origin} keeps the captured target immediately before the task`, () => {
+  testStable(`rewrite ${origin} keeps the captured target immediately before the task`, () => {
     const messages = [
       { role: 'user' as const, content: 'Earlier context' },
       { role: 'assistant' as const, content: 'The requested target' }
@@ -35,19 +36,22 @@ for (const origin of ['improve', 'summarize'] as const)
     assert.deepEqual(prompt.at(-1), { role: 'user', content: `Task: ${origin}. ` });
   });
 
-test('rewrite instruction and preferences appear once in the task, outside captured text', () => {
-  const messages = [{ role: 'user' as const, content: 'Rewrite this passage' }];
-  const prompt = rewriteAgent.prompt({
-    messages,
-    origin: 'instruction',
-    instruction: 'Keep qualifiers',
-    preferences: { language: 'italian', detail: 'brief' }
-  });
+testStable(
+  'rewrite instruction and preferences appear once in the task, outside captured text',
+  () => {
+    const messages = [{ role: 'user' as const, content: 'Rewrite this passage' }];
+    const prompt = rewriteAgent.prompt({
+      messages,
+      origin: 'instruction',
+      instruction: 'Keep qualifiers',
+      preferences: { language: 'italian', detail: 'brief' }
+    });
 
-  assert.deepEqual(prompt.slice(0, -1), messages);
-  assert.deepEqual(prompt.at(-1), {
-    role: 'user',
-    content:
-      'Task: instruction. Keep qualifiers\nPreferences: {"language":"italian","detail":"brief"}'
-  });
-});
+    assert.deepEqual(prompt.slice(0, -1), messages);
+    assert.deepEqual(prompt.at(-1), {
+      role: 'user',
+      content:
+        'Task: instruction. Keep qualifiers\nPreferences: {"language":"italian","detail":"brief"}'
+    });
+  }
+);

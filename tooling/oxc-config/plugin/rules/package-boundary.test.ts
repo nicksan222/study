@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule, root } from '../test/utils.ts';
 
-test('package ownership, public exports, and browser entrypoints are enforced', () => {
+testStable('package ownership, public exports, and browser entrypoints are enforced', () => {
   const diagnostics = lintRule(
     'package-boundary',
     {
@@ -76,7 +77,7 @@ test('package ownership, public exports, and browser entrypoints are enforced', 
   );
 });
 
-test('source and test directory imports cannot bypass package boundaries', () => {
+testStable('source and test directory imports cannot bypass package boundaries', () => {
   const diagnostics = lintRule(
     'package-boundary',
     {
@@ -107,86 +108,95 @@ test('source and test directory imports cannot bypass package boundaries', () =>
   );
 });
 
-test('browser source forbids Node builtins but colocated tests and support may use them', () => {
-  const diagnostics = lintRule(
-    'package-boundary',
-    {
-      'apps/web/src/example.test.ts': "import 'node:assert/strict';\n",
-      'packages/ui/src/example.test.tsx': "import 'node:fs';\n",
-      'apps/web/src/test-support/helper.ts': "import 'node:fs';\n",
-      'apps/web/src/test/helper.ts': "import 'node:fs';\n",
-      'packages/ui/src/__tests__/helper.ts': "import 'node:fs';\n",
-      'apps/web/src/example.ts': "import 'node:fs';\n"
-    },
-    true
-  );
-
-  assert.deepEqual(
-    diagnostics.map(({ code, filename, message }) => {
-      assert.equal(code, 'study(package-boundary)');
-
-      return [filename.split('/').at(-1), message];
-    }),
-    [['example.ts', '@study/web cannot import Node builtins in browser code.']]
-  );
-});
-
-test('manifest exports honor blocked exact and more specific patterns and conditional root', () => {
-  const diagnostics = lintRule(
-    'package-boundary',
-    {
-      'apps/web/src/blocked.ts': "import '@study/ui/private';\n",
-      'apps/web/src/pattern.ts': "import '@study/ui/internal/secret';\n",
-      'apps/web/src/conditional.ts': "import '@study/ui/conditional';\n",
-      'apps/web/src/good.ts':
-        "import '@study/ui/button';\nimport '@study/ui/nested';\nimport '@study/localization';\n"
-    },
-    true,
-    {
-      ui: {
-        './*': './src/*.tsx',
-        './private': null,
-        './internal/*': null,
-        './conditional': { import: null, default: './src/fallback.ts' },
-        './nested': { import: { browser: './src/browser.ts' }, default: './src/index.ts' }
+testStable(
+  'browser source forbids Node builtins but colocated tests and support may use them',
+  () => {
+    const diagnostics = lintRule(
+      'package-boundary',
+      {
+        'apps/web/src/example.test.ts': "import 'node:assert/strict';\n",
+        'packages/ui/src/example.test.tsx': "import 'node:fs';\n",
+        'apps/web/src/test-support/helper.ts': "import 'node:fs';\n",
+        'apps/web/src/test/helper.ts': "import 'node:fs';\n",
+        'packages/ui/src/__tests__/helper.ts': "import 'node:fs';\n",
+        'apps/web/src/example.ts': "import 'node:fs';\n"
       },
-      localization: { import: './src/index.ts', default: './src/index.ts' }
-    }
-  );
+      true
+    );
 
-  assert.deepEqual(
-    diagnostics
-      .map(({ code, filename, message }) => {
+    assert.deepEqual(
+      diagnostics.map(({ code, filename, message }) => {
         assert.equal(code, 'study(package-boundary)');
 
         return [filename.split('/').at(-1), message];
-      })
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
-    [
-      ['blocked.ts', '@study/ui/private is not a public package export.'],
-      ['conditional.ts', '@study/ui/conditional is not a public package export.'],
-      ['pattern.ts', '@study/ui/internal/secret is not a public package export.']
-    ]
-  );
-});
+      }),
+      [['example.ts', '@study/web cannot import Node builtins in browser code.']]
+    );
+  }
+);
 
-test('the theme engine remains browser-safe while UI and server can consume its public API', () => {
-  const diagnostics = lintRule(
-    'package-boundary',
-    {
-      'packages/theme/src/bad.ts':
-        "import { readFileSync } from 'node:fs'; export { readFileSync };",
-      'packages/ui/src/theme.ts': "export { parseTheme } from '@study/theme';",
-      'apps/server/src/shared/themes/types.ts': "export type { ThemeFile } from '@study/theme';"
-    },
-    true
-  );
+testStable(
+  'manifest exports honor blocked exact and more specific patterns and conditional root',
+  () => {
+    const diagnostics = lintRule(
+      'package-boundary',
+      {
+        'apps/web/src/blocked.ts': "import '@study/ui/private';\n",
+        'apps/web/src/pattern.ts': "import '@study/ui/internal/secret';\n",
+        'apps/web/src/conditional.ts': "import '@study/ui/conditional';\n",
+        'apps/web/src/good.ts':
+          "import '@study/ui/button';\nimport '@study/ui/nested';\nimport '@study/localization';\n"
+      },
+      true,
+      {
+        ui: {
+          './*': './src/*.tsx',
+          './private': null,
+          './internal/*': null,
+          './conditional': { import: null, default: './src/fallback.ts' },
+          './nested': { import: { browser: './src/browser.ts' }, default: './src/index.ts' }
+        },
+        localization: { import: './src/index.ts', default: './src/index.ts' }
+      }
+    );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.match(diagnostics[0]!.message, /cannot import Node builtins/);
-});
+    assert.deepEqual(
+      diagnostics
+        .map(({ code, filename, message }) => {
+          assert.equal(code, 'study(package-boundary)');
 
-test('contracts are recognized and unknown workspace packages fail closed', () => {
+          return [filename.split('/').at(-1), message];
+        })
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      [
+        ['blocked.ts', '@study/ui/private is not a public package export.'],
+        ['conditional.ts', '@study/ui/conditional is not a public package export.'],
+        ['pattern.ts', '@study/ui/internal/secret is not a public package export.']
+      ]
+    );
+  }
+);
+
+testStable(
+  'the theme engine remains browser-safe while UI and server can consume its public API',
+  () => {
+    const diagnostics = lintRule(
+      'package-boundary',
+      {
+        'packages/theme/src/bad.ts':
+          "import { readFileSync } from 'node:fs'; export { readFileSync };",
+        'packages/ui/src/theme.ts': "export { parseTheme } from '@study/theme';",
+        'apps/server/src/shared/themes/types.ts': "export type { ThemeFile } from '@study/theme';"
+      },
+      true
+    );
+
+    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.match(diagnostics[0]!.message, /cannot import Node builtins/);
+  }
+);
+
+testStable('contracts are recognized and unknown workspace packages fail closed', () => {
   const diagnostics = lintRule(
     'package-boundary',
     {
@@ -201,7 +211,7 @@ test('contracts are recognized and unknown workspace packages fail closed', () =
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('checks typed and aliased loader edges while honoring shadowing', () => {
+testStable('checks typed and aliased loader edges while honoring shadowing', () => {
   const diagnostics = lintRule(
     'package-boundary',
     {
@@ -214,7 +224,7 @@ test('checks typed and aliased loader edges while honoring shadowing', () => {
   assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-test('loader edges follow lexical bindings and direct createRequire calls', () => {
+testStable('loader edges follow lexical bindings and direct createRequire calls', () => {
   const diagnostics = lintRule(
     'package-boundary',
     {
@@ -227,18 +237,21 @@ test('loader edges follow lexical bindings and direct createRequire calls', () =
   assert.equal(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
 
-test('database storage may reuse canonical contract ID types without depending on server implementation', () => {
-  const diagnostics = lintRule(
-    'package-boundary',
-    {
-      'packages/db/src/schema/ids.ts':
-        "import type { ProjectId } from '@study/contracts'; export type Id = ProjectId;",
-      'packages/db/src/schema/server.ts':
-        "import type { AppRouter } from '@study/server'; export type Router = AppRouter;"
-    },
-    true
-  );
+testStable(
+  'database storage may reuse canonical contract ID types without depending on server implementation',
+  () => {
+    const diagnostics = lintRule(
+      'package-boundary',
+      {
+        'packages/db/src/schema/ids.ts':
+          "import type { ProjectId } from '@study/contracts'; export type Id = ProjectId;",
+        'packages/db/src/schema/server.ts':
+          "import type { AppRouter } from '@study/server'; export type Router = AppRouter;"
+      },
+      true
+    );
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics[0]?.filename.endsWith('/server.ts'));
-});
+    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0]?.filename.endsWith('/server.ts'));
+  }
+);

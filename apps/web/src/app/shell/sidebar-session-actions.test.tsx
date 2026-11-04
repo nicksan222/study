@@ -1,6 +1,7 @@
 import { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { catalogs } from '@study/localization';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -11,9 +12,10 @@ import {
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
-import { afterEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, expect, vi } from 'vite-plus/test';
 
-import type * as WorkspaceQueries from '../../features/session-workspace/session-workspace.queries';
+import type * as WorkspaceQueries from '#web/features/session-workspace/session-workspace.queries.ts';
+
 import { SidebarSessionActions } from './sidebar-session-actions';
 
 const notices = vi.hoisted(() => ({ add: vi.fn() }));
@@ -22,7 +24,7 @@ vi.mock('@study/ui/toast', () => ({ toastManager: notices }));
 
 const deletion = vi.hoisted(() => ({ remove: vi.fn(), read: vi.fn(), retry: vi.fn() }));
 
-vi.mock('../../features/session-workspace/session-workspace.queries', async (load) => {
+vi.mock('#web/features/session-workspace/session-workspace.queries.ts', async (load) => {
   const actual = await load<typeof WorkspaceQueries>();
 
   return {
@@ -78,40 +80,46 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it('opens session actions with right click and cancels deletion without a mutation', async () => {
-  mount();
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
-    button: 2,
-    clientX: 80,
-    clientY: 80
-  });
-  const remove = await screen.findByRole('menuitem', { name: en.SessionDelete });
+testStable(
+  'opens session actions with right click and cancels deletion without a mutation',
+  async () => {
+    mount();
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    const remove = await screen.findByRole('menuitem', { name: en.SessionDelete });
 
-  await userEvent.setup().click(remove);
-  const dialog = await screen.findByRole('alertdialog');
+    await userEvent.setup().click(remove);
+    const dialog = await screen.findByRole('alertdialog');
 
-  expect(within(dialog).getByText(en.SessionDeleteHelp)).toBeVisible();
-  expect(within(dialog).getByRole('button', { name: en.Cancel })).toHaveFocus();
-  await userEvent.setup().click(within(dialog).getByRole('button', { name: en.Cancel }));
-  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
-  expect(deletion.remove).not.toHaveBeenCalled();
-});
+    expect(within(dialog).getByText(en.SessionDeleteHelp)).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: en.Cancel })).toHaveFocus();
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: en.Cancel }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(deletion.remove).not.toHaveBeenCalled();
+  }
+);
 
-it('opens the canonical session path from the context menu without adding row controls', async () => {
-  const router = mount();
+testStable(
+  'opens the canonical session path from the context menu without adding row controls',
+  async () => {
+    const router = mount();
 
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
-    button: 2,
-    clientX: 80,
-    clientY: 80
-  });
-  expect(screen.queryByRole('button', { name: en.SessionActions })).not.toBeInTheDocument();
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.OpenSession }));
-  await waitFor(() => expect(router.state.location.pathname).toBe('/sessions/9007199254740993'));
-  expect(router.state.location.search).toEqual({ project: '9007199254740995' });
-});
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(screen.queryByRole('button', { name: en.SessionActions })).not.toBeInTheDocument();
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.OpenSession }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/sessions/9007199254740993'));
+    expect(router.state.location.search).toEqual({ project: '9007199254740995' });
+  }
+);
 
-it('deletes only the exact session after explicit confirmation', async () => {
+testStable('deletes only the exact session after explicit confirmation', async () => {
   deletion.remove.mockReturnValue(new Promise(() => {}));
   mount();
   const user = userEvent.setup();
@@ -154,35 +162,40 @@ function receipt(status: 'failed' | 'completed') {
   });
 }
 
-it('announces an owned retry completion once and does not announce cached receipts', async () => {
-  mount();
-  deletion.read.mockResolvedValue(receipt('failed'));
-  deletion.retry.mockResolvedValue(receipt('completed'));
-  const user = userEvent.setup();
+testStable(
+  'announces an owned retry completion once and does not announce cached receipts',
+  async () => {
+    mount();
+    deletion.read.mockResolvedValue(receipt('failed'));
+    deletion.retry.mockResolvedValue(receipt('completed'));
+    const user = userEvent.setup();
 
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
-  await user.click(await screen.findByRole('menuitem', { name: en.SessionDelete }));
-  const dialog = await screen.findByRole('alertdialog');
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+      button: 2
+    });
+    await user.click(await screen.findByRole('menuitem', { name: en.SessionDelete }));
+    const dialog = await screen.findByRole('alertdialog');
 
-  await user.type(within(dialog).getByRole('textbox'), en.DeleteConfirmationWord);
-  await user.click(await within(dialog).findByRole('button', { name: en.SessionRetryDelete }));
-  await waitFor(() => expect(deletion.retry).toHaveBeenCalledExactlyOnceWith(id));
-  await waitFor(() =>
-    expect(notices.add).toHaveBeenCalledExactlyOnceWith({
-      title: en.SessionDeleted,
-      type: 'success'
-    })
-  );
-  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    await user.type(within(dialog).getByRole('textbox'), en.DeleteConfirmationWord);
+    await user.click(await within(dialog).findByRole('button', { name: en.SessionRetryDelete }));
+    await waitFor(() => expect(deletion.retry).toHaveBeenCalledExactlyOnceWith(id));
+    await waitFor(() =>
+      expect(notices.add).toHaveBeenCalledExactlyOnceWith({
+        title: en.SessionDeleted,
+        type: 'success'
+      })
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
 
-  deletion.read.mockResolvedValue(receipt('completed'));
-  fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
-  await user.click(await screen.findByRole('menuitem', { name: en.SessionDelete }));
-  const cached = await screen.findByRole('alertdialog');
+    deletion.read.mockResolvedValue(receipt('completed'));
+    fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
+    await user.click(await screen.findByRole('menuitem', { name: en.SessionDelete }));
+    const cached = await screen.findByRole('alertdialog');
 
-  expect(
-    await within(cached).findByRole('button', { name: en.SessionConfirmDelete })
-  ).toBeDisabled();
-  expect(notices.add).toHaveBeenCalledTimes(1);
-  expect(deletion.remove).not.toHaveBeenCalled();
-});
+    expect(
+      await within(cached).findByRole('button', { name: en.SessionConfirmDelete })
+    ).toBeDisabled();
+    expect(notices.add).toHaveBeenCalledTimes(1);
+    expect(deletion.remove).not.toHaveBeenCalled();
+  }
+);

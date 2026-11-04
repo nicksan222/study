@@ -1,7 +1,7 @@
 import type { SourceId } from '@study/contracts/ids';
 import { queryOptions } from '@tanstack/react-query';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 /** Keep attachment previews pinned to the original source while its import completes. */
 export function attachmentPreviewOptions(sourceId: SourceId | null) {

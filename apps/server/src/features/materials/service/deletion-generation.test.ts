@@ -12,11 +12,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { MaterialId } from '@study/contracts/ids';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { Conversations } from '#server/features/conversations/index';
@@ -138,252 +138,255 @@ function retiredRequest(f: MaterialDeletionFixture, requestId: string) {
 }
 
 for (const transform of [false, true]) {
-  test(`kept ${transform ? 'no-target Document transform' : 'generated flashcards'} can be deleted after completed input retirement without reassignment or resurrection`, async () => {
-    const f = await documentTransformFixture();
+  testStable(
+    `kept ${transform ? 'no-target Document transform' : 'generated flashcards'} can be deleted after completed input retirement without reassignment or resurrection`,
+    async () => {
+      const f = await documentTransformFixture();
 
-    try {
-      const saved = await generatedRequest(f, transform);
+      try {
+        const saved = await generatedRequest(f, transform);
 
-      const event = f.event(saved.request.id);
+        const event = f.event(saved.request.id);
 
-      f.replies.push({ kind: 'sources', query: 'Generation evidence' });
+        f.replies.push({ kind: 'sources', query: 'Generation evidence' });
 
-      f.replies.push({
-        kind: 'output',
-        output: transform
-          ? validDocumentTransformOutput('INTENTIONAL_GENERATION_COPY [1]')
-          : {
-              kind: 'flashcards',
-              cards: [{ front: 'INTENTIONAL_GENERATION_COPY [1]', back: 'Generation evidence' }]
-            }
-      });
+        f.replies.push({
+          kind: 'output',
+          output: transform
+            ? validDocumentTransformOutput('INTENTIONAL_GENERATION_COPY [1]')
+            : {
+                kind: 'flashcards',
+                cards: [{ front: 'INTENTIONAL_GENERATION_COPY [1]', back: 'Generation evidence' }]
+              }
+        });
 
-      await f.execute(event, 'completed-generation');
+        await f.execute(event, 'completed-generation');
 
-      const output = await Effect.runPromise(
-        Effect.gen(function* () {
-          const materials = yield* Materials;
-
-          const request = yield* materials.materialGeneration({
-            requestId: saved.request.id,
-            verifyOnly: true
-          });
-
-          assert.ok(request.resultVersionId !== null);
-
-          return yield* materials.materialVersion({ id: request.resultVersionId });
-        }).pipe(Effect.provide(f.domain()))
-      );
-
-      assert.notEqual(output.material_id, saved.input.id);
-
-      assert.equal(
-        f.context.db.orm
-          .select()
-          .from(s.material_versions)
-          .where(eq(s.material_versions.id, output.id))
-          .get()?.generation_request_id,
-        saved.request.id
-      );
-
-      const accepted = await acceptMaterialDeletion(f, saved.input.id);
-      // Live overlapping retirement must still reject, including the failed-cleanup interval.
-
-      await rejectSharedCleanup(f, output.material_id);
-
-      f.context.db.orm.run(
-        sql.raw(
-          "CREATE TRIGGER reject_generation_cleanup BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT,'injected'); END"
-        )
-      );
-
-      await assert.rejects(cleanupMaterial(f, saved.input.id));
-
-      await Effect.runPromise(
-        awaitNativeStatus(f, `material-cleanup/${accepted.operationId}/1`, 'completed')
-      );
-
-      const failed = await Effect.runPromise(
-        Effect.flatMap(Materials, (m) => m.deletion({ materialId: saved.input.id })).pipe(
-          Effect.provide(f.domain())
-        )
-      );
-
-      assert.equal(failed.status, 'failed');
-
-      await rejectSharedCleanup(f, output.material_id);
-
-      assert.equal(
-        f.context.db.orm
-          .select()
-          .from(s.material_deletions)
-          .where(eq(s.material_deletions.material_id, output.material_id))
-          .get(),
-        undefined
-      );
-
-      f.context.db.orm.run(sql.raw('DROP TRIGGER reject_generation_cleanup'));
-
-      f.reopen();
-
-      await Effect.runPromise(
-        Effect.flatMap(Materials, (m) => m.retryDeletion({ materialId: saved.input.id })).pipe(
-          Effect.provide(f.domain())
-        )
-      );
-
-      await cleanupMaterial(f, saved.input.id);
-
-      f.reopen();
-
-      const retired = retiredRequest(f, saved.request.id);
-
-      const owner = f.context.db.orm
-        .select()
-        .from(s.material_deletion_requests)
-        .where(eq(s.material_deletion_requests.request_id, saved.request.id))
-        .get();
-
-      assert.deepEqual(owner, {
-        request_id: saved.request.id,
-        deletion_id: saved.input.id,
-        kind: 'generation'
-      });
-
-      const fences = f.context.db.orm
-        .select()
-        .from(s.workflow_retired_correlations)
-        .where(eq(s.workflow_retired_correlations.correlation_id, saved.request.id))
-        .all();
-
-      assert.ok(fences.some((fence) => fence.event_type === 'MaterialGenerationRequested'));
-
-      const nativeFence = f.context.db.orm
-        .select()
-        .from(s.workflow_retired_executions)
-        .where(eq(s.workflow_retired_executions.execution_id, 'completed-generation'))
-        .get();
-
-      assert.deepEqual(nativeFence, {
-        execution_id: 'completed-generation',
-        correlation_id: saved.request.id
-      });
-
-      const run = workflowStore(f.context).execution('completed-generation');
-
-      assert.ok(run);
-
-      assert.equal(run.status, 'completed');
-
-      assert.equal(run.payload, '{}');
-
-      assert.equal(run.result, null);
-
-      assert.equal(run.owner_token, null);
-
-      assert.equal(
-        f.context.db.orm
-          .select()
-          .from(s.workflow_activities)
-          .where(eq(s.workflow_activities.execution_id, 'completed-generation'))
-          .all().length,
-        0
-      );
-
-      assert.deepEqual(
-        await Effect.runPromise(
+        const output = await Effect.runPromise(
           Effect.gen(function* () {
             const materials = yield* Materials;
-            const citations = yield* materials.citations({ id: output.id, limit: 10 });
 
-            assert.equal(citations.items.length, 1);
-            assert.equal(citations.items[0]?.inputVersionId, saved.input.version.id);
-            assert.equal(citations.items[0]?.evidence?.availability, 'unavailable');
+            const request = yield* materials.materialGeneration({
+              requestId: saved.request.id,
+              verifyOnly: true
+            });
 
-            return yield* materials.materialVersion({ id: output.id });
+            assert.ok(request.resultVersionId !== null);
+
+            return yield* materials.materialVersion({ id: request.resultVersionId });
           }).pipe(Effect.provide(f.domain()))
-        ),
-        { ...output, instruction: null }
-      );
+        );
 
-      assertScrubbed(f, 'PRIVATE_GENERATION_INSTRUCTION_ONLY');
+        assert.notEqual(output.material_id, saved.input.id);
 
-      await acceptMaterialDeletion(f, output.material_id);
+        assert.equal(
+          f.context.db.orm
+            .select()
+            .from(s.material_versions)
+            .where(eq(s.material_versions.id, output.id))
+            .get()?.generation_request_id,
+          saved.request.id
+        );
 
-      assert.deepEqual(
-        f.context.db.orm
+        const accepted = await acceptMaterialDeletion(f, saved.input.id);
+        // Live overlapping retirement must still reject, including the failed-cleanup interval.
+
+        await rejectSharedCleanup(f, output.material_id);
+
+        f.context.db.orm.run(
+          sql.raw(
+            "CREATE TRIGGER reject_generation_cleanup BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT,'injected'); END"
+          )
+        );
+
+        await assert.rejects(cleanupMaterial(f, saved.input.id));
+
+        await Effect.runPromise(
+          awaitNativeStatus(f, `material-cleanup/${accepted.operationId}/1`, 'completed')
+        );
+
+        const failed = await Effect.runPromise(
+          Effect.flatMap(Materials, (m) => m.deletion({ materialId: saved.input.id })).pipe(
+            Effect.provide(f.domain())
+          )
+        );
+
+        assert.equal(failed.status, 'failed');
+
+        await rejectSharedCleanup(f, output.material_id);
+
+        assert.equal(
+          f.context.db.orm
+            .select()
+            .from(s.material_deletions)
+            .where(eq(s.material_deletions.material_id, output.material_id))
+            .get(),
+          undefined
+        );
+
+        f.context.db.orm.run(sql.raw('DROP TRIGGER reject_generation_cleanup'));
+
+        f.reopen();
+
+        await Effect.runPromise(
+          Effect.flatMap(Materials, (m) => m.retryDeletion({ materialId: saved.input.id })).pipe(
+            Effect.provide(f.domain())
+          )
+        );
+
+        await cleanupMaterial(f, saved.input.id);
+
+        f.reopen();
+
+        const retired = retiredRequest(f, saved.request.id);
+
+        const owner = f.context.db.orm
           .select()
           .from(s.material_deletion_requests)
           .where(eq(s.material_deletion_requests.request_id, saved.request.id))
-          .get(),
-        owner
-      );
+          .get();
 
-      await cleanupMaterial(f, output.material_id);
+        assert.deepEqual(owner, {
+          request_id: saved.request.id,
+          deletion_id: saved.input.id,
+          kind: 'generation'
+        });
 
-      f.reopen();
-
-      assert.deepEqual(retiredRequest(f, saved.request.id), retired);
-
-      assert.deepEqual(
-        f.context.db.orm
-          .select()
-          .from(s.workflow_retired_executions)
-          .where(eq(s.workflow_retired_executions.execution_id, 'completed-generation'))
-          .get(),
-        nativeFence
-      );
-
-      assert.deepEqual(
-        f.context.db.orm
-          .select()
-          .from(s.material_deletion_requests)
-          .where(eq(s.material_deletion_requests.request_id, saved.request.id))
-          .get(),
-        owner
-      );
-
-      assert.deepEqual(
-        f.context.db.orm
+        const fences = f.context.db.orm
           .select()
           .from(s.workflow_retired_correlations)
           .where(eq(s.workflow_retired_correlations.correlation_id, saved.request.id))
-          .all(),
-        fences
-      );
+          .all();
 
-      const calls = f.bodies.length;
+        assert.ok(fences.some((fence) => fence.event_type === 'MaterialGenerationRequested'));
 
-      await assert.rejects(f.execute(event, 'replay-retired-generation'));
+        const nativeFence = f.context.db.orm
+          .select()
+          .from(s.workflow_retired_executions)
+          .where(eq(s.workflow_retired_executions.execution_id, 'completed-generation'))
+          .get();
 
-      assert.equal(f.bodies.length, calls);
+        assert.deepEqual(nativeFence, {
+          execution_id: 'completed-generation',
+          correlation_id: saved.request.id
+        });
 
-      assertScrubbed(f, 'INTENTIONAL_GENERATION_COPY');
+        const run = workflowStore(f.context).execution('completed-generation');
 
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          const materials = yield* Materials;
+        assert.ok(run);
 
-          assert.equal(
-            (yield* materials.deletion({ materialId: output.material_id })).status,
-            'completed'
-          );
+        assert.equal(run.status, 'completed');
 
-          assert.equal(
-            (yield* Effect.flip(materials.materialVersion({ id: output.id }))).kind,
-            'not_found'
-          );
+        assert.equal(run.payload, '{}');
 
-          assert.equal(
-            (yield* Effect.flip(
-              materials.materialGeneration({ requestId: saved.request.id, verifyOnly: true })
-            )).kind,
-            'not_found'
-          );
-        }).pipe(Effect.provide(f.domain()))
-      );
-    } finally {
-      await f.close();
+        assert.equal(run.result, null);
+
+        assert.equal(run.owner_token, null);
+
+        assert.equal(
+          f.context.db.orm
+            .select()
+            .from(s.workflow_activities)
+            .where(eq(s.workflow_activities.execution_id, 'completed-generation'))
+            .all().length,
+          0
+        );
+
+        assert.deepEqual(
+          await Effect.runPromise(
+            Effect.gen(function* () {
+              const materials = yield* Materials;
+              const citations = yield* materials.citations({ id: output.id, limit: 10 });
+
+              assert.equal(citations.items.length, 1);
+              assert.equal(citations.items[0]?.inputVersionId, saved.input.version.id);
+              assert.equal(citations.items[0]?.evidence?.availability, 'unavailable');
+
+              return yield* materials.materialVersion({ id: output.id });
+            }).pipe(Effect.provide(f.domain()))
+          ),
+          { ...output, instruction: null }
+        );
+
+        assertScrubbed(f, 'PRIVATE_GENERATION_INSTRUCTION_ONLY');
+
+        await acceptMaterialDeletion(f, output.material_id);
+
+        assert.deepEqual(
+          f.context.db.orm
+            .select()
+            .from(s.material_deletion_requests)
+            .where(eq(s.material_deletion_requests.request_id, saved.request.id))
+            .get(),
+          owner
+        );
+
+        await cleanupMaterial(f, output.material_id);
+
+        f.reopen();
+
+        assert.deepEqual(retiredRequest(f, saved.request.id), retired);
+
+        assert.deepEqual(
+          f.context.db.orm
+            .select()
+            .from(s.workflow_retired_executions)
+            .where(eq(s.workflow_retired_executions.execution_id, 'completed-generation'))
+            .get(),
+          nativeFence
+        );
+
+        assert.deepEqual(
+          f.context.db.orm
+            .select()
+            .from(s.material_deletion_requests)
+            .where(eq(s.material_deletion_requests.request_id, saved.request.id))
+            .get(),
+          owner
+        );
+
+        assert.deepEqual(
+          f.context.db.orm
+            .select()
+            .from(s.workflow_retired_correlations)
+            .where(eq(s.workflow_retired_correlations.correlation_id, saved.request.id))
+            .all(),
+          fences
+        );
+
+        const calls = f.bodies.length;
+
+        await assert.rejects(f.execute(event, 'replay-retired-generation'));
+
+        assert.equal(f.bodies.length, calls);
+
+        assertScrubbed(f, 'INTENTIONAL_GENERATION_COPY');
+
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const materials = yield* Materials;
+
+            assert.equal(
+              (yield* materials.deletion({ materialId: output.material_id })).status,
+              'completed'
+            );
+
+            assert.equal(
+              (yield* Effect.flip(materials.materialVersion({ id: output.id }))).kind,
+              'not_found'
+            );
+
+            assert.equal(
+              (yield* Effect.flip(
+                materials.materialGeneration({ requestId: saved.request.id, verifyOnly: true })
+              )).kind,
+              'not_found'
+            );
+          }).pipe(Effect.provide(f.domain()))
+        );
+      } finally {
+        await f.close();
+      }
     }
-  });
+  );
 }

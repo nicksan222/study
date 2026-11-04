@@ -1,36 +1,40 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-test('generation scope closure and identity survive direct writes and allow project cascades', () => {
-  const location = createTestDatabase();
-  const db = location.open();
+testStable(
+  'generation scope closure and identity survive direct writes and allow project cascades',
+  () => {
+    const location = createTestDatabase();
+    const db = location.open();
 
-  try {
-    db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
+    try {
+      db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
       INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at) VALUES('scope',1,1,1,1);
       UPDATE material_generation_scopes SET enabled=0,updated_at=2 WHERE id='scope';`);
 
-    for (const mutation of [
-      "UPDATE material_generation_scopes SET enabled=1 WHERE id='scope'",
-      "UPDATE material_generation_scopes SET id='replacement' WHERE id='scope'",
-      "UPDATE material_generation_scopes SET project_id=2 WHERE id='scope'",
-      "UPDATE material_generation_scopes SET created_at=0 WHERE id='scope'",
-      "DELETE FROM material_generation_scopes WHERE id='scope'"
-    ])
-      assert.throws(() => db.exec(mutation));
+      for (const mutation of [
+        "UPDATE material_generation_scopes SET enabled=1 WHERE id='scope'",
+        "UPDATE material_generation_scopes SET id='replacement' WHERE id='scope'",
+        "UPDATE material_generation_scopes SET project_id=2 WHERE id='scope'",
+        "UPDATE material_generation_scopes SET created_at=0 WHERE id='scope'",
+        "DELETE FROM material_generation_scopes WHERE id='scope'"
+      ])
+        assert.throws(() => db.exec(mutation));
 
-    db.exec('DELETE FROM projects WHERE id=1');
-    assert.equal(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
-    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
-  } finally {
-    db.close();
-    location.cleanup();
+      db.exec('DELETE FROM projects WHERE id=1');
+      assert.equal(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
+      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+    } finally {
+      db.close();
+      location.cleanup();
+    }
   }
-});
+);
 
-test('scoped generation requests require a live scope in their own project', () => {
+testStable('scoped generation requests require a live scope in their own project', () => {
   const location = createTestDatabase();
   const db = location.open();
 

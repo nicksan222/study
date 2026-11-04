@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
 import { sourcePageInputSchema, sourceProcessingSchema } from '../src/sources/rpc.ts';
 import { sourceSchema } from '../src/sources/schemas.ts';
 
-test('source pages require a bounded limit and preserve 64-bit cursors', () => {
+testStable('source pages require a bounded limit and preserve 64-bit cursors', () => {
   const decode = Schema.decodeUnknownSync(sourcePageInputSchema);
 
   assert.deepEqual(decode({ limit: 20, before: 9007199254740993n }), {
@@ -22,7 +22,7 @@ test('source pages require a bounded limit and preserve 64-bit cursors', () => {
   assert.throws(() => decode({ limit: 1, before: 0n }));
 });
 
-test('source processing identities survive the native JSON codec', () => {
+testStable('source processing identities survive the native JSON codec', () => {
   const codec = Schema.toCodecJson(sourceProcessingSchema);
   const value = {
     sourceId: Schema.decodeUnknownSync(sourceProcessingSchema.fields.sourceId)(9007199254740993n),
@@ -39,7 +39,7 @@ test('source processing identities survive the native JSON codec', () => {
   assert.throws(() => decode({ ...value, requestId: '' }));
 });
 
-test('canonical source bytes and large IDs have native wire codecs', () => {
+testStable('canonical source bytes and large IDs have native wire codecs', () => {
   const codec = Schema.toCodecJson(sourceSchema);
   const source = Schema.decodeUnknownSync(sourceSchema)({
     id: 9007199254740993n,

@@ -1,14 +1,15 @@
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { material } from '../material-library/test/support';
 import { useDocumentMetadata } from './session-document-metadata.queries';
 
 const api = vi.hoisted(() => ({ description: vi.fn(), rename: vi.fn() }));
 
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (run: (rpc: Record<string, unknown>) => unknown) =>
     run({ 'materials.updateDescription': api.description, 'materials.rename': api.rename })
 }));
@@ -43,23 +44,26 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear());
 });
 
-it('updates document metadata with the expected stored description and trimmed title', async () => {
-  const view = mount();
+testStable(
+  'updates document metadata with the expected stored description and trimmed title',
+  async () => {
+    const view = mount();
 
-  act(() => {
-    view.result.current.setTitle('  Lecture notes  ');
-    view.result.current.setDescription('  Study this tomorrow  ');
-  });
-  await act(() => view.result.current.mutation.mutateAsync());
-  expect(api.description).toHaveBeenCalledWith({
-    id: view.original.id,
-    expectedDescription: 'Original summary',
-    description: 'Study this tomorrow'
-  });
-  expect(api.rename).toHaveBeenCalledWith({ id: view.original.id, title: 'Lecture notes' });
-});
+    act(() => {
+      view.result.current.setTitle('  Lecture notes  ');
+      view.result.current.setDescription('  Study this tomorrow  ');
+    });
+    await act(() => view.result.current.mutation.mutateAsync());
+    expect(api.description).toHaveBeenCalledWith({
+      id: view.original.id,
+      expectedDescription: 'Original summary',
+      description: 'Study this tomorrow'
+    });
+    expect(api.rename).toHaveBeenCalledWith({ id: view.original.id, title: 'Lecture notes' });
+  }
+);
 
-it('keeps edits on a description conflict and does not rename the material', async () => {
+testStable('keeps edits on a description conflict and does not rename the material', async () => {
   const view = mount();
 
   api.description.mockRejectedValue(new Error('conflict'));

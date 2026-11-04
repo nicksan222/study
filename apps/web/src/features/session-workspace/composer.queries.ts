@@ -1,8 +1,9 @@
 import type { SessionId, SourceId } from '@study/contracts/ids';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useI18n } from '../../lib/i18n';
-import { toStudyError } from '../../lib/study-client/errors';
+import { useI18n } from '#web/lib/i18n.tsx';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+
 import { useAttachments } from './attachments';
 import { acceptText, emptyDraft, prepareAsk } from './draft';
 import type { Draft } from './draft';

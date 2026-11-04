@@ -1,8 +1,9 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { queryOptions } from '@tanstack/react-query';
 
-import { listMaterialsForProjects, listSources } from '../../lib/study-client/operations';
-import type { Subjects } from '../../lib/study-client/operations';
+import { listMaterialsForProjects, listSources } from '#web/lib/study-client/operations.ts';
+import type { Subjects } from '#web/lib/study-client/operations.ts';
+
 import { libraryItems } from './library.logic';
 
 export function libraryQueryOptions(

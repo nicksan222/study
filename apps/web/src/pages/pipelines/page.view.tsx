@@ -1,1 +1,1 @@
-export { Activity as PageView } from '../../features/activity';
+export { Activity as PageView } from '#web/features/activity/index.ts';

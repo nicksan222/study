@@ -1,9 +1,10 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { sessionIdSchema } from '@study/contracts/ids';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { changeVersions, sessionChanges } from './changes';
 import type * as WorkspaceQueries from './session-workspace.queries';
@@ -11,11 +12,11 @@ import { WorkspaceContext } from './workspace-context';
 
 const rpc = vi.hoisted(() => ({ thread: vi.fn(), generations: vi.fn(), imported: vi.fn() }));
 
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (fn: (client: { 'materials.importedMaterial': typeof rpc.imported }) => unknown) =>
     fn({ 'materials.importedMaterial': rpc.imported })
 }));
-vi.mock('../../lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('../material-library/exact-document', () => ({
   ExactDocument: ({ id }: { id: bigint }) => <div>Exact document {String(id)}</div>
 }));
@@ -115,7 +116,7 @@ afterEach(() => {
   for (const client of clients.splice(0)) client.clear();
 });
 
-it('filters foreign sessions and deduplicates overlapping pages', () => {
+testStable('filters foreign sessions and deduplicates overlapping pages', () => {
   expect(
     sessionChanges(id, [
       message,
@@ -125,7 +126,7 @@ it('filters foreign sessions and deduplicates overlapping pages', () => {
   ).toEqual([message]);
 });
 
-it('compares the exact basedOn version rather than the previous array entry', () => {
+testStable('compares the exact basedOn version rather than the previous array entry', () => {
   expect(changeVersions(message)).toMatchObject({
     current: { text: 'Current note' },
     previous: { text: 'Original note' }
@@ -136,32 +137,35 @@ it('compares the exact basedOn version rather than the previous array entry', ()
   });
 });
 
-it('shows an honest starter state without fetching any session', () => {
+testStable('shows an honest starter state without fetching any session', () => {
   mount();
   expect(screen.getByText('SessionChangesStart')).toBeVisible();
   expect(rpc.thread).not.toHaveBeenCalled();
   expect(rpc.generations).not.toHaveBeenCalled();
 });
 
-it('opens a read-only exact before/current preview and excludes other sessions', async () => {
-  rpc.thread.mockResolvedValue({
-    items: [message, { ...message, sessionId: other, id: 99n }],
-    next: null
-  });
-  mount(id);
-  const row = await screen.findByRole('button', { name: /Current note/ });
+testStable(
+  'opens a read-only exact before/current preview and excludes other sessions',
+  async () => {
+    rpc.thread.mockResolvedValue({
+      items: [message, { ...message, sessionId: other, id: 99n }],
+      next: null
+    });
+    mount(id);
+    const row = await screen.findByRole('button', { name: /Current note/ });
 
-  fireEvent.click(row);
-  const dialog = await screen.findByRole('dialog');
+    fireEvent.click(row);
+    const dialog = await screen.findByRole('dialog');
 
-  expect(within(dialog).getByText('Original note')).toBeVisible();
-  expect(within(dialog).getByText('Current note')).toBeVisible();
-  expect(within(dialog).queryByText('Different branch')).toBeNull();
-  expect(within(dialog).queryByRole('textbox')).toBeNull();
-  expect(screen.getAllByRole('button', { name: /Current note/, hidden: true })).toHaveLength(1);
-});
+    expect(within(dialog).getByText('Original note')).toBeVisible();
+    expect(within(dialog).getByText('Current note')).toBeVisible();
+    expect(within(dialog).queryByText('Different branch')).toBeNull();
+    expect(within(dialog).queryByRole('textbox')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Current note/, hidden: true })).toHaveLength(1);
+  }
+);
 
-it('paginates both canonical feeds and previews an exact proposed document', async () => {
+testStable('paginates both canonical feeds and previews an exact proposed document', async () => {
   rpc.thread.mockImplementation((_id, before) =>
     Promise.resolve({ items: before ? [message] : [], next: before ? null : 71n })
   );
@@ -191,7 +195,7 @@ it('paginates both canonical feeds and previews an exact proposed document', asy
   expect(rpc.generations).toHaveBeenCalledWith(id, 'cursor');
 });
 
-it('never retains a previous session preview when session identity changes', async () => {
+testStable('never retains a previous session preview when session identity changes', async () => {
   rpc.thread.mockImplementation((sessionId) =>
     Promise.resolve({ items: sessionId === id ? [message] : [], next: null })
   );
@@ -207,7 +211,7 @@ it('never retains a previous session preview when session identity changes', asy
   expect(await screen.findByText('SessionChangesEmpty')).toBeVisible();
 });
 
-it('keeps incomplete replies visible even before any text arrives', async () => {
+testStable('keeps incomplete replies visible even before any text arrives', async () => {
   rpc.thread.mockResolvedValue({
     items: [
       {
@@ -222,30 +226,36 @@ it('keeps incomplete replies visible even before any text arrives', async () => 
   expect(await screen.findByRole('button', { name: /SessionPending/ })).toBeVisible();
 });
 
-it('does not report an empty session while canonical data is pending', async () => {
+testStable('does not report an empty session while canonical data is pending', async () => {
   rpc.thread.mockReturnValue(new Promise(() => {}));
   mount(id);
   expect(await screen.findByRole('status')).toHaveTextContent('LoadingStudy');
   expect(screen.queryByText('SessionChangesEmpty')).toBeNull();
 });
 
-it('keeps canonical read errors recoverable without claiming there are no changes', async () => {
-  rpc.thread.mockRejectedValue(new Error('Read failed'));
-  mount(id);
-  expect(await screen.findByRole('alert')).toBeVisible();
-  expect(screen.queryByText('SessionChangesEmpty')).toBeNull();
-});
+testStable(
+  'keeps canonical read errors recoverable without claiming there are no changes',
+  async () => {
+    rpc.thread.mockRejectedValue(new Error('Read failed'));
+    mount(id);
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(screen.queryByText('SessionChangesEmpty')).toBeNull();
+  }
+);
 
-it('resolves attachments by retained source identity and previews their canonical version', async () => {
-  const attached = Schema.decodeUnknownSync(chatMessageSchema)({
-    ...message,
-    parts: [{ id: 101n, sourceId: 201n, sourceName: 'Lecture notes.pdf', sourceKind: 'pdf' }]
-  });
+testStable(
+  'resolves attachments by retained source identity and previews their canonical version',
+  async () => {
+    const attached = Schema.decodeUnknownSync(chatMessageSchema)({
+      ...message,
+      parts: [{ id: 101n, sourceId: 201n, sourceName: 'Lecture notes.pdf', sourceKind: 'pdf' }]
+    });
 
-  rpc.thread.mockResolvedValue({ items: [attached], next: null });
-  rpc.imported.mockResolvedValue({ version: { id: 301n } });
-  mount(id);
-  fireEvent.click(await screen.findByRole('button', { name: /Lecture notes.pdf/ }));
-  expect(await screen.findByText('Exact document 301')).toBeVisible();
-  expect(rpc.imported).toHaveBeenCalledWith({ sourceId: 201n });
-});
+    rpc.thread.mockResolvedValue({ items: [attached], next: null });
+    rpc.imported.mockResolvedValue({ version: { id: 301n } });
+    mount(id);
+    fireEvent.click(await screen.findByRole('button', { name: /Lecture notes.pdf/ }));
+    expect(await screen.findByText('Exact document 301')).toBeVisible();
+    expect(rpc.imported).toHaveBeenCalledWith({ sourceId: 201n });
+  }
+);

@@ -2,11 +2,12 @@ import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema, materialVersionIdSchema } from '@study/contracts/ids';
 import { materialDetailSchema } from '@study/contracts/materials/schemas';
 import { plainBlock } from '@study/contracts/sources/document';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, cleanup } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { blankDocument } from '../document-editing';
 import {
@@ -22,7 +23,7 @@ const api = vi.hoisted(() => ({
   list: vi.fn()
 }));
 
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
     invoke({
       'materials.createManualDocument': api.create,
@@ -102,93 +103,105 @@ async function settle() {
   });
 }
 
-it('creates an empty real document attachment and reuses the exact creation receipt after uncertain transport', async () => {
-  api.create
-    .mockRejectedValueOnce(new StudyError('transient', 'offline'))
-    .mockResolvedValueOnce(material());
-  const view = mount(() => useSessionDocumentCreation(id));
+testStable(
+  'creates an empty real document attachment and reuses the exact creation receipt after uncertain transport',
+  async () => {
+    api.create
+      .mockRejectedValueOnce(new StudyError('transient', 'offline'))
+      .mockResolvedValueOnce(material());
+    const view = mount(() => useSessionDocumentCreation(id));
 
-  await act(async () => {
-    await view.result.current.create('New document');
-  });
-  const input = api.create.mock.calls[0]![0];
-
-  expect(input).toMatchObject({
-    sessionId: id,
-    title: 'New document',
-    document: { blocks: [{ text: '' }] }
-  });
-  expect(input.createKey).toBeTruthy();
-  await settle();
-  expect(view.result.current.error).toBeDefined();
-  await act(async () => {
-    await view.result.current.retry();
-  });
-  expect(api.create.mock.calls[1]![0]).toEqual(input);
-  await settle();
-  expect(view.result.current.error).toBeUndefined();
-});
-
-it('autosaves typed documents and flushes trailing edits after the tab closes', async () => {
-  let finish!: (value: {
-    outcome: 'saved';
-    submittedVersionId: ReturnType<typeof materialVersionIdSchema.make>;
-  }) => void;
-
-  api.save
-    .mockReturnValueOnce(
-      new Promise((resolve) => {
-        finish = resolve;
-      })
-    )
-    .mockResolvedValue({ outcome: 'saved', submittedVersionId: materialVersionIdSchema.make(12n) });
-  const initial = material();
-  const view = mount(() => useSessionDocumentAutosave(initial));
-  const first = document('First');
-  const last = document('Last');
-
-  act(() => view.result.current.change(first));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
-  });
-  expect(api.save.mock.calls[0]![0]).toMatchObject({
-    materialId: initial.id,
-    expectedVersionId: initial.version.id,
-    document: first
-  });
-  act(() => view.result.current.change(last));
-  view.unmount();
-  await act(async () => {
-    finish({ outcome: 'saved', submittedVersionId: materialVersionIdSchema.make(11n) });
-  });
-  expect(api.save).toHaveBeenCalledTimes(2);
-  expect(api.save.mock.calls[1]![0]).toMatchObject({ document: last, expectedVersionId: 11n });
-});
-
-it('preserves a failed save payload and requires an explicit retry with the same save key', async () => {
-  api.save
-    .mockRejectedValueOnce(new StudyError('transient', 'lost receipt'))
-    .mockResolvedValueOnce({
-      outcome: 'saved',
-      submittedVersionId: materialVersionIdSchema.make(11n)
+    await act(async () => {
+      await view.result.current.create('New document');
     });
-  const initial = material();
-  const view = mount(() => useSessionDocumentAutosave(initial));
+    const input = api.create.mock.calls[0]![0];
 
-  act(() => view.result.current.change(document('Draft')));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(9000);
-  });
-  expect(api.save).toHaveBeenCalledTimes(1);
-  await act(async () => {
-    await view.result.current.save();
-  });
-  expect(api.save.mock.calls[1]![0]).toEqual(api.save.mock.calls[0]![0]);
-  await settle();
-  expect(view.result.current.dirty).toBe(false);
-});
+    expect(input).toMatchObject({
+      sessionId: id,
+      title: 'New document',
+      document: { blocks: [{ text: '' }] }
+    });
+    expect(input.createKey).toBeTruthy();
+    await settle();
+    expect(view.result.current.error).toBeDefined();
+    await act(async () => {
+      await view.result.current.retry();
+    });
+    expect(api.create.mock.calls[1]![0]).toEqual(input);
+    await settle();
+    expect(view.result.current.error).toBeUndefined();
+  }
+);
 
-it('retains local edits on conflict until the user selects the saved version', async () => {
+testStable(
+  'autosaves typed documents and flushes trailing edits after the tab closes',
+  async () => {
+    let finish!: (value: {
+      outcome: 'saved';
+      submittedVersionId: ReturnType<typeof materialVersionIdSchema.make>;
+    }) => void;
+
+    api.save
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+      )
+      .mockResolvedValue({
+        outcome: 'saved',
+        submittedVersionId: materialVersionIdSchema.make(12n)
+      });
+    const initial = material();
+    const view = mount(() => useSessionDocumentAutosave(initial));
+    const first = document('First');
+    const last = document('Last');
+
+    act(() => view.result.current.change(first));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(api.save.mock.calls[0]![0]).toMatchObject({
+      materialId: initial.id,
+      expectedVersionId: initial.version.id,
+      document: first
+    });
+    act(() => view.result.current.change(last));
+    view.unmount();
+    await act(async () => {
+      finish({ outcome: 'saved', submittedVersionId: materialVersionIdSchema.make(11n) });
+    });
+    expect(api.save).toHaveBeenCalledTimes(2);
+    expect(api.save.mock.calls[1]![0]).toMatchObject({ document: last, expectedVersionId: 11n });
+  }
+);
+
+testStable(
+  'preserves a failed save payload and requires an explicit retry with the same save key',
+  async () => {
+    api.save
+      .mockRejectedValueOnce(new StudyError('transient', 'lost receipt'))
+      .mockResolvedValueOnce({
+        outcome: 'saved',
+        submittedVersionId: materialVersionIdSchema.make(11n)
+      });
+    const initial = material();
+    const view = mount(() => useSessionDocumentAutosave(initial));
+
+    act(() => view.result.current.change(document('Draft')));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
+    });
+    expect(api.save).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await view.result.current.save();
+    });
+    expect(api.save.mock.calls[1]![0]).toEqual(api.save.mock.calls[0]![0]);
+    await settle();
+    expect(view.result.current.dirty).toBe(false);
+  }
+);
+
+testStable('retains local edits on conflict until the user selects the saved version', async () => {
   api.save.mockResolvedValue({
     outcome: 'conflict',
     submittedVersionId: materialVersionIdSchema.make(12n)
@@ -211,17 +224,20 @@ it('retains local edits on conflict until the user selects the saved version', a
   expect(view.result.current.document.blocks[0]!.text).toBe('Another editor');
 });
 
-it('loads every attachment page rather than hiding documents beyond the first hundred', async () => {
-  const item = material();
+testStable(
+  'loads every attachment page rather than hiding documents beyond the first hundred',
+  async () => {
+    const item = material();
 
-  api.list
-    .mockResolvedValueOnce({ items: [item], nextCursor: item.id })
-    .mockResolvedValueOnce({ items: [item], nextCursor: null });
-  const client = new QueryClient();
+    api.list
+      .mockResolvedValueOnce({ items: [item], nextCursor: item.id })
+      .mockResolvedValueOnce({ items: [item], nextCursor: null });
+    const client = new QueryClient();
 
-  caches.push(client);
-  const result = await client.fetchQuery(sessionDocumentsOptions(id));
+    caches.push(client);
+    const result = await client.fetchQuery(sessionDocumentsOptions(id));
 
-  expect(result.items).toHaveLength(2);
-  expect(api.list.mock.calls[1]![0]).toMatchObject({ cursor: item.id });
-});
+    expect(result.items).toHaveLength(2);
+    expect(api.list.mock.calls[1]![0]).toMatchObject({ cursor: item.id });
+  }
+);

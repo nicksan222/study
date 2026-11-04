@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from './utils.ts';
 
-test('isolated rule ignores unrelated default lint violations', () => {
+testStable('isolated rule ignores unrelated default lint violations', () => {
   const diagnostics = lintRule('browser-boundary', {
     'src/shared/unused.ts': 'const unused = 1;\n'
   });
@@ -11,7 +12,7 @@ test('isolated rule ignores unrelated default lint violations', () => {
   assert.deepEqual(diagnostics, []);
 });
 
-test('isolated rule loads the plugin and reports its diagnostic and path', () => {
+testStable('isolated rule loads the plugin and reports its diagnostic and path', () => {
   const diagnostics = lintRule('browser-boundary', {
     'src/shared/bad.ts': "export * from '#server/runtime/context';\n"
   });

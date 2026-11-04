@@ -1,12 +1,13 @@
 import { sessionIdSchema } from '@study/contracts/ids';
 import { createManualDocumentSchema } from '@study/contracts/materials/editing';
 import { materialDetailSchema } from '@study/contracts/materials/schemas';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { material } from '../material-library/test/support';
 import { SessionDocumentPanel } from './session-document-panel';
@@ -20,10 +21,10 @@ const rpc = vi.hoisted(() => ({
   post: vi.fn()
 }));
 
-vi.mock('../../lib/i18n', () => ({
+vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
 }));
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (client: Record<string, unknown>) => unknown) =>
     invoke({
       'materials.createManualDocument': rpc.create,
@@ -89,32 +90,35 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear());
 });
 
-it('New document persists an empty attachment, adds its card, and opens its editable tab', async () => {
-  mount(<SessionWorkbench id={sessionId} onDelete={() => undefined} />);
-  fireEvent.click(screen.getByRole('button', { name: 'SessionNewDocument' }));
-  await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
-  const input = rpc.create.mock.calls[0]![0];
+testStable(
+  'New document persists an empty attachment, adds its card, and opens its editable tab',
+  async () => {
+    mount(<SessionWorkbench id={sessionId} onDelete={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SessionNewDocument' }));
+    await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
+    const input = rpc.create.mock.calls[0]![0];
 
-  expect(Schema.decodeUnknownSync(createManualDocumentSchema)(input)).toEqual(input);
-  expect(input).toMatchObject({
-    sessionId,
-    title: 'SessionNewPage',
-    createKey: expect.any(String)
-  });
-  expect(input.document.blocks.every((block: { text: string }) => block.text === '')).toBe(true);
-  expect(rpc.post).not.toHaveBeenCalled();
-  expect(await screen.findByRole('tab', { name: 'SessionNewPage' })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  );
-  expect(await screen.findByRole('textbox', { name: 'SessionPageEditor' })).toHaveAttribute(
-    'contenteditable',
-    'true'
-  );
-  const history = screen.getByRole('region', { name: 'SessionNotebook' });
+    expect(Schema.decodeUnknownSync(createManualDocumentSchema)(input)).toEqual(input);
+    expect(input).toMatchObject({
+      sessionId,
+      title: 'SessionNewPage',
+      createKey: expect.any(String)
+    });
+    expect(input.document.blocks.every((block: { text: string }) => block.text === '')).toBe(true);
+    expect(rpc.post).not.toHaveBeenCalled();
+    expect(await screen.findByRole('tab', { name: 'SessionNewPage' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(await screen.findByRole('textbox', { name: 'SessionPageEditor' })).toHaveAttribute(
+      'contenteditable',
+      'true'
+    );
+    const history = screen.getByRole('region', { name: 'SessionNotebook' });
 
-  expect(await within(history).findByRole('button', { name: /SessionNewPage/ })).toBeVisible();
-});
+    expect(await within(history).findByRole('button', { name: /SessionNewPage/ })).toBeVisible();
+  }
+);
 
 function ImportedPanel() {
   const [id, setId] = useState(material().id);
@@ -124,33 +128,36 @@ function ImportedPanel() {
   );
 }
 
-it('Edit a copy retains the exact imported version and opens the new authored document', async () => {
-  mount(<ImportedPanel />);
-  const original = material();
-  const reader = await screen.findByRole('textbox', { name: 'SessionPageEditor' });
+testStable(
+  'Edit a copy retains the exact imported version and opens the new authored document',
+  async () => {
+    mount(<ImportedPanel />);
+    const original = material();
+    const reader = await screen.findByRole('textbox', { name: 'SessionPageEditor' });
 
-  expect(reader).toHaveAttribute('contenteditable', 'false');
-  fireEvent.click(screen.getByRole('button', { name: 'DocumentEditCopy' }));
-  await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
-  const input = rpc.create.mock.calls[0]![0];
+    expect(reader).toHaveAttribute('contenteditable', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'DocumentEditCopy' }));
+    await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
+    const input = rpc.create.mock.calls[0]![0];
 
-  expect(input).toMatchObject({
-    sessionId,
-    title: original.title,
-    inputVersionId: original.version.id,
-    createKey: expect.any(String)
-  });
-  expect(input.document.blocks[0]).toMatchObject({
-    anchor: { type: 'authored' },
-    text: 'Current extraction 41'
-  });
-  expect(input.document.blocks[0].id).not.toBe('b0');
-  await waitFor(() =>
-    expect(screen.getByRole('textbox', { name: 'SessionPageEditor' })).toHaveAttribute(
-      'contenteditable',
-      'true'
-    )
-  );
-  expect(screen.queryByRole('button', { name: 'DocumentEditCopy' })).toBeNull();
-  expect(rpc.post).not.toHaveBeenCalled();
-});
+    expect(input).toMatchObject({
+      sessionId,
+      title: original.title,
+      inputVersionId: original.version.id,
+      createKey: expect.any(String)
+    });
+    expect(input.document.blocks[0]).toMatchObject({
+      anchor: { type: 'authored' },
+      text: 'Current extraction 41'
+    });
+    expect(input.document.blocks[0].id).not.toBe('b0');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'SessionPageEditor' })).toHaveAttribute(
+        'contenteditable',
+        'true'
+      )
+    );
+    expect(screen.queryByRole('button', { name: 'DocumentEditCopy' })).toBeNull();
+    expect(rpc.post).not.toHaveBeenCalled();
+  }
+);

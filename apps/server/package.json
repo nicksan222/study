@@ -33,6 +33,7 @@
     "yauzl": "3.4.0"
   },
   "devDependencies": {
+    "@study/testing": "*",
     "@types/jsdom": "30.0.0",
     "@types/yauzl": "3.4.0"
   }

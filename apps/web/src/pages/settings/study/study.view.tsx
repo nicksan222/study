@@ -3,7 +3,8 @@ import { Loading } from '@study/ui/loading';
 import { NumberControl } from '@study/ui/number-control';
 import { Settings } from '@study/ui/settings';
 
-import { useI18n } from '../../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import type { useStudySettings } from './use-study';
 
 export function StudySettingsView({ model }: { model: ReturnType<typeof useStudySettings> }) {

@@ -1,12 +1,13 @@
 import { projectIdSchema } from '@study/contracts/ids';
 import { materialSummarySchema } from '@study/contracts/materials/schemas';
 import { sourceSchema } from '@study/contracts/sources/schemas';
+import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
-import { expect, it } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
 import { libraryItems } from './library.logic';
 
-it('filters by section and project and orders mixed items newest first', () => {
+testStable('filters by section and project and orders mixed items newest first', () => {
   const project = Schema.decodeUnknownSync(projectIdSchema)(1n);
   const sources = Schema.decodeUnknownSync(Schema.Array(sourceSchema))(
     [

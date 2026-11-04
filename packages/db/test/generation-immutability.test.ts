@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { cpSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
@@ -69,7 +69,7 @@ function fixture(scoped = false) {
   };
 }
 
-test('a receipt cannot select an unrelated draft', () => {
+testStable('a receipt cannot select an unrelated draft', () => {
   const { db, close } = fixture();
 
   try {
@@ -83,7 +83,7 @@ test('a receipt cannot select an unrelated draft', () => {
   }
 });
 
-test('captured generation intent and ordered inputs cannot be rewritten or deleted', () => {
+testStable('captured generation intent and ordered inputs cannot be rewritten or deleted', () => {
   const { db, close } = fixture();
 
   try {
@@ -110,29 +110,32 @@ test('captured generation intent and ordered inputs cannot be rewritten or delet
   }
 });
 
-test('a completed receipt stays bound to its published output and permits project deletion', () => {
-  const { db, close } = fixture();
+testStable(
+  'a completed receipt stays bound to its published output and permits project deletion',
+  () => {
+    const { db, close } = fixture();
 
-  try {
-    db.exec(`INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
+    try {
+      db.exec(`INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
       UPDATE material_versions SET generation_request_id='request' WHERE id=2;
       UPDATE material_versions SET status='published',published_at=2 WHERE id=2;
       UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request';`);
-    assert.throws(() => db.exec(`DELETE FROM material_generation_requests WHERE id='request'`));
-    assert.throws(() =>
-      db.exec(`UPDATE material_generation_requests SET result_version_id=1 WHERE id='request'`)
-    );
-    assert.throws(() =>
-      db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('other',1,'{"title":"Requested","kind":"diagram","inputVersionIds":["1"]}',1);
+      assert.throws(() => db.exec(`DELETE FROM material_generation_requests WHERE id='request'`));
+      assert.throws(() =>
+        db.exec(`UPDATE material_generation_requests SET result_version_id=1 WHERE id='request'`)
+      );
+      assert.throws(() =>
+        db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('other',1,'{"title":"Requested","kind":"diagram","inputVersionIds":["1"]}',1);
       UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='other'`)
-    );
-    assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
-  } finally {
-    close();
+      );
+      assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
+    } finally {
+      close();
+    }
   }
-});
+);
 
-test('upgrade retains a completed receipt and seals its captured inputs', () => {
+testStable('upgrade retains a completed receipt and seals its captured inputs', () => {
   const location = createTestDatabase();
   const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
   const previous = join(location.dir, 'previous');
@@ -191,7 +194,7 @@ test('upgrade retains a completed receipt and seals its captured inputs', () => 
   }
 });
 
-test('upgrade rejects a historical receipt pointing to an unrelated draft atomically', () => {
+testStable('upgrade rejects a historical receipt pointing to an unrelated draft atomically', () => {
   const location = createTestDatabase();
   const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
   const previous = join(location.dir, 'previous');
@@ -246,7 +249,7 @@ test('upgrade rejects a historical receipt pointing to an unrelated draft atomic
   }
 });
 
-test('closed scopes fence direct publication of a valid generated draft', () => {
+testStable('closed scopes fence direct publication of a valid generated draft', () => {
   const { db, close } = fixture(true);
 
   try {
@@ -263,7 +266,7 @@ test('closed scopes fence direct publication of a valid generated draft', () => 
   }
 });
 
-test('generation publication rejects a captured input removed from its collection', () => {
+testStable('generation publication rejects a captured input removed from its collection', () => {
   const { db, close } = fixture();
 
   try {
@@ -278,7 +281,7 @@ test('generation publication rejects a captured input removed from its collectio
   }
 });
 
-test('the first generation receipt rejects an input removed after output publication', () => {
+testStable('the first generation receipt rejects an input removed after output publication', () => {
   const { db, close } = fixture();
 
   try {
@@ -297,40 +300,45 @@ test('the first generation receipt rejects an input removed after output publica
   }
 });
 
-test('a committed generation receipt remains stable after its input leaves the collection', () => {
-  const { db, close } = fixture();
-
-  try {
-    db.exec(
-      "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
-        '0'.repeat(64) +
-        "' WHERE id='request'; DELETE FROM project_materials WHERE material_id=1;"
-    );
-    assert.doesNotThrow(() =>
-      db.exec(
-        "UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
-          '0'.repeat(64) +
-          "' WHERE id='request'"
-      )
-    );
-    assert.throws(() =>
-      db.exec(
-        "UPDATE material_generation_requests SET result_hash='" +
-          '1'.repeat(64) +
-          "' WHERE id='request'"
-      )
-    );
-  } finally {
-    close();
-  }
-});
-
-for (const stage of ['publication', 'receipt']) {
-  test(`every captured input needs membership at first ${stage}, even when shared elsewhere`, () => {
+testStable(
+  'a committed generation receipt remains stable after its input leaves the collection',
+  () => {
     const { db, close } = fixture();
 
     try {
-      db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(2,'Elsewhere',1,1);
+      db.exec(
+        "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+          '0'.repeat(64) +
+          "' WHERE id='request'; DELETE FROM project_materials WHERE material_id=1;"
+      );
+      assert.doesNotThrow(() =>
+        db.exec(
+          "UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+            '0'.repeat(64) +
+            "' WHERE id='request'"
+        )
+      );
+      assert.throws(() =>
+        db.exec(
+          "UPDATE material_generation_requests SET result_hash='" +
+            '1'.repeat(64) +
+            "' WHERE id='request'"
+        )
+      );
+    } finally {
+      close();
+    }
+  }
+);
+
+for (const stage of ['publication', 'receipt']) {
+  testStable(
+    `every captured input needs membership at first ${stage}, even when shared elsewhere`,
+    () => {
+      const { db, close } = fixture();
+
+      try {
+        db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(2,'Elsewhere',1,1);
         INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(3,'document','Second input',1,1);
         INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(4,3,'document',1,1);
         INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM documents WHERE id=1;
@@ -344,63 +352,68 @@ for (const stage of ['publication', 'receipt']) {
         INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1),(2,4);
         UPDATE material_versions SET generation_request_id='multiple' WHERE id=2;`);
 
-      if (stage === 'receipt')
+        if (stage === 'receipt')
+          db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
+
+        db.exec('DELETE FROM project_materials WHERE project_id=1 AND material_id=3');
+        const write =
+          stage === 'publication'
+            ? "UPDATE material_versions SET status='published',published_at=2 WHERE id=2"
+            : `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='multiple'`;
+
+        assert.throws(
+          () => db.exec(write),
+          (error: unknown) => error instanceof Error && 'errcode' in error && error.errcode === 1811
+        );
+        assert.equal(
+          db.orm.get(
+            "SELECT result_version_id FROM material_generation_requests WHERE id='multiple'"
+          )?.result_version_id,
+          null
+        );
+        assert.equal(
+          db.orm.get('SELECT status FROM material_versions WHERE id=2')?.status,
+          stage === 'publication' ? 'draft' : 'published'
+        );
+        db.exec('INSERT INTO project_materials(project_id,material_id) VALUES(1,3)');
+        assert.doesNotThrow(() => db.exec(write));
+        assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+      } finally {
+        close();
+      }
+    }
+  );
+}
+
+testStable(
+  'publication cannot replace a captured revision with another revision of the same member',
+  () => {
+    const { db, close } = fixture();
+
+    try {
+      db.exec("UPDATE material_versions SET generation_request_id='request' WHERE id=2");
+      const publish = () =>
         db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
 
-      db.exec('DELETE FROM project_materials WHERE project_id=1 AND material_id=3');
-      const write =
-        stage === 'publication'
-          ? "UPDATE material_versions SET status='published',published_at=2 WHERE id=2"
-          : `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='multiple'`;
-
-      assert.throws(
-        () => db.exec(write),
-        (error: unknown) => error instanceof Error && 'errcode' in error && error.errcode === 1811
+      assert.throws(publish);
+      db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,3)');
+      assert.throws(publish);
+      db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1)');
+      assert.throws(publish);
+      db.exec('DELETE FROM material_version_inputs WHERE version_id=2 AND input_version_id=3');
+      assert.doesNotThrow(publish);
+      assert.deepEqual(
+        db.orm
+          .all('SELECT input_version_id FROM material_version_inputs WHERE version_id=2')
+          .map((row) => row.input_version_id),
+        [1n]
       );
-      assert.equal(
-        db.orm.get("SELECT result_version_id FROM material_generation_requests WHERE id='multiple'")
-          ?.result_version_id,
-        null
-      );
-      assert.equal(
-        db.orm.get('SELECT status FROM material_versions WHERE id=2')?.status,
-        stage === 'publication' ? 'draft' : 'published'
-      );
-      db.exec('INSERT INTO project_materials(project_id,material_id) VALUES(1,3)');
-      assert.doesNotThrow(() => db.exec(write));
       assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
     } finally {
       close();
     }
-  });
-}
-
-test('publication cannot replace a captured revision with another revision of the same member', () => {
-  const { db, close } = fixture();
-
-  try {
-    db.exec("UPDATE material_versions SET generation_request_id='request' WHERE id=2");
-    const publish = () =>
-      db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
-
-    assert.throws(publish);
-    db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,3)');
-    assert.throws(publish);
-    db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1)');
-    assert.throws(publish);
-    db.exec('DELETE FROM material_version_inputs WHERE version_id=2 AND input_version_id=3');
-    assert.doesNotThrow(publish);
-    assert.deepEqual(
-      db.orm
-        .all('SELECT input_version_id FROM material_version_inputs WHERE version_id=2')
-        .map((row) => row.input_version_id),
-      [1n]
-    );
-    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
-  } finally {
-    close();
   }
-});
+);
 
 function proposalFixture(
   captureMutation?: { path: string; value: string },
@@ -519,7 +532,7 @@ const invalidDraftReceipts = [
 ] as const;
 
 for (const [name, mutation, retain, outputRequestId] of invalidDraftReceipts) {
-  test(`draft generation receipt rejects ${name}`, () => {
+  testStable(`draft generation receipt rejects ${name}`, () => {
     // Bind at insertion: changing an existing request binding is independently forbidden.
     const { db, close } = proposalFixture(undefined, '1', 1, outputRequestId);
 
@@ -546,7 +559,7 @@ for (const [name, mutation, retain, outputRequestId] of invalidDraftReceipts) {
   });
 }
 
-test('a receipt cannot retain a draft from a different target Material', () => {
+testStable('a receipt cannot retain a draft from a different target Material', () => {
   const { db, close } = proposalFixture(undefined, '1', 3);
 
   try {
@@ -579,7 +592,7 @@ for (const [name, path, value] of [
   ['wrong capture identity', '$.requestId', 'other'],
   ['wrong captured session', '$.sessionId', '2']
 ] as const) {
-  test(`draft generation receipt rejects ${name}`, () => {
+  testStable(`draft generation receipt rejects ${name}`, () => {
     const { db, close } = proposalFixture({ path, value });
 
     try {
@@ -603,7 +616,7 @@ for (const barrier of [
   "UPDATE material_generation_requests SET cancelled=1 WHERE id='document/capture'",
   'DELETE FROM sessions WHERE id=1'
 ]) {
-  test(`retained draft receipt preserves the publication barrier: ${barrier}`, () => {
+  testStable(`retained draft receipt preserves the publication barrier: ${barrier}`, () => {
     const { db, close } = proposalFixture();
 
     try {
@@ -618,51 +631,54 @@ for (const barrier of [
   });
 }
 
-test('an exact retained proposal can commit a draft receipt without publishing or weakening immutability', () => {
-  const { db, close } = proposalFixture();
+testStable(
+  'an exact retained proposal can commit a draft receipt without publishing or weakening immutability',
+  () => {
+    const { db, close } = proposalFixture();
 
-  try {
-    retainProposal(db);
+    try {
+      retainProposal(db);
 
-    assert.throws(() => recordProposalReceipt(db, 'g'.repeat(64)), triggerConstraint);
+      assert.throws(() => recordProposalReceipt(db, 'g'.repeat(64)), triggerConstraint);
 
-    recordProposalReceipt(db);
+      recordProposalReceipt(db);
 
-    assert.equal(db.orm.get('SELECT status FROM material_versions WHERE id=4')?.status, 'draft');
+      assert.equal(db.orm.get('SELECT status FROM material_versions WHERE id=4')?.status, 'draft');
 
-    assert.equal(
-      db.orm.get(
-        "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
-      )?.result_version_id,
-      4n
-    );
+      assert.equal(
+        db.orm.get(
+          "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
+        )?.result_version_id,
+        4n
+      );
 
-    for (const mutation of [
-      "UPDATE material_versions SET published_at=2,status='published' WHERE id=4",
-      "UPDATE blocks SET text='Forged' WHERE document_id=3",
-      'DELETE FROM material_document_versions WHERE version_id=4',
-      'DELETE FROM material_version_inputs WHERE version_id=4',
-      'DELETE FROM material_version_parents WHERE version_id=4',
-      'DELETE FROM document_proposals',
-      "UPDATE material_generation_requests SET result_hash='" +
-        '1'.repeat(64) +
-        "' WHERE id='document/capture'",
-      "UPDATE material_generation_requests SET result_metadata='{}' WHERE id='document/capture'"
-    ])
-      assert.throws(() => db.exec(mutation), triggerConstraint);
+      for (const mutation of [
+        "UPDATE material_versions SET published_at=2,status='published' WHERE id=4",
+        "UPDATE blocks SET text='Forged' WHERE document_id=3",
+        'DELETE FROM material_document_versions WHERE version_id=4',
+        'DELETE FROM material_version_inputs WHERE version_id=4',
+        'DELETE FROM material_version_parents WHERE version_id=4',
+        'DELETE FROM document_proposals',
+        "UPDATE material_generation_requests SET result_hash='" +
+          '1'.repeat(64) +
+          "' WHERE id='document/capture'",
+        "UPDATE material_generation_requests SET result_metadata='{}' WHERE id='document/capture'"
+      ])
+        assert.throws(() => db.exec(mutation), triggerConstraint);
 
-    db.exec('DELETE FROM sessions WHERE id=1');
+      db.exec('DELETE FROM sessions WHERE id=1');
 
-    assert.doesNotThrow(() => recordProposalReceipt(db));
+      assert.doesNotThrow(() => recordProposalReceipt(db));
 
-    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
-  } finally {
-    close();
+      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+    } finally {
+      close();
+    }
   }
-});
+);
 
 for (const targetId of [null, '3']) {
-  test(`a retained draft cannot bypass the exact request target ${targetId}`, () => {
+  testStable(`a retained draft cannot bypass the exact request target ${targetId}`, () => {
     const { db, close } = proposalFixture(undefined, targetId);
 
     try {
@@ -675,263 +691,271 @@ for (const targetId of [null, '3']) {
   });
 }
 
-test('the proposal guard upgrade preserves an earlier published receipt and its renamed Material', () => {
-  const location = createTestDatabase();
+testStable(
+  'the proposal guard upgrade preserves an earlier published receipt and its renamed Material',
+  () => {
+    const location = createTestDatabase();
 
-  const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
+    const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
 
-  const previous = join(location.dir, 'before-proposal-receipts');
-
-  try {
-    for (const entry of readdirSync(migrations)) {
-      if (entry < '20261101225305_guard-document-proposal-receipts')
-        cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
-    }
-
-    const sqlite = new DatabaseSync(location.path);
+    const previous = join(location.dir, 'before-proposal-receipts');
 
     try {
-      sqlite.exec('PRAGMA foreign_keys=OFF');
+      for (const entry of readdirSync(migrations)) {
+        if (entry < '20261101225305_guard-document-proposal-receipts')
+          cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
+      }
 
-      migrate(drizzle({ client: sqlite }), { migrationsFolder: previous });
+      const sqlite = new DatabaseSync(location.path);
 
-      sqlite.exec(seed);
+      try {
+        sqlite.exec('PRAGMA foreign_keys=OFF');
 
-      sqlite.exec(`INSERT INTO material_version_inputs VALUES(2,1);
+        migrate(drizzle({ client: sqlite }), { migrationsFolder: previous });
+
+        sqlite.exec(seed);
+
+        sqlite.exec(`INSERT INTO material_version_inputs VALUES(2,1);
         UPDATE material_versions SET generation_request_id='request' WHERE id=2;
         UPDATE material_versions SET status='published',published_at=2 WHERE id=2;
         UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request';
         UPDATE materials SET title='Renamed after receipt' WHERE id=2;`);
-    } finally {
-      sqlite.close();
-    }
+      } finally {
+        sqlite.close();
+      }
 
-    const db = location.open();
+      const db = location.open();
 
-    try {
-      const receipt = db.orm.get(
-        "SELECT result_version_id,result_hash FROM material_generation_requests WHERE id='request'"
-      );
+      try {
+        const receipt = db.orm.get(
+          "SELECT result_version_id,result_hash FROM material_generation_requests WHERE id='request'"
+        );
 
-      assert.equal(receipt?.result_version_id, 2n);
+        assert.equal(receipt?.result_version_id, 2n);
 
-      assert.equal(receipt?.result_hash, '0'.repeat(64));
+        assert.equal(receipt?.result_hash, '0'.repeat(64));
 
-      assert.doesNotThrow(() =>
-        db.exec(
-          `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request'`
-        )
-      );
-
-      assert.throws(
-        () =>
+        assert.doesNotThrow(() =>
           db.exec(
-            "UPDATE material_generation_requests SET result_version_id=NULL,result_hash=NULL WHERE id='request'"
-          ),
-        triggerConstraint
-      );
+            `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request'`
+          )
+        );
 
-      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
-    } finally {
-      db.close();
-    }
-  } finally {
-    location.cleanup();
-  }
-});
-
-test('session retirement upgrade clears only proven private instruction metadata and seals every other published field', () => {
-  const location = createTestDatabase();
-
-  const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
-
-  const previous = join(location.dir, 'before-session-deletion');
-
-  try {
-    for (const entry of readdirSync(migrations)) {
-      if (entry < '20261102005133_session-deletion-barrier')
-        cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
-    }
-
-    const old = new DatabaseSync(location.path);
-
-    try {
-      old.exec('PRAGMA foreign_keys=OFF');
-
-      migrate(drizzle({ client: old }), { migrationsFolder: previous });
-
-      old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
-
-      old.exec(seed);
-
-      seedPrivateSessionOutput(drizzle({ client: old }), 1, 4, 'OLD_PRIVATE_INSTRUCTION_8');
-
-      seedPrivateSessionOutput(drizzle({ client: old }), 2, 5, 'OTHER_PRIVATE_INSTRUCTION_8');
-    } finally {
-      old.close();
-    }
-
-    let db = location.open();
-
-    try {
-      const before = retainedSessionLibrary(db);
-
-      const other = db.orm.get('SELECT * FROM material_versions WHERE id=5');
-
-      const oldVersion = db.orm.get('SELECT * FROM material_versions WHERE id=4');
-
-      assert.equal(oldVersion?.instruction, 'OLD_PRIVATE_INSTRUCTION_8');
-
-      assert.throws(
-        () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
-        triggerConstraint
-      );
-
-      assert.throws(
-        () => db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',2)"),
-        triggerConstraint
-      );
-
-      db.exec(
-        "INSERT INTO session_deletions(session_id,operation_id,status,created_at) VALUES(1,'delete-old-capture','pending',2)"
-      );
-
-      assert.throws(
-        () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
-        triggerConstraint
-      );
-
-      assert.throws(
-        () => db.exec("INSERT INTO session_generation_retirements VALUES('document/private-2',1)"),
-        triggerConstraint
-      );
-
-      db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',1)");
-
-      for (const assignment of [
-        'id=400',
-        'material_id=5',
-        "kind='diagram'",
-        'number=2',
-        "status='draft',published_at=NULL",
-        "operation='edit'",
-        "creator='user'",
-        "generation_request_id='document/private-2'",
-        "language='it'",
-        'created_at=7',
-        'published_at=7'
-      ]) {
         assert.throws(
-          () => db.exec(`UPDATE material_versions SET instruction=NULL,${assignment} WHERE id=4`),
+          () =>
+            db.exec(
+              "UPDATE material_generation_requests SET result_version_id=NULL,result_hash=NULL WHERE id='request'"
+            ),
           triggerConstraint
         );
+
+        assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+      } finally {
+        db.close();
       }
-
-      assert.throws(
-        () => db.exec("UPDATE material_versions SET instruction='replacement' WHERE id=4"),
-        triggerConstraint
-      );
-
-      assert.throws(
-        () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=5'),
-        triggerConstraint
-      );
-
-      assert.throws(
-        () => db.exec("UPDATE blocks SET text='overwritten' WHERE document_id=4"),
-        triggerConstraint
-      );
-
-      assert.throws(
-        () => db.exec('DELETE FROM material_version_citations WHERE version_id=4'),
-        triggerConstraint
-      );
-      // Failure/restart keeps the narrow provenance proof usable; no guards are removed.
-      db.exec(
-        "UPDATE session_deletions SET status='failed',error_kind='internal' WHERE session_id=1"
-      );
-
-      db.close();
-
-      db = location.open();
-
-      db.transaction(() => {
-        db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4');
-
-        db.exec(
-          "UPDATE material_generation_requests SET payload='{}',result_metadata=NULL,cancelled=1 WHERE id='document/private-1'"
-        );
-
-        db.exec("DELETE FROM material_generation_inputs WHERE request_id='document/private-1'");
-
-        db.exec('DELETE FROM sessions WHERE id=1');
-
-        db.exec(
-          "UPDATE session_deletions SET status='completed',error_kind=NULL,completed_at=3 WHERE session_id=1"
-        );
-      });
-
-      const after = db.orm.get('SELECT * FROM material_versions WHERE id=4');
-
-      assert.deepEqual(after, { ...oldVersion, instruction: null });
-
-      assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
-
-      assert.deepEqual(retainedSessionLibrary(db), before);
-
-      assert.throws(
-        () =>
-          db.exec(
-            "UPDATE material_versions SET instruction='OLD_PRIVATE_INSTRUCTION_8' WHERE id=4"
-          ),
-        triggerConstraint
-      );
-
-      assert.throws(
-        () =>
-          db.exec(
-            "UPDATE material_generation_requests SET payload=json_object('instruction','OLD_PRIVATE_INSTRUCTION_8') WHERE id='document/private-1'"
-          ),
-        triggerConstraint
-      );
-
-      db.close();
-
-      db = location.open();
-
-      assert.deepEqual(retainedSessionLibrary(db), before);
-
-      assert.equal(
-        db.orm.get('SELECT instruction FROM material_versions WHERE id=4')?.instruction,
-        null
-      );
-
-      assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
-
-      for (const table of [
-        'sessions',
-        'session_run_contexts',
-        'material_generation_requests',
-        'material_versions',
-        'documents',
-        'blocks'
-      ]) {
-        const persisted = JSON.stringify(
-          db.orm.all(sql.raw(`SELECT * FROM ${table}`)),
-          (_, value) => (typeof value === 'bigint' ? String(value) : value)
-        );
-
-        assert.ok(!persisted.includes('OLD_PRIVATE_INSTRUCTION_8'), table);
-      }
-
-      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
     } finally {
-      db.close();
+      location.cleanup();
     }
-  } finally {
-    location.cleanup();
   }
-});
+);
+
+testStable(
+  'session retirement upgrade clears only proven private instruction metadata and seals every other published field',
+  () => {
+    const location = createTestDatabase();
+
+    const migrations = fileURLToPath(new URL('../drizzle/', import.meta.url));
+
+    const previous = join(location.dir, 'before-session-deletion');
+
+    try {
+      for (const entry of readdirSync(migrations)) {
+        if (entry < '20261102005133_session-deletion-barrier')
+          cpSync(join(migrations, entry), join(previous, entry), { recursive: true });
+      }
+
+      const old = new DatabaseSync(location.path);
+
+      try {
+        old.exec('PRAGMA foreign_keys=OFF');
+
+        migrate(drizzle({ client: old }), { migrationsFolder: previous });
+
+        old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
+
+        old.exec(seed);
+
+        seedPrivateSessionOutput(drizzle({ client: old }), 1, 4, 'OLD_PRIVATE_INSTRUCTION_8');
+
+        seedPrivateSessionOutput(drizzle({ client: old }), 2, 5, 'OTHER_PRIVATE_INSTRUCTION_8');
+      } finally {
+        old.close();
+      }
+
+      let db = location.open();
+
+      try {
+        const before = retainedSessionLibrary(db);
+
+        const other = db.orm.get('SELECT * FROM material_versions WHERE id=5');
+
+        const oldVersion = db.orm.get('SELECT * FROM material_versions WHERE id=4');
+
+        assert.equal(oldVersion?.instruction, 'OLD_PRIVATE_INSTRUCTION_8');
+
+        assert.throws(
+          () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
+          triggerConstraint
+        );
+
+        assert.throws(
+          () =>
+            db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',2)"),
+          triggerConstraint
+        );
+
+        db.exec(
+          "INSERT INTO session_deletions(session_id,operation_id,status,created_at) VALUES(1,'delete-old-capture','pending',2)"
+        );
+
+        assert.throws(
+          () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
+          triggerConstraint
+        );
+
+        assert.throws(
+          () =>
+            db.exec("INSERT INTO session_generation_retirements VALUES('document/private-2',1)"),
+          triggerConstraint
+        );
+
+        db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',1)");
+
+        for (const assignment of [
+          'id=400',
+          'material_id=5',
+          "kind='diagram'",
+          'number=2',
+          "status='draft',published_at=NULL",
+          "operation='edit'",
+          "creator='user'",
+          "generation_request_id='document/private-2'",
+          "language='it'",
+          'created_at=7',
+          'published_at=7'
+        ]) {
+          assert.throws(
+            () => db.exec(`UPDATE material_versions SET instruction=NULL,${assignment} WHERE id=4`),
+            triggerConstraint
+          );
+        }
+
+        assert.throws(
+          () => db.exec("UPDATE material_versions SET instruction='replacement' WHERE id=4"),
+          triggerConstraint
+        );
+
+        assert.throws(
+          () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=5'),
+          triggerConstraint
+        );
+
+        assert.throws(
+          () => db.exec("UPDATE blocks SET text='overwritten' WHERE document_id=4"),
+          triggerConstraint
+        );
+
+        assert.throws(
+          () => db.exec('DELETE FROM material_version_citations WHERE version_id=4'),
+          triggerConstraint
+        );
+        // Failure/restart keeps the narrow provenance proof usable; no guards are removed.
+        db.exec(
+          "UPDATE session_deletions SET status='failed',error_kind='internal' WHERE session_id=1"
+        );
+
+        db.close();
+
+        db = location.open();
+
+        db.transaction(() => {
+          db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4');
+
+          db.exec(
+            "UPDATE material_generation_requests SET payload='{}',result_metadata=NULL,cancelled=1 WHERE id='document/private-1'"
+          );
+
+          db.exec("DELETE FROM material_generation_inputs WHERE request_id='document/private-1'");
+
+          db.exec('DELETE FROM sessions WHERE id=1');
+
+          db.exec(
+            "UPDATE session_deletions SET status='completed',error_kind=NULL,completed_at=3 WHERE session_id=1"
+          );
+        });
+
+        const after = db.orm.get('SELECT * FROM material_versions WHERE id=4');
+
+        assert.deepEqual(after, { ...oldVersion, instruction: null });
+
+        assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
+
+        assert.deepEqual(retainedSessionLibrary(db), before);
+
+        assert.throws(
+          () =>
+            db.exec(
+              "UPDATE material_versions SET instruction='OLD_PRIVATE_INSTRUCTION_8' WHERE id=4"
+            ),
+          triggerConstraint
+        );
+
+        assert.throws(
+          () =>
+            db.exec(
+              "UPDATE material_generation_requests SET payload=json_object('instruction','OLD_PRIVATE_INSTRUCTION_8') WHERE id='document/private-1'"
+            ),
+          triggerConstraint
+        );
+
+        db.close();
+
+        db = location.open();
+
+        assert.deepEqual(retainedSessionLibrary(db), before);
+
+        assert.equal(
+          db.orm.get('SELECT instruction FROM material_versions WHERE id=4')?.instruction,
+          null
+        );
+
+        assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
+
+        for (const table of [
+          'sessions',
+          'session_run_contexts',
+          'material_generation_requests',
+          'material_versions',
+          'documents',
+          'blocks'
+        ]) {
+          const persisted = JSON.stringify(
+            db.orm.all(sql.raw(`SELECT * FROM ${table}`)),
+            (_, value) => (typeof value === 'bigint' ? String(value) : value)
+          );
+
+          assert.ok(!persisted.includes('OLD_PRIVATE_INSTRUCTION_8'), table);
+        }
+
+        assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
+      } finally {
+        db.close();
+      }
+    } finally {
+      location.cleanup();
+    }
+  }
+);
 
 function seedPrivateSessionOutput(
   db: ReturnType<typeof drizzle>,

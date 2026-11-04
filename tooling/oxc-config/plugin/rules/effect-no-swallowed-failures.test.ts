@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Handle or propagate Effect failures explicitly instead of silently discarding them.';
 
-test('reports misuse and accepts scoped alternatives', () => {
+testStable('reports misuse and accepts scoped alternatives', () => {
   assertDiagnostics(
     'effect-no-swallowed-failures',
     lintRule('effect-no-swallowed-failures', {
@@ -24,7 +25,7 @@ test('reports misuse and accepts scoped alternatives', () => {
     ]
   );
 });
-test('resolves imported namespaces, named imports, const aliases and shadowing', () => {
+testStable('resolves imported namespaces, named imports, const aliases and shadowing', () => {
   assertDiagnostics(
     'effect-no-swallowed-failures',
     lintRule('effect-no-swallowed-failures', {
@@ -38,21 +39,24 @@ test('resolves imported namespaces, named imports, const aliases and shadowing',
   );
 });
 
-test('rejects silent statement blocks and allows explicit propagation and tagged recovery', () => {
-  assertDiagnostics(
-    'effect-no-swallowed-failures',
-    lintRule('effect-no-swallowed-failures', {
-      'src/procedures/catches.ts':
-        "import {Effect as E} from 'effect'; E.catch(error => { const ignored = error; return E.void; }); E.catchCause(() => {}); E.catch(error => { log(error); return E.fail(error); }); E.catch(error => { log(error); throw error; }); E.catchTag('Missing', () => E.succeed(null));"
-    }),
-    [
-      ['src/procedures/catches.ts', message],
-      ['src/procedures/catches.ts', message]
-    ]
-  );
-});
+testStable(
+  'rejects silent statement blocks and allows explicit propagation and tagged recovery',
+  () => {
+    assertDiagnostics(
+      'effect-no-swallowed-failures',
+      lintRule('effect-no-swallowed-failures', {
+        'src/procedures/catches.ts':
+          "import {Effect as E} from 'effect'; E.catch(error => { const ignored = error; return E.void; }); E.catchCause(() => {}); E.catch(error => { log(error); return E.fail(error); }); E.catch(error => { log(error); throw error; }); E.catchTag('Missing', () => E.succeed(null));"
+      }),
+      [
+        ['src/procedures/catches.ts', message],
+        ['src/procedures/catches.ts', message]
+      ]
+    );
+  }
+);
 
-test('enforces the Effect contract in browser operations', () => {
+testStable('enforces the Effect contract in browser operations', () => {
   const diagnostics = lintRule(
     'effect-no-swallowed-failures',
     {
@@ -67,18 +71,21 @@ test('enforces the Effect contract in browser operations', () => {
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('checks extracted recovery handlers without following mutable or shadowed functions', () => {
-  assertDiagnostics(
-    'effect-no-swallowed-failures',
-    lintRule('effect-no-swallowed-failures', {
-      'src/bad.ts':
-        "import {Effect as E} from 'effect'; const ignore = () => E.void; const alias = ignore; E.catch(alias); function fallback() { return E.succeed(null); } E.catchCause(task, fallback);",
-      'src/good.ts':
-        "import {Effect as E} from 'effect'; const propagate = error => E.fail(error); E.catch(propagate); let mutable = () => E.void; E.catch(mutable); const ignore = () => E.void; function f(ignore: any) { E.catch(ignore); } function same(same: any) { E.catch(same); }"
-    }),
-    [
-      ['src/bad.ts', message],
-      ['src/bad.ts', message]
-    ]
-  );
-});
+testStable(
+  'checks extracted recovery handlers without following mutable or shadowed functions',
+  () => {
+    assertDiagnostics(
+      'effect-no-swallowed-failures',
+      lintRule('effect-no-swallowed-failures', {
+        'src/bad.ts':
+          "import {Effect as E} from 'effect'; const ignore = () => E.void; const alias = ignore; E.catch(alias); function fallback() { return E.succeed(null); } E.catchCause(task, fallback);",
+        'src/good.ts':
+          "import {Effect as E} from 'effect'; const propagate = error => E.fail(error); E.catch(propagate); let mutable = () => E.void; E.catch(mutable); const ignore = () => E.void; function f(ignore: any) { E.catch(ignore); } function same(same: any) { E.catch(same); }"
+      }),
+      [
+        ['src/bad.ts', message],
+        ['src/bad.ts', message]
+      ]
+    );
+  }
+);

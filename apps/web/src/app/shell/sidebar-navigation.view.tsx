@@ -3,9 +3,9 @@ import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
 import { MessagesSquare, Library, GraduationCap, Activity } from 'lucide-react';
 
-import { useI18n } from '../../lib/i18n';
-import type { Section } from '../../lib/navigation/route-contract';
-import { SettingsMenu } from '../../pages/settings/menu';
+import { useI18n } from '#web/lib/i18n.tsx';
+import type { Section } from '#web/lib/navigation/route-contract.ts';
+import { SettingsMenu } from '#web/pages/settings/menu.tsx';
 
 const sections = [
   ['/sessions', 'sessions', MessagesSquare, 'Sessions'],

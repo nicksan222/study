@@ -8,8 +8,8 @@
 import Icon from '../Icon.astro';
 import { pen } from '../rough';
 import { chars, keyed } from './text';
-import { href, repo, t } from '../../i18n/strings';
-import type { Lang } from '../../i18n/strings';
+import { href, repo, t } from '#landing/i18n/strings.ts';
+import type { Lang } from '#landing/i18n/strings.ts';
 
 interface Props {
   lang: Lang;
@@ -257,7 +257,7 @@ const step = (part: 'laptop' | 'library' | 'cloud' | 'link' | 'head', i: number)
 </section>
 
 <script>
-  import { DRAW_MS, HEAD_MS, live, STAGGER_MS, STEP_MS, type, wait } from '../../scripts/ink';
+  import { DRAW_MS, HEAD_MS, live, STAGGER_MS, STEP_MS, type, wait } from '#landing/scripts/ink.ts';
 
   // The sketch in steps, on the page's pace: the laptop, the library filling, the cloud, the
   // dashed line and its head, then the labels type together. All done in under a second.

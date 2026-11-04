@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('database connection and schema factories stay with their owners', () => {
+testStable('database connection and schema factories stay with their owners', () => {
   const diagnostics = lintRule(
     'database-ownership',
     {
@@ -87,7 +88,7 @@ test('database connection and schema factories stay with their owners', () => {
   );
 });
 
-test('owner reexports cannot evade ownership by preceding imports', () => {
+testStable('owner reexports cannot evade ownership by preceding imports', () => {
   const diagnostics = lintRule(
     'database-ownership',
     {
@@ -116,12 +117,15 @@ test('owner reexports cannot evade ownership by preceding imports', () => {
   );
 });
 
-test('snapshot machinery uses Db primitives without acquiring a second raw driver in runtime or storage', () => {
-  const diagnostics = lintRule('database-ownership', {
-    'src/platform/database/backups.ts': "import { backup as snapshot } from 'node:sqlite';",
-    'src/runtime/backups.ts': "import * as driver from 'node:sqlite';",
-    'src/runtime/composition.ts': "import { Db } from '@study/db'; Db.openSnapshot(path);"
-  });
+testStable(
+  'snapshot machinery uses Db primitives without acquiring a second raw driver in runtime or storage',
+  () => {
+    const diagnostics = lintRule('database-ownership', {
+      'src/platform/database/backups.ts': "import { backup as snapshot } from 'node:sqlite';",
+      'src/runtime/backups.ts': "import * as driver from 'node:sqlite';",
+      'src/runtime/composition.ts': "import { Db } from '@study/db'; Db.openSnapshot(path);"
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);

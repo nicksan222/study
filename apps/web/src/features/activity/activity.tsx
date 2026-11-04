@@ -12,7 +12,8 @@ import { Link } from '@tanstack/react-router';
 import { Activity as ActivityIcon, ArrowRight, Clock3, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
-import { useI18n } from '../../lib/i18n';
+import { useI18n } from '#web/lib/i18n.tsx';
+
 import {
   activityPagesOptions,
   activityExecutionOptions,

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('no-error-message-matching guards production and accepts safe alternatives', () => {
+testStable('no-error-message-matching guards production and accepts safe alternatives', () => {
   const diagnostics = lintRule('no-error-message-matching', {
     'src/bad.ts': "try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }",
     'src/good.ts':
@@ -16,7 +17,7 @@ test('no-error-message-matching guards production and accepts safe alternatives'
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test('no-error-message-matching handles aliases and avoids unrelated bindings', () => {
+testStable('no-error-message-matching handles aliases and avoids unrelated bindings', () => {
   const diagnostics = lintRule('no-error-message-matching', {
     'src/bad.ts':
       "try { run(); } catch (error) { switch (error.message) { case 'missing': break; } if (/busy/.test(error.message)) retry(); }",
@@ -28,7 +29,7 @@ test('no-error-message-matching handles aliases and avoids unrelated bindings', 
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test('collection ambiguity and missing receipts branch on typed kinds', () => {
+testStable('collection ambiguity and missing receipts branch on typed kinds', () => {
   const diagnostics = lintRule(
     'no-error-message-matching',
     {

@@ -1,5 +1,6 @@
 import { sessionSchema } from '@study/contracts/conversations/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
@@ -9,16 +10,16 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
-import { afterEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { RichSidebarSessions } from './rich-sidebar';
 
 const api = vi.hoisted(() => ({ settings: vi.fn(), summaries: vi.fn(), settle: vi.fn() }));
 
-vi.mock('../../lib/i18n', () => ({
+vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));
-vi.mock('../../lib/study-client/request', () => ({
+vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
     invoke({
       'settings.sidebarSettings': api.settings,
@@ -45,139 +46,145 @@ afterEach(() => {
   caches.splice(0).forEach((cache) => cache.clear());
 });
 
-it('settles only sessions meeting the saved document threshold and keeps running work open', async () => {
-  api.settings.mockResolvedValue({ settledDocumentThreshold: 2 });
-  api.summaries.mockResolvedValue({
-    items: [
-      { id: 1n, generatedDocumentCount: 1n, running: false, activity: 'idle' },
-      { id: 2n, generatedDocumentCount: 2n, running: false, activity: 'idle' },
-      { id: 3n, generatedDocumentCount: 5n, running: true, activity: 'generating' }
-    ]
-  });
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  caches.push(cache);
-  const route = createRootRoute({
-    component: () => (
-      <RichSidebarSessions
-        sessions={sessions}
-        subjects={[]}
-        project={undefined}
-        selectedSession="1"
-      />
-    )
-  });
-  const router = createRouter({
-    routeTree: route,
-    history: createMemoryHistory({ initialEntries: ['/'] })
-  });
-  const view = render(
-    <QueryClientProvider client={cache}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  );
-
-  await screen.findByText('SidebarGenerating');
-  const groups = view.container.querySelectorAll('details');
-
-  expect(groups[0]).toHaveAttribute('open');
-  expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 1' })).toBeVisible();
-  expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 3' })).toBeVisible();
-  expect(within(groups[0] as HTMLElement).queryByRole('link', { name: 'Session 2' })).toBeNull();
-  expect(groups[1]).not.toHaveAttribute('open');
-  fireEvent.click(within(groups[1] as HTMLElement).getByText('SidebarSettled'));
-  expect(
-    within(groups[1] as HTMLElement).getByRole('link', { name: 'Session 2' })
-  ).toBeInTheDocument();
-  expect(api.summaries).toHaveBeenCalledTimes(1);
-  await act(async () => {
-    cache.setQueryData(['workspace-preferences'], {
-      ...defaultWorkspacePreferences,
-      sidebarDensity: 'compact'
-    });
-  });
-  const compact = screen.getByRole('link', { name: 'Session 1' });
-
-  expect(compact).toHaveAttribute('data-layout', 'compact');
-  expect(within(compact).getByTitle('SidebarGeneratedDocuments')).toHaveTextContent('1');
-  expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
-  expect(
-    within(screen.getByRole('link', { name: 'Session 3' })).getByText('SidebarGenerating')
-  ).toBeInTheDocument();
-  await act(async () => {
-    cache.setQueryData(['workspace-preferences'], {
-      ...defaultWorkspacePreferences,
-      sidebarDensity: 'compact',
-      sidebarShowDocumentCounts: false
-    });
-  });
-  await waitFor(() =>
-    expect(within(compact).queryByTitle('SidebarGeneratedDocuments')).not.toBeInTheDocument()
-  );
-});
-
-it('settles a row without navigating and persists an explicit reopen over the automatic threshold', async () => {
-  let override: boolean | null = null;
-
-  api.settings.mockResolvedValue({ settledDocumentThreshold: 2 });
-  api.summaries.mockImplementation(() =>
-    Promise.resolve({
+testStable(
+  'settles only sessions meeting the saved document threshold and keeps running work open',
+  async () => {
+    api.settings.mockResolvedValue({ settledDocumentThreshold: 2 });
+    api.summaries.mockResolvedValue({
       items: [
-        {
-          id: 1n,
-          generatedDocumentCount: override === false ? 5n : 0n,
-          running: false,
-          activity: 'idle',
-          settledOverride: override
-        }
+        { id: 1n, generatedDocumentCount: 1n, running: false, activity: 'idle' },
+        { id: 2n, generatedDocumentCount: 2n, running: false, activity: 'idle' },
+        { id: 3n, generatedDocumentCount: 5n, running: true, activity: 'generating' }
       ]
-    })
-  );
-  api.settle.mockImplementation(({ settled }: { settled: boolean }) => {
-    override = settled;
+    });
+    const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    return Promise.resolve({});
-  });
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    caches.push(cache);
+    const route = createRootRoute({
+      component: () => (
+        <RichSidebarSessions
+          sessions={sessions}
+          subjects={[]}
+          project={undefined}
+          selectedSession="1"
+        />
+      )
+    });
+    const router = createRouter({
+      routeTree: route,
+      history: createMemoryHistory({ initialEntries: ['/'] })
+    });
+    const view = render(
+      <QueryClientProvider client={cache}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    );
 
-  caches.push(cache);
-  const route = createRootRoute({
-    component: () => (
-      <RichSidebarSessions
-        sessions={sessions.slice(0, 1)}
-        subjects={[]}
-        project={undefined}
-        selectedSession="1"
-      />
-    )
-  });
-  const router = createRouter({
-    routeTree: route,
-    history: createMemoryHistory({ initialEntries: ['/'] })
-  });
-  const view = render(
-    <QueryClientProvider client={cache}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  );
-  const settle = await screen.findByRole('button', { name: 'SidebarSettle' });
+    await screen.findByText('SidebarGenerating');
+    const groups = view.container.querySelectorAll('details');
 
-  fireEvent.click(settle);
-  await waitFor(() => expect(api.settle).toHaveBeenCalledWith({ id: 1n, settled: true }));
-  await waitFor(() =>
+    expect(groups[0]).toHaveAttribute('open');
+    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 1' })).toBeVisible();
+    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 3' })).toBeVisible();
+    expect(within(groups[0] as HTMLElement).queryByRole('link', { name: 'Session 2' })).toBeNull();
+    expect(groups[1]).not.toHaveAttribute('open');
+    fireEvent.click(within(groups[1] as HTMLElement).getByText('SidebarSettled'));
     expect(
-      view.container.querySelector('.study-session-group:last-child .study-session-title')
-    ).toHaveTextContent('Session 1')
-  );
-  const group = view.container.querySelector('.study-session-group:last-child') as HTMLElement;
+      within(groups[1] as HTMLElement).getByRole('link', { name: 'Session 2' })
+    ).toBeInTheDocument();
+    expect(api.summaries).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      cache.setQueryData(['workspace-preferences'], {
+        ...defaultWorkspacePreferences,
+        sidebarDensity: 'compact'
+      });
+    });
+    const compact = screen.getByRole('link', { name: 'Session 1' });
 
-  fireEvent.click(within(group).getByText('SidebarSettled'));
-  fireEvent.click(within(group).getByRole('button', { name: 'SidebarReopen' }));
-  await waitFor(() => expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false }));
-  await waitFor(() =>
+    expect(compact).toHaveAttribute('data-layout', 'compact');
+    expect(within(compact).getByTitle('SidebarGeneratedDocuments')).toHaveTextContent('1');
+    expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
     expect(
-      view.container.querySelector('.study-session-group:first-child .study-session-title')
-    ).toHaveTextContent('Session 1')
-  );
-  expect(router.state.location.pathname).toBe('/');
-});
+      within(screen.getByRole('link', { name: 'Session 3' })).getByText('SidebarGenerating')
+    ).toBeInTheDocument();
+    await act(async () => {
+      cache.setQueryData(['workspace-preferences'], {
+        ...defaultWorkspacePreferences,
+        sidebarDensity: 'compact',
+        sidebarShowDocumentCounts: false
+      });
+    });
+    await waitFor(() =>
+      expect(within(compact).queryByTitle('SidebarGeneratedDocuments')).not.toBeInTheDocument()
+    );
+  }
+);
+
+testStable(
+  'settles a row without navigating and persists an explicit reopen over the automatic threshold',
+  async () => {
+    let override: boolean | null = null;
+
+    api.settings.mockResolvedValue({ settledDocumentThreshold: 2 });
+    api.summaries.mockImplementation(() =>
+      Promise.resolve({
+        items: [
+          {
+            id: 1n,
+            generatedDocumentCount: override === false ? 5n : 0n,
+            running: false,
+            activity: 'idle',
+            settledOverride: override
+          }
+        ]
+      })
+    );
+    api.settle.mockImplementation(({ settled }: { settled: boolean }) => {
+      override = settled;
+
+      return Promise.resolve({});
+    });
+    const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    caches.push(cache);
+    const route = createRootRoute({
+      component: () => (
+        <RichSidebarSessions
+          sessions={sessions.slice(0, 1)}
+          subjects={[]}
+          project={undefined}
+          selectedSession="1"
+        />
+      )
+    });
+    const router = createRouter({
+      routeTree: route,
+      history: createMemoryHistory({ initialEntries: ['/'] })
+    });
+    const view = render(
+      <QueryClientProvider client={cache}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    );
+    const settle = await screen.findByRole('button', { name: 'SidebarSettle' });
+
+    fireEvent.click(settle);
+    await waitFor(() => expect(api.settle).toHaveBeenCalledWith({ id: 1n, settled: true }));
+    await waitFor(() =>
+      expect(
+        view.container.querySelector('.study-session-group:last-child .study-session-title')
+      ).toHaveTextContent('Session 1')
+    );
+    const group = view.container.querySelector('.study-session-group:last-child') as HTMLElement;
+
+    fireEvent.click(within(group).getByText('SidebarSettled'));
+    fireEvent.click(within(group).getByRole('button', { name: 'SidebarReopen' }));
+    await waitFor(() => expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false }));
+    await waitFor(() =>
+      expect(
+        view.container.querySelector('.study-session-group:first-child .study-session-title')
+      ).toHaveTextContent('Session 1')
+    );
+    expect(router.state.location.pathname).toBe('/');
+  }
+);

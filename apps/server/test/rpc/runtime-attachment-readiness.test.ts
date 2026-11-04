@@ -16,10 +16,10 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
+import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
@@ -27,7 +27,7 @@ import { Conversations } from '#server/features/conversations/index';
 import { serve } from '#server/runtime/index';
 import { createStudyTest } from '#testing/server-test';
 
-test(
+testStable(
   'HTTP attachment replies wake through registered source subscriptions before waiting for authentication',
   { timeout: 15000 },
   async (t) => {

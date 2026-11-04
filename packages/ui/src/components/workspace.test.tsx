@@ -1,12 +1,13 @@
+import { testStable } from '@study/testing/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it } from 'vite-plus/test';
+import { afterEach, expect } from 'vite-plus/test';
 
 import { WorkspaceCard } from './workspace';
 
 afterEach(cleanup);
 
-it('toggles the associated panel by keyboard and preserves its draft', async () => {
+testStable('toggles the associated panel by keyboard and preserves its draft', async () => {
   const user = userEvent.setup();
 
   render(

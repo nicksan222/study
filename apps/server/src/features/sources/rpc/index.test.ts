@@ -14,11 +14,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { DocumentId, SourceId } from '@study/contracts/ids';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
@@ -28,7 +28,7 @@ import { Database } from '#server/platform/database/database';
 
 import { SourcesRpcLive } from './index.ts';
 
-test('RPC handlers use the source service and return canonical failures', async () => {
+testStable('RPC handlers use the source service and return canonical failures', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const handlers = SourcesRpcLive.pipe(

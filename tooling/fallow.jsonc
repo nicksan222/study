@@ -56,7 +56,7 @@
     "zones": [
       {
         "name": "tests",
-        "patterns": ["**/*.test.*", "**/test/**", "**/tests/**"]
+        "patterns": ["**/*.test.*", "**/test/**", "**/tests/**", "packages/testing/**"]
       },
       {
         "name": "contracts",
@@ -210,7 +210,11 @@
     }
   },
   // Compile-only public API assertions are intentionally never executed.
-  "entry": ["packages/localization/test/api.types.ts"],
+  "entry": [
+    "packages/localization/test/api.types.ts",
+    "packages/testing/test/api.types.ts",
+    "packages/testing/test/vitest.types.ts"
+  ],
   // Oxlint loads this plugin from the specifier in tooling/oxc-config/lint.ts.
   "framework": [
     {

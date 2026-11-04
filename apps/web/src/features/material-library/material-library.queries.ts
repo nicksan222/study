@@ -3,7 +3,7 @@ import type { DocumentId, MaterialId, MaterialVersionId } from '@study/contracts
 import type { Source, blockIdSchema } from '@study/contracts/sources/schemas';
 import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 export const materialOptions = (id: MaterialId) =>
   queryOptions({
@@ -24,7 +24,7 @@ export const historyOptions = (materialId: MaterialId) =>
     getNextPageParam: (page) => page.nextCursor ?? undefined
   });
 
-export { downloadOriginal } from '../../lib/study-client/material-original';
+export { downloadOriginal } from '#web/lib/study-client/material-original.ts';
 
 export const importMutationKey = ['materials', 'import'] as const;
 
@@ -59,7 +59,7 @@ export {
   materialPage,
   materialsOptions,
   versionOptions
-} from '../../lib/study-client/materials.queries';
+} from '#web/lib/study-client/materials.queries.ts';
 
 export const exactImageOptions = (
   id: MaterialVersionId,

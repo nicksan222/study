@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { lintRule } from '../test/utils.ts';
 
-test('server-layer-boundary rejects forbidden edges', () => {
+testStable('server-layer-boundary rejects forbidden edges', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/procedures/jobs/create.ts': "import { db } from '@study/db';"
   });
@@ -11,7 +12,7 @@ test('server-layer-boundary rejects forbidden edges', () => {
   assert.equal(diagnostics.length, 1);
 });
 
-test('RPC adapters delegate subscriptions instead of owning database capabilities', () => {
+testStable('RPC adapters delegate subscriptions instead of owning database capabilities', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/features/workflows/rpc.ts': `
       import { Database } from '#server/platform/database/database';
@@ -26,7 +27,7 @@ test('RPC adapters delegate subscriptions instead of owning database capabilitie
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('store network calls follow global fetch aliases without matching shadows', () => {
+testStable('store network calls follow global fetch aliases without matching shadows', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/features/jobs/jobs.store.ts':
       "const request = globalThis.fetch; const run = request; run('https://example.com'); function f(fetch: () => void) { const request = fetch; request(); }"
@@ -35,18 +36,21 @@ test('store network calls follow global fetch aliases without matching shadows',
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test('real SQLite tests can inspect persistence and runtime while production adapters cannot', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/procedures/projects/create/procedure.test.ts':
-      "import '@study/db'; import '#server/runtime/service'; import '#server/domains/projects/store';",
-    'src/procedures/projects/create/procedure.ts': "import '@study/db';"
-  });
+testStable(
+  'real SQLite tests can inspect persistence and runtime while production adapters cannot',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/procedures/projects/create/procedure.test.ts':
+        "import '@study/db'; import '#server/runtime/service'; import '#server/domains/projects/store';",
+      'src/procedures/projects/create/procedure.ts': "import '@study/db';"
+    });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics[0].filename.endsWith('/procedure.ts'));
-});
+    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0].filename.endsWith('/procedure.ts'));
+  }
+);
 
-test('feature roles enforce private stores and public cross-feature services', () => {
+testStable('feature roles enforce private stores and public cross-feature services', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/features/source/source.service.ts':
       "import '#server/features/project'; import '#server/features/project/project.service'; import './source.workflow';",
@@ -62,29 +66,35 @@ test('feature roles enforce private stores and public cross-feature services', (
   assert.equal(diagnostics.length, 8, JSON.stringify(diagnostics));
 });
 
-test('feature boundaries inspect aliases and loaders without confusing shadowed require', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/source/source.workflow.ts':
-      "const load = require; load('#server/features/source/source.store'); function f(require: (x: string) => void) { require('#server/features/source/source.store'); } import('#server/features/source/source.store');"
-  });
+testStable(
+  'feature boundaries inspect aliases and loaders without confusing shadowed require',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/source/source.workflow.ts':
+        "const load = require; load('#server/features/source/source.store'); function f(require: (x: string) => void) { require('#server/features/source/source.store'); } import('#server/features/source/source.store');"
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-test('feature public indexes cannot expose stores and only stores own database access', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/source/index.ts':
-      "export { SourceService } from './source.service'; export { SourceStore } from './source.store';",
-    'src/features/source/source.service.ts':
-      "import { db } from '@study/db'; import type { Db } from '@study/db';",
-    'src/features/source/source.decoder.ts': "import '@study/db';",
-    'src/features/source/source.store.ts': "import '@study/db';"
-  });
+testStable(
+  'feature public indexes cannot expose stores and only stores own database access',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/source/index.ts':
+        "export { SourceService } from './source.service'; export { SourceStore } from './source.store';",
+      'src/features/source/source.service.ts':
+        "import { db } from '@study/db'; import type { Db } from '@study/db';",
+      'src/features/source/source.decoder.ts': "import '@study/db';",
+      'src/features/source/source.store.ts': "import '@study/db';"
+    });
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
 
-test('retired server layers and feature public exports demand migration', () => {
+testStable('retired server layers and feature public exports demand migration', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/domains/a/service.ts': 'export const x = 1;',
     'src/application/define-service.ts': 'export const x = 1;',
@@ -99,7 +109,7 @@ test('retired server layers and feature public exports demand migration', () => 
   assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
-test('plain role filenames enforce the same boundaries as suffixed filenames', () => {
+testStable('plain role filenames enforce the same boundaries as suffixed filenames', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/features/sources/store.ts': "import '@study/db'; import './service'; fetch('/');",
     'src/features/sources/service.ts': "import './workflow'; import '@study/db';",
@@ -112,20 +122,23 @@ test('plain role filenames enforce the same boundaries as suffixed filenames', (
   assert.equal(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
-test('platform capabilities are valid service dependencies but private store type exports are not', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/sources/service.ts':
-      "import { PublicationGuard } from '#server/platform/workflows/publication';",
-    'src/features/materials/service.ts':
-      "export type { SourceStore as MaterialsService } from './store';",
-    'src/features/sources/nested/store.ts': "import '@study/db';"
-  });
+testStable(
+  'platform capabilities are valid service dependencies but private store type exports are not',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/sources/service.ts':
+        "import { PublicationGuard } from '#server/platform/workflows/publication';",
+      'src/features/materials/service.ts':
+        "export type { SourceStore as MaterialsService } from './store';",
+      'src/features/sources/nested/store.ts': "import '@study/db';"
+    });
 
-  assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics[0].filename.endsWith('/features/materials/service.ts'));
-});
+    assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0].filename.endsWith('/features/materials/service.ts'));
+  }
+);
 
-test('FSRS has one platform adapter rather than feature-specific copies', () => {
+testStable('FSRS has one platform adapter rather than feature-specific copies', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/platform/scheduling/fsrs.ts': "import { fsrs } from 'ts-fsrs';",
     'src/features/learning/srs.ts': "import { fsrs } from 'ts-fsrs';",
@@ -135,7 +148,7 @@ test('FSRS has one platform adapter rather than feature-specific copies', () => 
   assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test('preferences are private to settings, auth, and themes stores', () => {
+testStable('preferences are private to settings, auth, and themes stores', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/features/settings/store.ts': "import { preferences } from '@study/db/schema';",
     'src/features/auth/token.store.ts': "import { preferences as credentials } from '@study/db';",
@@ -154,7 +167,7 @@ test('preferences are private to settings, auth, and themes stores', () => {
   assert.equal(diagnostics.length, 6, JSON.stringify(diagnostics));
 });
 
-test('preferences checks respect shadows, type imports, and unrelated tables', () => {
+testStable('preferences checks respect shadows, type imports, and unrelated tables', () => {
   const diagnostics = lintRule('server-layer-boundary', {
     'src/features/learning/store.ts':
       "import * as schema from '@study/db/schema'; import type { preferences } from '@study/db/schema'; schema.cards; const { cards } = schema; function f(schema: { preferences: string }) { const tables = schema; tables.preferences; const { preferences } = tables; }",
@@ -165,106 +178,123 @@ test('preferences checks respect shadows, type imports, and unrelated tables', (
   assert.equal(diagnostics.length, 0, JSON.stringify(diagnostics));
 });
 
-test('runtime assembles feature workflows only through the dispatch and recovery registry', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/runtime/workflows.ts':
-      "import { sourceIngestionHandlerLayer } from '#server/features/sources/workflow';",
-    'src/runtime/native.ts':
-      "import { sourceIngestionHandlerLayer } from '#server/features/sources/workflow';",
-    'src/runtime/workers.ts':
-      "import { sourceIngestionWorkflow } from '#server/features/sources/workflow';"
-  });
+testStable(
+  'runtime assembles feature workflows only through the dispatch and recovery registry',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/runtime/workflows.ts':
+        "import { sourceIngestionHandlerLayer } from '#server/features/sources/workflow';",
+      'src/runtime/native.ts':
+        "import { sourceIngestionHandlerLayer } from '#server/features/sources/workflow';",
+      'src/runtime/workers.ts':
+        "import { sourceIngestionWorkflow } from '#server/features/sources/workflow';"
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-test('cross-feature capture uses public synchronous participants without exposing private selection stores', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/conversations/service/capture.ts': `
+testStable(
+  'cross-feature capture uses public synchronous participants without exposing private selection stores',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/conversations/service/capture.ts': `
       import { Materials } from '#server/features/materials/index';
       import { transaction } from '#server/platform/definitions/define-store';
       export const capture = (target) =>
         transaction((tx) => Materials.resolveSessionSelection(tx, target));
     `,
-    'src/features/conversations/service/bypass.ts': `
+      'src/features/conversations/service/bypass.ts': `
       import { MaterialVersionsStore } from '#server/features/materials/store/index';
     `,
-    'src/features/materials/index.ts': `
+      'src/features/materials/index.ts': `
       export { Materials } from './service/index';
       export { MaterialVersionsStore } from './store/index';
     `
-  });
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/capture.ts')));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/capture.ts')));
+  }
+);
 
-test('session transform coordinators use public participants and cannot import another feature private stores', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/conversations/service/document-transform.ts': `
+testStable(
+  'session transform coordinators use public participants and cannot import another feature private stores',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/conversations/service/document-transform.ts': `
       import { Materials } from '#server/features/materials/index';
       import { publicationTransaction } from '#server/platform/definitions/define-store';
       export const publish = (context, output) =>
         publicationTransaction((tx) => Materials.publishDocumentTransform(tx, context, output));
     `,
-    'src/features/materials/service/bypass.ts': `
+      'src/features/materials/service/bypass.ts': `
       import { SessionContextStore } from '#server/features/conversations/store/index';
     `,
-    'src/features/conversations/service/bypass.ts': `
+      'src/features/conversations/service/bypass.ts': `
       import { MaterialGenerationStore } from '#server/features/materials/store/index';
     `
-  });
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/bypass.ts')));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/bypass.ts')));
+  }
+);
 
-test('proposal coordinators compose public Materials participants instead of reaching into private stores', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/conversations/service/proposals.ts': `
+testStable(
+  'proposal coordinators compose public Materials participants instead of reaching into private stores',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/conversations/service/proposals.ts': `
       import { Materials } from '#server/features/materials/index';
       import { transaction } from '#server/platform/definitions/define-store';
       export const apply = value => transaction(tx => Materials.applyDocumentProposal(tx, value, true));
       export const keep = value => transaction(tx => Materials.keepDocumentProposal(tx, value));
     `,
-    'src/features/conversations/service/private.ts': `
+      'src/features/conversations/service/private.ts': `
       import { DocumentProposalStore } from '#server/features/materials/store/document-proposals';
     `,
-    'src/features/materials/service/private.ts': `
+      'src/features/materials/service/private.ts': `
       import { SessionContextValidityStore } from '#server/features/conversations/store/context';
     `
-  });
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
+  }
+);
 
-test('conversation evidence composition consumes the public Materials participant and keeps all evidence stores private', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/conversations/service/citations.ts': `
+testStable(
+  'conversation evidence composition consumes the public Materials participant and keeps all evidence stores private',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/conversations/service/citations.ts': `
       import { Materials } from '#server/features/materials/index';
       import type { evidenceReferenceSchema } from '@study/contracts/materials/evidence';
       import { transaction } from '#server/platform/definitions/define-store';
       export const resolve = reference => transaction(tx => Materials.resolveEvidence(tx, reference));
     `,
-    'src/features/conversations/service/private-evidence.ts': `
+      'src/features/conversations/service/private-evidence.ts': `
       import { EvidenceStore } from '#server/features/materials/store/evidence';
       import { CitationSupportStore } from '#server/features/materials/store/citation-support';
       import { AnnotationsStore } from '#server/features/materials/store/annotations';
     `,
-    'src/features/materials/index.ts': `
+      'src/features/materials/index.ts': `
       export { Materials } from './service/index';
       export { EvidenceStore } from './store/evidence';
     `
-  });
+    });
 
-  assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/citations.ts')));
-});
+    assert.equal(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/citations.ts')));
+  }
+);
 
-test('deletion coordinators compose public Materials and Workflows retirement participants', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/conversations/service/deletion.ts': `
+testStable(
+  'deletion coordinators compose public Materials and Workflows retirement participants',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/conversations/service/deletion.ts': `
       import { Materials } from '#server/features/materials/index';
       import { Workflows } from '#server/features/workflows/index';
       import { transaction } from '#server/platform/definitions/define-store';
@@ -273,20 +303,23 @@ test('deletion coordinators compose public Materials and Workflows retirement pa
         Workflows.retireCorrelations(tx, input.ids, input.eventTypes);
       });
     `,
-    'src/features/conversations/service/private.ts': `
+      'src/features/conversations/service/private.ts': `
       import { SessionMaterialRetirementStore } from '#server/features/materials/store/session-retirement';
       import { ExecutionStore } from '#server/features/workflows/store/index';
     `
-  });
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
 
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
-});
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
+  }
+);
 
-test('Material cleanup composes public synchronous participants and cannot expose or import private retirement stores', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/materials/service/deletion.ts': `
+testStable(
+  'Material cleanup composes public synchronous participants and cannot expose or import private retirement stores',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/materials/service/deletion.ts': `
       import { Sources } from '#server/features/sources/index';
       import { Conversations } from '#server/features/conversations/index';
       import { Recordings } from '#server/features/recordings/index';
@@ -299,20 +332,23 @@ test('Material cleanup composes public synchronous participants and cannot expos
         Workflows.scrubRetiredCorrelations(tx, [id]);
       });
     `,
-    'src/features/materials/service/private.ts': `
+      'src/features/materials/service/private.ts': `
       import { SourceMaterialDeletionStore } from '#server/features/sources/store/material-deletion';
       import { ConversationMaterialDeletionStore } from '#server/features/conversations/store/material-deletion';
     `,
-    'src/features/sources/index.ts': `export { SourceMaterialDeletionStore } from './store/material-deletion';`
-  });
+      'src/features/sources/index.ts': `export { SourceMaterialDeletionStore } from './store/material-deletion';`
+    });
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/deletion.ts')));
-});
+    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/deletion.ts')));
+  }
+);
 
-test('history pruning composes public participants without exposing private ownership stores', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/materials/service/history.ts': `
+testStable(
+  'history pruning composes public participants without exposing private ownership stores',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/features/materials/service/history.ts': `
       import { Sources } from '#server/features/sources/index';
       import { Conversations } from '#server/features/conversations/index';
       import { Learning } from '#server/features/learning/index';
@@ -324,28 +360,32 @@ test('history pruning composes public participants without exposing private owne
       };
 
     `,
-    'src/features/materials/service/private-history.ts': `
+      'src/features/materials/service/private-history.ts': `
       import { SourceMaterialHistoryStore } from '#server/features/sources/store/material-history';
       import { ConversationMaterialHistoryStore } from '#server/features/conversations/store/material-history';
     `,
-    'src/features/sources/index.ts': `export { SourceMaterialHistoryStore } from './store/material-history';`
-  });
+      'src/features/sources/index.ts': `export { SourceMaterialHistoryStore } from './store/material-history';`
+    });
 
-  assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.equal(diagnostics.length, 3, JSON.stringify(diagnostics));
 
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/history.ts')));
-});
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/history.ts')));
+  }
+);
 
-test('backup participants are injected by runtime and feature coordinators cannot acquire runtime or foreign stores', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/runtime/backups.ts':
-      "import { Materials } from '#server/features/materials/index'; import { Conversations } from '#server/features/conversations/index';",
-    'src/features/system/service/backup.ts':
-      "import { backupPolicy } from '#server/runtime/backups'; import { SourceBackupStore } from '#server/features/sources/store/backup';",
-    'src/features/materials/service/backup.ts':
-      "import { Sources } from '#server/features/sources/index'; import { transaction } from '#server/platform/definitions/define-store'; transaction(tx => Sources.validateBackup(tx));"
-  });
+testStable(
+  'backup participants are injected by runtime and feature coordinators cannot acquire runtime or foreign stores',
+  () => {
+    const diagnostics = lintRule('server-layer-boundary', {
+      'src/runtime/backups.ts':
+        "import { Materials } from '#server/features/materials/index'; import { Conversations } from '#server/features/conversations/index';",
+      'src/features/system/service/backup.ts':
+        "import { backupPolicy } from '#server/runtime/backups'; import { SourceBackupStore } from '#server/features/sources/store/backup';",
+      'src/features/materials/service/backup.ts':
+        "import { Sources } from '#server/features/sources/index'; import { transaction } from '#server/platform/definitions/define-store'; transaction(tx => Sources.validateBackup(tx));"
+    });
 
-  assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/service/backup.ts')));
-});
+    assert.equal(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/service/backup.ts')));
+  }
+);

@@ -15,13 +15,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import type { DocumentId, SourceId } from '@study/contracts/ids';
+import { testStable } from '@study/testing/node';
 
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 
-test('citations only resolve excerpts exposed by search', () => {
+testStable('citations only resolve excerpts exposed by search', () => {
   const catalog = createEvidenceCatalog([
     {
       key: '1:2',
@@ -40,7 +40,7 @@ test('citations only resolve excerpts exposed by search', () => {
   assert.deepEqual(catalog.citations('Plain answer'), []);
 });
 
-test('bounds excerpts and deduplicates captured documents', () => {
+testStable('bounds excerpts and deduplicates captured documents', () => {
   const catalog = createEvidenceCatalog([]);
   const document = {
     key: '1:2',
@@ -58,7 +58,7 @@ test('bounds excerpts and deduplicates captured documents', () => {
   assert.throws(() => catalog.citations('Answer [101]'));
 });
 
-test('shared catalog preserves opaque material references', async () => {
+testStable('shared catalog preserves opaque material references', async () => {
   const { createEvidenceCatalog: createSharedCatalog } =
     await import('#server/platform/ai/evidence');
   const catalog = createSharedCatalog([
@@ -77,23 +77,26 @@ test('shared catalog preserves opaque material references', async () => {
   ]);
 });
 
-test('evidence ranking preserves case-insensitive scores, marker ties and empty queries', () => {
-  const catalog = createEvidenceCatalog([
-    {
-      key: 'ranking',
-      reference: 'version',
-      name: 'Notes',
-      blocks: [{ text: 'ALPHA' }, { text: 'beta alpha' }, { text: 'Alpha beta' }]
-    }
-  ]);
+testStable(
+  'evidence ranking preserves case-insensitive scores, marker ties and empty queries',
+  () => {
+    const catalog = createEvidenceCatalog([
+      {
+        key: 'ranking',
+        reference: 'version',
+        name: 'Notes',
+        blocks: [{ text: 'ALPHA' }, { text: 'beta alpha' }, { text: 'Alpha beta' }]
+      }
+    ]);
 
-  assert.deepEqual(catalog.search('  '), []);
-  assert.throws(() => catalog.citations('[2]'));
-  assert.deepEqual(
-    catalog.search(' alpha BETA ').map((hit) => hit.id),
-    ['2', '3', '1']
-  );
-  assert.deepEqual(catalog.citations('[2]'), [
-    { marker: 2, reference: 'version', blockOrdinal: 1, quote: 'beta alpha' }
-  ]);
-});
+    assert.deepEqual(catalog.search('  '), []);
+    assert.throws(() => catalog.citations('[2]'));
+    assert.deepEqual(
+      catalog.search(' alpha BETA ').map((hit) => hit.id),
+      ['2', '3', '1']
+    );
+    assert.deepEqual(catalog.citations('[2]'), [
+      { marker: 2, reference: 'version', blockOrdinal: 1, quote: 'beta alpha' }
+    ]);
+  }
+);

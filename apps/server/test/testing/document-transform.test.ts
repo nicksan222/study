@@ -13,30 +13,34 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+
+import { testStable } from '@study/testing/node';
 
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 import { documentTransformFixture } from './document-transform.ts';
 
-test('fixture acquisition failure releases peer/database and close releases auth exactly once', async () => {
-  const owner = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
+testStable(
+  'fixture acquisition failure releases peer/database and close releases auth exactly once',
+  async () => {
+    const owner = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
 
-  try {
-    await assert.rejects(documentTransformFixture(), /auth owner already exists/);
-  } finally {
-    await owner.dispose();
+    try {
+      await assert.rejects(documentTransformFixture(), /auth owner already exists/);
+    } finally {
+      await owner.dispose();
+    }
+
+    const first = await documentTransformFixture();
+
+    try {
+      await Promise.all([first.close(), first.close()]);
+    } finally {
+      await first.close();
+    }
+
+    const next = await documentTransformFixture();
+
+    await next.close();
   }
-
-  const first = await documentTransformFixture();
-
-  try {
-    await Promise.all([first.close(), first.close()]);
-  } finally {
-    await first.close();
-  }
-
-  const next = await documentTransformFixture();
-
-  await next.close();
-});
+);

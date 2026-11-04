@@ -1,11 +1,11 @@
-import { test } from 'node:test';
+import { testStable } from '@study/testing/node';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Use Effect for feature orchestration; native async, Promise construction and fetch belong at I/O boundaries.';
 
-test('checks canonical feature owners and respects shadowed globals and adapters', () => {
+testStable('checks canonical feature owners and respects shadowed globals and adapters', () => {
   assertDiagnostics(
     'feature-orchestration',
     lintRule('feature-orchestration', {
@@ -24,7 +24,7 @@ test('checks canonical feature owners and respects shadowed globals and adapters
   );
 });
 
-test('recognizes fallback fetch aliases in feature tool directories', () => {
+testStable('recognizes fallback fetch aliases in feature tool directories', () => {
   assertDiagnostics(
     'feature-orchestration',
     lintRule('feature-orchestration', {

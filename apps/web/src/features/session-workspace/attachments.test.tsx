@@ -1,15 +1,16 @@
 import { sessionIdSchema } from '@study/contracts/ids';
+import { testStable } from '@study/testing/vitest';
 import { AttachmentPreview } from '@study/ui/attachment-preview';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vite-plus/test';
+import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
 import { attachmentKey } from './attachments.queries';
 import type { Attachment } from './attachments.queries';
 
-vi.mock('../../lib/i18n', () => ({
+vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
 
@@ -40,62 +41,71 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('keeps ready files in a separate compact tray with an accessible icon remove action', async () => {
-  const file = new File(['notes'], 'A very long document filename.pdf', {
-    type: 'application/pdf'
-  });
-  const view = mount({ key: 'file', file, state: 'ready' });
-  const tray = screen.getByRole('list', { name: 'SessionAttachments' });
+testStable(
+  'keeps ready files in a separate compact tray with an accessible icon remove action',
+  async () => {
+    const file = new File(['notes'], 'A very long document filename.pdf', {
+      type: 'application/pdf'
+    });
+    const view = mount({ key: 'file', file, state: 'ready' });
+    const tray = screen.getByRole('list', { name: 'SessionAttachments' });
 
-  expect(tray).toContainElement(screen.getByText(file.name));
-  expect(screen.getByText(file.name)).toHaveAttribute('title', file.name);
-  expect(screen.getByRole('status')).toHaveTextContent('SessionFileAccepted');
-  expect(tray).not.toContainElement(screen.getByLabelText('SessionAttachFiles'));
-  const remove = screen.getByRole('button', { name: 'SessionRemoveAttachment' });
+    expect(tray).toContainElement(screen.getByText(file.name));
+    expect(screen.getByText(file.name)).toHaveAttribute('title', file.name);
+    expect(screen.getByRole('status')).toHaveTextContent('SessionFileAccepted');
+    expect(tray).not.toContainElement(screen.getByLabelText('SessionAttachFiles'));
+    const remove = screen.getByRole('button', { name: 'SessionRemoveAttachment' });
 
-  expect(remove.textContent).toBe('');
-  fireEvent.click(remove);
-  await waitFor(() => expect(view.client.getQueryData(attachmentKey(id))).toEqual([]));
-  expect(screen.queryByRole('list')).toBeNull();
-});
+    expect(remove.textContent).toBe('');
+    fireEvent.click(remove);
+    await waitFor(() => expect(view.client.getQueryData(attachmentKey(id))).toEqual([]));
+    expect(screen.queryByRole('list')).toBeNull();
+  }
+);
 
-it('shows uploading state without offering an unsafe in-flight removal', () => {
+testStable('shows uploading state without offering an unsafe in-flight removal', () => {
   mount({ key: 'pending', file: new File(['notes'], 'notes.txt'), state: 'uploading' });
   expect(screen.getByRole('status')).toHaveTextContent('SessionUploading');
   expect(screen.queryByRole('button', { name: 'SessionRemoveAttachment' })).toBeNull();
 });
 
-it('keeps uncertain upload guidance and requires the acknowledgement action instead of retrying', () => {
-  mount({ key: 'uncertain', file: new File(['notes'], 'notes.txt'), state: 'uncertain' });
-  expect(screen.getByText('SessionUploadUncertain')).toBeVisible();
-  expect(screen.getByRole('status')).toHaveTextContent('SessionUploadUnconfirmed');
-  expect(screen.getByRole('button', { name: 'SessionUploadAcknowledge' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
-});
+testStable(
+  'keeps uncertain upload guidance and requires the acknowledgement action instead of retrying',
+  () => {
+    mount({ key: 'uncertain', file: new File(['notes'], 'notes.txt'), state: 'uncertain' });
+    expect(screen.getByText('SessionUploadUncertain')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('SessionUploadUnconfirmed');
+    expect(screen.getByRole('button', { name: 'SessionUploadAcknowledge' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  }
+);
 
-it('uses a local image preview and releases its URL when the attachment is removed', async () => {
-  const createObjectURL = vi.fn(() => 'blob:local-preview');
-  const revokeObjectURL = vi.fn();
+testStable(
+  'uses a local image preview and releases its URL when the attachment is removed',
+  async () => {
+    const createObjectURL = vi.fn(() => 'blob:local-preview');
+    const revokeObjectURL = vi.fn();
 
-  vi.stubGlobal(
-    'URL',
-    class extends URL {
-      static createObjectURL = createObjectURL;
-      static revokeObjectURL = revokeObjectURL;
-    }
-  );
-  const file = new File(['image'], 'image.png', { type: 'image/png' });
-  const view = mount({ key: 'image', file, state: 'ready' });
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = createObjectURL;
+        static revokeObjectURL = revokeObjectURL;
+      }
+    );
+    const file = new File(['image'], 'image.png', { type: 'image/png' });
+    const view = mount({ key: 'image', file, state: 'ready' });
 
-  await waitFor(() =>
-    expect(view.container.querySelector('img')).toHaveAttribute('src', 'blob:local-preview')
-  );
-  expect(createObjectURL).toHaveBeenCalledWith(file);
-  fireEvent.click(screen.getByRole('button', { name: 'SessionRemoveAttachment' }));
-  await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:local-preview'));
-});
+    await waitFor(() =>
+      expect(view.container.querySelector('img')).toHaveAttribute('src', 'blob:local-preview')
+    );
+    expect(createObjectURL).toHaveBeenCalledWith(file);
+    fireEvent.click(screen.getByRole('button', { name: 'SessionRemoveAttachment' }));
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:local-preview'));
+  }
+);
 
-it.each([
+testStable.each([
   ['audio', 'audio/mpeg'],
   ['video', 'video/mp4']
 ] as const)('uses native %s controls outside the attachment navigation link', (kind, mime) => {

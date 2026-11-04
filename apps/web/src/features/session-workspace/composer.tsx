@@ -7,7 +7,8 @@ import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { ArrowUp, FilePenLine } from 'lucide-react';
 
-import { useWorkspacePreferences } from '../../lib/study-client/workspace-preferences.queries';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
+
 import { AttachmentPicker, AttachmentTray } from './attachments';
 import { useComposer } from './composer.queries';
 import { sessionKey } from './session-workspace.queries';

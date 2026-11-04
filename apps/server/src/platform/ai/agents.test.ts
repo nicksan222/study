@@ -18,8 +18,8 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { test } from 'node:test';
 
+import { testStable } from '@study/testing/node';
 import { Effect, Schema, Stream } from 'effect';
 
 import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
@@ -101,7 +101,7 @@ function service(base: string, auth: AuthManager) {
   });
 }
 
-test('generates validated output through the Responses provider', async () => {
+testStable('generates validated output through the Responses provider', async () => {
   await peer(
     (_req, res) => send(res, 'Biology'),
     async (base, auth) => {
@@ -115,7 +115,7 @@ test('generates validated output through the Responses provider', async () => {
   );
 });
 
-test('rejects malformed structured output', async () => {
+testStable('rejects malformed structured output', async () => {
   await peer(
     (_req, res) => send(res, '{"count":"wrong"}'),
     async (base, auth) => {
@@ -128,7 +128,7 @@ test('rejects malformed structured output', async () => {
   );
 });
 
-test('executes a source tool and sends its result back to the provider', async () => {
+testStable('executes a source tool and sends its result back to the provider', async () => {
   const bodies: string[] = [];
 
   await peer(
@@ -199,96 +199,99 @@ test('executes a source tool and sends its result back to the provider', async (
   );
 });
 
-test('streams text before the provider completes and never completes a truncated response', async () => {
-  const { createServer } = await import('node:http');
-  const { Stream } = await import('effect');
-  const { streamAgent } = await import('#server/platform/ai/agents');
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const server = createServer(async (_req, res) => {
-    res.writeHead(200, { 'content-type': 'text/event-stream' });
-
-    for (const event of [
-      { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
-      { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
-    ])
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-    await gate;
-    res.end();
-  });
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  if (!address || typeof address === 'string') throw Error('missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-  try {
-    await auth.replace(
-      { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
-      { accessToken: 'a', expiresIn: 3600 }
-    );
-    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
-    const definition = defineAgent({
-      id: 'reply',
-      input: Schema.String,
-      output: Schema.String,
-      model: 'tiny',
-      instructions: 'Reply',
-      prompt: (input) => input
+testStable(
+  'streams text before the provider completes and never completes a truncated response',
+  async () => {
+    const { createServer } = await import('node:http');
+    const { Stream } = await import('effect');
+    const { streamAgent } = await import('#server/platform/ai/agents');
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    const seen: unknown[] = [];
-    let received!: () => void;
-    const first = new Promise<void>((resolve) => {
-      received = resolve;
+    const server = createServer(async (_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+
+      for (const event of [
+        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
+        { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
+      ])
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+      await gate;
+      res.end();
     });
-    const running = Effect.runPromise(
-      streamAgent(definition, 'x').pipe(
-        Stream.tap((event) =>
-          Effect.sync(() => {
-            seen.push(event);
-            received();
-          })
-        ),
-        Stream.runDrain,
-        Effect.provide(
-          layer({
-            model: () => Effect.succeed(model),
-            language: 'en',
-            searchSources: () => Effect.succeed([])
-          })
-        )
-      )
-    );
-    const rejected = assert.rejects(running);
+
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+
+    if (!address || typeof address === 'string') throw Error('missing address');
+
+    const base = `http://127.0.0.1:${address.port}`;
+    const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     try {
-      await Promise.race([
-        first,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(Error('delta was buffered')), 500)
+      await auth.replace(
+        { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
+        { accessToken: 'a', expiresIn: 3600 }
+      );
+      const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+      const definition = defineAgent({
+        id: 'reply',
+        input: Schema.String,
+        output: Schema.String,
+        model: 'tiny',
+        instructions: 'Reply',
+        prompt: (input) => input
+      });
+      const seen: unknown[] = [];
+      let received!: () => void;
+      const first = new Promise<void>((resolve) => {
+        received = resolve;
+      });
+      const running = Effect.runPromise(
+        streamAgent(definition, 'x').pipe(
+          Stream.tap((event) =>
+            Effect.sync(() => {
+              seen.push(event);
+              received();
+            })
+          ),
+          Stream.runDrain,
+          Effect.provide(
+            layer({
+              model: () => Effect.succeed(model),
+              language: 'en',
+              searchSources: () => Effect.succeed([])
+            })
+          )
         )
-      ]);
+      );
+      const rejected = assert.rejects(running);
+
+      try {
+        await Promise.race([
+          first,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(Error('delta was buffered')), 500)
+          )
+        ]);
+        assert.deepEqual(seen, [{ type: 'text-delta', text: 'partial' }]);
+      } finally {
+        release();
+      }
+
+      await rejected;
       assert.deepEqual(seen, [{ type: 'text-delta', text: 'partial' }]);
     } finally {
       release();
+      await auth.dispose();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
-
-    await rejected;
-    assert.deepEqual(seen, [{ type: 'text-delta', text: 'partial' }]);
-  } finally {
-    release();
-    await auth.dispose();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
-});
+);
 
-test('retries rate-limited requests up to the configured limit', async () => {
+testStable('retries rate-limited requests up to the configured limit', async () => {
   let calls = 0;
 
   await peer(
@@ -312,7 +315,7 @@ test('retries rate-limited requests up to the configured limit', async () => {
   );
 });
 
-test('cancellation after a delta never publishes completion', async () => {
+testStable('cancellation after a delta never publishes completion', async () => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -365,7 +368,7 @@ test('cancellation after a delta never publishes completion', async () => {
   }
 });
 
-test('rejects empty model output without publishing completion', async () => {
+testStable('rejects empty model output without publishing completion', async () => {
   await peer(
     (_req, res) => send(res, ''),
     async (base, auth) => {
@@ -394,7 +397,7 @@ test('rejects empty model output without publishing completion', async () => {
   );
 });
 
-test('preserves conversation history in the native reply request', async () => {
+testStable('preserves conversation history in the native reply request', async () => {
   const { replyAgent } = await import('#server/features/conversations/agents/reply');
   let body = '';
 
@@ -423,7 +426,7 @@ test('preserves conversation history in the native reply request', async () => {
   );
 });
 
-test('transcribes image and PDF bytes through the native vision API', async () => {
+testStable('transcribes image and PDF bytes through the native vision API', async () => {
   const { visionTranscriptionAgent } =
     await import('#server/features/sources/agents/vision-transcription');
 
@@ -457,7 +460,7 @@ test('transcribes image and PDF bytes through the native vision API', async () =
   }
 });
 
-test('rejects invalid request limits before making a provider request', async () => {
+testStable('rejects invalid request limits before making a provider request', async () => {
   let calls = 0;
 
   await peer(
@@ -486,7 +489,7 @@ test('rejects invalid request limits before making a provider request', async ()
   );
 });
 
-test('preserves the provider error kind and cause after retries are exhausted', async () => {
+testStable('preserves the provider error kind and cause after retries are exhausted', async () => {
   await peer(
     (_req, res) => {
       res.writeHead(429).end();
@@ -502,81 +505,87 @@ test('preserves the provider error kind and cause after retries are exhausted', 
   );
 });
 
-test('canonical quiz agent accepts exactly one correct choice and rejects inconsistent answers', async () => {
-  const { quizAgent } = await import('#server/features/materials/agents/quiz');
-  let validAnswer = true;
-  let requests = 0;
+testStable(
+  'canonical quiz agent accepts exactly one correct choice and rejects inconsistent answers',
+  async () => {
+    const { quizAgent } = await import('#server/features/materials/agents/quiz');
+    let validAnswer = true;
+    let requests = 0;
 
-  await peer(
-    (_req, res) => {
-      requests++;
-      send(
-        res,
-        JSON.stringify({
-          kind: 'quiz',
-          questions: [
-            {
-              kind: 'single_choice',
-              prompt: 'q',
-              choices: [
-                { text: 'a', isCorrect: validAnswer },
-                { text: 'b', isCorrect: false }
-              ],
-              explanation: 'e'
-            }
-          ]
-        })
-      );
-    },
-    async (base, auth) => {
-      const run = () =>
-        Effect.runPromise(
-          generateAgent(quizAgent, { prompt: 'Ask a question' }).pipe(
-            Effect.provide(service(base, auth))
+    await peer(
+      (_req, res) => {
+        requests++;
+        send(
+          res,
+          JSON.stringify({
+            kind: 'quiz',
+            questions: [
+              {
+                kind: 'single_choice',
+                prompt: 'q',
+                choices: [
+                  { text: 'a', isCorrect: validAnswer },
+                  { text: 'b', isCorrect: false }
+                ],
+                explanation: 'e'
+              }
+            ]
+          })
+        );
+      },
+      async (base, auth) => {
+        const run = () =>
+          Effect.runPromise(
+            generateAgent(quizAgent, { prompt: 'Ask a question' }).pipe(
+              Effect.provide(service(base, auth))
+            )
+          );
+
+        assert.equal((await run()).questions[0]?.kind, 'single_choice');
+        validAnswer = false;
+        await assert.rejects(run());
+        assert.equal(requests, 2);
+      }
+    );
+  }
+);
+
+testStable(
+  'a model without request checks fails in the typed lane before provider work',
+  async () => {
+    let calls = 0;
+
+    await peer(
+      (_req, res) => {
+        calls++;
+        send(res, 'unexpected');
+      },
+      async (base, auth) => {
+        const { withRequestCheck: _check, ...model } = createChatGptModel({
+          auth,
+          modelId: 'test',
+          baseUrl: base
+        });
+        const failure = await Effect.runPromise(
+          Effect.flip(generateAgent(definition, 'question', { preflight: Effect.void })).pipe(
+            Effect.provide(
+              layer({
+                model: () => Effect.succeed(model),
+                language: 'en',
+                searchSources: () => Effect.succeed([])
+              })
+            )
           )
         );
 
-      assert.equal((await run()).questions[0]?.kind, 'single_choice');
-      validAnswer = false;
-      await assert.rejects(run());
-      assert.equal(requests, 2);
-    }
-  );
-});
+        assert.equal(failure.kind, 'unsupported');
+        assert.equal(calls, 0);
+      }
+    );
+  }
+);
 
-test('a model without request checks fails in the typed lane before provider work', async () => {
-  let calls = 0;
-
-  await peer(
-    (_req, res) => {
-      calls++;
-      send(res, 'unexpected');
-    },
-    async (base, auth) => {
-      const { withRequestCheck: _check, ...model } = createChatGptModel({
-        auth,
-        modelId: 'test',
-        baseUrl: base
-      });
-      const failure = await Effect.runPromise(
-        Effect.flip(generateAgent(definition, 'question', { preflight: Effect.void })).pipe(
-          Effect.provide(
-            layer({
-              model: () => Effect.succeed(model),
-              language: 'en',
-              searchSources: () => Effect.succeed([])
-            })
-          )
-        )
-      );
-
-      assert.equal(failure.kind, 'unsupported');
-      assert.equal(calls, 0);
-    }
-  );
-});
-
-test('slow consumers receive all large deltas and the validated completion', async () => {
+testStable('slow consumers receive all large deltas and the validated completion', async () => {
   const delta = 'x'.repeat(4096);
   const count = 80;
 
@@ -610,7 +619,7 @@ test('slow consumers receive all large deltas and the validated completion', asy
   );
 });
 
-test('never retries a failed response after publishing a delta', async () => {
+testStable('never retries a failed response after publishing a delta', async () => {
   let calls = 0;
 
   await peer(
@@ -642,7 +651,7 @@ test('never retries a failed response after publishing a delta', async () => {
   );
 });
 
-test('cancelling before the first delta closes the request without retries', async () => {
+testStable('cancelling before the first delta closes the request without retries', async () => {
   let calls = 0;
   let closed!: () => void;
   const requestClosed = new Promise<void>((resolve) => {
@@ -676,7 +685,7 @@ test('cancelling before the first delta closes the request without retries', asy
   );
 });
 
-test('decoder exceptions remain typed input failures before provider work', async () => {
+testStable('decoder exceptions remain typed input failures before provider work', async () => {
   const guarded = defineAgent({
     ...definition,
     input: Schema.Struct({ prompt: Schema.String }),

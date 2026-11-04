@@ -3,10 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { projectIdSchema } from '@study/contracts/ids';
+import { testStable, testMigration } from '@study/testing/node';
 import { sql, eq, getTableName } from 'drizzle-orm';
 import { Schema } from 'effect';
 
@@ -23,7 +23,7 @@ function fixture(run: (path: string) => void) {
   }
 }
 
-test('the Drizzle baseline initializes every modeled table and current code vocabulary', () =>
+testStable('the Drizzle baseline initializes every modeled table and current code vocabulary', () =>
   fixture((path) => {
     const connection = Db.open(path);
     const db = connection.orm;
@@ -66,73 +66,77 @@ test('the Drizzle baseline initializes every modeled table and current code voca
     const reopened = Db.open(path);
 
     reopened.close();
-  }));
+  })
+);
 
-test('Drizzle reads and writes identities beyond Number precision without losing references', () =>
-  fixture((path) => {
-    const connection = Db.open(path);
-    const db = connection.orm;
-    const id = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
+testStable(
+  'Drizzle reads and writes identities beyond Number precision without losing references',
+  () =>
+    fixture((path) => {
+      const connection = Db.open(path);
+      const db = connection.orm;
+      const id = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
 
-    try {
-      db.insert(schema.projects)
-        .values({ id, name: 'Large identity', created_at: 1n, updated_at: 1n })
-        .run();
-      const next = db
-        .insert(schema.projects)
-        .values({ name: 'Next identity', created_at: 1n, updated_at: 1n })
-        .returning()
-        .get();
+      try {
+        db.insert(schema.projects)
+          .values({ id, name: 'Large identity', created_at: 1n, updated_at: 1n })
+          .run();
+        const next = db
+          .insert(schema.projects)
+          .values({ name: 'Next identity', created_at: 1n, updated_at: 1n })
+          .returning()
+          .get();
 
-      assert.equal(next.id, id + 1n);
-      const session = db
-        .insert(schema.sessions)
-        .values({
-          title: 'Session',
-          title_source: 'user',
-          created_at: 1n,
-          updated_at: 1n
-        })
-        .returning()
-        .get();
+        assert.equal(next.id, id + 1n);
+        const session = db
+          .insert(schema.sessions)
+          .values({
+            title: 'Session',
+            title_source: 'user',
+            created_at: 1n,
+            updated_at: 1n
+          })
+          .returning()
+          .get();
 
-      db.insert(schema.project_sessions).values({ project_id: id, session_id: session.id }).run();
-      assert.equal(db.select().from(schema.project_sessions).get()?.project_id, id);
-      assert.throws(
-        () =>
-          db
-            .insert(schema.project_sessions)
-            .values({
-              project_id: Schema.decodeUnknownSync(projectIdSchema)(id + 100n),
-              session_id: session.id
-            })
-            .run(),
-        (error: unknown) =>
-          error instanceof Error &&
-          error.cause instanceof Error &&
-          'errcode' in error.cause &&
-          error.cause.errcode === 787
-      );
-      db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
-      assert.equal(db.select().from(schema.sessions).get()?.id, session.id);
-      db.insert(schema.projects)
-        .values({
-          id,
-          name: 'Restored identity',
-          created_at: 1n,
-          updated_at: 1n
-        })
-        .run();
-      assert.equal(
-        db.select().from(schema.projects).where(eq(schema.projects.id, id)).get()?.id,
-        id
-      );
-    } finally {
-      connection.close();
-    }
-  }));
+        db.insert(schema.project_sessions).values({ project_id: id, session_id: session.id }).run();
+        assert.equal(db.select().from(schema.project_sessions).get()?.project_id, id);
+        assert.throws(
+          () =>
+            db
+              .insert(schema.project_sessions)
+              .values({
+                project_id: Schema.decodeUnknownSync(projectIdSchema)(id + 100n),
+                session_id: session.id
+              })
+              .run(),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.cause instanceof Error &&
+            'errcode' in error.cause &&
+            error.cause.errcode === 787
+        );
+        db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
+        assert.equal(db.select().from(schema.sessions).get()?.id, session.id);
+        db.insert(schema.projects)
+          .values({
+            id,
+            name: 'Restored identity',
+            created_at: 1n,
+            updated_at: 1n
+          })
+          .run();
+        assert.equal(
+          db.select().from(schema.projects).where(eq(schema.projects.id, id)).get()?.id,
+          id
+        );
+      } finally {
+        connection.close();
+      }
+    })
+);
 
-test('Drizzle generation is stable and leaves SQL-managed FTS outside schema diffs', () => {
+testStable('Drizzle generation is stable and leaves SQL-managed FTS outside schema diffs', () => {
   const folder = mkdtempSync(join(tmpdir(), 'study-drizzle-generate-'));
 
   try {
@@ -164,7 +168,7 @@ test('Drizzle generation is stable and leaves SQL-managed FTS outside schema dif
   }
 });
 
-test('retired projection tables and message job ownership are absent', () =>
+testStable('retired projection tables and message job ownership are absent', () =>
   fixture((path) => {
     const connection = Db.open(path);
 
@@ -184,39 +188,43 @@ test('retired projection tables and message job ownership are absent', () =>
     } finally {
       connection.close();
     }
-  }));
+  })
+);
 
-test('Ask migration retains exact retirement and reply publication guards after table rebuilds', () =>
-  fixture((path) => {
-    const connection = Db.open(path);
+testMigration({ migration: 'ask_migration', retention: 'permanent' })(
+  'Ask migration retains exact retirement and reply publication guards after table rebuilds',
+  () =>
+    fixture((path) => {
+      const connection = Db.open(path);
 
-    try {
-      const names = new Set(
-        connection.orm
-          .all(sql`SELECT name FROM sqlite_schema WHERE type='trigger'`)
-          .map((row) => row.name)
-      );
+      try {
+        const names = new Set(
+          connection.orm
+            .all(sql`SELECT name FROM sqlite_schema WHERE type='trigger'`)
+            .map((row) => row.name)
+        );
 
-      for (const name of [
-        'message_fts_ai',
-        'message_fts_ad',
-        'message_fts_finish',
-        'conversation_recording_posts_validate_insert',
-        'material_deletion_reply_publication',
-        'history_reply_publication',
-        'conversation_history_intents_update',
-        'conversation_history_intents_delete',
-        'conversation_history_intents_valid',
-        'session_history_intent_insert'
-      ])
-        assert.ok(names.has(name), name);
+        for (const name of [
+          'message_fts_ai',
+          'message_fts_ad',
+          'message_fts_finish',
+          'conversation_recording_posts_validate_insert',
+          'material_deletion_reply_publication',
+          'history_reply_publication',
+          'conversation_history_intents_update',
+          'conversation_history_intents_delete',
+          'conversation_history_intents_valid',
+          'session_history_intent_insert'
+        ])
+          assert.ok(names.has(name), name);
 
-      assert.throws(() =>
-        connection.orm.run(sql`INSERT INTO conversation_history_intents
+        assert.throws(() =>
+          connection.orm.run(sql`INSERT INTO conversation_history_intents
         (session_id,intent_key,deletion_request_id) VALUES (1,'forged','missing')`)
-      );
-      assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
-    } finally {
-      connection.close();
-    }
-  }));
+        );
+        assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
+      } finally {
+        connection.close();
+      }
+    })
+);

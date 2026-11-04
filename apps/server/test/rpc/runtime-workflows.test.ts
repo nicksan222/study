@@ -16,16 +16,16 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
 import { Effect, Option } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
 
-test(
+testStable(
   'native workflow RPC exposes bounded status and persists cancellation while the worker is stopped',
   { timeout: 10000 },
   async () => {
@@ -145,7 +145,7 @@ test(
   }
 );
 
-test(
+testStable(
   'workflow status distinguishes terminal failures and paginates without exposing checkpoints',
   { timeout: 10000 },
   async () => {
@@ -258,7 +258,7 @@ test(
   }
 );
 
-test(
+testStable(
   'unsafe workflow cancellation aborts an active real HTTP fetch',
   { timeout: 10000 },
   async (t) => {

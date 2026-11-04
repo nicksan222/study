@@ -1,7 +1,9 @@
+import { testStable } from '@study/testing/vitest';
 import { render, screen } from '@testing-library/react';
-import { expect, it, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
-import { LanguageProvider } from '../../../lib/i18n';
+import { LanguageProvider } from '#web/lib/i18n.tsx';
+
 import { GeneralSettingsView } from './general.view';
 
 function model() {
@@ -15,13 +17,13 @@ function model() {
   };
 }
 
-it('labels the language selector and disables it while saving', () => {
+testStable('labels the language selector and disables it while saving', () => {
   render(<GeneralSettingsView model={{ ...model(), pending: true }} />);
   expect(screen.getByRole('combobox', { name: 'Language' })).toBeDisabled();
   expect(screen.getByRole('status')).toHaveTextContent('Saving');
 });
 
-it('localizes the preferences and offers retry after a failed load', () => {
+testStable('localizes the preferences and offers retry after a failed load', () => {
   const state = { ...model(), data: undefined, error: true };
 
   render(

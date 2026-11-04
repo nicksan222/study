@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 
 import { versionIdSchema } from '@study/contracts/ids';
+import { testStable } from '@study/testing/node';
 import { eq, sql } from 'drizzle-orm';
 import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { Schema } from 'effect';
@@ -88,7 +88,7 @@ function checkViolation(error: unknown): boolean {
   );
 }
 
-test('message instructions are nullable but otherwise nonblank and bounded', (t) => {
+testStable('message instructions are nullable but otherwise nonblank and bounded', (t) => {
   const { db, version } = newDb(t);
 
   assert.equal(version.instruction, null);
@@ -111,7 +111,7 @@ test('message instructions are nullable but otherwise nonblank and bounded', (t)
   assert.equal(db.select().from(schema.message_versions).get()?.instruction?.length, 100000);
 });
 
-test('message citations enforce unsigned 32 bit positive markers', (t) => {
+testStable('message citations enforce unsigned 32 bit positive markers', (t) => {
   const { db, version } = newDb(t);
   const citation = { source_name: 'N', anchor: '{}', quote: 'Quote' };
 
@@ -135,135 +135,141 @@ test('message citations enforce unsigned 32 bit positive markers', (t) => {
   assert.equal(db.select().from(schema.citations).all().length, 2);
 });
 
-test('fresh baseline preserves populated references and message search triggers across reopen', (t) => {
-  const folder = mkdtempSync(join(tmpdir(), 'study-constraint-migration-'));
-  const path = join(folder, 'study.db');
+testStable(
+  'fresh baseline preserves populated references and message search triggers across reopen',
+  (t) => {
+    const folder = mkdtempSync(join(tmpdir(), 'study-constraint-migration-'));
+    const path = join(folder, 'study.db');
 
-  t.after(() => rmSync(folder, { recursive: true, force: true }));
-  const first = Db.open(path);
-  const original = first.orm;
+    t.after(() => rmSync(folder, { recursive: true, force: true }));
+    const first = Db.open(path);
+    const original = first.orm;
 
-  const { message, version } = seed(original);
+    const { message, version } = seed(original);
 
-  original
-    .update(schema.messages)
-    .set({ active_version_id: version.id })
-    .where(eq(schema.messages.id, message.id))
-    .run();
-  original
-    .insert(schema.citations)
-    .values({ version_id: version.id, marker: 1n, source_name: 'N', anchor: '{}', quote: 'Q' })
-    .run();
-  first.close();
+    original
+      .update(schema.messages)
+      .set({ active_version_id: version.id })
+      .where(eq(schema.messages.id, message.id))
+      .run();
+    original
+      .insert(schema.citations)
+      .values({ version_id: version.id, marker: 1n, source_name: 'N', anchor: '{}', quote: 'Q' })
+      .run();
+    first.close();
 
-  const connection = Db.open(path);
+    const connection = Db.open(path);
 
-  t.after(() => connection.close());
-  const db = connection.orm;
+    t.after(() => connection.close());
+    const db = connection.orm;
 
-  assert.equal(db.select().from(schema.messages).get()?.active_version_id, version.id);
-  assert.equal(db.select().from(schema.citations).all().length, 1);
-  assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
-  assert.equal(
-    db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'photosynthesis'`)?.rowid,
-    version.id
-  );
-  const next = db
-    .insert(schema.message_versions)
-    .values({
-      message_id: message.id,
-      number: 2n,
-      origin: 'answer',
-      status: 'complete',
-      text: 'mitochondria',
-      created_at: 1n
-    })
-    .returning()
-    .get();
+    assert.equal(db.select().from(schema.messages).get()?.active_version_id, version.id);
+    assert.equal(db.select().from(schema.citations).all().length, 1);
+    assert.deepEqual(db.all(sql`PRAGMA foreign_key_check`), []);
+    assert.equal(
+      db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'photosynthesis'`)?.rowid,
+      version.id
+    );
+    const next = db
+      .insert(schema.message_versions)
+      .values({
+        message_id: message.id,
+        number: 2n,
+        origin: 'answer',
+        status: 'complete',
+        text: 'mitochondria',
+        created_at: 1n
+      })
+      .returning()
+      .get();
 
-  assert.equal(
-    db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`)?.rowid,
-    next.id
-  );
-  db.delete(schema.message_versions).where(eq(schema.message_versions.id, next.id)).run();
-  assert.equal(
-    db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`),
-    undefined
-  );
-  const pending = db
-    .insert(schema.message_versions)
-    .values({
-      message_id: message.id,
-      number: 3n,
-      origin: 'answer',
-      status: 'pending',
-      created_at: 1n
-    })
-    .returning()
-    .get();
+    assert.equal(
+      db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`)?.rowid,
+      next.id
+    );
+    db.delete(schema.message_versions).where(eq(schema.message_versions.id, next.id)).run();
+    assert.equal(
+      db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`),
+      undefined
+    );
+    const pending = db
+      .insert(schema.message_versions)
+      .values({
+        message_id: message.id,
+        number: 3n,
+        origin: 'answer',
+        status: 'pending',
+        created_at: 1n
+      })
+      .returning()
+      .get();
 
-  db.update(schema.message_versions)
-    .set({ status: 'complete', text: 'chlorophyll' })
-    .where(eq(schema.message_versions.id, pending.id))
-    .run();
-  assert.equal(
-    db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`)?.rowid,
-    pending.id
-  );
-});
+    db.update(schema.message_versions)
+      .set({ status: 'complete', text: 'chlorophyll' })
+      .where(eq(schema.message_versions.id, pending.id))
+      .run();
+    assert.equal(
+      db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`)?.rowid,
+      pending.id
+    );
+  }
+);
 
 for (const table of ['message_versions'] as const)
   for (const keepLowerRow of [false, true])
-    test(`fresh baseline preserves deleted ${table} identities across reopen with ${keepLowerRow ? 'surviving rows' : 'an empty table'}`, (t) => {
-      const folder = mkdtempSync(join(tmpdir(), 'study-migration-sequences-'));
-      const path = join(folder, 'study.db');
+    testStable(
+      `fresh baseline preserves deleted ${table} identities across reopen with ${keepLowerRow ? 'surviving rows' : 'an empty table'}`,
+      (t) => {
+        const folder = mkdtempSync(join(tmpdir(), 'study-migration-sequences-'));
+        const path = join(folder, 'study.db');
 
-      t.after(() => rmSync(folder, { recursive: true, force: true }));
-      const first = Db.open(path);
-      const original = first.orm;
+        t.after(() => rmSync(folder, { recursive: true, force: true }));
+        const first = Db.open(path);
+        const original = first.orm;
 
-      const { message } = seed(original);
-      const target = schema.message_versions;
+        const { message } = seed(original);
+        const target = schema.message_versions;
 
-      original.delete(schema.message_versions).run();
-      const highest = 9007199254740993n;
-      const insert = (db: NodeSQLiteDatabase, ordinal: bigint, id?: bigint) => {
-        return db
-          .insert(schema.message_versions)
-          .values({
-            id: id === undefined ? undefined : Schema.decodeUnknownSync(versionIdSchema)(id),
-            message_id: message.id,
-            number: ordinal + 1n,
-            origin: 'answer',
-            status: 'complete',
-            text: 'Answer',
-            created_at: 1n
-          })
-          .returning()
-          .get().id;
-      };
-      const lower = insert(original, 0n);
+        original.delete(schema.message_versions).run();
+        const highest = 9007199254740993n;
+        const insert = (db: NodeSQLiteDatabase, ordinal: bigint, id?: bigint) => {
+          return db
+            .insert(schema.message_versions)
+            .values({
+              id: id === undefined ? undefined : Schema.decodeUnknownSync(versionIdSchema)(id),
+              message_id: message.id,
+              number: ordinal + 1n,
+              origin: 'answer',
+              status: 'complete',
+              text: 'Answer',
+              created_at: 1n
+            })
+            .returning()
+            .get().id;
+        };
+        const lower = insert(original, 0n);
 
-      assert.equal(insert(original, 1n, highest), highest);
-      original
-        .delete(target)
-        .where(sql`${target.id} = ${highest}`)
-        .run();
-
-      if (!keepLowerRow)
+        assert.equal(insert(original, 1n, highest), highest);
         original
           .delete(target)
-          .where(sql`${target.id} = ${lower}`)
+          .where(sql`${target.id} = ${highest}`)
           .run();
 
-      first.close();
-      const connection = Db.open(path);
+        if (!keepLowerRow)
+          original
+            .delete(target)
+            .where(sql`${target.id} = ${lower}`)
+            .run();
 
-      t.after(() => connection.close());
-      assert.equal(
-        connection.orm.get(sql`SELECT seq FROM sqlite_sequence WHERE name = ${table}`)?.seq,
-        highest
-      );
-      assert.equal(insert(connection.orm, 2n), highest + 1n);
-      assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
-    });
+        first.close();
+        const connection = Db.open(path);
+
+        t.after(() => connection.close());
+        assert.equal(
+          connection.orm.get(sql`SELECT seq FROM sqlite_sequence WHERE name = ${table}`)?.seq,
+          highest
+        );
+        assert.equal(insert(connection.orm, 2n), highest + 1n);
+        assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
+      }
+    );

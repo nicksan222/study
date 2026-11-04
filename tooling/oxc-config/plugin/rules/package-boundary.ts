@@ -8,6 +8,8 @@ import { moduleEdges } from '../architecture-imports.ts';
 
 const directories = {
   'packages/contracts': '@study/contracts',
+  'packages/testing': '@study/testing',
+  tooling: '@study/tooling',
   'packages/ui': '@study/ui',
   'packages/theme': '@study/theme',
   'packages/localization': '@study/localization',
@@ -23,6 +25,14 @@ type Owner = (typeof directories)[keyof typeof directories];
 
 const allowed: Record<Owner, readonly Owner[]> = {
   '@study/contracts': [],
+  '@study/testing': [],
+  '@study/tooling': [
+    '@study/contracts',
+    '@study/theme',
+    '@study/testing',
+    '@study/db',
+    '@study/server'
+  ],
   '@study/ui': ['@study/theme'],
   '@study/theme': ['@study/contracts'],
   '@study/localization': [],
@@ -36,7 +46,10 @@ const allowed: Record<Owner, readonly Owner[]> = {
 
 const exportsByPackage = new Map<string, unknown>(
   Object.entries(directories)
-    .filter(([directory]) => directory.startsWith('packages/') || directory === 'apps/server')
+    .filter(
+      ([directory]) =>
+        directory.startsWith('packages/') || directory === 'apps/server' || directory === 'tooling'
+    )
     .map(([directory, name]) => {
       const path = new URL(`../../../../${directory}/package.json`, import.meta.url);
       const manifest = existsSync(path)
@@ -122,6 +135,21 @@ export default defineRule({
     type ReportNode = NonNullable<Parameters<typeof context.report>[0]['node']>;
 
     function disallowedPackage(name: string): boolean {
+      if (
+        name === '@study/tooling' &&
+        owner === '@study/web' &&
+        context.filename.endsWith('/apps/web/vite.config.ts')
+      )
+        return false;
+
+      if (name === '@study/testing')
+        return (
+          owner !== '@study/tooling' &&
+          !/\.(?:test|spec)\.[^/]+$|\/(?:test|tests|__tests__|testing)\//.test(
+            context.filename.replaceAll('\\', '/')
+          )
+        );
+
       return name !== owner && !allowed[owner].includes(name as Owner);
     }
 

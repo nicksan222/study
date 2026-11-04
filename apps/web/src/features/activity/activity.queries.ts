@@ -1,7 +1,7 @@
 import type { executionSchema, executionsPageSchema } from '@study/contracts/workflows/schemas';
 import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
 
-import { request } from '../../lib/study-client/request';
+import { request } from '#web/lib/study-client/request.ts';
 
 type Execution = typeof executionSchema.Type;
 
