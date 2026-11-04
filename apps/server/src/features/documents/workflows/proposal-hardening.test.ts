@@ -139,7 +139,7 @@ function assertProviderCapture(
       excerpt.start,
       excerpt.end
     ])
-  ).toStrictEqual([['alpha evidence', 14, 28]]);
+  ).toStrictEqual([['HIDDEN BEFORE alpha evidence HIDDEN AFTER', 0, 41]]);
 
   assert.strictEqual(captured.editTarget === undefined, input === undefined);
 
@@ -223,6 +223,7 @@ testStable(
           const session = yield* chats.createSession({ title: 'Discrimination' });
 
           const a = yield* materials.create({
+            sessionId: session.id,
             createKey: randomUUID(),
             inputs: [],
             citations: [],
@@ -233,6 +234,7 @@ testStable(
           const code = createBlock({ type: 'code', code: 'support_only()', language: 'ts' });
 
           const b = yield* materials.create({
+            sessionId: session.id,
             createKey: randomUUID(),
             inputs: [],
             citations: [],
@@ -243,6 +245,7 @@ testStable(
           const selected = paragraph('HIDDEN BEFORE alpha evidence HIDDEN AFTER');
 
           const support = yield* materials.create({
+            sessionId: session.id,
             createKey: randomUUID(),
             inputs: [],
             citations: [],
@@ -413,9 +416,9 @@ testStable(
         assertProviderCapture({ captured, instructions }, item.capture, input);
 
         for (const body of f.bodies.slice(bodyIndex)) {
-          assert.ok(!body.includes('HIDDEN BEFORE'));
+          assert.ok(body.includes('HIDDEN BEFORE'));
 
-          assert.ok(!body.includes('HIDDEN AFTER'));
+          assert.ok(body.includes('HIDDEN AFTER'));
 
           assert.ok(!body.includes('LATEST PRIVATE TARGET'));
         }
@@ -470,6 +473,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
 
             assert.ok(target.version);
             const session = yield* chats.createSession({ title: 'In flight' });
+            yield* (yield* Documents).attach({ sessionId: session.id, documentId: target.id });
 
             yield* chats.updateSessionSelection({
               sessionId: session.id,

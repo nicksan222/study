@@ -71,6 +71,7 @@ export function setup(
         inputs: [],
         citations: [],
         title: 'Shared independent input',
+        sessionId: session.id,
         document: { blocks: [paragraph('Independent library evidence')], meta }
       });
 
@@ -103,6 +104,11 @@ export function setup(
               ])
         ]
       });
+
+      if (additionalInputVersionId !== undefined) {
+        const additional = yield* documents.version({ id: additionalInputVersionId });
+        yield* documents.attach({ sessionId: session.id, documentId: additional.documentId });
+      }
 
       const capture = yield* chats.captureSessionContext({
         sessionId: session.id,

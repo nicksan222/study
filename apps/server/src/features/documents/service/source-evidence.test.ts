@@ -124,6 +124,7 @@ testStable(
               0n
             );
             const session = yield* rpc['conversations.createSession']({ title: 'Historic source' });
+            yield* sources.attachSource({ sessionId: session.id, sourceId: source.id });
             const range = { blockId: block.id, start: 1, end: 3 };
 
             yield* rpc['conversations.updateSessionSelection']({
@@ -150,8 +151,8 @@ testStable(
                       input,
                       documentId: first,
                       blockOrdinal: 0,
-                      selectedRange: range,
-                      quote: '😀'
+                      selectedRange: { blockId: block.id, start: 0, end: block.text.length },
+                      quote: block.text
                     }
                   ]
                 })
@@ -165,7 +166,7 @@ testStable(
             assert.ok(citation.evidence?.availability === 'available');
 
             if (citation.evidence?.availability === 'available') {
-              assert.ok(citation.evidence.excerpt === '😀');
+              assert.ok(citation.evidence.excerpt === block.text);
               assert.ok(citation.evidence.precision === 'exact');
             }
 

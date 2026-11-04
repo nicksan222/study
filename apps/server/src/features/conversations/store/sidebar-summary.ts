@@ -41,7 +41,7 @@ export const SessionSummaryStore = defineStore({
               generatedDocumentCount: sql<bigint>`(
             SELECT count(*) FROM session_documents sd
             JOIN study_documents d ON d.id = sd.document_id
-            WHERE sd.session_id = ${sessions}.${sessions.id} AND d.archived_at IS NULL
+            WHERE sd.session_id = ${sessions}.${sessions.id} AND d.archived_at IS NULL AND sd.archived_at IS NULL
             AND NOT EXISTS(SELECT 1 FROM study_document_deletions deleted WHERE deleted.document_id=d.id)
             AND EXISTS (SELECT 1 FROM study_document_versions v WHERE v.document_id = d.id
               AND v.status = 'published' AND v.creator = 'agent'

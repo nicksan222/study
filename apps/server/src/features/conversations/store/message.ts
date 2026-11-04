@@ -49,6 +49,7 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
+import { activeMessageCondition } from './archive.ts';
 import { makePersistence } from './persistence.ts';
 import { makeThread } from './thread.ts';
 
@@ -153,7 +154,17 @@ function makeHelpers({ db, clock }: StoreResources) {
       parts: db.orm
         .select()
         .from(message_parts)
-        .where(eq(message_parts.message_id, id))
+        .where(
+          and(
+            eq(message_parts.message_id, id),
+            sql`NOT EXISTS (
+          SELECT 1 FROM session_sources archived_source
+          WHERE archived_source.session_id=${m.session_id}
+          AND archived_source.source_id=${message_parts.source_id}
+          AND archived_source.archived_at IS NOT NULL
+        )`
+          )
+        )
         .orderBy(asc(message_parts.ordinal))
         .all()
         .map((p) => ({
@@ -261,6 +272,7 @@ export const MessageStore = defineStore({
               .where(
                 and(
                   eq(messages.session_id, input.sessionId),
+                  activeMessageCondition(),
                   input.threadRoot === undefined
                     ? isNull(messages.thread_root)
                     : eq(messages.thread_root, input.threadRoot),

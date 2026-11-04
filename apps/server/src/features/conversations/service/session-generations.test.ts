@@ -43,6 +43,7 @@ testStable(
             inputs: [],
             citations: [],
             title: 'Input',
+            sessionId: session.id,
             document: deletionDocument('Retained discovery evidence')
           });
 

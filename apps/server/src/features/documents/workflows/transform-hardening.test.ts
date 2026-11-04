@@ -66,6 +66,7 @@ function capture(blocks: Block[]) {
     const chats = yield* Conversations;
     const session = yield* chats.createSession({ title: 'Transform' });
     const original = yield* materials.create({
+      sessionId: session.id,
       createKey: randomUUID(),
       inputs: [],
       citations: [],
@@ -204,122 +205,140 @@ testStable(
 );
 
 for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
-  testStable(`provider JSON ${mode} cannot publish unauthorized images`, async () => {
-    const fixture = await documentTransformFixture();
+  testStable(
+    mode === 'alt-range'
+      ? 'stored alt-text range still captures the whole document image'
+      : `provider JSON ${mode} cannot publish unauthorized images`,
+    async () => {
+      const fixture = await documentTransformFixture();
 
-    try {
-      const setup = await Effect.runPromise(
-        Effect.gen(function* () {
-          const image = yield* (yield* Sources).createSource({
-            projectId: null,
-            name: 'alpha.png',
-            bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
-          });
-          const block = createBlock({
-            type: 'image',
-            sourceId: image.id,
-            revision: 1,
-            alt: 'alpha image'
-          });
-          const initial = yield* capture([block]);
-          const chats = yield* Conversations;
+      try {
+        const setup = await Effect.runPromise(
+          Effect.gen(function* () {
+            const image = yield* (yield* Sources).createSource({
+              projectId: null,
+              name: 'alpha.png',
+              bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+            });
+            const block = createBlock({
+              type: 'image',
+              sourceId: image.id,
+              revision: 1,
+              alt: 'alpha image'
+            });
+            const initial = yield* capture([block]);
+            const chats = yield* Conversations;
 
-          if (mode !== 'alt-range') return { ...initial, image };
+            if (mode !== 'alt-range') return { ...initial, image };
 
-          const input = initial.snapshot.inputs[0]!;
+            const input = initial.snapshot.inputs[0]!;
 
-          yield* chats.updateSessionSelection({
-            sessionId: initial.session.id,
-            expectedRevision: 1n,
-            targets: [
-              {
-                input: input.input,
-                scope: {
-                  kind: 'ranges',
-                  ranges: [
-                    {
-                      blockId: block.id,
-                      start: 0,
-                      end: 5
-                    }
-                  ]
+            yield* chats.updateSessionSelection({
+              sessionId: initial.session.id,
+              expectedRevision: 1n,
+              targets: [
+                {
+                  input: input.input,
+                  scope: {
+                    kind: 'ranges',
+                    ranges: [
+                      {
+                        blockId: block.id,
+                        start: 0,
+                        end: 5
+                      }
+                    ]
+                  }
                 }
-              }
-            ]
-          });
-          const snapshot = yield* chats.captureSessionContext({
-            sessionId: initial.session.id,
-            intentKey: 'text-only',
-            instruction: 'Explain selected alt text',
-            preferences: {}
-          });
-          const request = yield* chats.requestDocumentTransform({
-            contextRequestId: snapshot.requestId,
-            title: 'No image authorization',
-            operations: ['explain']
-          });
+              ]
+            });
+            const snapshot = yield* chats.captureSessionContext({
+              sessionId: initial.session.id,
+              intentKey: 'text-only',
+              instruction: 'Explain selected alt text',
+              preferences: {}
+            });
+            const request = yield* chats.requestDocumentTransform({
+              contextRequestId: snapshot.requestId,
+              title: 'Whole image authorization',
+              operations: ['explain']
+            });
 
-          return { ...initial, snapshot, request, image };
-        }).pipe(Effect.provide(fixture.domain()))
-      );
-      const before = fixture.context.db.orm.select().from(s.study_document_versions).all();
-      const published = fixture.context.db.orm
-        .select()
-        .from(s.workflowEvents)
-        .all()
-        .filter((row) => row.type === 'DocumentPublished');
-
-      fixture.replies.push(
-        { kind: 'sources', query: 'alpha' },
-        {
-          kind: 'output',
-          output: {
-            blocks: [
-              providerParagraph('alpha [1]'),
-              {
-                type: 'image',
-                sourceId: String(mode === 'fake-id' ? setup.image.id + 999n : setup.image.id),
-                revision: mode === 'fake-revision' ? 999 : 1,
-                alt: 'alpha image'
-              }
-            ],
-            notes
-          }
-        }
-      );
-      await expect(
-        fixture.executeAuthored(fixture.authoredEvent(setup.request.id), mode)
-      ).rejects.toSatisfy(() => true);
-      assert.strictEqual(fixture.bodies.length, 2);
-      assert.strictEqual(fixture.replies.length, 0);
-      expect(fixture.context.db.orm.select().from(s.study_document_versions).all()).toStrictEqual(
-        before
-      );
-      expect(
-        fixture.context.db.orm
+            return { ...initial, snapshot, request, image };
+          }).pipe(Effect.provide(fixture.domain()))
+        );
+        const before = fixture.context.db.orm.select().from(s.study_document_versions).all();
+        const published = fixture.context.db.orm
           .select()
           .from(s.workflowEvents)
           .all()
-          .filter((row) => row.type === 'DocumentPublished')
-      ).toStrictEqual(published);
-      assert.ok(
-        fixture.context.db.orm
-          .select()
-          .from(s.study_document_transform_requests)
-          .where(eq(s.study_document_transform_requests.id, setup.request.id))
-          .get()?.result_version_id === null
-      );
+          .filter((row) => row.type === 'DocumentPublished');
 
-      if (mode === 'alt-range') {
-        const prompt = fixture.bodies[0]!;
-
-        assert.ok(prompt.includes('assets'));
-        assert.ok(!prompt.includes('alpha image'));
+        fixture.replies.push(
+          { kind: 'sources', query: 'alpha' },
+          {
+            kind: 'output',
+            output: {
+              blocks: [
+                providerParagraph('alpha [1]'),
+                {
+                  type: 'image',
+                  sourceId: String(mode === 'fake-id' ? setup.image.id + 999n : setup.image.id),
+                  revision: mode === 'fake-revision' ? 999 : 1,
+                  alt: 'alpha image'
+                }
+              ],
+              notes
+            }
+          }
+        );
+        if (mode === 'alt-range') {
+          const result = await fixture.executeAuthored(
+            fixture.authoredEvent(setup.request.id),
+            mode
+          );
+          const saved = await Effect.runPromise(
+            Effect.flatMap(Documents, (docs) => docs.version({ id: result })).pipe(
+              Effect.provide(fixture.domain())
+            )
+          );
+          assert.ok(
+            saved.document.blocks.some(
+              (block) => block.content.type === 'image' && block.content.sourceId === setup.image.id
+            )
+          );
+          assert.strictEqual(fixture.bodies.length, 2);
+          assert.strictEqual(fixture.replies.length, 0);
+          assert.ok(fixture.bodies[0]!.includes('alpha image'));
+          return;
+        }
+        await expect(
+          fixture.executeAuthored(fixture.authoredEvent(setup.request.id), mode)
+        ).rejects.toSatisfy(() => true);
+        assert.strictEqual(fixture.bodies.length, 2);
+        assert.strictEqual(fixture.replies.length, 0);
+        expect(fixture.context.db.orm.select().from(s.study_document_versions).all()).toStrictEqual(
+          before
+        );
+        expect(
+          fixture.context.db.orm
+            .select()
+            .from(s.workflowEvents)
+            .all()
+            .filter((row) => row.type === 'DocumentPublished')
+        ).toStrictEqual(published);
+        assert.ok(
+          fixture.context.db.orm
+            .select()
+            .from(s.study_document_transform_requests)
+            .where(eq(s.study_document_transform_requests.id, setup.request.id))
+            .get()?.result_version_id === null
+        );
+      } finally {
+        await fixture.close();
       }
-    } finally {
-      await fixture.close();
     }
-  });
+  );
 }
 
 testStable(
@@ -450,7 +469,10 @@ testStable(
         Effect.gen(function* () {
           const read = yield* (yield* Documents).version({ id: second });
 
-          expect(read.inputs).toStrictEqual([{ kind: 'document', versionId: regenerated.head.id }]);
+          expect(read.inputs).toStrictEqual([
+            { kind: 'document', versionId: regenerated.head.id },
+            { kind: 'document', versionId: result }
+          ]);
         }).pipe(Effect.provide(fixture.domain()))
       );
       assert.strictEqual(fixture.bodies.length, 5);
@@ -635,7 +657,7 @@ testStable(
 );
 
 testStable(
-  'provider markers preserve distinct duplicate-quote ranges in one block after session deletion',
+  'provider markers preserve distinct whole-block evidence after session deletion',
   async () => {
     const fixture = await documentTransformFixture();
 
@@ -643,7 +665,8 @@ testStable(
       const setup = await Effect.runPromise(
         Effect.gen(function* () {
           const block = paragraph('😀 echo :: echo');
-          const initial = yield* capture([block, paragraph('echo')]);
+          const duplicate = paragraph('echo');
+          const initial = yield* capture([block, duplicate]);
           const input = initial.snapshot.inputs[0]!;
           const chats = yield* Conversations;
           const range = {
@@ -678,7 +701,7 @@ testStable(
             operations: ['combine']
           });
 
-          return { ...initial, request, range };
+          return { ...initial, request, range, block, duplicate };
         }).pipe(Effect.provide(fixture.domain()))
       );
 
@@ -706,10 +729,13 @@ testStable(
           const saved = (yield* materials.version({ id: result })).citations;
 
           expect(saved.map((citation) => citation.target)).toStrictEqual([
-            { ...setup.range, start: 3, end: 7 },
-            { ...setup.range, start: 11, end: 15 }
+            { ...setup.range, start: 0, end: setup.block.text.length },
+            { blockId: setup.duplicate.id, start: 0, end: setup.duplicate.text.length }
           ]);
-          expect(saved.map(({ quote }) => quote)).toStrictEqual(['echo', 'echo']);
+          expect(saved.map(({ quote }) => quote)).toStrictEqual([
+            setup.block.text,
+            setup.duplicate.text
+          ]);
         }).pipe(Effect.provide(fixture.domain()))
       );
       await expect(fixture.executeAuthored(event, 'duplicate-ranges-replay')).rejects.toSatisfy(

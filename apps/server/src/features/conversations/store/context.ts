@@ -311,11 +311,9 @@ export const SessionContextStore = defineStore({
         if (!part) throw new StudyError('not_found', 'Thread root is unavailable');
 
         const root = conversationRoot(input.sessionId, part.message_id);
-        let size = root.text.length + history.reduce((n, item) => n + item.text.length, 0);
+        const size = root.text.length + history.reduce((n, item) => n + item.text.length, 0);
 
-        while (size > 200000 && history.length > 1) size -= history.shift()!.text.length;
-
-        if (size > 200000) throw new StudyError('invalid_input', 'Thread context exceeds limit');
+        if (size > 200000) throw new StudyError('not_enough', 'Thread context exceeds limit');
 
         history = [root, ...history];
       }
@@ -378,7 +376,7 @@ export const SessionContextStore = defineStore({
             });
 
             if (history.reduce((size, item) => size + item.text.length, 0) > 200000)
-              throw new StudyError('invalid_input', 'Combined conversation context exceeds limit');
+              throw new StudyError('not_enough', 'Combined conversation context exceeds limit');
 
             const intent = {
               additionalSessionIds: input.additionalSessionIds,

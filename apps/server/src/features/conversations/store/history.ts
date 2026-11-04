@@ -20,6 +20,8 @@ import { messages, message_versions } from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
+import { activeMessageCondition } from './archive.ts';
+
 /** Capture a bounded window of complete, selected versions without reading attachments. */
 export function makeHistory({ db }: StoreResources) {
   function selectedMessages() {
@@ -47,6 +49,7 @@ export function makeHistory({ db }: StoreResources) {
       .where(
         and(
           eq(messages.session_id, sessionId),
+          activeMessageCondition(),
           threadRoot === undefined
             ? isNull(messages.thread_root)
             : eq(messages.thread_root, threadRoot),
@@ -54,7 +57,6 @@ export function makeHistory({ db }: StoreResources) {
         )
       )
       .orderBy(desc(messages.id))
-      .limit(50)
       .all()
       .filter(
         ({ message, version }) =>
@@ -71,12 +73,8 @@ export function makeHistory({ db }: StoreResources) {
       if (!version || version.status !== 'complete')
         throw new StudyError('invalid_input', 'conversation has an unfinished message');
 
-      if (version.text.length > remaining) {
-        if (!history.length)
-          throw new StudyError('invalid_input', 'message exceeds conversation context limit');
-
-        break;
-      }
+      if (version.text.length > remaining)
+        throw new StudyError('not_enough', 'Active session messages exceed the context limit');
 
       remaining -= version.text.length;
       history.push({
@@ -99,6 +97,7 @@ export function makeHistory({ db }: StoreResources) {
       .where(
         and(
           eq(messages.session_id, sessionId),
+          activeMessageCondition(),
           eq(messages.id, messageId),
           isNull(messages.thread_root)
         )

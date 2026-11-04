@@ -58,6 +58,8 @@ testStable(
           });
 
           for (const session of [first, second]) {
+            yield* materials.attach({ sessionId: session.id, documentId: material.id });
+            yield* materials.attach({ sessionId: session.id, documentId: structured.id });
             yield* client('conversations.postMessage', {
               sessionId: session.id,
               text: session.title!
@@ -93,7 +95,7 @@ testStable(
 
           expect(capture.messages.map((item) => item.text)).toStrictEqual(['First', 'Second']);
           assert.strictEqual(capture.inputs.length, 2);
-          assert.ok(capture.inputs[1]!.scope.kind === 'blocks');
+          assert.ok(capture.inputs[1]!.scope.kind === 'document');
           expect(capture.inputs[1]!.excerpts[0]!.content).toStrictEqual(
             structuredContent.blocks[0]!.content
           );
@@ -144,7 +146,7 @@ testStable(
             })
           );
 
-          assert.ok(oversized.kind === 'invalid_input');
+          assert.strictEqual(oversized.kind, 'not_enough');
           const sourceOnly = yield* client('conversations.createSession', {
             title: 'Sources only'
           });

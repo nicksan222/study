@@ -201,7 +201,7 @@ export function makeDocumentReads({ db }: StoreResources) {
             : sql`EXISTS(SELECT 1 FROM project_documents p WHERE p.document_id=${s.study_documents.id} AND p.project_id=${v.projectId})`,
           v.sessionId === undefined
             ? undefined
-            : sql`EXISTS(SELECT 1 FROM session_documents p WHERE p.document_id=${s.study_documents.id} AND p.session_id=${v.sessionId})`
+            : sql`EXISTS(SELECT 1 FROM session_documents p WHERE p.document_id=${s.study_documents.id} AND p.session_id=${v.sessionId} AND p.archived_at IS NULL)`
         )
       )
       .orderBy(desc(s.study_documents.id))

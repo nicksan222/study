@@ -536,7 +536,12 @@ testStable(
             .run();
           const document = context.db.orm
             .insert(content_snapshots)
-            .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
+            .values({
+              source_id: source.id,
+              extractor_version: 1n,
+              meta: JSON.stringify(deletionDocument('').meta),
+              created_at: 1n
+            })
             .returning()
             .get();
 
@@ -571,7 +576,12 @@ testStable(
       context = new ServerContext(location.open());
       const newer = context.db.orm
         .insert(content_snapshots)
-        .values({ source_id: saved.source.id, extractor_version: 1n, meta: '{}', created_at: 2n })
+        .values({
+          source_id: saved.source.id,
+          extractor_version: 1n,
+          meta: JSON.stringify(deletionDocument('').meta),
+          created_at: 2n
+        })
         .returning()
         .get();
 
@@ -704,7 +714,12 @@ testStable('reply captures pending attachments and invalidates deleted context',
         assert.strictEqual(pending.pendingAttachments?.[0]?.sourceId, source.id);
         const document = context.db.orm
           .insert(content_snapshots)
-          .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
+          .values({
+            source_id: source.id,
+            extractor_version: 1n,
+            meta: JSON.stringify(deletionDocument('').meta),
+            created_at: 1n
+          })
           .returning()
           .get();
 
@@ -750,7 +765,7 @@ testStable('reply captures pending attachments and invalidates deleted context',
   }
 });
 
-testStable('reply history captures a bounded recent window and total text budget', async () => {
+testStable('reply history includes every active note and rejects excess total text', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
@@ -773,8 +788,8 @@ testStable('reply history captures a bounded recent window and total text budget
         const request = yield* conversations.requestReply({ sessionId: session.id });
         const history = yield* conversations.replySnapshot({ requestId: request.requestId });
 
-        assert.strictEqual(history.messages.length, 50);
-        assert.ok(history.messages[0]?.text === 'message 10');
+        assert.strictEqual(history.messages.length, 60);
+        assert.ok(history.messages[0]?.text === 'message 0');
         assert.ok(history.messages.at(-1)?.text === 'message 59');
         const largeSession = yield* conversations.createSession({
           project: project.id,
@@ -787,11 +802,10 @@ testStable('reply history captures a bounded recent window and total text budget
             text: String(i).repeat(80000)
           });
 
-        const large = yield* conversations.requestReply({ sessionId: largeSession.id });
-        const largeHistory = yield* conversations.replySnapshot({ requestId: large.requestId });
-
-        assert.strictEqual(largeHistory.messages.length, 2);
-        assert.ok(largeHistory.messages[0]?.text[0] === '1');
+        assert.strictEqual(
+          (yield* Effect.flip(conversations.requestReply({ sessionId: largeSession.id }))).kind,
+          'not_enough'
+        );
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -865,7 +879,7 @@ testStable('untitled sessions capture title requests and reject stale context', 
   }
 });
 
-testStable('title context selects the latest fifty messages within its text budget', async () => {
+testStable('title context retains every active note within its text budget', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const { Settings } = await import('#server/features/settings/index');
@@ -886,9 +900,9 @@ testStable('title context selects the latest fifty messages within its text budg
         const request = yield* conversations.requestTitle({ sessionId: session.id });
         const snapshot = yield* conversations.titleSnapshot({ requestId: request.requestId });
 
-        assert.strictEqual(snapshot.messages.length, 50);
-        assert.ok(snapshot.messages[0]?.text === 'message 1');
-        assert.ok(snapshot.messages[49]?.text === 'message 50');
+        assert.strictEqual(snapshot.messages.length, 51);
+        assert.ok(snapshot.messages[0]?.text === 'message 0');
+        assert.ok(snapshot.messages.at(-1)?.text === 'message 50');
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -945,14 +959,9 @@ testStable(
               text: String(i).repeat(80000)
             });
 
-          const request = yield* conversations.requestTitle({ sessionId: large.id });
-          const captured = yield* conversations.titleSnapshot({ requestId: request.requestId });
-
-          assert.strictEqual(captured.messages.length, 2);
-          assert.ok(captured.messages[0]?.text[0] === '1');
           assert.strictEqual(
-            captured.messages.reduce((n, m) => n + m.text.length, 0),
-            160000
+            (yield* Effect.flip(conversations.requestTitle({ sessionId: large.id }))).kind,
+            'not_enough'
           );
         }).pipe(Effect.provide(services))
       );
@@ -1000,7 +1009,12 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
           .run();
         const document = context.db.orm
           .insert(content_snapshots)
-          .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
+          .values({
+            source_id: source.id,
+            extractor_version: 1n,
+            meta: JSON.stringify(deletionDocument('').meta),
+            created_at: 1n
+          })
           .returning()
           .get();
 

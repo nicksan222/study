@@ -211,6 +211,8 @@ for (const scenario of [
             });
             const target = yield* create('Target', [paragraph('alpha target'), imageBlock]);
             const input = yield* create('Evidence');
+            for (const document of [target, input])
+              yield* (yield* Documents).attach({ sessionId: session.id, documentId: document.id });
 
             yield* chats.updateSessionSelection({
               sessionId: session.id,
@@ -503,6 +505,7 @@ for (const barrier of ['cancel', 'delete'] as const)
             const docs = yield* Documents;
             const session = yield* chats.createSession({ title: 'Fence' });
             const target = yield* create('Target');
+            yield* docs.attach({ sessionId: session.id, documentId: target.id });
 
             yield* chats.updateSessionSelection({
               sessionId: session.id,
@@ -554,7 +557,7 @@ for (const barrier of ['cancel', 'delete'] as const)
   );
 
 testStable(
-  'a captured block or passage cannot broaden into a whole authored target edit',
+  'stored block and passage selection does not narrow automatic whole-document target captures',
   async () => {
     const f = await documentTransformFixture();
 
@@ -565,6 +568,7 @@ testStable(
           const session = yield* chats.createUntitledSession({});
           const block = paragraph('alpha selected omega');
           const target = yield* create('Target', [block]);
+          yield* (yield* Documents).attach({ sessionId: session.id, documentId: target.id });
           const input = { kind: 'document' as const, versionId: target.version.id };
 
           yield* chats.updateSessionSelection({
@@ -590,21 +594,20 @@ testStable(
               preferences: {}
             });
 
-            assert.ok(
-              (yield* Effect.flip(
-                chats.requestDocumentTransform({
-                  title: 'Unsafe broadening',
-                  contextRequestId: context.requestId,
-                  operations: ['clarity'],
-                  editTargetVersionId: target.version.id
-                })
-              )).kind === 'invalid_input'
-            );
+            expect(context.inputs[0]?.scope).toStrictEqual({ kind: 'document' });
+            expect(context.inputs[0]?.excerpts.map(({ text }) => text)).toStrictEqual([block.text]);
+            const request = yield* chats.requestDocumentTransform({
+              title: 'Whole-document target',
+              contextRequestId: context.requestId,
+              operations: ['clarity'],
+              editTargetVersionId: target.version.id
+            });
+            assert.strictEqual(request.editTargetVersionId, target.version.id);
           }
 
           assert.strictEqual(
             f.context.db.orm.get(sql`SELECT count(*) n FROM study_document_transform_requests`)?.n,
-            0n
+            2n
           );
           assert.strictEqual(f.bodies.length, 0);
         }).pipe(Effect.provide(f.domain()))

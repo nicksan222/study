@@ -1,10 +1,10 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exact authored transform publication keeps selected ranges, immutable receipts and │
+ * │ @file Exact authored transform publication keeps captured blocks, immutable receipts and │
  * │ atomic alternatives.                                                                     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Verifies only selected duplicate ranges publish and exact citation identities and      │
+ * │ - Verifies whole captured blocks publish and exact citation identities and              │
  * │   report hashes remain immutable across reopen.                                          │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
@@ -93,11 +93,12 @@ function capture(exactTarget: boolean) {
     const unselected = paragraph('echo');
     const original = yield* create('Repeated phrases', [block, unselected]);
     const session = yield* chats.createUntitledSession({});
+    yield* (yield* Documents).attach({ sessionId: session.id, documentId: original.id });
     const input = { kind: 'document' as const, versionId: original.version.id };
     const target = {
       blockId: block.id,
-      start: exactTarget ? 0 : 11,
-      end: exactTarget ? block.text.length : 15
+      start: 0,
+      end: block.text.length
     };
 
     yield* chats.updateSessionSelection({
@@ -130,7 +131,7 @@ function capture(exactTarget: boolean) {
         input,
         anchor: block.anchor,
         target,
-        quote: exactTarget ? block.text : 'echo'
+        quote: block.text
       })),
       report: { notes: [{ kind: 'limit', explanation: 'Selected only', blockIds: [output.id] }] }
     };
@@ -140,7 +141,7 @@ function capture(exactTarget: boolean) {
 }
 
 testStable(
-  'only selected duplicate ranges publish and exact citation identities and report hashes remain immutable across reopen',
+  'whole captured blocks publish and exact citation identities and report hashes remain immutable across reopen',
   async () => {
     const f = await documentTransformFixture();
 
@@ -150,7 +151,7 @@ testStable(
       const forged: (typeof citationSchema.Type)[] = [
         { ...cited, target: null },
         { ...cited, target: { ...saved.target, start: 3, end: 7 } },
-        { ...cited, target: { blockId: saved.unselected.id, start: 0, end: 4 } },
+        { ...cited, target: { blockId: saved.unselected.id, start: 0, end: 999 } },
         {
           ...cited,
           input: {

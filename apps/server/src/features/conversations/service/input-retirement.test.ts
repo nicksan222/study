@@ -84,6 +84,7 @@ for (const kind of ['document', 'source'] as const)
                   return {
                     input: { kind: 'document' as const, versionId: value.version.id },
                     document: value.version.document,
+                    documentId: value.id,
                     snapshotId: value.version.snapshotId
                   };
                 })
@@ -115,6 +116,7 @@ for (const kind of ['document', 'source'] as const)
                       snapshotId: value.snapshotId
                     },
                     document: value.document,
+                    documentId: undefined,
                     snapshotId: value.snapshotId
                   }));
                 })();
@@ -138,12 +140,17 @@ for (const kind of ['document', 'source'] as const)
                 requestReply: false
               });
 
-              if (input.kind === 'document')
+              if (input.kind === 'document') {
+                yield* (yield* Documents).attach({
+                  sessionId: session.id,
+                  documentId: evidence.documentId!
+                });
                 yield* chats.updateSessionSelection({
                   sessionId: session.id,
                   expectedRevision: 0n,
                   targets: [{ input, scope: { kind: 'document' } }]
                 });
+              }
 
               const completed = yield* chats.requestReply({
                 sessionId: session.id,

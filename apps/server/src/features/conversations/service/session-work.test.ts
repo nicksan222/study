@@ -57,7 +57,6 @@ testStable(
             yield* chats.postMessage({
               sessionId: session.id,
               text: 'Question',
-              sourceIds: [source.id],
               requestReply: false
             });
             yield* chats.postMessage({
@@ -78,6 +77,12 @@ testStable(
               operations: ['clarity']
             });
 
+            yield* chats.postMessage({
+              sessionId: session.id,
+              text: '',
+              sourceIds: [source.id],
+              requestReply: false
+            });
             const reply = yield* chats.requestReply({ sessionId: session.id });
             const foreignReply = yield* chats.requestReply({ sessionId: other.id });
 

@@ -15,6 +15,10 @@
 
 import { randomUUID } from 'node:crypto';
 
+import type {
+  sessionArchiveInputSchema,
+  setSessionItemArchivedSchema
+} from '@study/contracts/conversations/archive';
 import {
   resolvedSelectionSchema,
   selectionReferenceKey
@@ -61,6 +65,7 @@ import type { ContentInput } from '@study/contracts/inputs';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
+import { SessionArchiveStore } from '#server/features/conversations/store/archive';
 import { ConversationBackupStore } from '#server/features/conversations/store/backup';
 import {
   SessionContextStore,
@@ -104,6 +109,8 @@ import {
 } from '#server/platform/definitions/define-store';
 import { impactToken } from '#server/platform/definitions/impact-token';
 
+import { activeSessionTargets } from './active-inputs.ts';
+import { allArchivedItems } from './archive.ts';
 import { resolveMessageCitations, resolveVersionCitations } from './citations.ts';
 import { resolveSelection } from './selection.ts';
 
@@ -260,6 +267,10 @@ export const Conversations = defineService(
 
           return Documents.retryTransformInTransaction(tx, value);
         }),
+      archivedItems: (input: typeof sessionArchiveInputSchema.Type) =>
+        transaction((tx) => allArchivedItems(tx, input.sessionId)),
+      setItemArchived: (input: typeof setSessionItemArchivedSchema.Type) =>
+        transaction((tx) => tx.store(SessionArchiveStore).setItemArchived(input)),
       sessionSelection: selections.sessionSelection,
       updateSessionSelection: (input: typeof updateSessionSelectionSchema.Type) =>
         transaction((tx) => {
@@ -497,7 +508,8 @@ export const Conversations = defineService(
           const context = captureContext(
             tx,
             { ...intent, throughMessageId: note.id },
-            randomUUID()
+            randomUUID(),
+            true
           );
           const result = tx
             .store(ReplyStore)
@@ -535,7 +547,7 @@ export const Conversations = defineService(
 
           tx.store(ReplyStore).prepareReply(input);
 
-          const context = captureContext(tx, intent, randomUUID());
+          const context = captureContext(tx, intent, randomUUID(), true);
 
           const requestId = context.requestId;
 
@@ -821,7 +833,7 @@ function resolveTargets(
   const resolved = targets.map((target) => resolveSelection(tx, target));
 
   if (resolved.reduce((sum, item) => sum + item.excerpts.length, 0) > 200)
-    throw new StudyError('invalid_input', 'Selected context has too many passages');
+    throw new StudyError('not_enough', 'Active session context has too many passages');
 
   if (
     resolved.reduce(
@@ -829,7 +841,7 @@ function resolveTargets(
       0
     ) > 100000
   )
-    throw new StudyError('invalid_input', 'Selected context exceeds limit');
+    throw new StudyError('not_enough', 'Active session context exceeds limit');
 
   return resolved;
 }
@@ -856,7 +868,8 @@ function requestTarget(
       instruction: input.origin === 'answer' ? '' : (input.instruction ?? ''),
       preferences: {}
     },
-    requestId
+    requestId,
+    true
   );
 
   const result = tx.store(ReplyStore).requestTarget({ ...input, requestId, context });
@@ -886,7 +899,8 @@ function emitReplyRequest(
 function captureContext(
   tx: Transaction,
   input: typeof sessionContextIntentSchema.Type,
-  requestId: string
+  requestId: string,
+  deferPendingAttachments = false
 ) {
   const store = tx.store(SessionContextStore);
 
@@ -906,8 +920,8 @@ function captureContext(
   )
     throw new StudyError('invalid_input', 'Combined capture requires distinct whole sessions');
 
-  const targets = ids.flatMap(
-    (sessionId) => tx.store(SessionSelectionStore).sessionSelection({ sessionId }).targets
+  const targets = ids.flatMap((sessionId) =>
+    activeSessionTargets(tx, sessionId, { ...input, deferPendingAttachments })
   );
   const inputs = input.additionalSessionIds
     ? resolveCombinedTargets(tx, targets)
@@ -929,9 +943,6 @@ function resolveCombinedTargets(
 
     grouped.set(key, [...(grouped.get(key) ?? []), resolved]);
   }
-
-  if (grouped.size > 20)
-    throw new StudyError('invalid_input', 'Combined selection has too many documents');
 
   return resolveTargets(
     tx,

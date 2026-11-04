@@ -25,6 +25,8 @@ export const ConversationsRpcLive = defineRpc(
     const conversations = yield* Conversations;
 
     return {
+      'conversations.archivedItems': (input) => conversations.archivedItems(input),
+      'conversations.setItemArchived': (input) => conversations.setItemArchived(input),
       'conversations.sessionSelection': (input) => conversations.sessionSelection(input),
       'conversations.updateSessionSelection': (input) =>
         conversations.updateSessionSelection(input),

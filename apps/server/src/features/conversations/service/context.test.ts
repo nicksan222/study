@@ -32,8 +32,10 @@ import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Documents } from '#server/features/documents/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
+import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { transaction } from '#server/platform/definitions/define-store';
 import { withTestPublication } from '#testing/publication';
 
 const content = (value: string) => ({
@@ -76,6 +78,7 @@ testStable(
               inputs: [],
               citations: [],
               title: 'Shared',
+              sessionId: first.id,
               document: body
             });
             const documentId = material.version!.snapshotId;
@@ -145,14 +148,8 @@ testStable(
             };
             const snapshot = yield* client('conversations.captureSessionContext', intent);
 
-            assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === 'selected');
+            assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === body.blocks[0]!.text);
             expect(snapshot.messages).toStrictEqual([]);
-            yield* documents.save({
-              documentId: material.id,
-              expectedVersionId: material.version!.id,
-              key: randomUUID(),
-              document: content('new content')
-            });
             yield* client('conversations.updateSessionSelection', {
               sessionId: first.id,
               expectedRevision: 1n,
@@ -205,6 +202,13 @@ testStable(
               requestId: request.requestId
             });
 
+            yield* documents.save({
+              documentId: material.id,
+              expectedVersionId: material.version!.id,
+              key: randomUUID(),
+              document: content('new content')
+            });
+
             yield* client('conversations.editMessage', {
               messageId: message.id,
               text: 'Changed later'
@@ -239,10 +243,14 @@ testStable(
                           marker: 1,
                           sourceId: null,
                           input: { kind: 'document' as const, versionId: material.version!.id },
-                          selectedRange: range,
+                          selectedRange: {
+                            blockId: range.blockId,
+                            start: 0,
+                            end: body.blocks[0]!.text.length
+                          },
                           documentId,
                           blockOrdinal: 0,
-                          quote: 'before'
+                          quote: 'absent words'
                         }
                       ]
                     })
@@ -258,7 +266,11 @@ testStable(
                   marker: 1,
                   sourceId: null,
                   input: { kind: 'document' as const, versionId: material.version!.id },
-                  selectedRange: range,
+                  selectedRange: {
+                    blockId: range.blockId,
+                    start: 0,
+                    end: body.blocks[0]!.text.length
+                  },
                   documentId,
                   blockOrdinal: 0,
                   quote: 'selected'
@@ -267,7 +279,11 @@ testStable(
                   marker: 2,
                   sourceId: null,
                   input: { kind: 'document' as const, versionId: material.version!.id },
-                  selectedRange: range,
+                  selectedRange: {
+                    blockId: range.blockId,
+                    start: 0,
+                    end: body.blocks[0]!.text.length
+                  },
                   documentId,
                   blockOrdinal: 0,
                   quote: 'selected'
@@ -275,7 +291,7 @@ testStable(
               ]
             };
 
-            for (const selectedRange of [undefined, { ...range, start: range.start - 1 }])
+            for (const selectedRange of [undefined, range, { ...range, start: range.start - 1 }])
               assert.ok(
                 (yield* Effect.flip(
                   withTestPublication(
@@ -305,8 +321,8 @@ testStable(
               kind: 'document',
               versionId: material.version!.id
             });
-            assert.strictEqual(answer.citations[0]!.rangeStart, 10);
-            assert.strictEqual(answer.citations[0]!.rangeEnd, 18);
+            assert.strictEqual(answer.citations[0]!.rangeStart, 0);
+            assert.strictEqual(answer.citations[0]!.rangeEnd, body.blocks[0]!.text.length);
             assert.ok(answer.citations[0]!.origin === 'agent');
             assert.ok(answer.citations[0]!.precision === 'exact');
             const evidence = answer.citations[0]!.evidence;
@@ -315,7 +331,7 @@ testStable(
 
             if (evidence?.availability === 'available') {
               assert.ok(evidence.precision === 'exact');
-              assert.ok(evidence.excerpt === 'selected');
+              assert.ok(evidence.excerpt === body.blocks[0]!.text);
               assert.strictEqual(evidence.snapshotId, documentId);
             }
 
@@ -335,8 +351,8 @@ testStable(
             expect(edited.citations).toStrictEqual([{ ...answer.citations[1]!, marker: 1 }]);
             assert.ok(edited.versions.at(-1)?.text === 'Edited wording [1]');
             expect(edited.citations[0]!.support).toStrictEqual({ state: 'unassessed' });
-            assert.strictEqual(edited.citations[0]!.rangeStart, 10);
-            assert.strictEqual(edited.citations[0]!.rangeEnd, 18);
+            assert.strictEqual(edited.citations[0]!.rangeStart, 0);
+            assert.strictEqual(edited.citations[0]!.rangeEnd, body.blocks[0]!.text.length);
             yield* client('conversations.setActiveVersion', {
               messageId: request.messageId,
               versionId: answer.activeVersionId!
@@ -365,7 +381,10 @@ testStable(
             });
 
             assert.ok(regeneratedSnapshot.messages[0]!.text === 'Changed later');
-            expect(regeneratedSnapshot.context!.inputs).toStrictEqual([]);
+            assert.strictEqual(
+              regeneratedSnapshot.context!.inputs[0]!.excerpts[0]!.text,
+              'new content'
+            );
 
             return snapshot;
           }).pipe(Effect.provide(handlers()))
@@ -434,7 +453,7 @@ testStable(
 );
 
 testStable(
-  'selection order is independent of membership and bounded history reports omitted messages',
+  'active membership controls capture independently of selection and all notes are retained',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
@@ -480,6 +499,7 @@ testStable(
             (yield* conversations.sessionSelection({ sessionId: first.id })).targets
           ).toStrictEqual([]);
           yield* documents.detach({ sessionId: first.id, documentId: a.id });
+          yield* documents.attach({ sessionId: first.id, documentId: b.id });
           const targets = [a, b].map((item) => ({
             input: { kind: 'document' as const, versionId: item.version!.id },
             scope: { kind: 'document' as const }
@@ -508,8 +528,7 @@ testStable(
           });
 
           expect(ordered.inputs.map((item) => item.input)).toStrictEqual([
-            { kind: 'document', versionId: b.version!.id },
-            { kind: 'document', versionId: a.version!.id }
+            { kind: 'document', versionId: b.version!.id }
           ]);
           assert.strictEqual(
             (yield* conversations.sessionSelection({ sessionId: second.id })).targets.length,
@@ -577,9 +596,9 @@ testStable(
               .where(eq(s.session_run_contexts.request_id, history.requestId))
               .run()
           );
-          assert.strictEqual(history.messages.length, 50);
-          assert.strictEqual(history.excludedMessages, 5);
-          assert.ok(history.messages[0]!.text === 'Message 5');
+          assert.strictEqual(history.messages.length, 55);
+          assert.strictEqual(history.excludedMessages, 0);
+          assert.ok(history.messages[0]!.text === 'Message 0');
           yield* conversations.deleteMessage(history.messages[0]!.messageId);
           expect(
             yield* conversations.inspectSessionContext({ requestId: history.requestId })
@@ -612,7 +631,7 @@ testStable(
 );
 
 testStable(
-  'selected image blocks retain exact asset revisions while ranges expose only selected alt text',
+  'active image documents retain whole bodies and exact asset revisions despite manual range selection',
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
@@ -649,6 +668,7 @@ testStable(
               inputs: [],
               citations: [],
               title: 'Illustrated document',
+              sessionId: session.id,
 
               document: {
                 ...content('Hidden surrounding text'),
@@ -675,11 +695,11 @@ testStable(
             const snapshot = yield* client('conversations.captureSessionContext', intent);
             const input = snapshot.inputs[0]!;
 
-            assert.strictEqual(input.document, undefined);
-            assert.strictEqual(input.excerpts.length, 1);
-            assert.strictEqual(input.excerpts[0]!.blockOrdinal, 1);
-            expect(input.excerpts[0]!.content).toStrictEqual(block.content);
-            assert.ok(input.excerpts[0]!.text === 'Selected figure caption');
+            assert.ok(input.document);
+            assert.strictEqual(input.excerpts.length, 2);
+            assert.strictEqual(input.excerpts[1]!.blockOrdinal, 1);
+            expect(input.excerpts[1]!.content).toStrictEqual(block.content);
+            assert.ok(input.excerpts[1]!.text === 'Selected figure caption');
             yield* client('conversations.updateSessionSelection', {
               sessionId: session.id,
               expectedRevision: 1n,
@@ -704,9 +724,7 @@ testStable(
               intentKey: 'alt-text-only'
             });
 
-            assert.strictEqual(range.inputs[0]!.document, undefined);
-            assert.ok(range.inputs[0]!.excerpts[0]!.text === 'Selected');
-            assert.strictEqual(range.inputs[0]!.excerpts[0]!.content, undefined);
+            expect(range.inputs).toStrictEqual(snapshot.inputs);
             yield* sources.replaceSource({
               id: image.id,
               expectedRevision: 1,
@@ -1031,6 +1049,15 @@ testStable(
             projectId: null,
             bytes: new TextEncoder().encode('Attachment')
           });
+          const processing = yield* sources.sourceProcessing(source.id);
+          yield* transaction((tx) =>
+            tx.store(SourceStore).publishSourceDocument({
+              id: source.id,
+              expectedRevision: 1,
+              requestId: processing.requestId!,
+              document: content('Attachment')
+            })
+          );
           const root = yield* client('conversations.postMessage', {
             sessionId: session.id,
             text: 'Root',
@@ -1108,6 +1135,24 @@ testStable(
           yield* client('conversations.postMessage', { sessionId: session.id, text: 'Later' });
           expect(yield* client('conversations.captureSessionContext', intent)).toStrictEqual(
             captured
+          );
+          for (let index = 0; index < 3; index++)
+            yield* client('conversations.postMessage', {
+              sessionId: session.id,
+              threadRoot,
+              text: String(index).repeat(80000)
+            });
+          assert.strictEqual(
+            (yield* Effect.flip(
+              client('conversations.captureSessionContext', {
+                sessionId: session.id,
+                threadRoot,
+                intentKey: 'oversized-thread',
+                instruction: '',
+                preferences: {}
+              })
+            )).kind,
+            'not_enough'
           );
         }).pipe(Effect.scoped, Effect.provide(handlers))
       );

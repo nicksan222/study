@@ -47,7 +47,7 @@ const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
 testStable(
-  'quick-session RPC captures exact ranges and publishes one independent derivative atomically',
+  'quick-session RPC captures exact session documents and publishes one independent derivative atomically',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
@@ -68,6 +68,7 @@ testStable(
           const session = yield* conversations.createSession({ title: 'Quick' });
           const block = paragraph('private before alpha selected private after');
           const original = yield* materials.create({
+            sessionId: session.id,
             title: 'Original',
             projectId: collection.id,
             document: { blocks: [block, paragraph('alpha selected')], meta },
@@ -176,7 +177,9 @@ testStable(
             requestId: request.id
           });
 
-          assert.ok(retained.inputs[0]!.excerpts[0]!.text === 'alpha selected');
+          assert.ok(
+            retained.inputs[0]!.excerpts[0]!.text === 'private before alpha selected private after'
+          );
           expect(retained.preferences).toStrictEqual({ language: 'italian', detail: 'brief' });
         }).pipe(Effect.provide(domain))
       );
@@ -190,11 +193,11 @@ testStable(
             marker: 1,
             input: { kind: 'document', versionId: setup.versionId },
             anchor: { type: 'authored' },
-            quote: 'alpha selected',
+            quote: 'private before alpha selected private after',
             target: {
               blockId: setup.block.id,
-              start: 15,
-              end: 29
+              start: 0,
+              end: setup.block.text.length
             }
           }
         ],
@@ -218,7 +221,7 @@ testStable(
       await expect(
         publish({
           ...publication,
-          citations: [{ ...publication.citations[0]!, quote: 'private before' }]
+          citations: [{ ...publication.citations[0]!, quote: 'uncaptured fabricated quote' }]
         })
       ).rejects.toSatisfy(() => true);
       await expect(
@@ -269,7 +272,7 @@ testStable(
               archived: false,
               limit: 10
             })).items.length,
-            1
+            2
           );
 
           for (const status of ['running', 'cancelled'] as const) {

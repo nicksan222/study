@@ -289,7 +289,16 @@ function makeHelpers({ db, clock }: StoreResources) {
       const parts = db.orm
         .select()
         .from(message_parts)
-        .where(eq(message_parts.message_id, message.messageId))
+        .where(
+          and(
+            eq(message_parts.message_id, message.messageId),
+            sql`NOT EXISTS (
+          SELECT 1 FROM session_sources a JOIN messages owner ON owner.session_id=a.session_id
+          WHERE owner.id=${message_parts.message_id} AND a.source_id=${message_parts.source_id}
+            AND a.archived_at IS NOT NULL
+        )`
+          )
+        )
         .orderBy(asc(message_parts.ordinal))
         .limit(21)
         .all();

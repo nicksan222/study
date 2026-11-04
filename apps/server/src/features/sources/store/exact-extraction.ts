@@ -196,6 +196,7 @@ export const SessionSourcesStore = defineStore({
               .where(
                 and(
                   eq(s.session_sources.session_id, v.sessionId),
+                  sql`${s.session_sources.archived_at} IS NULL`,
                   v.afterPosition === undefined
                     ? undefined
                     : gt(s.session_sources.position, v.afterPosition)

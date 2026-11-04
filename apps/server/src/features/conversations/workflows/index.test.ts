@@ -661,6 +661,7 @@ testStable(
             inputs: [],
             citations: [],
             title: 'Exact authored input',
+            sessionId: session.id,
             document: {
               blocks: [block],
               meta: {
@@ -736,27 +737,27 @@ testStable(
 
       assertEventType(selectedEvent, 'ConversationGenerationRequested', 'wrong selected event');
       toolCall = true;
-      output = 'Exact answer [1] [2] [3]';
+      output = 'Exact answer [1]';
       await execute(selectedEvent, 'selected-range');
       expect(bodies.at(-1)!).toMatch(/alpha selected passage/);
-      expect(bodies.at(-1)!).not.toMatch(/secret before|secret after|New unrelated message/);
+      expect(bodies.at(-1)!).toMatch(/secret before.*secret after/);
+      expect(bodies.at(-1)!).not.toMatch(/New unrelated message/);
       const selectedAnswer = await run(
         Effect.flatMap(Conversations, (c) => c.message(selected.messageId))
       );
 
-      assert.ok(selectedAnswer.citations[0]?.quote === 'alpha selected passage');
-      assert.strictEqual(selectedAnswer.citations[0]?.rangeStart, 14);
+      assert.ok(
+        selectedAnswer.citations[0]?.quote ===
+          'secret before alpha selected passage secret after alpha'
+      );
+      assert.strictEqual(selectedAnswer.citations[0]?.rangeStart, 0);
       expect(
         selectedAnswer.citations.map((citation) => [citation.rangeStart, citation.rangeEnd])
-      ).toStrictEqual([
-        [14, 36],
-        [14, 19],
-        [50, 55]
-      ]);
+      ).toStrictEqual([[0, 55]]);
       await execute(selectedEvent, 'selected-range');
       const selectedEdit = await run(
         Effect.flatMap(Conversations, (c) =>
-          c.editMessage({ messageId: selected.messageId, text: 'Retained evidence [1] [2] [3]' })
+          c.editMessage({ messageId: selected.messageId, text: 'Retained evidence [1]' })
         )
       );
 

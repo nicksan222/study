@@ -88,6 +88,7 @@ testStable(
           const chats = yield* Conversations;
           const session = yield* chats.createSession({ title: 'Quick' });
           const original = yield* materials.create({
+            sessionId: session.id,
             title: 'Original',
             document: {
               blocks: [paragraph('OUTSIDE alpha selected OUTSIDE')],
@@ -193,7 +194,7 @@ testStable(
       assert.ok(prompt.includes('Keep uncertainty'));
       assert.ok(prompt.includes('factual_correction'));
       assert.ok(prompt.includes('italian'));
-      assert.ok(!prompt.includes('OUTSIDE'));
+      assert.ok(prompt.includes('OUTSIDE alpha selected OUTSIDE'));
       assert.ok(!prompt.includes('NEW MESSAGE SECRET'));
       fixture.reopen();
       expect(await execute(setup.event, 'document-replay')).toStrictEqual(result);

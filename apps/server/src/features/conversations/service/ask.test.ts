@@ -60,6 +60,7 @@ testStable(
             const other = yield* rpc('conversations.createSession', { title: 'Other' });
             const material = yield* documents.create({
               title: 'Exact input',
+              sessionId: session.id,
               document: deletionDocument('Selected evidence'),
               createKey: randomUUID(),
               inputs: [],
@@ -449,6 +450,7 @@ for (const mode of ['history', 'material', 'session'] as const) {
               citations: []
             });
             const session = yield* c.createUntitledSession({});
+            yield* documents.attach({ sessionId: session.id, documentId: material.id });
 
             yield* c.updateSessionSelection({
               sessionId: session.id,
