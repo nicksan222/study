@@ -11,10 +11,12 @@ import { SubjectIdentity } from '../subjects';
 export function WorkspaceHeader({
   owner,
   title,
+  titleAction,
   children
 }: {
   owner: typeof projectSchema.Type | undefined;
   title: string | undefined;
+  titleAction?: ReactNode;
   children?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -31,6 +33,7 @@ export function WorkspaceHeader({
           t('AppName')
         )
       }
+      titleAction={titleAction}
       title={title || t('SessionUntitled')}
     >
       {children}

@@ -660,6 +660,8 @@ export const italian = Object.freeze({
   SessionListHelp:
     'Inizia una sessione senza scegliere un progetto. Appunti e materiale selezionato restano insieme.',
   SessionListEmpty: 'Nessuna sessione in questa vista. Caricane altre o inizia una nuova sessione.',
+  SessionRename: 'Rinomina sessione',
+  SessionTitle: 'Titolo della sessione',
   SessionUntitled: 'Sessione senza titolo',
   SessionOpenCreated: 'Apri la sessione creata',
   SessionCreationUncertain:

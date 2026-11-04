@@ -278,9 +278,14 @@ function Main({ className, ...props }: ComponentProps<'main'>) {
 function Topbar({
   parent,
   title,
+  titleAction,
   children,
   ...props
-}: Omit<ComponentProps<'header'>, 'title'> & { parent?: ReactNode; title: ReactNode }) {
+}: Omit<ComponentProps<'header'>, 'title'> & {
+  parent?: ReactNode;
+  title: ReactNode;
+  titleAction?: ReactNode;
+}) {
   return (
     <header {...props} className={cn('study-workspace-header', props.className)}>
       {parent && (
@@ -289,7 +294,14 @@ function Topbar({
           <span aria-hidden="true">/</span>
         </>
       )}
-      <h1>{title}</h1>
+      {titleAction ? (
+        <div className="study-workspace-title">
+          <h1>{title}</h1>
+          {titleAction}
+        </div>
+      ) : (
+        <h1>{title}</h1>
+      )}
       {children}
     </header>
   );

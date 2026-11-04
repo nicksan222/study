@@ -643,6 +643,8 @@ export const english = Object.freeze({
   SessionListHelp:
     'Start a session without choosing a project. Your notes and selected material stay together.',
   SessionListEmpty: 'No sessions in this view yet. Load more or start a new session.',
+  SessionRename: 'Rename session',
+  SessionTitle: 'Session title',
   SessionUntitled: 'Untitled session',
   SessionOpenCreated: 'Open the created session',
   SessionCreationUncertain:

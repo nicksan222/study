@@ -303,6 +303,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.study-workspace-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+.study-workspace-title > [data-slot='button'] {
+  flex: none;
+  opacity: 0;
+  pointer-events: none;
+}
+.study-workspace-title:hover > [data-slot='button'],
+.study-workspace-title:focus-within > [data-slot='button'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .study-workspace-title > [data-slot='button'] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
 
 .study-sidebar-toolbar > [data-slot='button'],
 .study-sidebar-toolbar > [data-slot='menu-trigger'] {

@@ -12,6 +12,7 @@ import { useAttachments } from './attachments';
 import { SessionDeletion, SessionDeleteDialog } from './deletion';
 import type { Draft } from './draft';
 import { SessionLayoutControls } from './session-layout-controls';
+import { SessionTitleEdit } from './session-title';
 import {
   deletionOptions,
   deletionAttemptOptions,
@@ -112,7 +113,13 @@ function SessionBody({ id }: { id: SessionId }) {
             if (editable && canAttachDraft(draft)) files.add(Array.from(event.dataTransfer.files));
           }}
         >
-          <WorkspaceHeader owner={owner} title={state.data?.title}>
+          <WorkspaceHeader
+            owner={owner}
+            title={state.data?.title}
+            titleAction={
+              editable && state.data && <SessionTitleEdit id={id} title={state.data.title} />
+            }
+          >
             {editable && <SessionLayoutControls id={id} />}
           </WorkspaceHeader>
           {deletion.data && <SessionDeletion id={id} />}
