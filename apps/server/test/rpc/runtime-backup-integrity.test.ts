@@ -55,6 +55,10 @@ testStable(
               meta,
               blocks: [
                 createBlock({
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Retained image evidence' }]
+                }),
+                createBlock({
                   type: 'image',
                   sourceId: image.id,
                   revision: 1,
@@ -71,6 +75,7 @@ testStable(
           const c = yield* Conversations;
 
           const session = yield* c.createUntitledSession({});
+          yield* (yield* Documents).attach({ sessionId: session.id, documentId: document.id });
 
           yield* c.updateSessionSelection({
             sessionId: session.id,

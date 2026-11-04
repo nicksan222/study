@@ -395,6 +395,7 @@ testStable(
 
           assert.ok(root.version);
           const session = yield* chats.createUntitledSession({});
+          yield* docs.attach({ sessionId: session.id, documentId: root.id });
 
           yield* chats.postMessage({
             sessionId: session.id,
@@ -477,6 +478,7 @@ testStable(
             )).kind === 'not_found'
           );
           const session = yield* chats.createUntitledSession({});
+          yield* docs.attach({ sessionId: session.id, documentId: saved.rootId });
 
           yield* chats.updateSessionSelection({
             sessionId: session.id,

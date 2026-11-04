@@ -157,6 +157,18 @@ testStable(
                 })
               )).kind === 'not_found'
             );
+            yield* client('conversations.postMessage', {
+              sessionId: session.id,
+              text: '',
+              sourceIds: [source.id],
+              requestReply: false
+            });
+            const captured = yield* client('conversations.captureSessionContext', {
+              sessionId: session.id,
+              intentKey: 'historic-import',
+              instruction: 'Explain',
+              preferences: {}
+            });
             yield* sources.replaceSource({
               id: source.id,
               expectedRevision: 1,
@@ -166,7 +178,7 @@ testStable(
             const latest = yield* ingest(2);
 
             assert.notStrictEqual(latest.documentId, first.documentId);
-            // Select after replacement: resolution must follow the version pin, never processing head.
+            // Historical selection changes cannot replace the already captured source body.
             yield* client('conversations.updateSessionSelection', {
               sessionId: session.id,
               expectedRevision: 0n,
@@ -182,14 +194,11 @@ testStable(
                 }
               ]
             });
-            const snapshot = yield* client('conversations.captureSessionContext', {
-              sessionId: session.id,
-              intentKey: 'historic-import',
-              instruction: 'Explain',
-              preferences: {}
+            const snapshot = yield* client('conversations.inspectSessionContext', {
+              requestId: captured.requestId
             });
 
-            expect(snapshot.messages).toStrictEqual([]);
+            expect(snapshot.messages.map((message) => message.text)).toStrictEqual(['']);
             assert.strictEqual(snapshot.inputs[0]!.snapshotId, first.documentId);
             assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === 'Hello historic extraction');
             expect(snapshot.inputs[0]!.document).toStrictEqual(
