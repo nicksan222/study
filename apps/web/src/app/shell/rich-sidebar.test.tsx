@@ -183,6 +183,9 @@ testStable(
     await waitFor(() =>
       expect(within(group).getByRole('button', { name: 'SidebarReopen' })).toBeVisible()
     );
+    expect(
+      within(group).queryByRole('button', { name: 'SidebarTurnIntoDoc' })
+    ).not.toBeInTheDocument();
     fireEvent.click(within(group).getByRole('button', { name: 'SidebarReopen' }));
     await waitFor(() => expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false }));
     await waitFor(() =>

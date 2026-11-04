@@ -285,9 +285,11 @@ function RichSession(props: RowProps) {
       <SessionLink {...props} />
       {!props.selection.items && (
         <SidebarUI.SessionRowActions>
-          <SidebarUI.SettleAction disabled={blocked} onClick={() => setDocumentOpen(true)}>
-            {t('SidebarTurnIntoDoc')}
-          </SidebarUI.SettleAction>
+          {!props.settled && (
+            <SidebarUI.SettleAction disabled={blocked} onClick={() => setDocumentOpen(true)}>
+              {t('SidebarTurnIntoDoc')}
+            </SidebarUI.SettleAction>
+          )}
           <SidebarUI.SettleAction
             disabled={blocked}
             onClick={() => settlement.mutate(!props.settled)}
