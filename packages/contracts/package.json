@@ -71,7 +71,8 @@
     "./documents/transform": "./src/documents/transform.ts",
     "./exports": "./src/exports.ts",
     "./documents/export": "./src/documents/export.ts",
-    "./conversations/work": "./src/conversations/work.ts"
+    "./conversations/work": "./src/conversations/work.ts",
+    "./conversations/archive": "./src/conversations/archive.ts"
   },
   "dependencies": {
     "effect": "4.0.7"

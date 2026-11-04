@@ -39,6 +39,7 @@ export const session_sources = sqliteTable(
       .$type<SourceId>()
       .notNull()
       .references(() => sources.id, { onDelete: 'cascade' }),
+    archived_at: integer().$type<bigint>(),
     position: integer().$type<bigint>().notNull()
   },
   (t) => [

@@ -109,6 +109,7 @@ export const messages = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<MessageId>(),
     session_id: sessionReference(),
+    archived_at: integer().$type<bigint>(),
     capture_key: text(),
     format: text({ enum: messageFormats }).notNull().default('text'),
     description: text(),

@@ -12,6 +12,11 @@ import {
   versionIdSchema
 } from '../ids.ts';
 import {
+  sessionArchiveInputSchema,
+  setSessionItemArchivedSchema,
+  archivedSessionItemSchema
+} from './archive.ts';
+import {
   sessionSelectionInputSchema,
   sessionSelectionSchema,
   updateSessionSelectionSchema,
@@ -169,6 +174,16 @@ export const ConversationsRpc = RpcGroup.make(
   Rpc.make('replyVersion', {
     payload: replyVersionInputSchema,
     success: replyVersionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('archivedItems', {
+    payload: sessionArchiveInputSchema,
+    success: Schema.Array(archivedSessionItemSchema),
+    error: failureSchema
+  }),
+  Rpc.make('setItemArchived', {
+    payload: setSessionItemArchivedSchema,
+    success: Schema.Void,
     error: failureSchema
   }),
   Rpc.make('sessionSelection', {

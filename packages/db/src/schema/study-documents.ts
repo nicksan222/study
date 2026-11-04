@@ -163,6 +163,7 @@ export const session_documents = sqliteTable(
       .$type<StudyDocumentId>()
       .notNull()
       .references(() => study_documents.id, { onDelete: 'cascade' }),
+    archived_at: integer().$type<bigint>(),
     position: integer().$type<bigint>().notNull()
   },
   (t) => [
