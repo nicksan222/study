@@ -1,11 +1,11 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Db, sql } from '@study/db';
 import { projects, source_blobs, sources, study_document_versions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { acquireDatabaseOwnership } from '@study/server/runtime';
+import { acquireDatabaseOwnership } from '@study/server/runtime/ownership';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 
@@ -214,3 +214,46 @@ testStable('busy SQLite writers prevent replacement and retain the original cont
     location.cleanup();
   }
 });
+
+testStable(
+  'a missing target cannot replay orphaned WAL pages over the seeded database',
+  async () => {
+    const location = createTestDatabase();
+
+    try {
+      const crashed = spawnSync(process.execPath, [
+        '--input-type=module',
+        '-e',
+        `
+      import { Db } from '@study/db';
+      import { projects } from '@study/db/schema';
+      const db = Db.open(process.argv[1]);
+      db.orm.insert(projects).values({
+        name: 'Old WAL subject', created_at: 1n, updated_at: 1n
+      }).run();
+      process.kill(process.pid, 'SIGKILL');
+    `,
+        location.path
+      ]);
+
+      expect(crashed.signal).toBe('SIGKILL');
+      expect(statSync(location.path + '-wal').size).toBeGreaterThan(0);
+      rmSync(location.path);
+      await seedDatabase(location.path);
+
+      const db = location.open();
+
+      try {
+        expect(db.orm.select().from(projects).all()).toHaveLength(5);
+        expect(
+          db.orm.get(sql`SELECT count(*) n FROM projects WHERE name = 'Old WAL subject'`)?.n
+        ).toBe(0n);
+        expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+      } finally {
+        db.close();
+      }
+    } finally {
+      location.cleanup();
+    }
+  }
+);

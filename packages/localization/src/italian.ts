@@ -1781,5 +1781,5 @@ export const italian = Object.freeze({
   SeedResetting:
     'Sostituzione dei dati del database in {path} con materiale di esempio. Study deve essere arrestato.',
   SeedComplete:
-    'Creati {projects} corsi, {sessions} sessioni, {sources} fonti, {documents} documenti e {materials} materiali di studio.'
+    'Create {projects} materie, {sessions} sessioni, {sources} fonti, {documents} documenti e {materials} materiali di studio.'
 } as const satisfies Record<keyof typeof english, string>);

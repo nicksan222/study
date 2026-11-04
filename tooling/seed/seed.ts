@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { Db } from '@study/db';
-import { acquireDatabaseOwnership } from '@study/server/runtime';
+import { acquireDatabaseOwnership } from '@study/server/runtime/ownership';
 
 import { demoProjects } from './fixtures/index.ts';
 import { seedScenario } from './harnesses/scenario.ts';
@@ -46,6 +46,11 @@ export async function seedDatabase(
 
     // Recover committed WAL pages before replacement; closing removes the old sidecars.
     if (existsSync(ownership.path)) Db.checkpointFile(ownership.path);
+    else
+      await Promise.all([
+        rm(ownership.path + '-wal', { force: true }),
+        rm(ownership.path + '-shm', { force: true })
+      ]);
 
     await rename(candidate, ownership.path);
 

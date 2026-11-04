@@ -3,7 +3,6 @@ import { parseArgs } from 'node:util';
 import { text } from '@study/localization';
 
 import { developmentDatabasePath } from '../development/database-path.ts';
-import { seedDatabase } from './seed.ts';
 
 const { values } = parseArgs({
   options: { help: { type: 'boolean' } },
@@ -14,6 +13,7 @@ const { values } = parseArgs({
 if (values.help) {
   console.info(text('english', 'SeedHelp'));
 } else {
+  const { seedDatabase } = await import('./seed.ts');
   const path = developmentDatabasePath();
 
   console.info(text('english', 'SeedResetting', { path }));

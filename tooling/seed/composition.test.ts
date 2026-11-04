@@ -101,7 +101,7 @@ testStable(
             });
           }
         ])
-      ).rejects.toThrow();
+      ).rejects.toThrow(RangeError);
 
       const retained = location.open();
 
