@@ -91,6 +91,8 @@ export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflo
     tx.store(WorkflowRetirementStore).workflowRetirement(undefined),
   prepareBackup: (tx: Transaction) => tx.store(WorkflowRetirementStore).prepareBackup(undefined),
   correlatedExecutions,
+  executionInTransaction: (tx: Transaction, id: typeof executionIdSchema.Type) =>
+    tx.store(ExecutionStore).execution(id),
   retireCorrelations: (
     tx: Transaction,
     ids: readonly string[],

@@ -204,3 +204,14 @@ function Primary(props: ComponentProps<typeof Button>) {
 }
 
 export const WorkspaceCard = { Provider, Toggle, Root: Card, Group, Item, Primary };
+
+export const WorkspaceWork = {
+  Root: part('section', 'ui-workspace-work'),
+  Heading: part('header', 'ui-workspace-work-heading'),
+  List: part('ul', 'ui-workspace-work-list'),
+  Row: part('li', 'ui-workspace-work-row'),
+  Copy: part('div', 'ui-workspace-work-copy'),
+  Status: part('span', 'ui-workspace-work-status'),
+  Empty: part('p', 'ui-workspace-work-empty'),
+  Error: part('div', 'ui-workspace-work-error')
+};

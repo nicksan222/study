@@ -12,6 +12,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { AttachmentCards } from './attachment-cards';
 import { notebookMessages } from './notebook-index';
 import { sessionDocumentsOptions } from './session-document.queries';
+import { SessionPendingWork } from './session-pending-work';
 import { threadOptions } from './session-workspace.queries';
 import { SessionReadError } from './status';
 
@@ -58,6 +59,7 @@ export function WorkspaceContext({
       ) : (
         <WorkspaceAttachments.Empty>{t('SessionAttachmentsStart')}</WorkspaceAttachments.Empty>
       )}
+      {id && <SessionPendingWork key={String(id)} id={id} />}
       {children}
     </WorkspaceCard.Root>
   );

@@ -22,7 +22,7 @@ export const executionSchema = Schema.Struct({
   updatedAtMs: timestampSchema
 });
 
-const executionCursorSchema = Schema.Struct({
+export const executionCursorSchema = Schema.Struct({
   id: executionIdSchema,
   createdAtMs: timestampSchema
 });

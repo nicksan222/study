@@ -54,6 +54,7 @@ export const ConversationsRpcLive = defineRpc(
       'conversations.session': ({ id }) => conversations.session(id),
       'conversations.findSession': ({ id }) => conversations.findSession(id),
       'conversations.setSessionSettled': (input) => conversations.setSessionSettled(input),
+      'conversations.sessionWork': (input) => conversations.sessionWork(input),
       'conversations.sessionSummaries': (input) => conversations.sessionSummaries(input),
       'conversations.sessions': (input) => conversations.sessions(input),
       'conversations.createSession': (input) => conversations.createSession(input),

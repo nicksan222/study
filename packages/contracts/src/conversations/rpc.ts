@@ -38,6 +38,7 @@ import {
   replyVersionSchema,
   titleRequestSchema
 } from './schemas.ts';
+import { sessionWorkInputSchema, sessionWorkPageSchema } from './work.ts';
 
 export const sessionGenerationPageInputSchema = Schema.Struct({
   sessionId: sessionIdSchema,
@@ -152,6 +153,11 @@ export const ConversationsRpc = RpcGroup.make(
   Rpc.make('setSessionSettled', {
     payload: setSessionSettledInputSchema,
     success: Schema.Struct({}),
+    error: failureSchema
+  }),
+  Rpc.make('sessionWork', {
+    payload: sessionWorkInputSchema,
+    success: sessionWorkPageSchema,
     error: failureSchema
   }),
   Rpc.make('sessionSummaries', {

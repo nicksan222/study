@@ -48,6 +48,7 @@ import type {
   reanswerInputSchema,
   rewriteMessageInputSchema
 } from '@study/contracts/conversations/schemas';
+import type { sessionWorkInputSchema } from '@study/contracts/conversations/work';
 import type * as editing from '@study/contracts/documents/editing';
 import type {
   transformRequestSchema,
@@ -89,6 +90,7 @@ import {
 } from '#server/features/conversations/store/reply';
 import { SessionSummaryStore } from '#server/features/conversations/store/sidebar-summary';
 import { TitleStore } from '#server/features/conversations/store/title';
+import { SessionWorkStore } from '#server/features/conversations/store/work';
 import { Documents } from '#server/features/documents/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
@@ -104,6 +106,13 @@ import { impactToken } from '#server/platform/definitions/impact-token';
 
 import { resolveMessageCitations, resolveVersionCitations } from './citations.ts';
 import { resolveSelection } from './selection.ts';
+
+function requireAvailableSession(tx: Transaction, sessionId: SessionId) {
+  tx.store(SessionStore).session(sessionId);
+
+  if (Option.isSome(tx.store(SessionDeletionStore).findSessionDeletion(sessionId)))
+    throw new StudyError('not_found', 'Session is unavailable');
+}
 
 /** Recognizes whole assistant mention tokens without matching identifier suffixes. */
 function mentionsAssistant(text: string) {
@@ -378,10 +387,7 @@ export const Conversations = defineService(
         }),
       sessionGenerations: (input: typeof sessionGenerationPageInputSchema.Type) =>
         transaction((tx) => {
-          tx.store(SessionStore).session(input.sessionId);
-
-          if (Option.isSome(tx.store(SessionDeletionStore).findSessionDeletion(input.sessionId)))
-            throw new StudyError('not_found', 'Session is unavailable');
+          requireAvailableSession(tx, input.sessionId);
 
           const items = Documents.transformsInTransaction(tx, input)
             .map((request) => ({
@@ -661,6 +667,24 @@ export const Conversations = defineService(
         transaction((tx) => tx.store(MessageStore).deleteMessage(id)),
       renameSession: (input: typeof renameSessionInputSchema.Type) =>
         transaction((tx) => tx.store(SessionStore).renameSession(input)),
+      sessionWork: (input: typeof sessionWorkInputSchema.Type) =>
+        transaction((tx) => {
+          requireAvailableSession(tx, input.sessionId);
+
+          const rows = tx.store(SessionWorkStore).sessionWorkItems(input);
+          const items = rows.map(({ executionId, createdAtMs: _, ...item }) => ({
+            ...item,
+            execution: Workflows.executionInTransaction(tx, executionId)
+          }));
+          const last = items.at(-1)?.execution;
+          const cursor = last ? { id: last.id, createdAtMs: last.createdAtMs } : null;
+          const more =
+            cursor && rows.length === input.limit
+              ? tx.store(SessionWorkStore).sessionWorkItems({ ...input, before: cursor, limit: 1 })
+              : [];
+
+          return { items, next: more.length ? cursor : null };
+        }),
       sessionSummaries: summaries.sessionSummary,
       setSessionSettled: (input: typeof setSessionSettledInputSchema.Type) =>
         transaction((tx) => tx.store(SessionSummaryStore).setSessionSettled(input)),

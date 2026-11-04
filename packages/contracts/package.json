@@ -70,7 +70,8 @@
     "./documents/evidence": "./src/documents/evidence.ts",
     "./documents/transform": "./src/documents/transform.ts",
     "./exports": "./src/exports.ts",
-    "./documents/export": "./src/documents/export.ts"
+    "./documents/export": "./src/documents/export.ts",
+    "./conversations/work": "./src/conversations/work.ts"
   },
   "dependencies": {
     "effect": "4.0.7"
