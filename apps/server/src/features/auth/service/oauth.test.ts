@@ -389,7 +389,7 @@ testStable(
         yield* Effect.promise(() => oauth.tokenRequest);
         yield* Fiber.interrupt(finishing);
         yield* Effect.promise(() => oauth.tokenAbort);
-        yield* Effect.promise(() => expect(fetch(callback)).rejects.toSatisfy(() => true));
+        yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
       }
 
       await Effect.runPromise(

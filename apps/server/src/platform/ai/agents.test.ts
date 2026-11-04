@@ -122,7 +122,7 @@ testStable('rejects malformed structured output', async () => {
         Effect.runPromise(
           generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
         )
-      ).rejects.toSatisfy(() => true);
+      ).rejects.toThrow();
     }
   );
 });
@@ -266,7 +266,9 @@ testStable(
           )
         )
       );
-      const rejected = expect(running).rejects.toSatisfy(() => true);
+      const rejected = (async () => {
+        await expect(running).rejects.toThrow();
+      })();
 
       try {
         await Promise.race([
@@ -357,7 +359,7 @@ testStable('cancellation after a delta never publishes completion', async () => 
           { signal: controller.signal }
         );
 
-        await expect(running).rejects.toSatisfy(() => true);
+        await expect(running).rejects.toThrow();
         expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
       }
     );
@@ -386,7 +388,7 @@ testStable('rejects empty model output without publishing completion', async () 
             Effect.provide(service(base, auth))
           )
         )
-      ).rejects.toSatisfy(() => true);
+      ).rejects.toThrow();
       assert.ok(seen.some((event) => (event as { type: string }).type === 'complete') === false);
     }
   );
@@ -537,7 +539,7 @@ testStable(
 
         assert.ok((await run()).questions[0]?.kind === 'single_choice');
         validAnswer = false;
-        await expect(run()).rejects.toSatisfy(() => true);
+        await expect(run()).rejects.toThrow();
         assert.strictEqual(requests, 2);
       }
     );
@@ -638,7 +640,7 @@ testStable('never retries a failed response after publishing a delta', async () 
             Effect.provide(service(base, auth))
           )
         )
-      ).rejects.toSatisfy(() => true);
+      ).rejects.toThrow();
       expect(seen).toStrictEqual(['text-delta']);
       assert.strictEqual(calls, 1);
     }
@@ -672,7 +674,7 @@ testStable('cancelling before the first delta closes the request without retries
       while (calls === 0) await new Promise((resolve) => setTimeout(resolve, 5));
 
       controller.abort();
-      await expect(running).rejects.toSatisfy(() => true);
+      await expect(running).rejects.toThrow();
       await requestClosed;
       assert.strictEqual(calls, 1);
     }

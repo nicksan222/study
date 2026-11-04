@@ -192,6 +192,7 @@ export const lint = {
     'typescript/unbound-method': 'off',
     'jsx-a11y/prefer-tag-over-role': 'off',
     'vitest/require-to-throw-message': 'off',
+    'vitest/valid-expect': ['error', { maxArgs: 2 }],
     'react/refs': 'off',
     'vitest/no-conditional-expect': 'off',
     'typescript/restrict-template-expressions': 'off',

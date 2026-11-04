@@ -200,7 +200,9 @@ testStable(
     try {
       await auth.replace(account);
       const token = auth.token();
-      const rejection = expect(token).rejects.toThrow(/invalidated/i);
+      const rejection = (async () => {
+        await expect(token).rejects.toThrow(/invalidated/i);
+      })();
 
       await started;
       let signedOut = false;
@@ -266,7 +268,9 @@ testStable(
 
     try {
       await auth.replace(account);
-      const rejected = expect(auth.token()).rejects.toThrow(/invalidated/i);
+      const rejected = (async () => {
+        await expect(auth.token()).rejects.toThrow(/invalidated/i);
+      })();
 
       await started;
       const replacing = auth.replace(account);
@@ -393,15 +397,19 @@ testStable(
 
     try {
       await auth.replace(account);
-      const token = expect(auth.token()).rejects.toThrow(/invalidated/i);
+      const token = (async () => {
+        await expect(auth.token()).rejects.toThrow(/invalidated/i);
+      })();
 
       await started;
-      const replacing = expect(
-        auth.replace(
-          { ...account, subject: 'new', refreshToken: 'new' },
-          { accessToken: 'new', expiresIn: 3600 }
-        )
-      ).rejects.toThrow(/dispos/i);
+      const replacing = (async () => {
+        await expect(
+          auth.replace(
+            { ...account, subject: 'new', refreshToken: 'new' },
+            { accessToken: 'new', expiresIn: 3600 }
+          )
+        ).rejects.toThrow(/dispos/i);
+      })();
       const disposing = auth.dispose();
 
       await expect(auth.replace(account)).rejects.toThrow(/dispos/i);
@@ -443,7 +451,9 @@ testStable('overlapping sign-out and replacement cannot both succeed', async () 
 
   try {
     await auth.replace(account);
-    const token = expect(auth.token()).rejects.toThrow(/invalidated/i);
+    const token = (async () => {
+      await expect(auth.token()).rejects.toThrow(/invalidated/i);
+    })();
 
     await started;
     const signOut = auth.signOut();
@@ -481,7 +491,9 @@ testStable('sign-out is rejected while replacement is pending', async () => {
 
   try {
     await auth.replace(account);
-    const token = expect(auth.token()).rejects.toThrow(/invalidated/i);
+    const token = (async () => {
+      await expect(auth.token()).rejects.toThrow(/invalidated/i);
+    })();
 
     await started;
     const replace = auth.replace(

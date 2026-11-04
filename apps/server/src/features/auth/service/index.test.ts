@@ -168,7 +168,7 @@ testStable('concurrent finish rejects and cancelling closes the real listener', 
           assert.strictEqual(yield* auth.cancelSignIn({ attemptId: attempt.attemptId }), true);
           yield* Fiber.await(pending);
           yield* Effect.promise(async () => {
-            await expect(fetch(callback)).rejects.toSatisfy(() => true);
+            await expect(fetch(callback)).rejects.toThrow();
           });
         }).pipe(Effect.provide(layer))
       )
@@ -249,7 +249,7 @@ testStable('closing the service scope closes an unfinished listener', async () =
       )
     );
 
-    await expect(fetch(url)).rejects.toSatisfy(() => true);
+    await expect(fetch(url)).rejects.toThrow();
   } finally {
     await manager.dispose();
     context.close();
@@ -300,7 +300,7 @@ testStable('cancelling during listener acquisition releases the acquired listene
           yield* auth.cancelSignIn({});
           release();
           yield* Fiber.await(starting);
-          yield* Effect.promise(() => expect(fetch(callback)).rejects.toSatisfy(() => true));
+          yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
         }).pipe(Effect.provide(layer))
       )
     );

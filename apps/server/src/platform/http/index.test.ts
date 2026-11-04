@@ -282,7 +282,9 @@ testStable('streaming fetch body deadline follows the native clock', async () =>
             { timeoutMs: 1000, maxBytes: 128, clock }
           )
         );
-        const result = expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
+        const result = (async () => {
+          await expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
+        })();
 
         yield* TestClock.adjust('1 second');
         yield* Effect.promise(() => result);

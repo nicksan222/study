@@ -20,7 +20,6 @@ import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';

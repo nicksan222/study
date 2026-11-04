@@ -18,7 +18,6 @@ import { testStable } from '@study/testing/vitest';
 import { Clock, Effect } from 'effect';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';

@@ -13,7 +13,7 @@
  */
 
 import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 

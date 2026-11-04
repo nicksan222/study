@@ -14,7 +14,6 @@
 
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { rewriteAgent } from './rewrite.ts';
 

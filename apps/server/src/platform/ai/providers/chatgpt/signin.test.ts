@@ -76,7 +76,7 @@ testStable('abandoned sign-in expires and closes its listener', async () => {
         const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
 
         yield* Effect.sleep(60);
-        yield* Effect.promise(() => expect(fetch(callback)).rejects.toSatisfy(() => true));
+        yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
         yield* Effect.promise(() => expect(signIn.finish(1000)).rejects.toThrow(/expired|cancel/i));
       })
     )
@@ -93,7 +93,7 @@ testStable('disposing sign-in cancels a waiting finish and closes the listener',
 
   signIn.dispose();
   await expect(finishing).rejects.toThrow(/cancel/i);
-  await expect(fetch(callback)).rejects.toSatisfy(() => true);
+  await expect(fetch(callback)).rejects.toThrow();
 });
 
 testStable('callback failure shows both localized messages', async () => {
@@ -101,7 +101,9 @@ testStable('callback failure shows both localized messages', async () => {
     issuer: 'https://auth.example',
     hostId: 'host'
   });
-  const finishing = expect(signIn.finish(5000)).rejects.toThrow(/mismatch/i);
+  const finishing = (async () => {
+    await expect(signIn.finish(5000)).rejects.toThrow(/mismatch/i);
+  })();
   const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
   const response = await fetch(callback);
   const page = await response.text();
@@ -130,13 +132,15 @@ testStable('malformed token response and ID claims do not leak their contents', 
 
     callback.searchParams.set('state', url.searchParams.get('state')!);
     callback.searchParams.set('code', 'code');
-    const failure = expect(signIn.finish(5000)).rejects.toSatisfy(
-      (error) =>
-        !String(error).includes('secret-token-body') &&
-        !String(error).includes('secret-identity') &&
-        error instanceof Error &&
-        error.cause === undefined
-    );
+    const failure = (async () => {
+      await expect(signIn.finish(5000)).rejects.toSatisfy(
+        (error) =>
+          !String(error).includes('secret-token-body') &&
+          !String(error).includes('secret-identity') &&
+          error instanceof Error &&
+          error.cause === undefined
+      );
+    })();
 
     await fetch(callback);
     await failure;
@@ -187,14 +191,16 @@ testStable(
           callback.searchParams.set('state', url.searchParams.get('state')!);
           callback.searchParams.set('code', 'code');
           const finishing = signIn.finish(5000);
-          const rejected = expect(finishing).rejects.toThrow(/timed out/);
+          const rejected = (async () => {
+            await expect(finishing).rejects.toThrow(/timed out/);
+          })();
 
           yield* Effect.promise(() => fetch(callback));
           yield* Effect.promise(() => bodyStarted);
           yield* TestClock.adjust('5 seconds');
           yield* Effect.promise(() => rejected);
           yield* Effect.promise(() => bodyClosed);
-          yield* Effect.promise(() => expect(fetch(callback)).rejects.toSatisfy(() => true));
+          yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
         }).pipe(Effect.provide(TestClock.layer()))
       );
     } finally {
