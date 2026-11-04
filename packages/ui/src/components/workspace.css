@@ -72,6 +72,7 @@
   padding: 4px;
 }
 .ui-workspace-card {
+  --workspace-card-action-gap: 0.75rem;
   position: absolute;
   z-index: 3;
   top: 1rem;
@@ -101,7 +102,7 @@
   width: 100%;
   min-height: 2.125rem;
   height: auto;
-  gap: 0.75rem;
+  gap: var(--workspace-card-action-gap);
   padding: 0.375rem 0.625rem;
   border: 0;
   border-radius: 0.5rem;

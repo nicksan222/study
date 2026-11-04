@@ -7,6 +7,7 @@ import { expect, vi } from 'vite-plus/test';
 
 import { renderInRouter } from '#web/test/render-in-router.tsx';
 
+import { authoredDocument } from '../document-editing/test-support';
 import { LibraryListView } from './library-list.view';
 
 testStable('renders loading and empty states from props', async () => {
@@ -17,7 +18,6 @@ testStable('renders loading and empty states from props', async () => {
       subjects={[]}
       blocked={false}
       query=""
-      filter="all"
       search={{}}
       reload={() => {}}
     />
@@ -38,7 +38,6 @@ testStable(
         subjects={[]}
         blocked={false}
         query=""
-        filter="all"
         search={{}}
         reload={reload}
       />
@@ -56,7 +55,6 @@ testStable(
       subjects: [],
       blocked: false,
       query: '',
-      filter: 'all' as const,
       search: {},
       reload: () => {}
     };
@@ -66,5 +64,27 @@ testStable(
     rerender(<LibraryListView {...props} state={{ status: 'success', data: [] }} />);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.getByText(catalogs.english.SidebarLibraryEmpty)).toBeInTheDocument();
+  }
+);
+
+testStable(
+  'marks the authored document route active independently of an identically numbered source',
+  async () => {
+    renderInRouter(
+      <LibraryListView
+        state={{ status: 'success', data: [{ type: 'document', value: authoredDocument(10n) }] }}
+        section="library"
+        subjects={[]}
+        blocked={false}
+        query=""
+        search={{}}
+        selected={{ document: '10' }}
+        reload={() => {}}
+      />
+    );
+    expect(await screen.findByRole('link', { name: 'New document' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   }
 );

@@ -84,11 +84,8 @@ function DeletionPreview({ c }: { c: LifecycleController }) {
               </li>
             ))}
           </ul>
-          <p>{t('DocumentRetainedCopies')}</p>
-          <p>
-            {t('DocumentDependentReferences')} {deletion.references.length} ·{' '}
-            {t('DocumentRetainedCitations')} {deletion.retainedMessageCitationCount}
-          </p>
+          <p>{t('LearningRetirementHelp')}</p>
+
           <Button variant="destructive-outline" disabled={busy} onClick={c.confirmDeletion}>
             {t('DocumentConfirmDelete')}
           </Button>
@@ -114,10 +111,7 @@ function PrunePreview({ c }: { c: LifecycleController }) {
               </li>
             ))}
           </ul>
-          <p>
-            {t('DocumentRetainedCitations')} {prune.retainedMessageCitationCount} ·{' '}
-            {t('DocumentDependentReferences')} {prune.references.length}
-          </p>
+
           <p>
             {t('DocumentProtectedVersions')} {prune.protected.length}
           </p>

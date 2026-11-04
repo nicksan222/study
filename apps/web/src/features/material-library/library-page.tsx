@@ -10,7 +10,9 @@ import { useRef, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { AuthoredLibrary } from '../authored-documents/library';
 import { NewDocument } from '../document-editing';
+import { SourceLibrary } from '../source-library/library';
 import { useImportOperation } from './import-operation';
 import { useLibraryPage } from './library-page.queries';
 import { MaterialSearch } from './material-search';
@@ -40,7 +42,13 @@ export function LibraryPage() {
         </MaterialLibrary.FocusHeading>
         <MaterialLibrary.Actions>
           <NewDocument />
-          <Button variant="ghost" disabled={state.isFetching} onClick={() => void state.refetch()}>
+          <Button
+            variant="ghost"
+            disabled={state.isFetching || view.documents.isFetching || view.sources.isFetching}
+            onClick={() => {
+              void Promise.all([state.refetch(), view.documents.refetch(), view.sources.refetch()]);
+            }}
+          >
             {t('LibraryRefresh')}
           </Button>
           <Button ref={importRef} onClick={() => setOpen(true)}>
@@ -66,6 +74,8 @@ export function LibraryPage() {
         />
       </MaterialLibrary.Filter>
       <ImportReceipt view={view} />
+      <AuthoredLibrary state={view.documents} rememberRow={rememberRow} />
+      <SourceLibrary state={view.sources} rememberRow={rememberRow} />
       <LibraryResults view={view} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPopup closeLabel={t('Close')} finalFocus={importRef}>
@@ -174,7 +184,6 @@ function ImportReceipt({ view }: { view: LibraryView }) {
     refreshError,
     refreshing,
     previous,
-    match,
     rememberRow,
     reveal,
     restorePrevious
@@ -188,21 +197,19 @@ function ImportReceipt({ view }: { view: LibraryView }) {
           <p>{t('LibraryRevealPrompt')}</p>
           {search.project ? (
             <Button render={<Link to="/library" search={{}} />}>{t('LibraryAll')}</Button>
-          ) : match ? (
+          ) : (
             <Button
               render={
                 <Link
-                  to="/materials/$materialId"
-                  params={{ materialId: String(match.id) }}
-                  onClick={() => rememberRow(`material-${match.id}`)}
+                  to="/sources/$sourceId"
+                  params={{ sourceId: String(accepted.id) }}
+                  onClick={() => rememberRow(`source-${accepted.id}`)}
                   search={{}}
                 />
               }
             >
               {t('LibraryOpenAccepted')}
             </Button>
-          ) : (
-            <p>{t('LibraryAcceptedUnresolved')}</p>
           )}
           <Button variant="ghost" disabled={refreshing} onClick={() => void reveal()}>
             {t('LibraryRefresh')}
@@ -242,7 +249,7 @@ function LibraryResults({ view }: { view: LibraryView }) {
           }
         />
       )}
-      {state.isSuccess && items.length === 0 && (
+      {libraryIsEmpty(view) && (
         <MaterialLibrary.Empty>
           <p>{t('LibraryEmpty')}</p>
           <MaterialLibrary.Actions>
@@ -264,19 +271,6 @@ function LibraryResults({ view }: { view: LibraryView }) {
               <MaterialLibrary.RowTitle>{item.title}</MaterialLibrary.RowTitle>
               <MaterialLibrary.RowMeta>
                 {t('ReaderVersion')} {String(item.version.number)}
-                {item.importProcessing && (
-                  <>
-                    {' '}
-                    ·{' '}
-                    {t(
-                      item.importProcessing.status === 'pending'
-                        ? 'LibraryPending'
-                        : item.importProcessing.status === 'failed'
-                          ? 'LibraryProcessingFailed'
-                          : 'LibraryReady'
-                    )}
-                  </>
-                )}
               </MaterialLibrary.RowMeta>
             </Link>
           </li>
@@ -293,4 +287,15 @@ function LibraryResults({ view }: { view: LibraryView }) {
 
 function importReady(blocked: boolean, file: File | null, url: string) {
   return !blocked && (!!file || !!url.trim());
+}
+
+function libraryIsEmpty(view: LibraryView) {
+  return (
+    view.state.isSuccess &&
+    view.documents.isSuccess &&
+    view.sources.isSuccess &&
+    view.sources.data.length === 0 &&
+    view.items.length === 0 &&
+    !view.hasAuthoredDocuments
+  );
 }

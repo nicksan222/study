@@ -204,6 +204,7 @@ testStable(
     fireEvent.change(screen.getByLabelText('SessionInstructions'), {
       target: { value: 'Later instruction' }
     });
+    fireEvent.click(screen.getByText('DocumentAdvancedOptions'));
     fireEvent.click(screen.getByRole('button', { name: 'SessionOpGrammar' }));
     await act(async () => {
       capture.resolve({ requestId: 'capture-1', selectionRevision: 8n } as Awaited<
@@ -279,5 +280,116 @@ testStable(
     });
     await screen.findByRole('button', { name: 'SessionAbandonAttempt' });
     expect(abandon).not.toHaveBeenCalled();
+  }
+);
+
+testStable(
+  'combines externally selected sessions into one immutable document attempt with optional instructions',
+  async () => {
+    vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
+    const view = mount(
+      <Transformation
+        id={id}
+        sessions={[
+          { id, title: 'First' },
+          { id: Schema.decodeUnknownSync(sessionIdSchema)(502n), title: 'Second lecture' }
+        ]}
+      />
+    );
+    fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
+      target: { value: 'Course notes' }
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionCreateDocument' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCreateDocument' }));
+    await waitFor(() => expect(captureContext).toHaveBeenCalled());
+    expect(vi.mocked(captureContext).mock.calls[0]![0]).toMatchObject({
+      sessionId: id,
+      additionalSessionIds: [502n],
+      instruction: '',
+      preferences: { language: 'english' }
+    });
+    view.rerender(
+      <QueryClientProvider client={view.client}>
+        <Transformation
+          id={id}
+          sessions={[
+            { id, title: 'First renamed' },
+            { id: Schema.decodeUnknownSync(sessionIdSchema)(502n), title: 'Second lecture renamed' }
+          ]}
+        />
+      </QueryClientProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(captureContext).mock.calls[1]![0]).toEqual(
+      vi.mocked(captureContext).mock.calls[0]![0]
+    );
+  }
+);
+
+testStable(
+  'keeps document recovery separate for different selected groups with the same first session',
+  async () => {
+    vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
+    const other = Schema.decodeUnknownSync(sessionIdSchema)(502n);
+    const third = Schema.decodeUnknownSync(sessionIdSchema)(503n);
+    const first = mount(
+      <Transformation
+        id={id}
+        sessions={[
+          { id, title: 'First' },
+          { id: other, title: 'Second' }
+        ]}
+      />
+    );
+    fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
+      target: { value: 'First group' }
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionCreateDocument' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCreateDocument' }));
+    await screen.findByRole('button', { name: 'Retry' });
+    first.unmount();
+    const second = mount(
+      <Transformation
+        id={id}
+        sessions={[
+          { id, title: 'First' },
+          { id: third, title: 'Third' }
+        ]}
+      />,
+      first.client
+    );
+    expect(screen.getByLabelText('SessionOutputTitle')).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    fireEvent.change(screen.getByLabelText('SessionOutputTitle'), {
+      target: { value: 'Second group' }
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'SessionCreateDocument' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCreateDocument' }));
+    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(captureContext).mock.calls[1]![0].additionalSessionIds).toEqual([third]);
+    second.unmount();
+    mount(
+      <Transformation
+        id={id}
+        sessions={[
+          { id, title: 'First' },
+          { id: other, title: 'Second' }
+        ]}
+      />,
+      first.client
+    );
+    expect(screen.getByLabelText('SessionOutputTitle')).toHaveValue('First group');
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(captureContext).mock.calls[2]![0]).toEqual(
+      vi.mocked(captureContext).mock.calls[0]![0]
+    );
   }
 );

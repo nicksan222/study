@@ -4,14 +4,16 @@ import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
+import { Notebook } from '@study/ui/session-workspace';
 import { toastManager } from '@study/ui/toast';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
+import type { SelectedSession } from './document-creation-dialog';
 import {
   deleteSessionMutationOptions,
   deletionOptions,
@@ -191,5 +193,177 @@ export function SessionDeleteDialog({
     >
       <DeleteFeedback flow={flow} />
     </DangerDialog>
+  );
+}
+
+type BatchDeletionStatus = { pending: boolean; ready: boolean; complete: boolean };
+
+/** Keeps the reviewed target set fixed while each existing deletion flow owns its request and recovery. */
+export function SessionBatchDeleteDialog({
+  sessions,
+  open,
+  onOpenChange,
+  onDeleted
+}: {
+  sessions: readonly SelectedSession[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDeleted?: (ids: readonly SessionId[]) => void;
+}) {
+  const [review, setReview] = useState({ open, sessions });
+  if (review.open !== open) setReview({ open, sessions: open ? sessions : review.sessions });
+  const targets = review.sessions;
+  const identity = targets.map((session) => String(session.id)).join(',');
+  return (
+    <BatchDeletion
+      key={identity}
+      sessions={targets}
+      open={open}
+      onOpenChange={onOpenChange}
+      onDeleted={onDeleted}
+    />
+  );
+}
+
+function BatchDeletion({
+  sessions,
+  open,
+  onOpenChange,
+  onDeleted
+}: {
+  sessions: readonly SelectedSession[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDeleted?: (ids: readonly SessionId[]) => void;
+}) {
+  const { t } = useI18n();
+  const [confirmed, setConfirmed] = useState(false);
+  const [statuses, setStatuses] = useState<ReadonlyMap<SessionId, BatchDeletionStatus>>(new Map());
+  const report = useCallback((id: SessionId, status: BatchDeletionStatus) => {
+    setStatuses((previous) => {
+      const current = previous.get(id);
+      if (
+        current?.pending === status.pending &&
+        current?.ready === status.ready &&
+        current?.complete === status.complete
+      )
+        return previous;
+      return new Map(previous).set(id, status);
+    });
+  }, []);
+  const pending = confirmed && [...statuses.values()].some((status) => status.pending);
+  const ready =
+    sessions.length > 0 &&
+    sessions.every(
+      (session) => statuses.get(session.id)?.ready || statuses.get(session.id)?.complete
+    );
+  const completed =
+    sessions.length > 0 && sessions.every((session) => statuses.get(session.id)?.complete);
+  useEffect(() => {
+    if (confirmed && completed) onOpenChange(false);
+  }, [confirmed, completed, onOpenChange]);
+
+  return (
+    <DangerDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('SessionBatchDelete')}
+      description={t('SessionBatchDeleteHelp')}
+      confirmation={{
+        identity: sessions.map((session) => String(session.id)).join(','),
+        value: t('DeleteConfirmationWord'),
+        label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') })
+      }}
+      confirmLabel={t('SessionBatchConfirmDelete')}
+      cancelLabel={t(confirmed ? 'Close' : 'Cancel')}
+      pending={pending}
+      disabled={confirmed || !ready}
+      onConfirm={() => {
+        if (ready && !pending) setConfirmed(true);
+      }}
+    >
+      {sessions.map((session) => (
+        <BatchDeletionItem
+          key={String(session.id)}
+          session={session}
+          open={open}
+          confirmed={confirmed}
+          report={report}
+          onDeleted={onDeleted}
+        />
+      ))}
+    </DangerDialog>
+  );
+}
+
+type BatchDeletionItemProps = {
+  session: SelectedSession;
+  open: boolean;
+  confirmed: boolean;
+  report: (id: SessionId, status: BatchDeletionStatus) => void;
+  onDeleted?: (ids: readonly SessionId[]) => void;
+};
+
+function useBatchDeletionItem({
+  session,
+  open,
+  confirmed,
+  report,
+  onDeleted
+}: BatchDeletionItemProps) {
+  const flow = useSessionDeletion(session.id, open);
+  const attempted = useRef(false);
+  const announced = useRef(false);
+  const receipt = flow.state.data;
+  const retryable = receipt?.status === 'failed';
+  const pending = flow.pending || receipt?.status === 'pending';
+  const ready = retryable || (flow.available && !flow.started);
+  useEffect(() => {
+    report(session.id, { pending, ready, complete: receipt?.status === 'completed' });
+  }, [session.id, pending, ready, receipt?.status, report]);
+  useEffect(() => {
+    if (confirmed && !attempted.current) {
+      attempted.current = true;
+      if (retryable) flow.retry.mutate();
+      else if (flow.available && !flow.started) flow.mutation.mutate();
+    }
+  }, [confirmed, retryable, flow.available, flow.started, flow.retry.mutate, flow.mutation.mutate]);
+  useEffect(() => {
+    if (receipt && !announced.current) {
+      announced.current = true;
+      onDeleted?.([session.id]);
+    }
+  }, [receipt, session.id, onDeleted]);
+
+  return { flow, retryable, pending };
+}
+
+function BatchDeletionItem(props: BatchDeletionItemProps) {
+  const { t } = useI18n();
+  const { session, confirmed } = props;
+  const { flow, retryable, pending } = useBatchDeletionItem(props);
+  return (
+    <Notebook.BatchDeletionItem>
+      <strong>{session.title || t('SessionUntitled')}</strong>
+      <DeleteFeedback flow={flow} />
+      {confirmed && retryable && (
+        <Button size="sm" variant="outline" disabled={pending} onClick={() => flow.retry.mutate()}>
+          {t('SessionRetryDelete')}
+        </Button>
+      )}
+      {flow.started && flow.available && !flow.mutation.error && (
+        <p>{t('SessionBatchUncertain')}</p>
+      )}
+      {flow.started && flow.available && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          onClick={() => void flow.state.refetch()}
+        >
+          {t('LibraryRefresh')}
+        </Button>
+      )}
+    </Notebook.BatchDeletionItem>
   );
 }

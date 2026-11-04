@@ -1,10 +1,11 @@
 import { sessionSelectionSchema } from '@study/contracts/conversations/context';
 import { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import { chatMessageSchema, sessionSchema } from '@study/contracts/conversations/schemas';
+import { transformSnapshotSchema } from '@study/contracts/documents/transform';
 import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema, sessionIdSchema } from '@study/contracts/ids';
-import { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
 import { projectSchema } from '@study/contracts/projects/schemas';
+import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { executionSchema } from '@study/contracts/workflows/schemas';
 import { testStable } from '@study/testing/vitest';
 import { toastManager } from '@study/ui/toast';
@@ -22,13 +23,28 @@ import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { versionOptions } from '../material-library/material-library.queries';
-import {
-  deferred,
-  exactDocument,
-  importedVersion,
-  summary
-} from '../material-library/test/support';
+import { authoredDocument } from '../document-editing/test-support';
+import { deferred } from '../material-library/test/support';
+import { selectedContentOptions } from './selection.queries';
+import { sessionDocumentOptions } from './session-document.queries';
+const pickerDocument = (versionId = 102n) => {
+  const value = authoredDocument(41n, 'Historical extraction', versionId);
+  return {
+    ...value,
+    title: 'Material 41',
+    version: {
+      ...value.version!,
+      number: versionId === 101n ? 1n : 2n,
+      document: {
+        ...value.version!.document,
+        blocks: value.version!.document.blocks.map((block) => ({
+          ...block,
+          id: Schema.decodeUnknownSync(blockIdSchema)('b0')
+        }))
+      }
+    }
+  };
+};
 import { attachmentKey } from './attachments';
 import { SessionDeleteDialog } from './deletion';
 import { History, CapturedContext } from './history';
@@ -36,7 +52,6 @@ import { SelectionPanel } from './selection';
 import * as workspaceQueries from './session-workspace.queries';
 import {
   executionOptions,
-  sessionDocumentOptions,
   contextOptions,
   provenanceOptions,
   generationOptions,
@@ -94,12 +109,13 @@ vi.mock('#web/lib/study-client/client.ts', async () => {
       'conversations.updateSessionSelection': call(rpc.updateSelection),
       'conversations.inspectSessionContext': call(rpc.context),
       'conversations.thread': call(rpc.thread),
-      'materials.materialGeneration': call(rpc.generation),
-      'materials.retryMaterialGeneration': call(rpc.retryGeneration),
-      'materials.cancelMaterialGeneration': call(rpc.cancel),
-      'materials.materials': call(rpc.materials),
-      'materials.materialVersion': call(rpc.version),
-      'materials.materialVersionDocument': call(rpc.document),
+      'documents.transform': call(rpc.generation),
+      'documents.retryTransform': call(rpc.retryGeneration),
+      'documents.cancelTransform': call(rpc.cancel),
+      'documents.documents': call(rpc.materials),
+      'documents.version': call(rpc.version),
+      'documents.document': call(rpc.document),
+      'sources.sources': () => Effect.succeed({ items: [], next: null }),
       'workflows.executions': call(rpc.executions)
     })
   };
@@ -112,16 +128,21 @@ const draftKey = ['session-drafts', String(id), 'selection'];
 const selection = (revision = 8n, targets: readonly unknown[] = []) =>
   Schema.decodeUnknownSync(sessionSelectionSchema)({ revision, targets });
 
-const target = (versionId: bigint) => ({ versionId, scope: { kind: 'document' } });
+const target = (versionId: bigint) => ({
+  input: { kind: 'document', versionId },
+  scope: { kind: 'document' }
+});
 
 const generation = (patch = {}) =>
-  Schema.decodeUnknownSync(materialGenerationSnapshotSchema)({
+  Schema.decodeUnknownSync(transformSnapshotSchema)({
     id: 'transform-1',
     title: 'Derivative',
-    kind: 'document',
-    inputVersionIds: [],
-    documentTransform: { contextRequestId: 'capture-1', operations: ['clarity'] },
-    documentIds: [],
+    instruction: 'Clarify',
+    contextRequestId: 'capture-1',
+    operations: ['clarity'],
+    sessionId: id,
+    eventId: 'transform-1',
+    errorKind: null,
     cancelled: false,
     report: null,
     resultVersionId: null,
@@ -196,6 +217,13 @@ beforeEach(() => {
   vi.resetAllMocks();
   rpc.projects.mockResolvedValue({ items: [], next: null });
   rpc.sessions.mockResolvedValue({ items: [], next: null });
+  rpc.session.mockResolvedValue({
+    id,
+    title: 'Notebook',
+    projectIds: [],
+    createdAt: 1n,
+    updatedAt: 1n
+  });
   rpc.generations.mockResolvedValue({ items: [], next: null });
   rpc.citations.mockResolvedValue({ citations: [] });
   rpc.selection.mockResolvedValue(selection());
@@ -203,8 +231,8 @@ beforeEach(() => {
   rpc.generation.mockResolvedValue(generation());
   rpc.thread.mockResolvedValue({ items: [], next: null });
   rpc.materials.mockResolvedValue({ items: [], nextCursor: null });
-  rpc.version.mockImplementation(({ id }) => importedVersion(id));
-  rpc.document.mockImplementation(({ id }) => exactDocument(id));
+  rpc.version.mockImplementation(({ id }) => pickerDocument(id).version);
+  rpc.document.mockImplementation(() => pickerDocument());
   rpc.context.mockResolvedValue({
     requestId: 'capture-1',
     sessionId: id,
@@ -404,8 +432,8 @@ testStable(
     const client = cache();
 
     seedTransform(client);
-    const libraryKey = ['materials', 'library', undefined];
-    const searchKey = ['session-material-search', 'Derivative'];
+    const libraryKey = ['documents', 'library', undefined];
+    const searchKey = ['search', 'Derivative'];
 
     client.setQueryData(libraryKey, {
       pages: [{ items: [], nextCursor: null }],
@@ -428,14 +456,14 @@ testStable(
     });
     await waitFor(() => expect(client.getQueryState(libraryKey)?.isInvalidated).toBe(true));
     expect(client.getQueryState(searchKey)?.isInvalidated).toBe(true);
-    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['materials'] });
-    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['session-material-search'] });
+    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['documents'] });
+    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['search'] });
     first.unmount();
     invalidations.mockClear();
     rpc.generation.mockResolvedValue(generation({ resultVersionId: 51n }));
     mount(<Transformation id={id} />, client);
     await waitFor(() => expect(rpc.generation).toHaveBeenCalledTimes(2));
-    expect(invalidations).not.toHaveBeenCalledWith({ queryKey: ['materials'] });
+    expect(invalidations).not.toHaveBeenCalledWith({ queryKey: ['documents'] });
   }
 );
 
@@ -528,65 +556,57 @@ testStable('exposes operation toggle state and contextual version groups', async
     client
   );
 
-  for (const summary of await screen.findAllByText('SessionVersions', { selector: 'summary' }))
-    fireEvent.click(summary);
-
   const clarity = await screen.findByRole('button', { name: 'SessionOpClarity' });
 
   expect(clarity).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(clarity);
   await waitFor(() => expect(clarity).toHaveAttribute('aria-pressed', 'false'));
-  const groups = await screen.findAllByRole('group', { name: /^SessionNote/ });
+  const groups = await screen.findAllByRole('group', { name: /^SessionVersions/ });
 
   expect(groups).toHaveLength(2);
   expect(groups[0]!.getAttribute('aria-label')).not.toBe(groups[1]!.getAttribute('aria-label'));
   const group = within(groups[0]!);
 
-  expect(group.getByRole('button', { name: 'ReaderVersion 2' })).toHaveAttribute(
-    'aria-pressed',
-    'true'
-  );
-  fireEvent.click(group.getByRole('button', { name: 'ReaderVersion 1' }));
-  expect(group.getByRole('button', { name: 'ReaderVersion 1' })).toHaveAttribute(
-    'aria-pressed',
-    'true'
-  );
-  expect(group.getByRole('button', { name: 'ReaderVersion 2' })).toHaveAttribute(
-    'aria-pressed',
-    'false'
-  );
+  expect(group.getByRole('status')).toHaveTextContent('SessionVersionLatest');
+  fireEvent.click(group.getByRole('button', { name: 'SessionPreviousVersion' }));
+  expect(group.getByRole('status')).toHaveTextContent('1');
+  expect(group.getByRole('button', { name: 'SessionPreviousVersion' })).toBeDisabled();
+  expect(group.getByRole('button', { name: 'SessionNextVersion' })).toBeEnabled();
 });
 
 testStable(
   'exposes exact block selection state and saves canonical native Document targets',
   async () => {
-    rpc.materials.mockResolvedValue({ items: [summary()], nextCursor: null });
+    rpc.materials.mockResolvedValue({ items: [pickerDocument()], nextCursor: null });
     rpc.updateSelection.mockImplementation(({ targets }) => selection(9n, targets));
     const client = cache();
 
     mount(<SelectionPanel id={id} />, client);
-    const choice = await screen.findByText('Material 41 · ReaderVersion 2');
+    const choice = await screen.findByText('Material 41');
 
     fireEvent.click(choice);
-    const block = await screen.findByRole('button', { name: 'SessionUseBlock · b0' });
+    const block = await screen.findByRole('checkbox', { name: '1 · Historical extraction' });
 
-    expect(block).toHaveAttribute('aria-pressed', 'false');
+    expect(block).not.toBeChecked();
     fireEvent.click(block);
-    await waitFor(() => expect(block).toHaveAttribute('aria-pressed', 'true'));
+    await waitFor(() => expect(block).toBeChecked());
     fireEvent.click(screen.getByRole('button', { name: 'SessionSaveSelection' }));
     await waitFor(() =>
       expect(rpc.updateSelection).toHaveBeenCalledWith({
         sessionId: id,
         expectedRevision: 8n,
         targets: [
-          { versionId: 102n, documentId: 1102n, scope: { kind: 'blocks', blockIds: ['b0'] } }
+          {
+            input: { kind: 'document', versionId: 102n },
+            scope: { kind: 'blocks', blockIds: ['b0'] }
+          }
         ]
       })
     );
     await waitFor(() =>
       expect(screen.queryByText('SessionSelectionUnsaved')).not.toBeInTheDocument()
     );
-    expect(block).toHaveAttribute('aria-pressed', 'true');
+    expect(block).toBeChecked();
   }
 );
 
@@ -728,10 +748,8 @@ testStable(
         versionId: 63n
       })
     );
-    expect(screen.getAllByText('SessionVersions', { selector: 'summary' })).toHaveLength(1);
-    expect(screen.queryByRole('button', { name: 'SessionVersions' })).toBeNull();
-    fireEvent.click(screen.getByText('SessionVersions', { selector: 'summary' }));
-    fireEvent.click(screen.getByRole('button', { name: 'ReaderVersion 1' }));
+    expect(screen.queryByText('SessionVersions', { selector: 'summary' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'SessionPreviousVersion' }));
     await waitFor(() =>
       expect(rpc.citations).toHaveBeenCalledWith({
         sessionId: id,
@@ -747,29 +765,37 @@ testStable(
 testStable(
   'removes cached exact picker content after a failed refresh and retries the same version',
   async () => {
-    rpc.materials.mockResolvedValue({ items: [summary()], nextCursor: null });
+    rpc.materials.mockResolvedValue({ items: [pickerDocument()], nextCursor: null });
     const client = cache();
 
     mount(<SelectionPanel id={id} />, client);
-    fireEvent.click(await screen.findByText('Material 41 · ReaderVersion 2'));
-    expect(await screen.findByRole('button', { name: 'SessionUseBlock · b0' })).toBeEnabled();
-    const versionId = summary().version.id;
+    fireEvent.click(await screen.findByText('Material 41'));
+    expect(
+      await screen.findByRole('checkbox', { name: '1 · Historical extraction' })
+    ).toBeEnabled();
+    const versionId = pickerDocument().version.id;
 
     rpc.document.mockRejectedValue(new StudyError('not_found', 'Retired'));
     await act(async () => {
-      await client.invalidateQueries({ queryKey: sessionDocumentOptions(versionId).queryKey });
+      await client.invalidateQueries({
+        queryKey: sessionDocumentOptions(pickerDocument().id).queryKey
+      });
     });
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'SessionUseBlock · b0' })).toBeNull()
+      expect(screen.queryByRole('checkbox', { name: '1 · Historical extraction' })).toBeNull()
     );
-    expect(screen.queryByRole('button', { name: 'SessionUseWhole' })).toBeNull();
-    expect(client.getQueryData(sessionDocumentOptions(versionId).queryKey)).toBeDefined();
-    rpc.document.mockImplementation(({ id: requested }) => exactDocument(requested));
+    expect(screen.queryByRole('button', { name: 'SessionWhole' })).toBeNull();
+    expect(client.getQueryData(sessionDocumentOptions(pickerDocument().id).queryKey)).toBeDefined();
+    rpc.document.mockImplementation(() => pickerDocument());
     await act(async () => {
-      await client.refetchQueries({ queryKey: sessionDocumentOptions(versionId).queryKey });
+      await client.refetchQueries({
+        queryKey: sessionDocumentOptions(pickerDocument().id).queryKey
+      });
     });
-    expect(await screen.findByRole('button', { name: 'SessionUseBlock · b0' })).toBeEnabled();
-    expect(rpc.document.mock.calls.every(([input]) => input.id === versionId)).toBe(true);
+    expect(
+      await screen.findByRole('checkbox', { name: '1 · Historical extraction' })
+    ).toBeEnabled();
+    expect(rpc.document.mock.calls.every(([input]) => input.id === pickerDocument().id)).toBe(true);
   }
 );
 
@@ -847,7 +873,7 @@ testStable(
       state: 'available',
       requestId: 'capture-1'
     });
-    expect(screen.getByText('Retained reply')).toBeVisible();
+    expect(screen.getByText('Retained reply', { selector: 'p' })).toBeVisible();
     rpc.provenance.mockResolvedValue({ state: 'available', requestId: 'capture-1' });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Clarify')).toBeVisible();
@@ -863,37 +889,36 @@ testStable(
 testStable(
   'suppresses cached picker controls after exact version failure and preserves unsaved selection through recovery',
   async () => {
-    rpc.materials.mockResolvedValue({ items: [summary()], nextCursor: null });
+    rpc.materials.mockResolvedValue({ items: [pickerDocument()], nextCursor: null });
     const client = cache();
 
     mount(<SelectionPanel id={id} />, client);
-    fireEvent.click(await screen.findByText('Material 41 · ReaderVersion 2'));
-    fireEvent.click(await screen.findByRole('button', { name: 'SessionUseBlock · b0' }));
+    fireEvent.click(await screen.findByText('Material 41'));
+    fireEvent.click(await screen.findByRole('checkbox', { name: '1 · Historical extraction' }));
     const unsaved = client.getQueryData(draftKey);
 
     expect(unsaved).toBeDefined();
-    const versionId = summary().version.id;
+    const versionId = pickerDocument().version.id;
 
     rpc.version.mockRejectedValue(new StudyError('not_found', 'Retired version'));
-    const key = versionOptions(versionId).queryKey;
+    const key = selectedContentOptions({ kind: 'document', versionId }).queryKey;
 
     await act(async () => {
       await client.invalidateQueries({ queryKey: key });
     });
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'SessionUseBlock · b0' })).toBeNull()
+      expect(screen.queryByRole('checkbox', { name: '1 · Historical extraction' })).toBeNull()
     );
-    expect(screen.queryByRole('button', { name: 'SessionUseWhole' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'SessionWhole' })).toBeNull();
     expect(client.getQueryData(key)).toBeDefined();
     expect(client.getQueryData(draftKey)).toEqual(unsaved);
-    rpc.version.mockImplementation(({ id: requested }) => importedVersion(requested));
+    rpc.version.mockImplementation(({ id: requested }) => pickerDocument(requested).version);
     await act(async () => {
       await client.refetchQueries({ queryKey: key });
     });
-    expect(await screen.findByRole('button', { name: 'SessionUseBlock · b0' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    expect(
+      await screen.findByRole('checkbox', { name: '1 · Historical extraction' })
+    ).toBeChecked();
     expect(client.getQueryData(draftKey)).toEqual(unsaved);
     expect(rpc.version.mock.calls.every(([input]) => input.id === versionId)).toBe(true);
     expect(rpc.updateSelection).not.toHaveBeenCalled();
@@ -915,7 +940,7 @@ testStable(
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const view = mount(<SessionWorkspace />);
-    const input = await screen.findByRole('textbox', { name: 'SessionCompose' });
+    const input = await openStarterComposer();
 
     fireEvent.change(input, { target: { value: 'Cell cycle lecture' } });
     fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
@@ -934,16 +959,14 @@ testStable('retains the start draft through an uncertain creation and remount', 
   rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
   const first = mount(<SessionWorkspace />);
 
-  fireEvent.change(await screen.findByRole('textbox', { name: 'SessionCompose' }), {
+  fireEvent.change(await openStarterComposer(), {
     target: { value: 'Keep these notes' }
   });
   fireEvent.click(screen.getByRole('button', { name: 'SessionNew' }));
   await screen.findByText('SessionCreationUncertain');
   first.unmount();
   mount(<SessionWorkspace />, first.client);
-  expect(await screen.findByRole('textbox', { name: 'SessionCompose' })).toHaveValue(
-    'Keep these notes'
-  );
+  expect(await openStarterComposer()).toHaveValue('Keep these notes');
   expect(screen.getByRole('button', { name: 'SessionNew' })).toBeDisabled();
   expect(rpc.create).toHaveBeenCalledTimes(1);
 });
@@ -959,14 +982,14 @@ testStable(
     expect(screen.queryByRole('textbox', { name: 'SessionCompose' })).not.toBeInTheDocument();
     rpc.sessions.mockResolvedValue({ items: [], next: null });
     fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByRole('textbox', { name: 'SessionCompose' })).toBeVisible();
+    expect(await openStarterComposer()).toBeVisible();
   }
 );
 
 testStable('fences repeated start shortcuts before the creation receipt arrives', async () => {
   rpc.create.mockReturnValue(new Promise(() => {}));
   mount(<SessionWorkspace />);
-  const input = await screen.findByRole('textbox', { name: 'SessionCompose' });
+  const input = await openStarterComposer();
 
   fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
   fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
@@ -995,6 +1018,7 @@ testStable(
     const view = mount(<SessionWorkspace />, cache(), `?project=${project}`);
     const file = new File(['Cell cycle'], 'lecture.txt', { type: 'text/plain' });
 
+    await openStarterComposer();
     fireEvent.change(await screen.findByLabelText('SessionAttachFiles'), {
       target: { files: [file] }
     });
@@ -1016,6 +1040,7 @@ testStable('retains selected files across an uncertain create and starter remoun
   const first = mount(<SessionWorkspace />);
   const file = new File(['Retain me'], 'notes.txt', { type: 'text/plain' });
 
+  await openStarterComposer();
   fireEvent.change(await screen.findByLabelText('SessionAttachFiles'), {
     target: { files: [file] }
   });
@@ -1229,59 +1254,62 @@ testStable.each(['', '?project=9007199254740997'])(
 
     expect(within(header as HTMLElement).getByText('Biology')).toBeVisible();
     expect(within(header as HTMLElement).queryByText('History')).toBeNull();
-    const context = view.container.querySelector<HTMLElement>('.session-desk-board-tools')!;
+    const context = await screen.findByRole('complementary', { name: 'SessionContextPanel' });
 
     expect(within(context).queryByRole('combobox')).toBeNull();
     expect(within(context).queryByRole('link', { name: 'SidebarLibrary' })).toBeNull();
   }
 );
 
-testStable('keeps session actions on the board and restores dialog focus and drafts', async () => {
-  rpc.session.mockResolvedValue({
-    id,
-    title: 'Notebook',
-    projectIds: [],
-    createdAt: 1n,
-    updatedAt: 1n
-  });
-  rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
-  const view = mount(<SessionWorkspace id={id} />);
+testStable(
+  'keeps vertical session actions inside the default card and restores dialog focus and drafts',
+  async () => {
+    rpc.session.mockResolvedValue({
+      id,
+      title: 'Notebook',
+      projectIds: [],
+      createdAt: 1n,
+      updatedAt: 1n
+    });
+    rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+    const view = mount(<SessionWorkspace id={id} />);
 
-  await screen.findByRole('button', { name: 'SessionTransform' });
-  const panel = view.container.querySelector<HTMLElement>('.session-desk-board-tools')!;
+    await screen.findByRole('button', { name: 'SessionTransform' });
+    const panel = await screen.findByRole('complementary', { name: 'SessionContextPanel' });
 
-  expect(screen.getAllByRole('button', { name: 'SessionTransform' })).toHaveLength(1);
-  expect(within(panel).getByRole('button', { name: 'SessionSelection' })).toBeInTheDocument();
-  expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toBeInTheDocument();
-  expect(within(panel).getByRole('button', { name: 'SessionDelete' })).toBeInTheDocument();
-  expect(view.container.querySelector('.ui-workspace-dock .session-context-actions')).toBeNull();
-  expect(screen.queryByText('SessionTools')).not.toBeInTheDocument();
-  fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
-  const dialog = await screen.findByRole('dialog', { name: 'SessionTransform' });
-  const instruction = within(dialog).getByRole('textbox', { name: 'SessionInstructions' });
+    expect(screen.getAllByRole('button', { name: 'SessionTransform' })).toHaveLength(1);
+    expect(within(panel).getByRole('button', { name: 'SessionSelection' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'SessionDelete' })).toBeInTheDocument();
+    expect(view.container.querySelector('.ui-workspace-dock .session-context-actions')).toBeNull();
+    expect(screen.queryByText('SessionTools')).not.toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
+    const dialog = await screen.findByRole('dialog', { name: 'SessionTransform' });
+    const instruction = within(dialog).getByRole('textbox', { name: 'SessionInstructions' });
 
-  fireEvent.change(instruction, { target: { value: 'Keep this instruction' } });
-  instruction.focus();
-  await userEvent.setup().keyboard('{Escape}');
-  await waitFor(() =>
-    expect(screen.queryByRole('dialog', { name: 'SessionTransform' })).toBeNull()
-  );
-  expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toHaveFocus();
-  fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
-  await screen.findByRole('dialog', { name: 'SessionTransform' });
-  fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' }).at(-1)!);
-  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  expect(screen.queryByRole('dialog')).toBeNull();
-  expect(screen.queryByRole('textbox', { name: 'SessionInstructions' })).toBeNull();
-  fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
-  expect(
-    within(await screen.findByRole('dialog', { name: 'SessionTransform' })).getByRole('textbox', {
-      name: 'SessionInstructions'
-    })
-  ).toBe(instruction);
-  expect(instruction).toHaveValue('Keep this instruction');
-  expect(rpc.selection).toHaveBeenCalledWith({ sessionId: id });
-});
+    fireEvent.change(instruction, { target: { value: 'Keep this instruction' } });
+    instruction.focus();
+    await userEvent.setup().keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'SessionTransform' })).toBeNull()
+    );
+    expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toHaveFocus();
+    fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
+    await screen.findByRole('dialog', { name: 'SessionTransform' });
+    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' }).at(-1)!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'SessionInstructions' })).toBeNull();
+    fireEvent.click(within(panel).getByRole('button', { name: 'SessionTransform' }));
+    expect(
+      within(await screen.findByRole('dialog', { name: 'SessionTransform' })).getByRole('textbox', {
+        name: 'SessionInstructions'
+      })
+    ).toBe(instruction);
+    expect(instruction).toHaveValue('Keep this instruction');
+    expect(rpc.selection).toHaveBeenCalledWith({ sessionId: id });
+  }
+);
 
 testStable(
   'retains the notebook edit fence after an uncertain deletion request and remount',
@@ -1408,3 +1436,13 @@ testStable('announces completion once when deleting from the active workspace di
   await waitFor(() => expect(view.router.state.location.pathname).toBe('/sessions'));
   expect(view.router.state.location.search).toEqual({ project: '42' });
 });
+
+async function openStarterComposer() {
+  const entry = await waitFor(
+    () =>
+      screen.queryByRole('textbox', { name: 'SessionCompose' }) ??
+      screen.getByRole('button', { name: 'SessionStartWithNote' })
+  );
+  if (entry.tagName === 'BUTTON') fireEvent.click(entry);
+  return screen.findByRole('textbox', { name: 'SessionCompose' });
+}

@@ -1,43 +1,60 @@
 import type { MessagePart } from '@study/contracts/conversations/messages';
-import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
+import type { SessionId, SourceId } from '@study/contracts/ids';
 import { mediaSize } from '@study/localization';
 import { AttachmentPreview } from '@study/ui/attachment-preview';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
+import { Notebook } from '@study/ui/session-workspace';
+import { WorkspaceAttachments } from '@study/ui/workspace';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { sourceOptions as attachmentSourceOptions } from '../source-library/source-panel.queries';
 import { appearances } from './attachment-appearance';
-import { attachmentSourceOptions, useAttachmentMedia } from './attachment-cards.queries';
+import { useAttachmentMedia } from './attachment-cards.queries';
+import { notebookTargetId } from './notebook-index';
 import { SessionReadError } from './status';
-import { attachmentPreviewOptions } from './workspace-context.queries';
 
 export function AttachmentCards({
   parts,
-  onOpenDocument
+  onOpenSource,
+  indexSessionId,
+  compact = false
 }: {
   parts: readonly MessagePart[];
-  onOpenDocument?: (material: MaterialSummaryDto) => void;
+  indexSessionId?: SessionId;
+  compact?: boolean;
+  onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
+  const Surface = compact ? WorkspaceAttachments.Rows : Desk.Attachments;
   return (
-    <Desk.Attachments>
+    <Surface>
       {parts.map((part) => (
-        <AttachmentCard key={String(part.id)} part={part} onOpenDocument={onOpenDocument} />
+        <AttachmentCard
+          key={String(part.id)}
+          part={part}
+          onOpenSource={onOpenSource}
+          indexSessionId={indexSessionId}
+          compact={compact}
+        />
       ))}
-    </Desk.Attachments>
+    </Surface>
   );
 }
 
 function AttachmentCard({
   part,
-  onOpenDocument
+  onOpenSource,
+  indexSessionId,
+  compact = false
 }: {
   part: MessagePart;
-  onOpenDocument?: (material: MaterialSummaryDto) => void;
+  indexSessionId?: SessionId;
+  compact?: boolean;
+  onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
   const { t, locale } = useI18n();
-  const material = useQuery(attachmentPreviewOptions(part.sourceId));
   const source = useQuery(attachmentSourceOptions(part.sourceId));
   const { icon: Icon, label, tone } = appearances[part.sourceKind];
   const meta = [
@@ -47,14 +64,34 @@ function AttachmentCard({
     .filter(Boolean)
     .join(' · ');
 
+  if (compact)
+    return (
+      <WorkspaceAttachments.Item
+        render={attachmentTarget({
+          part,
+          source: source.data,
+          retry: () => void source.refetch(),
+          failed: !!source.error,
+          onOpenSource
+        })}
+        title={part.sourceName}
+      >
+        <Icon aria-hidden="true" />
+        <span>{part.sourceName}</span>
+      </WorkspaceAttachments.Item>
+    );
+
   return (
-    <div>
+    <Notebook.IndexTarget
+      id={indexSessionId ? notebookTargetId(indexSessionId, 'attachment', part.id) : undefined}
+      tabIndex={indexSessionId ? -1 : undefined}
+    >
       <Desk.AttachmentCard
         name={part.sourceName}
         meta={
-          material.data
+          source.data
             ? meta
-            : `${meta} · ${t(part.sourceId === null ? 'ReaderOriginalUnavailable' : material.error ? 'Retry' : 'SessionPending')}`
+            : `${meta} · ${t(part.sourceId === null ? 'ReaderOriginalUnavailable' : source.error ? 'Retry' : 'SessionPending')}`
         }
         icon={<Icon size={22} aria-hidden="true" />}
         tone={tone}
@@ -65,16 +102,16 @@ function AttachmentCard({
         }
         render={attachmentTarget({
           part,
-          material: material.data,
-          retry: () => void material.refetch(),
-          failed: !!material.error,
-          onOpenDocument
+          source: source.data,
+          retry: () => void source.refetch(),
+          failed: !!source.error,
+          onOpenSource
         })}
       />
-      {material.error && (
-        <SessionReadError error={material.error} retry={() => void material.refetch()} />
+      {source.error && (
+        <SessionReadError error={source.error} retry={() => void source.refetch()} />
       )}
-    </div>
+    </Notebook.IndexTarget>
   );
 }
 
@@ -102,24 +139,24 @@ function SourcePreview({ part }: { part: MessagePart }) {
 
 function attachmentTarget({
   part,
-  material,
+  source,
   retry,
   failed,
-  onOpenDocument
+  onOpenSource
 }: {
   part: MessagePart;
-  material?: MaterialSummaryDto;
+  source?: { id: SourceId; name: string };
   retry: () => void;
   failed: boolean;
-  onOpenDocument?: (material: MaterialSummaryDto) => void;
+  onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
-  if (!material)
+  if (!source)
     return <button type="button" aria-label={part.sourceName} disabled={!failed} onClick={retry} />;
 
-  if (onOpenDocument && ['document', 'text', 'note'].includes(part.sourceKind))
+  if (onOpenSource)
     return (
-      <button type="button" aria-label={part.sourceName} onClick={() => onOpenDocument(material)} />
+      <button type="button" aria-label={part.sourceName} onClick={() => onOpenSource(source)} />
     );
 
-  return <Link to="/materials/$materialId" params={{ materialId: String(material.id) }} />;
+  return <Link to="/sources/$sourceId" params={{ sourceId: String(source.id) }} />;
 }

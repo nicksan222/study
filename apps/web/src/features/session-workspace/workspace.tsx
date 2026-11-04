@@ -11,6 +11,7 @@ import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
 import { useAttachments } from './attachments';
 import { SessionDeletion, SessionDeleteDialog } from './deletion';
 import type { Draft } from './draft';
+import { SessionLayoutControls } from './session-layout-controls';
 import {
   deletionOptions,
   deletionAttemptOptions,
@@ -111,7 +112,9 @@ function SessionBody({ id }: { id: SessionId }) {
             if (editable && canAttachDraft(draft)) files.add(Array.from(event.dataTransfer.files));
           }}
         >
-          <WorkspaceHeader owner={owner} title={state.data?.title} />
+          <WorkspaceHeader owner={owner} title={state.data?.title}>
+            {editable && <SessionLayoutControls id={id} />}
+          </WorkspaceHeader>
           {deletion.data && <SessionDeletion id={id} />}
           <SessionFeedback state={state} deletion={deletion} />
           {editable && <SessionWorkbench id={id} onDelete={() => setDeleteDialogOpen(true)} />}

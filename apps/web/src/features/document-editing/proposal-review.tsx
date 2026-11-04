@@ -1,4 +1,4 @@
-import type { documentProposalOutcomeSchema } from '@study/contracts/materials/editing';
+import type { proposalOutcomeSchema } from '@study/contracts/documents/editing';
 import { Button } from '@study/ui/button';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
@@ -6,12 +6,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { versionOptions } from '#web/lib/study-client/materials.queries.ts';
+import { documentVersionOptions } from '#web/lib/study-client/documents.queries.ts';
 
 import { ComparisonView } from './document-actions';
 import { useProposalReview } from './proposal-review.queries';
 
-type Outcome = typeof documentProposalOutcomeSchema.Type;
+type Outcome = typeof proposalOutcomeSchema.Type;
 
 /** Session result cards supply their committed request identity. */
 type ProposalView = ReturnType<typeof useProposalReview>;
@@ -52,13 +52,13 @@ export function ProposalReview({ requestId }: { requestId: string }) {
 
 function ProposalResult({ versionId }: { versionId: NonNullable<Outcome['resultVersionId']> }) {
   const { t } = useI18n();
-  const version = useQuery(versionOptions(versionId));
+  const version = useQuery(documentVersionOptions(versionId));
 
-  return version.data && !version.isError ? (
+  return version.isSuccess && version.data ? (
     <Link
-      to="/materials/$materialId"
-      params={{ materialId: String(version.data.material_id) }}
-      search={{ version: String(versionId) }}
+      to="/documents/$documentId"
+      params={{ documentId: String(version.data.documentId) }}
+      search={{ documentVersion: String(versionId) }}
     >
       {t('SessionOpenOutput')}
     </Link>
@@ -72,7 +72,7 @@ function ProposalActions({ view }: { view: ProposalView }) {
 
   return (
     <>
-      {comparison.data && (
+      {comparison.isSuccess && (
         <>
           <ComparisonView value={comparison.data} />
           <Button

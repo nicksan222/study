@@ -1,3 +1,4 @@
+import { studyDocumentIdSchema, sourceIdSchema, sessionIdSchema } from '@study/contracts/ids';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -309,7 +310,7 @@ testStable(
   async () => {
     const rpc = materialRpc();
 
-    rpc['system.materialSearch'].mockReturnValue(
+    rpc['system.search'].mockReturnValue(
       Effect.succeed({
         semantic: false,
         hits: [
@@ -322,7 +323,7 @@ testStable(
               type: 'material',
               materialId: materialId('41'),
               versionId: versionId('101'),
-              materialKind: 'link'
+              materialKind: 'diagram'
             }
           }
         ]
@@ -344,7 +345,7 @@ testStable(
     await user.click(hit);
     await locationIs(router, '/materials/41');
     expect(router.state.location.search).toMatchObject({ project: '3', version: '101' });
-    await screen.findByText('Historical extraction');
+    await screen.findByText(/Historical extraction/);
     await act(async () => {
       history.back();
     });
@@ -356,7 +357,7 @@ testStable(
       expect(screen.getByRole('link', { name: 'Exact historical hit' })).toHaveFocus()
     );
     expect(main.scrollTop).toBe(455);
-    expect(rpc['system.materialSearch']).toHaveBeenCalledExactlyOnceWith({
+    expect(rpc['system.search']).toHaveBeenCalledExactlyOnceWith({
       query: 'old passage',
       limit: 30
     });
@@ -364,11 +365,10 @@ testStable(
 );
 
 testStable(
-  'opens accepted imports using the canonical relation even when absent from loaded Library pages',
+  'opens accepted uploads directly as Sources even when absent from loaded Library pages',
   async () => {
     const rpc = materialRpc();
 
-    rpc['materials.importedMaterial'].mockReturnValue(Effect.succeed(summary(99n)));
     mountLibraryRoute('/library', rpc);
     const user = userEvent.setup();
 
@@ -376,10 +376,58 @@ testStable(
     await acceptImport(user);
     expect(
       await screen.findByRole('link', { name: catalogs.english.LibraryOpenAccepted })
-    ).toHaveAttribute('href', '/materials/99');
-    expect(rpc['materials.importedMaterial']).toHaveBeenCalledExactlyOnceWith({
-      sourceId: importedSource.id
-    });
+    ).toHaveAttribute('href', `/sources/${importedSource.id}`);
     expect(screen.queryByRole('link', { name: /Material 99/ })).toBeNull();
+  }
+);
+
+testStable(
+  'searches authored outputs, sources and raw sessions through their distinct owning routes',
+  async () => {
+    const rpc = materialRpc();
+    rpc['system.search'].mockReturnValue(
+      Effect.succeed({
+        semantic: false,
+        hits: [
+          {
+            kind: 'document',
+            title: 'Authored output',
+            at: 1n,
+            target: { type: 'document', documentId: studyDocumentIdSchema.make(41n) }
+          },
+          {
+            kind: 'source',
+            title: 'Original upload',
+            at: 1n,
+            target: { type: 'source', sourceId: sourceIdSchema.make(41n) }
+          },
+          {
+            kind: 'session',
+            title: 'Raw conversation',
+            at: 1n,
+            target: { type: 'session', sessionId: sessionIdSchema.make(41n) }
+          }
+        ]
+      })
+    );
+    mountLibraryRoute('/library?project=3', rpc);
+    const user = userEvent.setup();
+    await user.type(
+      await screen.findByRole('textbox', { name: catalogs.english.LibraryGlobalSearch }),
+      'evidence'
+    );
+    await user.click(screen.getByRole('button', { name: catalogs.english.LibrarySearchAction }));
+    expect(await screen.findByRole('link', { name: 'Authored output' })).toHaveAttribute(
+      'href',
+      '/documents/41?project=3'
+    );
+    expect(screen.getByRole('link', { name: 'Original upload' })).toHaveAttribute(
+      'href',
+      '/sources/41?project=3'
+    );
+    expect(screen.getByRole('link', { name: 'Raw conversation' })).toHaveAttribute(
+      'href',
+      '/sessions/41?project=3'
+    );
   }
 );

@@ -1,10 +1,10 @@
-import type { exportFormatSchema } from '@study/contracts/materials/export';
+import type { learningExportFormatSchema } from '@study/contracts/materials/export';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { downloadFile } from '@study/ui/download';
 
 import { request } from '#web/lib/study-client/request.ts';
 
-type Format = typeof exportFormatSchema.Type;
+type Format = typeof learningExportFormatSchema.Type;
 
 /** Only offers serializers supported by the selected version's retained content. */
 export function availableExportFormats(version: MaterialVersionDetailDto): Format[] {
@@ -13,9 +13,6 @@ export function availableExportFormats(version: MaterialVersionDetailDto): Forma
   if (content.kind === 'flashcards' || content.kind === 'quiz') return ['aid_json', 'csv'];
 
   if (content.kind === 'diagram') return ['aid_json'];
-
-  if (content.kind === 'document' || ('extracted' in content && content.extracted))
-    return ['markdown', 'html'];
 
   return [];
 }

@@ -1,14 +1,26 @@
+import type { VersionId } from '@study/contracts/ids';
+import type { StaticMessageKey } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ChatMessageActionToolbar } from '@study/ui/chat';
+import {
+  Dialog,
+  DialogPopup,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@study/ui/dialog';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
+import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
+import { WorkspaceSurface } from '@study/ui/workspace';
 import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { useMessageActions } from './message-actions.queries';
+import { MessageVersionStepper } from './message-version-stepper';
 import { NoteEditor } from './note-editor';
 import { ExecutionStatus, SessionError } from './status';
 
@@ -16,87 +28,179 @@ type MessageActionsModel = ReturnType<typeof useMessageActions>;
 
 export function MessageActions({
   children,
+  onVersionChange,
   ...props
-}: Parameters<typeof useMessageActions>[0] & { children?: ReactNode }) {
+}: Parameters<typeof useMessageActions>[0] & {
+  children?: ReactNode;
+  onVersionChange?: (id: VersionId) => void;
+}) {
   const model = useMessageActions(props);
   const { draft } = model;
 
   return (
     <>
-      {draft.mode !== 'edit' && children}
-      <MessageToolbar model={model} />
-      {draft.mode && <MessageEditor model={model} />}
-      <MessageRecovery model={model} />
+      {children}
+      <MessageToolbar model={model} onVersionChange={onVersionChange} />
+      <MessageEditDialog model={model} />
+      {!draft.mode && <MessageRecovery model={model} />}
     </>
   );
 }
 
-function MessageToolbar({ model }: { model: MessageActionsModel }) {
-  const { message, t, active, blocked, open } = model;
+function MessageToolbar({
+  model,
+  onVersionChange
+}: {
+  model: MessageActionsModel;
+  onVersionChange?: (id: VersionId) => void;
+}) {
+  const { message, t, active, draft } = model;
+  return (
+    <ChatMessageActionToolbar
+      aria-label={t('SessionItemActions')}
+      data-open={!!draft.mode || undefined}
+    >
+      {message.role === 'user' && (
+        <MessageActionButton
+          model={model}
+          mode="edit"
+          disabled={!active}
+          label="SessionEditNote"
+          icon={<Pencil size={15} aria-hidden="true" />}
+        />
+      )}
+      {onVersionChange && (
+        <MessageVersionStepper
+          message={message}
+          versionId={model.versionId}
+          disabled={model.blocked || !!draft.mode}
+          onChange={onVersionChange}
+        />
+      )}
+      <>
+        <MessageActionButton
+          model={model}
+          mode="improve"
+          disabled={!active}
+          label="SessionImprove"
+          icon={<Sparkles size={15} aria-hidden="true" />}
+        />
+        <MessageActionButton
+          model={model}
+          mode="summarize"
+          disabled={!active}
+          label="SessionSummarize"
+          icon={<AlignLeft size={15} aria-hidden="true" />}
+        />
+        <MessageActionButton
+          model={model}
+          mode="instruction"
+          disabled={!active}
+          label="SessionCustomTransform"
+          icon={<SlidersHorizontal size={15} aria-hidden="true" />}
+        />
+      </>
+      <MessageActionButton
+        model={model}
+        mode="activate"
+        disabled={active}
+        label="SessionUseVersion"
+        icon={<Check size={15} aria-hidden="true" />}
+      />
+    </ChatMessageActionToolbar>
+  );
+}
+function MessageActionButton({
+  model,
+  mode,
+  label,
+  icon,
+  disabled = false
+}: {
+  model: MessageActionsModel;
+  mode: Parameters<MessageActionsModel['open']>[0];
+  label: StaticMessageKey;
+  icon: ReactNode;
+  disabled?: boolean;
+}) {
+  const help: Partial<Record<NonNullable<MessageActionsModel['draft']['mode']>, StaticMessageKey>> =
+    {
+      edit: 'SessionEditHelp',
+      improve: 'SessionImproveHelp',
+      summarize: 'SessionSummarizeHelp',
+      instruction: 'SessionCustomTransformHelp',
+      activate: 'SessionActivateHelp'
+    };
 
   return (
-    <>
-      <ChatMessageActionToolbar aria-label={t('SessionItemActions')}>
-        {active && (
-          <>
-            {message.role === 'user' && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={blocked}
-                onClick={() => open('edit')}
-                title={t('SessionEditNote')}
-              >
-                <Pencil size={15} aria-hidden="true" />
-                <Notebook.ActionLabel>{t('SessionEditNote')}</Notebook.ActionLabel>
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={blocked}
-              onClick={() => open('improve')}
-              title={t('SessionImprove')}
-            >
-              <Sparkles size={15} aria-hidden="true" />
-              <Notebook.ActionLabel>{t('SessionImprove')}</Notebook.ActionLabel>
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={blocked}
-              onClick={() => open('summarize')}
-              title={t('SessionSummarize')}
-            >
-              <AlignLeft size={15} aria-hidden="true" />
-              <Notebook.ActionLabel>{t('SessionSummarize')}</Notebook.ActionLabel>
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={blocked}
-              onClick={() => open('instruction')}
-              title={t('SessionCustomTransform')}
-            >
-              <SlidersHorizontal size={15} aria-hidden="true" />
-              <Notebook.ActionLabel>{t('SessionCustomTransform')}</Notebook.ActionLabel>
-            </Button>
-          </>
-        )}
-        {!active && (
+    <Tooltip>
+      <TooltipTrigger
+        render={
           <Button
             size="sm"
             variant="ghost"
-            disabled={blocked}
-            onClick={() => open('activate')}
-            title={t('SessionUseVersion')}
-          >
-            <Check size={15} aria-hidden="true" />
-            <Notebook.ActionLabel>{t('SessionUseVersion')}</Notebook.ActionLabel>
-          </Button>
-        )}
-      </ChatMessageActionToolbar>
-    </>
+            disabled={disabled || model.blocked || !!model.draft.mode}
+            onClick={() => model.open(mode)}
+          />
+        }
+      >
+        {icon}
+        <Notebook.ActionLabel>{model.t(label)}</Notebook.ActionLabel>
+      </TooltipTrigger>
+      <TooltipPopup>{model.t(help[mode] ?? label)}</TooltipPopup>
+    </Tooltip>
+  );
+}
+
+function MessageEditDialog({ model }: { model: MessageActionsModel }) {
+  const { draft, t, patch } = model;
+  const labels = {
+    edit: 'SessionEditNote',
+    improve: 'SessionImprove',
+    summarize: 'SessionSummarize',
+    instruction: 'SessionCustomTransform',
+    activate: 'SessionUseVersion',
+    ask: 'SessionAsk',
+    answer: 'SessionReply'
+  } as const;
+  return (
+    <Dialog
+      open={!!draft.mode}
+      onOpenChange={(open) => {
+        if (!open && !draft.attempt) patch({ mode: undefined });
+      }}
+    >
+      <DialogPopup
+        closeLabel={t('Close')}
+        variant="workspace-context"
+        showCloseButton={!draft.attempt}
+        finalFocus={model.launcher}
+        initialFocus={() =>
+          model.editor.current?.querySelector<HTMLElement>('[contenteditable="true"], textarea') ??
+          model.editor.current?.querySelector<HTMLElement>('button:not(:disabled)') ??
+          null
+        }
+      >
+        <DialogHeader>
+          <DialogTitle>{t(draft.mode ? labels[draft.mode] : 'SessionItemActions')}</DialogTitle>
+          <DialogDescription>
+            {t(
+              draft.mode === 'edit'
+                ? 'SessionEditHelp'
+                : draft.mode === 'activate'
+                  ? 'SessionActivateHelp'
+                  : messageScope(draft.mode)
+            )}
+            {' · '}
+            {t('ReaderVersion')} {String(draft.targetNumber ?? '')}
+          </DialogDescription>
+        </DialogHeader>
+        <WorkspaceSurface.ContextDialogBody>
+          <MessageEditor model={model} />
+          <MessageRecovery model={model} />
+        </WorkspaceSurface.ContextDialogBody>
+      </DialogPopup>
+    </Dialog>
   );
 }
 
@@ -106,9 +210,6 @@ function MessageEditor({ model }: { model: MessageActionsModel }) {
   return (
     <>
       <Notebook.ItemEditor ref={editor} aria-label={t('SessionItemActions')}>
-        <Notebook.Muted>
-          {t(messageScope(draft.mode))} · {t('ReaderVersion')} {String(draft.targetNumber ?? '')}
-        </Notebook.Muted>
         {draft.mode !== 'edit' && (
           <Notebook.TargetPreview>{draft.targetText}</Notebook.TargetPreview>
         )}

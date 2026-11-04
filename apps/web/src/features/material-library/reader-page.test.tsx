@@ -18,7 +18,7 @@ import { expect, vi } from 'vite-plus/test';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 
 import { materialId, versionId } from './identity';
-import { importedSource, importedVersion, materialRpc, mountLibraryRoute } from './test/support';
+import { importedSource, learningVersion, materialRpc, mountLibraryRoute } from './test/support';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
@@ -27,130 +27,18 @@ testStable(
   async () => {
     const rpc = materialRpc();
 
-    rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(importedVersion(101n, 99n)));
+    rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(learningVersion(101n, 99n)));
     mountLibraryRoute('/materials/41?version=101', rpc);
     expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
       catalogs.english.ReaderUnavailable
     );
-    expect(screen.queryByText('Historical extraction')).toBeNull();
-    expect(screen.queryByText('Current extraction 41')).toBeNull();
+    expect(screen.queryByText(/Historical extraction/)).toBeNull();
+    expect(screen.queryByText(/Current extraction 41/)).toBeNull();
     expect(screen.queryByRole('button', { name: catalogs.english.ReaderOriginal })).toBeNull();
     expect(rpc['materials.materialVersion']).toHaveBeenCalledExactlyOnceWith({
       id: versionId('101')
     });
-    expect(rpc['materials.materialVersionDocument']).not.toHaveBeenCalled();
-    expect(rpc['materials.materialVersionImage']).not.toHaveBeenCalled();
-    expect(rpc['materials.materialVersionExport']).not.toHaveBeenCalled();
     expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
-  }
-);
-
-testStable(
-  'keeps unavailable historical extraction unavailable without falling back to current content or bytes',
-  async () => {
-    const rpc = materialRpc();
-
-    rpc['materials.materialVersion'].mockReturnValue(
-      Effect.fail(new StudyError('not_found', 'Revision unavailable'))
-    );
-    mountLibraryRoute('/materials/41?version=101', rpc);
-    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-      catalogs.english.ReaderUnavailable
-    );
-    expect(screen.queryByText('Current extraction 41')).toBeNull();
-    expect(screen.queryByRole('button', { name: catalogs.english.ReaderOriginal })).toBeNull();
-    expect(rpc['materials.materialVersion']).toHaveBeenCalledExactlyOnceWith({
-      id: versionId('101')
-    });
-    expect(rpc['materials.materialVersionDocument']).not.toHaveBeenCalled();
-    expect(rpc['materials.materialVersionImage']).not.toHaveBeenCalled();
-    expect(rpc['materials.materialVersionExport']).not.toHaveBeenCalled();
-    expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
-  }
-);
-
-testStable(
-  'exports the selected historical version with its exact retained bytes, MIME and filename',
-  async () => {
-    const rpc = materialRpc();
-    const bytes = new Uint8Array([0, 128, 255]);
-
-    rpc['materials.materialVersionExport'].mockReturnValue(
-      Effect.succeed({ source: importedSource, bytes })
-    );
-    const createObjectURL = vi
-      .fn<(blob: Blob) => string>()
-      .mockReturnValue('blob:historical-original');
-    const revokeObjectURL = vi.fn();
-
-    vi.stubGlobal(
-      'URL',
-      class extends URL {
-        static createObjectURL = createObjectURL;
-        static revokeObjectURL = revokeObjectURL;
-      }
-    );
-    let delivery: { href: string; filename: string } | undefined;
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
-      this: HTMLAnchorElement
-    ) {
-      delivery = { href: this.href, filename: this.download };
-    });
-
-    try {
-      mountLibraryRoute('/materials/41?version=101', rpc);
-      await screen.findByText('Historical extraction');
-      expect(screen.queryByText('Current extraction 41')).toBeNull();
-      const original = screen.getByRole('button', { name: catalogs.english.ReaderOriginal });
-
-      await userEvent.setup().click(original);
-      await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
-      const blob = createObjectURL.mock.calls[0]![0];
-
-      expect(blob.type).toBe(importedSource.mime);
-      const retained = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsArrayBuffer(blob);
-      });
-
-      expect(new Uint8Array(retained)).toEqual(bytes);
-      expect(delivery).toEqual({ href: 'blob:historical-original', filename: importedSource.name });
-      expect(rpc['materials.materialVersionExport']).toHaveBeenCalledExactlyOnceWith({
-        id: versionId('101')
-      });
-      expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
-      await waitFor(() => expect(original).toBeEnabled(), { timeout: 2500 });
-      expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:historical-original');
-    } finally {
-      click.mockRestore();
-      vi.unstubAllGlobals();
-    }
-  }
-);
-
-testStable(
-  'reports an unavailable historical original without requesting a current-version or Source fallback',
-  async () => {
-    const rpc = materialRpc();
-
-    rpc['materials.materialVersionExport'].mockReturnValue(
-      Effect.fail(new StudyError('not_found', 'Original unavailable'))
-    );
-    mountLibraryRoute('/materials/41?version=101', rpc);
-    const original = await screen.findByRole('button', { name: catalogs.english.ReaderOriginal });
-
-    await userEvent.setup().click(original);
-    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-      catalogs.english.ReaderOriginalUnavailable
-    );
-    expect(rpc['materials.materialVersionExport']).toHaveBeenCalledExactlyOnceWith({
-      id: versionId('101')
-    });
-    expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
-    expect(screen.getByText('Historical extraction')).toBeInTheDocument();
   }
 );
 
@@ -159,8 +47,8 @@ testStable(
   async () => {
     const rpc = materialRpc();
     const decode = Schema.decodeUnknownSync(materialVersionSummarySchema);
-    const current = decode(importedVersion(102n));
-    const old = decode({ ...importedVersion(), availability: 'unavailable' });
+    const current = decode(learningVersion(102n));
+    const old = decode({ ...learningVersion(), availability: 'unavailable' });
 
     rpc['materials.materialVersions']
       .mockReturnValueOnce(Effect.succeed({ items: [current], nextCursor: versionId('102') }))
@@ -168,12 +56,12 @@ testStable(
     rpc['materials.materialVersion'].mockImplementation(({ id }) =>
       id === versionId('101')
         ? Effect.fail(new StudyError('not_found', 'Historical version unavailable'))
-        : Effect.succeed(importedVersion(102n, 41n, 'Current extraction 41'))
+        : Effect.succeed(learningVersion(102n, 41n, 'Current extraction 41'))
     );
     const { router } = mountLibraryRoute('/materials/41?project=3', rpc);
     const user = userEvent.setup();
 
-    await screen.findByText('Current extraction 41');
+    await screen.findByText(/Current extraction 41/);
     expect(rpc['materials.materialVersions']).not.toHaveBeenCalled();
     const summary = screen.getByText(catalogs.english.ReaderHistory);
 
@@ -201,7 +89,7 @@ testStable(
       catalogs.english.ReaderUnavailable
     );
     expect(router.state.location.search).toMatchObject({ project: '3', version: '101' });
-    expect(screen.queryByText('Current extraction 41')).toBeNull();
+    expect(screen.queryByText(/Current extraction 41/)).toBeNull();
     expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
   }
 );
@@ -209,9 +97,9 @@ testStable(
 testStable('preserves the collection while moving from historical to current content', async () => {
   const { router } = mountLibraryRoute('/materials/41?project=3&version=101');
 
-  await screen.findByText('Historical extraction');
+  await screen.findByText(/Historical extraction/);
   await userEvent.setup().click(screen.getByRole('link', { name: catalogs.english.ReaderCurrent }));
-  await screen.findByText('Current extraction 41');
+  await screen.findByText(/Current extraction 41/);
   expect(router.state.location.search).toMatchObject({ project: '3', version: '102' });
 });
 
@@ -257,7 +145,7 @@ testStable(
     mountLibraryRoute('/materials/41', rpc);
     const user = userEvent.setup();
 
-    await screen.findByText('Current extraction 41');
+    await screen.findByText(/Current extraction 41/);
     const actions = screen.getByText(catalogs.english.ReaderActions, { selector: 'summary' });
 
     expect(actions.closest('details')).not.toHaveAttribute('open');
@@ -289,11 +177,10 @@ testStable(
     );
 
     await recovery.findByText(catalogs.english.DocumentCleanupPending);
-    expect(screen.queryByText('Current extraction 41')).toBeNull();
+    expect(screen.queryByText(/Current extraction 41/)).toBeNull();
     expect(rpc['materials.requestDeletion']).toHaveBeenCalledExactlyOnceWith({
       materialId: materialId('41'),
-      token: 'delete-preview',
-      descendantIds: []
+      token: 'delete-preview'
     });
     rpc['materials.deletion'].mockReturnValue(
       Effect.succeed({ ...operation, status: 'completed', phase: 'completed', completedAt: 2n })
@@ -302,51 +189,6 @@ testStable(
     await recovery.findByText(catalogs.english.DocumentCleanupCompleted);
     expect(rpc['materials.requestDeletion']).toHaveBeenCalledTimes(1);
     expect(rpc['materials.retryDeletion']).not.toHaveBeenCalled();
-  }
-);
-
-testStable(
-  'exports the selected version using the configured format and server filename',
-  async () => {
-    const rpc = materialRpc();
-
-    rpc['settings.workspacePreferences'].mockReturnValue(
-      Effect.succeed({ ...defaultWorkspacePreferences, defaultExportFormat: 'html' })
-    );
-    rpc['materials.exportMaterialVersion'].mockReturnValue(
-      Effect.succeed({
-        versionId: versionId('101'),
-        format: 'html',
-        filename: 'my-notes.html',
-        mediaType: 'text/html; charset=utf-8',
-        bytes: new TextEncoder().encode('<p>Notes</p>'),
-        omissions: []
-      })
-    );
-    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:export-notes');
-
-    mountLibraryRoute('/materials/41?version=101', rpc);
-    const button = await screen.findByRole('button', { name: catalogs.english.ExportDownload });
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole('combobox', { name: catalogs.english.ExportFormat })
-      ).toHaveTextContent(catalogs.english.ExportHtml)
-    );
-    await userEvent.click(button);
-    await waitFor(() =>
-      expect(rpc['materials.exportMaterialVersion']).toHaveBeenCalledWith({
-        id: versionId('101'),
-        format: 'html'
-      })
-    );
-    await waitFor(() => expect(download).toHaveBeenCalled());
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'text/html; charset=utf-8' })
-    );
-    download.mockRestore();
-    create.mockRestore();
   }
 );
 
@@ -359,7 +201,7 @@ testStable('reports CSV structure loss without an unrelated image warning', asyn
   rpc['materials.materialVersion'].mockReturnValue(
     Effect.succeed(
       Schema.decodeUnknownSync(materialVersionDetailSchema)({
-        ...importedVersion(),
+        ...learningVersion(),
         kind: 'flashcards',
         content: { kind: 'flashcards', cards: [] }
       })

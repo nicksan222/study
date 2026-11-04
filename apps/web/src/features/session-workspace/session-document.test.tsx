@@ -1,15 +1,14 @@
 import { StudyError } from '@study/contracts/errors';
-import { sessionIdSchema, materialVersionIdSchema } from '@study/contracts/ids';
-import { materialDetailSchema } from '@study/contracts/materials/schemas';
+import { sessionIdSchema, studyDocumentVersionIdSchema } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, cleanup } from '@testing-library/react';
-import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { blankDocument } from '../document-editing';
+import { authoredDocument } from '../document-editing/test-support';
 import {
   useSessionDocumentCreation,
   useSessionDocumentAutosave,
@@ -26,10 +25,10 @@ const api = vi.hoisted(() => ({
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
     invoke({
-      'materials.createManualDocument': api.create,
-      'materials.saveDocument': api.save,
-      'materials.material': api.material,
-      'materials.materials': api.list
+      'documents.create': api.create,
+      'documents.save': api.save,
+      'documents.document': api.material,
+      'documents.documents': api.list
     })
 }));
 
@@ -40,38 +39,7 @@ const document = (text: string) => ({
   blocks: [plainBlock('paragraph', text, { type: 'authored' })]
 });
 
-function material(text = '', versionId = 10n) {
-  const version = {
-    id: versionId,
-    material_id: 2n,
-    number: versionId,
-    operation: 'original',
-    creator: 'user',
-    instruction: null,
-    language: null,
-    created_at: 1n,
-    published_at: 1n,
-    status: 'published',
-    inputs: [],
-    parents: [],
-    kind: 'document',
-    content: { kind: 'document', ...document(text) }
-  };
-
-  return Schema.decodeUnknownSync(materialDetailSchema)({
-    id: 2n,
-    projectIds: [],
-    kind: 'document',
-    title: 'New document',
-    description: null,
-    created_at: 1n,
-    updated_at: 1n,
-    archived_at: null,
-    version,
-    latestPublishedVersion: version,
-    latestDraftVersion: null
-  });
-}
+const material = (text = '', versionId = 10n) => authoredDocument(2n, text, versionId);
 
 const caches: QueryClient[] = [];
 
@@ -138,7 +106,7 @@ testStable(
   async () => {
     let finish!: (value: {
       outcome: 'saved';
-      submittedVersionId: ReturnType<typeof materialVersionIdSchema.make>;
+      submittedVersionId: ReturnType<typeof studyDocumentVersionIdSchema.make>;
     }) => void;
 
     api.save
@@ -149,7 +117,7 @@ testStable(
       )
       .mockResolvedValue({
         outcome: 'saved',
-        submittedVersionId: materialVersionIdSchema.make(12n)
+        submittedVersionId: studyDocumentVersionIdSchema.make(12n)
       });
     const initial = material();
     const view = mount(() => useSessionDocumentAutosave(initial));
@@ -161,14 +129,14 @@ testStable(
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(api.save.mock.calls[0]![0]).toMatchObject({
-      materialId: initial.id,
-      expectedVersionId: initial.version.id,
+      documentId: initial.id,
+      expectedVersionId: initial.version!.id,
       document: first
     });
     act(() => view.result.current.change(last));
     view.unmount();
     await act(async () => {
-      finish({ outcome: 'saved', submittedVersionId: materialVersionIdSchema.make(11n) });
+      finish({ outcome: 'saved', submittedVersionId: studyDocumentVersionIdSchema.make(11n) });
     });
     expect(api.save).toHaveBeenCalledTimes(2);
     expect(api.save.mock.calls[1]![0]).toMatchObject({ document: last, expectedVersionId: 11n });
@@ -182,7 +150,7 @@ testStable(
       .mockRejectedValueOnce(new StudyError('transient', 'lost receipt'))
       .mockResolvedValueOnce({
         outcome: 'saved',
-        submittedVersionId: materialVersionIdSchema.make(11n)
+        submittedVersionId: studyDocumentVersionIdSchema.make(11n)
       });
     const initial = material();
     const view = mount(() => useSessionDocumentAutosave(initial));
@@ -204,7 +172,7 @@ testStable(
 testStable('retains local edits on conflict until the user selects the saved version', async () => {
   api.save.mockResolvedValue({
     outcome: 'conflict',
-    submittedVersionId: materialVersionIdSchema.make(12n)
+    submittedVersionId: studyDocumentVersionIdSchema.make(12n)
   });
   const incoming = material('Another editor', 11n);
 

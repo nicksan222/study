@@ -1,18 +1,9 @@
 import type { SourceId } from '@study/contracts/ids';
 import { useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { request } from '#web/lib/study-client/request.ts';
-
-export const attachmentSourceOptions = (id: SourceId | null) =>
-  queryOptions({
-    queryKey: ['sources', 'detail', String(id)],
-    enabled: id !== null,
-    queryFn: ({ signal }) => request((rpc) => rpc['sources.source']({ id: id! }), signal),
-    retry: false,
-    staleTime: 30_000
-  });
 
 export function useAttachmentMedia(id: SourceId | null, enabled: boolean) {
   const state = useQuery({

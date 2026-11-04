@@ -1,5 +1,6 @@
+import { createSchema } from '@study/contracts/documents/editing';
 import { StudyError } from '@study/contracts/errors';
-import { createManualDocumentSchema } from '@study/contracts/materials/editing';
+import { studyDocumentIdSchema } from '@study/contracts/ids';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -7,14 +8,13 @@ import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import { materialId, collectionId } from '../material-library/identity';
-import { materialsOptions } from '../material-library/material-library.queries';
-import {
-  deferred,
-  materialRpc,
-  mountLibraryRoute,
-  summary
-} from '../material-library/test/support';
+import { collectionId } from '../material-library/identity';
+import { authoredDocument } from './test-support';
+const materialId = (id: string) => studyDocumentIdSchema.make(BigInt(id));
+const summary = (id = 41n) => ({ ...authoredDocument(id), title: `Material ${id}` });
+import { documentsOptions as materialsOptions } from '#web/lib/study-client/documents.queries.ts';
+
+import { deferred, materialRpc, mountLibraryRoute } from '../material-library/test/support';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
@@ -54,16 +54,16 @@ testStable(
   async () => {
     const rpc = materialRpc();
 
-    rpc['materials.createManualDocument'].mockReturnValue(
+    rpc['documents.create'].mockReturnValue(
       Effect.fail(new StudyError('internal', 'Response lost'))
     );
     const { router } = mountLibraryRoute('/library', rpc);
     const user = userEvent.setup();
 
     await loseCreation(user);
-    const input = rpc['materials.createManualDocument'].mock.calls[0]![0];
+    const input = rpc['documents.create'].mock.calls[0]![0];
 
-    expect(Schema.decodeUnknownSync(createManualDocumentSchema)(input)).toEqual(input);
+    expect(Schema.decodeUnknownSync(createSchema)(input)).toEqual(input);
     expect(input).toMatchObject({
       title: 'Submitted A',
       document: {
@@ -105,10 +105,10 @@ testStable(
     await waitFor(() => expect(create()).toBeEnabled());
     expect(screen.queryByRole('region', { name: copy.DocumentCreationSubmitted })).toBeNull();
     expect(screen.getByRole('textbox', { name: copy.DocumentTitle })).toHaveValue('Draft B');
-    expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(1);
+    expect(rpc['documents.create']).toHaveBeenCalledTimes(1);
     await user.click(create());
     await screen.findByText(copy.DocumentCreateUncertain);
-    const next = rpc['materials.createManualDocument'].mock.calls[1]![0];
+    const next = rpc['documents.create'].mock.calls[1]![0];
 
     expect(next.title).toBe('Draft B');
     expect(next.document.blocks[0]!.text).toBe('Unsent body B');
@@ -121,7 +121,7 @@ testStable(
   async () => {
     const rpc = materialRpc();
 
-    rpc['materials.createManualDocument'].mockReturnValue(
+    rpc['documents.create'].mockReturnValue(
       Effect.fail(new StudyError('internal', 'Response lost'))
     );
     const first = deferred<{
@@ -130,7 +130,7 @@ testStable(
     }>();
     const last = deferred<{ items: ReturnType<typeof summary>[]; nextCursor: null }>();
 
-    rpc['materials.materials'].mockImplementation(({ projectId, cursor }) =>
+    rpc['documents.documents'].mockImplementation(({ projectId, cursor }) =>
       projectId
         ? Effect.succeed({ items: [summary(41n)], nextCursor: null })
         : cursor
@@ -146,7 +146,7 @@ testStable(
     });
     expect(acknowledged()).toBeNull();
     expect(
-      rpc['materials.materials'].mock.calls.every(
+      rpc['documents.documents'].mock.calls.every(
         ([input]) => input.projectId === collectionId('3')
       )
     ).toBe(true);
@@ -159,7 +159,7 @@ testStable(
     });
     expect(await review().findByRole('link', { name: 'Material 61' })).toHaveAttribute(
       'href',
-      '/materials/61'
+      '/documents/61'
     );
     expect(acknowledged()).toBeNull();
     await user.click(review().getByRole('button', { name: copy.LibraryMore }));
@@ -171,11 +171,11 @@ testStable(
     });
     expect(await review().findByRole('link', { name: 'Submitted A' })).toHaveAttribute(
       'href',
-      '/materials/99'
+      '/documents/99'
     );
     await screen.findByRole('button', { name: copy.DocumentCreationReviewed });
     expect(
-      rpc['materials.materials'].mock.calls
+      rpc['documents.documents'].mock.calls
         .filter(([input]) => !input.projectId)
         .map(([input]) => input)
     ).toEqual([
@@ -193,7 +193,7 @@ testStable(
     await user.click(review().getByRole('button', { name: copy.LibraryRefresh }));
     await user.click(await screen.findByRole('button', { name: copy.DocumentCreationReviewed }));
     await waitFor(() => expect(create()).toBeEnabled());
-    expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(1);
+    expect(rpc['documents.create']).toHaveBeenCalledTimes(1);
   }
 );
 
@@ -202,12 +202,12 @@ testStable.each(['first', 'next'] as const)(
   async (failedPage) => {
     const rpc = materialRpc();
 
-    rpc['materials.createManualDocument'].mockReturnValue(
+    rpc['documents.create'].mockReturnValue(
       Effect.fail(new StudyError('internal', 'Response lost'))
     );
     let fail = true;
 
-    rpc['materials.materials'].mockImplementation(({ projectId, cursor }) => {
+    rpc['documents.documents'].mockImplementation(({ projectId, cursor }) => {
       if (projectId) return Effect.succeed({ items: [summary()], nextCursor: null });
 
       if (fail && (failedPage === 'first' || cursor))
@@ -239,6 +239,6 @@ testStable.each(['first', 'next'] as const)(
     await review().findByRole('link', { name: 'Material 99' });
     await screen.findByRole('button', { name: copy.DocumentCreationReviewed });
     expect(create()).toBeDisabled();
-    expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(1);
+    expect(rpc['documents.create']).toHaveBeenCalledTimes(1);
   }
 );

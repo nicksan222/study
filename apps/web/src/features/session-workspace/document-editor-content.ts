@@ -1,12 +1,12 @@
 import { sourceIdSchema } from '@study/contracts/ids';
-import type { materialDocumentSchema } from '@study/contracts/materials/schemas';
 import { createBlock } from '@study/contracts/sources/document';
+import type { documentSchema } from '@study/contracts/sources/schemas';
 import type { BlockContent, Inline } from '@study/contracts/sources/schemas';
 import { blockContentSchema } from '@study/contracts/sources/schemas';
 import type { StructuredEditorValue as Node } from '@study/ui/structured-editor';
 import { Schema } from 'effect';
 
-export type EditableDocument = typeof materialDocumentSchema.Type;
+export type EditableDocument = typeof documentSchema.Type;
 
 type ListContent = Extract<BlockContent, { type: 'list_item' }>;
 

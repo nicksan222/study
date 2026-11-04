@@ -1,4 +1,4 @@
-import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
+import type { StudyDocument } from '@study/contracts/documents/types';
 import { Button } from '@study/ui/button';
 import {
   Dialog,
@@ -21,7 +21,7 @@ import { DescriptionFooter } from './description-footer';
 import { useDocumentMetadata } from './session-document-metadata.queries';
 import { SessionError } from './status';
 
-export function DocumentMetadata({ material }: { material: MaterialDetailDto }) {
+export function DocumentMetadata({ document }: { document: StudyDocument }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
@@ -39,16 +39,16 @@ export function DocumentMetadata({ material }: { material: MaterialDetailDto }) 
           <DialogTitle>{t('DocumentEditing')}</DialogTitle>
           <DialogDescription>{t('SessionDescriptionHelp')}</DialogDescription>
         </DialogHeader>
-        {open && <MetadataForm material={material} onSaved={() => setOpen(false)} />}
+        {open && <MetadataForm document={document} onSaved={() => setOpen(false)} />}
       </DialogPopup>
     </Dialog>
   );
 }
 
-function MetadataForm({ material, onSaved }: { material: MaterialDetailDto; onSaved: () => void }) {
+function MetadataForm({ document, onSaved }: { document: StudyDocument; onSaved: () => void }) {
   const { t } = useI18n();
-  const { title, setTitle, description, setDescription, mutation } = useDocumentMetadata(material);
-  const fieldId = `document-description-${material.id}`;
+  const { title, setTitle, description, setDescription, mutation } = useDocumentMetadata(document);
+  const fieldId = `document-description-${document.id}`;
 
   return (
     <form

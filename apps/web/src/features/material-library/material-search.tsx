@@ -8,9 +8,10 @@ import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { searchResultKey, searchResultLocation } from '#web/lib/navigation/search-results.ts';
 
 import { librarySearches, libraryEntries, libraryReturn } from './browse-state';
-import { materialSearchOptions } from './material-library.queries';
+import { librarySearchOptions } from './material-library.queries';
 
 export function MaterialSearch({ rememberRow }: { rememberRow: (id: string) => void }) {
   const { t } = useI18n();
@@ -20,7 +21,7 @@ export function MaterialSearch({ rememberRow }: { rememberRow: (id: string) => v
   const [text, setText] = useState(() => librarySearches.get(scope)?.text ?? '');
   const [query, setQuery] = useState(() => librarySearches.get(scope)?.query ?? '');
   const restored = useRef(false);
-  const state = useQuery(materialSearchOptions(query));
+  const state = useQuery(librarySearchOptions(query));
 
   useEffect(() => {
     if (!state.data || restored.current) return;
@@ -79,20 +80,19 @@ export function MaterialSearch({ rememberRow }: { rememberRow: (id: string) => v
             />
           )}
           <ul>
-            {state.data?.hits.map((hit) => (
-              <li key={String(hit.target.materialId)}>
-                <Link
-                  to="/materials/$materialId"
-                  params={{ materialId: String(hit.target.materialId) }}
-                  search={{ project: search.project, version: String(hit.target.versionId) }}
-                  id={`search-hit-${hit.target.materialId}`}
-                  onClick={() => rememberRow(`search-hit-${hit.target.materialId}`)}
-                >
-                  {hit.title}
-                </Link>
-                <p>{hit.excerpt}</p>
-              </li>
-            ))}
+            {!state.isError &&
+              state.data?.hits.map((hit) => (
+                <li key={searchResultKey(hit)}>
+                  <Link
+                    {...searchResultLocation(hit, search.project)}
+                    id={`search-hit-${searchResultKey(hit)}`}
+                    onClick={() => rememberRow(`search-hit-${searchResultKey(hit)}`)}
+                  >
+                    {hit.title}
+                  </Link>
+                  <p>{hit.excerpt}</p>
+                </li>
+              ))}
           </ul>
         </>
       )}

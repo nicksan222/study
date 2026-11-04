@@ -10,6 +10,7 @@ import type {
 import type { sessionPageInputSchema } from '@study/contracts/conversations/rpc';
 import type { rewriteMessageInputSchema } from '@study/contracts/conversations/schemas';
 import type { askInputSchema } from '@study/contracts/conversations/schemas';
+import type { transformRequestSchema } from '@study/contracts/documents/transform';
 import type {
   SessionId,
   MessageId,
@@ -18,7 +19,6 @@ import type {
   SourceId,
   MaterialVersionId
 } from '@study/contracts/ids';
-import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
 import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
@@ -28,7 +28,7 @@ export type Selection = typeof sessionSelectionSchema.Type;
 
 export type AskInput = typeof askInputSchema.Type;
 
-export type TransformInput = typeof requestDocumentTransformInputSchema.Type;
+export type TransformInput = typeof transformRequestSchema.Type;
 
 type SessionCursor = (typeof sessionPageInputSchema.Type)['before'];
 
@@ -101,7 +101,7 @@ export const generationOptions = (requestId: string) =>
   queryOptions({
     queryKey: ['session-generation', requestId],
     queryFn: ({ signal }) =>
-      request((client) => client['materials.materialGeneration']({ requestId }), signal),
+      request((client) => client['documents.transform']({ requestId }), signal),
     refetchInterval: (query) =>
       query.state.data?.resultVersionId || query.state.data?.cancelled ? false : 3000
   });
@@ -157,26 +157,19 @@ export const captureContext = (input: typeof captureSessionContextSchema.Type) =
   request((client) => client['conversations.captureSessionContext'](input));
 
 export const transformDocument = (input: TransformInput) =>
-  request((client) => client['materials.requestDocumentTransform'](input));
+  request((client) => client['documents.requestTransform'](input));
 
 export const cancelGeneration = (requestId: string) =>
-  request((client) => client['materials.cancelMaterialGeneration']({ requestId }));
+  request((client) => client['documents.cancelTransform']({ requestId }));
 
 export const retryGeneration = (requestId: string, retryId: string) =>
-  request((client) => client['materials.retryMaterialGeneration']({ requestId, retryId }));
+  request((client) => client['documents.retryTransform']({ requestId, retryId }));
 
 export const deleteSession = (id: SessionId) =>
   request((client) => client['conversations.deleteSession']({ id }));
 
 export const retryDeletion = (id: SessionId) =>
   request((client) => client['conversations.retrySessionDeletion']({ id }));
-
-export const sessionDocumentOptions = (id: MaterialVersionId) =>
-  queryOptions({
-    queryKey: ['session-document', String(id)],
-    queryFn: ({ signal }) =>
-      request((client) => client['materials.materialVersionDocument']({ id }), signal)
-  });
 
 export const sessionMaterialSearchOptions = (query: string) =>
   queryOptions({

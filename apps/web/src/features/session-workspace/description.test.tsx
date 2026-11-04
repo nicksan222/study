@@ -1,6 +1,6 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
+import { summarySchema as materialSummarySchema } from '@study/contracts/documents/schemas';
 import { StudyError } from '@study/contracts/errors';
-import { materialSummarySchema } from '@study/contracts/materials/schemas';
 import { sourceKinds } from '@study/contracts/sources/sniff';
 import { mediaSize } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
@@ -38,7 +38,6 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
       'conversations.thread': rpc.thread,
       'conversations.messageVersionCitations': rpc.citations,
       'conversations.sessionSelection': rpc.selection,
-      'materials.importedMaterial': rpc.material,
       'sources.source': rpc.source
     })
 }));
@@ -158,12 +157,16 @@ testStable(
   async () => {
     const onOpen = vi.fn();
 
-    mount(<History id={message.sessionId} onOpen={onOpen} />);
+    const view = mount(<History id={message.sessionId} onOpen={onOpen} />);
     const description = await screen.findByText('Review before the exam');
 
     expect(description).toBeVisible();
     expect(screen.queryByText('This body preview is secondary.')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Linear algebra/ }));
+    fireEvent.click(
+      within(view.container.querySelector('.session-index-target')!).getByRole('button', {
+        name: /Linear algebra/
+      })
+    );
     expect(onOpen).toHaveBeenCalledExactlyOnceWith(message);
   }
 );
@@ -183,7 +186,9 @@ testStable.each(['text', undefined] as const)(
     rpc.thread.mockResolvedValue({ items: [quick], next: null });
     const view = mount(<History id={message.sessionId} onOpen={onOpen} />);
 
-    expect(await screen.findByText(literal)).toBeVisible();
+    expect(
+      await within(view.container.querySelector('.session-history')!).findByText(literal)
+    ).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'A quick thought' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'a link' })).toBeNull();
     expect(view.container.querySelector('.session-desk-document')).toBeNull();
@@ -210,7 +215,11 @@ testStable(
     rpc.material.mockImplementation(({ sourceId }: { sourceId: bigint }) =>
       Promise.resolve({ id: sourceId + 1000n })
     );
-    rpc.source.mockResolvedValue({ sizeBytes: 2048n });
+    rpc.source.mockImplementation(async ({ id }: { id: bigint }) => ({
+      id,
+      name: `Source ${id}`,
+      sizeBytes: 2048n
+    }));
     const root = createRootRoute({
       component: () => <History id={message.sessionId} onOpen={vi.fn()} />
     });
@@ -224,7 +233,7 @@ testStable(
     for (const [index, kind] of sourceKinds.entries()) {
       const link = await screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
 
-      expect(link).toHaveAttribute('href', `/materials/${index + 1100}`);
+      expect(link).toHaveAttribute('href', `/sources/${index + 100}`);
       expect(
         await within(link).findByText(
           `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
@@ -240,31 +249,15 @@ testStable(
 testStable(
   'places real document attachments in time order alongside plain notes and opens their material',
   async () => {
-    const version = {
-      id: 100n,
-      material_id: 90n,
-      kind: 'document',
-      number: 1n,
-      status: 'published',
-      operation: 'original',
-      creator: 'user',
-      instruction: null,
-      language: null,
-      created_at: 2n,
-      published_at: 2n
-    };
     const material = Schema.decodeUnknownSync(materialSummarySchema)({
       id: 90n,
-      kind: 'document',
+      projectIds: [],
       title: 'Working document',
       description: 'A real editable attachment',
-      projectIds: [],
-      created_at: 2n,
-      updated_at: 2n,
-      archived_at: null,
-      version,
-      latestPublishedVersion: version,
-      latestDraftVersion: null
+      createdAt: 2n,
+      updatedAt: 2n,
+      archivedAt: null,
+      headVersionId: 100n
     });
     const earlier = {
       ...message,
@@ -281,17 +274,23 @@ testStable(
     rpc.thread.mockResolvedValue({ items: [later, earlier], next: null });
     const open = vi.fn();
     const view = mount(
-      <History id={message.sessionId} documents={[material]} onOpenMaterial={open} />
+      <History id={message.sessionId} documents={[material]} onOpenDocument={open} />
     );
 
-    await screen.findByText('Before the document');
+    await within(view.container.querySelector('.session-history')!).findByText(
+      'Before the document'
+    );
     const items = view.container.querySelectorAll('.session-entry, .session-desk-document');
 
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent('Before the document');
     expect(items[1]).toHaveTextContent('Working document');
     expect(items[2]).toHaveTextContent('After the document');
-    fireEvent.click(screen.getByRole('button', { name: /Working document/ }));
+    fireEvent.click(
+      within(items[1]!.closest('.session-index-target')!).getByRole('button', {
+        name: /Working document/
+      })
+    );
     expect(open).toHaveBeenCalledExactlyOnceWith(material);
   }
 );

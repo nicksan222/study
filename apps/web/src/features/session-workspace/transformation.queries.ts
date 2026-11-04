@@ -12,6 +12,7 @@ import type { TransformInput } from './session-workspace.queries';
 
 export type Attempt = {
   key: string;
+  additionalSessionIds?: readonly SessionId[];
   revision: bigint;
   title: string;
   instruction: string;
@@ -32,11 +33,21 @@ export type TransformDraft = {
   runs?: { id: string; contextId: string }[];
 };
 
-export function transformDraftOptions(id: SessionId) {
+export function transformDraftOptions(
+  id: SessionId,
+  additionalSessionIds: readonly SessionId[] = []
+) {
   const initial: TransformDraft = { title: '', instruction: '', operations: ['clarity'] };
 
   return queryOptions({
-    queryKey: ['session-drafts', String(id), 'transform'],
+    queryKey: [
+      'session-drafts',
+      String(id),
+      'transform',
+      ...(additionalSessionIds.length
+        ? [[...new Set(additionalSessionIds)].map(String).toSorted().join(',')]
+        : [])
+    ],
     queryFn: () => initial,
     initialData: initial,
     staleTime: Infinity,
@@ -53,6 +64,9 @@ export function transformAttemptOptions(
     mutationFn: async (attempt: Attempt) => {
       const context = await captureContext({
         sessionId: id,
+        additionalSessionIds: attempt.additionalSessionIds?.length
+          ? attempt.additionalSessionIds
+          : undefined,
         intentKey: attempt.key,
         instruction: attempt.instruction,
         preferences: { language: attempt.language }

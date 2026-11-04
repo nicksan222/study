@@ -1,6 +1,6 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { expect } from 'vite-plus/test';
 
 import { renderPage } from '#web/test/render-page.tsx';
@@ -20,7 +20,10 @@ testStable.each(['english', 'italian'] as const)(
         .getAllByRole('button', { name: copy.SessionNew })
         .every((button) => !button.hasAttribute('disabled'))
     ).toBe(true);
-    expect(await screen.findByRole('textbox', { name: copy.SessionCompose })).toBeVisible();
+    const main = within(screen.getByRole('main'));
+    expect(main.queryByRole('textbox', { name: copy.SessionCompose })).toBeNull();
+    fireEvent.click(main.getByRole('button', { name: copy.SessionStartWithNote }));
+    expect(await main.findByRole('textbox', { name: copy.SessionCompose })).toBeVisible();
     expect(screen.getByText(copy.SessionStartDraftHelp)).toBeVisible();
     expect(router.state.location.search.project).toBe('9007199254740993');
   }

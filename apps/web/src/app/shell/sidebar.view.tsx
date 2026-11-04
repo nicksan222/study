@@ -3,32 +3,31 @@ import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@s
 import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
-import { Menu, MenuTrigger, MenuPopup, MenuItem } from '@study/ui/menu';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
 import {
   Home,
+  FileText,
+  GraduationCap,
   MessagesSquare,
   Library,
   Folder,
   CircleHelp,
   Search,
-  ListFilter,
   FolderPlus,
   Settings2,
-  SquarePen,
-  Check
+  SquarePen
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
+import { searchResultLocation, searchResultKey } from '#web/lib/navigation/search-results.ts';
 import { Page as SettingsPage } from '#web/pages/settings/page.tsx';
 
 import { RichSidebarSessions } from './rich-sidebar';
 import { SidebarNavigation } from './sidebar-navigation.view';
-import { resultLocation } from './sidebar.locations';
 import type { SidebarModel } from './use-sidebar';
 
 export function SidebarView(model: SidebarModel & { library: ReactNode }) {
@@ -51,6 +50,20 @@ export function SidebarView(model: SidebarModel & { library: ReactNode }) {
   );
 }
 
+function searchPresentation(kind: SidebarModel['hits'][number]['kind']) {
+  switch (kind) {
+    case 'document':
+      return { Icon: FileText, label: 'SourceDocument' as const };
+    case 'material':
+      return { Icon: GraduationCap, label: 'SearchKindMaterial' as const };
+    case 'source':
+      return { Icon: Library, label: 'SearchKindFile' as const };
+    case 'project':
+      return { Icon: Folder, label: 'SearchKindProject' as const };
+    default:
+      return { Icon: MessagesSquare, label: 'SearchKindSession' as const };
+  }
+}
 function SidebarSearchHit({
   global,
   project,
@@ -60,30 +73,22 @@ function SidebarSearchHit({
   hit: SidebarModel['hits'][number];
 }) {
   const { t } = useI18n();
+  const { Icon, label } = searchPresentation(hit.kind);
 
   return (
     <SidebarUI.Item
       label={hit.title}
-      icon={
-        hit.kind === 'source' ? (
-          <Library aria-hidden="true" />
-        ) : hit.kind === 'project' ? (
-          <Folder aria-hidden="true" />
-        ) : (
-          <MessagesSquare aria-hidden="true" />
-        )
-      }
-      context={t(
-        hit.kind === 'source'
-          ? 'SearchKindFile'
-          : hit.kind === 'project'
-            ? 'SearchKindProject'
-            : 'SearchKindSession'
-      )}
+      icon={<Icon aria-hidden="true" />}
+      context={t(label)}
       description={hit.excerpt}
       aria-label={hit.title}
       title={hit.title}
-      render={<Link {...resultLocation(hit, global ? undefined : project)} onClick={clearSearch} />}
+      render={
+        <Link
+          {...searchResultLocation(hit, global ? undefined : project?.toString())}
+          onClick={clearSearch}
+        />
+      }
     />
   );
 }
@@ -104,7 +109,7 @@ function SidebarSearchResults({
       <SidebarSearchStatus result={result} empty={hits.length === 0} />
       {hits.map((hit) => (
         <SidebarSearchHit
-          key={searchHitKey(hit)}
+          key={searchResultKey(hit)}
           global={global}
           project={project}
           clearSearch={clearSearch}
@@ -396,12 +401,9 @@ function SidebarPickerShortcuts({
 function SidebarToolbar({
   collapsed,
   global,
-  section,
   project,
   query,
   setQuery,
-  filter,
-  setFilter,
   setNewSubjectOpen,
   setActionError,
   creating,
@@ -413,12 +415,9 @@ function SidebarToolbar({
   SidebarModel,
   | 'collapsed'
   | 'global'
-  | 'section'
   | 'project'
   | 'query'
   | 'setQuery'
-  | 'filter'
-  | 'setFilter'
   | 'setNewSubjectOpen'
   | 'setActionError'
   | 'creating'
@@ -441,23 +440,6 @@ function SidebarToolbar({
         setQuery={setQuery}
         clearSearch={clearSearch}
       />
-      <Menu>
-        <MenuTrigger
-          render={<Button size="icon" variant={filter === 'all' ? 'ghost-muted' : 'secondary'} />}
-          aria-label={t('SearchFilter')}
-          title={t('SearchFilter')}
-        >
-          <ListFilter aria-hidden="true" />
-        </MenuTrigger>
-        <MenuPopup align="start">
-          {sidebarFilterKinds(section).map((kind) => (
-            <MenuItem key={kind} onClick={() => setFilter(kind)}>
-              {t(filterLabel(kind))}
-              {filter === kind && <Check aria-hidden="true" />}
-            </MenuItem>
-          ))}
-        </MenuPopup>
-      </Menu>
       <Button
         size="icon"
         variant="ghost-muted"
@@ -572,37 +554,6 @@ function NewProjectDialog({
   );
 }
 
-function filterLabel(kind: SidebarModel['filter']) {
-  switch (kind) {
-    case 'all':
-      return 'FilterAll';
-    case 'session':
-      return 'Sessions';
-    case 'source':
-      return 'MediaList';
-    case 'diagram':
-      return 'Diagrams';
-    case 'flashcards':
-      return 'Flashcards';
-    default:
-      return 'SidebarQuiz';
-  }
-}
-
-function searchHitKey(hit: SidebarModel['hits'][number]) {
-  const target = hit.target;
-  const id =
-    target.type === 'project'
-      ? target.id
-      : target.type === 'session'
-        ? target.sessionId
-        : target.type === 'source'
-          ? target.sourceId
-          : target.materialId;
-
-  return `${target.type}:${id}:${hit.at}:${hit.excerpt ?? ''}`;
-}
-
 function SidebarSearchStatus({ result, empty }: Pick<SidebarModel, 'result'> & { empty: boolean }) {
   const { t } = useI18n();
 
@@ -641,14 +592,6 @@ function SidebarProjectStatus({
       ) : null}
     </>
   );
-}
-
-function sidebarFilterKinds(section: SidebarModel['section']) {
-  if (section === 'library') return ['all', 'source', 'diagram'] as const;
-
-  if (section === 'practice') return ['all', 'flashcards', 'quiz'] as const;
-
-  return ['all', 'session'] as const;
 }
 
 function projectPickerEmpty(

@@ -1,10 +1,10 @@
 import type {
-  createManualDocumentSchema,
-  documentComparisonSchema,
-  documentEditOutcomeSchema,
-  saveDocumentInputSchema
-} from '@study/contracts/materials/editing';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+  createSchema,
+  comparisonSchema,
+  editOutcomeSchema,
+  saveSchema
+} from '@study/contracts/documents/editing';
+import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import type { documentSchema } from '@study/contracts/sources/schemas';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,14 +13,15 @@ import { useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 import { blankDocument } from './block-editor';
 
-type Comparison = typeof documentComparisonSchema.Type;
+type Comparison = typeof comparisonSchema.Type;
 
-type Outcome = typeof documentEditOutcomeSchema.Type;
+type Outcome = typeof editOutcomeSchema.Type;
 
 export function useDocumentCreation() {
   const { t } = useI18n();
@@ -34,7 +35,7 @@ export function useDocumentCreation() {
     busy: boolean;
     error?: 'rejected' | 'uncertain';
     createdId?: string;
-    submitted?: typeof createManualDocumentSchema.Type;
+    submitted?: typeof createSchema.Type;
   };
 
   const creationKey = ['document-creation'];
@@ -71,8 +72,11 @@ export function useDocumentCreation() {
     )
       return;
 
-    const input: typeof createManualDocumentSchema.Type = {
+    const input: typeof createSchema.Type = {
       title,
+      createKey: crypto.randomUUID(),
+      inputs: [],
+      citations: [],
       document: {
         ...blankDocument(),
         blocks: [plainBlock('paragraph', text, { type: 'authored' })]
@@ -82,13 +86,13 @@ export function useDocumentCreation() {
     change({ busy: true, error: undefined, submitted: input });
 
     try {
-      const material = await request((rpc) => rpc['materials.createManualDocument'](input));
+      const material = await request((rpc) => rpc['documents.create'](input));
 
       setCreatedId(String(material.id));
-      await client.invalidateQueries({ queryKey: ['materials'] });
+      await invalidateDocuments(client);
       await navigate({
-        to: '/materials/$materialId',
-        params: { materialId: String(material.id) },
+        to: '/documents/$documentId',
+        params: { documentId: String(material.id) },
         search: {}
       });
     } catch (cause) {
@@ -121,17 +125,17 @@ export function useDocumentEditor({
   version,
   current
 }: {
-  version: MaterialVersionDetailDto;
-  current: MaterialVersionDetailDto['id'];
+  version: StudyDocumentVersion;
+  current: StudyDocumentVersion['id'];
 }) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const content = version.content;
-  const document = editableDocument(content);
+  const content = version.document;
+  const document = content;
 
   // User-authored drafts and exact retry receipts live until explicit discard.
   client.setQueryDefaults(['document-editor'], { gcTime: Infinity });
-  const draftKey = ['document-editor', String(version.material_id), String(version.id)];
+  const draftKey = ['document-editor', String(version.documentId), String(version.id)];
   const [draft, setDraft] = useState<typeof documentSchema.Type | undefined>(() =>
     client.getQueryData(draftKey)
   );
@@ -155,8 +159,8 @@ export function useDocumentEditor({
   );
 
   client.setQueryData([...draftKey, 'save-key'], saveKey.current);
-  const [pendingSave, setPendingSave] = useState<typeof saveDocumentInputSchema.Type | undefined>(
-    () => client.getQueryData([...draftKey, 'pending-save'])
+  const [pendingSave, setPendingSave] = useState<typeof saveSchema.Type | undefined>(() =>
+    client.getQueryData([...draftKey, 'pending-save'])
   );
   const [undoOutcome, setUndoOutcome] = useState<Outcome | undefined>(() =>
     client.getQueryData([...draftKey, 'undo-outcome'])
@@ -229,12 +233,4 @@ export function useDocumentEditor({
 
 function creationLocked(value: { busy: boolean; createdId?: string; error?: string } | undefined) {
   return value?.busy || value?.createdId || value?.error === 'uncertain';
-}
-
-function editableDocument(content: MaterialVersionDetailDto['content']) {
-  return content.kind === 'document'
-    ? content
-    : 'extracted' in content
-      ? content.extracted?.document
-      : undefined;
 }

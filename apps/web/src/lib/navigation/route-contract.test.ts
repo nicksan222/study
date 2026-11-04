@@ -16,3 +16,14 @@ testStable('drops malformed IDs and unknown URL state', () => {
   ).toEqual({});
   expect(validateSearch({ project: 123, id: '-1', material: '1.5' })).toEqual({});
 });
+
+testStable(
+  'keeps authored and learning version references separate without losing bigint precision',
+  () => {
+    expect(validateSearch({ documentVersion: '9007199254740993', version: '7' })).toEqual({
+      documentVersion: '9007199254740993',
+      version: '7'
+    });
+    expect(() => validateSearch({ documentVersion: '9223372036854775808' })).toThrow();
+  }
+);

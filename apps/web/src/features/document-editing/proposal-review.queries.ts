@@ -1,21 +1,30 @@
 import type {
-  applyDocumentProposalSchema,
-  keepDocumentProposalSchema,
-  documentComparisonSchema,
-  documentProposalOutcomeSchema
-} from '@study/contracts/materials/editing';
+  applyProposalSchema,
+  keepProposalSchema,
+  comparisonSchema,
+  proposalOutcomeSchema
+} from '@study/contracts/documents/editing';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
-type Outcome = typeof documentProposalOutcomeSchema.Type;
+type Outcome = typeof proposalOutcomeSchema.Type;
 
 type Attempt =
-  | { kind: 'apply'; input: typeof applyDocumentProposalSchema.Type }
-  | { kind: 'keep'; input: typeof keepDocumentProposalSchema.Type };
+  | { kind: 'apply'; input: typeof applyProposalSchema.Type }
+  | { kind: 'keep'; input: typeof keepProposalSchema.Type };
 
 type ProposalState = { pending: boolean; failed: boolean; attempt?: Attempt; outcome?: Outcome };
+
+function proposalActionBlocked(kind: 'apply' | 'keep', owned: ProposalState | undefined) {
+  return (
+    owned?.pending ||
+    owned?.attempt ||
+    (owned?.outcome && (kind === 'apply' || owned.outcome.outcome !== 'conflict'))
+  );
+}
 
 const initial: ProposalState = { pending: false, failed: false };
 
@@ -23,8 +32,8 @@ export function useProposalReview({ requestId }: { requestId: string }) {
   const { t } = useI18n();
   const client = useQueryClient();
   const comparison = useQuery({
-    queryKey: ['materials', 'proposal-comparison', requestId],
-    queryFn: () => request((rpc) => rpc['materials.compareDocumentProposal']({ requestId }))
+    queryKey: ['documents', 'proposal-comparison', requestId],
+    queryFn: () => request((rpc) => rpc['documents.compareProposal']({ requestId }))
   });
   const key = ['document-proposal-actions', requestId];
   const state = useQuery({
@@ -50,13 +59,13 @@ export function useProposalReview({ requestId }: { requestId: string }) {
     try {
       const receipt = await request((rpc) =>
         input.kind === 'apply'
-          ? rpc['materials.applyDocumentProposal'](input.input)
-          : rpc['materials.keepDocumentProposal'](input.input)
+          ? rpc['documents.applyProposal'](input.input)
+          : rpc['documents.keepProposal'](input.input)
       );
 
       // Retain the exact receipt before refreshing or navigating away.
       update({ outcome: receipt, attempt: undefined });
-      await client.invalidateQueries({ queryKey: ['materials'] });
+      await invalidateDocuments(client);
     } catch {
       update({ failed: true });
     } finally {
@@ -64,15 +73,10 @@ export function useProposalReview({ requestId }: { requestId: string }) {
     }
   }
 
-  function act(kind: 'apply' | 'keep', value: typeof documentComparisonSchema.Type) {
+  function act(kind: 'apply' | 'keep', value: typeof comparisonSchema.Type) {
     const owned = client.getQueryData<ProposalState>(key);
 
-    if (
-      owned?.pending ||
-      owned?.attempt ||
-      (owned?.outcome && (kind === 'apply' || owned.outcome.outcome !== 'conflict'))
-    )
-      return;
+    if (!comparison.isSuccess || proposalActionBlocked(kind, owned)) return;
 
     const operationKey = crypto.randomUUID();
 
@@ -83,11 +87,10 @@ export function useProposalReview({ requestId }: { requestId: string }) {
             input: {
               requestId,
               key: operationKey,
-              expectedVersionId: value.currentVersionId,
-              baseVersionId: value.beforeVersionId
+              expectedVersionId: value.beforeVersionId
             }
           }
-        : { kind, input: { requestId, key: operationKey } }
+        : { kind, input: { requestId, key: operationKey, title: t('DocumentCopyTitle') } }
     );
   }
 

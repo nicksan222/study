@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
-import type { ItemFilter } from '#web/features/library/index.ts';
 import { sessionOptions } from '#web/features/session-workspace/index.ts';
 import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
@@ -14,8 +13,6 @@ import {
   sessionsQueryOptions,
   searchQueryOptions
 } from '#web/lib/study-client/study.queries.ts';
-
-import { filterSearchHits } from './sidebar.logic';
 
 const noSubjects: Subjects = [];
 
@@ -43,7 +40,6 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   const sessionState = loadingState(sessionList.status);
   const [settingsProject, setSettingsProject] = useState<ProjectId>();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<ItemFilter>('all');
   const {
     subject,
     project,
@@ -51,7 +47,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     canSearch: scopeCanSearch
   } = sidebarScope(subjects, requestedProject, global, subjectState);
   const canSearch = sessionReady && scopeCanSearch;
-  const { result, hits } = useSidebarSearch({ query, global, project, canSearch, section, filter });
+  const { result, hits } = useSidebarSearch({ query, global, project, canSearch, section });
   const visibleSessions = sessionReady
     ? sidebarSessions(sessions, invalidSubject, requestedProject, project)
     : noSessions;
@@ -60,7 +56,6 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
 
   const clearSearch = () => {
     setQuery('');
-    setFilter('all');
   };
   const {
     pickerOpen,
@@ -98,8 +93,6 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     setPickerOpen,
     query,
     setQuery,
-    filter,
-    setFilter,
     newSubjectOpen,
     setNewSubjectOpen,
     name,
@@ -163,15 +156,13 @@ function useSidebarSearch({
   global,
   project,
   canSearch,
-  section,
-  filter
+  section
 }: {
   query: string;
   global: boolean;
   project: ProjectId | undefined;
   canSearch: boolean;
   section: PageMetadata['section'];
-  filter: ItemFilter;
 }) {
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -197,7 +188,7 @@ function useSidebarSearch({
     )
   );
   const result = searchResultState(searchEnabled, searchResult);
-  const hits = filterSearchHits(result?.result?.hits ?? [], filter);
+  const hits = result?.result?.hits ?? [];
 
   return { result, hits };
 }

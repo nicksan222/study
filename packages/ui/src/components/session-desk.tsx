@@ -12,7 +12,7 @@ import {
   ChevronRight,
   ArrowUpRight
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { Button } from './button';
@@ -21,21 +21,74 @@ import { semanticPart as part } from './semantic-part';
 function Root({
   open,
   expanded,
+  dock = 'side',
+  cardOpen = false,
   children
 }: {
   open: boolean;
   expanded: boolean;
+  dock?: 'side' | 'bottom';
+  cardOpen?: boolean;
   children: ReactNode;
 }) {
   return (
     <div
       className="session-desk"
       data-open={open || undefined}
-      data-expanded={expanded || undefined}
+      data-expanded={(open && expanded) || undefined}
+      data-dock={dock}
+      data-card-open={(!open && cardOpen) || undefined}
     >
       <div className="session-desk-layout">{children}</div>
     </div>
   );
+}
+
+/** Measures the floating input so the final notebook entry can always clear it. */
+function Notebook({ children }: { children: ReactNode }) {
+  const root = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const pane = root.current;
+    const viewport = pane?.querySelector<HTMLElement>('[data-notebook-scroll-host]');
+    const composer = pane?.querySelector<HTMLElement>('.session-desk-floating-composer');
+    if (!pane || !viewport || !composer) return;
+    const measure = () => {
+      pane.style.setProperty(
+        '--notebook-scrollbar-width',
+        String(viewport.offsetWidth - viewport.clientWidth) + 'px'
+      );
+      pane.style.setProperty('--notebook-composer-height', String(composer.offsetHeight) + 'px');
+      if (viewport.clientHeight)
+        pane.style.setProperty('--notebook-viewport-height', String(viewport.clientHeight) + 'px');
+    };
+    measure();
+    const observer =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    observer?.observe(viewport);
+    observer?.observe(composer);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+  return (
+    <div ref={root} className="session-desk-notebook">
+      {children}
+    </div>
+  );
+}
+
+function ScrollArea({ children }: { children: ReactNode }) {
+  return (
+    <div className="session-desk-scroll" data-notebook-scroll-host>
+      {children}
+    </div>
+  );
+}
+
+function NavigationHost() {
+  return <div className="session-desk-navigation-host" data-notebook-navigation-host />;
 }
 
 /** Uses native tab semantics and keyboard navigation while keeping close controls separate from tab buttons. */
@@ -165,7 +218,7 @@ function DocumentCard({
   openLabel
 }: {
   title: ReactNode;
-  meta: string;
+  meta?: string;
   preview?: ReactNode;
   active?: boolean;
   onOpen: () => void;
@@ -192,7 +245,7 @@ function DocumentCard({
       <span className="session-desk-document-copy">
         <span className="session-desk-document-title">{title}</span>
         {preview && <span className="session-desk-document-preview">{preview}</span>}
-        <span className="session-desk-document-meta">{meta}</span>
+        {meta && <span className="session-desk-document-meta">{meta}</span>}
       </span>
       <span className="session-desk-document-open" aria-hidden="true">
         <ArrowUpRight size={16} />
@@ -257,7 +310,12 @@ export const SessionDeskSurface = {
   QuickText: part('div', 'session-desk-quick-text'),
   Board: part('div', 'session-desk-board'),
   BoardBody: part('div', 'session-desk-board-body'),
-  BoardTools: part('div', 'session-desk-board-tools'),
+  Notebook,
+  ScrollArea,
+  NavigationHost,
+  NotebookLayout: part('div', 'session-desk-notebook-layout'),
+  FloatingComposer: part('div', 'session-desk-floating-composer'),
+  LayoutControls: part('div', 'session-desk-layout-controls'),
   Drafts: part('div', 'session-desk-drafts'),
   Header: part('header', 'session-desk-header'),
   HeaderTitle: part('span', 'session-desk-header-title'),

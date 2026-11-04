@@ -1,27 +1,27 @@
-import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
+import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
 export function SessionDocumentCard({
-  material,
+  document,
   onOpen,
   active
 }: {
-  material: MaterialSummaryDto;
-  onOpen: (material: MaterialSummaryDto) => void;
+  document: StudyDocumentSummary;
+  onOpen: (document: StudyDocumentSummary) => void;
   active: boolean;
 }) {
   const { t } = useI18n();
 
   return (
     <Desk.DocumentCard
-      title={material.title}
+      title={document.title}
       openLabel={t('SessionOpenPage')}
-      preview={material.description}
+      preview={document.description}
       meta={t('SourceDocument')}
       active={active}
-      onOpen={() => onOpen(material)}
+      onOpen={() => onOpen(document)}
     />
   );
 }

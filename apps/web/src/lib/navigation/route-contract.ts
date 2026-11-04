@@ -1,4 +1,9 @@
-import { materialVersionIdSchema, projectIdSchema } from '@study/contracts/ids';
+import {
+  materialVersionIdSchema,
+  contentSnapshotIdSchema,
+  studyDocumentVersionIdSchema,
+  projectIdSchema
+} from '@study/contracts/ids';
 import type { StaticMessageKey } from '@study/localization';
 import { Schema } from 'effect';
 
@@ -23,6 +28,9 @@ export type AppSearch = {
   id?: string;
   material?: string;
   version?: string;
+  documentVersion?: string;
+  sourceRevision?: string;
+  sourceSnapshot?: string;
 };
 
 function decimalId(value: unknown): value is string {
@@ -33,17 +41,31 @@ function decimalId(value: unknown): value is string {
   );
 }
 
-export function validateSearch(search: Record<string, unknown>): AppSearch {
-  if (
-    search.version !== undefined &&
-    (!decimalId(search.version) || !Schema.is(materialVersionIdSchema)(BigInt(search.version)))
-  )
-    throw new Error('Invalid version identity');
+function versionReference(value: unknown, valid: (id: bigint) => boolean) {
+  if (value === undefined) return undefined;
+  if (!decimalId(value) || !valid(BigInt(value))) throw new Error('Invalid version identity');
+  return value;
+}
 
+export function validateSearch(search: Record<string, unknown>): AppSearch {
+  const version = versionReference(search.version, Schema.is(materialVersionIdSchema));
+  const documentVersion = versionReference(
+    search.documentVersion,
+    Schema.is(studyDocumentVersionIdSchema)
+  );
+  const sourceSnapshot = versionReference(
+    search.sourceSnapshot,
+    Schema.is(contentSnapshotIdSchema)
+  );
+  const sourceRevision = versionReference(search.sourceRevision, (revision) => revision > 0n);
+  if ((sourceSnapshot === undefined) !== (sourceRevision === undefined))
+    throw new Error('Incomplete source extraction identity');
   return {
+    ...(sourceSnapshot && sourceRevision ? { sourceSnapshot, sourceRevision } : {}),
+    ...(documentVersion ? { documentVersion } : {}),
     ...(decimalId(search.project) ? { project: search.project } : {}),
     ...(decimalId(search.id) ? { id: search.id } : {}),
-    ...(decimalId(search.version) ? { version: search.version } : {}),
+    ...(version ? { version } : {}),
     ...(decimalId(search.material) ? { material: search.material } : {})
   };
 }

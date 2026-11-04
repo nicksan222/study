@@ -254,3 +254,64 @@ testStable('preserves supporting activity and counts in compact session rows', (
   expect(screen.getByText('Writing')).toBeInTheDocument();
   expect(screen.getByText('3')).toBeInTheDocument();
 });
+
+testStable(
+  'slides settled content closed before removing the native open state and restores it on reopening',
+  async () => {
+    render(
+      <Sidebar.SessionGroup title="Settled" count={1} defaultOpen variant="settled">
+        <a href="/sessions/42">Settled session</a>
+      </Sidebar.SessionGroup>
+    );
+    const summary = screen.getByText('Settled').closest('summary')!;
+    const group = summary.closest('details')!;
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute('aria-expanded', 'false');
+    expect(group).toHaveAttribute('open');
+    const body = group.querySelector('.study-session-group-body')!;
+    expect(body).toHaveAttribute('aria-hidden', 'true');
+    expect(body).toHaveAttribute('inert');
+    fireEvent.transitionEnd(group.querySelector('.study-session-group-slide')!);
+    expect(group).not.toHaveAttribute('open');
+    fireEvent.click(summary);
+    expect(group).toHaveAttribute('open');
+    await waitFor(() => expect(summary).toHaveAttribute('aria-expanded', 'true'));
+    expect(screen.getByRole('link', { name: 'Settled session' })).toBeVisible();
+  }
+);
+
+testStable(
+  'keeps a reopened settled group open when the previous close transition finishes',
+  async () => {
+    render(
+      <Sidebar.SessionGroup title="Settled" count={1} defaultOpen variant="settled">
+        <a href="/sessions/42">Settled session</a>
+      </Sidebar.SessionGroup>
+    );
+    const summary = screen.getByText('Settled').closest('summary')!;
+    fireEvent.click(summary);
+    fireEvent.click(summary);
+    await waitFor(() => expect(summary).toHaveAttribute('aria-expanded', 'true'));
+    fireEvent.transitionEnd(
+      summary.closest('details')!.querySelector('.study-session-group-slide')!
+    );
+    expect(summary.closest('details')).toHaveAttribute('open');
+  }
+);
+
+testStable('closes settled content immediately when reduced motion is enabled', () => {
+  const media = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+  try {
+    render(
+      <Sidebar.SessionGroup title="Settled" count={1} defaultOpen variant="settled">
+        <a href="/sessions/42">Settled session</a>
+      </Sidebar.SessionGroup>
+    );
+    const summary = screen.getByText('Settled').closest('summary')!;
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute('aria-expanded', 'false');
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+  } finally {
+    media.mockRestore();
+  }
+});

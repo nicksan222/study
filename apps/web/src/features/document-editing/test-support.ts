@@ -1,0 +1,38 @@
+import { detailSchema } from '@study/contracts/documents/schemas';
+import { plainBlock } from '@study/contracts/sources/document';
+import { Schema } from 'effect';
+
+import { blankDocument } from './block-editor';
+
+export function authoredDocument(id = 2n, text = '', versionId = 10n) {
+  return Schema.decodeUnknownSync(detailSchema)({
+    id,
+    projectIds: [],
+    title: 'New document',
+    description: null,
+    createdAt: 1n,
+    updatedAt: 1n,
+    archivedAt: null,
+    headVersionId: versionId,
+    version: {
+      id: versionId,
+      documentId: id,
+      number: versionId,
+      operation: 'original',
+      creator: 'user',
+      instruction: null,
+      language: null,
+      createdAt: 1n,
+      publishedAt: 1n,
+      snapshotId: versionId + 100n,
+      status: 'published',
+      inputs: [],
+      citations: [],
+      parents: [],
+      document: {
+        ...blankDocument(),
+        blocks: [plainBlock('paragraph', text, { type: 'authored' })]
+      }
+    }
+  });
+}

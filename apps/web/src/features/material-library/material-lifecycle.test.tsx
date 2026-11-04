@@ -43,7 +43,7 @@ function prunePreview() {
     retainedMessageCitationCount: 0,
     sourceRevisions: [],
     removedBodyBytes: 0n,
-    byteSemantics: 'logical_body_columns_and_source_blobs',
+    byteSemantics: 'learning_body_columns',
     missingEvidence: 'exact_pruned_versions',
     retainedCopies: 'other_versions_and_published_messages'
   });
@@ -82,7 +82,6 @@ testStable(
       materialId: materialId('41')
     });
     expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
-    expect(rpc['materials.materialVersionDocument']).not.toHaveBeenCalled();
     rpc['materials.deletion'].mockReturnValue(
       Effect.succeed({ ...operation, status: 'completed', phase: 'completed', completedAt: 2n })
     );

@@ -22,13 +22,6 @@ export function collectionId(value?: string) {
   return value ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(value)) : undefined;
 }
 
-export function acceptedMaterial(
-  source: Pick<Source, 'id'>,
-  visible: readonly MaterialSummaryDto[]
-) {
-  return visible.find((item) => item.importProcessing?.sourceId === source.id);
-}
-
 export function belongsToMaterial(
   version: Pick<MaterialVersionDetailDto, 'material_id'>,
   id: ReturnType<typeof materialId>

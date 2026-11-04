@@ -1,41 +1,39 @@
+import type { createSchema, saveSchema } from '@study/contracts/documents/editing';
+import type { StudyDocument, StudyDocumentSummary } from '@study/contracts/documents/types';
 import { StudyError } from '@study/contracts/errors';
-import type { MaterialId, MaterialVersionId, SessionId } from '@study/contracts/ids';
-import type {
-  createManualDocumentSchema,
-  saveDocumentInputSchema
-} from '@study/contracts/materials/editing';
-import type { MaterialDetailDto, MaterialSummaryDto } from '@study/contracts/materials/schemas';
-import { materialDocumentSchema } from '@study/contracts/materials/schemas';
+import type { StudyDocumentId, StudyDocumentVersionId, SessionId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
+import { documentSchema } from '@study/contracts/sources/schemas';
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
 import { useEffect } from 'react';
 
+import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
 import { repeatRequest } from '#web/lib/study-client/repeat-request.ts';
 import { request } from '#web/lib/study-client/request.ts';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
-import { authoredCopy, blankDocument } from '../document-editing';
+import { blankDocument } from '../document-editing';
 
-type Document = typeof materialDocumentSchema.Type;
+type Document = typeof documentSchema.Type;
 
-type CreationInput = typeof createManualDocumentSchema.Type;
+type CreationInput = typeof createSchema.Type;
 
-type SaveInput = typeof saveDocumentInputSchema.Type;
+type SaveInput = typeof saveSchema.Type;
 
-const equalDocument = Schema.toEquivalence(materialDocumentSchema);
+const equalDocument = Schema.toEquivalence(documentSchema);
 
 export const sessionDocumentsOptions = (sessionId: SessionId) =>
   queryOptions({
-    queryKey: ['materials', 'session', String(sessionId), 'documents'],
+    queryKey: ['documents', 'session', String(sessionId), 'documents'],
     queryFn: async ({ signal }) => {
-      const items: MaterialSummaryDto[] = [];
-      let cursor: MaterialId | undefined;
+      const items: StudyDocumentSummary[] = [];
+      let cursor: StudyDocumentId | undefined;
 
       do {
         const page = await request(
-          (rpc) => rpc['materials.materials']({ sessionId, limit: 100, cursor, archived: false }),
+          (rpc) => rpc['documents.documents']({ sessionId, limit: 100, cursor, archived: false }),
           signal
         );
 
@@ -47,12 +45,10 @@ export const sessionDocumentsOptions = (sessionId: SessionId) =>
     }
   });
 
-export const sessionDocumentOptions = (id: MaterialId) =>
+export const sessionDocumentOptions = (id: StudyDocumentId) =>
   queryOptions({
-    queryKey: ['materials', 'detail', String(id)],
-    queryFn: ({ signal }) => request((rpc) => rpc['materials.material']({ id }), signal),
-    refetchInterval: (query) =>
-      query.state.data?.importProcessing?.status === 'pending' ? 3000 : false
+    queryKey: ['documents', 'detail', String(id)],
+    queryFn: ({ signal }) => request((rpc) => rpc['documents.document']({ id }), signal)
   });
 
 type Creation = { pending: boolean; input?: CreationInput; error?: unknown };
@@ -78,20 +74,20 @@ export function useSessionDocumentCreation(sessionId: SessionId) {
     cache.setQueryData<Creation>(key, { pending: true, input });
 
     try {
-      const material = await request((rpc) => rpc['materials.createManualDocument'](input));
+      const document = await request((rpc) => rpc['documents.create'](input));
 
       cache.setQueryData(key, initial);
       const listKey = sessionDocumentsOptions(sessionId).queryKey;
 
       await cache.cancelQueries({ queryKey: listKey, exact: true });
-      cache.setQueryData<{ items: MaterialSummaryDto[]; nextCursor: null }>(listKey, (page) => ({
-        items: [material, ...(page?.items ?? []).filter((item) => item.id !== material.id)],
+      cache.setQueryData<{ items: StudyDocumentSummary[]; nextCursor: null }>(listKey, (page) => ({
+        items: [document, ...(page?.items ?? []).filter((item) => item.id !== document.id)],
         nextCursor: null
       }));
-      cache.setQueryData(sessionDocumentOptions(material.id).queryKey, material);
-      void cache.invalidateQueries({ queryKey: ['materials'] });
+      cache.setQueryData(sessionDocumentOptions(document.id).queryKey, document);
+      void invalidateDocuments(cache);
 
-      return material;
+      return document;
     } catch (error) {
       cache.setQueryData<Creation>(key, { pending: false, input, error });
 
@@ -102,7 +98,7 @@ export function useSessionDocumentCreation(sessionId: SessionId) {
   return {
     pending: state.data.pending,
     error: state.data.error,
-    create: (title: string, source?: { document: Document; inputVersionId: MaterialVersionId }) => {
+    create: (title: string) => {
       const pending = cache.getQueryData<Creation>(key);
 
       return submit(
@@ -110,10 +106,12 @@ export function useSessionDocumentCreation(sessionId: SessionId) {
           sessionId,
           title,
           createKey: crypto.randomUUID(),
-          document: source
-            ? authoredCopy(source.document)
-            : { ...blankDocument(), blocks: [plainBlock('paragraph', '', { type: 'authored' })] },
-          inputVersionId: source?.inputVersionId
+          document: {
+            ...blankDocument(),
+            blocks: [plainBlock('paragraph', '', { type: 'authored' })]
+          },
+          inputs: [],
+          citations: []
         }
       );
     },
@@ -128,33 +126,33 @@ export function useSessionDocumentCreation(sessionId: SessionId) {
 type Draft = {
   document: Document;
   saved: Document;
-  versionId: MaterialVersionId;
+  versionId: StudyDocumentVersionId;
   pending: boolean;
   attempt?: SaveInput;
   error?: unknown;
-  conflict?: MaterialDetailDto;
+  conflict?: StudyDocument;
 };
 
-const draftKey = (id: MaterialId) => ['session-document-drafts', String(id)] as const;
+const draftKey = (id: StudyDocumentId) => ['session-document-drafts', String(id)] as const;
 
-function initialDraft(material: MaterialDetailDto): Draft {
-  if (material.version.content.kind !== 'document')
+function initialDraft(document: StudyDocument): Draft {
+  if (!document.version)
     throw new StudyError('invalid_input', 'Only authored documents can be edited directly');
 
   return {
-    document: material.version.content,
-    saved: material.version.content,
-    versionId: material.version.id,
+    document: document.version.document,
+    saved: document.version.document,
+    versionId: document.version.id,
     pending: false
   };
 }
 
-/** The material owns versioned content; the cache holds only unsaved edits and retry receipts. */
-export function useSessionDocumentAutosave(material: MaterialDetailDto) {
+/** Documents owns versioned content; the cache holds only unsaved edits and retry receipts. */
+export function useSessionDocumentAutosave(document: StudyDocument) {
   const { autosaveIntervalSeconds } = useWorkspacePreferences();
   const cache = useQueryClient();
-  const initial = initialDraft(material);
-  const key = draftKey(material.id);
+  const initial = initialDraft(document);
+  const key = draftKey(document.id);
   const state = useQuery({
     queryKey: key,
     queryFn: () => initial,
@@ -163,7 +161,7 @@ export function useSessionDocumentAutosave(material: MaterialDetailDto) {
     gcTime: Infinity
   });
   const draft = state.data;
-  const id = material.id;
+  const id = document.id;
 
   useEffect(() => {
     const stop = repeatRequest(() => persistDocument(cache, id), autosaveIntervalSeconds * 1000);
@@ -174,16 +172,17 @@ export function useSessionDocumentAutosave(material: MaterialDetailDto) {
     };
   }, [cache, id, autosaveIntervalSeconds]);
   useEffect(() => {
-    cache.setQueryData<Draft>(draftKey(material.id), (current) =>
+    cache.setQueryData<Draft>(draftKey(document.id), (current) =>
       current &&
       !current.pending &&
       !current.attempt &&
       equalDocument(current.document, current.saved) &&
-      material.version.id > current.versionId
-        ? initialDraft(material)
+      document.version !== null &&
+      document.version.id > current.versionId
+        ? initialDraft(document)
         : current
     );
-  }, [cache, material]);
+  }, [cache, document]);
 
   return {
     document: draft.document,
@@ -204,7 +203,11 @@ function saveBlocked(draft: Draft, manual: boolean) {
   return draft.pending || (!manual && draft.error !== undefined) || draft.conflict !== undefined;
 }
 
-async function persistDocument(cache: QueryClient, id: MaterialId, manual = false): Promise<void> {
+async function persistDocument(
+  cache: QueryClient,
+  id: StudyDocumentId,
+  manual = false
+): Promise<void> {
   const key = draftKey(id);
   const draft = cache.getQueryData<Draft>(key);
 
@@ -213,9 +216,9 @@ async function persistDocument(cache: QueryClient, id: MaterialId, manual = fals
   if (!draft.attempt && equalDocument(draft.document, draft.saved)) return;
 
   const input = draft.attempt ?? {
-    materialId: id,
+    documentId: id,
     expectedVersionId: draft.versionId,
-    saveKey: crypto.randomUUID(),
+    key: crypto.randomUUID(),
     document: draft.document
   };
   const patch = (update: (current: Draft) => Draft) =>
@@ -224,10 +227,10 @@ async function persistDocument(cache: QueryClient, id: MaterialId, manual = fals
   patch((current) => ({ ...current, pending: true, attempt: input, error: undefined }));
 
   try {
-    const outcome = await request((rpc) => rpc['materials.saveDocument'](input));
+    const outcome = await request((rpc) => rpc['documents.save'](input));
 
     if (outcome.outcome === 'conflict') {
-      const conflict = await request((rpc) => rpc['materials.material']({ id }));
+      const conflict = await request((rpc) => rpc['documents.document']({ id }));
 
       patch((current) => ({
         ...current,
@@ -247,7 +250,7 @@ async function persistDocument(cache: QueryClient, id: MaterialId, manual = fals
       attempt: undefined,
       error: undefined
     }));
-    void cache.invalidateQueries({ queryKey: ['materials'] });
+    void invalidateDocuments(cache);
     await persistDocument(cache, id);
   } catch (error) {
     patch((current) => ({ ...current, pending: false, error }));

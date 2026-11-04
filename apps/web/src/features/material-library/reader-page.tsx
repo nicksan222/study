@@ -1,29 +1,19 @@
-import type { SourceId } from '@study/contracts/ids';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { DocumentActions } from '../document-editing';
 import { libraryReturn } from './browse-state';
-import { ExactDocument } from './exact-document';
 import { belongsToMaterial, materialId, versionId } from './identity';
-import {
-  downloadOriginal,
-  historyOptions,
-  materialOptions,
-  versionOptions
-} from './material-library.queries';
+import { historyOptions, materialOptions, versionOptions } from './material-library.queries';
 import { MaterialLifecycle, DeletionRecovery } from './material-lifecycle';
-import { EvidenceDetails } from './reader-evidence';
 import { ReaderExport } from './reader-export';
-import { retrySourceProcessing } from './reader-page.queries';
 
 export function ReaderPage() {
   const params = useParams({ from: '/materials/$materialId' });
@@ -83,7 +73,6 @@ export function ReaderPage() {
             id={id}
             selected={search.version ? versionId(search.version) : state.data.version.id}
             current={state.data.version.id}
-            processing={state.data.importProcessing}
           />
           <History id={id} current={state.data.version.id} />
           <MaterialLibrary.Lifecycle>
@@ -99,27 +88,20 @@ export function ReaderPage() {
 function SelectedVersion({
   id,
   selected: requested,
-  current,
-  processing
+  current
 }: {
   id: ReturnType<typeof materialId>;
   selected: ReturnType<typeof versionId>;
   current: ReturnType<typeof versionId>;
-  processing?: {
-    sourceId: SourceId;
-    revision: number;
-    status: 'pending' | 'ready' | 'failed';
-  };
 }) {
   const { t } = useI18n();
   const search = useSearch({ from: '__root__' });
   const [selected] = useState(requested);
   const state = useQuery(versionOptions(selected));
-  const [download, setDownload] = useState<'idle' | 'busy' | 'failed'>('idle');
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 
-  if (!state.data || !belongsToMaterial(state.data, id))
+  if (state.isError || !state.data || !belongsToMaterial(state.data, id))
     return (
       <ErrorState
         title={t('ErrorStateTitle')}
@@ -133,7 +115,6 @@ function SelectedVersion({
     );
 
   const version = state.data;
-  const imported = 'sourceId' in version.content;
 
   return (
     <>
@@ -157,42 +138,10 @@ function SelectedVersion({
           </Button>
         )}
         <ReaderExport key={String(version.id)} version={version} />
-        {imported && (
-          <Button
-            disabled={download === 'busy'}
-            onClick={async () => {
-              setDownload('busy');
-
-              try {
-                await downloadOriginal(selected);
-                setDownload('idle');
-              } catch {
-                setDownload('failed');
-              }
-            }}
-          >
-            {t('ReaderOriginal')}
-          </Button>
-        )}
       </MaterialLibrary.VersionToolbar>
-      {download === 'busy' && <Loading label={t('ReaderDownloading')} />}
-      {download === 'failed' && (
-        <ErrorState
-          title={t('ErrorStateTitle')}
-          description={<> {t('ReaderOriginalUnavailable')} </>}
-        />
-      )}
-      <ProcessingNotice
-        active={selected === current}
-        processing={processing}
-        id={id}
-        refresh={() => state.refetch()}
-      />
       <MaterialLibrary.Document>
         <VersionContent version={version} />
       </MaterialLibrary.Document>
-      <DocumentActions key={String(version.id)} version={version} current={current} />
-      <EvidenceDetails version={version} />
     </>
   );
 }
@@ -200,15 +149,6 @@ function SelectedVersion({
 function VersionContent({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
   const content = version.content;
-
-  if (content.kind === 'document') return <ExactDocument id={version.id} />;
-
-  if ('extracted' in content)
-    return content.extracted ? (
-      <ExactDocument id={version.id} />
-    ) : (
-      <MaterialLibrary.NoticeText>{t('ReaderNoExtraction')}</MaterialLibrary.NoticeText>
-    );
 
   if (content.kind === 'diagram')
     return (
@@ -307,65 +247,5 @@ function History({
         </Button>
       )}
     </MaterialLibrary.History>
-  );
-}
-
-function ProcessingNotice({
-  active,
-  processing,
-  id,
-  refresh
-}: {
-  active: boolean;
-  processing: Parameters<typeof SelectedVersion>[0]['processing'];
-  id: ReturnType<typeof materialId>;
-  refresh: () => Promise<unknown>;
-}) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [retry, setRetry] = useState<'idle' | 'busy' | 'failed'>('idle');
-
-  if (!active || !processing) return null;
-
-  function refreshVersion() {
-    void refresh();
-    void queryClient.invalidateQueries({ queryKey: ['materials', 'detail', String(id)] });
-  }
-
-  async function retryProcessing() {
-    setRetry('busy');
-
-    try {
-      await retrySourceProcessing(processing!);
-      await queryClient.invalidateQueries({ queryKey: ['materials'] });
-      setRetry('idle');
-    } catch {
-      setRetry('failed');
-    }
-  }
-
-  if (processing.status === 'ready') return null;
-
-  if (processing.status === 'failed')
-    return (
-      <ErrorState
-        title={t('LibraryProcessingFailed')}
-        description={retry === 'failed' ? t('ReaderRetryFailed') : undefined}
-        action={
-          <>
-            <Button onClick={refreshVersion}>{t('LibraryRefresh')}</Button>
-            <Button disabled={retry === 'busy'} onClick={() => void retryProcessing()}>
-              {t('ReaderRetryProcessing')}
-            </Button>
-          </>
-        }
-      />
-    );
-
-  return (
-    <MaterialLibrary.NoticeAside>
-      <Loading label={t('LibraryPending')} />
-      <Button onClick={refreshVersion}>{t('LibraryRefresh')}</Button>
-    </MaterialLibrary.NoticeAside>
   );
 }

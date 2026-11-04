@@ -1,9 +1,11 @@
+import type { Source } from '@study/contracts/sources/schemas';
 import type { InfiniteData } from '@tanstack/react-query';
 
 import type { materialPage } from './material-library.queries';
 
 export type BrowseSnapshot = {
   project?: string;
+  sourceData?: Source[];
   data?: InfiniteData<Awaited<ReturnType<typeof materialPage>>>;
   scroll: number;
 };

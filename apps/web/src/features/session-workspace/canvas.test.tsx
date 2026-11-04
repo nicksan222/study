@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
@@ -318,7 +319,7 @@ testStable(
     rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
     mount(actions());
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
+      fireEvent.click(screen.getByRole('button', { name: 'SessionImprove', hidden: true }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await act(async () => {
@@ -335,7 +336,7 @@ testStable(
   async () => {
     vi.mocked(activateVersion).mockResolvedValue(message);
     mount(actions(message.versions[0]!.id));
-    expect(screen.queryByRole('button', { name: 'SessionImprove' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'SessionImprove', hidden: true })).toBeDisabled();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'SessionUseVersion' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -358,7 +359,7 @@ testStable('never replays a rewrite after uncertain acceptance and remount', asy
   const first = mount(actions());
 
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionImprove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SessionImprove', hidden: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await act(async () => {
@@ -368,7 +369,7 @@ testStable('never replays a rewrite after uncertain acceptance and remount', asy
   await screen.findByText('SessionItemActionUncertain');
   first.unmount();
   mount(actions(), first.client);
-  expect(screen.getByRole('button', { name: 'SessionImprove' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'SessionImprove', hidden: true })).toBeDisabled();
   expect(rewriteNote).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
 });
@@ -382,7 +383,7 @@ testStable('sends custom instructions only to the chosen message', async () => {
   });
   mount(actions());
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'SessionCustomTransform' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCustomTransform', hidden: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   await act(async () => {
@@ -408,7 +409,7 @@ testStable('offers editing actions without Ask or Reanswer for existing entries'
   mount(actions(message.activeVersionId!, assistant));
   expect(screen.queryByRole('button', { name: 'SessionAsk' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'SessionReanswer' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'SessionImprove' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'SessionImprove', hidden: true })).toBeVisible();
   expect(reanswerNote).not.toHaveBeenCalled();
   expect(ask).not.toHaveBeenCalled();
 });
@@ -579,7 +580,9 @@ testStable(
       fireEvent.click(trigger);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(await screen.findByRole('textbox', { name: 'SessionEditNote' })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'SessionEditNote' })).toHaveFocus()
+    );
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -589,9 +592,10 @@ testStable(
   }
 );
 
-testStable('does not expose editing actions on an historical version', () => {
+testStable('keeps editing actions disabled on a historical version', () => {
   mount(actions(message.versions[0]!.id));
-  expect(screen.queryByRole('button', { name: 'SessionEditNote' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'SessionEditNote' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'SessionImprove', hidden: true })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'SessionUseVersion' })).toBeEnabled();
 });
 
@@ -618,5 +622,121 @@ testStable(
 
     expect(identity.closest('details')).not.toHaveAttribute('open');
     expect(identity.closest('section')?.querySelector('time')).toBeNull();
+  }
+);
+
+function VersionedNote({ value = message }: { value?: typeof message }) {
+  const [versionId, setVersionId] = useState(value.activeVersionId!);
+  return (
+    <MessageActions
+      message={value}
+      versionId={versionId}
+      onActive={() => setVersionId(value.activeVersionId!)}
+      onVersionChange={setVersionId}
+    >
+      <p>{value.versions.find((version) => version.id === versionId)?.text}</p>
+    </MessageActions>
+  );
+}
+
+testStable(
+  'browses exact saved versions with inline boundaries and a Latest badge without activating them',
+  async () => {
+    mount(<VersionedNote />);
+    expect(screen.getByRole('button', { name: 'SessionNextVersion' })).toBeDisabled();
+    expect(screen.getByText('SessionVersionLatest')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'SessionPreviousVersion' }));
+    expect(screen.getByText('Historical note')).toBeVisible();
+    expect(screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'SessionPreviousVersion' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'SessionUseVersion' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'SessionNextVersion' }));
+    expect(screen.getByText('Current note')).toBeVisible();
+    expect(screen.getByText('SessionVersionLatest')).toBeVisible();
+    expect(activateVersion).not.toHaveBeenCalled();
+  }
+);
+
+testStable(
+  'keeps version browsing disabled while an edit or uncertain write owns the note and restores it after review',
+  async () => {
+    vi.mocked(editNote).mockRejectedValue(new StudyError('transient', 'Uncertain edit'));
+    mount(<VersionedNote />);
+    fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
+    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveNote' }));
+    await screen.findByRole('alert');
+    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'LibraryRefresh' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'SessionReviewedHistory' }));
+    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeEnabled());
+  }
+);
+
+testStable('labels the newest saved version Latest even when another version is active', () => {
+  mount(
+    <VersionedNote
+      value={{
+        ...message,
+        activeVersionId: message.versions[0]!.id,
+        versions: [...message.versions].reverse()
+      }}
+    />
+  );
+  expect(screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionNextVersion' }));
+  expect(screen.getByText('SessionVersionLatest')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'SessionUseVersion' })).toBeEnabled();
+  expect(activateVersion).not.toHaveBeenCalled();
+});
+
+testStable('retains the same action controls while browsing saved versions', () => {
+  mount(<VersionedNote />);
+  const edit = screen.getByRole('button', { name: 'SessionEditNote' });
+  const improve = screen.getByRole('button', { name: 'SessionImprove', hidden: true });
+  const activate = screen.getByRole('button', { name: 'SessionUseVersion' });
+  expect(activate).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionPreviousVersion' }));
+  expect(screen.getByRole('button', { name: 'SessionEditNote' })).toBe(edit);
+  expect(screen.getByRole('button', { name: 'SessionImprove', hidden: true })).toBe(improve);
+  expect(screen.getByRole('button', { name: 'SessionUseVersion' })).toBe(activate);
+  expect(edit).toBeDisabled();
+  expect(improve).toBeDisabled();
+  expect(activate).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionNextVersion' }));
+  expect(edit).toBeEnabled();
+  expect(improve).toBeEnabled();
+  expect(activate).toBeDisabled();
+});
+
+testStable('protects an open edit from other toolbar actions', async () => {
+  mount(<VersionedNote />);
+  fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionImprove', hidden: true })).toBeDisabled()
+  );
+  expect(
+    screen.getByRole('button', { name: 'SessionCustomTransform', hidden: true })
+  ).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionImprove', hidden: true })).toBeEnabled()
+  );
+});
+
+testStable(
+  'opens deliberate editing in a dialog while keeping the saved note in the notebook',
+  async () => {
+    mount(<VersionedNote />);
+    fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
+    expect(await screen.findByRole('dialog', { name: 'SessionEditNote' })).toBeVisible();
+    expect(screen.getByText('Current note', { selector: 'p' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(editNote).not.toHaveBeenCalled();
   }
 );

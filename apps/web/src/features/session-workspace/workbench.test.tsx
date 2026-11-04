@@ -1,5 +1,5 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
-import { sessionIdSchema, materialIdSchema } from '@study/contracts/ids';
+import { sessionIdSchema, studyDocumentIdSchema } from '@study/contracts/ids';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -92,8 +92,8 @@ testStable(
   async () => {
     const view = mount();
     const target = {
-      kind: 'material' as const,
-      materialId: materialIdSchema.make(8n),
+      kind: 'document' as const,
+      documentId: studyDocumentIdSchema.make(8n),
       title: 'Document'
     };
 
@@ -133,8 +133,8 @@ testStable(
     for (const title of ['First', 'Second', 'Third']) {
       act(() =>
         view.result.current.open({
-          kind: 'material',
-          materialId: materialIdSchema.make(BigInt(identities.length + 1)),
+          kind: 'document',
+          documentId: studyDocumentIdSchema.make(BigInt(identities.length + 1)),
           title
         })
       );
@@ -168,8 +168,8 @@ testStable(
 
     act(() =>
       view.result.current.open({
-        kind: 'material',
-        materialId: materialIdSchema.make(1n),
+        kind: 'document',
+        documentId: studyDocumentIdSchema.make(1n),
         title: 'First session page'
       })
     );
@@ -181,8 +181,8 @@ testStable(
     expect(view.result.current.visible).toBe(false);
     act(() =>
       view.result.current.open({
-        kind: 'material',
-        materialId: materialIdSchema.make(2n),
+        kind: 'document',
+        documentId: studyDocumentIdSchema.make(2n),
         title: 'Second session page'
       })
     );
@@ -209,3 +209,50 @@ testStable('uses the configured initial width until the user manually changes it
   expect(view.result.current.expanded).toBe(false);
   preferences.expandDocuments = false;
 });
+
+testStable(
+  'keeps the action card visible until hidden and docks existing tabs without creating documents',
+  async () => {
+    const view = mount();
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    act(() => view.result.current.showEditor('bottom'));
+    await waitFor(() => expect(view.result.current.visible).toBe(false));
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(0));
+    act(() => view.result.current.toggleCard());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    const target = {
+      kind: 'document' as const,
+      documentId: studyDocumentIdSchema.make(88n),
+      title: 'Existing document'
+    };
+    act(() => view.result.current.open(target));
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    act(() => view.result.current.hide());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    act(() => view.result.current.toggleCard());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    act(() => view.result.current.showEditor('bottom'));
+    await waitFor(() => expect(view.result.current.dock).toBe('bottom'));
+    await waitFor(() => expect(view.result.current.visible).toBe(true));
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
+    act(() => view.result.current.showEditor('side'));
+    await waitFor(() => expect(view.result.current.dock).toBe('side'));
+    await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
+    act(() => view.result.current.close(workbenchIdentity(target)));
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+  }
+);
+
+testStable(
+  'switches from an open editor back to its action card without dropping tabs',
+  async () => {
+    const view = mount();
+    act(() => view.result.current.open({ kind: 'new', captureKey: 'draft-card', text: '' }));
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    act(() => view.result.current.toggleCard());
+    await waitFor(() => expect(view.result.current.visible).toBe(false));
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+  }
+);

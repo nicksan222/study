@@ -1,6 +1,5 @@
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
-import { DialogPopup } from '@study/ui/dialog';
 import { cn } from '@study/ui/utils';
 import { SquareMenu } from 'lucide-react';
 import {
@@ -34,7 +33,15 @@ function Provider({ children }: { children: ReactNode }) {
 }
 
 /** Toggles the workspace context panel using its shared visibility state. */
-function Toggle({ label }: { label: string }) {
+function Toggle({
+  label,
+  open,
+  onOpenChange
+}: {
+  label: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const context = useContext(CardContext);
 
   if (!context) return null;
@@ -43,13 +50,14 @@ function Toggle({ label }: { label: string }) {
     <Button
       ref={context.trigger}
       size="icon-sm"
-      variant="ghost-muted"
+      variant={(open ?? context.open) ? 'secondary' : 'ghost-muted'}
       className="ui-workspace-context-toggle"
       aria-label={label}
       title={label}
-      aria-expanded={context.open}
+      aria-expanded={open ?? context.open}
+      aria-pressed={open ?? context.open}
       aria-controls={context.id}
-      onClick={() => context.setOpen(!context.open)}
+      onClick={() => (onOpenChange ?? context.setOpen)(!(open ?? context.open))}
     >
       <SquareMenu aria-hidden="true" />
     </Button>
@@ -88,7 +96,12 @@ function Dock({ className, ...props }: ComponentProps<'div'>) {
 }
 
 /** Styles a workspace context card with the optional changes presentation. */
-function Card({ className, variant, ...props }: ComponentProps<'aside'> & { variant?: 'changes' }) {
+function Card({
+  className,
+  variant,
+  onDismiss,
+  ...props
+}: ComponentProps<'aside'> & { variant?: 'attachments'; onDismiss?: () => void }) {
   const context = useContext(CardContext);
 
   const element = useRef<HTMLElement>(null);
@@ -99,29 +112,34 @@ function Card({ className, variant, ...props }: ComponentProps<'aside'> & { vari
   useEffect(() => {
     const panel = element.current;
 
-    if (!context || !panel) return;
+    if (!panel || (!context && !onDismiss)) return;
 
     const close = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || !panel.contains(event.target as Node))
         return;
 
       event.preventDefault();
-      context.setOpen(false);
-      context.trigger.current?.focus();
+      if (onDismiss) onDismiss();
+      else context?.setOpen(false);
+      context?.trigger.current?.focus();
     };
 
     document.addEventListener('keydown', close);
 
     return () => document.removeEventListener('keydown', close);
-  }, [context]);
+  }, [context, onDismiss]);
 
   return (
     <aside
       {...props}
       ref={element}
       id={context?.id ?? props.id}
-      hidden={context ? !context.open : props.hidden}
-      className={cn('ui-workspace-card', variant === 'changes' && 'session-changes', className)}
+      hidden={props.hidden ?? (context ? !context.open : undefined)}
+      className={cn(
+        'ui-workspace-card',
+        variant === 'attachments' && 'session-attachments-card',
+        className
+      )}
     />
   );
 }
@@ -134,12 +152,6 @@ function Item({ className, ...props }: ComponentProps<typeof Button>) {
   return (
     <Button variant="ghost-muted" className={cn('ui-workspace-card-item', className)} {...props} />
   );
-}
-
-function ChangeDialog(
-  props: Omit<ComponentProps<typeof DialogPopup>, 'className' | 'bottomStickOnMobile'>
-) {
-  return <DialogPopup {...props} className="session-change-dialog" bottomStickOnMobile={false} />;
 }
 
 function ComposerHint(props: Omit<ComponentProps<typeof ComposerSurface.Hint>, 'className'>) {
@@ -166,23 +178,23 @@ export const WorkspaceSurface = {
   ComposerSubmit
 };
 
-function ContextAction(props: Omit<ComponentProps<typeof Button>, 'className' | 'variant'>) {
-  return <Button {...props} variant="outline" className="session-context-action" />;
-}
-
 export const WorkspaceChanges = {
-  Actions: part('div', 'session-context-actions'),
-  Summary: part('p', 'session-muted'),
-  Action: ContextAction,
-  Heading: part('header', 'session-changes-heading'),
-  Empty: part('p', 'session-changes-empty'),
-  List: part('div', 'session-changes-list'),
-  More: part('div', 'session-changes-more'),
-  Label: part('span', 'session-change-label'),
-  Preview: part('div', 'session-change-preview'),
-  Versions: part('div', 'session-change-versions'),
-  Text: part('div', 'session-change-text'),
-  Dialog: ChangeDialog
+  Actions: part('div', 'session-context-actions')
 };
 
-export const WorkspaceCard = { Provider, Toggle, Root: Card, Group, Item };
+function AttachmentItem(props: ComponentProps<typeof Button>) {
+  return <Button {...props} size="sm" variant="ghost-muted" className="session-attachment-item" />;
+}
+export const WorkspaceAttachments = {
+  Heading: part('header', 'session-page-index-heading'),
+  Empty: part('p', 'session-page-index-empty'),
+  List: part('div', 'session-page-index'),
+  Rows: part('div', 'session-attachment-rows'),
+  Item: AttachmentItem
+};
+
+function Primary(props: ComponentProps<typeof Button>) {
+  return <Button {...props} size="sm" className="ui-workspace-card-primary" />;
+}
+
+export const WorkspaceCard = { Provider, Toggle, Root: Card, Group, Item, Primary };

@@ -1,13 +1,23 @@
-import type { sessionSelectionTargetSchema } from '@study/contracts/conversations/context';
-import type { SessionId, MaterialVersionId } from '@study/contracts/ids';
+import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import type {
-  MaterialSummaryDto,
-  MaterialVersionDetailDto
-} from '@study/contracts/materials/schemas';
+  sessionSelectionTargetSchema,
+  selectionReferenceSchema
+} from '@study/contracts/conversations/context';
+import type {
+  SessionId,
+  SourceId,
+  StudyDocumentId,
+  StudyDocumentVersionId,
+  ContentSnapshotId
+} from '@study/contracts/ids';
+import { validBlockTextRange } from '@study/contracts/sources/document';
+import type { documentSchema } from '@study/contracts/sources/schemas';
 import { Button } from '@study/ui/button';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
+import { SelectControl } from '@study/ui/select-control';
 import { Notebook } from '@study/ui/session-workspace';
+import { Textarea } from '@study/ui/textarea';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import {
   useInfiniteQuery,
@@ -17,30 +27,38 @@ import {
   useQueryClient
 } from '@tanstack/react-query';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-
-import { materialOptions, materialsOptions, versionOptions } from '../material-library';
-import { selectionDraftOptions, saveSelectionOptions } from './selection.queries';
 import {
-  sessionDocumentOptions,
-  sessionMaterialSearchOptions,
-  selectionOptions
-} from './session-workspace.queries';
+  documentHistoryOptions,
+  documentsOptions
+} from '#web/lib/study-client/documents.queries.ts';
+import { request } from '#web/lib/study-client/request.ts';
+
+import { HistoryDisclosure } from '../document-presentation/history';
+import { SourceHistory } from '../source-library/history';
+import { sourceExtractionOptions } from '../source-library/source-panel.queries';
+import {
+  selectionDraftOptions,
+  saveSelectionOptions,
+  selectedContentOptions,
+  selectionSourcesOptions
+} from './selection.queries';
+import { sessionDocumentOptions } from './session-document.queries';
+import { selectionOptions } from './session-workspace.queries';
 import type { Selection } from './session-workspace.queries';
 import { SessionError, SessionReadError } from './status';
 
 type Target = typeof sessionSelectionTargetSchema.Type;
+type Reference = typeof selectionReferenceSchema.Type;
 
 function useSelection(id: SessionId) {
-  const { t } = useI18n();
   const cache = useQueryClient();
   const selected = useQuery(selectionOptions(id));
-  const key = ['session-drafts', String(id), 'selection'];
-  const draft = useQuery(selectionDraftOptions(id));
-  const [search, setSearch] = useState('');
-  const results = useQuery(sessionMaterialSearchOptions(search.trim()));
-  const materials = useInfiniteQuery(materialsOptions());
+  const draftOptions = selectionDraftOptions(id);
+  const draftKey = ['session-drafts', String(id), 'selection'];
+  const draft = useQuery(draftOptions);
   const current = draft.data ?? selected.data;
   const mutationKey = ['session-selection-save', String(id)];
   const saving = useIsMutating({ mutationKey, exact: true }) > 0;
@@ -52,64 +70,41 @@ function useSelection(id: SessionId) {
       cache.setQueryData<Selection>(selectionOptions(id).queryKey, (previous) =>
         !previous || previous.revision <= value.revision ? value : previous
       );
-      cache.setQueryData<Selection | null>(key, (previous) => {
+      cache.setQueryData<Selection | null>(draftKey, (previous) => {
         if (previous === submitted) return null;
-
-        if (previous && previous.revision === submitted.revision)
-          return { ...previous, revision: value.revision };
-
-        return previous;
+        return previous && previous.revision === submitted.revision
+          ? { ...previous, revision: value.revision }
+          : previous;
       });
     }
   });
-
   function change(target: Target, remove = false) {
     if (!current || saving) return;
-
-    const rest = current.targets.filter((item) => item.versionId !== target.versionId);
-
-    cache.setQueryData(key, {
+    const key = selectionReferenceKey(target.input);
+    const rest = current.targets.filter((item) => selectionReferenceKey(item.input) !== key);
+    const next: Selection = {
       revision: current.revision,
       targets: remove ? rest : [...rest, target]
-    });
+    };
+    cache.setQueryData<Selection | null>(draftKey, () => next);
     save.reset();
   }
-
-  return {
-    t,
-    selected,
-    draft,
-    search,
-    setSearch,
-    results,
-    materials,
-    current,
-    saving,
-    save,
-    cache,
-    key,
-    change
-  };
+  function reload() {
+    cache.setQueryData(draftKey, null);
+    save.reset();
+    void selected.refetch();
+  }
+  return { current, selected, draft, saving, save, change, reload };
 }
-
-/** Composes exact document, block and excerpt selection for the active session. */
 export function SelectionPanel({ id }: { id: SessionId }) {
-  const {
-    t,
-    selected,
-    draft,
-    search,
-    setSearch,
-    results,
-    materials,
-    current,
-    saving,
-    save,
-    cache,
-    key,
-    change
-  } = useSelection(id);
-
+  const { t } = useI18n();
+  const model = useSelection(id);
+  const { selected, current, saving, change, save, draft } = model;
+  const [search, setSearch] = useState('');
+  const documents = useInfiniteQuery(documentsOptions());
+  const sources = useQuery(selectionSourcesOptions());
+  const matches = (name: string) =>
+    name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
   return (
     <WorkspaceSurface.Section>
       <Notebook.Muted>{t('SessionSelectionHelp')}</Notebook.Muted>
@@ -117,61 +112,61 @@ export function SelectionPanel({ id }: { id: SessionId }) {
       {selected.error && (
         <SessionReadError error={selected.error} retry={() => void selected.refetch()} />
       )}
-      <SelectedTargets current={current} saving={saving} change={change} />
-      <SelectionSave
-        dirty={!!draft.data}
-        saving={saving}
-        onSave={() => current && save.mutate(current)}
-        onReload={() => {
-          cache.setQueryData(key, null);
-          save.reset();
-          void selected.refetch();
-        }}
-      />
+      <ul>
+        {current?.targets.map((target) => (
+          <li key={selectionReferenceKey(target.input)}>
+            <SelectedTarget target={target} />
+            <Button variant="ghost" disabled={saving} onClick={() => change(target, true)}>
+              {t('SessionRemove')}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <Button disabled={!draft.data || saving} onClick={() => current && save.mutate(current)}>
+        {t('SessionSaveSelection')}
+      </Button>
+      <Button variant="ghost" disabled={saving} onClick={model.reload}>
+        {t('LibraryRefresh')}
+      </Button>
       {save.error && <SessionError error={save.error} />}
       {draft.data && <p role="status">{t('SessionSelectionUnsaved')}</p>}
       <Input
         aria-label={t('SessionSearchMaterial')}
-        placeholder={t('SessionSearchMaterial')}
-        maxLength={1000}
         value={search}
-        onChange={(event) => setSearch(event.target.value)}
+        maxLength={1000}
+        onValueChange={setSearch}
       />
-      {results.error && (
-        <SessionReadError error={results.error} retry={() => void results.refetch()} />
-      )}
-      {results.data?.hits.map((hit) => (
-        <details key={String(hit.target.versionId)}>
-          <summary>{hit.title}</summary>
-          <SearchDocument
-            id={hit.target.versionId}
-            selected={current?.targets.find((target) => target.versionId === hit.target.versionId)}
-            disabled={!current || saving || current.targets.length >= 20}
-            change={change}
-          />
-        </details>
-      ))}
-      {materials.error && (
-        <SessionReadError error={materials.error} retry={() => void materials.refetch()} />
+      {documents.error && (
+        <SessionReadError error={documents.error} retry={() => void documents.refetch()} />
       )}
       <Notebook.Materials>
-        {materials.data?.pages
+        {documents.data?.pages
           .flatMap((page) => page.items)
-          .map((material) => (
-            <SelectionMaterial
-              key={String(material.id)}
-              material={material}
-              current={current}
-              saving={saving}
-              change={change}
-            />
+          .filter((item) => matches(item.title))
+          .map((item) => (
+            <li key={`document:${item.id}`}>
+              <SelectionDisclosure title={item.title}>
+                <DocumentSelection id={item.id} model={model} />
+              </SelectionDisclosure>
+            </li>
+          ))}
+        {sources.data
+          ?.filter((item) => matches(item.name))
+          .map((item) => (
+            <li key={`source:${item.id}`}>
+              <SelectionDisclosure title={item.name}>
+                <SourceSelection id={item.id} model={model} />
+              </SelectionDisclosure>
+            </li>
           ))}
       </Notebook.Materials>
-      {materials.hasNextPage && (
+      {sources.error && (
+        <SessionReadError error={sources.error} retry={() => void sources.refetch()} />
+      )}
+      {documents.hasNextPage && (
         <Button
-          variant="ghost"
-          disabled={materials.isFetchingNextPage}
-          onClick={() => void materials.fetchNextPage()}
+          disabled={documents.isFetchingNextPage}
+          onClick={() => void documents.fetchNextPage()}
         >
           {t('LibraryMore')}
         </Button>
@@ -179,415 +174,282 @@ export function SelectionPanel({ id }: { id: SessionId }) {
     </WorkspaceSurface.Section>
   );
 }
-
-function MaterialChoice({
-  material,
-  selected,
-  disabled,
-  change
-}: {
-  material: MaterialSummaryDto;
-  selected?: Target;
-  disabled: boolean;
-  change: (target: Target, remove?: boolean) => void;
-}) {
-  const { t } = useI18n();
+function SelectionDisclosure({ title, children }: { title: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const version = useQuery({ ...versionOptions(material.version.id), enabled: open });
-
   return (
-    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary>
-        {material.title} · {t('ReaderVersion')} {String(material.version.number)}
-      </summary>
-      {open && version.isPending && <Loading label={t('LoadingStudy')} />}
-      {version.error && (
-        <SessionReadError error={version.error} retry={() => void version.refetch()} />
-      )}
-      {version.data && !version.isError && (
-        <ExactDocument
-          version={version.data}
-          selected={selected}
-          disabled={disabled}
-          change={change}
-        />
-      )}
+    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>{title}</summary>
+      {open && children}
     </details>
   );
 }
-
-function ExactDocument({
-  version,
-  selected,
-  disabled,
-  change
+function DocumentSelection({
+  id,
+  model
 }: {
-  version: MaterialVersionDetailDto;
-  selected?: Target;
-  disabled: boolean;
-  change: (target: Target) => void;
+  id: StudyDocumentId;
+  model: ReturnType<typeof useSelection>;
 }) {
   const { t } = useI18n();
-  const exact = useQuery(sessionDocumentOptions(version.id));
-
-  if (exact.isPending) return <Loading label={t('LoadingStudy')} />;
-
-  if (exact.isError || !exact.data)
-    return <SessionReadError error={exact.error} retry={() => void exact.refetch()} />;
-
-  const { document, id: documentId } = exact.data;
-
-  return (
-    <Notebook.ExactDocument>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={disabled}
-        onClick={() => change({ versionId: version.id, documentId, scope: { kind: 'document' } })}
-      >
-        {t('SessionUseWhole')}
-      </Button>
-      {!documentId && <Notebook.Muted>{t('SessionRangeUnavailable')}</Notebook.Muted>}
-      {document.blocks.map((block) => (
-        <Notebook.Block key={block.id}>
-          <Button
-            size="sm"
-            aria-pressed={
-              selected?.scope.kind === 'blocks' && selected.scope.blockIds.includes(block.id)
-            }
-            variant={
-              selected?.scope.kind === 'blocks' && selected.scope.blockIds.includes(block.id)
-                ? 'secondary'
-                : 'ghost'
-            }
-            disabled={disabled}
-            onClick={() => {
-              const previous = selected?.scope.kind === 'blocks' ? selected.scope.blockIds : [];
-              const blockIds = previous.includes(block.id)
-                ? previous.filter((id) => id !== block.id)
-                : [...previous, block.id];
-
-              if (blockIds.length > 0 && blockIds.length <= 200)
-                change({ versionId: version.id, documentId, scope: { kind: 'blocks', blockIds } });
-            }}
-          >
-            {t('SessionUseBlock')} · {block.id}
-          </Button>
-          <BlockRange
-            text={block.text}
-            disabled={disabled || !documentId}
-            onUseRange={(start, end) => {
-              if (documentId)
-                change({
-                  versionId: version.id,
-                  documentId,
-                  scope: {
-                    kind: 'ranges',
-                    ranges: [{ versionId: version.id, documentId, blockId: block.id, start, end }]
-                  }
-                });
-            }}
-          />
-        </Notebook.Block>
-      ))}
-    </Notebook.ExactDocument>
+  const owner = useQuery(sessionDocumentOptions(id));
+  const [selected, setSelected] = useState<StudyDocumentVersionId>();
+  if (owner.error)
+    return <SessionReadError error={owner.error} retry={() => void owner.refetch()} />;
+  const version = owner.data?.version;
+  return version ? (
+    <>
+      <DocumentInputHistory id={id} onSelect={setSelected} />
+      <Candidate
+        key={String(selected ?? version.id)}
+        input={{ kind: 'document', versionId: selected ?? version.id }}
+        model={model}
+      />
+    </>
+  ) : (
+    <Loading label={t('LoadingStudy')} />
   );
 }
-
-function BlockRange({
-  text,
-  disabled,
-  onUseRange
+function DocumentInputHistory({
+  id,
+  onSelect
 }: {
-  text: string;
-  disabled: boolean;
-  onUseRange: (start: number, end: number) => void;
+  id: StudyDocumentId;
+  onSelect: (id: StudyDocumentVersionId | undefined) => void;
 }) {
   const { t } = useI18n();
-  const [range, setRange] = useState({ start: 0, end: 0 });
-
+  const [open, setOpen] = useState(false);
+  const history = useInfiniteQuery({ ...documentHistoryOptions(id), enabled: open });
+  return (
+    <HistoryDisclosure
+      open={open}
+      onOpenChange={setOpen}
+      onCurrent={() => onSelect(undefined)}
+      error={
+        history.error && (
+          <SessionReadError error={history.error} retry={() => void history.refetch()} />
+        )
+      }
+      more={
+        history.hasNextPage
+          ? { pending: history.isFetchingNextPage, load: () => void history.fetchNextPage() }
+          : undefined
+      }
+    >
+      {history.data?.pages
+        .flatMap((page) => page.items)
+        .filter((version) => version.status === 'published')
+        .map((version) => (
+          <Button key={String(version.id)} variant="ghost" onClick={() => onSelect(version.id)}>
+            {t('ReaderVersion')} {String(version.number)}
+          </Button>
+        ))}
+    </HistoryDisclosure>
+  );
+}
+function SourceSelection({ id, model }: { id: SourceId; model: ReturnType<typeof useSelection> }) {
+  const { t } = useI18n();
+  const [selected, setSelected] = useState<{ revision: bigint; snapshotId: ContentSnapshotId }>();
+  const source = useQuery(sourceExtractionOptions(id));
+  const exact = selected ?? source.data;
   return (
     <>
-      <Notebook.BlockText
-        aria-label={t('SessionPassage')}
-        readOnly
-        value={text}
-        onSelect={(event) =>
-          setRange({
-            start: event.currentTarget.selectionStart,
-            end: event.currentTarget.selectionEnd
-          })
-        }
-      />
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={disabled || range.end <= range.start}
-        onClick={() => onUseRange(range.start, range.end)}
-      >
-        {t('SessionUseRange')}
-      </Button>
+      <SourceHistory sourceId={id} onSelect={setSelected} />
+      {!selected && source.error && (
+        <SessionReadError error={source.error} retry={() => void source.refetch()} />
+      )}
+      {exact ? (
+        <Candidate
+          key={`${exact.revision}:${exact.snapshotId}`}
+          input={{
+            kind: 'source',
+            sourceId: id,
+            revision: exact.revision,
+            snapshotId: exact.snapshotId
+          }}
+          model={model}
+        />
+      ) : (
+        !source.error && <Loading label={t('SessionPending')} />
+      )}
     </>
   );
 }
-
-function SearchDocument({
-  id,
+function Candidate({ input, model }: { input: Reference; model: ReturnType<typeof useSelection> }) {
+  const key = selectionReferenceKey(input);
+  return (
+    <ExactSelection
+      input={input}
+      selected={model.current?.targets.find((item) => selectionReferenceKey(item.input) === key)}
+      disabled={
+        !model.current ||
+        model.saving ||
+        (!model.current.targets.some((item) => selectionReferenceKey(item.input) === key) &&
+          model.current.targets.length >= 20)
+      }
+      change={model.change}
+    />
+  );
+}
+function ExactSelection({
+  input,
   selected,
   disabled,
   change
 }: {
-  id: MaterialVersionId;
+  input: Reference;
   selected?: Target;
   disabled: boolean;
   change: (target: Target) => void;
 }) {
-  const state = useQuery(versionOptions(id));
-
-  if (state.isError)
-    return <SessionReadError error={state.error} retry={() => void state.refetch()} />;
-
-  return state.data ? (
-    <ExactDocument version={state.data} selected={selected} disabled={disabled} change={change} />
-  ) : null;
+  const { t } = useI18n();
+  const exact = useQuery(selectedContentOptions(input));
+  if (exact.error)
+    return <SessionReadError error={exact.error} retry={() => void exact.refetch()} />;
+  if (!exact.data) return <Loading label={t('LoadingStudy')} />;
+  return (
+    <SelectionContent
+      input={input}
+      selected={selected}
+      disabled={disabled}
+      change={change}
+      content={exact.data}
+    />
+  );
+}
+function SelectionContent({
+  input,
+  selected,
+  disabled,
+  change,
+  content
+}: {
+  input: Reference;
+  selected?: Target;
+  disabled: boolean;
+  change: (target: Target) => void;
+  content: { name: string; document: typeof documentSchema.Type };
+}) {
+  const { t } = useI18n();
+  const [blockId, setBlockId] = useState('');
+  const block = content.document.blocks.find((item) => item.id === blockId);
+  return (
+    <div>
+      <p>
+        {content.name} ·{' '}
+        {input.kind === 'document' ? String(input.versionId) : String(input.revision)}
+      </p>
+      <Button
+        disabled={disabled}
+        aria-pressed={selected?.scope.kind === 'document'}
+        onClick={() => change({ input, scope: { kind: 'document' } })}
+      >
+        {t('SessionWhole')}
+      </Button>
+      {content.document.blocks.map((item, index) => (
+        <label key={item.id}>
+          <input
+            type="checkbox"
+            disabled={disabled}
+            checked={selected?.scope.kind === 'blocks' && selected.scope.blockIds.includes(item.id)}
+            onChange={(event) => {
+              const current = selected?.scope.kind === 'blocks' ? selected.scope.blockIds : [];
+              const blockIds = event.currentTarget.checked
+                ? [...current, item.id]
+                : current.filter((id) => id !== item.id);
+              if (blockIds.length) change({ input, scope: { kind: 'blocks', blockIds } });
+            }}
+          />
+          {index + 1} · {item.text.slice(0, 80)}
+        </label>
+      ))}
+      <SelectControl
+        label={t('DocumentBlock')}
+        value={blockId}
+        options={[
+          { value: '', label: t('AnnotationChooseBlock') },
+          ...content.document.blocks.map((item, index) => ({
+            value: item.id,
+            label: `${index + 1} · ${item.text.slice(0, 80)}`
+          }))
+        ]}
+        onValueChange={setBlockId}
+      />
+      {block && (
+        <label>
+          {t('DocumentSelectPassage')}
+          <Textarea
+            readOnly
+            value={block.text}
+            disabled={disabled}
+            onSelect={(event) => {
+              const range = {
+                blockId: block.id,
+                start: event.currentTarget.selectionStart,
+                end: event.currentTarget.selectionEnd
+              };
+              if (range.end > range.start && validBlockTextRange(content.document, range))
+                change({ input, scope: { kind: 'ranges', ranges: [range] } });
+            }}
+          />
+        </label>
+      )}
+    </div>
+  );
 }
 
+const scopeLabels = {
+  document: 'SessionWhole',
+  blocks: 'SessionBlocks',
+  ranges: 'SessionRanges'
+} as const;
+function selectedVersion(target: Target, number: bigint | undefined) {
+  if (number !== undefined) return number;
+  return target.input.kind === 'source' ? target.input.revision : target.input.versionId;
+}
+/** A saved range summary never shows unselected surrounding content. */
 export function SelectedTarget({ target }: { target: Target }) {
   const { t } = useI18n();
-  const version = useQuery(versionOptions(target.versionId));
-
+  const exact = useQuery(selectedContentOptions(target.input));
+  const content = exact.isError ? undefined : exact.data;
+  const excerpts = content ? selectedExcerpts(target, content.document) : undefined;
   return (
     <Notebook.SelectedTarget>
-      {version.data && !version.isError ? (
-        <SelectedVersion target={target} version={version.data} />
+      {content && excerpts ? (
+        <>
+          <span>{content.name}</span>
+          <Notebook.Muted>
+            {t('ReaderVersion')} {String(selectedVersion(target, content.number))} ·{' '}
+            {t(scopeLabels[target.scope.kind])} · {excerpts.length}
+          </Notebook.Muted>
+          {excerpts.map((text, index) => (
+            <blockquote key={index}>{text}</blockquote>
+          ))}
+        </>
       ) : (
-        <span>
-          {t(version.isPending ? 'LoadingStudy' : 'SessionReadUnavailable')} · {t('ReaderVersion')}{' '}
-          {String(target.versionId)}
-        </span>
+        <span>{t(exact.isPending ? 'LoadingStudy' : 'SessionReadUnavailable')}</span>
       )}
-      {version.error && (
-        <SessionReadError error={version.error} retry={() => void version.refetch()} />
-      )}
+      {exact.error && <SessionReadError error={exact.error} retry={() => void exact.refetch()} />}
     </Notebook.SelectedTarget>
   );
 }
-
-function SelectedVersion({
-  target,
-  version
-}: {
-  target: Target;
-  version: MaterialVersionDetailDto;
-}) {
-  const { t } = useI18n();
-  const material = useQuery(materialOptions(version.material_id));
-  const exact = useQuery(sessionDocumentOptions(target.versionId));
-  const document =
-    !exact.isError && exact.data && matchesDocument(target, exact.data.id)
-      ? exact.data.document
-      : undefined;
-  const excerpts = selectionExcerpts(target, document, exact.data?.id);
-
-  return (
-    <>
-      <strong>
-        {material.data?.title ?? t(material.isPending ? 'LoadingStudy' : 'SessionReadUnavailable')}
-      </strong>
-      <SelectedScope target={target} version={version} />
-      <SelectedExcerpts
-        target={target}
-        document={document}
-        excerpts={excerpts}
-        pending={exact.isPending}
-      />
-      {material.error && (
-        <SessionReadError error={material.error} retry={() => void material.refetch()} />
-      )}
-      {exact.error && <SessionReadError error={exact.error} retry={() => void exact.refetch()} />}
-    </>
-  );
-}
-
-function selectionExcerpts(
-  target: Target,
-  document:
-    | Awaited<
-        ReturnType<
-          Exclude<ReturnType<typeof sessionDocumentOptions>['queryFn'], undefined | symbol>
-        >
-      >['document']
-    | undefined,
-  documentId: Target['documentId']
-) {
+function selectedExcerpts(target: Target, document: typeof documentSchema.Type) {
+  if (target.scope.kind === 'ranges') {
+    if (
+      !target.scope.ranges.every(
+        (range) => range.end > range.start && validBlockTextRange(document, range)
+      )
+    )
+      return undefined;
+    return target.scope.ranges.map((range) =>
+      document.blocks
+        .find((block) => block.id === range.blockId)!
+        .text.slice(range.start, range.end)
+    );
+  }
   const scope = target.scope;
-
-  return document
-    ? scope.kind === 'blocks'
-      ? scope.blockIds.map((id) => ({
-          key: id,
-          text: document.blocks.find((block) => block.id === id)?.text
-        }))
-      : scope.kind === 'ranges'
-        ? scope.ranges.map((range) => ({
-            key: `${range.versionId}:${range.documentId}:${range.blockId}:${range.start}:${range.end}`,
-            text:
-              range.versionId === target.versionId && range.documentId === documentId
-                ? document.blocks
-                    .find((block) => block.id === range.blockId)
-                    ?.text.slice(range.start, range.end)
-                : undefined
-          }))
-        : []
-    : [];
-}
-
-function SelectedScope({ target, version }: { target: Target; version: MaterialVersionDetailDto }) {
-  const { t } = useI18n();
-  const scope = target.scope;
-
-  return (
-    <Notebook.MutedLabel>
-      {t('ReaderVersion')} {String(version.number)} ·{' '}
-      {t(
-        scope.kind === 'document'
-          ? 'SessionWhole'
-          : scope.kind === 'blocks'
-            ? 'SessionBlocks'
-            : 'SessionRanges'
-      )}
-      {scope.kind !== 'document' &&
-        ` · ${scope.kind === 'blocks' ? scope.blockIds.length : scope.ranges.length}`}
-    </Notebook.MutedLabel>
+  const blocks = document.blocks.filter(
+    (block) => scope.kind === 'document' || scope.blockIds.includes(block.id)
   );
-}
-
-function materialChoiceDisabled(
-  current: Selection | null | undefined,
-  saving: boolean,
-  versionId: Target['versionId']
-) {
-  if (!current || saving) return true;
-
-  return (
-    !current.targets.some((item) => item.versionId === versionId) && current.targets.length >= 20
-  );
-}
-
-function matchesDocument(target: Target, documentId: Target['documentId']) {
-  return !target.documentId || target.documentId === documentId;
-}
-
-function SelectedExcerpts({
-  target,
-  document,
-  excerpts,
-  pending
-}: {
-  target: Target;
-  document: unknown;
-  excerpts: { key: string; text: string | undefined }[];
-  pending: boolean;
-}) {
-  const { t } = useI18n();
-  const scope = target.scope;
-
-  return (
-    <>
-      {scope.kind !== 'document' && (
-        <Notebook.SelectionExcerpts>
-          {document ? (
-            excerpts.map(({ key, text }) => (
-              <blockquote key={key}>{text ?? t('SessionReadUnavailable')}</blockquote>
-            ))
-          ) : (
-            <p>{t(pending ? 'LoadingStudy' : 'SessionReadUnavailable')}</p>
-          )}
-        </Notebook.SelectionExcerpts>
-      )}
-    </>
-  );
-}
-
-function SelectionMaterial({
-  material,
-  current,
-  saving,
-  change
-}: {
-  material: MaterialSummaryDto;
-  current: Selection | null | undefined;
-  saving: boolean;
-  change: (target: Target, remove?: boolean) => void;
-}) {
-  return (
-    <li key={String(material.id)}>
-      <MaterialChoice
-        material={material}
-        selected={current?.targets.find((item) => item.versionId === material.version.id)}
-        disabled={materialChoiceDisabled(current, saving, material.version.id)}
-        change={change}
-      />
-    </li>
-  );
-}
-
-function SelectedTargets({
-  current,
-  saving,
-  change
-}: {
-  current: Selection | null | undefined;
-  saving: boolean;
-  change: (target: Target, remove?: boolean) => void;
-}) {
-  const { t } = useI18n();
-
-  return (
-    <>
-      <Notebook.Selected>
-        {current?.targets.map((target) => (
-          <li key={String(target.versionId)}>
-            <SelectedTarget target={target} />
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={saving}
-              onClick={() => change(target, true)}
-            >
-              {t('SessionRemove')}
-            </Button>
-          </li>
-        ))}
-      </Notebook.Selected>
-      {current?.targets.length === 0 && <Notebook.Muted>{t('SessionNoSelection')}</Notebook.Muted>}
-    </>
-  );
-}
-
-function SelectionSave({
-  dirty,
-  saving,
-  onSave,
-  onReload
-}: {
-  dirty: boolean;
-  saving: boolean;
-  onSave: () => void;
-  onReload: () => void;
-}) {
-  const { t } = useI18n();
-
-  return (
-    <Notebook.Actions>
-      <Button disabled={!dirty || saving} onClick={onSave}>
-        {t('SessionSaveSelection')}
-      </Button>
-      {dirty && (
-        <Button variant="ghost" disabled={saving} onClick={onReload}>
-          {t('SessionReloadSelection')}
-        </Button>
-      )}
-    </Notebook.Actions>
-  );
+  if (scope.kind === 'blocks' && blocks.length !== scope.blockIds.length) return undefined;
+  return blocks.map((block) => block.text);
 }

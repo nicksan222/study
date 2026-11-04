@@ -7,7 +7,7 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { materialsOptions } from '#web/lib/study-client/materials.queries.ts';
+import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
 
 /** A global, explicitly refreshed review for a possibly accepted unscoped creation. */
 export function CreationLibraryReview({
@@ -19,7 +19,7 @@ export function CreationLibraryReview({
 }) {
   const { t } = useI18n();
   const [refreshed, setRefreshed] = useState(false);
-  const library = useInfiniteQuery({ ...materialsOptions(), enabled: false });
+  const library = useInfiniteQuery({ ...documentsOptions(), enabled: false });
   const reviewable = completedReview(refreshed, library);
 
   return (
@@ -52,8 +52,8 @@ export function CreationLibraryReview({
               .map((item) => (
                 <DocumentEditing.ReviewRow key={String(item.id)}>
                   <Link
-                    to="/materials/$materialId"
-                    params={{ materialId: String(item.id) }}
+                    to="/documents/$documentId"
+                    params={{ documentId: String(item.id) }}
                     search={{}}
                   >
                     {item.title}

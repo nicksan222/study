@@ -10,41 +10,34 @@ import {
   DialogFooter
 } from '@study/ui/dialog';
 import { WorkspaceCard, WorkspaceSurface, WorkspaceChanges } from '@study/ui/workspace';
-import { ArrowUpRight, FileInput, WandSparkles, Trash2 } from 'lucide-react';
+import { ArrowUpRight, FileInput, FileText, FilePlus2, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { SessionDocumentDialog } from './document-creation-dialog';
 import { SelectionPanel } from './selection';
-import { Transformation } from './transformation';
 
 function ContextAction({
   title,
   icon,
-  children,
-  compact
+  children
 }: {
   title: string;
   icon: ReactNode;
   children: ReactNode;
-  compact?: boolean;
 }) {
   const { t } = useI18n();
 
   return (
     <Dialog>
-      <DialogTrigger
-        aria-label={title}
-        title={compact ? title : undefined}
-        render={compact ? <Button variant="ghost-muted" size="icon-sm" /> : <WorkspaceCard.Item />}
-      >
+      <DialogTrigger aria-label={title} render={<WorkspaceCard.Item />}>
         {icon}
-        {!compact && (
-          <>
-            <span>{title}</span>
-            <ArrowUpRight aria-hidden="true" />
-          </>
-        )}
+        <>
+          <span>{title}</span>
+          <ArrowUpRight aria-hidden="true" />
+        </>
       </DialogTrigger>
       <DialogPopup
         keepMounted
@@ -69,46 +62,41 @@ function ContextAction({
 export function SessionContextActions({
   id,
   onDelete,
-  compact
+  onCreate,
+  pending
 }: {
   id: SessionId;
   onDelete: () => void;
-  compact?: boolean;
+  onCreate: () => void;
+  pending: boolean;
 }) {
   const { t } = useI18n();
+  const [creating, setCreating] = useState(false);
 
   return (
     <WorkspaceChanges.Actions>
-      <ContextAction
-        compact={compact}
-        title={t('SessionSelection')}
-        icon={<FileInput aria-hidden="true" />}
-      >
+      <SessionDocumentDialog
+        id={id}
+        open={creating}
+        onOpenChange={setCreating}
+        trigger={
+          <WorkspaceCard.Primary>
+            <FileText size={16} aria-hidden="true" />
+            {t('SessionTransform')}
+          </WorkspaceCard.Primary>
+        }
+      />
+      <WorkspaceCard.Item onClick={onCreate} disabled={pending}>
+        <FilePlus2 aria-hidden="true" />
+        <span>{t('SessionNewDocument')}</span>
+      </WorkspaceCard.Item>
+      <ContextAction title={t('SessionSelection')} icon={<FileInput aria-hidden="true" />}>
         <SelectionPanel id={id} />
       </ContextAction>
-      <ContextAction
-        compact={compact}
-        title={t('SessionTransform')}
-        icon={<WandSparkles aria-hidden="true" />}
-      >
-        <Transformation id={id} />
-      </ContextAction>
-      {compact ? (
-        <Button
-          variant="ghost-muted"
-          size="icon-sm"
-          title={t('SessionDelete')}
-          aria-label={t('SessionDelete')}
-          onClick={onDelete}
-        >
-          <Trash2 size={16} aria-hidden="true" />
-        </Button>
-      ) : (
-        <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
-          <Trash2 aria-hidden="true" />
-          <span>{t('SessionDelete')}</span>
-        </WorkspaceCard.Item>
-      )}
+      <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
+        <Trash2 aria-hidden="true" />
+        <span>{t('SessionDelete')}</span>
+      </WorkspaceCard.Item>
     </WorkspaceChanges.Actions>
   );
 }

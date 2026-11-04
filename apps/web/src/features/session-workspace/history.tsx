@@ -1,8 +1,9 @@
+import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
-import type { SessionId, VersionId, MaterialVersionId } from '@study/contracts/ids';
-import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
+import type { StudyDocumentSummary } from '@study/contracts/documents/types';
+import type { SessionId, VersionId, SourceId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import { ChatConversation, ChatMessage, ChatMessageText, ChatTimelineEvent } from '@study/ui/chat';
+import { ChatConversation, ChatMessage, ChatMessageText } from '@study/ui/chat';
 import {
   Dialog,
   DialogTrigger,
@@ -23,10 +24,12 @@ import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { versionOptions } from '../material-library';
+import { CapturedInputLink } from '../source-library/input-link';
 import { AttachmentCards } from './attachment-cards';
 import { MessageActions } from './message-actions';
 import { NoteContent, NoteSummary } from './note-editor';
+import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
+import { NotebookNavigation } from './notebook-navigation';
 import { SessionDocumentCard } from './session-document-card';
 import {
   citationsOptions,
@@ -44,28 +47,23 @@ export function History({
   onOpen,
   activeDocument,
   documents = [],
-  onOpenMaterial,
-  activeMaterial
+  onOpenDocument,
+  onOpenSource,
+  activeAuthoredDocument
 }: {
   id: SessionId;
   onDocument?: () => void;
   onOpen?: (message: Message) => void;
   activeDocument?: string;
-  documents?: readonly MaterialSummaryDto[];
-  onOpenMaterial?: (material: MaterialSummaryDto) => void;
-  activeMaterial?: string;
+  documents?: readonly StudyDocumentSummary[];
+  onOpenDocument?: (material: StudyDocumentSummary) => void;
+  onOpenSource?: (source: { id: SourceId; name: string }) => void;
+  activeAuthoredDocument?: string;
 }) {
-  const { t, date } = useI18n();
+  const { t } = useI18n();
   const state = useInfiniteQuery(threadOptions(id));
-  const messages = [
-    ...new Map(
-      state.data?.pages.flatMap((page) => page.items).map((message) => [message.id, message])
-    ).values()
-  ].toSorted((a, b) =>
-    a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1
-  );
-
-  const entries = timelineEntries(messages, documents);
+  const messages = notebookMessages(id, state.data?.pages.flatMap((page) => page.items) ?? []);
+  const entries = notebookTimeline(messages, documents);
 
   return (
     <ChatConversation
@@ -74,6 +72,15 @@ export function History({
       jumpLabel={t('JumpToLatest')}
       itemCount={entries.length}
       firstItemKey={timelineKey(entries[0])}
+      navigation={
+        <NotebookNavigation
+          id={id}
+          entries={entries}
+          more={!!state.hasNextPage}
+          pending={state.isFetchingNextPage}
+          onMore={() => void state.fetchNextPage()}
+        />
+      }
     >
       <Notebook.History aria-label={t('SessionNotebook')}>
         <Notebook.NotesHeading>
@@ -105,59 +112,57 @@ export function History({
           </WorkspaceSurface.Heading>
         )}
         {entries.map((entry) => (
-          <ChatTimelineEvent key={timelineKey(entry)} time={date(entry.time)}>
+          <Notebook.IndexTarget
+            key={timelineKey(entry)}
+            id={notebookTargetId(
+              id,
+              entry.kind,
+              entry.kind === 'document' ? entry.document.id : entry.message.id
+            )}
+            tabIndex={-1}
+          >
             {entry.kind === 'document' ? (
               <SessionDocumentCard
-                material={entry.material}
-                onOpen={(material) => onOpenMaterial?.(material)}
-                active={String(entry.material.id) === activeMaterial}
+                document={entry.document}
+                onOpen={(material) => onOpenDocument?.(material)}
+                active={String(entry.document.id) === activeAuthoredDocument}
               />
             ) : (
               <HistoryMessage
                 message={entry.message}
                 onOpen={onOpen}
                 activeDocument={activeDocument}
-                onOpenMaterial={onOpenMaterial}
+                onOpenSource={onOpenSource}
+                indexAnchors
               />
             )}
-          </ChatTimelineEvent>
+          </Notebook.IndexTarget>
         ))}
       </Notebook.History>
     </ChatConversation>
   );
 }
 
-function timelineKey(entry: ReturnType<typeof timelineEntries>[number] | undefined) {
+function timelineKey(entry: ReturnType<typeof notebookTimeline>[number] | undefined) {
   if (!entry) return undefined;
 
   return entry.kind === 'message'
     ? 'message-' + String(entry.message.id)
-    : 'material-' + String(entry.material.id);
-}
-
-function timelineEntries(messages: Message[], documents: readonly MaterialSummaryDto[]) {
-  const entries = [
-    ...messages.map((message) => ({ kind: 'message' as const, message, time: message.createdAt })),
-    ...documents.map((material) => ({
-      kind: 'document' as const,
-      material,
-      time: material.created_at
-    }))
-  ];
-
-  return entries.toSorted((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+    : 'material-' + String(entry.document.id);
 }
 
 function HistoryMessage({
   message,
   onOpen,
   activeDocument,
-  onOpenMaterial
+  onOpenSource,
+  indexAnchors
 }: {
   message: Message;
   onOpen?: (message: Message) => void;
   activeDocument?: string;
-  onOpenMaterial?: (material: MaterialSummaryDto) => void;
+  indexAnchors?: boolean;
+  onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
   return message.format === 'document' && onOpen ? (
     <DocumentEntry
@@ -166,7 +171,7 @@ function HistoryMessage({
       active={(message.captureKey ?? String(message.id)) === activeDocument}
     />
   ) : (
-    <MessageEntry message={message} onOpenMaterial={onOpenMaterial} />
+    <MessageEntry message={message} onOpenSource={onOpenSource} indexAnchors={indexAnchors} />
   );
 }
 
@@ -179,7 +184,7 @@ function DocumentEntry({
   onOpen: (message: Message) => void;
   active: boolean;
 }) {
-  const { t, date } = useI18n();
+  const { t } = useI18n();
   const version = message.versions.find((item) => item.id === message.activeVersionId);
 
   return (
@@ -190,7 +195,6 @@ function DocumentEntry({
           <NoteSummary value={version?.text.split('\n').slice(1).join('\n') ?? ''} fallback="" />
         )
       }
-      meta={date(message.createdAt)}
       onOpen={() => onOpen(message)}
       active={active}
     />
@@ -199,23 +203,21 @@ function DocumentEntry({
 
 function MessageEntry({
   message,
-  onOpenMaterial
+  onOpenSource,
+  indexAnchors
 }: {
   message: Message;
-  onOpenMaterial?: (material: MaterialSummaryDto) => void;
+  indexAnchors?: boolean;
+  onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
-  const { t, date } = useI18n();
+  const { t } = useI18n();
   const [selected, setSelected] = useState<VersionId>();
-  const [historyOpen, setHistoryOpen] = useState(false);
   const version = message.versions.find(
     (item) => item.id === (selected ?? message.activeVersionId)
   );
 
   return (
     <ChatMessage>
-      <header>
-        <time>{date(message.createdAt)}</time>
-      </header>
       {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
       {version && (
         <>
@@ -223,17 +225,15 @@ function MessageEntry({
             message={message}
             versionId={version.id}
             onActive={() => setSelected(undefined)}
+            onVersionChange={setSelected}
           >
-            <MessageContent message={message} text={version.text} />
+            {message.format === 'document' || message.role === 'assistant' ? (
+              <NoteContent value={version.text} />
+            ) : (
+              <ChatMessageText text={version.text} />
+            )}
           </MessageActions>
           {version.status !== 'complete' && <Loading label={t('SessionPending')} />}
-          <MessageVersions
-            message={message}
-            versionId={version.id}
-            open={historyOpen}
-            setOpen={setHistoryOpen}
-            select={setSelected}
-          />
           {hasReplyContext(message, version.origin) && (
             <ReplyContext
               sessionId={message.sessionId}
@@ -245,7 +245,11 @@ function MessageEntry({
         </>
       )}
       {message.parts.length > 0 && (
-        <AttachmentCards parts={message.parts} onOpenDocument={onOpenMaterial} />
+        <AttachmentCards
+          parts={message.parts}
+          onOpenSource={onOpenSource}
+          indexSessionId={indexAnchors ? message.sessionId : undefined}
+        />
       )}
       <MessageCitations message={message} versionId={version?.id} />
     </ChatMessage>
@@ -269,13 +273,10 @@ function MessageCitations({ message, versionId }: { message: Message; versionId?
           <summary>{t('SessionCitations')}</summary>
           <ol>
             {citations.data.citations.map((citation) => (
-              <li key={`${citation.marker}:${citation.materialVersionId}:${citation.quote}`}>
+              <li key={`${citation.marker}:${citation.quote}`}>
                 <p>
-                  {citation.materialVersionId ? (
-                    <CitationLink
-                      versionId={citation.materialVersionId}
-                      name={citation.sourceName}
-                    />
+                  {citation.input ? (
+                    <CapturedInputLink input={citation.input} name={citation.sourceName} />
                   ) : (
                     citation.sourceName
                   )}{' '}
@@ -297,30 +298,6 @@ function MessageCitations({ message, versionId }: { message: Message; versionId?
         </details>
       )}
     </>
-  );
-}
-
-function MessageContent({ message, text }: { message: Message; text: string }) {
-  return message.role === 'user' && message.format !== 'document' ? (
-    <ChatMessageText text={text} />
-  ) : (
-    <NoteContent value={text} />
-  );
-}
-
-function CitationLink({ versionId, name }: { versionId: MaterialVersionId; name: string }) {
-  const state = useQuery(versionOptions(versionId));
-
-  return state.data ? (
-    <Link
-      to="/materials/$materialId"
-      params={{ materialId: String(state.data.material_id) }}
-      search={{ version: String(versionId) }}
-    >
-      {name}
-    </Link>
-  ) : (
-    <span>{name}</span>
   );
 }
 
@@ -382,20 +359,12 @@ export function CapturedContext({ requestId }: { requestId: string }) {
           )}
           <ul>
             {state.data.inputs.map((input) => (
-              <li
-                key={JSON.stringify(
-                  { versionId: String(input.versionId), scope: input.scope },
-                  (_, value: unknown) => (typeof value === 'bigint' ? String(value) : value)
-                )}
-              >
-                <Link
-                  to="/materials/$materialId"
-                  params={{ materialId: String(input.materialId) }}
-                  search={{ version: String(input.versionId) }}
-                >
-                  {input.name}
-                </Link>{' '}
-                · {t('ReaderVersion')} {String(input.versionId)} ·{' '}
+              <li key={selectionReferenceKey(input.input)}>
+                <CapturedInputLink input={input.input} name={input.name} /> · {t('ReaderVersion')}{' '}
+                {input.input.kind === 'document'
+                  ? String(input.input.versionId)
+                  : String(input.input.revision)}{' '}
+                ·{' '}
                 {t(
                   input.scope.kind === 'document'
                     ? 'SessionWhole'
@@ -432,48 +401,6 @@ export function CapturedContext({ requestId }: { requestId: string }) {
         </>
       )}
     </Notebook.Captured>
-  );
-}
-
-function MessageVersions({
-  message,
-  versionId,
-  open,
-  setOpen,
-  select
-}: {
-  message: Message;
-  versionId: VersionId;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  select: (id: VersionId) => void;
-}) {
-  const { t, date } = useI18n();
-
-  return (
-    <>
-      {message.versions.length > 1 && (
-        <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-          <summary>{t('SessionVersions')}</summary>
-          <Notebook.Actions
-            role="group"
-            aria-label={`${t('SessionNote')} · ${date(message.createdAt)} · ${String(message.id)}`}
-          >
-            {message.versions.map((item) => (
-              <Button
-                key={String(item.id)}
-                size="sm"
-                aria-pressed={item.id === versionId}
-                variant={item.id === versionId ? 'secondary' : 'ghost'}
-                onClick={() => select(item.id)}
-              >
-                {t('ReaderVersion')} {String(item.number)}
-              </Button>
-            ))}
-          </Notebook.Actions>
-        </details>
-      )}
-    </>
   );
 }
 

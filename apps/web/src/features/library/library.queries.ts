@@ -1,8 +1,10 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { queryOptions } from '@tanstack/react-query';
 
-import { listMaterialsForProjects, listSources } from '#web/lib/study-client/operations.ts';
+import { listDocuments } from '#web/lib/study-client/documents.queries.ts';
+import { listMaterialsForProjects } from '#web/lib/study-client/operations.ts';
 import type { Subjects } from '#web/lib/study-client/operations.ts';
+import { sourceLibraryOptions } from '#web/lib/study-client/sources.queries.ts';
 
 import { libraryItems } from './library.logic';
 
@@ -18,13 +20,16 @@ export function libraryQueryOptions(
 
   return queryOptions({
     queryKey: ['library', section, projectIds.map(String), project?.toString()],
-    queryFn: async ({ signal }) => {
-      const [sources, materials] = await Promise.all([
-        section === 'library' ? listSources(signal) : Promise.resolve([]),
-        listMaterialsForProjects(projectIds, signal)
+    queryFn: async ({ signal, client }) => {
+      const [sources, materials, documents] = await Promise.all([
+        section === 'library'
+          ? client.ensureQueryData(sourceLibraryOptions(project))
+          : Promise.resolve([]),
+        listMaterialsForProjects(projectIds, signal),
+        section === 'library' ? listDocuments(project, signal) : Promise.resolve([])
       ]);
 
-      return libraryItems(section, sources, materials, project);
+      return libraryItems(section, sources, materials, project, documents);
     },
     enabled,
     refetchOnWindowFocus: 'always'

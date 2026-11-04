@@ -1,6 +1,6 @@
+import { editOutcomeSchema } from '@study/contracts/documents/editing';
 import { StudyError } from '@study/contracts/errors';
-import { documentEditOutcomeSchema } from '@study/contracts/materials/editing';
-import { materialVersionDetailSchema } from '@study/contracts/materials/schemas';
+import { studyDocumentVersionIdSchema } from '@study/contracts/ids';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -12,41 +12,34 @@ import { expect, vi } from 'vite-plus/test';
 import { createStudyQueryClient } from '#web/lib/query-client.ts';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 
-import { versionId } from '../material-library/identity';
-import {
-  deferred,
-  exactDocument,
-  importedVersion,
-  material,
-  materialRpc,
-  mountLibraryRoute
-} from '../material-library/test/support';
+import { authoredDocument } from './test-support';
+const material = (id = 41n) => ({
+  ...authoredDocument(id, 'Historical extraction', 101n),
+  title: `Material ${id}`
+});
+const versionId = (id: string) => studyDocumentVersionIdSchema.make(BigInt(id));
+import { deferred, materialRpc, mountLibraryRoute } from '../material-library/test/support';
 import { DocumentActions } from './document-actions';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 function editorRpc() {
-  const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
-    ...importedVersion(),
-    kind: 'document',
-    content: { kind: 'document', ...exactDocument().document }
-  });
+  const version = material().version!;
+
   const rpc = {
     ...materialRpc(),
-    'materials.saveDocument': vi.fn<StudyClient['materials.saveDocument']>(),
-    'materials.undoDocument': vi.fn<StudyClient['materials.undoDocument']>()
+    'documents.save': vi.fn<StudyClient['documents.save']>(),
+    'documents.restore': vi.fn<StudyClient['documents.restore']>()
   };
 
-  rpc['materials.material'].mockReturnValue(
-    Effect.succeed({ ...material(), kind: 'document', version })
-  );
-  rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(version));
+  rpc['documents.document'].mockReturnValue(Effect.succeed({ ...material(), version }));
+  rpc['documents.version'].mockReturnValue(Effect.succeed(version));
 
   return rpc;
 }
 
 const receipt = (submitted = 103n, expected = 101n, outcome = 'saved') =>
-  Schema.decodeUnknownSync(documentEditOutcomeSchema)({
+  Schema.decodeUnknownSync(editOutcomeSchema)({
     outcome,
     replayed: false,
     expectedVersionId: expected,
@@ -65,11 +58,8 @@ async function startDraft(user: ReturnType<typeof userEvent.setup>) {
 testStable(
   'retains an unsaved draft through a route absence longer than default query GC, then explicitly discards it',
   async () => {
-    const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
-      ...importedVersion(),
-      kind: 'document',
-      content: { kind: 'document', ...exactDocument().document }
-    });
+    const version = material().version!;
+
     const client = createStudyQueryClient();
     const mount = () =>
       render(
@@ -115,13 +105,13 @@ testStable(
   async () => {
     const rpc = editorRpc();
 
-    rpc['materials.saveDocument']
+    rpc['documents.save']
       .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
       .mockReturnValueOnce(Effect.succeed({ ...receipt(), replayed: true }));
-    rpc['materials.undoDocument']
+    rpc['documents.restore']
       .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
       .mockReturnValueOnce(Effect.succeed({ ...receipt(104n, 103n), replayed: true }));
-    const { router } = mountLibraryRoute('/materials/41', rpc);
+    const { router } = mountLibraryRoute('/documents/41', rpc);
     const user = userEvent.setup();
 
     async function remount() {
@@ -130,8 +120,8 @@ testStable(
       });
       await act(async () => {
         await router.navigate({
-          to: '/materials/$materialId',
-          params: { materialId: '41' },
+          to: '/documents/$documentId',
+          params: { documentId: '41' },
           search: {}
         });
       });
@@ -140,7 +130,7 @@ testStable(
     await startDraft(user);
     await user.click(screen.getByRole('button', { name: catalogs.english.DocumentSave }));
     await screen.findByText(catalogs.english.DocumentActionFailed);
-    const save = rpc['materials.saveDocument'].mock.calls[0]![0];
+    const save = rpc['documents.save'].mock.calls[0]![0];
 
     await remount();
     expect(
@@ -148,12 +138,12 @@ testStable(
     ).toBeDisabled();
     await user.click(screen.getByRole('button', { name: catalogs.english.DocumentSave }));
     await screen.findByText(catalogs.english.DocumentSaved);
-    expect(rpc['materials.saveDocument'].mock.calls[1]![0]).toEqual(save);
+    expect(rpc['documents.save'].mock.calls[1]![0]).toEqual(save);
     expect(save.expectedVersionId).toBe(versionId('101'));
     expect(save.document.blocks[0]!.text).toBe('My unsaved correction');
     await user.click(screen.getByRole('button', { name: catalogs.english.DocumentUndo }));
     await screen.findByText(catalogs.english.DocumentActionFailed);
-    const undo = rpc['materials.undoDocument'].mock.calls[0]![0];
+    const undo = rpc['documents.restore'].mock.calls[0]![0];
 
     expect(undo).toMatchObject({
       expectedVersionId: versionId('103'),
@@ -162,19 +152,19 @@ testStable(
     await remount();
     await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentUndo }));
     await screen.findByText(catalogs.english.DocumentUndone);
-    expect(rpc['materials.undoDocument'].mock.calls[1]![0]).toEqual(undo);
+    expect(rpc['documents.restore'].mock.calls[1]![0]).toEqual(undo);
     expect(screen.queryByRole('button', { name: catalogs.english.DocumentUndo })).toBeNull();
     await remount();
     await screen.findByText(catalogs.english.DocumentUndone);
     expect(screen.queryByRole('button', { name: catalogs.english.DocumentUndo })).toBeNull();
-    expect(rpc['materials.undoDocument']).toHaveBeenCalledTimes(2);
+    expect(rpc['documents.restore']).toHaveBeenCalledTimes(2);
   }
 );
 
 testStable('permits correction after a known creation rejection', async () => {
   const rpc = materialRpc();
 
-  rpc['materials.createManualDocument']
+  rpc['documents.create']
     .mockReturnValueOnce(Effect.fail(new StudyError('invalid_input', 'Rejected')))
     .mockReturnValueOnce(Effect.succeed(material()));
   mountLibraryRoute('/library', rpc);
@@ -194,8 +184,8 @@ testStable('permits correction after a known creation rejection', async () => {
   await user.type(title, 'Corrected title');
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentCreate }));
   await screen.findByRole('heading', { name: 'Material 41' });
-  expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(2);
-  expect(rpc['materials.createManualDocument'].mock.calls[1]![0]).toMatchObject({
+  expect(rpc['documents.create']).toHaveBeenCalledTimes(2);
+  expect(rpc['documents.create'].mock.calls[1]![0]).toMatchObject({
     title: 'Corrected title',
     document: {
       blocks: [
@@ -218,7 +208,7 @@ testStable(
   async () => {
     const rpc = materialRpc();
 
-    rpc['materials.createManualDocument'].mockReturnValue(
+    rpc['documents.create'].mockReturnValue(
       Effect.fail(new StudyError('internal', 'Response lost'))
     );
     const { router } = mountLibraryRoute('/library', rpc);
@@ -253,7 +243,7 @@ testStable(
     await waitFor(() =>
       expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeEnabled()
     );
-    expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(1);
+    expect(rpc['documents.create']).toHaveBeenCalledTimes(1);
   }
 );
 
@@ -262,7 +252,7 @@ testStable(
   async () => {
     const rpc = materialRpc();
 
-    rpc['materials.createManualDocument'].mockReturnValue(Effect.succeed(material()));
+    rpc['documents.create'].mockReturnValue(Effect.succeed(material()));
     const { queryClient, router } = mountLibraryRoute('/library', rpc);
     const user = userEvent.setup();
 
@@ -283,7 +273,7 @@ testStable(
       await user.click(screen.getByRole('button', { name: catalogs.english.DocumentCreate }));
       const open = await screen.findByRole('link', { name: catalogs.english.DocumentOpenCopy });
 
-      expect(open).toHaveAttribute('href', '/materials/41');
+      expect(open).toHaveAttribute('href', '/documents/41');
       expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeDisabled();
       expect(
         screen.queryByRole('button', { name: catalogs.english.DocumentCreationReviewed })
@@ -310,7 +300,7 @@ testStable(
         name: catalogs.english.DocumentOpenCopy
       });
 
-      expect(recovered).toHaveAttribute('href', '/materials/41');
+      expect(recovered).toHaveAttribute('href', '/documents/41');
       expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeDisabled();
       await user.click(recovered);
       await screen.findByRole('heading', { name: 'Material 41' });
@@ -328,7 +318,7 @@ testStable(
       expect(
         screen.getByRole('textbox', { name: catalogs.english.DocumentInitialText })
       ).toHaveValue('');
-      expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(1);
+      expect(rpc['documents.create']).toHaveBeenCalledTimes(1);
     } finally {
       invalidate.mockRestore();
     }
@@ -376,7 +366,7 @@ testStable(
       '   Keep this draft'
     );
     expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeEnabled();
-    expect(rpc['materials.createManualDocument']).not.toHaveBeenCalled();
+    expect(rpc['documents.create']).not.toHaveBeenCalled();
   }
 );
 
@@ -384,7 +374,7 @@ testStable('retains the in-flight creation fence and known receipt across remoun
   const rpc = materialRpc();
   const response = deferred<ReturnType<typeof material>>();
 
-  rpc['materials.createManualDocument'].mockReturnValue(Effect.promise(() => response.promise));
+  rpc['documents.create'].mockReturnValue(Effect.promise(() => response.promise));
   const { router } = mountLibraryRoute('/library', rpc);
   const user = userEvent.setup();
 
@@ -406,7 +396,7 @@ testStable('retains the in-flight creation fence and known receipt across remoun
     fireEvent.submit(form);
     fireEvent.submit(form);
   });
-  await waitFor(() => expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(rpc['documents.create']).toHaveBeenCalledTimes(1));
   expect(screen.getByRole('textbox', { name: catalogs.english.DocumentTitle })).toBeDisabled();
   expect(
     screen.getByRole('textbox', { name: catalogs.english.DocumentInitialText })
@@ -424,7 +414,7 @@ testStable('retains the in-flight creation fence and known receipt across remoun
   await user.click(await screen.findByRole('button', { name: catalogs.english.DocumentNew }));
   expect(
     await screen.findByRole('link', { name: catalogs.english.DocumentOpenCopy })
-  ).toHaveAttribute('href', '/materials/41');
+  ).toHaveAttribute('href', '/documents/41');
   expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeDisabled();
-  expect(rpc['materials.createManualDocument']).toHaveBeenCalledTimes(1);
+  expect(rpc['documents.create']).toHaveBeenCalledTimes(1);
 });

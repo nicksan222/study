@@ -21,7 +21,6 @@ export function Sidebar(props: SidebarProps) {
             }
             ready={model.subjectState === 'ready'}
             query={model.query}
-            filter={model.filter}
           />
         ) : null
       }

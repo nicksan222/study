@@ -340,7 +340,7 @@ testStable.each(['materials', 'sessions'] as const)(
     const material = Schema.decodeUnknownSync(materialSummarySchema)({
       id: 7n,
       projectIds: [project.id],
-      kind: 'link',
+      kind: 'diagram',
       title: 'Reading',
       created_at: 1n,
       updated_at: 1n,
@@ -348,11 +348,11 @@ testStable.each(['materials', 'sessions'] as const)(
       version: {
         id: 8n,
         material_id: 7n,
-        kind: 'link',
+        kind: 'diagram',
         number: 1n,
         status: 'published',
         operation: 'original',
-        creator: 'import',
+        creator: 'user',
         instruction: null,
         language: null,
         created_at: 1n,

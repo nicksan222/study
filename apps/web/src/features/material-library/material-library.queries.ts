@@ -1,5 +1,5 @@
 import { StudyError } from '@study/contracts/errors';
-import type { DocumentId, MaterialId, MaterialVersionId } from '@study/contracts/ids';
+import type { ContentSnapshotId, MaterialId, MaterialVersionId } from '@study/contracts/ids';
 import type { Source, blockIdSchema } from '@study/contracts/sources/schemas';
 import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
 
@@ -23,8 +23,6 @@ export const historyOptions = (materialId: MaterialId) =>
       ),
     getNextPageParam: (page) => page.nextCursor ?? undefined
   });
-
-export { downloadOriginal } from '#web/lib/study-client/material-original.ts';
 
 export const importMutationKey = ['materials', 'import'] as const;
 
@@ -61,30 +59,9 @@ export {
   versionOptions
 } from '#web/lib/study-client/materials.queries.ts';
 
-export const exactImageOptions = (
-  id: MaterialVersionId,
-  documentId: DocumentId,
-  blockId: typeof blockIdSchema.Type
-) =>
+export const librarySearchOptions = (query: string) =>
   queryOptions({
-    queryKey: ['materials', 'image', String(id), String(documentId), blockId],
-    queryFn: ({ signal }) =>
-      request((rpc) => rpc['materials.materialVersionImage']({ id, documentId, blockId }), signal),
-    gcTime: 0,
-    retry: false
-  });
-
-export const exactDocumentOptions = (id: MaterialVersionId) =>
-  queryOptions({
-    queryKey: ['materials', 'document', String(id)],
-    queryFn: ({ signal }) =>
-      request((rpc) => rpc['materials.materialVersionDocument']({ id }), signal)
-  });
-
-export const materialSearchOptions = (query: string) =>
-  queryOptions({
-    queryKey: ['materials', 'search', query],
+    queryKey: ['library', 'search', query],
     enabled: !!query,
-    queryFn: ({ signal }) =>
-      request((rpc) => rpc['system.materialSearch']({ query, limit: 30 }), signal)
+    queryFn: ({ signal }) => request((rpc) => rpc['system.search']({ query, limit: 30 }), signal)
   });

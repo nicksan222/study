@@ -17,8 +17,9 @@ function Entry({ render, ...props }: Omit<useRender.ComponentProps<'a'>, 'classN
 export const HomeHub = {
   Root: semanticPart(
     'div',
-    'mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-10 md:px-8 md:py-14'
+    'mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-12 md:px-8 md:py-16'
   ),
+  Actions: semanticPart('div', 'flex flex-wrap items-center gap-3'),
   Header: semanticPart('div', 'space-y-2'),
   Title: semanticPart('h2', 'text-2xl font-semibold tracking-tight'),
   Description: semanticPart('p', 'max-w-prose text-sm text-muted-foreground'),

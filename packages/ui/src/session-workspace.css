@@ -216,13 +216,12 @@
 }
 
 .session-item-editor {
-  margin-block: 0.75rem;
-  padding: 0.75rem;
-  background: var(--muted);
-  border-radius: var(--control-radius);
+  display: grid;
+  gap: 1rem;
 }
 
 .session-target-preview {
+  margin: 0;
   max-height: 8rem;
   overflow: auto;
   white-space: pre-wrap;
@@ -541,96 +540,79 @@
   text-overflow: ellipsis;
 }
 
-.session-changes {
+.session-attachments-card {
   max-height: calc(100dvh - 5rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
   border-radius: 0.875rem;
 }
-.session-changes-heading {
+.session-page-index-heading {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  padding: 0.875rem 1rem 0.625rem;
+  padding: 0.75rem 0.875rem 0.375rem;
   color: var(--workspace-supporting, var(--muted-foreground));
 }
-.session-workspace .session-changes-heading h2 {
+.session-workspace .session-page-index-heading h2 {
   margin: 0;
-  color: var(--foreground);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.5;
 }
-.session-changes-empty {
+.session-page-index-empty {
+  padding: 0.25rem 0.5rem 0.625rem;
   margin: 0;
-  padding: 0.25rem 1rem 1rem;
   color: var(--workspace-supporting, var(--muted-foreground));
-  font-size: 0.8125rem;
-  line-height: 1.6;
-}
-.session-changes-list {
-  max-height: min(28rem, 48dvh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.session-changes .ui-workspace-card-group {
-  padding: 0.25rem 0.375rem;
-}
-.session-changes .ui-workspace-card-group + .ui-workspace-card-group {
-  border: 0;
-}
-.session-changes .session-change-label {
-  display: grid;
-  gap: 0.125rem;
-}
-.session-change-label strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 400;
-  white-space: nowrap;
-}
-.session-change-label small {
   font-size: 0.75rem;
-  color: var(--workspace-supporting, var(--muted-foreground));
+  line-height: 1.5;
 }
-.session-changes-more {
-  padding: 0.375rem 0.75rem;
-  border-top: 1px solid var(--border);
-}
-.session-change-dialog {
-  width: min(52rem, calc(100vw - 2rem));
-  max-width: 52rem;
-}
-.session-change-preview {
-  padding: 0 1.5rem 1.5rem;
-  max-height: 60dvh;
+.session-page-index {
+  min-height: 0;
+  max-height: min(14rem, 34dvh);
+  padding: 0 0.375rem 0.5rem;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
-.session-change-versions {
+.session-page-index::-webkit-scrollbar {
+  width: 4px;
+}
+.session-page-index::-webkit-scrollbar-thumb {
+  border-radius: var(--control-radius);
+  background: var(--border);
+}
+.session-page-index::-webkit-scrollbar-button {
+  display: none;
+}
+.session-attachment-rows {
   display: grid;
-  gap: 1.5rem;
 }
-.session-change-versions h3 {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  margin: 0 0 0.75rem;
+.session-attachment-item {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 1.625rem;
+  height: auto;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
 }
-.session-change-versions h3 span {
-  font-weight: 400;
-  color: var(--workspace-supporting, var(--muted-foreground));
+.session-attachment-item > svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: none;
 }
-.session-change-text {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 0.875rem;
-  line-height: 1.7;
+.session-attachment-item > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.session-change-text[data-previous] {
-  color: var(--workspace-supporting, var(--muted-foreground));
+.session-index-target:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  border-radius: var(--control-radius);
+}
+.session-index-target {
+  scroll-margin-block: 0.75rem;
 }
 
 .session-context-actions {
@@ -753,4 +735,27 @@
   .session-notes-heading > button {
     margin: 0 0 1rem 0.75rem;
   }
+}
+
+.document-sessions {
+  margin-block-end: 1.25rem;
+}
+.document-source-list {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 1.25rem;
+  max-height: 9rem;
+  overflow-y: auto;
+  font-size: 0.875rem;
+}
+.document-source-list li {
+  padding-block: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.session-batch-deletion-item {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+  text-align: start;
+  overflow-wrap: anywhere;
 }

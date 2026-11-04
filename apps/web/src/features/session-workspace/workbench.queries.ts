@@ -1,4 +1,4 @@
-import type { SessionId, MaterialId } from '@study/contracts/ids';
+import type { SessionId, StudyDocumentId, SourceId } from '@study/contracts/ids';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
@@ -9,10 +9,15 @@ import { threadOptions } from './session-workspace.queries';
 
 export type WorkbenchTarget =
   | PageTarget
-  | { kind: 'material'; materialId: MaterialId; title: string };
+  | { kind: 'document'; documentId: StudyDocumentId; title: string }
+  | { kind: 'source'; sourceId: SourceId; title: string };
 
 export function workbenchIdentity(target: WorkbenchTarget) {
-  return target.kind === 'material' ? `material:${target.materialId}` : pageIdentity(target);
+  return target.kind === 'document'
+    ? `document:${target.documentId}`
+    : target.kind === 'source'
+      ? `source:${target.sourceId}`
+      : pageIdentity(target);
 }
 
 type Workbench = {
@@ -20,6 +25,8 @@ type Workbench = {
   active?: string;
   visible: boolean;
   expanded?: boolean;
+  dock?: 'side' | 'bottom';
+  cardHidden?: boolean;
 };
 
 /** Retains document tabs and unsent pages across session navigation without mixing them with chat drafts. */
@@ -74,7 +81,7 @@ export function useWorkbench(id: SessionId) {
   }
 
   const tabs = model.tabs.map((tab) => {
-    if (tab.kind === 'material') return tab;
+    if (tab.kind === 'document' || tab.kind === 'source') return tab;
 
     const message = messages.find(
       (item) => (item.captureKey ?? String(item.id)) === workbenchIdentity(tab)
@@ -87,6 +94,28 @@ export function useWorkbench(id: SessionId) {
     ...model,
     expanded: model.expanded ?? preferences.expandDocuments,
     tabs,
+    dock: model.dock ?? 'side',
+    cardVisible: !model.visible && !model.cardHidden,
+    toggleCard: () =>
+      update((value) => ({
+        ...value,
+        visible: false,
+        cardHidden: value.visible ? false : !value.cardHidden
+      })),
+    hideCard: () => update((value) => ({ ...value, cardHidden: true })),
+    showEditor: (dock: 'side' | 'bottom') =>
+      update((value) => {
+        if (!value.tabs.length) return value;
+        return {
+          ...value,
+          dock,
+          visible: true,
+          expanded: false,
+          active: value.tabs.some((tab) => workbenchIdentity(tab) === value.active)
+            ? value.active
+            : workbenchIdentity(value.tabs[0]!)
+        };
+      }),
     open,
     close,
     select: (active: string) => update((value) => ({ ...value, active, visible: true })),

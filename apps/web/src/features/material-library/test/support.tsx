@@ -1,5 +1,4 @@
 import { StudyError } from '@study/contracts/errors';
-import { materialVersionDocumentSchema } from '@study/contracts/materials/rpc';
 import {
   materialDetailSchema,
   materialSummarySchema,
@@ -14,6 +13,7 @@ import { vi } from 'vite-plus/test';
 
 import { Providers } from '#web/app/providers.tsx';
 import { createAppRouter } from '#web/app/router.ts';
+import { authoredDocument } from '#web/features/document-editing/test-support.ts';
 import { runRequest } from '#web/lib/effect/runtime.ts';
 import { createStudyQueryClient } from '#web/lib/query-client.ts';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
@@ -45,13 +45,13 @@ export const importedSource = Schema.decodeUnknownSync(sourceSchema)({
   createdAt: 1n
 });
 
-export function importedVersion(id = 101n, owner = 41n, text = 'Historical extraction') {
+export function learningVersion(id = 101n, owner = 41n, text = 'Historical extraction') {
   return Schema.decodeUnknownSync(materialVersionDetailSchema)({
     id,
     material_id: owner,
     number: id === 101n ? 1n : 2n,
     operation: 'original',
-    creator: 'import',
+    creator: 'user',
     instruction: null,
     language: null,
     created_at: 1n,
@@ -59,68 +59,27 @@ export function importedVersion(id = 101n, owner = 41n, text = 'Historical extra
     status: 'published',
     inputs: [],
     parents: [],
-    kind: 'link',
-    content: {
-      kind: 'link',
-      sourceId: importedSource.id,
-      source: importedSource,
-      extracted: {
-        id: 1n,
-        document: {
-          blocks: [
-            {
-              id: 'b0',
-              kind: 'paragraph',
-              text,
-              content: { type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] },
-              anchor: { type: 'authored' }
-            }
-          ],
-          meta: {
-            extractor: null,
-            extractorVersion: 1,
-            provider: null,
-            durationMs: null,
-            pageCount: null,
-            refiners: [],
-            waitingFor: [],
-            corrected: false,
-            omissions: []
-          }
-        }
-      }
-    }
+    kind: 'diagram',
+    content: { kind: 'diagram', format: 'mermaid', payload: `flowchart TD\nA["${text}"]` }
   });
 }
-
-export function exactDocument(id = 101n, text = 'Historical extraction') {
-  const content = importedVersion(id, 41n, text).content;
-
-  if (!('extracted' in content) || !content.extracted) throw new Error('Expected extraction');
-
-  return Schema.decodeUnknownSync(materialVersionDocumentSchema)({
-    id: id + 1000n,
-    document: content.extracted.document
-  });
+/** Canonical snapshot fixture, independent of authored or learning identities. */
+function exactDocument(id = 101n, text = 'Historical extraction') {
+  const version = authoredDocument(41n, text, id).version!;
+  return { id: version.snapshotId, document: version.document };
 }
 
-export function material(id = 41n) {
-  const version = importedVersion(102n, id, `Current extraction ${id}`);
+function material(id = 41n) {
+  const version = learningVersion(102n, id, `Current extraction ${id}`);
 
   return Schema.decodeUnknownSync(materialDetailSchema)({
     id,
     title: `Material ${id}`,
-    kind: 'link',
+    kind: 'diagram',
     created_at: 1n,
     updated_at: 1n,
     archived_at: null,
     projectIds: [],
-    importProcessing: {
-      sourceId: importedSource.id,
-      revision: 2,
-      requestId: 'r2',
-      status: 'ready'
-    },
     version,
     latestPublishedVersion: version,
     latestDraftVersion: null
@@ -133,6 +92,33 @@ export function summary(id = 41n) {
 
 export function materialRpc() {
   return {
+    'documents.create': vi.fn<StudyClient['documents.create']>(),
+    'documents.documents': vi
+      .fn<StudyClient['documents.documents']>()
+      .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
+    'documents.document': vi.fn<StudyClient['documents.document']>().mockReturnValue(
+      Effect.succeed({
+        ...authoredDocument(41n, 'Historical extraction', 101n),
+        title: 'Material 41'
+      })
+    ),
+    'documents.version': vi
+      .fn<StudyClient['documents.version']>()
+      .mockImplementation(({ id }) =>
+        Effect.succeed(authoredDocument(41n, 'Historical extraction', id).version!)
+      ),
+    'documents.versions': vi
+      .fn<StudyClient['documents.versions']>()
+      .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
+    'documents.updateMetadata': vi.fn<StudyClient['documents.updateMetadata']>(),
+    'documents.annotations': vi
+      .fn<StudyClient['documents.annotations']>()
+      .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
+    'documents.assessments': vi
+      .fn<StudyClient['documents.assessments']>()
+      .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
+    'documents.exportFile': vi.fn<StudyClient['documents.exportFile']>(),
+    'documents.exportVersion': vi.fn<StudyClient['documents.exportVersion']>(),
     'materials.materials': vi
       .fn<StudyClient['materials.materials']>()
       .mockReturnValue(Effect.succeed({ items: [summary()], nextCursor: null })),
@@ -141,24 +127,18 @@ export function materialRpc() {
       .mockReturnValue(Effect.succeed(material())),
     'materials.materialVersion': vi
       .fn<StudyClient['materials.materialVersion']>()
-      .mockImplementation(({ id }) => Effect.succeed(importedVersion(id))),
-    'materials.materialVersionDocument': vi
-      .fn<StudyClient['materials.materialVersionDocument']>()
       .mockImplementation(({ id }) =>
         Effect.succeed(
-          exactDocument(id, id === 101n ? 'Historical extraction' : 'Current extraction 41')
+          learningVersion(id, 41n, id === 101n ? 'Historical extraction' : 'Current extraction 41')
         )
       ),
-    'materials.materialVersionImage': vi.fn<StudyClient['materials.materialVersionImage']>(),
-    'materials.importedMaterial': vi
-      .fn<StudyClient['materials.importedMaterial']>()
-      .mockReturnValue(Effect.succeed(summary())),
     'materials.deletion': vi
       .fn<StudyClient['materials.deletion']>()
       .mockReturnValue(Effect.fail(new StudyError('not_found', 'No deletion'))),
     'materials.retryDeletion': vi.fn<StudyClient['materials.retryDeletion']>(),
-    'materials.createManualDocument': vi.fn<StudyClient['materials.createManualDocument']>(),
-    'system.materialSearch': vi.fn<StudyClient['system.materialSearch']>(),
+    'system.search': vi
+      .fn<StudyClient['system.search']>()
+      .mockReturnValue(Effect.succeed({ semantic: false, hits: [] })),
     'materials.materialVersions': vi
       .fn<StudyClient['materials.materialVersions']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
@@ -166,7 +146,30 @@ export function materialRpc() {
     'settings.workspacePreferences': vi
       .fn<StudyClient['settings.workspacePreferences']>()
       .mockReturnValue(Effect.succeed(defaultWorkspacePreferences)),
-    'materials.materialVersionExport': vi.fn<StudyClient['materials.materialVersionExport']>(),
+    'sources.previewHistory': vi.fn<StudyClient['sources.previewHistory']>().mockReturnValue(
+      Effect.succeed({
+        sourceId: importedSource.id,
+        name: importedSource.name,
+        keepLatest: 1,
+        token: 'a'.repeat(64),
+        candidates: [],
+        blockedSnapshotIds: [],
+        semantics: 'retire_extractions_keep_original_revisions'
+      })
+    ),
+    'sources.retireHistory': vi.fn<StudyClient['sources.retireHistory']>(),
+    'sources.previewDeletion': vi.fn<StudyClient['sources.previewDeletion']>().mockReturnValue(
+      Effect.succeed({
+        sourceId: importedSource.id,
+        name: importedSource.name,
+        revisionCount: 1n,
+        extractionCount: 1n,
+        blockedBy: [],
+        retainedCopies: 'authored_outputs_and_raw_session_records'
+      })
+    ),
+    'sources.deleteSource': vi.fn<StudyClient['sources.deleteSource']>(),
+    'sources.findSource': vi.fn<StudyClient['sources.findSource']>(),
     'sources.sources': vi
       .fn<StudyClient['sources.sources']>()
       .mockReturnValue(Effect.succeed({ items: [], next: null })),
@@ -174,7 +177,26 @@ export function materialRpc() {
       .fn<StudyClient['sources.addLink']>()
       .mockReturnValue(Effect.succeed(importedSource)),
     'sources.createSource': vi.fn<StudyClient['sources.createSource']>(),
-    'sources.sourceExport': vi.fn(),
+    'sources.source': vi
+      .fn<StudyClient['sources.source']>()
+      .mockReturnValue(Effect.succeed(importedSource)),
+    'sources.extractions': vi
+      .fn<StudyClient['sources.extractions']>()
+      .mockReturnValue(Effect.succeed({ items: [], next: null })),
+    'sources.currentExtraction': vi.fn<StudyClient['sources.currentExtraction']>(),
+    'sources.extraction': vi
+      .fn<StudyClient['sources.extraction']>()
+      .mockImplementation(({ sourceId, revision, snapshotId }) =>
+        Effect.succeed({
+          sourceId,
+          revision,
+          snapshotId,
+          name: importedSource.name,
+          document: exactDocument(101n).document
+        })
+      ),
+    'sources.exportRevision': vi.fn<StudyClient['sources.exportRevision']>(),
+    'sources.sourceExport': vi.fn<StudyClient['sources.sourceExport']>(),
     'projects.projects': vi
       .fn<StudyClient['projects.projects']>()
       .mockReturnValue(Effect.succeed({ items: [], next: null })),

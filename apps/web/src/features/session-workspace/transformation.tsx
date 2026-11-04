@@ -1,6 +1,6 @@
 import type { sessionGenerationSchema } from '@study/contracts/conversations/rpc';
 import { StudyError } from '@study/contracts/errors';
-import type { SessionId, MaterialVersionId } from '@study/contracts/ids';
+import type { SessionId, StudyDocumentVersionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
@@ -12,10 +12,14 @@ import { Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import {
+  documentVersionOptions,
+  invalidateDocuments
+} from '#web/lib/study-client/documents.queries.ts';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { ProposalReview } from '../document-editing';
-import { versionOptions } from '../material-library';
+import type { SelectedSession } from './document-creation-dialog';
 import { CapturedContext } from './history';
 import { selectionDraftOptions } from './selection.queries';
 import {
@@ -49,12 +53,16 @@ const operations = [
   ['factual_correction', 'SessionOpCorrect']
 ] as const;
 
-function useTransformation(id: SessionId) {
+function useTransformation(id: SessionId, sessions?: readonly SelectedSession[]) {
   const { t, locale } = useI18n();
   const cache = useQueryClient();
-  const key = ['session-drafts', String(id), 'transform'];
+  const additionalSessionIds = [
+    ...new Set(sessions?.map((session) => session.id).filter((value) => value !== id) ?? [])
+  ];
+  const options = transformDraftOptions(id, additionalSessionIds);
+  const key = options.queryKey;
   const initial: TransformDraft = { title: '', instruction: '', operations: ['clarity'] };
-  const state = useQuery(transformDraftOptions(id));
+  const state = useQuery(options);
   const draft = state.data;
   const setDraft = (patch: Partial<TransformDraft>) =>
     cache.setQueryData<TransformDraft>(key, (previous) => ({ ...(previous ?? initial), ...patch }));
@@ -91,19 +99,50 @@ function useTransformation(id: SessionId) {
     submit.mutate(attempt);
   }
 
-  return { id, t, locale, cache, key, draft, setDraft, selection, dirty, submit, pending, start };
+  return {
+    id,
+    sessions,
+    additionalSessionIds,
+    t,
+    locale,
+    cache,
+    key,
+    draft,
+    setDraft,
+    selection,
+    dirty,
+    submit,
+    pending,
+    start
+  };
 }
 
 type TransformationModel = ReturnType<typeof useTransformation>;
 
-export function Transformation({ id }: { id: SessionId }) {
-  const model = useTransformation(id);
-  const { t } = model;
-
+export function Transformation({
+  id,
+  sessions
+}: {
+  id: SessionId;
+  sessions?: readonly SelectedSession[];
+}) {
+  const model = useTransformation(id, sessions);
   return (
     <>
       <WorkspaceSurface.Section>
-        <Notebook.Muted>{t('SessionTransformHelp')}</Notebook.Muted>
+        <Notebook.DocumentSessions aria-label={model.t('DocumentSessions')}>
+          <h2>{model.t('DocumentSessions')}</h2>
+          <Notebook.Muted>{model.t('DocumentSessionsHelp')}</Notebook.Muted>
+          <Notebook.DocumentSourceList>
+            {sessions?.length ? (
+              sessions.map((session) => (
+                <li key={String(session.id)}>{session.title || model.t('SessionUntitled')}</li>
+              ))
+            ) : (
+              <li>{model.t('DocumentCurrentSession')}</li>
+            )}
+          </Notebook.DocumentSourceList>
+        </Notebook.DocumentSessions>
         <TransformFields model={model} />
         <TransformFailure model={model} />
         <TransformRecovery model={model} />
@@ -134,7 +173,10 @@ function TransformFields({ model }: { model: TransformationModel }) {
         placeholder={t('SessionInstructionHint')}
         onChange={(event) => setDraft({ instruction: event.target.value })}
       />
-      <TransformOperations model={model} />
+      <Notebook.Preferences>
+        <summary>{t('DocumentAdvancedOptions')}</summary>
+        <TransformOperations model={model} />
+      </Notebook.Preferences>
       <CreateTransform model={model} />
     </>
   );
@@ -172,7 +214,19 @@ function TransformOperations({ model }: { model: TransformationModel }) {
 }
 
 function CreateTransform({ model }: { model: TransformationModel }) {
-  const { t, pending, draft, selection, dirty, cache, key, locale, setDraft, start } = model;
+  const {
+    t,
+    pending,
+    draft,
+    additionalSessionIds,
+    selection,
+    dirty,
+    cache,
+    key,
+    locale,
+    setDraft,
+    start
+  } = model;
 
   return (
     <>
@@ -180,7 +234,6 @@ function CreateTransform({ model }: { model: TransformationModel }) {
         disabled={
           pending ||
           !!draft.attempt ||
-          !draft.instruction.trim() ||
           !draft.title.trim() ||
           draft.operations.length === 0 ||
           !selection.data ||
@@ -199,7 +252,13 @@ function CreateTransform({ model }: { model: TransformationModel }) {
             revision: selection.data.revision,
             title: draft.title.trim(),
             instruction: draft.instruction,
-            operations: [...draft.operations],
+            additionalSessionIds: [...additionalSessionIds],
+            operations: [
+              ...new Set([
+                ...(additionalSessionIds.length ? ['combine' as const] : []),
+                ...draft.operations
+              ])
+            ],
             language: locale
           };
 
@@ -355,8 +414,7 @@ function useTransformResult(requestId: string) {
 
     cache.setQueryDefaults(['session-drafts', 'published'], { gcTime: Infinity });
     cache.setQueryData(publishedKey, result);
-    void cache.invalidateQueries({ queryKey: ['materials'] });
-    void cache.invalidateQueries({ queryKey: ['session-material-search'] });
+    void invalidateDocuments(cache);
   }, [cache, requestId, state.data?.resultVersionId]);
   const active = !state.data?.cancelled && !state.data?.resultVersionId;
 
@@ -434,9 +492,9 @@ function TransformControls({ model }: { model: TransformResultModel }) {
   );
 }
 
-function OutputLink({ id }: { id: MaterialVersionId }) {
+function OutputLink({ id }: { id: StudyDocumentVersionId }) {
   const { t } = useI18n();
-  const state = useQuery(versionOptions(id));
+  const state = useQuery(documentVersionOptions(id));
 
   return (
     <>
@@ -446,9 +504,9 @@ function OutputLink({ id }: { id: MaterialVersionId }) {
           variant="outline"
           render={
             <Link
-              to="/materials/$materialId"
-              params={{ materialId: String(state.data.material_id) }}
-              search={{ version: String(id) }}
+              to="/documents/$documentId"
+              params={{ documentId: String(state.data.documentId) }}
+              search={{ documentVersion: String(id) }}
             />
           }
         >

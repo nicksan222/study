@@ -4,14 +4,14 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { material } from '../material-library/test/support';
+import { authoredDocument as material } from '../document-editing/test-support';
 import { useDocumentMetadata } from './session-document-metadata.queries';
 
-const api = vi.hoisted(() => ({ description: vi.fn(), rename: vi.fn() }));
+const api = vi.hoisted(() => ({ description: vi.fn() }));
 
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (run: (rpc: Record<string, unknown>) => unknown) =>
-    run({ 'materials.updateDescription': api.description, 'materials.rename': api.rename })
+    run({ 'documents.updateMetadata': api.description })
 }));
 
 const clients: QueryClient[] = [];
@@ -25,6 +25,7 @@ function mount() {
   const original = { ...material(), description: 'Original summary' };
 
   return {
+    client,
     original,
     ...renderHook(() => useDocumentMetadata(original), {
       wrapper: ({ children }: { children: ReactNode }) => (
@@ -37,7 +38,6 @@ function mount() {
 beforeEach(() => {
   vi.resetAllMocks();
   api.description.mockResolvedValue(material());
-  api.rename.mockResolvedValue(material());
 });
 afterEach(() => {
   cleanup();
@@ -57,9 +57,10 @@ testStable(
     expect(api.description).toHaveBeenCalledWith({
       id: view.original.id,
       expectedDescription: 'Original summary',
-      description: 'Study this tomorrow'
+      description: 'Study this tomorrow',
+      expectedTitle: view.original.title,
+      title: 'Lecture notes'
     });
-    expect(api.rename).toHaveBeenCalledWith({ id: view.original.id, title: 'Lecture notes' });
   }
 );
 
@@ -73,5 +74,19 @@ testStable('keeps edits on a description conflict and does not rename the materi
   });
   await waitFor(() => expect(view.result.current.mutation.isError).toBe(true));
   expect(view.result.current.description).toBe('My summary');
-  expect(api.rename).not.toHaveBeenCalled();
+  expect(view.result.current.title).toBe(view.original.title);
 });
+
+testStable(
+  'refreshes the library and search summaries after authored metadata changes',
+  async () => {
+    const view = mount();
+    view.client.setQueryData(['library', 'library', ['1']], []);
+    view.client.setQueryData(['search', { query: 'notes' }], { hits: [] });
+    await act(async () => {
+      await view.result.current.mutation.mutateAsync();
+    });
+    expect(view.client.getQueryState(['library', 'library', ['1']])?.isInvalidated).toBe(true);
+    expect(view.client.getQueryState(['search', { query: 'notes' }])?.isInvalidated).toBe(true);
+  }
+);

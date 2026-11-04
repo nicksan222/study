@@ -14,8 +14,9 @@ import type { InputProps } from '@study/ui/input';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { cn } from '@study/ui/utils';
 import { PanelLeft, Search, X, ChevronDown, ChevronRight } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 const frameClasses = { default: '', 'session-entry': 'study-shell-session-entry' } as const;
 
@@ -416,6 +417,72 @@ function SettleAction(props: ComponentProps<typeof Button>) {
   return <Button {...props} size="sm" variant="ghost-muted" className="study-session-settle" />;
 }
 
+/** Floats contextual actions beside their sidebar without changing its list geometry. */
+function SelectionBar({ ref, style, ...props }: ComponentProps<'div'>) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const element = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: 12, top: 64 });
+  useImperativeHandle(ref, () => element.current!);
+  useLayoutEffect(() => {
+    const sidebar = anchor.current?.closest('.study-sidebar');
+    const measure = () => {
+      const width = element.current?.getBoundingClientRect().width || 440;
+      const sidebarEnd = sidebar?.getBoundingClientRect().right ?? 0;
+      const headerEnd =
+        document.querySelector('.study-workspace-header')?.getBoundingClientRect().bottom ?? 52;
+      const next = {
+        left: Math.max(12, Math.min(sidebarEnd + 12, window.innerWidth - width - 12)),
+        top: Math.max(12, headerEnd + 12)
+      };
+      setPosition((current) =>
+        current.left === next.left && current.top === next.top ? current : next
+      );
+    };
+    measure();
+    const observer =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    if (sidebar) observer?.observe(sidebar);
+    if (element.current) observer?.observe(element.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+  return (
+    <>
+      <span ref={anchor} className="study-session-selection-anchor" aria-hidden="true" />
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            {...props}
+            ref={element}
+            style={{ ...style, ...position }}
+            className="study-session-selection-bar"
+          />,
+          document.body
+        )}
+    </>
+  );
+}
+
+function SelectionCount({ count, label }: { count: number; label: string }) {
+  return (
+    <span className="study-session-selection-count" role="status" aria-label={label}>
+      <span>{label}</span>
+      <span aria-hidden="true">{count}</span>
+    </span>
+  );
+}
+
+function SettledRows(props: ComponentProps<'div'>) {
+  return <div {...props} className="study-settled-rows" />;
+}
+
+function SessionMore(props: ComponentProps<typeof Button>) {
+  return <Button {...props} size="sm" variant="ghost-muted" className="study-session-more" />;
+}
+
 function SessionEntry({ className, ...props }: ComponentProps<'div'>) {
   return <div {...props} className={cn('study-session-entry', className)} />;
 }
@@ -424,17 +491,29 @@ function SessionGroups({ className, ...props }: ComponentProps<'div'>) {
   return <div {...props} className={cn('study-session-groups', className)} />;
 }
 
-function SessionGroup({
-  title,
-  count,
-  children,
-  defaultOpen = false
-}: {
+type SessionGroupProps = {
   title: string;
   count: number;
   children: ReactNode;
   defaultOpen?: boolean;
-}) {
+  variant?: 'settled';
+};
+
+function SessionGroup(props: SessionGroupProps) {
+  return props.variant === 'settled' ? (
+    <SlidingSessionGroup {...props} />
+  ) : (
+    <NativeSessionGroup {...props} />
+  );
+}
+
+function NativeSessionGroup({
+  title,
+  count,
+  children,
+  defaultOpen = false,
+  variant
+}: SessionGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -442,6 +521,7 @@ function SessionGroup({
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
       className="study-session-group"
+      data-variant={variant}
     >
       <summary aria-label={title}>
         <span>{title}</span>
@@ -453,6 +533,85 @@ function SessionGroup({
   );
 }
 
+/** Keep native details mounted until the closing height transition has finished. */
+function useSlidingDisclosure(defaultOpen: boolean) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [expanded, setExpanded] = useState(defaultOpen);
+  const phase = useRef<'idle' | 'opening' | 'closing'>('idle');
+  const frame = useRef<number | undefined>(undefined);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const clear = () => {
+    if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+    if (timer.current !== undefined) clearTimeout(timer.current);
+  };
+  useEffect(() => clear, []);
+  const finish = () => {
+    if (phase.current !== 'closing') return;
+    clear();
+    phase.current = 'idle';
+    setOpen(false);
+  };
+  const toggle = () => {
+    clear();
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (expanded) {
+      setExpanded(false);
+      phase.current = 'closing';
+      if (reduced) finish();
+      else timer.current = setTimeout(finish, 220);
+      return;
+    }
+    setOpen(true);
+    phase.current = 'opening';
+    if (reduced) {
+      setExpanded(true);
+      phase.current = 'idle';
+    } else
+      frame.current = requestAnimationFrame(() => {
+        frame.current = requestAnimationFrame(() => {
+          setExpanded(true);
+          phase.current = 'idle';
+        });
+      });
+  };
+  return { open, expanded, toggle, finish };
+}
+
+function SlidingSessionGroup({ title, count, children, defaultOpen = false }: SessionGroupProps) {
+  const disclosure = useSlidingDisclosure(defaultOpen);
+  return (
+    <details open={disclosure.open} className="study-session-group" data-variant="settled">
+      <summary
+        aria-label={title}
+        aria-expanded={disclosure.expanded}
+        onClick={(event) => {
+          event.preventDefault();
+          disclosure.toggle();
+        }}
+      >
+        <span>{title}</span>
+        <span>{count}</span>
+        <ChevronRight aria-hidden="true" />
+      </summary>
+      <div
+        className="study-session-group-slide"
+        data-expanded={disclosure.expanded || undefined}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget) disclosure.finish();
+        }}
+      >
+        <div
+          className="study-session-group-body"
+          aria-hidden={!disclosure.expanded}
+          inert={!disclosure.expanded}
+        >
+          {children}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function Item({
   label,
   layout = 'detailed',
@@ -460,16 +619,18 @@ function Item({
   context,
   timestamp,
   description,
+  selection,
   render,
   className,
   ...props
 }: useRender.ComponentProps<'button'> & {
   label: ReactNode;
-  layout?: 'compact' | 'detailed';
+  layout?: 'compact' | 'detailed' | 'summary';
   icon: ReactNode;
   context?: ReactNode;
   timestamp?: ReactNode;
   description?: ReactNode;
+  selection?: boolean;
 }) {
   return useRender({
     defaultTagName: 'button',
@@ -477,10 +638,12 @@ function Item({
     props: {
       ...props,
       'data-layout': layout,
+      'data-selecting': selection !== undefined || undefined,
+      'aria-pressed': selection,
       type: render ? undefined : 'button',
       className: cn('study-session-row', className),
       children:
-        layout === 'compact' ? (
+        layout !== 'detailed' ? (
           <>
             <span className="study-session-row-icon">{icon}</span>
             <span className="study-session-title">{label}</span>
@@ -666,6 +829,10 @@ export const Sidebar = {
   Item,
   SessionGroup,
   SessionGroups,
+  SessionMore,
+  SettledRows,
+  SelectionBar,
+  SelectionCount,
   SessionEntry,
   SessionActivity,
   SessionCount,

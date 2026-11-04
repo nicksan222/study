@@ -1,7 +1,4 @@
-import type {
-  documentComparisonSchema,
-  undoDocumentInputSchema
-} from '@study/contracts/materials/editing';
+import type { comparisonSchema, restoreSchema } from '@study/contracts/documents/editing';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
 import { DocumentEditing } from '@study/ui/document-editing';
@@ -11,6 +8,7 @@ import { Textarea } from '@study/ui/textarea';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 import { DocumentReader } from '../document-presentation';
@@ -18,7 +16,7 @@ import { BlockEditor, authoredCopy } from './block-editor';
 import { CreationLibraryReview } from './creation-library-review';
 import { useDocumentCreation, useDocumentEditor } from './document-editing.queries';
 
-type Comparison = typeof documentComparisonSchema.Type;
+type Comparison = typeof comparisonSchema.Type;
 
 type Creation = ReturnType<typeof useDocumentCreation>['initial'];
 
@@ -39,9 +37,7 @@ export function ComparisonView({ value }: { value: Comparison }) {
                   : 'ReaderCurrent'
             )}
           </summary>
-          {value[kind].content.kind === 'document' && (
-            <DocumentReader document={value[kind].content} />
-          )}
+          <DocumentReader document={value[kind].document} />
         </details>
       ))}
     </DocumentEditing.Comparison>
@@ -117,49 +113,14 @@ export function DocumentActions(props: Parameters<typeof useDocumentEditor>[0]) 
 }
 
 function DocumentEditEntry({ view }: { view: DocumentEditor }) {
-  const {
-    t,
-    client,
-    content,
-    document,
-    version,
-    current,
-    draft,
-    busy,
-    error,
-    savedCopy,
-    setSavedCopy,
-    change,
-    run
-  } = view;
+  const { t, document, version, current, draft, change } = view;
 
   if (!document) return null;
 
   return (
     <>
-      {content.kind === 'document' && version.id === current && !draft && (
+      {version.id === current && !draft && (
         <Button onClick={() => change(structuredClone(document))}>{t('DocumentEdit')}</Button>
-      )}
-      {content.kind !== 'document' && (
-        <Button
-          disabled={busy || error || !!savedCopy}
-          onClick={() =>
-            void run(async () => {
-              const copy = await request((rpc) =>
-                rpc['materials.createManualDocument']({
-                  title: t('DocumentCopyTitle'),
-                  document: authoredCopy(document),
-                  inputVersionId: version.id
-                })
-              );
-
-              setSavedCopy(String(copy.id));
-              await client.invalidateQueries({ queryKey: ['materials'] });
-            })
-          }
-        >
-          {t('DocumentEditCopy')}
-        </Button>
       )}
     </>
   );
@@ -200,18 +161,18 @@ function DocumentDraft({ view }: { view: DocumentEditor }) {
             onClick={() =>
               void run(async () => {
                 const input = pendingSave ?? {
-                  materialId: version.material_id,
+                  documentId: version.documentId,
                   expectedVersionId: version.id,
-                  saveKey: saveKey.current,
+                  key: saveKey.current,
                   document: draft
                 };
 
                 setPendingSave(input);
                 client.setQueryData([...draftKey, 'pending-save'], input);
-                const result = await request((rpc) => rpc['materials.saveDocument'](input));
+                const result = await request((rpc) => rpc['documents.save'](input));
 
                 setOutcome(result);
-                await client.invalidateQueries({ queryKey: ['materials'] });
+                await invalidateDocuments(client);
               })
             }
           >
@@ -254,7 +215,7 @@ function DocumentSavedActions({ view }: { view: DocumentEditor }) {
             void run(async () =>
               setComparison(
                 await request((rpc) =>
-                  rpc['materials.compareDocument']({
+                  rpc['documents.compare']({
                     beforeVersionId: outcome.expectedVersionId,
                     proposedVersionId: outcome.submittedVersionId,
                     currentVersionId: outcome.currentVersionId
@@ -272,22 +233,22 @@ function DocumentSavedActions({ view }: { view: DocumentEditor }) {
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              const input = client.getQueryData<typeof undoDocumentInputSchema.Type>([
+              const input = client.getQueryData<typeof restoreSchema.Type>([
                 ...draftKey,
                 'undo-input'
               ]) ?? {
-                materialId: version.material_id,
+                documentId: version.documentId,
                 expectedVersionId: outcome.submittedVersionId,
                 restoreVersionId: version.id,
-                undoKey: crypto.randomUUID()
+                key: crypto.randomUUID()
               };
 
               client.setQueryData([...draftKey, 'undo-input'], input);
-              const result = await request((rpc) => rpc['materials.undoDocument'](input));
+              const result = await request((rpc) => rpc['documents.restore'](input));
 
               client.setQueryData([...draftKey, 'undo-outcome'], result);
               setUndoOutcome(result);
-              await client.invalidateQueries({ queryKey: ['materials'] });
+              await invalidateDocuments(client);
             })
           }
         >
@@ -317,14 +278,17 @@ function DocumentCopyStatus({ view }: { view: DocumentEditor }) {
           onClick={() =>
             void run(async () => {
               const copy = await request((rpc) =>
-                rpc['materials.createManualDocument']({
+                rpc['documents.create']({
                   title: t('DocumentCopyTitle'),
                   document: authoredCopy(draft),
-                  inputVersionId: outcome.submittedVersionId
+                  createKey: 'draft-copy:' + view.saveKey.current,
+                  inputs: view.version.inputs,
+                  citations: view.version.citations
                 })
               );
 
               setSavedCopy(String(copy.id));
+              await invalidateDocuments(view.client);
             })
           }
         >
@@ -333,7 +297,7 @@ function DocumentCopyStatus({ view }: { view: DocumentEditor }) {
       )}
       {comparison && <ComparisonView value={comparison} />}
       {savedCopy && (
-        <Link to="/materials/$materialId" params={{ materialId: savedCopy }} search={{}}>
+        <Link to="/documents/$documentId" params={{ documentId: savedCopy }} search={{}}>
           {t('DocumentOpenCopy')}
         </Link>
       )}
@@ -360,7 +324,7 @@ function CreationReceipt({ view }: { view: ReturnType<typeof useDocumentCreation
       )}
       {createdId ? (
         <DocumentEditing.Actions>
-          <Link to="/materials/$materialId" params={{ materialId: createdId }} search={{}}>
+          <Link to="/documents/$documentId" params={{ documentId: createdId }} search={{}}>
             {t('DocumentOpenCopy')}
           </Link>
           <Button

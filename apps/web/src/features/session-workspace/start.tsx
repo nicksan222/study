@@ -2,9 +2,10 @@ import { projectIdSchema } from '@study/contracts/ids';
 import type { SessionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
+import { HomeHub } from '@study/ui/home-hub';
 import { Loading } from '@study/ui/loading';
 import { SessionStarter } from '@study/ui/session-start';
-import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
+import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
@@ -26,7 +27,6 @@ import {
 } from './start.queries';
 import type { CreationFlow } from './start.queries';
 import { SessionError, SessionReadError } from './status';
-import { WorkspaceContext } from './workspace-context';
 import { WorkspaceFooter } from './workspace-footer';
 
 /** Draft text and attachments remain cached under their originating project scope. */
@@ -135,6 +135,8 @@ export function SessionStart() {
   const { t } = useI18n();
   const view = useSessionStart();
   const { state, flow } = view;
+  const [capturing, setCapturing] = useState(false);
+  const showCapture = capturing || !!view.draft.data || view.files.data.length > 0;
 
   if (state.isError && !flow.data.uncertain && !flow.data.id) {
     return (
@@ -144,23 +146,49 @@ export function SessionStart() {
 
   return (
     <SessionStarter.Root>
-      <WorkspaceSurface.Controls>
-        <WorkspaceCard.Toggle label={t('SessionContextPanel')} />
-      </WorkspaceSurface.Controls>
-      <WorkspaceContext />
-      <WorkspaceSurface.Heading>
-        <h1>{t('SessionStartTitle')}</h1>
-        <p>{t('SessionStartHelp')}</p>
-      </WorkspaceSurface.Heading>
-      <WorkspaceSurface.Dock>
-        <StarterComposer view={view} />
-        <WorkspaceFooter />
-        <SessionStarter.Hint id="session-start-hint">
-          {t('SessionStartDraftHelp')}
-        </SessionStarter.Hint>
+      <HomeHub.Root>
+        <HomeHub.Header>
+          <HomeHub.Title>{t('SessionStartTitle')}</HomeHub.Title>
+          <HomeHub.Description>{t('SessionStartHelp')}</HomeHub.Description>
+        </HomeHub.Header>
+        <HomeHub.Actions>
+          <Button
+            onClick={view.beginSession}
+            disabled={view.blocked}
+            aria-busy={!!flow.data.pending}
+          >
+            <NotebookPen size={16} aria-hidden="true" />
+            {t('SessionNew')}
+          </Button>
+          {!showCapture && (
+            <Button variant="outline" onClick={() => setCapturing(true)} disabled={view.blocked}>
+              <Paperclip size={16} aria-hidden="true" />
+              {t('SessionStartWithNote')}
+            </Button>
+          )}
+        </HomeHub.Actions>
+        {showCapture && (
+          <section aria-label={t('SessionStartWithNote')}>
+            <StarterComposer view={view} />
+            <SessionStarter.Hint id="session-start-hint">
+              {t('SessionStartDraftHelp')}
+            </SessionStarter.Hint>
+            <WorkspaceFooter />
+          </section>
+        )}
         <CreationStatus view={view} />
         <CreationRecovery view={view} />
-      </WorkspaceSurface.Dock>
+        <HomeHub.Navigation aria-label={t('Home')}>
+          <HomeHub.Entry render={<Link to="/library" search={{ project: view.search.project }} />}>
+            <HomeHub.Label>{t('collections.library')}</HomeHub.Label>
+            <HomeHub.Help>{t('workspace.libraryHelp')}</HomeHub.Help>
+          </HomeHub.Entry>
+          <HomeHub.Entry render={<Link to="/projects" search={{ project: view.search.project }} />}>
+            <HomeHub.Label>{t('Projects')}</HomeHub.Label>
+            <HomeHub.Help>{t('workspace.collectionsHelp')}</HomeHub.Help>
+          </HomeHub.Entry>
+        </HomeHub.Navigation>
+      </HomeHub.Root>
     </SessionStarter.Root>
   );
 }
@@ -275,8 +303,8 @@ function StarterComposer({ view }: { view: StartView }) {
         </SessionStarter.Kind>
         <SessionStarter.Submit
           size="icon"
-          aria-label={t('SessionNew')}
-          title={t('SessionNew')}
+          aria-label={t('SessionStartWithDraft')}
+          title={t('SessionStartWithDraft')}
           disabled={blocked}
           onClick={beginSession}
         >

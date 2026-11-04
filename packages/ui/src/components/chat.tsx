@@ -1,9 +1,15 @@
 import { ArrowDown } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentPropsWithRef, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { cn } from '../utils';
 import { Button } from './button';
+import { Tooltip, TooltipTrigger, TooltipPopup } from './tooltip';
+
+function readingViewport(node: HTMLDivElement | null) {
+  return node?.closest<HTMLDivElement>('[data-notebook-scroll-host]') ?? node;
+}
 
 /** Adapted from coss Chat UI's conversation contract: follow only while the reader is at the end. */
 function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstItemKey?: string }) {
@@ -14,7 +20,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
   const [showJump, setShowJump] = useState(false);
 
   useLayoutEffect(() => {
-    const viewport = viewportRef.current;
+    const viewport = readingViewport(viewportRef.current);
 
     if (!viewport) return;
 
@@ -28,7 +34,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
   }, [itemCount, firstItemKey]);
 
   useEffect(() => {
-    const viewport = viewportRef.current;
+    const viewport = readingViewport(viewportRef.current);
     const content = contentRef.current;
 
     if (!viewport || !content) return;
@@ -39,14 +45,18 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
       previous.current.height = viewport.scrollHeight;
     });
 
+    viewport.addEventListener('scroll', onScroll);
     observer.observe(viewport);
     observer.observe(content);
 
-    return () => observer.disconnect();
+    return () => {
+      viewport.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
   }, []);
 
   function onScroll() {
-    const viewport = viewportRef.current;
+    const viewport = readingViewport(viewportRef.current);
 
     if (!viewport) return;
 
@@ -56,7 +66,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
   }
 
   function scrollToLatest() {
-    const viewport = viewportRef.current;
+    const viewport = readingViewport(viewportRef.current);
 
     atBottom.current = true;
     setShowJump(false);
@@ -66,7 +76,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
     });
   }
 
-  return { viewportRef, contentRef, onScroll, scrollToLatest, showJump };
+  return { viewportRef, contentRef, scrollToLatest, showJump };
 }
 
 /** The data owner supplies paging keys; the viewport owns only reading position and end following. */
@@ -75,18 +85,57 @@ export function ChatConversation({
   label,
   jumpLabel,
   itemCount,
-  firstItemKey
+  firstItemKey,
+  navigation
 }: {
   children: ReactNode;
   label: string;
   jumpLabel: string;
   itemCount: number;
   firstItemKey?: string;
+  navigation?: ReactNode;
 }) {
   const scroll = useChatScroll({ itemCount, firstItemKey });
+  const [overlay, setOverlay] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setOverlay(
+      scroll.viewportRef.current
+        ?.closest('.session-desk-notebook')
+        ?.querySelector<HTMLElement>('[data-notebook-navigation-host]') ?? null
+    );
+  }, []);
+  const controls = (
+    <>
+      {navigation}
+      {scroll.showJump && (
+        <div className="chat-jump">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  aria-label={jumpLabel}
+                  onClick={scroll.scrollToLatest}
+                />
+              }
+            >
+              <ArrowDown size={16} aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipPopup>{jumpLabel}</TooltipPopup>
+          </Tooltip>
+        </div>
+      )}
+    </>
+  );
 
   return (
-    <div className="chat-conversation" data-slot="chat-conversation">
+    <div
+      className="chat-conversation"
+      data-slot="chat-conversation"
+      data-navigation={!!navigation || undefined}
+    >
+      {overlay ? createPortal(controls, overlay) : controls}
       <div
         ref={scroll.viewportRef}
         className="chat-viewport"
@@ -94,20 +143,11 @@ export function ChatConversation({
         aria-label={label}
         aria-live="off"
         aria-relevant="additions text"
-        onScroll={scroll.onScroll}
       >
         <div ref={scroll.contentRef} className="chat-content">
           {children}
         </div>
       </div>
-      {scroll.showJump && (
-        <div className="chat-jump">
-          <Button size="sm" variant="outline" onClick={scroll.scrollToLatest}>
-            <ArrowDown size={14} aria-hidden="true" />
-            {jumpLabel}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
@@ -139,17 +179,5 @@ export function ChatMessageActionToolbar({ className, ...props }: ComponentProps
       data-slot="chat-message-actions"
       className={cn('session-row-tools chat-message-actions', className)}
     />
-  );
-}
-
-/** A dated event in a single-direction session timeline. */
-export function ChatTimelineEvent({ time, children }: { time: ReactNode; children: ReactNode }) {
-  return (
-    <div className="chat-timeline-event" data-slot="timeline-event">
-      <header className="chat-timeline-time">
-        <time>{time}</time>
-      </header>
-      <div className="chat-timeline-body">{children}</div>
-    </div>
   );
 }

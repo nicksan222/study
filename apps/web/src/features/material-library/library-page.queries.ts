@@ -3,7 +3,8 @@ import { useSearch, useNavigate, useLocation, useRouter } from '@tanstack/react-
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { request } from '#web/lib/study-client/request.ts';
+import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
+import { sourceLibraryOptions, loadSourceLibrary } from '#web/lib/study-client/sources.queries.ts';
 import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
 
 import { importReturn, libraryReturn, libraryEntries } from './browse-state';
@@ -12,14 +13,34 @@ import { collectionId } from './identity';
 import { useImportOperation } from './import-operation';
 import { materialPage, materialsOptions } from './material-library.queries';
 
+function libraryScroll() {
+  return (
+    document.querySelector<HTMLElement>('[data-library-scroll], main.study-content')?.scrollTop ?? 0
+  );
+}
+function pageItems<T>(data: { pages: readonly { items: readonly T[] }[] } | undefined): T[] {
+  return data?.pages.flatMap((page) => page.items) ?? [];
+}
+function rememberLibraryRow(row: string, entryKey: string | undefined) {
+  libraryReturn.row = row;
+  libraryReturn.scroll = libraryScroll();
+  libraryReturn.fromReader = true;
+  if (entryKey) libraryEntries.set(entryKey, { row, scroll: libraryReturn.scroll });
+}
+function useLibraryQueries(projectId: ReturnType<typeof collectionId>) {
+  const state = useInfiniteQuery(materialsOptions(projectId));
+  const documents = useInfiniteQuery(documentsOptions(projectId));
+  const sources = useQuery(sourceLibraryOptions(projectId));
+  const collections = useQuery(projectsQueryOptions());
+  return { state, documents, sources, collections };
+}
 export function useLibraryPage() {
   const { t } = useI18n();
   const search = useSearch({ from: '__root__' });
   const projectId = collectionId(search.project);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const state = useInfiniteQuery(materialsOptions(projectId));
-  const collections = useQuery(projectsQueryOptions());
+  const { state, documents, sources, collections } = useLibraryQueries(projectId);
   const [open, setOpen] = useState(false);
   const importRef = useRef<HTMLButtonElement>(null);
   const operation = useImportOperation();
@@ -37,33 +58,17 @@ export function useLibraryPage() {
     setRefreshing
   } = useRevealState(search.project);
   const [previous, setPrevious] = useState<BrowseSnapshot | null>(importReturn.previous);
-  const items = state.data?.pages.flatMap((page) => page.items) ?? [];
-  const acceptedLookup = useQuery({
-    queryKey: ['materials', 'imported', String(accepted?.id)],
-    enabled: !!accepted,
-    queryFn: () => request((rpc) => rpc['materials.importedMaterial']({ sourceId: accepted!.id }))
-  });
-  const match = acceptedLookup.data;
+  const items = pageItems(state.data);
+  useBrowseRestoration(state.data, entryKey, documents.isSuccess && sources.isSuccess);
 
-  useBrowseRestoration(state.data, entryKey);
-
-  function rememberRow(row: string) {
-    libraryReturn.row = row;
-    libraryReturn.scroll =
-      document.querySelector<HTMLElement>('[data-library-scroll], main.study-content')?.scrollTop ??
-      0;
-    libraryReturn.fromReader = true;
-
-    if (entryKey) libraryEntries.set(entryKey, { row, scroll: libraryReturn.scroll });
-  }
+  const rememberRow = (row: string) => rememberLibraryRow(row, entryKey);
 
   function rememberBrowse() {
     const snapshot = {
       project: search.project,
       data: state.data,
-      scroll:
-        document.querySelector<HTMLElement>('[data-library-scroll], main.study-content')
-          ?.scrollTop ?? 0
+      sourceData: sources.data,
+      scroll: libraryScroll()
     };
 
     importReturn.previous = snapshot;
@@ -97,6 +102,9 @@ export function useLibraryPage() {
     queryClient,
     navigate,
     state,
+    documents,
+    sources,
+    hasAuthoredDocuments: pageItems(documents.data).length > 0,
     collections,
     open,
     setOpen,
@@ -107,8 +115,6 @@ export function useLibraryPage() {
     refreshing,
     previous,
     items,
-    acceptedLookup,
-    match,
     rememberRow,
     rememberBrowse,
     reveal,
@@ -116,11 +122,11 @@ export function useLibraryPage() {
   };
 }
 
-function useBrowseRestoration(data: unknown, entryKey: string | undefined) {
+function useBrowseRestoration(data: unknown, entryKey: string | undefined, ready: boolean) {
   const restoredEntry = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!data) return;
+    if (!data || !ready) return;
 
     const saved = entryKey ? libraryEntries.get(entryKey) : undefined;
 
@@ -138,7 +144,7 @@ function useBrowseRestoration(data: unknown, entryKey: string | undefined) {
     });
 
     if (main) main.scrollTop = position.scroll;
-  }, [data, entryKey]);
+  }, [data, entryKey, ready]);
 }
 
 async function revealLibrary({
@@ -162,10 +168,11 @@ async function revealLibrary({
 
     if (!isCurrent()) return;
 
-    const page = await materialPage();
+    const [page, sourceData] = await Promise.all([materialPage(), loadSourceLibrary()]);
 
     if (!isCurrent()) return;
 
+    queryClient.setQueryData(sourceLibraryOptions().queryKey, sourceData);
     queryClient.setQueryData(materialsOptions().queryKey, {
       pages: [page],
       pageParams: [undefined]
@@ -191,6 +198,12 @@ function restoreLibraryBrowse(
   }
 ) {
   if (!previous) return;
+
+  if (previous.sourceData)
+    queryClient.setQueryData(
+      sourceLibraryOptions(collectionId(previous.project)).queryKey,
+      previous.sourceData
+    );
 
   if (previous.data)
     queryClient.setQueryData(

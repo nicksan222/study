@@ -199,3 +199,13 @@ testStable(
     expect(deletion.remove).not.toHaveBeenCalled();
   }
 );
+
+testStable('offers document creation in the session context menu', async () => {
+  mount();
+  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+    button: 2,
+    clientX: 80,
+    clientY: 80
+  });
+  expect(await screen.findByRole('menuitem', { name: en.SessionTransform })).toBeVisible();
+});

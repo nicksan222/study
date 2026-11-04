@@ -1,6 +1,5 @@
-import type { MaterialId, SessionId } from '@study/contracts/ids';
-import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
-import { Button } from '@study/ui/button';
+import type { StudyDocument } from '@study/contracts/documents/types';
+import type { StudyDocumentId } from '@study/contracts/ids';
 import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { useQuery } from '@tanstack/react-query';
@@ -11,24 +10,12 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { CanonicalDocumentEditor } from './canonical-document-editor';
 import { SaveRecoveryNotice } from './save-recovery';
 import { DocumentMetadata } from './session-document-metadata';
-import {
-  sessionDocumentOptions,
-  useSessionDocumentAutosave,
-  useSessionDocumentCreation
-} from './session-document.queries';
+import { sessionDocumentOptions, useSessionDocumentAutosave } from './session-document.queries';
 import { SessionReadError } from './status';
 
-export function SessionDocumentPanel({
-  materialId,
-  sessionId,
-  onOpen
-}: {
-  materialId: MaterialId;
-  sessionId: SessionId;
-  onOpen: (material: MaterialDetailDto) => void;
-}) {
+export function SessionDocumentPanel({ documentId }: { documentId: StudyDocumentId }) {
   const { t } = useI18n();
-  const state = useQuery(sessionDocumentOptions(materialId));
+  const state = useQuery(sessionDocumentOptions(documentId));
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 
@@ -37,17 +24,18 @@ export function SessionDocumentPanel({
 
   if (!state.data) return null;
 
-  return state.data.version.content.kind === 'document' &&
-    state.data.version.creator !== 'import' ? (
-    <DocumentEditor material={state.data} />
+  return state.data.version ? (
+    <DocumentEditor document={state.data} />
   ) : (
-    <ImportedDocument material={state.data} sessionId={sessionId} onOpen={onOpen} />
+    <Desk.Recovery>
+      <p>{t('SessionReadUnavailable')}</p>
+    </Desk.Recovery>
   );
 }
 
-function DocumentEditor({ material }: { material: MaterialDetailDto }) {
+function DocumentEditor({ document }: { document: StudyDocument }) {
   const { t } = useI18n();
-  const model = useSessionDocumentAutosave(material);
+  const model = useSessionDocumentAutosave(document);
   const Icon = model.error ? CloudOff : model.dirty ? Cloud : Check;
   const label = model.pending
     ? 'SessionAutosaving'
@@ -76,74 +64,11 @@ function DocumentEditor({ material }: { material: MaterialDetailDto }) {
                 <Icon size={14} />
                 {t(label)}
               </Desk.SaveStatus>
-              <DocumentMetadata material={material} />
+              <DocumentMetadata document={document} />
             </>
           }
         />
       </Desk.Editor>
     </>
-  );
-}
-
-function ImportedDocument({
-  material,
-  sessionId,
-  onOpen
-}: {
-  material: MaterialDetailDto;
-  sessionId: SessionId;
-  onOpen: (material: MaterialDetailDto) => void;
-}) {
-  const { t } = useI18n();
-  const creation = useSessionDocumentCreation(sessionId);
-  const content = material.version.content;
-  const document =
-    content.kind === 'document'
-      ? content
-      : 'extracted' in content
-        ? content.extracted?.document
-        : undefined;
-  const copy = () => {
-    if (!document) return;
-
-    void creation
-      .create(material.title, { document, inputVersionId: material.version.id })
-      .then((result) => {
-        if (result) onOpen(result);
-      });
-  };
-
-  if (!document) return <DocumentUnavailable material={material} />;
-
-  return (
-    <>
-      {creation.error !== undefined && <SessionReadError error={creation.error} retry={copy} />}
-      <Desk.Editor>
-        <CanonicalDocumentEditor
-          document={document}
-          onChange={() => undefined}
-          disabled
-          toolbarEnd={
-            <Button size="sm" variant="outline" onClick={copy} disabled={creation.pending}>
-              {t(creation.pending ? 'SessionSaving' : 'DocumentEditCopy')}
-            </Button>
-          }
-        />
-      </Desk.Editor>
-    </>
-  );
-}
-
-function DocumentUnavailable({ material }: { material: MaterialDetailDto }) {
-  const { t } = useI18n();
-
-  return (
-    <Desk.Recovery>
-      {material.importProcessing?.status === 'pending' ? (
-        <Loading label={t('SessionPending')} />
-      ) : (
-        <p>{t('SessionReadUnavailable')}</p>
-      )}
-    </Desk.Recovery>
   );
 }

@@ -7,6 +7,7 @@ import { SelectControl } from '@study/ui/select-control';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 
+import { exportOmissionLabels } from '#web/lib/export-labels.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
@@ -15,15 +16,6 @@ import { availableExportFormats, exportReaderVersion } from './reader-export.que
 type Format = typeof exportFormatSchema.Type;
 
 type Omission = typeof exportOmissionSchema.Type;
-
-const omissionLabels = {
-  image_not_embedded: 'ExportOmitImage',
-  unsafe_link: 'ExportOmitLink',
-  math_not_rendered: 'ExportOmitMath',
-  metadata_sidecar: 'ExportOmitMetadata',
-  csv_structure: 'ExportOmitCsv',
-  source_fidelity: 'ExportOmitSource'
-} as const;
 
 const formatLabels = {
   markdown: 'ExportMarkdown',
@@ -85,7 +77,7 @@ export function ReaderExport({ version }: { version: MaterialVersionDetailDto })
       {status === 'omissions' && (
         <MaterialLibrary.ExportStatus role="status">
           {[...new Set(omissions.map((item) => item.code))]
-            .map((code) => t(omissionLabels[code]))
+            .map((code) => t(exportOmissionLabels[code]))
             .join(' ')}
         </MaterialLibrary.ExportStatus>
       )}

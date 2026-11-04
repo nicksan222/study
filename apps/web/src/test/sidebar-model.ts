@@ -26,8 +26,6 @@ export function sidebarModel(): SidebarModel {
     setPickerOpen: noop,
     query: '',
     setQuery: noop,
-    filter: 'all',
-    setFilter: noop,
     newSubjectOpen: false,
     setNewSubjectOpen: noop,
     name: '',

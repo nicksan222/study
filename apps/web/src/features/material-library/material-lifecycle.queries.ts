@@ -103,7 +103,7 @@ export function useMaterialLifecycle(id: MaterialId) {
     if (deletion)
       setConfirmation({
         kind: 'delete',
-        input: { materialId: id, token: deletion.token, descendantIds: [] }
+        input: { materialId: id, token: deletion.token }
       });
   }
 

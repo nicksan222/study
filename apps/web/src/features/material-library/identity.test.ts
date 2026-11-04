@@ -1,10 +1,11 @@
 import { materialVersionIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
+import type { MaterialId, SourceId } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
+import { expect, expectTypeOf } from 'vite-plus/test';
 
-import { acceptedMaterial, belongsToMaterial, materialId, versionId } from './identity';
+import { belongsToMaterial, materialId, versionId } from './identity';
+import { importedSource, summary } from './test/support';
 
 testStable(
   'validates route identities instead of accepting numeric prefixes or nonpositive IDs',
@@ -20,18 +21,12 @@ testStable(
 );
 
 testStable(
-  'does not confuse Source identity with Material identity or titles during bounded import recovery',
+  'keeps source acquisition and learning route identities in distinct branded contracts',
   () => {
-    const sourceId = Schema.decodeUnknownSync(sourceIdSchema)(7n);
-    const otherSourceId = Schema.decodeUnknownSync(sourceIdSchema)(8n);
-    const visible = [
-      { id: materialId('7'), title: 'Same title', importProcessing: { sourceId: otherSourceId } },
-      { id: materialId('99'), title: 'Renamed', importProcessing: { sourceId } }
-    ] as MaterialSummaryDto[];
-
-    expect(acceptedMaterial({ id: sourceId }, visible)?.id).toBe(99n);
-    expect(acceptedMaterial({ id: sourceId }, visible.slice(0, 1))).toBeUndefined();
-    expect(acceptedMaterial({ id: sourceId }, [])).toBeUndefined();
+    expectTypeOf(importedSource.id).toEqualTypeOf<SourceId>();
+    expectTypeOf(importedSource.id).not.toEqualTypeOf<MaterialId>();
+    expectTypeOf(summary().id).toEqualTypeOf<MaterialId>();
+    expect(summary().kind).toBe('diagram');
   }
 );
 

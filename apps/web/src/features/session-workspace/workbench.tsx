@@ -1,13 +1,12 @@
-import type { SessionId, MaterialId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
+import type { SessionId, StudyDocumentId, SourceId } from '@study/contracts/ids';
 import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useQuery } from '@tanstack/react-query';
-import { FilePlus2, PanelRightOpen } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { SourcePanel } from '../source-library/source-panel';
 import { Composer } from './composer';
 import { SessionContextActions } from './context-actions';
 import { History } from './history';
@@ -22,11 +21,14 @@ import {
 import { SessionReadError } from './status';
 import { useWorkbench, workbenchIdentity } from './workbench.queries';
 import type { WorkbenchTarget } from './workbench.queries';
+import { WorkspaceContext } from './workspace-context';
 
 function TabLabel({ target }: { target: WorkbenchTarget }) {
   const { t } = useI18n();
 
-  if (target.kind === 'material') return <MaterialTab target={target} />;
+  if (target.kind === 'source') return target.title;
+
+  if (target.kind === 'document') return <DocumentTab target={target} />;
 
   const text =
     target.kind === 'new'
@@ -37,8 +39,8 @@ function TabLabel({ target }: { target: WorkbenchTarget }) {
   return <NoteSummary value={text} fallback={t('SessionNewPage')} />;
 }
 
-function MaterialTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'material' }> }) {
-  const material = useQuery(sessionDocumentOptions(target.materialId));
+function DocumentTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'document' }> }) {
+  const material = useQuery(sessionDocumentOptions(target.documentId));
 
   return material.data?.title ?? target.title;
 }
@@ -50,92 +52,84 @@ export function SessionWorkbench({ id, onDelete }: { id: SessionId; onDelete: ()
   const documents = useQuery(sessionDocumentsOptions(id));
   const creation = useSessionDocumentCreation(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
-  const openMaterial = (material: { id: MaterialId; title: string }) =>
-    model.open({ kind: 'material', materialId: material.id, title: material.title });
+  const openDocument = (material: { id: StudyDocumentId; title: string }) =>
+    model.open({ kind: 'document', documentId: material.id, title: material.title });
+  const openSource = (source: { id: SourceId; name: string }) =>
+    model.open({ kind: 'source', sourceId: source.id, title: source.name });
   const create = () => {
     void creation.create(t('SessionNewPage')).then((material) => {
-      if (material) openMaterial(material);
+      if (material) openDocument(material);
     });
   };
 
   return (
-    <Desk.Root open={model.visible && !!active} expanded={model.expanded}>
-      <Desk.Board>
-        <BoardTools
-          id={id}
-          onDelete={onDelete}
-          model={model}
-          create={create}
-          pending={creation.pending}
-        />
-        <Desk.BoardBody>
-          <BoardFeedback
-            pending={creation.pending}
-            creationError={creation.error}
-            create={create}
-            listError={documents.error}
-            reload={() => void documents.refetch()}
-          />
-          <History
-            id={id}
-            documents={documents.data?.items.filter((material) => material.kind === 'document')}
-            onOpenMaterial={openMaterial}
-            activeMaterial={
-              model.visible && active?.kind === 'material' ? String(active.materialId) : undefined
-            }
-            onDocument={create}
-            activeDocument={model.visible ? model.active : undefined}
-            onOpen={(message) => model.open({ kind: 'message', message })}
-          />
-        </Desk.BoardBody>
-        <WorkspaceSurface.Dock>
-          <Composer id={id} onDocument={create} />
-        </WorkspaceSurface.Dock>
-      </Desk.Board>
+    <Desk.Root
+      open={model.visible && !!active}
+      expanded={model.expanded}
+      dock={model.dock}
+      cardOpen={model.cardVisible}
+    >
+      <Desk.Notebook>
+        <Desk.ScrollArea>
+          <Desk.NotebookLayout>
+            <Desk.Board>
+              <Desk.BoardBody>
+                <BoardFeedback
+                  pending={creation.pending}
+                  creationError={creation.error}
+                  create={create}
+                  listError={documents.error}
+                  reload={() => void documents.refetch()}
+                />
+                <History
+                  id={id}
+                  documents={documents.data?.items}
+                  onOpenDocument={openDocument}
+                  onOpenSource={openSource}
+                  activeAuthoredDocument={
+                    model.visible && active?.kind === 'document'
+                      ? String(active.documentId)
+                      : undefined
+                  }
+                  onDocument={create}
+                  activeDocument={model.visible ? model.active : undefined}
+                  onOpen={(message) => model.open({ kind: 'message', message })}
+                />
+              </Desk.BoardBody>
+            </Desk.Board>
+            <WorkspaceContext
+              id={id}
+              onOpenDocument={openDocument}
+              onOpenSource={openSource}
+              hidden={!model.cardVisible}
+              onDismiss={model.hideCard}
+              actions={
+                <SessionContextActions
+                  id={id}
+                  onDelete={onDelete}
+                  onCreate={create}
+                  pending={creation.pending}
+                />
+              }
+            />
+          </Desk.NotebookLayout>
+        </Desk.ScrollArea>
+        <Desk.NavigationHost />
+        <Desk.FloatingComposer>
+          <WorkspaceSurface.Dock>
+            <Composer id={id} onDocument={create} />
+          </WorkspaceSurface.Dock>
+        </Desk.FloatingComposer>
+      </Desk.Notebook>
+
       <EditorPanel
         id={id}
         model={model}
         active={active}
         create={create}
-        openMaterial={openMaterial}
+        openDocument={openDocument}
       />
     </Desk.Root>
-  );
-}
-
-function BoardTools({
-  id,
-  onDelete,
-  model,
-  create,
-  pending
-}: {
-  id: SessionId;
-  onDelete: () => void;
-  model: ReturnType<typeof useWorkbench>;
-  create: () => void;
-  pending: boolean;
-}) {
-  const { t } = useI18n();
-
-  return (
-    <Desk.BoardTools>
-      <SessionContextActions id={id} onDelete={onDelete} compact />
-      {!model.visible && model.tabs.length > 0 && (
-        <Button
-          size="sm"
-          variant="ghost-muted"
-          onClick={() => model.select(model.active ?? workbenchIdentity(model.tabs[0]!))}
-        >
-          <PanelRightOpen size={16} />
-          {t('SessionOpenEditors')}
-        </Button>
-      )}
-      <Button size="sm" variant="outline" onClick={create} disabled={pending}>
-        <FilePlus2 size={16} aria-hidden="true" />
-        {t('SessionNewDocument')}
-      </Button>
-    </Desk.BoardTools>
   );
 }
 
@@ -144,13 +138,13 @@ function EditorPanel({
   model,
   active,
   create,
-  openMaterial
+  openDocument
 }: {
   id: SessionId;
   model: ReturnType<typeof useWorkbench>;
   active: WorkbenchTarget | undefined;
   create: () => void;
-  openMaterial: (material: { id: MaterialId; title: string }) => void;
+  openDocument: (material: { id: StudyDocumentId; title: string }) => void;
 }) {
   const { t } = useI18n();
 
@@ -175,12 +169,15 @@ function EditorPanel({
       closeLabel={t('SessionDocumentTabs')}
       hideLabel={t('SessionBackToBoard')}
     >
-      {active.kind === 'material' ? (
-        <SessionDocumentPanel
+      {active.kind === 'document' ? (
+        <SessionDocumentPanel key={workbenchIdentity(active)} documentId={active.documentId} />
+      ) : active.kind === 'source' ? (
+        <SourcePanel
           key={workbenchIdentity(active)}
           sessionId={id}
-          materialId={active.materialId}
-          onOpen={openMaterial}
+          sourceId={active.sourceId}
+          onDeleted={() => model.close(workbenchIdentity(active))}
+          onOpenDocument={openDocument}
         />
       ) : (
         <PagePanel key={workbenchIdentity(active)} id={id} target={active} />

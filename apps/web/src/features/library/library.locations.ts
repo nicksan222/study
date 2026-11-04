@@ -1,11 +1,17 @@
 import type { LibraryItem } from './library.logic';
 
 export function itemLocation(item: LibraryItem, project?: string) {
+  if (item.type === 'document')
+    return {
+      to: '/documents/$documentId',
+      params: { documentId: String(item.value.id) },
+      search: project ? { project } : {}
+    } as const;
   if (item.type === 'source')
     return {
-      to: '/media-list',
+      to: '/sources/$sourceId',
+      params: { sourceId: String(item.value.id) },
       search: {
-        id: String(item.value.id),
         ...(item.value.projectId ? { project: String(item.value.projectId) } : {})
       }
     } as const;
