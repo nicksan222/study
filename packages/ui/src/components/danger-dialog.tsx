@@ -15,13 +15,15 @@ export type DangerDialogProps = {
   confirmLabel: string;
   cancelLabel: string;
   onConfirm: () => void | Promise<void>;
-  confirmation: { identity: string; value: string; label: string };
+  confirmation: { identity: string; value: string; label: string } | null;
   pending?: boolean;
   disabled?: boolean;
   children?: ReactNode;
 };
 
-/** Requires target-specific typed confirmation and prevents dismissal while the destructive action is pending. */
+const reviewOnly = { identity: '', value: '', label: '' };
+
+/** Null confirmation shows review content without a form or destructive action. */
 export function DangerDialog({
   open,
   onOpenChange,
@@ -37,7 +39,7 @@ export function DangerDialog({
 }: DangerDialogProps) {
   const cancel = useRef<HTMLButtonElement>(null);
   const inputId = useId();
-  const typed = useConfirmation(open, confirmation);
+  const typed = useConfirmation(open, confirmation ?? reviewOnly);
 
   return (
     <AlertDialog.Root
@@ -66,18 +68,20 @@ export function DangerDialog({
             </div>
             <div className="ui-danger-body">
               {children}
-              <div className="ui-danger-confirmation">
-                <Label htmlFor={inputId}>{confirmation.label}</Label>
-                <Input
-                  id={inputId}
-                  value={typed.value}
-                  disabled={pending || disabled}
-                  autoComplete="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  onChange={(event) => typed.change(event.target.value)}
-                />
-              </div>
+              {confirmation && (
+                <div className="ui-danger-confirmation">
+                  <Label htmlFor={inputId}>{confirmation.label}</Label>
+                  <Input
+                    id={inputId}
+                    value={typed.value}
+                    disabled={pending || disabled}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    onChange={(event) => typed.change(event.target.value)}
+                  />
+                </div>
+              )}
             </div>
             <div className="ui-danger-footer">
               <AlertDialog.Close
@@ -86,15 +90,13 @@ export function DangerDialog({
               >
                 {cancelLabel}
               </AlertDialog.Close>
-              <Button
-                variant="destructive"
-                disabled={pending || disabled || !typed.verified}
-                onClick={() => {
-                  if (!pending && !disabled && typed.verified) void onConfirm();
-                }}
-              >
-                {confirmLabel}
-              </Button>
+              {confirmation && (
+                <DangerConfirmButton
+                  enabled={!pending && !disabled && typed.verified}
+                  label={confirmLabel}
+                  onConfirm={onConfirm}
+                />
+              )}
             </div>
           </AlertDialog.Popup>
         </AlertDialog.Viewport>
@@ -103,8 +105,33 @@ export function DangerDialog({
   );
 }
 
+function DangerConfirmButton({
+  enabled,
+  label,
+  onConfirm
+}: {
+  enabled: boolean;
+  label: string;
+  onConfirm: DangerDialogProps['onConfirm'];
+}) {
+  return (
+    <Button
+      variant="destructive"
+      disabled={!enabled}
+      onClick={() => {
+        if (enabled) void onConfirm();
+      }}
+    >
+      {label}
+    </Button>
+  );
+}
+
 /** Resets typed confirmation whenever dialog visibility or target identity changes. */
-function useConfirmation(open: boolean, confirmation: DangerDialogProps['confirmation']) {
+function useConfirmation(
+  open: boolean,
+  confirmation: NonNullable<DangerDialogProps['confirmation']>
+) {
   const [draft, setDraft] = useState({
     open,
     identity: confirmation.identity,

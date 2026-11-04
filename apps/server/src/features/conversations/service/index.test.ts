@@ -1255,3 +1255,82 @@ testStable(
     }
   }
 );
+
+testStable(
+  'deletes an exact note version, preserves other items, and protects the final version',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Conversations.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const conversations = yield* Conversations;
+          const session = yield* conversations.createSession({ title: 'Version deletion' });
+          const original = yield* conversations.postMessage({
+            sessionId: session.id,
+            text: 'Original',
+            requestReply: false
+          });
+          const other = yield* conversations.postMessage({
+            sessionId: session.id,
+            text: 'Other item',
+            requestReply: false
+          });
+          const edited = yield* conversations.editMessage({
+            messageId: original.id,
+            text: 'Second'
+          });
+          const latest = yield* conversations.editMessage({
+            messageId: original.id,
+            text: 'Third'
+          });
+
+          expect(
+            (yield* Effect.flip(
+              conversations.deleteMessageVersion({
+                messageId: other.id,
+                versionId: edited.activeVersionId!
+              })
+            )).kind
+          ).toBe('invalid_input');
+          const remaining = yield* conversations.deleteMessageVersion({
+            messageId: original.id,
+            versionId: edited.activeVersionId!
+          });
+
+          expect(remaining.versions.map((version) => version.text)).toEqual(['Original', 'Third']);
+          expect(remaining.activeVersionId).toBe(latest.activeVersionId);
+          expect(remaining.versions[1]?.basedOn).toBeNull();
+          const fallback = yield* conversations.deleteMessageVersion({
+            messageId: original.id,
+            versionId: latest.activeVersionId!
+          });
+
+          expect(fallback.activeVersionId).toBe(original.activeVersionId);
+          expect(
+            (yield* Effect.flip(
+              conversations.deleteMessageVersion({
+                messageId: original.id,
+                versionId: original.activeVersionId!
+              })
+            )).kind
+          ).toBe('invalid_input');
+          expect((yield* conversations.message(other.id)).versions[0]?.text).toBe('Other item');
+          expect(yield* conversations.deleteMessage(original.id)).toBe(true);
+          expect(
+            (yield* conversations.thread({ sessionId: session.id, limit: 100 })).items.map(
+              (message) => message.id
+            )
+          ).toEqual([other.id]);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

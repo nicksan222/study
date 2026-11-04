@@ -125,6 +125,7 @@ export const sessionSourceSchema = Schema.Struct({
 
 export const sourceHistoryInputSchema = Schema.Struct({
   sourceId: sourceIdSchema,
+  snapshotId: Schema.optional(contentSnapshotIdSchema),
   keepLatest: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
 });
 

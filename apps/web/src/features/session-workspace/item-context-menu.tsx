@@ -12,12 +12,16 @@ export function ItemContextMenu({
   children,
   target,
   label,
-  disabled = false
+  disabled = false,
+  actions,
+  dialogOpen = false
 }: {
   children: ReactNode;
   target: ReactElement<{ 'aria-label'?: string }>;
   label: string;
   disabled?: boolean;
+  actions?: ReactNode;
+  dialogOpen?: boolean;
 }) {
   const trigger = useRef<HTMLDivElement>(null);
 
@@ -27,12 +31,17 @@ export function ItemContextMenu({
         {children}
       </ContextMenuTrigger>
       <ContextMenuPopup
-        finalFocus={() => trigger.current?.querySelector<HTMLElement>('button, a') ?? null}
+        finalFocus={
+          dialogOpen
+            ? false
+            : () => trigger.current?.querySelector<HTMLElement>('button, a') ?? null
+        }
       >
         <ContextMenuItem render={cloneElement(target, { 'aria-label': label })} disabled={disabled}>
           <ArrowUpRight aria-hidden="true" />
           {label}
         </ContextMenuItem>
+        {actions}
       </ContextMenuPopup>
     </ContextMenu>
   );

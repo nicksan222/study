@@ -461,6 +461,44 @@ export const MessageStore = defineStore({
             return required(message.id);
           }
         }),
+        deleteMessageVersion: storeMutation({
+          input: setActiveVersionInputSchema,
+          output: chatMessageSchema,
+          run: (input) => {
+            const message = required(input.messageId);
+            const version = message.versions.find((item) => item.id === input.versionId);
+
+            if (!version || version.status !== 'complete')
+              throw new StudyError('invalid_input', 'Invalid message version');
+
+            const remaining = message.versions.filter(
+              (item) => item.id !== input.versionId && item.status === 'complete'
+            );
+
+            if (!remaining.length)
+              throw new StudyError('invalid_input', 'Delete the item to remove its final version');
+
+            if (message.activeVersionId === input.versionId)
+              db.orm
+                .update(messages)
+                .set({ active_version_id: remaining.at(-1)!.id })
+                .where(eq(messages.id, message.id))
+                .run();
+
+            db.orm
+              .delete(message_versions)
+              .where(
+                and(
+                  eq(message_versions.id, input.versionId),
+                  eq(message_versions.message_id, message.id)
+                )
+              )
+              .run();
+            touch(message.sessionId);
+
+            return required(message.id);
+          }
+        }),
         deleteMessage: storeMutation({
           input: messageIdSchema,
           output: Schema.Boolean,

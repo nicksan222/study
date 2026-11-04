@@ -1,19 +1,28 @@
 import type { MessagePart } from '@study/contracts/conversations/messages';
 import type { SessionId, SourceId } from '@study/contracts/ids';
+import type { Source } from '@study/contracts/sources/schemas';
 import { mediaSize } from '@study/localization';
 import { AttachmentPreview } from '@study/ui/attachment-preview';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceAttachments } from '@study/ui/workspace';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { sourceOptions as attachmentSourceOptions } from '../source-library';
+import {
+  SourceDeletion,
+  SourceVersionDeletion,
+  sourceOptions as attachmentSourceOptions
+} from '../source-library';
 import { appearances } from './attachment-appearance';
 import { useAttachmentMedia } from './attachment-cards.queries';
 import { ItemContextMenu } from './item-context-menu';
+import { ItemDeletionMenu } from './item-deletion-menu';
+import type { ItemDeletionActions } from './item-deletion-menu';
 import { notebookTargetId } from './notebook-index';
 import { SessionReadError } from './status';
 
@@ -56,15 +65,10 @@ function AttachmentCard({
   compact?: boolean;
   onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
-  const { t, locale } = useI18n();
-  const source = useQuery(attachmentSourceOptions(part.sourceId));
-  const { icon: Icon, label, tone } = appearances[part.sourceKind];
-  const meta = [
-    t(label),
-    source.data ? mediaSize(locale, Number(source.data.sizeBytes)) : undefined
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const { t } = useI18n();
+  const [deleted, setDeleted] = useState(false);
+  const source = useQuery(attachmentSourceOptions(deleted ? null : part.sourceId));
+  const { icon: Icon, tone } = appearances[part.sourceKind];
 
   const target = attachmentTarget({
     part,
@@ -85,11 +89,7 @@ function AttachmentCard({
     >
       <Desk.AttachmentCard
         name={part.sourceName}
-        meta={
-          source.data
-            ? meta
-            : `${meta} · ${t(part.sourceId === null ? 'ReaderOriginalUnavailable' : source.error ? 'Retry' : 'SessionPending')}`
-        }
+        meta={<AttachmentMeta part={part} source={source.data} failed={source.isError} />}
         icon={<Icon size={22} aria-hidden="true" />}
         tone={tone}
         preview={
@@ -106,14 +106,88 @@ function AttachmentCard({
   );
 
   return (
-    <ItemContextMenu
+    <AttachmentContextMenu
+      source={source.data}
+      onDeleted={() => setDeleted(true)}
       target={target}
       disabled={!source.data && !source.error}
       label={t(source.error && !source.data ? 'Retry' : 'OpenMaterial')}
     >
       {card}
+    </AttachmentContextMenu>
+  );
+}
+
+function AttachmentContextMenu({
+  source,
+  onDeleted,
+  target,
+  disabled,
+  label,
+  children
+}: {
+  source?: Source;
+  onDeleted: () => void;
+  target: ReactElement<{ 'aria-label'?: string }>;
+  disabled: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  const cache = useQueryClient();
+  const menu = (actions?: ItemDeletionActions) => (
+    <ItemContextMenu
+      target={target}
+      disabled={disabled}
+      label={label}
+      dialogOpen={actions?.open}
+      actions={actions && <ItemDeletionMenu {...actions} />}
+    >
+      {children}
     </ItemContextMenu>
   );
+  if (!source) return menu();
+  return (
+    <SourceDeletion
+      source={source}
+      onDeleted={() => {
+        onDeleted();
+        void cache.invalidateQueries({ queryKey: ['session-workspace'] });
+      }}
+      renderTrigger={(onDeleteItem, deleting) => (
+        <SourceVersionDeletion
+          source={source}
+          onDeleted={() => {
+            void cache.invalidateQueries({
+              queryKey: ['sources', 'current-extraction', String(source.id)]
+            });
+          }}
+          renderTrigger={(onDeleteVersion, deletingVersion) =>
+            menu({ onDeleteItem, onDeleteVersion, open: deleting || deletingVersion })
+          }
+        />
+      )}
+    />
+  );
+}
+
+function AttachmentMeta({
+  part,
+  source,
+  failed
+}: {
+  part: MessagePart;
+  source?: Source;
+  failed: boolean;
+}) {
+  const { t, locale } = useI18n();
+  const meta = [
+    t(appearances[part.sourceKind].label),
+    source ? mediaSize(locale, Number(source.sizeBytes)) : undefined
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  if (source) return meta;
+  return `${meta} · ${t(part.sourceId === null ? 'ReaderOriginalUnavailable' : failed ? 'Retry' : 'SessionPending')}`;
 }
 
 function SourcePreview({ part }: { part: MessagePart }) {

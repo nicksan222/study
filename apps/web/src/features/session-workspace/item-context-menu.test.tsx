@@ -14,6 +14,16 @@ vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
 vi.mock('../source-library', () => ({
+  SourceDeletion: ({
+    renderTrigger
+  }: {
+    renderTrigger?: (show: () => void, open: boolean) => unknown;
+  }) => renderTrigger?.(() => {}, false) ?? null,
+  SourceVersionDeletion: ({
+    renderTrigger
+  }: {
+    renderTrigger?: (show: () => void, open: boolean) => unknown;
+  }) => renderTrigger?.(() => {}, false) ?? null,
   sourceOptions: (id: unknown) => ({
     queryKey: ['item-source', String(id)],
     queryFn: async () => (id === null ? null : { id, name: 'Lecture.pdf', sizeBytes: 10n })
@@ -42,9 +52,16 @@ testStable.each([false, true])(
         <AttachmentCards parts={[part]} compact={compact} onOpenSource={open} />
       </QueryClientProvider>
     );
-    const card = await screen.findByRole('button', { name: 'Lecture.pdf' });
-    await vi.waitFor(() => expect(card).toBeEnabled());
+    await screen.findByRole('button', { name: 'Lecture.pdf' });
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Lecture.pdf' })).toBeEnabled()
+    );
+    const card = screen.getByRole('button', { name: 'Lecture.pdf' });
+    expect(screen.queryByRole('button', { name: 'SessionDeleteItem' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'SessionDeleteVersion' })).not.toBeInTheDocument();
     fireEvent.contextMenu(card, { button: 2, clientX: 80, clientY: 80 });
+    expect(await screen.findByRole('menuitem', { name: 'SessionDeleteItem' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'SessionDeleteVersion' })).toBeVisible();
     expect(open).not.toHaveBeenCalled();
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'OpenMaterial' }));
     expect(open).toHaveBeenCalledExactlyOnceWith({
@@ -58,13 +75,23 @@ testStable.each([false, true])(
 testStable('opens the exact authored document from its context menu', async () => {
   const document = authoredDocument();
   const open = vi.fn();
-  render(<SessionDocumentCard document={document} active={false} onOpen={open} />);
+  const client = new QueryClient();
+  clients.push(client);
+  render(
+    <QueryClientProvider client={client}>
+      <SessionDocumentCard document={document} active={false} onOpen={open} />
+    </QueryClientProvider>
+  );
+  expect(screen.queryByRole('button', { name: 'SessionDeleteItem' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'SessionDeleteVersion' })).not.toBeInTheDocument();
   fireEvent.contextMenu(screen.getByRole('button', { name: /New document/ }), {
     button: 2,
     clientX: 80,
     clientY: 80
   });
   expect(open).not.toHaveBeenCalled();
+  expect(await screen.findByRole('menuitem', { name: 'SessionDeleteItem' })).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: 'SessionDeleteVersion' })).toBeVisible();
   await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'SessionOpenPage' }));
   expect(open).toHaveBeenCalledExactlyOnceWith(document);
 });

@@ -262,3 +262,58 @@ testStable(
     }
   }
 );
+
+testStable('retires only one selected authored note version', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Documents.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const documents = yield* Documents;
+        const original = yield* documents.create({
+          createKey: 'single-version-delete',
+          inputs: [],
+          citations: [],
+          title: 'Notes',
+          document: { blocks: [paragraph('First')], meta }
+        });
+        const second = yield* documents.save({
+          documentId: original.id,
+          expectedVersionId: original.version!.id,
+          key: 'second',
+          document: { blocks: [paragraph('Second')], meta }
+        });
+        const third = yield* documents.save({
+          documentId: original.id,
+          expectedVersionId: second.submittedVersionId,
+          key: 'third',
+          document: { blocks: [paragraph('Third')], meta }
+        });
+        const scope = {
+          documentId: original.id,
+          keepLatest: 1,
+          versionId: second.submittedVersionId
+        };
+        const preview = yield* documents.previewHistory(scope);
+        expect(preview.versionIds).toEqual([second.submittedVersionId]);
+        yield* documents.retireHistory({ ...scope, token: preview.token });
+        expect(
+          (yield* documents.version({ id: original.version!.id })).document.blocks.length
+        ).toBe(1);
+        expect(
+          (yield* documents.version({ id: third.submittedVersionId })).document.blocks.length
+        ).toBe(1);
+        expect(
+          (yield* Effect.flip(documents.version({ id: second.submittedVersionId }))).kind
+        ).toBe('not_found');
+        expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});

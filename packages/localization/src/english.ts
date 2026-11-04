@@ -842,6 +842,16 @@ export const english = Object.freeze({
   SessionBatchConfirmDelete: 'Delete selected sessions',
   SessionBatchUncertain:
     'This deletion could not be confirmed. Refresh its status before making another request.',
+  SessionDeleteItem: 'Delete item',
+  SessionDeleteVersion: 'Delete this version',
+  SessionDeleteItemHelp: 'Delete this item and all its versions? This cannot be undone.',
+  SessionDeleteVersionHelp:
+    'Delete only this version? The other versions and attachments will remain. This cannot be undone.',
+  SessionDeleteLastVersion: 'This is the only saved version. Use Delete item to remove it.',
+  SessionDeleteChooseVersion: 'Choose a version to delete',
+  SessionDeleteNoOlderVersions: 'There are no older versions to delete.',
+  SessionDeleteVersionProtected: 'This version is still in use and cannot be deleted.',
+  SessionDeleteChosenVersionHelp: 'Delete {version} from “{name}”? Other versions will be kept.',
   SessionDeleteHelp:
     'Delete this session and its conversation. Material in the library is kept. Unsent text will not be saved by deletion.',
   SessionConfirmDelete: 'Delete this session',

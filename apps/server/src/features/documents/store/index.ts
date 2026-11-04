@@ -79,7 +79,7 @@ export const DocumentsStore = defineStore({
         retireHistory: storeMutation({
           input: r.retireSchema,
           output: r.retirementPreviewSchema,
-          run: (v) => d.retire(v.documentId, v.keepLatest, v.token)
+          run: (v) => d.retire(v.documentId, v.keepLatest, v.token, false, v.versionId)
         }),
         delete: storeMutation({
           input: r.deleteSchema,
@@ -170,7 +170,8 @@ export const DocumentHistoryStore = defineStore({
         role: 'required',
         input: r.historySchema,
         output: r.retirementPreviewSchema,
-        run: (v) => makeDocumentDomain(resources).preview(v.documentId, v.keepLatest)
+        run: (v) =>
+          makeDocumentDomain(resources).preview(v.documentId, v.keepLatest, false, v.versionId)
       })
     },
     mutations: {}

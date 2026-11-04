@@ -8,7 +8,9 @@ import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check } from 'lucide-re
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
+import { ItemDeletionMenu } from './item-deletion-menu';
 import type { useMessageActions } from './message-actions.queries';
+import { MessageDeletion } from './message-deletion';
 
 type Model = ReturnType<typeof useMessageActions>;
 
@@ -24,36 +26,44 @@ export function MessageContextMenu({ model, children }: { model: Model; children
   const trigger = useRef<HTMLDivElement>(null);
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger
-        ref={trigger}
-        render={<div />}
-        tabIndex={0}
-        aria-label={model.t('SessionItemActions')}
-      >
-        {children}
-      </ContextMenuTrigger>
-      <ContextMenuPopup>
-        {actions
-          .filter(({ mode }) => mode !== 'edit' || model.message.role === 'user')
-          .map(({ mode, label, icon: Icon }) => (
-            <ContextMenuItem
-              key={mode}
-              disabled={
-                model.blocked ||
-                !!model.draft.mode ||
-                (mode === 'activate' ? model.active : !model.active)
-              }
-              onClick={() => {
-                model.open(mode);
-                model.launcher.current = trigger.current;
-              }}
-            >
-              <Icon aria-hidden="true" />
-              {model.t(label)}
-            </ContextMenuItem>
-          ))}
-      </ContextMenuPopup>
-    </ContextMenu>
+    <MessageDeletion
+      message={model.message}
+      versionId={model.versionId}
+      disabled={model.blocked || !!model.draft.mode}
+      renderActions={(deletion) => (
+        <ContextMenu>
+          <ContextMenuTrigger
+            ref={trigger}
+            render={<div />}
+            tabIndex={0}
+            aria-label={model.t('SessionItemActions')}
+          >
+            {children}
+          </ContextMenuTrigger>
+          <ContextMenuPopup finalFocus={deletion.open ? false : trigger}>
+            {actions
+              .filter(({ mode }) => mode !== 'edit' || model.message.role === 'user')
+              .map(({ mode, label, icon: Icon }) => (
+                <ContextMenuItem
+                  key={mode}
+                  disabled={
+                    model.blocked ||
+                    !!model.draft.mode ||
+                    (mode === 'activate' ? model.active : !model.active)
+                  }
+                  onClick={() => {
+                    model.open(mode);
+                    model.launcher.current = trigger.current;
+                  }}
+                >
+                  <Icon aria-hidden="true" />
+                  {model.t(label)}
+                </ContextMenuItem>
+              ))}
+            <ItemDeletionMenu {...deletion} />
+          </ContextMenuPopup>
+        </ContextMenu>
+      )}
+    />
   );
 }

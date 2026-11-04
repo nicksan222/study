@@ -3,12 +3,21 @@ import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
+import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { useSourceDeletion } from './deletion.queries';
 
-export function SourceDeletion({ source, onDeleted }: { source: Source; onDeleted: () => void }) {
+export function SourceDeletion({
+  source,
+  onDeleted,
+  renderTrigger
+}: {
+  source: Source;
+  onDeleted: () => void;
+  renderTrigger?: (show: () => void, open: boolean) => ReactNode;
+}) {
   const { t } = useI18n();
   const view = useSourceDeletion(source, onDeleted);
   const blocked =
@@ -16,9 +25,13 @@ export function SourceDeletion({ source, onDeleted }: { source: Source; onDelete
 
   return (
     <>
-      <Button variant="destructive-outline" onClick={view.show}>
-        {t('SourceDeleteTitle')}
-      </Button>
+      {renderTrigger ? (
+        renderTrigger(view.show, view.open)
+      ) : (
+        <Button variant="destructive-outline" onClick={view.show}>
+          {t('SourceDeleteTitle')}
+        </Button>
+      )}
       <DangerDialog
         open={view.open}
         onOpenChange={view.setOpen}

@@ -13,7 +13,7 @@
 
 import { createHash } from 'node:crypto';
 
-import type { StudyDocumentId } from '@study/contracts/ids';
+import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
 import { desc, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -31,7 +31,12 @@ export function makeDocumentHistory(resources: StoreResources) {
   const now = () => unixSeconds(clock);
   const { aggregate, liveVersion } = reads;
 
-  function preview(documentId: StudyDocumentId, keepLatest: number, deletion = false) {
+  function preview(
+    documentId: StudyDocumentId,
+    keepLatest: number,
+    deletion = false,
+    versionId?: StudyDocumentVersionId
+  ) {
     aggregate(documentId);
     const all = orm
       .select()
@@ -45,6 +50,7 @@ export function makeDocumentHistory(resources: StoreResources) {
       .map((x) => x.id);
     const candidates = all.filter(
       (x) =>
+        (versionId === undefined || x.id === versionId) &&
         (deletion || x.status === 'published') &&
         !published.includes(x.id) &&
         !orm
@@ -131,6 +137,7 @@ export function makeDocumentHistory(resources: StoreResources) {
           documentId: String(documentId),
           keepLatest,
           deletion,
+          ...(versionId === undefined ? {} : { versionId: String(versionId) }),
           versions: all.map((x) => [String(x.id), x.status]),
           blocked: blockedVersionIds.map(String),
           retired: all
@@ -153,9 +160,10 @@ export function makeDocumentHistory(resources: StoreResources) {
     documentId: StudyDocumentId,
     keepLatest: number,
     token: string,
-    deletion = false
+    deletion = false,
+    versionId?: StudyDocumentVersionId
   ) {
-    const result = preview(documentId, keepLatest, deletion);
+    const result = preview(documentId, keepLatest, deletion, versionId);
 
     if (result.token !== token || result.blockedVersionIds.length)
       invalid('Retirement selection changed or has retained dependents');

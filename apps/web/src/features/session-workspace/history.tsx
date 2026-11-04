@@ -26,7 +26,10 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { CapturedInputLink } from '../source-library';
 import { AttachmentCards } from './attachment-cards';
 import { ItemContextMenu } from './item-context-menu';
+import { ItemDeletionMenu } from './item-deletion-menu';
+import type { ItemDeletionActions } from './item-deletion-menu';
 import { MessageActions } from './message-actions';
+import { MessageDeletion } from './message-deletion';
 import { NoteContent, NoteSummary } from './note-editor';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
 import { NotebookNavigation } from './notebook-navigation';
@@ -187,10 +190,12 @@ function DocumentEntry({
   const { t } = useI18n();
   const version = message.versions.find((item) => item.id === message.activeVersionId);
 
-  return (
+  const menu = (actions?: ItemDeletionActions) => (
     <ItemContextMenu
       label={t('SessionOpenPage')}
       target={<button type="button" onClick={() => onOpen(message)} />}
+      dialogOpen={actions?.open}
+      actions={actions && <ItemDeletionMenu {...actions} />}
     >
       <Desk.DocumentCard
         title={<NoteSummary value={version?.text ?? ''} fallback={t('SessionNewPage')} />}
@@ -203,6 +208,11 @@ function DocumentEntry({
         active={active}
       />
     </ItemContextMenu>
+  );
+  return version ? (
+    <MessageDeletion message={message} versionId={version.id} renderActions={menu} />
+  ) : (
+    menu()
   );
 }
 
@@ -217,9 +227,9 @@ function MessageEntry({
 }) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<VersionId>();
-  const version = message.versions.find(
-    (item) => item.id === (selected ?? message.activeVersionId)
-  );
+  const version =
+    message.versions.find((item) => item.id === selected) ??
+    message.versions.find((item) => item.id === message.activeVersionId);
 
   return (
     <ChatMessage>

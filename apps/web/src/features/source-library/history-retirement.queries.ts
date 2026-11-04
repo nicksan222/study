@@ -1,5 +1,5 @@
 import { StudyError } from '@study/contracts/errors';
-import type { SourceId } from '@study/contracts/ids';
+import type { SourceId, ContentSnapshotId } from '@study/contracts/ids';
 import type {
   sourceHistoryPreviewSchema,
   sourceHistoryRetireSchema
@@ -17,11 +17,18 @@ type Input = typeof sourceHistoryRetireSchema.Type;
 
 type State = { attempt?: Preview; notice?: 'removed' | 'reconciled' };
 
-export function useSourceHistoryRetirement(sourceId: SourceId, onRetired: () => void) {
+export function useSourceHistoryRetirement(
+  sourceId: SourceId,
+  onRetired: () => void,
+  snapshotId?: ContentSnapshotId | null
+) {
   const cache = useQueryClient();
   const [open, setOpen] = useState(false);
   const [keep, setKeep] = useState('1');
-  const stateKey = ['sources', 'history-retirement', String(sourceId)];
+  const exact = snapshotId == null ? {} : { snapshotId };
+  const scope =
+    snapshotId === undefined ? [] : [snapshotId === null ? 'selection' : String(snapshotId)];
+  const stateKey = ['sources', 'history-retirement', String(sourceId), ...scope];
   const initial: State = {};
   const state = useQuery({
     queryKey: stateKey,
@@ -33,11 +40,11 @@ export function useSourceHistoryRetirement(sourceId: SourceId, onRetired: () => 
   const keepLatest = Number(keep);
   const valid = Number.isInteger(keepLatest) && keepLatest >= 1 && keepLatest <= 100;
   const preview = useQuery({
-    queryKey: ['sources', 'history-preview', String(sourceId), keep],
-    enabled: open && valid,
+    queryKey: ['sources', 'history-preview', String(sourceId), keep, ...scope],
+    enabled: open && valid && snapshotId !== null,
     retry: false,
     queryFn: ({ signal }) =>
-      request((rpc) => rpc['sources.previewHistory']({ sourceId, keepLatest }), signal)
+      request((rpc) => rpc['sources.previewHistory']({ sourceId, keepLatest, ...exact }), signal)
   });
 
   async function finish(value: Preview, notice: 'removed' | 'reconciled') {
@@ -77,7 +84,11 @@ export function useSourceHistoryRetirement(sourceId: SourceId, onRetired: () => 
       if (!attempt) throw new StudyError('invalid_input', 'No source history removal to reconcile');
 
       const current = await request((rpc) =>
-        rpc['sources.previewHistory']({ sourceId, keepLatest: attempt.keepLatest })
+        rpc['sources.previewHistory']({
+          sourceId,
+          keepLatest: attempt.keepLatest,
+          ...(attempt.snapshotId === undefined ? {} : { snapshotId: attempt.snapshotId })
+        })
       );
       const retained = new Set(current.candidates.map((item) => String(item.snapshotId)));
       // Each reviewed batch contains the oldest one hundred candidates. Any surviving reviewed
@@ -117,7 +128,7 @@ export function useSourceHistoryRetirement(sourceId: SourceId, onRetired: () => 
       return;
 
     cache.setQueryData<State>(stateKey, { attempt: value });
-    remove.mutate({ sourceId, keepLatest: value.keepLatest, token: value.token });
+    remove.mutate({ sourceId, keepLatest: value.keepLatest, token: value.token, ...exact });
   }
 
   function reviewAgain() {

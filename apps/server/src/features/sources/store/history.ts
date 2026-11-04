@@ -67,6 +67,9 @@ export const SourceHistoryStore = defineStore({
         .where(
           and(
             eq(s.source_extraction_revisions.source_id, input.sourceId),
+            input.snapshotId === undefined
+              ? undefined
+              : eq(s.source_extraction_revisions.snapshot_id, input.snapshotId),
             sql`${s.source_extraction_revisions.snapshot_id} NOT IN (SELECT snapshot_id FROM source_extraction_revisions WHERE source_id=${input.sourceId} ORDER BY snapshot_id DESC LIMIT ${input.keepLatest})`
           )
         )
@@ -74,7 +77,9 @@ export const SourceHistoryStore = defineStore({
         .limit(100)
         .all();
       const value = {
-        ...input,
+        sourceId: input.sourceId,
+        keepLatest: input.keepLatest,
+        ...(input.snapshotId === undefined ? {} : { snapshotId: input.snapshotId }),
         name: source.name,
         candidates,
         blockedSnapshotIds: candidates
@@ -105,7 +110,11 @@ export const SourceHistoryStore = defineStore({
           input: sourceHistoryRetireSchema,
           output: sourceHistoryPreviewSchema,
           run: (input) => {
-            const impact = preview({ sourceId: input.sourceId, keepLatest: input.keepLatest });
+            const impact = preview({
+              sourceId: input.sourceId,
+              keepLatest: input.keepLatest,
+              ...(input.snapshotId === undefined ? {} : { snapshotId: input.snapshotId })
+            });
 
             if (impact.token !== input.token)
               throw new StudyError('invalid_input', 'Source history preview changed');

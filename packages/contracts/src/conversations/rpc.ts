@@ -256,6 +256,11 @@ export const ConversationsRpc = RpcGroup.make(
     success: Schema.Boolean,
     error: failureSchema
   }),
+  Rpc.make('deleteMessageVersion', {
+    payload: setActiveVersionInputSchema,
+    success: chatMessageSchema,
+    error: failureSchema
+  }),
   Rpc.make('setActiveVersion', {
     payload: setActiveVersionInputSchema,
     success: chatMessageSchema,

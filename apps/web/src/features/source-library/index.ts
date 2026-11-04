@@ -9,3 +9,6 @@ export { SourceHistory } from './history';
 export { SourceLibrary } from './library';
 
 export { SourcePage } from './reader-page';
+
+export { SourceDeletion } from './deletion';
+export { SourceVersionDeletion } from './version-deletion';

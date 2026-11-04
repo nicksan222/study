@@ -866,6 +866,19 @@ export const italian = Object.freeze({
   SessionBatchConfirmDelete: 'Elimina sessioni selezionate',
   SessionBatchUncertain:
     'Non è stato possibile confermare questa eliminazione. Aggiorna lo stato prima di inviare un’altra richiesta.',
+  SessionDeleteItem: 'Elimina elemento',
+  SessionDeleteVersion: 'Elimina questa versione',
+  SessionDeleteItemHelp:
+    'Eliminare questo elemento e tutte le sue versioni? Questa azione è irreversibile.',
+  SessionDeleteVersionHelp:
+    'Eliminare solo questa versione? Le altre versioni e gli allegati rimarranno. Questa azione è irreversibile.',
+  SessionDeleteLastVersion:
+    'Questa è l’unica versione salvata. Usa Elimina elemento per rimuoverla.',
+  SessionDeleteChooseVersion: 'Scegli la versione da eliminare',
+  SessionDeleteNoOlderVersions: 'Non ci sono versioni precedenti da eliminare.',
+  SessionDeleteVersionProtected: 'Questa versione è ancora in uso e non può essere eliminata.',
+  SessionDeleteChosenVersionHelp:
+    'Eliminare {version} da “{name}”? Le altre versioni verranno conservate.',
   SessionDeleteHelp:
     'Elimina questa sessione e la conversazione. Il materiale nella libreria viene conservato. L’eliminazione non salva il testo non inviato.',
   SessionConfirmDelete: 'Elimina questa sessione',

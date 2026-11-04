@@ -177,3 +177,17 @@ testStable(
     expect(screen.getByText(labels.description)).toBeVisible();
   }
 );
+
+testStable('review-only dialogs hide typed intent and cannot invoke deletion', async () => {
+  const confirm = vi.fn();
+  const view = render(
+    <DangerDialog open {...labels} confirmation={null} onOpenChange={vi.fn()} onConfirm={confirm} />
+  );
+  expect(await screen.findByRole('alertdialog')).toBeVisible();
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  expect(confirm).not.toHaveBeenCalled();
+  view.rerender(<DangerDialog open {...labels} onOpenChange={vi.fn()} onConfirm={confirm} />);
+  expect(screen.getByRole('textbox')).toHaveValue('');
+  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+});

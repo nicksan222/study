@@ -76,6 +76,7 @@ export const exportSchema = Schema.Struct({
 
 export const historySchema = Schema.Struct({
   documentId: studyDocumentIdSchema,
+  versionId: Schema.optional(studyDocumentVersionIdSchema),
   keepLatest: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 }))
 });
 

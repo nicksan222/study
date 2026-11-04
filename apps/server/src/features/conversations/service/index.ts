@@ -663,6 +663,10 @@ export const Conversations = defineService(
         transaction((tx) =>
           resolveMessageCitations(tx, tx.store(MessageStore).setActiveVersion(input))
         ),
+      deleteMessageVersion: (input: typeof setActiveVersionInputSchema.Type) =>
+        transaction((tx) =>
+          resolveMessageCitations(tx, tx.store(MessageStore).deleteMessageVersion(input))
+        ),
       deleteMessage: (id: MessageId) =>
         transaction((tx) => tx.store(MessageStore).deleteMessage(id)),
       renameSession: (input: typeof renameSessionInputSchema.Type) =>

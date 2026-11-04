@@ -3,7 +3,7 @@ import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { useState } from 'react';
@@ -798,3 +798,17 @@ testStable(
     expect(screen.queryByRole('menuitem', { name: 'SessionEditNote' })).toBeNull();
   }
 );
+
+testStable('keeps raw note deletion in both the toolbar and right-click menu', async () => {
+  mount(<VersionedNote />);
+  expect(screen.getByRole('button', { name: 'SessionDeleteItem' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'SessionDeleteVersion' })).toBeVisible();
+  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
+  expect(await screen.findByRole('menuitem', { name: 'SessionDeleteItem' })).toBeVisible();
+  await userEvent.setup().click(screen.getByRole('menuitem', { name: 'SessionDeleteVersion' }));
+  const dialog = await screen.findByRole('alertdialog');
+  expect(within(dialog).getByText('SessionDeleteVersionHelp')).toBeVisible();
+  await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+  expect(screen.getByRole('button', { name: 'SessionDeleteItem' })).toBeVisible();
+});

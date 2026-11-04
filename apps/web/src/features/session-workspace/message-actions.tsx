@@ -21,6 +21,7 @@ import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { useMessageActions } from './message-actions.queries';
 import { MessageContextMenu } from './message-context-menu';
+import { MessageDeletion } from './message-deletion';
 import { MessageVersionStepper } from './message-version-stepper';
 import { NoteEditor } from './note-editor';
 import { ExecutionStatus, SessionError } from './status';
@@ -110,6 +111,14 @@ function MessageToolbar({
         disabled={active}
         label="SessionUseVersion"
         icon={<Check size={15} aria-hidden="true" />}
+      />
+      <MessageDeletion
+        message={message}
+        versionId={model.versionId}
+        disabled={model.blocked || !!draft.mode}
+        onVersionDeleted={
+          onVersionChange ? () => onVersionChange(message.activeVersionId!) : undefined
+        }
       />
     </ChatMessageActionToolbar>
   );
