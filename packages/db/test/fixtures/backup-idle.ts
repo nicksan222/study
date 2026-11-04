@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { Db } from '@study/db';
 import { testStable } from '@study/testing/node';
-
-import { Db } from '../../src/db.ts';
 
 testStable('snapshot completes without a timer wakeup', async () => {
   const db = Db.openSnapshot(process.env.STUDY_BACKUP_IDLE_SOURCE!);
