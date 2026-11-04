@@ -678,7 +678,25 @@ export const italian = Object.freeze({
   SessionCreationUncertain:
     'La sessione potrebbe essere stata creata. Aggiorna l’elenco e aprila prima di crearne un’altra.',
   SessionBack: 'Torna alle sessioni',
+  SessionArchiveLoadFailed: 'Impossibile caricare gli elementi archiviati',
+  SessionArchiveLoadFailedHelp: 'Non è stato possibile leggere gli elementi archiviati. Riprova.',
+  SessionArchived: 'Archiviati',
+  SessionArchive: 'Archivia',
+  SessionRestore: 'Ripristina',
+  SessionDeletePermanently: 'Elimina definitivamente',
+  SessionArchiveEmpty: 'Nessun elemento archiviato in questa sessione',
+  SessionArchiveEmptyHelp:
+    'Qui trovi note, documenti e allegati archiviati. Ripristina un elemento per includerlo di nuovo in questa sessione.',
+  SessionArchiveChoose: 'Scegli un elemento archiviato da visualizzare.',
+  SessionArchiveSearch: 'Cerca negli elementi archiviati',
+  SessionArchiveNoMatches: 'Nessun elemento archiviato corrisponde alla ricerca.',
+  SessionArchiveHelp: 'Ripristina per usare di nuovo questo elemento nella sessione.',
   SessionSelection: 'Selezione attuale',
+  SessionSelectionMaterial: 'Materiale',
+  SessionSelectionBlockMode: 'Blocchi',
+  SessionSelectionPassageMode: 'Passaggio',
+  SessionSelectionScope: 'Ambito della selezione',
+  SessionSelectionPreview: 'Anteprima del contenuto',
   SessionSelectionBlockCount: 'Blocchi: {count}',
   SessionSelectionPassageCount: 'Passaggi: {count}',
   SessionSelectionGuide:
@@ -687,7 +705,7 @@ export const italian = Object.freeze({
   SessionSelectionCapacity: '{count} elementi inclusi su 20',
   SessionSelectionEmptyTitle: 'Scegli il materiale per questa sessione',
   SessionSelectionEmptyHelp:
-    'Apri un documento o una fonte qui sotto per includerli. Puoi usare il documento intero, singoli blocchi o un passaggio.',
+    'Scegli un documento o una fonte dall’elenco per includerli. Puoi usare il documento intero, singoli blocchi o un passaggio.',
   SessionSelectionAddMaterial: 'Aggiungi materiale',
   SessionSelectionDocuments: 'Documenti',
   SessionSelectionSources: 'Fonti',
@@ -696,7 +714,7 @@ export const italian = Object.freeze({
     'Nessun materiale corrispondente nei risultati caricati. Prova un’altra ricerca o carica altri documenti.',
   SessionSelectionLibraryEmpty:
     'Il materiale pubblicato apparirà qui. Aggiungi una fonte o scrivi un documento per iniziare.',
-  SessionSelectionChooseBlocks: 'Oppure scegli i blocchi · {count} selezionati',
+  SessionSelectionChooseBlocks: '{count} blocchi selezionati',
   SessionSelectionAllBlocks: 'Mostra tutti i {count} blocchi',
   SessionSelectionFewerBlocks: 'Mostra meno blocchi ({count} in totale)',
   SessionSelectionChoosePassage: 'Scegli un passaggio specifico',

@@ -25,8 +25,6 @@ import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { authoredDocument } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
-import { selectedContentOptions } from './selection.queries';
-import { sessionDocumentOptions } from './session-document.queries';
 import { startDraftKey } from './start-drafts.queries';
 
 const pickerDocument = (versionId = 102n) => {
@@ -52,14 +50,12 @@ const pickerDocument = (versionId = 102n) => {
 import { attachmentKey } from './attachments';
 import { SessionDeleteDialog } from './deletion';
 import { History, CapturedContext } from './history';
-import { SelectionPanel } from './selection';
 import * as workspaceQueries from './session-workspace.queries';
 import {
   executionOptions,
   contextOptions,
   provenanceOptions,
   generationOptions,
-  selectionOptions,
   sessionPagesOptions
 } from './session-workspace.queries';
 import { Transformation } from './transformation';
@@ -118,6 +114,7 @@ vi.mock('#web/lib/study-client/client.ts', async () => {
       'documents.cancelTransform': call(rpc.cancel),
       'documents.documents': call(rpc.materials),
       'documents.version': call(rpc.version),
+      'documents.versions': () => Effect.succeed({ items: [], nextCursor: null }),
       'documents.document': call(rpc.document),
       'sources.sources': () => Effect.succeed({ items: [], next: null }),
       'workflows.executions': call(rpc.executions)
@@ -127,15 +124,8 @@ vi.mock('#web/lib/study-client/client.ts', async () => {
 
 const id = Schema.decodeUnknownSync(sessionIdSchema)(9007199254740993n);
 
-const draftKey = ['session-drafts', String(id), 'selection'];
-
 const selection = (revision = 8n, targets: readonly unknown[] = []) =>
   Schema.decodeUnknownSync(sessionSelectionSchema)({ revision, targets });
-
-const target = (versionId: bigint) => ({
-  input: { kind: 'document', versionId },
-  scope: { kind: 'document' }
-});
 
 const generation = (patch = {}) =>
   Schema.decodeUnknownSync(transformSnapshotSchema)({
@@ -481,58 +471,6 @@ testStable(
   }
 );
 
-testStable.each([false, true])(
-  'preserves newer selection drafts and monotonic canonical revisions (newer receipt: %s)',
-  async (newerReceipt) => {
-    let resolve!: (value: ReturnType<typeof selection>) => void;
-
-    rpc.updateSelection.mockImplementation(
-      () =>
-        new Promise((accept) => {
-          resolve = accept;
-        })
-    );
-    const client = cache();
-    const submitted = selection(8n, [target(11n)]);
-
-    client.setQueryData(draftKey, submitted);
-    const first = mount(<SelectionPanel id={id} />, client);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveSelection' }));
-    await waitFor(() =>
-      expect(rpc.updateSelection).toHaveBeenCalledWith({
-        sessionId: id,
-        expectedRevision: 8n,
-        targets: submitted.targets
-      })
-    );
-    first.unmount();
-    mount(<SelectionPanel id={id} />, client);
-    expect(await screen.findByRole('button', { name: 'SessionSaveSelection' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'SessionRemove' })).toBeDisabled();
-    await waitFor(() => expect(client.isFetching()).toBe(0));
-    // Model a newer cache writer while the original observer is unmounted.
-    const later = selection(newerReceipt ? 10n : 8n, [target(12n)]);
-
-    await act(async () => {
-      client.setQueryData(draftKey, later);
-
-      if (newerReceipt)
-        client.setQueryData(selectionOptions(id).queryKey, selection(10n, [target(13n)]));
-
-      resolve(selection(9n, submitted.targets));
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'SessionSaveSelection' })).toBeEnabled()
-    );
-    expect(client.getQueryData(draftKey)).toEqual({ ...later, revision: newerReceipt ? 10n : 9n });
-    expect(client.getQueryData(selectionOptions(id).queryKey)).toEqual(
-      selection(newerReceipt ? 10n : 9n, newerReceipt ? [target(13n)] : submitted.targets)
-    );
-    expect(screen.getByText('SessionSelectionUnsaved')).toBeInTheDocument();
-  }
-);
-
 testStable('exposes operation toggle state and contextual version groups', async () => {
   const client = cache();
   const message = (messageId: bigint) =>
@@ -587,67 +525,6 @@ testStable('exposes operation toggle state and contextual version groups', async
   expect(group.getByRole('button', { name: 'SessionPreviousVersion' })).toBeDisabled();
   expect(group.getByRole('button', { name: 'SessionNextVersion' })).toBeEnabled();
 });
-
-testStable(
-  'exposes exact block selection state and saves canonical native Document targets',
-  async () => {
-    rpc.materials.mockResolvedValue({ items: [pickerDocument()], nextCursor: null });
-    rpc.updateSelection.mockImplementation(({ targets }) => selection(9n, targets));
-    const client = cache();
-
-    mount(<SelectionPanel id={id} />, client);
-    const choice = await screen.findByText('Material 41');
-
-    fireEvent.click(choice);
-    const block = await screen.findByRole('checkbox', { name: '1 · Historical extraction' });
-
-    expect(block).not.toBeChecked();
-    fireEvent.click(block);
-    await waitFor(() => expect(block).toBeChecked());
-    fireEvent.click(screen.getByRole('button', { name: 'SessionSaveSelection' }));
-    await waitFor(() =>
-      expect(rpc.updateSelection).toHaveBeenCalledWith({
-        sessionId: id,
-        expectedRevision: 8n,
-        targets: [
-          {
-            input: { kind: 'document', versionId: 102n },
-            scope: { kind: 'blocks', blockIds: ['b0'] }
-          }
-        ]
-      })
-    );
-    await waitFor(() =>
-      expect(screen.queryByText('SessionSelectionUnsaved')).not.toBeInTheDocument()
-    );
-    expect(block).toBeChecked();
-  }
-);
-
-testStable(
-  'clears only the submitted selection draft after a late receipt across navigation',
-  async () => {
-    const pending = deferred<ReturnType<typeof selection>>();
-
-    rpc.updateSelection.mockReturnValue(pending.promise);
-    const client = cache();
-    const submitted = selection(8n, [target(11n)]);
-
-    client.setQueryData(draftKey, submitted);
-    const first = mount(<SelectionPanel id={id} />, client);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveSelection' }));
-    await waitFor(() => expect(rpc.updateSelection).toHaveBeenCalledTimes(1));
-    first.unmount();
-    mount(<SelectionPanel id={id} />, client);
-    expect(await screen.findByRole('button', { name: 'SessionSaveSelection' })).toBeDisabled();
-    await act(async () => pending.resolve(selection(9n, submitted.targets)));
-    await waitFor(() =>
-      expect(screen.queryByText('SessionSelectionUnsaved')).not.toBeInTheDocument()
-    );
-    expect(client.getQueryData(draftKey)).toBeNull();
-  }
-);
 
 testStable.each([undefined, null, Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n)])(
   'keys session pages by native project filter %s',
@@ -777,42 +654,6 @@ testStable(
 );
 
 testStable(
-  'removes cached exact picker content after a failed refresh and retries the same version',
-  async () => {
-    rpc.materials.mockResolvedValue({ items: [pickerDocument()], nextCursor: null });
-    const client = cache();
-
-    mount(<SelectionPanel id={id} />, client);
-    fireEvent.click(await screen.findByText('Material 41'));
-    expect(
-      await screen.findByRole('checkbox', { name: '1 · Historical extraction' })
-    ).toBeEnabled();
-
-    rpc.document.mockRejectedValue(new StudyError('not_found', 'Retired'));
-    await act(async () => {
-      await client.invalidateQueries({
-        queryKey: sessionDocumentOptions(pickerDocument().id).queryKey
-      });
-    });
-    await waitFor(() =>
-      expect(screen.queryByRole('checkbox', { name: '1 · Historical extraction' })).toBeNull()
-    );
-    expect(screen.queryByRole('button', { name: 'SessionWhole' })).toBeNull();
-    expect(client.getQueryData(sessionDocumentOptions(pickerDocument().id).queryKey)).toBeDefined();
-    rpc.document.mockImplementation(() => pickerDocument());
-    await act(async () => {
-      await client.refetchQueries({
-        queryKey: sessionDocumentOptions(pickerDocument().id).queryKey
-      });
-    });
-    expect(
-      await screen.findByRole('checkbox', { name: '1 · Historical extraction' })
-    ).toBeEnabled();
-    expect(rpc.document.mock.calls.every(([input]) => input.id === pickerDocument().id)).toBe(true);
-  }
-);
-
-testStable(
   'hides captured instructions after a failed exact-context read while retaining retry identity',
   async () => {
     const client = cache();
@@ -908,45 +749,6 @@ testStable(
       )
     );
     await waitFor(() => expect(reply.closest('[tabindex="0"]')).toHaveFocus());
-  }
-);
-
-testStable(
-  'suppresses cached picker controls after exact version failure and preserves unsaved selection through recovery',
-  async () => {
-    rpc.materials.mockResolvedValue({ items: [pickerDocument()], nextCursor: null });
-    const client = cache();
-
-    mount(<SelectionPanel id={id} />, client);
-    fireEvent.click(await screen.findByText('Material 41'));
-    fireEvent.click(await screen.findByRole('checkbox', { name: '1 · Historical extraction' }));
-    const unsaved = client.getQueryData(draftKey);
-
-    expect(unsaved).toBeDefined();
-    const versionId = pickerDocument().version.id;
-
-    rpc.version.mockRejectedValue(new StudyError('not_found', 'Retired version'));
-    const key = selectedContentOptions({ kind: 'document', versionId }).queryKey;
-
-    await act(async () => {
-      await client.invalidateQueries({ queryKey: key });
-    });
-    await waitFor(() =>
-      expect(screen.queryByRole('checkbox', { name: '1 · Historical extraction' })).toBeNull()
-    );
-    expect(screen.queryByRole('button', { name: 'SessionWhole' })).toBeNull();
-    expect(client.getQueryData(key)).toBeDefined();
-    expect(client.getQueryData(draftKey)).toEqual(unsaved);
-    rpc.version.mockImplementation(({ id: requested }) => pickerDocument(requested).version);
-    await act(async () => {
-      await client.refetchQueries({ queryKey: key });
-    });
-    expect(
-      await screen.findByRole('checkbox', { name: '1 · Historical extraction' })
-    ).toBeChecked();
-    expect(client.getQueryData(draftKey)).toEqual(unsaved);
-    expect(rpc.version.mock.calls.every(([input]) => input.id === versionId)).toBe(true);
-    expect(rpc.updateSelection).not.toHaveBeenCalled();
   }
 );
 
@@ -1328,7 +1130,8 @@ testStable(
     const panel = await screen.findByRole('complementary', { name: 'SessionContextPanel' });
 
     expect(screen.getAllByRole('button', { name: 'SessionTransform' })).toHaveLength(1);
-    expect(within(panel).getByRole('button', { name: 'SessionSelection' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'SessionArchived' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'SessionSelection' })).toBeNull();
     expect(within(panel).getByRole('button', { name: 'SessionTransform' })).toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'SessionDelete' })).toBeInTheDocument();
     expect(view.container.querySelector('.ui-workspace-dock .session-context-actions')).toBeNull();
@@ -1498,3 +1301,15 @@ async function openStarterComposer() {
 
   return screen.findByRole('textbox', { name: 'SessionCompose' });
 }
+
+testStable('ignores obsolete selection drafts when starting a session transformation', async () => {
+  const client = cache();
+  client.setQueryData(['session-drafts', String(id), 'selection'], selection());
+  mount(<Transformation id={id} />, client);
+  fireEvent.change(await screen.findByRole('textbox', { name: 'SessionOutputTitle' }), {
+    target: { value: 'New summary' }
+  });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionCreateDocument' })).toBeEnabled()
+  );
+});

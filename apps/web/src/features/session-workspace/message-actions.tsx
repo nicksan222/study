@@ -24,7 +24,7 @@ import { MessageContextMenu } from './message-context-menu';
 import { MessageDeletion } from './message-deletion';
 import { MessageVersionStepper } from './message-version-stepper';
 import { NoteEditor } from './note-editor';
-import { ExecutionStatus, SessionError } from './status';
+import { SessionError } from './status';
 
 type MessageActionsModel = ReturnType<typeof useMessageActions>;
 
@@ -273,7 +273,6 @@ function MessageRecovery({ model }: { model: MessageActionsModel }) {
         />
       )}
       {draft.attempt && !draft.pending && <MessageAttemptRecovery model={model} />}
-      {draft.requestId && <ExecutionStatus requestId={draft.requestId} />}
     </>
   );
 }
@@ -310,14 +309,14 @@ function MessageAttemptRecovery({ model }: { model: MessageActionsModel }) {
   );
 }
 
-function messageActionDisabled({ draft, blocked, selection, dirty }: MessageActionsModel) {
+function messageActionDisabled({ draft, blocked, selection }: MessageActionsModel) {
   if (blocked) return true;
 
   if (draft.mode === 'edit') return !draft.text.trim();
 
   if (draft.mode === 'instruction') return !draft.instruction.trim();
 
-  if (draft.mode === 'ask') return !draft.instruction.trim() || !selection.data || !!dirty.data;
+  if (draft.mode === 'ask') return !draft.instruction.trim() || !selection.data;
 
   return false;
 }

@@ -1,23 +1,14 @@
 import type { SessionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogFooter
-} from '@study/ui/dialog';
-import { WorkspaceCard, WorkspaceSurface, WorkspaceChanges } from '@study/ui/workspace';
-import { ArrowUpRight, FileInput, FileText, FilePlus2, Trash2 } from 'lucide-react';
+import { Dialog, DialogTrigger, DialogPopup, DialogTitle } from '@study/ui/dialog';
+import { WorkspaceCard, WorkspaceChanges } from '@study/ui/workspace';
+import { ArrowUpRight, Archive, FileText, FilePlus2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { ArchivePanel } from './archive';
 import { SessionDocumentDialog } from './document-creation-dialog';
-import { SelectionPanel } from './selection';
 
 function ContextAction({
   title,
@@ -42,18 +33,12 @@ function ContextAction({
       <DialogPopup
         keepMounted
         closeLabel={t('Close')}
-        variant="workspace-context"
+        className="settings-popup ui-selection-dialog"
+        viewportClassName="settings-viewport"
         bottomStickOnMobile={false}
       >
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <WorkspaceSurface.ContextDialogBody>
-          <WorkspaceSurface.Container>{children}</WorkspaceSurface.Container>
-        </WorkspaceSurface.ContextDialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
-        </DialogFooter>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+        {children}
       </DialogPopup>
     </Dialog>
   );
@@ -90,8 +75,8 @@ export function SessionContextActions({
         <FilePlus2 aria-hidden="true" />
         <span>{t('SessionNewDocument')}</span>
       </WorkspaceCard.Item>
-      <ContextAction title={t('SessionSelection')} icon={<FileInput aria-hidden="true" />}>
-        <SelectionPanel id={id} />
+      <ContextAction title={t('SessionArchived')} icon={<Archive aria-hidden="true" />}>
+        <ArchivePanel id={id} />
       </ContextAction>
       <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
         <Trash2 aria-hidden="true" />

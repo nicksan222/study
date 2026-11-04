@@ -8,7 +8,7 @@ import { useAttachments } from './attachments';
 import { acceptText, emptyDraft, prepareAsk } from './draft';
 import type { Draft } from './draft';
 import { ask, saveNote, selectionOptions, sessionKey } from './session-workspace.queries';
-import type { AskInput, Selection } from './session-workspace.queries';
+import type { AskInput } from './session-workspace.queries';
 
 export function useComposer(id: SessionId) {
   const { t, locale } = useI18n();
@@ -26,13 +26,6 @@ export function useComposer(id: SessionId) {
   const sourceIds = files.items.flatMap((item) => (item.sourceId ? [item.sourceId] : []));
   const filesBlocked = files.items.some((item) => item.state !== 'ready');
   const selection = useQuery(selectionOptions(id));
-  const dirtySelection = useQuery({
-    queryKey: ['session-drafts', String(id), 'selection'],
-    queryFn: () => null as Selection | null,
-    initialData: null,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
   const setDraft = (update: (previous: Draft) => Draft) =>
     cache.setQueryData<Draft>(key, (previous) => update(previous ?? emptyDraft));
 
@@ -73,8 +66,7 @@ export function useComposer(id: SessionId) {
   function submitAsk() {
     const current = cache.getQueryData<Draft>(key) ?? emptyDraft;
 
-    if (!selection.data || dirtySelection.data || !readyToSubmit(current, sourceIds, filesBlocked))
-      return;
+    if (!selection.data || !readyToSubmit(current, sourceIds, filesBlocked)) return;
 
     if (
       cache.getQueryData<Draft>(key)?.askAttempt ||
@@ -129,7 +121,6 @@ export function useComposer(id: SessionId) {
     filesBlocked,
     setDraft,
     selection,
-    dirtySelection,
     askMutation,
     noteMutation,
     pending,

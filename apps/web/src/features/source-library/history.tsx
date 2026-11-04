@@ -12,17 +12,20 @@ type Extraction = { revision: bigint; snapshotId: ContentSnapshotId };
 
 export function SourceHistory({
   sourceId,
-  onSelect
+  onSelect,
+  presentation = 'disclosure'
 }: {
   sourceId: SourceId;
+  presentation?: 'disclosure' | 'inline';
   onSelect: (exact: Extraction | undefined) => void;
 }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(presentation === 'inline');
   const history = useInfiniteQuery(sourceHistoryOptions(sourceId, open));
 
   return (
     <HistoryDisclosure
+      presentation={presentation}
       open={open}
       onOpenChange={setOpen}
       onCurrent={() => onSelect(undefined)}
@@ -46,7 +49,8 @@ export function SourceHistory({
                 variant="ghost"
                 onClick={() => onSelect({ revision: item.revision, snapshotId: item.snapshotId })}
               >
-                {t('ReaderVersion')} {String(item.revision)} · {String(item.snapshotId)}
+                {t('ReaderVersion')} {String(item.revision)}
+                {presentation === 'disclosure' && <> · {String(item.snapshotId)}</>}
               </Button>
             </li>
           ))}

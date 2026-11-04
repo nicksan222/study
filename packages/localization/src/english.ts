@@ -660,7 +660,25 @@ export const english = Object.freeze({
   SessionCreationUncertain:
     'The session may have been created. Refresh the list and open it before creating another.',
   SessionBack: 'Back to sessions',
+  SessionArchiveLoadFailed: 'Couldn’t load archived items',
+  SessionArchiveLoadFailedHelp: 'Your archived items could not be read. Try again.',
+  SessionArchived: 'Archived',
+  SessionArchive: 'Archive',
+  SessionRestore: 'Restore',
+  SessionDeletePermanently: 'Delete permanently',
+  SessionArchiveEmpty: 'Nothing archived in this session',
+  SessionArchiveEmptyHelp:
+    'Archived notes, documents and attachments appear here. Restore an item to include it in this session again.',
+  SessionArchiveChoose: 'Choose an archived item to preview.',
+  SessionArchiveSearch: 'Search archived items',
+  SessionArchiveNoMatches: 'No archived items match your search.',
+  SessionArchiveHelp: 'Restore to use this item in this session again.',
   SessionSelection: 'Current selection',
+  SessionSelectionMaterial: 'Material',
+  SessionSelectionBlockMode: 'Blocks',
+  SessionSelectionPassageMode: 'Passage',
+  SessionSelectionScope: 'Selection scope',
+  SessionSelectionPreview: 'Content preview',
   SessionSelectionBlockCount: 'Blocks: {count}',
   SessionSelectionPassageCount: 'Passages: {count}',
   SessionSelectionGuide:
@@ -669,7 +687,7 @@ export const english = Object.freeze({
   SessionSelectionCapacity: '{count} of 20 included',
   SessionSelectionEmptyTitle: 'Choose material for this session',
   SessionSelectionEmptyHelp:
-    'Open a document or source below to include it. You can use the whole document, individual blocks, or a passage.',
+    'Choose a document or source from the list to include it. You can use the whole document, individual blocks, or a passage.',
   SessionSelectionAddMaterial: 'Add material',
   SessionSelectionDocuments: 'Documents',
   SessionSelectionSources: 'Sources',
@@ -678,7 +696,7 @@ export const english = Object.freeze({
     'No matching material in the loaded results. Try another search or load more documents.',
   SessionSelectionLibraryEmpty:
     'Your published material will appear here. Add a source or write a document to get started.',
-  SessionSelectionChooseBlocks: 'Or choose blocks · {count} selected',
+  SessionSelectionChooseBlocks: '{count} blocks selected',
   SessionSelectionAllBlocks: 'Show all {count} blocks',
   SessionSelectionFewerBlocks: 'Show fewer blocks ({count} total)',
   SessionSelectionChoosePassage: 'Choose a specific passage',

@@ -98,14 +98,13 @@ function ComposerActions({ model }: { model: ComposerModel }) {
 }
 
 function AskRecovery({ model }: { model: ComposerModel }) {
-  const { t, draft, dirtySelection, askMutation, pending, retryAsk } = model;
+  const { t, draft, askMutation, pending, retryAsk } = model;
 
   const retryable = canRetryAsk(model);
 
   return (
     <>
       {pending && <Loading label={t('SessionSaving')} />}
-      {dirtySelection.data && <p role="status">{t('SessionSelectionUnsaved')}</p>}
       {askMutation.error && !draft.askUnavailable && (
         <SessionError
           error={askMutation.error}

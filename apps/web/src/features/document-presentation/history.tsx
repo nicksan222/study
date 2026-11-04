@@ -1,4 +1,5 @@
 import { Button } from '@study/ui/button';
+import { SelectionSurface } from '@study/ui/selection';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -7,6 +8,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 export function HistoryDisclosure({
   open,
+  presentation = 'disclosure',
   onOpenChange,
   onCurrent,
   error,
@@ -14,6 +16,7 @@ export function HistoryDisclosure({
   children
 }: {
   open: boolean;
+  presentation?: 'disclosure' | 'inline';
   onOpenChange: (open: boolean) => void;
   onCurrent: () => void;
   error?: ReactNode;
@@ -21,6 +24,22 @@ export function HistoryDisclosure({
   children: ReactNode;
 }) {
   const { t } = useI18n();
+
+  if (presentation === 'inline')
+    return (
+      <SelectionSurface.History aria-label={t('ReaderHistory')}>
+        <Button variant="ghost" size="sm" onClick={onCurrent}>
+          {t('ReaderCurrent')}
+        </Button>
+        {error}
+        {children}
+        {more && (
+          <Button variant="ghost" size="sm" disabled={more.pending} onClick={more.load}>
+            {t('LibraryMore')}
+          </Button>
+        )}
+      </SelectionSurface.History>
+    );
 
   return (
     <details open={open} onToggle={(event) => onOpenChange(event.currentTarget.open)}>

@@ -17,7 +17,7 @@ import {
   selectionOptions,
   sessionKey
 } from './session-workspace.queries';
-import type { AskInput, Selection } from './session-workspace.queries';
+import type { AskInput } from './session-workspace.queries';
 
 type Message = typeof chatMessageSchema.Type;
 
@@ -83,13 +83,6 @@ export function useMessageActions({
   const patch = (value: Partial<State>) =>
     cache.setQueryData<State>(key, (previous) => ({ ...(previous ?? initial), ...value }));
   const selection = useQuery(selectionOptions(message.sessionId));
-  const dirty = useQuery({
-    queryKey: ['session-drafts', String(message.sessionId), 'selection'],
-    queryFn: () => null as Selection | null,
-    initialData: null,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
   const version = message.versions.find((item) => item.id === versionId);
   const active = versionId === message.activeVersionId;
   const blocked = !!draft.attempt || !!draft.pending || version?.status !== 'complete';
@@ -163,7 +156,7 @@ export function useMessageActions({
   }
 
   function prepareQuotedAsk(attempt: Attempt): AskInput | undefined {
-    if (!selection.data || dirty.data || !draft.instruction.trim()) return undefined;
+    if (!selection.data || !draft.instruction.trim()) return undefined;
 
     return {
       sessionId: message.sessionId,
@@ -229,7 +222,6 @@ export function useMessageActions({
     launcher,
     patch,
     selection,
-    dirty,
     version,
     active,
     blocked,

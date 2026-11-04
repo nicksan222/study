@@ -21,13 +21,15 @@ import type { ItemDeletionActions } from '../session-workspace/item-deletion-men
 /** Notebook actions keep whole-document deletion separate from one exact historical body. */
 export function DocumentNotebookDeletion({
   document,
+  onDeleted,
   renderActions
 }: {
   document: StudyDocumentSummary;
+  onDeleted?: () => void;
   renderActions?: (actions: ItemDeletionActions) => ReactNode;
 }) {
   const { t } = useI18n();
-  const model = useDocumentNotebookDeletion(document);
+  const model = useDocumentNotebookDeletion(document, onDeleted);
   const { mode, open } = model;
 
   return (
@@ -102,7 +104,7 @@ function useDocumentDeletionCopy(model: Model) {
   return { label, title, description, confirmation };
 }
 
-function useDocumentNotebookDeletion(document: StudyDocumentSummary) {
+function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?: () => void) {
   const cache = useQueryClient();
   const [mode, setMode] = useState<'item' | 'version'>();
   const [versionId, setVersionId] = useState<StudyDocumentVersionId>();
@@ -151,6 +153,7 @@ function useDocumentNotebookDeletion(document: StudyDocumentSummary) {
       });
       await invalidateDocuments(cache);
       setMode(undefined);
+      if (mode === 'item') onDeleted?.();
     },
     onError: async () => {
       if (preview.data)

@@ -25,14 +25,18 @@ import {
 } from './session-workspace.queries';
 import { SessionRuns } from './transformation';
 
-const rpc = vi.hoisted(() => ({ message: vi.fn(), pages: vi.fn() }));
+const rpc = vi.hoisted(() => ({ message: vi.fn(), pages: vi.fn(), archive: vi.fn() }));
 
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));
 vi.mock('#web/lib/study-client/request.ts', () => ({
-  request: (fn: (client: { 'conversations.message': typeof rpc.message }) => unknown) =>
-    fn({ 'conversations.message': rpc.message })
+  request: (
+    fn: (client: {
+      'conversations.message': typeof rpc.message;
+      'conversations.setItemArchived': typeof rpc.archive;
+    }) => unknown
+  ) => fn({ 'conversations.message': rpc.message, 'conversations.setItemArchived': rpc.archive })
 }));
 vi.mock('../document-editing/proposal-review', () => ({
   ProposalReview: ({ requestId }: { requestId: string }) => (
@@ -811,4 +815,19 @@ testStable('keeps raw note deletion in both the toolbar and right-click menu', a
   await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Cancel' }));
   await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'SessionDeleteItem' })).toBeVisible();
+});
+
+testStable('archives the exact note membership independently of permanent deletion', async () => {
+  rpc.archive.mockResolvedValue(undefined);
+  mount(<VersionedNote />);
+  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
+  await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'SessionArchive' }));
+  await waitFor(() =>
+    expect(rpc.archive).toHaveBeenCalledExactlyOnceWith({
+      sessionId: id,
+      target: { kind: 'message', id: message.id },
+      archived: true
+    })
+  );
+  expect(screen.queryByRole('alertdialog')).toBeNull();
 });

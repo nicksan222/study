@@ -1,8 +1,7 @@
 import { sessionSelectionTargetSchema } from '@study/contracts/conversations/context';
-import { sessionIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
@@ -13,7 +12,7 @@ import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 import { authoredDocument } from '../document-editing/test-support';
-import { SelectedTarget, SelectionContent, SelectionPanel } from './selection';
+import { SelectedTarget } from './selection';
 
 vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
@@ -116,144 +115,4 @@ testStable('keeps the full selected content behind a native disclosure', async (
   expect(disclosure.closest('details')).toHaveAttribute('open');
   expect(screen.getAllByText('selected')).toHaveLength(2);
   expect(screen.queryByText('Keep selected outside')).toBeNull();
-});
-
-function mountContent(selected?: typeof sessionSelectionTargetSchema.Type) {
-  const change = vi.fn();
-  const first = exact.document.blocks[0]!;
-  const content = {
-    name: 'Mechanics',
-    document: {
-      ...exact.document,
-      blocks: Array.from({ length: 5 }, (_, index) => ({
-        ...first,
-        id: `b${index}` as typeof first.id,
-        text: index === 0 ? 'Keep selected outside' : `Block ${index + 1}`
-      }))
-    }
-  };
-
-  render(
-    <SelectionContent
-      input={target.input}
-      selected={selected}
-      disabled={false}
-      change={change}
-      content={content}
-    />
-  );
-
-  return { change, content };
-}
-
-testStable('shows a short block list and lets keyboard users reveal the rest', async () => {
-  const user = userEvent.setup();
-
-  mountContent();
-  expect(screen.getAllByRole('checkbox')).toHaveLength(3);
-  const more = screen.getByRole('button', { name: 'SessionSelectionAllBlocks' });
-
-  more.focus();
-  await user.keyboard('{Enter}');
-  expect(more).toHaveAttribute('aria-expanded', 'true');
-  expect(screen.getAllByRole('checkbox')).toHaveLength(5);
-  await user.click(screen.getByRole('button', { name: 'SessionSelectionFewerBlocks' }));
-  expect(screen.getAllByRole('checkbox')).toHaveLength(3);
-});
-
-testStable(
-  'unchecking the final selected block removes the target instead of keeping it checked',
-  async () => {
-    const user = userEvent.setup();
-    const selected = Schema.decodeUnknownSync(sessionSelectionTargetSchema)({
-      ...target,
-      scope: { kind: 'blocks', blockIds: ['b0'] }
-    });
-    const { change } = mountContent(selected);
-    const block = screen.getByRole('checkbox', { name: '1 · Keep selected outside' });
-
-    expect(block).toBeChecked();
-    await user.click(block);
-    expect(change).toHaveBeenCalledExactlyOnceWith(selected, true);
-  }
-);
-
-testStable(
-  'requires an explicit action before replacing the scope with a highlighted passage',
-  async () => {
-    const user = userEvent.setup();
-    const { change } = mountContent();
-
-    await user.click(screen.getByText('SessionSelectionChoosePassage'));
-    await user.click(screen.getByRole('combobox', { name: 'DocumentBlock' }));
-    await user.click(await screen.findByRole('option', { name: '1 · Keep selected outside' }));
-    const text = screen.getByRole('textbox', {
-      name: 'DocumentSelectPassage'
-    }) as HTMLTextAreaElement;
-
-    text.focus();
-    text.setSelectionRange(5, 13);
-    fireEvent.select(text);
-    expect(change).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'SessionUseRange' }));
-    expect(change).toHaveBeenCalledExactlyOnceWith({
-      input: target.input,
-      scope: { kind: 'ranges', ranges: [{ blockId: 'b0', start: 5, end: 13 }] }
-    });
-  }
-);
-
-testStable('keeps selected blocks visible when they are beyond the initial preview', () => {
-  const selected = Schema.decodeUnknownSync(sessionSelectionTargetSchema)({
-    ...target,
-    scope: { kind: 'blocks', blockIds: ['b4'] }
-  });
-
-  mountContent(selected);
-  expect(screen.getByRole('checkbox', { name: '5 · Block 5' })).toBeChecked();
-  expect(screen.queryByRole('checkbox', { name: '4 · Block 4' })).toBeNull();
-});
-
-function mountEmptyPanel(pending = false) {
-  const rpc = {
-    'conversations.sessionSelection': () =>
-      pending ? Effect.never : Effect.succeed({ revision: 1n, targets: [] }),
-    'documents.documents': () =>
-      pending ? Effect.never : Effect.succeed({ items: [], nextCursor: null }),
-    'sources.sources': () => (pending ? Effect.never : Effect.succeed({ items: [], next: null }))
-  };
-
-  vi.mocked(request).mockImplementation((invoke, signal) =>
-    runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-  );
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  clients.push(client);
-  render(
-    <QueryClientProvider client={client}>
-      <SelectionPanel id={Schema.decodeUnknownSync(sessionIdSchema)(1n)} />
-    </QueryClientProvider>
-  );
-}
-
-testStable(
-  'explains how to start with an empty selection and distinguishes an empty search',
-  async () => {
-    const user = userEvent.setup();
-
-    mountEmptyPanel();
-    expect(await screen.findByText('SessionSelectionEmptyTitle')).toBeVisible();
-    expect(await screen.findByText('SessionSelectionLibraryEmpty')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'SessionSaveSelection' })).toBeDisabled();
-    expect(screen.queryByText('SessionSelectionUnsaved')).toBeNull();
-    await user.type(screen.getByRole('searchbox', { name: 'SessionSearchMaterial' }), 'mechanics');
-    expect(await screen.findByText('SessionSelectionNoMatches')).toBeVisible();
-  }
-);
-
-testStable('does not present pending reads as an empty selection or library', () => {
-  mountEmptyPanel(true);
-  expect(screen.getAllByText('LoadingStudy')).toHaveLength(2);
-  expect(screen.queryByText('SessionSelectionEmptyTitle')).toBeNull();
-  expect(screen.queryByText('SessionSelectionLibraryEmpty')).toBeNull();
 });

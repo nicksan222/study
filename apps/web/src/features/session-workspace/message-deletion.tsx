@@ -20,12 +20,14 @@ export function MessageDeletion({
   versionId,
   disabled = false,
   onVersionDeleted,
+  onDeleted,
   renderActions
 }: {
   message: ChatMessage;
   versionId: VersionId;
   disabled?: boolean;
   onVersionDeleted?: () => void;
+  onDeleted?: () => void;
   renderActions?: (actions: ItemDeletionActions) => ReactNode;
 }) {
   const { t } = useI18n();
@@ -44,6 +46,7 @@ export function MessageDeletion({
     },
     onSuccess: (_, intent) => {
       if (intent !== 'item') onVersionDeleted?.();
+      else onDeleted?.();
       setTarget(undefined);
       void cache.invalidateQueries({ queryKey: sessionKey(message.sessionId) });
       void cache.invalidateQueries({ queryKey: ['sessions'] });

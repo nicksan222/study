@@ -4,13 +4,14 @@ import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceAttachments, WorkspaceCard } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { FileText, Paperclip } from 'lucide-react';
+import { Paperclip } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AttachmentCards } from './attachment-cards';
 import { notebookMessages } from './notebook-index';
+import { SessionDocumentCard } from './session-document-card';
 import { sessionDocumentsOptions } from './session-document.queries';
 import { SessionPendingWork } from './session-pending-work';
 import { threadOptions } from './session-workspace.queries';
@@ -100,15 +101,16 @@ function SessionFiles({
         attached.length,
         !!thread.hasNextPage
       ) && <WorkspaceAttachments.Empty>{t('SessionAttachmentsEmpty')}</WorkspaceAttachments.Empty>}
-      <AttachmentCards parts={parts} compact onOpenSource={onOpenSource} />
+      <AttachmentCards sessionId={id} parts={parts} compact onOpenSource={onOpenSource} />
       {attached.map((material) => (
-        <WorkspaceAttachments.Item
+        <SessionDocumentCard
           key={String(material.id)}
-          onClick={() => onOpenDocument?.(material)}
-        >
-          <FileText aria-hidden="true" />
-          <span>{material.title}</span>
-        </WorkspaceAttachments.Item>
+          sessionId={id}
+          document={material}
+          active={false}
+          compact
+          onOpen={(document) => onOpenDocument?.(document)}
+        />
       ))}
       {thread.hasNextPage && (
         <Button

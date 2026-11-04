@@ -9,6 +9,7 @@ import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check, ListChecks } fro
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { ArchiveMenuItem } from './archive-menu-item';
 import { ItemDeletionMenu } from './item-deletion-menu';
 import type { useMessageActions } from './message-actions.queries';
 import { MessageDeletion } from './message-deletion';
@@ -80,6 +81,11 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                 <ListChecks aria-hidden="true" />
                 {model.t('SessionWorkDetails')}
               </ContextMenuItem>
+              <ArchiveMenuItem
+                sessionId={model.message.sessionId}
+                target={{ kind: 'message', id: model.message.id }}
+                disabled={model.blocked || !!model.draft.mode}
+              />
               <ItemDeletionMenu {...deletion} />
             </ContextMenuPopup>
           </ContextMenu>

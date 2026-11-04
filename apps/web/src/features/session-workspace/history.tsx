@@ -123,6 +123,7 @@ export function History({
           >
             {entry.kind === 'document' ? (
               <SessionDocumentCard
+                sessionId={id}
                 document={entry.document}
                 onOpen={(material) => onOpenDocument?.(material)}
                 active={String(entry.document.id) === activeAuthoredDocument}
@@ -256,6 +257,7 @@ function MessageEntry({
       )}
       {message.parts.length > 0 && (
         <AttachmentCards
+          sessionId={message.sessionId}
           parts={message.parts}
           onOpenSource={onOpenSource}
           indexSessionId={indexAnchors ? message.sessionId : undefined}

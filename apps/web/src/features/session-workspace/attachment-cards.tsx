@@ -18,6 +18,7 @@ import {
   SourceVersionDeletion,
   sourceOptions as attachmentSourceOptions
 } from '../source-library';
+import { ArchiveMenuItem } from './archive-menu-item';
 import { appearances } from './attachment-appearance';
 import { useAttachmentMedia } from './attachment-cards.queries';
 import { ItemContextMenu } from './item-context-menu';
@@ -30,10 +31,12 @@ export function AttachmentCards({
   parts,
   onOpenSource,
   indexSessionId,
+  sessionId,
   compact = false
 }: {
   parts: readonly MessagePart[];
   indexSessionId?: SessionId;
+  sessionId?: SessionId;
   compact?: boolean;
   onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
@@ -47,6 +50,7 @@ export function AttachmentCards({
           part={part}
           onOpenSource={onOpenSource}
           indexSessionId={indexSessionId}
+          sessionId={sessionId}
           compact={compact}
         />
       ))}
@@ -58,10 +62,12 @@ function AttachmentCard({
   part,
   onOpenSource,
   indexSessionId,
+  sessionId,
   compact = false
 }: {
   part: MessagePart;
   indexSessionId?: SessionId;
+  sessionId?: SessionId;
   compact?: boolean;
   onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
@@ -77,26 +83,25 @@ function AttachmentCard({
     failed: !!source.error,
     onOpenSource
   });
+  const anchor = indexSessionId
+    ? { id: notebookTargetId(indexSessionId, 'attachment', part.id), tabIndex: -1 }
+    : {};
+  const preview = ['image', 'video', 'audio'].includes(part.sourceKind) ? (
+    <SourcePreview part={part} />
+  ) : undefined;
   const card = compact ? (
     <WorkspaceAttachments.Item render={target} title={part.sourceName}>
       <Icon aria-hidden="true" />
       <span>{part.sourceName}</span>
     </WorkspaceAttachments.Item>
   ) : (
-    <Notebook.IndexTarget
-      id={indexSessionId ? notebookTargetId(indexSessionId, 'attachment', part.id) : undefined}
-      tabIndex={indexSessionId ? -1 : undefined}
-    >
+    <Notebook.IndexTarget {...anchor}>
       <Desk.AttachmentCard
         name={part.sourceName}
         meta={<AttachmentMeta part={part} source={source.data} failed={source.isError} />}
         icon={<Icon size={22} aria-hidden="true" />}
         tone={tone}
-        preview={
-          ['image', 'video', 'audio'].includes(part.sourceKind) ? (
-            <SourcePreview part={part} />
-          ) : undefined
-        }
+        preview={preview}
         render={target}
       />
       {source.error && (
@@ -108,6 +113,7 @@ function AttachmentCard({
   return (
     <AttachmentContextMenu
       source={source.data}
+      sessionId={sessionId}
       onDeleted={() => setDeleted(true)}
       target={target}
       disabled={!source.data && !source.error}
@@ -120,6 +126,7 @@ function AttachmentCard({
 
 function AttachmentContextMenu({
   source,
+  sessionId,
   onDeleted,
   target,
   disabled,
@@ -127,6 +134,7 @@ function AttachmentContextMenu({
   children
 }: {
   source?: Source;
+  sessionId?: SessionId;
   onDeleted: () => void;
   target: ReactElement<{ 'aria-label'?: string }>;
   disabled: boolean;
@@ -140,7 +148,14 @@ function AttachmentContextMenu({
       disabled={disabled}
       label={label}
       dialogOpen={actions?.open}
-      actions={actions && <ItemDeletionMenu {...actions} />}
+      actions={
+        <>
+          {source && sessionId && (
+            <ArchiveMenuItem sessionId={sessionId} target={{ kind: 'source', id: source.id }} />
+          )}
+          {actions && <ItemDeletionMenu {...actions} />}
+        </>
+      }
     >
       {children}
     </ItemContextMenu>

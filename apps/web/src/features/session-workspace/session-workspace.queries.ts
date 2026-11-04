@@ -1,8 +1,4 @@
-import type {
-  sessionSelectionSchema,
-  captureSessionContextSchema,
-  updateSessionSelectionSchema
-} from '@study/contracts/conversations/context';
+import type { captureSessionContextSchema } from '@study/contracts/conversations/context';
 import type {
   editMessageInputSchema,
   setActiveVersionInputSchema
@@ -16,8 +12,6 @@ import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/r
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
-
-export type Selection = typeof sessionSelectionSchema.Type;
 
 export type AskInput = typeof askInputSchema.Type;
 
@@ -142,9 +136,6 @@ export const saveNote = (sessionId: SessionId, text: string, sourceIds?: readonl
   request((client) =>
     client['conversations.postMessage']({ sessionId, text, sourceIds, requestReply: false })
   );
-
-export const updateSelection = (input: typeof updateSessionSelectionSchema.Type) =>
-  request((client) => client['conversations.updateSessionSelection'](input));
 
 export const captureContext = (input: typeof captureSessionContextSchema.Type) =>
   request((client) => client['conversations.captureSessionContext'](input));

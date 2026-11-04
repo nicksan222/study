@@ -21,7 +21,6 @@ import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { ProposalReview } from '../document-editing';
 import type { SelectedSession } from './document-creation-dialog';
 import { CapturedContext } from './history';
-import { selectionDraftOptions } from './selection.queries';
 import {
   executionOptions,
   generationOptions,
@@ -67,7 +66,6 @@ function useTransformation(id: SessionId, sessions?: readonly SelectedSession[])
   const setDraft = (patch: Partial<TransformDraft>) =>
     cache.setQueryData<TransformDraft>(key, (previous) => ({ ...(previous ?? initial), ...patch }));
   const selection = useQuery(selectionOptions(id));
-  const dirty = useQuery(selectionDraftOptions(id));
   const submit = useMutation({
     retry: false,
     onError: (error) => setDraft({ unavailable: toStudyError(error).kind === 'not_found' }),
@@ -110,7 +108,6 @@ function useTransformation(id: SessionId, sessions?: readonly SelectedSession[])
     draft,
     setDraft,
     selection,
-    dirty,
     submit,
     pending,
     start
@@ -235,7 +232,6 @@ function CreateTransform({ model }: { model: TransformationModel }) {
     draft,
     additionalSessionIds,
     selection,
-    dirty,
     cache,
     key,
     locale,
@@ -251,8 +247,7 @@ function CreateTransform({ model }: { model: TransformationModel }) {
           !!draft.attempt ||
           !draft.title.trim() ||
           draft.operations.length === 0 ||
-          !selection.data ||
-          !!dirty.data
+          !selection.data
         }
         onClick={() => {
           if (
