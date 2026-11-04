@@ -35,8 +35,7 @@ export const notebookDeletionOptions = ({
     mutationFn: async () => {
       if (!token) return;
 
-      if (mode === 'item')
-        await request((rpc) => rpc['documents.delete']({ documentId, token }));
+      if (mode === 'item') await request((rpc) => rpc['documents.delete']({ documentId, token }));
       else
         await request((rpc) =>
           rpc['documents.retireHistory']({ documentId, keepLatest: 1, versionId, token })

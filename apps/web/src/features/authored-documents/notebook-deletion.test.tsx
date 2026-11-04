@@ -7,10 +7,10 @@ import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { request } from '#web/lib/study-client/request.ts';
 
+import { DocumentNotebookDeletion } from '../document-editing';
 import { authoredDocument } from '../document-editing/test-support';
 import { ItemContextMenu } from '../session-workspace/item-context-menu';
 import { ItemDeletionMenu } from '../session-workspace/item-deletion-menu';
-import { DocumentNotebookDeletion } from './notebook-deletion';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 

@@ -47,7 +47,10 @@ export const DocumentsStore = defineStore({
       },
       mutations: {
         archiveSession: storeMutation({
-          input: Schema.Struct({ ...r.linkSchema.fields, archivedAt: Schema.NullOr(Schema.BigInt) }),
+          input: Schema.Struct({
+            ...r.linkSchema.fields,
+            archivedAt: Schema.NullOr(Schema.BigInt)
+          }),
           output: Schema.Void,
           run: (v) => {
             const changed = db.orm

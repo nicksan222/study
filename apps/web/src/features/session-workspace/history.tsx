@@ -192,11 +192,7 @@ function DocumentEntry({
     <ItemContextMenu
       label={t('SessionOpenPage')}
       target={
-        <button
-          type="button"
-          aria-label={t('SessionOpenPage')}
-          onClick={() => onOpen(message)}
-        />
+        <button type="button" aria-label={t('SessionOpenPage')} onClick={() => onOpen(message)} />
       }
       dialogOpen={actions?.open}
       actions={actions && <ItemDeletionMenu {...actions} />}

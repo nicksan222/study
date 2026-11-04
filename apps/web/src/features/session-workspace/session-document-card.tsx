@@ -6,7 +6,7 @@ import { FileText } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { DocumentNotebookDeletion } from '../authored-documents';
+import { DocumentNotebookDeletion } from '../document-editing';
 import { ArchiveMenuItem } from './archive-menu-item';
 import { ItemContextMenu } from './item-context-menu';
 import { ItemDeletionMenu } from './item-deletion-menu';

@@ -17,7 +17,7 @@ import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { DocumentNotebookDeletion } from '../authored-documents';
+import { DocumentNotebookDeletion } from '../document-editing';
 import { DocumentReader } from '../document-presentation';
 import { SourceDeletion, sourceOptions, sourceExtractionOptions } from '../source-library';
 import { archivedItemsOptions, archivedMessageOptions, useItemArchive } from './archive.queries';
