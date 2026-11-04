@@ -1,13 +1,7 @@
 import { mutationOptions, queryOptions } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 
-import {
-  createProject,
-  createSession,
-  listProjects,
-  listSessions,
-  searchStudy
-} from './operations';
+import { createProject, listProjects, listSessions, searchStudy } from './operations';
 import type { SearchInput } from './operations';
 
 export const projectsQueryOptions = () =>
@@ -41,16 +35,5 @@ export const createProjectMutationOptions = (client: QueryClient) =>
         ...(items ?? []).filter((item) => item.id !== created.id),
         created
       ]);
-    }
-  });
-
-export const createSessionMutationOptions = (client: QueryClient) =>
-  mutationOptions({
-    mutationFn: createSession,
-    onSuccess: async () => {
-      const { queryKey } = sessionsQueryOptions();
-
-      await client.cancelQueries({ queryKey });
-      void client.invalidateQueries({ queryKey });
     }
   });

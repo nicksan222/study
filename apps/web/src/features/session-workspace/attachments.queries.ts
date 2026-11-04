@@ -53,7 +53,7 @@ async function uploadAttachment(cache: QueryClient, id: SessionId, entry: Attach
 }
 
 /** Adds session-owned draft entries before starting their independent uploads. */
-export function addAttachments(cache: QueryClient, id: SessionId, files: File[]) {
+function addAttachments(cache: QueryClient, id: SessionId, files: File[]) {
   const entries: Attachment[] = files.map((file) => ({
     key: crypto.randomUUID(),
     file,

@@ -1,4 +1,5 @@
 import type { SourceId } from '@study/contracts/ids';
+import type { KeyboardEvent } from 'react';
 
 import type { AskInput } from './session-workspace.queries';
 
@@ -33,4 +34,13 @@ export function prepareAsk(
   intentKey: string
 ): AskInput {
   return draft.askAttempt ?? { ...input, text: draft.text, intentKey };
+}
+
+/** The draft and saved notebook share the same capture shortcut. */
+export function isNoteSubmit(event: KeyboardEvent<HTMLTextAreaElement>, submitOnEnter: boolean) {
+  return (
+    (event.metaKey || event.ctrlKey || (submitOnEnter && !event.shiftKey && !event.altKey)) &&
+    event.key === 'Enter' &&
+    !event.nativeEvent.isComposing
+  );
 }

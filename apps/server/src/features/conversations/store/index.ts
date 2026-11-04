@@ -21,7 +21,16 @@ import { sessionSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { and, desc, eq, lt, or, sql } from '@study/db';
-import { sessions, projects, project_sessions } from '@study/db/schema';
+import {
+  sessions,
+  projects,
+  project_sessions,
+  messages,
+  recordings,
+  session_documents,
+  session_run_contexts,
+  session_deletions
+} from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -127,6 +136,50 @@ export const SessionStore = defineStore({
               !db.orm.select().from(projects).where(eq(projects.id, input.project)).get()
             )
               throw new StudyError('not_found', 'Collection not found');
+
+            // This lookup and insertion share the caller's immediate transaction.
+            // A provisional title alone does not make a session with work reusable.
+            const draft =
+              input.titleSource === 'provisional'
+                ? db.orm
+                    .select()
+                    .from(sessions)
+                    .where(
+                      and(
+                        eq(sessions.title_source, 'provisional'),
+                        sql`json_array_length(${sessions.selection}) = 0`,
+                        sql`NOT EXISTS (SELECT 1 FROM ${messages} WHERE ${messages.session_id} = ${sessions.id})`,
+                        sql`NOT EXISTS (SELECT 1 FROM ${recordings} WHERE ${recordings.session_id} = ${sessions.id})`,
+                        sql`NOT EXISTS (SELECT 1 FROM ${session_documents} WHERE ${session_documents.session_id} = ${sessions.id})`,
+                        sql`NOT EXISTS (SELECT 1 FROM ${session_run_contexts} WHERE ${session_run_contexts.session_id} = ${sessions.id})`,
+                        sql`NOT EXISTS (SELECT 1 FROM ${session_deletions} WHERE ${session_deletions.session_id} = ${sessions.id})`
+                      )
+                    )
+                    .orderBy(desc(sessions.id))
+                    .get()
+                : undefined;
+
+            if (draft) {
+              db.orm
+                .delete(project_sessions)
+                .where(eq(project_sessions.session_id, draft.id))
+                .run();
+
+              if (input.project !== undefined)
+                db.orm
+                  .insert(project_sessions)
+                  .values({ project_id: input.project, session_id: draft.id })
+                  .run();
+
+              const reused = db.orm
+                .update(sessions)
+                .set({ title, updated_at: now })
+                .where(eq(sessions.id, draft.id))
+                .returning()
+                .get()!;
+
+              return present(reused);
+            }
 
             const created = db.orm
               .insert(sessions)

@@ -3,6 +3,8 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { createSession } from '#web/lib/study-client/operations.ts';
 
+import { uploadSource } from './session-workspace.queries';
+
 export type CreationFlow = { id?: SessionId; uncertain?: boolean; pending?: boolean };
 
 export const startDraftOptions = (queryKey: string[]) =>
@@ -34,7 +36,19 @@ export const creationFlowOptions = () =>
 
 /** The mutation retains its originating draft keys when the selected project changes. */
 export const startSessionMutation = {
-  mutationFn: (input: { project?: ProjectId; draftKey: string[]; filesKey: string[] }) =>
-    createSession(input.project),
+  mutationFn: async (input: {
+    project?: ProjectId;
+    draftKey: string[];
+    filesKey: string[];
+    text: string;
+    files: File[];
+  }) => {
+    const sources = await Promise.all(input.files.map(uploadSource));
+
+    return createSession(input.project, {
+      text: input.text,
+      sourceIds: sources.map((source) => source.id)
+    });
+  },
   retry: false
 };

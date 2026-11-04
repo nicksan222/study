@@ -1,3 +1,4 @@
+import type { createUntitledSessionInputSchema } from '@study/contracts/conversations/rpc';
 import type { SessionDto } from '@study/contracts/conversations/schemas';
 import type { ProjectId, SourceId, MaterialId } from '@study/contracts/ids';
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
@@ -77,8 +78,11 @@ export const searchStudy = (input: SearchInput, signal?: AbortSignal) =>
 export const createProject = (name: string) =>
   request((client) => client['projects.createProject']({ name }));
 
-export const createSession = (project?: ProjectId) =>
-  request((client) => client['conversations.createUntitledSession']({ project }));
+export const createSession = (
+  project: ProjectId | undefined,
+  initialMessage: (typeof createUntitledSessionInputSchema.Type)['initialMessage']
+) =>
+  request((client) => client['conversations.createUntitledSession']({ project, initialMessage }));
 
 export const loadAppearance = (signal?: AbortSignal) =>
   request(

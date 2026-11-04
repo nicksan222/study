@@ -11,6 +11,7 @@ import { useWorkspacePreferences } from '#web/lib/study-client/workspace-prefere
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
 import { useComposer } from './composer.queries';
+import { isNoteSubmit } from './draft';
 import { sessionKey } from './session-workspace.queries';
 import { SessionError } from './status';
 import { UnavailableAttempt } from './unavailable-attempt';
@@ -45,13 +46,7 @@ export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () =>
         value={draft.text}
         spellCheck={preferences.spellcheck}
         onKeyDown={(event) => {
-          if (
-            (event.metaKey ||
-              event.ctrlKey ||
-              (preferences.submitOnEnter && !event.shiftKey && !event.altKey)) &&
-            event.key === 'Enter' &&
-            !event.nativeEvent.isComposing
-          ) {
+          if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();
             submitNote();
           }

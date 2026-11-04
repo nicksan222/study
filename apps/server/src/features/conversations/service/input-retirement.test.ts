@@ -123,7 +123,6 @@ for (const kind of ['document', 'source'] as const)
             Effect.gen(function* () {
               const chats = yield* Conversations;
               const session = yield* chats.createUntitledSession({});
-              const other = yield* chats.createUntitledSession({});
 
               yield* chats.postMessage({
                 sessionId: session.id,
@@ -131,6 +130,8 @@ for (const kind of ['document', 'source'] as const)
                 requestReply: false,
                 ...(input.kind === 'source' ? { sourceIds: [input.sourceId] } : {})
               });
+              const other = yield* chats.createUntitledSession({});
+
               yield* chats.postMessage({
                 sessionId: other.id,
                 text: 'Unrelated raw note',

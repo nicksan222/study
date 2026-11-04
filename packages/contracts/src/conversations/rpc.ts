@@ -92,8 +92,14 @@ export const createSessionInputSchema = Schema.Struct({
   title: Schema.String
 });
 
-const createUntitledSessionInputSchema = Schema.Struct({
-  project: Schema.optional(projectIdSchema)
+export const createUntitledSessionInputSchema = Schema.Struct({
+  project: Schema.optional(projectIdSchema),
+  initialMessage: Schema.optional(
+    Schema.Struct({
+      text: Schema.String,
+      sourceIds: Schema.optional(Schema.Array(sourceIdSchema))
+    })
+  )
 });
 
 const messageIdInputSchema = Schema.Struct({ id: messageIdSchema });

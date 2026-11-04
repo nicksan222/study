@@ -8,7 +8,6 @@ import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
 import {
   createProjectMutationOptions,
-  createSessionMutationOptions,
   projectsQueryOptions,
   sessionsQueryOptions,
   searchQueryOptions
@@ -282,8 +281,7 @@ function useSidebarActions(
   const [name, setName] = useState('');
   const [actionError, setActionError] = useState(false);
   const subjectMutation = useMutation(createProjectMutationOptions(queryClient));
-  const sessionMutation = useMutation(createSessionMutationOptions(queryClient));
-  const creating = subjectMutation.isPending || sessionMutation.isPending;
+  const creating = subjectMutation.isPending;
   const selectSubject = (id: ProjectId) => {
     setPickerOpen(false);
     clearSearch();
@@ -296,21 +294,20 @@ function useSidebarActions(
       void navigate({ to: '.', search: { project: String(id) } });
     }
   };
-  const createSession = () => {
+  const createSession = async () => {
     if (creating) return;
 
     setActionError(false);
-    sessionMutation.mutate(project, {
-      onError: () => setActionError(true),
-      onSuccess: (created) => {
-        clearSearch();
-        void navigate({
-          to: '/sessions/$sessionId',
-          params: { sessionId: created.id },
-          search: project ? { project: String(project) } : {}
-        });
-      }
-    });
+    clearSearch();
+
+    try {
+      await navigate({
+        to: '/sessions',
+        search: project ? { project: String(project) } : {}
+      });
+    } catch {
+      setActionError(true);
+    }
   };
   const createSubject = () => {
     if (!name.trim() || creating) return;

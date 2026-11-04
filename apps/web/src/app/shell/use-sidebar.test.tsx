@@ -6,7 +6,11 @@ import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { App } from '../app';
 
-vi.mock('#web/features/session-workspace/workspace.tsx', () => ({ SessionWorkspace: () => null }));
+vi.mock('#web/features/session-workspace/workspace.tsx', async () => {
+  const { SessionStart } = await import('#web/features/session-workspace/start.tsx');
+
+  return { SessionWorkspace: ({ id }: { id?: bigint }) => (id ? null : <SessionStart />) };
+});
 
 const api = vi.hoisted(() => ({
   projects: vi.fn(),
@@ -163,17 +167,25 @@ testStable('searches within the selected subject and opens a result', async () =
   await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/9?project=1'));
 });
 
-testStable('creates a real session in the selected subject', async () => {
-  const user = userEvent.setup();
+testStable(
+  'opens one local draft in the selected subject without persisting an empty session',
+  async () => {
+    const user = userEvent.setup();
 
-  await renderWithNavigation();
-  await screen.findByLabelText('Biology');
-  await user.click(
-    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
-  );
-  expect(api.createSession).toHaveBeenCalledWith({ project: 1n });
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/7?project=1'));
-});
+    await renderWithNavigation();
+    await screen.findByLabelText('Biology');
+    await user.click(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        { name: en.NewSession }
+      )
+    );
+    await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=1'));
+    expect(api.createSession).not.toHaveBeenCalled();
+    expect(await screen.findByRole('textbox', { name: en.SessionCompose })).toHaveValue('');
+    expect(screen.getByRole('button', { name: en.SessionSaveNote })).toBeDisabled();
+  }
+);
 
 testStable('does not search another subject when the URL subject is missing', async () => {
   history.replaceState(null, '', '/sessions?project=99');
@@ -184,10 +196,12 @@ testStable('does not search another subject when the URL subject is missing', as
   await user.type(screen.getByRole('searchbox'), 'cell');
   expect(api.search).not.toHaveBeenCalled();
   await user.click(
-    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
+    within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole('button', {
+      name: en.NewSession
+    })
   );
-  expect(api.createSession).toHaveBeenCalledWith({});
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/7'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions'));
+  expect(api.createSession).not.toHaveBeenCalled();
 });
 
 testStable('opens search from the collapsed rail with the keyboard shortcut', async () => {
@@ -270,7 +284,9 @@ testStable('ignores a subject list fetched before a new subject was created', as
   expect(screen.getByLabelText('Physics')).toBeInTheDocument();
   expect(screen.queryByText(en.SubjectNotFound)).not.toBeInTheDocument();
   expect(
-    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
+    within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole('button', {
+      name: en.NewSession
+    })
   ).toBeEnabled();
 });
 
@@ -604,38 +620,80 @@ testStable('reloads library data from the selected project search dependency', a
   expect(screen.queryByRole('link', { name: 'Biology map' })).not.toBeInTheDocument();
 });
 
-testStable('refreshes an initial session request after a session is created', async () => {
-  let finish!: (value: { items: [] }) => void;
+testStable(
+  'first send adds a session to the sidebar and permits another lazy session',
+  async () => {
+    let finish!: (value: { items: [] }) => void;
 
-  api.sessions.mockReturnValueOnce(
-    new Promise((resolve) => {
-      finish = resolve;
-    })
-  );
-  const user = userEvent.setup();
+    api.sessions.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    const user = userEvent.setup();
 
-  await renderWithNavigation();
-  await screen.findByLabelText('Biology');
-  api.sessions.mockResolvedValue({
-    items: [
-      {
-        id: 7n,
-        projectIds: [1n],
-        title: 'Created session',
-        titleSource: 'user',
-        createdAt: 0n,
-        updatedAt: 0n
-      }
-    ]
-  });
-  await user.click(
-    within(screen.getByRole('complementary')).getByRole('button', { name: en.NewSession })
-  );
-  await act(async () => {
-    finish({ items: [] });
-  });
-  expect(await screen.findByRole('link', { name: 'Created session' })).toBeInTheDocument();
-});
+    await renderWithNavigation();
+    await screen.findByLabelText('Biology');
+    api.sessions.mockResolvedValue({
+      items: [
+        {
+          id: 7n,
+          projectIds: [1n],
+          title: 'Created session',
+          titleSource: 'user',
+          createdAt: 0n,
+          updatedAt: 0n
+        }
+      ]
+    });
+    api.createSession.mockResolvedValue({
+      id: 7n,
+      projectIds: [1n],
+      title: 'Created session',
+      titleSource: 'provisional',
+      createdAt: 0n,
+      updatedAt: 0n
+    });
+    await user.click(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        { name: en.NewSession }
+      )
+    );
+    await user.type(await screen.findByRole('textbox', { name: en.SessionCompose }), 'First note');
+    await user.click(screen.getByRole('button', { name: en.SessionSaveNote }));
+    await waitFor(() => expect(location.pathname).toBe('/sessions/7'));
+    await act(async () => {
+      finish({ items: [] });
+    });
+    expect(await screen.findByRole('link', { name: 'Created session' })).toBeInTheDocument();
+    await user.click(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        { name: en.NewSession }
+      )
+    );
+    const input = await screen.findByRole('textbox', { name: en.SessionCompose });
+
+    expect(input).toHaveValue('');
+    await user.type(input, 'Second note');
+    expect(screen.getByRole('button', { name: en.SessionSaveNote })).toBeEnabled();
+    const second = {
+      id: 8n,
+      projectIds: [1n],
+      title: 'Second session',
+      titleSource: 'provisional',
+      createdAt: 0n,
+      updatedAt: 0n
+    };
+
+    api.createSession.mockResolvedValueOnce(second);
+    api.sessions.mockResolvedValue({ items: [second] });
+    await user.click(screen.getByRole('button', { name: en.SessionSaveNote }));
+    await waitFor(() => expect(location.pathname).toBe('/sessions/8'));
+    expect(await screen.findByRole('link', { name: 'Second session' })).toBeInTheDocument();
+  }
+);
 
 testStable.each(['/sessions/42', '/sessions/42?project=2'])(
   'uses the actual session owner for direct and mismatched links: %s',

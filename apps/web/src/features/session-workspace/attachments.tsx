@@ -14,7 +14,7 @@ import { appearances, attachmentPreviewKind } from './attachment-appearance';
 import { useAttachments } from './attachments.queries';
 import type { Attachment } from './attachments.queries';
 import { SessionError } from './status';
-export { useAttachments, attachmentKey, addAttachments } from './attachments.queries';
+export { useAttachments, attachmentKey } from './attachments.queries';
 
 export function AttachmentPicker({ id, blocked }: { id: SessionId; blocked: boolean }) {
   const { t } = useI18n();

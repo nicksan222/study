@@ -2,22 +2,25 @@ import { projectIdSchema } from '@study/contracts/ids';
 import type { SessionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
-import { HomeHub } from '@study/ui/home-hub';
 import { Loading } from '@study/ui/loading';
+import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { SessionStarter } from '@study/ui/session-start';
+import { Notebook } from '@study/ui/session-workspace';
+import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { NotebookPen, Paperclip, X } from 'lucide-react';
+import { ArrowUp, Paperclip, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
+import type { Sessions } from '#web/lib/study-client/operations.ts';
+import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
-import { addAttachments } from './attachments';
-import { emptyDraft } from './draft';
-import type { Draft } from './draft';
-import { sessionPagesOptions } from './session-workspace.queries';
+import { isNoteSubmit } from './draft';
+import { sessionKey, sessionPagesOptions } from './session-workspace.queries';
 import {
   startDraftOptions,
   startFilesOptions,
@@ -26,12 +29,13 @@ import {
 } from './start.queries';
 import type { CreationFlow } from './start.queries';
 import { SessionError, SessionReadError } from './status';
-import { WorkspaceFooter } from './workspace-footer';
+import { WorkspaceContext } from './workspace-context';
+import { WorkspaceHeader } from './workspace-header';
 
-/** Draft text and attachments remain cached under their originating project scope. */
+/** One unsent starter draft follows the user across collection changes. */
 
-function useStartDraft(project: string | undefined) {
-  const draftKey = ['session-start-draft', project ?? 'all'];
+function useStartDraft() {
+  const draftKey = ['session-start-draft'];
   const draft = useQuery(startDraftOptions(draftKey));
   const filesKey = [...draftKey, 'files'];
   const files = useQuery(startFilesOptions(filesKey));
@@ -49,7 +53,7 @@ function useSessionStart() {
     ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(search.project))
     : undefined;
   const state = useInfiniteQuery(sessionPagesOptions(project));
-  const { draftKey, draft, filesKey, files } = useStartDraft(search.project);
+  const { draftKey, draft, filesKey, files } = useStartDraft();
   const flow = useQuery(creationFlowOptions());
   const [navigationError, setNavigationError] = useState<unknown>();
   const [reviewed, setReviewed] = useState(false);
@@ -61,6 +65,7 @@ function useSessionStart() {
         params: { sessionId: id },
         search: search.project ? { project: search.project } : {}
       });
+      cache.setQueryData(['session-workspace', 'creation'], {});
       setNavigationError(undefined);
     } catch (error) {
       setNavigationError(error);
@@ -83,29 +88,38 @@ function useSessionStart() {
         pending: false
       }));
     },
-    onSuccess: (created, input) => {
-      const text = cache.getQueryData<string>(input.draftKey) ?? '';
-
-      cache.setQueryData<Draft>(['session-drafts', String(created.id), 'note'], {
-        ...emptyDraft,
-        text
-      });
-      addAttachments(cache, created.id, cache.getQueryData<File[]>(input.filesKey) ?? []);
+    onSuccess: async (created, input) => {
+      await cache.cancelQueries({ queryKey: ['sessions'] });
+      cache.setQueryData<Sessions>(['sessions'], (items) => [
+        created,
+        ...(items ?? []).filter((session) => session.id !== created.id)
+      ]);
       cache.setQueryData(input.filesKey, []);
-      cache.setQueryData(input.draftKey, '');
+      cache.setQueryData<string>(input.draftKey, (current) =>
+        current === input.text ? '' : current
+      );
       cache.setQueryData(['session-workspace', 'creation'], { id: created.id });
       void cache.invalidateQueries({ queryKey: ['sessions'] });
+      void cache.invalidateQueries({ queryKey: sessionKey(created.id) });
       void select(created.id);
     }
   });
 
   function beginSession() {
-    const current = cache.getQueryData<CreationFlow>(['session-workspace', 'creation']);
+    const current = cache.getQueryData<CreationFlow>(['session-workspace', 'creation']) ?? {};
 
-    if (current?.id || current?.uncertain || current?.pending) return;
+    if (current.id || current.uncertain || current.pending) return;
 
     cache.setQueryData(['session-workspace', 'creation'], { uncertain: true, pending: true });
-    create.mutate({ project, draftKey, filesKey });
+    const text = cache.getQueryData<string>(draftKey) ?? '';
+    const selectedFiles = cache.getQueryData<File[]>(filesKey) ?? [];
+
+    if (!text.trim() && !selectedFiles.length) {
+      cache.setQueryData(['session-workspace', 'creation'], {});
+      return;
+    }
+
+    create.mutate({ project, draftKey, filesKey, text, files: selectedFiles });
   }
 
   const blocked = create.isPending || !!flow.data.id || !!flow.data.uncertain;
@@ -131,12 +145,15 @@ function useSessionStart() {
 
 type StartView = ReturnType<typeof useSessionStart>;
 
-/** Presents session creation with quick notes, attachments and recoverable submission state. */
+/** Uses the regular notebook shell while its first capture remains a local draft. */
 
 export function SessionStart() {
   const { t } = useI18n();
   const view = useSessionStart();
   const { state, flow } = view;
+  const subjects = useQuery(projectsQueryOptions());
+  const owner = subjects.data?.find((subject) => String(subject.id) === view.search.project);
+  const [cardVisible, setCardVisible] = useState(true);
 
   if (state.isError && !flow.data.uncertain && !flow.data.id) {
     return (
@@ -145,23 +162,50 @@ export function SessionStart() {
   }
 
   return (
-    <SessionStarter.Root>
-      <HomeHub.Root>
-        <HomeHub.Header>
-          <HomeHub.Title>{t('SessionStartTitle')}</HomeHub.Title>
-          <HomeHub.Description>{t('SessionStartHelp')}</HomeHub.Description>
-        </HomeHub.Header>
-        <section aria-label={t('SessionStartWithNote')}>
-          <StarterComposer view={view} />
-          <SessionStarter.Hint id="session-start-hint">
-            {t('SessionStartDraftHelp')}
-          </SessionStarter.Hint>
-          <WorkspaceFooter />
-        </section>
-        <CreationStatus view={view} />
-        <CreationRecovery view={view} />
-      </HomeHub.Root>
-    </SessionStarter.Root>
+    <WorkspaceSurface.Root variant="desk">
+      <WorkspaceHeader owner={owner} title={t('NewSession')}>
+        <Desk.LayoutControls aria-label={t('SessionLayout')}>
+          <WorkspaceCard.Toggle
+            label={t('SessionActions')}
+            open={cardVisible}
+            onOpenChange={setCardVisible}
+          />
+        </Desk.LayoutControls>
+      </WorkspaceHeader>
+      <Desk.Root open={false} expanded={false} cardOpen={cardVisible}>
+        <Desk.Notebook>
+          <Desk.ScrollArea>
+            <Desk.NotebookLayout>
+              <Desk.Board>
+                <Desk.BoardBody>
+                  <Notebook.History aria-label={t('SessionNotebook')}>
+                    <Notebook.NotesHeading>
+                      <Notebook.PageHeading>
+                        <h1>{t('SessionNotesTitle')}</h1>
+                        <p>{t('SessionNotesHelp')}</p>
+                      </Notebook.PageHeading>
+                    </Notebook.NotesHeading>
+                    <WorkspaceSurface.Heading>
+                      <h3>{t('SessionNotesEmpty')}</h3>
+                      <p>{t('SessionStartHelp')}</p>
+                    </WorkspaceSurface.Heading>
+                  </Notebook.History>
+                  <CreationStatus view={view} />
+                  <CreationRecovery view={view} />
+                </Desk.BoardBody>
+              </Desk.Board>
+              <WorkspaceContext hidden={!cardVisible} onDismiss={() => setCardVisible(false)} />
+            </Desk.NotebookLayout>
+          </Desk.ScrollArea>
+          <Desk.NavigationHost />
+          <Desk.FloatingComposer>
+            <WorkspaceSurface.Dock>
+              <StarterComposer view={view} />
+            </WorkspaceSurface.Dock>
+          </Desk.FloatingComposer>
+        </Desk.Notebook>
+      </Desk.Root>
+    </WorkspaceSurface.Root>
   );
 }
 
@@ -188,16 +232,18 @@ function attachmentEntries(files: File[]) {
   });
 }
 
-/** Starter editing uses the same project draft and blocks attachments once creation starts. */
+/** The notebook composer submits its first capture before navigating to the saved session. */
 
 function StarterComposer({ view }: { view: StartView }) {
   const { t } = useI18n();
   const attachmentId = useId();
+  const noteId = useId();
+  const preferences = useWorkspacePreferences();
   const { cache, filesKey, files, draftKey, draft, blocked, beginSession } = view;
 
   return (
     <ComposerSurface.Root
-      variant="starter"
+      variant="notebook"
       aria-label={t('SessionCompose')}
       onDragOver={(event) => {
         if (!blocked) event.preventDefault();
@@ -236,49 +282,59 @@ function StarterComposer({ view }: { view: StartView }) {
           ))}
         </SessionStarter.Files>
       )}
+      <Notebook.Label htmlFor={noteId}>{t('SessionCompose')}</Notebook.Label>
       <ComposerSurface.Input
+        id={noteId}
+        rows={1}
+        spellCheck={preferences.spellcheck}
         aria-label={t('SessionCompose')}
         aria-describedby="session-start-hint"
-        placeholder={t('SessionStartPlaceholder')}
+        placeholder={t('SessionComposeHint')}
         value={draft.data}
         onChange={(event) => cache.setQueryData(draftKey, event.target.value)}
         onKeyDown={(event) => {
-          if (
-            (event.metaKey || event.ctrlKey) &&
-            event.key === 'Enter' &&
-            !event.nativeEvent.isComposing
-          ) {
+          if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();
 
             if (!blocked) beginSession();
           }
         }}
       />
-      <ComposerSurface.Footer>
-        <SessionStarter.Attachment htmlFor={attachmentId} title={t('SessionAttachFiles')}>
-          <Paperclip size={18} aria-hidden="true" />
-          <input
-            id={attachmentId}
-            type="file"
-            aria-label={t('SessionAttachFiles')}
-            multiple
-            disabled={blocked}
-            onChange={(event) => {
-              const added = Array.from(event.target.files ?? []);
+      <ComposerSurface.Footer variant="notebook">
+        <Notebook.CaptureTools>
+          <Notebook.FileButton title={t('SessionAttachFiles')}>
+            <Paperclip size={16} aria-hidden="true" />
+            <span>{t('SessionAttach')}</span>
+            <input
+              id={attachmentId}
+              type="file"
+              aria-label={t('SessionAttachFiles')}
+              multiple
+              disabled={blocked}
+              onChange={(event) => {
+                const added = Array.from(event.target.files ?? []);
 
-              cache.setQueryData<File[]>(filesKey, (previous) => [...(previous ?? []), ...added]);
-              event.target.value = '';
-            }}
-          />
-        </SessionStarter.Attachment>
-        <SessionStarter.Kind>
-          <NotebookPen size={18} aria-hidden="true" />
-          {t('SessionNotebook')}
-        </SessionStarter.Kind>
-        <Button disabled={blocked} aria-busy={view.flow.data.pending} onClick={beginSession}>
-          {t('SessionNew')}
-        </Button>
+                cache.setQueryData<File[]>(filesKey, (previous) => [...(previous ?? []), ...added]);
+                event.target.value = '';
+              }}
+            />
+          </Notebook.FileButton>
+        </Notebook.CaptureTools>
+        <Notebook.Actions>
+          <WorkspaceSurface.ComposerSubmit
+            aria-label={t('SessionSaveNote')}
+            title={t('SessionSaveNote')}
+            disabled={blocked || (!draft.data.trim() && files.data.length === 0)}
+            aria-busy={view.flow.data.pending}
+            onClick={beginSession}
+          >
+            <ArrowUp size={18} aria-hidden="true" />
+          </WorkspaceSurface.ComposerSubmit>
+        </Notebook.Actions>
       </ComposerSurface.Footer>
+      <WorkspaceSurface.ComposerHint id="session-start-hint">
+        {t('SessionNotebookHint')}
+      </WorkspaceSurface.ComposerHint>
     </ComposerSurface.Root>
   );
 }
@@ -344,6 +400,7 @@ function CreationRecovery({ view }: { view: StartView }) {
               </Button>
             )}
           </SessionStarter.Actions>
+
           {state.isPending && <Loading label={t('LoadingStudy')} />}
           {state.error && (
             <SessionReadError error={state.error} retry={() => void state.refetch()} />

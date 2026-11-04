@@ -27,6 +27,7 @@ import type {
 import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import type {
   createSessionInputSchema,
+  createUntitledSessionInputSchema,
   updateMessageDescriptionInputSchema,
   editMessageInputSchema,
   postMessageInputSchema,
@@ -269,19 +270,31 @@ export const Conversations = defineService(
           return snapshot;
         }),
       titleSnapshot: titles.titleSnapshot,
-      createUntitledSession: (input: { project?: ProjectId }) =>
+      createUntitledSession: (input: typeof createUntitledSessionInputSchema.Type) =>
         Effect.gen(function* () {
           const settings = yield* Settings;
-
           const language = yield* settings.language();
+          const preferences = yield* readWorkspacePreferences();
 
-          return yield* transaction((tx) =>
-            tx.store(SessionStore).createSession({
-              ...input,
+          return yield* transaction((tx) => {
+            const session = tx.store(SessionStore).createSession({
+              project: input.project,
               title: text(language, 'NewSession'),
               titleSource: 'provisional'
-            })
-          );
+            });
+
+            if (input.initialMessage) {
+              postMessage(tx, {
+                ...input.initialMessage,
+                sessionId: session.id,
+                requestReply: false
+              });
+
+              if (preferences.autoTitleSessions) scheduleAutomaticTitle(tx, session.id);
+            }
+
+            return session;
+          });
         }),
       requestTitle: (input: { sessionId: SessionId }) =>
         transaction((tx) => {
