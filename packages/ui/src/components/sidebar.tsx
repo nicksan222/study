@@ -415,6 +415,10 @@ function SessionCount(props: ComponentProps<'span'>) {
   return <span {...props} className="study-session-document-count" />;
 }
 
+function SessionRowActions({ className, ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={cn('study-session-row-actions', className)} />;
+}
+
 function SettleAction(props: ComponentProps<typeof Button>) {
   return <Button {...props} size="sm" variant="ghost-muted" className="study-session-settle" />;
 }
@@ -858,6 +862,7 @@ export const Sidebar = {
   SelectionBar,
   SelectionCount,
   SessionEntry,
+  SessionRowActions,
   SessionActivity,
   SessionCount,
   SettleAction,

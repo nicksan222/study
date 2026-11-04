@@ -19,6 +19,7 @@ import { useWorkspacePreferences } from '#web/lib/study-client/workspace-prefere
 
 import { useSidebarProgress, useSessionSettlement } from './rich-sidebar.queries';
 import { SidebarSessionActions } from './sidebar-session-actions';
+import { SidebarSessionDrafts } from './sidebar-session-drafts';
 import type { SidebarModel } from './use-sidebar';
 
 type Props = Pick<SidebarModel, 'project' | 'selectedSession' | 'subjects' | 'sessions'>;
@@ -129,6 +130,7 @@ function SidebarSessionList(props: Props) {
         </SidebarUI.SelectionBar>
       )}
       <SidebarUI.SessionGroups ref={sessionRows}>
+        <SidebarSessionDrafts project={props.project} subjects={props.subjects} />
         <SidebarUI.SessionGroup title={t('SidebarOpen')} count={open.length} defaultOpen>
           {open.map((session) => (
             <RichSession

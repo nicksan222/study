@@ -79,6 +79,9 @@ export const italian = Object.freeze({
   SidebarSettlementError: 'Impossibile modificare la sessione. Riprova.',
 
   SidebarStatusUnavailable: 'Stato non disponibile',
+  SidebarDrafts: 'Bozze',
+  SidebarDraft: 'Bozza',
+  SidebarDismissDraft: 'Scarta bozza',
   SidebarOpen: 'Aperte',
   SidebarSelectSessions: 'Seleziona sessioni',
   SidebarSelectionActions: 'Sessioni selezionate',

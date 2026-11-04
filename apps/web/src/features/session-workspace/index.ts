@@ -10,3 +10,6 @@ export type { SelectedSession } from './document-creation-dialog';
 export { DocumentMetadata } from './session-document-metadata';
 
 export { sessionDocumentOptions } from './session-document.queries';
+
+export { startDraftsOptions, startDraftKey, dismissStartDraft } from './start-drafts.queries';
+export { startDraftOptions, startFilesOptions, creationFlowOptions } from './start.queries';

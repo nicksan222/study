@@ -909,6 +909,26 @@
   height: 1.5rem;
   padding-inline: 0.5rem;
 }
+.study-session-row-actions {
+  position: absolute;
+  inset-inline-end: 0.5rem;
+  inset-block-end: 0.375rem;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  pointer-events: none;
+}
+.study-session-entry:hover .study-session-row-actions,
+.study-session-entry:focus-within .study-session-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.study-session-row-actions .study-session-settle {
+  position: static;
+  margin: 0;
+  opacity: 1;
+  pointer-events: auto;
+}
 .study-session-entry:hover .study-session-settle,
 .study-session-entry:focus-within .study-session-settle {
   opacity: 1;
@@ -922,6 +942,12 @@
   display: none;
 }
 @media (hover: none) {
+  .study-session-row-actions {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
+    margin-inline-start: auto;
+  }
   .study-session-settle {
     position: static;
     opacity: 1;
@@ -966,7 +992,7 @@
 .study-session-entry[data-settled] {
   display: block;
 }
-.study-session-entry[data-settled] .study-session-settle {
+.study-session-entry[data-settled] .study-session-row-actions {
   position: absolute;
   inset-inline-end: 0.5rem;
   inset-block-end: 0.375rem;
@@ -998,7 +1024,7 @@
   display: none;
 }
 @media (hover: none) {
-  .study-session-entry[data-settled] .study-session-settle {
+  .study-session-entry[data-settled] .study-session-row-actions {
     position: static;
     margin-inline-start: auto;
     margin-inline-end: 0.5rem;

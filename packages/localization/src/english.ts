@@ -74,6 +74,9 @@ export const english = Object.freeze({
   SidebarSettlementError: 'Could not change this session. Try again.',
 
   SidebarStatusUnavailable: 'Status unavailable',
+  SidebarDrafts: 'Drafts',
+  SidebarDraft: 'Draft',
+  SidebarDismissDraft: 'Dismiss draft',
   SidebarOpen: 'Open',
   SidebarSelectSessions: 'Select sessions',
   SidebarSelectionActions: 'Selected sessions',

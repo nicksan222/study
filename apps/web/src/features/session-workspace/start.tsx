@@ -11,7 +11,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 import { ArrowUp, Paperclip, X } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
@@ -21,6 +21,7 @@ import { useWorkspacePreferences } from '#web/lib/study-client/workspace-prefere
 
 import { isNoteSubmit } from './draft';
 import { sessionKey, sessionPagesOptions } from './session-workspace.queries';
+import { startDraftKey, openStartDraft, finishStartDraft } from './start-drafts.queries';
 import {
   startDraftOptions,
   startFilesOptions,
@@ -32,10 +33,15 @@ import { SessionError, SessionReadError } from './status';
 import { WorkspaceContext } from './workspace-context';
 import { WorkspaceHeader } from './workspace-header';
 
-/** One unsent starter draft follows the user across collection changes. */
+/** One unsent starter draft is cached independently for each subject. */
 
-function useStartDraft() {
-  const draftKey = ['session-start-draft'];
+function useStartDraft(project: string | undefined) {
+  const draftKey = startDraftKey(project);
+  const cache = useQueryClient();
+
+  useEffect(() => {
+    openStartDraft(cache, project);
+  }, [cache, project]);
   const draft = useQuery(startDraftOptions(draftKey));
   const filesKey = [...draftKey, 'files'];
   const files = useQuery(startFilesOptions(filesKey));
@@ -53,17 +59,17 @@ function useSessionStart() {
     ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(search.project))
     : undefined;
   const state = useInfiniteQuery(sessionPagesOptions(project));
-  const { draftKey, draft, filesKey, files } = useStartDraft();
+  const { draftKey, draft, filesKey, files } = useStartDraft(search.project);
   const flow = useQuery(creationFlowOptions());
   const [navigationError, setNavigationError] = useState<unknown>();
   const [reviewed, setReviewed] = useState(false);
 
-  async function select(id: SessionId) {
+  async function select(id: SessionId, scope: string | null = search.project ?? null) {
     try {
       await navigate({
         to: '/sessions/$sessionId',
         params: { sessionId: id },
-        search: search.project ? { project: search.project } : {}
+        search: scope ? { project: scope } : {}
       });
       cache.setQueryData(['session-workspace', 'creation'], {});
       setNavigationError(undefined);
@@ -94,14 +100,11 @@ function useSessionStart() {
         created,
         ...(items ?? []).filter((session) => session.id !== created.id)
       ]);
-      cache.setQueryData(input.filesKey, []);
-      cache.setQueryData<string>(input.draftKey, (current) =>
-        current === input.text ? '' : current
-      );
+      finishStartDraft(cache, input);
       cache.setQueryData(['session-workspace', 'creation'], { id: created.id });
       void cache.invalidateQueries({ queryKey: ['sessions'] });
       void cache.invalidateQueries({ queryKey: sessionKey(created.id) });
-      void select(created.id);
+      void select(created.id, input.project ? String(input.project) : null);
     }
   });
 

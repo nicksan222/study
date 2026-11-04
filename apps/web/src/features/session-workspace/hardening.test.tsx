@@ -27,6 +27,7 @@ import { authoredDocument } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
 import { selectedContentOptions } from './selection.queries';
 import { sessionDocumentOptions } from './session-document.queries';
+import { startDraftKey } from './start-drafts.queries';
 
 const pickerDocument = (versionId = 102n) => {
   const value = authoredDocument(41n, 'Historical extraction', versionId);
@@ -962,7 +963,7 @@ testStable(
     fireEvent.change(input, { target: { value: 'Cell cycle lecture — checkpoint question' } });
     await act(async () => creation.resolve({ id } as typeof sessionSchema.Type));
     await waitFor(() =>
-      expect(view.client.getQueryData(['session-start-draft'])).toBe(
+      expect(view.client.getQueryData(startDraftKey())).toBe(
         'Cell cycle lecture — checkpoint question'
       )
     );
@@ -1062,7 +1063,7 @@ testStable(
     expect(upload.mock.calls[0]?.[0]).toBe(file);
     await act(async () => creation.resolve({ id } as typeof sessionSchema.Type));
     expect(upload).toHaveBeenCalledTimes(1);
-    expect(view.client.getQueryData(['session-start-draft', 'files'])).toEqual([]);
+    expect(view.client.getQueryData([...startDraftKey(String(project)), 'files'])).toEqual([]);
   }
 );
 
