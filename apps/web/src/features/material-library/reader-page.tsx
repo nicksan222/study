@@ -49,7 +49,6 @@ export function ReaderPage() {
           {t('ReaderBack')}
         </Button>
       </MaterialLibrary.ReaderToolbar>
-      {state.isPending && <Loading label={t('LoadingStudy')} />}
       {state.isError && (
         <ErrorState
           title={t('ErrorStateTitle')}

@@ -12,6 +12,7 @@ export function createAppRouter(
     routeTree,
     history,
     context: { queryClient },
+    defaultViewTransition: true,
     defaultPendingComponent: RoutePending,
     defaultErrorComponent: RouteError,
     // IDs are 64-bit decimal strings; JSON search parsing would lose precision.

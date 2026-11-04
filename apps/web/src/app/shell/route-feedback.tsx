@@ -1,14 +1,11 @@
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
 import { useRouter } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
 export function RoutePending() {
-  const { t } = useI18n();
-
-  return <Loading layout="panel" label={t('LoadingStudy')} />;
+  return null;
 }
 
 export function RouteError() {
